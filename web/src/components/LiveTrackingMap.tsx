@@ -24,8 +24,11 @@ export default function LiveTrackingMap({ job }: Props) {
   });
 
   const [driver, setDriver] = useState<{ lat: number; lng: number } | null>(null);
+  const [trail, setTrail] = useState<Array<{ lat: number; lng: number }>>([]);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
+
+  const TRAIL_MAX = 30; // utolsó 30 pozíciót tartjuk meg vizuális nyomvonalként
 
   // 1) Kezdeti pozíció lekérése REST-en, aztán Socket.IO real-time
   useEffect(() => {
@@ -33,7 +36,9 @@ export default function LiveTrackingMap({ job }: Props) {
     api.lastLocation(job.id)
       .then((loc) => {
         if (active && loc) {
-          setDriver({ lat: loc.lat, lng: loc.lng });
+          const p = { lat: loc.lat, lng: loc.lng };
+          setDriver(p);
+          setTrail([p]);
           setUpdatedAt(new Date(loc.recorded_at));
         }
       })
@@ -44,7 +49,9 @@ export default function LiveTrackingMap({ job }: Props) {
   useEffect(() => {
     const unsub = subscribeJob(job.id, {
       onTrackingPing: (p) => {
-        setDriver({ lat: p.lat, lng: p.lng });
+        const point = { lat: p.lat, lng: p.lng };
+        setDriver(point);
+        setTrail((prev) => [...prev, point].slice(-TRAIL_MAX));
         setUpdatedAt(new Date());
       },
     });
@@ -155,6 +162,17 @@ export default function LiveTrackingMap({ job }: Props) {
             geodesic: true,
           }}
         />
+        {/* Sofőr nyomvonala – az utolsó N ping pirosan */}
+        {trail.length > 1 && (
+          <Polyline
+            path={trail}
+            options={{
+              strokeColor: '#ef4444',
+              strokeWeight: 5,
+              strokeOpacity: 0.9,
+            }}
+          />
+        )}
       </GoogleMap>
 
       <div className="row" style={{ marginTop: 12, alignItems: 'center' }}>

@@ -39,13 +39,49 @@ BiztosFuvar/
 
 ## Indulás
 
+### 1. Backend
 ```bash
-# Backend
 cd backend
-cp .env.example .env
+cp .env.example .env       # töltsd ki a DATABASE_URL-t (Postgres / Supabase)
 npm install
-npm run db:init    # séma betöltése PostgreSQL-be
-npm run dev
+npm run db:init            # séma betöltése
+npm run db:seed            # magyar minta felhasználók + fuvarok
+npm run dev                # → http://localhost:4000
 ```
+
+### 2. Web (Shipper Dashboard)
+```bash
+cd web
+cp .env.example .env.local
+# .env.local-ba írd be a Google Maps kulcsodat:
+#   NEXT_PUBLIC_GOOGLE_MAPS_KEY=AIza...
+npm install
+npm run dev                # → http://localhost:3000
+```
+
+### 3. Mobile (Expo)
+```bash
+cd mobile
+# Hozz létre egy .env fájlt:
+#   GOOGLE_MAPS_API_KEY=AIza...
+#   EXPO_PUBLIC_GOOGLE_MAPS_KEY=AIza...
+#   EXPO_PUBLIC_API_URL=http://<gép-LAN-IP>:4000
+npm install
+npm start                  # Expo Go vagy szimulátor
+```
+
+> **Biztonság**: A `.env`, `.env.local` és `mobile/.env` fájlokat a `.gitignore`
+> kizárja — a Google Maps kulcsod **soha** ne kerüljön a repóba. Élesben
+> állíts be Google Cloud Console restrictions-t (HTTP referrer + Android/iOS
+> bundle ID).
+
+### Google Maps – mit kell engedélyezni
+
+A Google Cloud Console-ban az alábbi API-kat **Enable**:
+- **Maps JavaScript API** – web (Shipper Dashboard)
+- **Maps SDK for Android** – mobil release
+- **Maps SDK for iOS** – mobil release
+- **Geocoding API** *(opcionális, később címkereséshez)*
+- **Distance Matrix API** *(opcionális, ár-becsléshez)*
 
 Részletek: [backend/README.md](backend/README.md).

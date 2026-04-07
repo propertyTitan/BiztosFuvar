@@ -55,8 +55,30 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
   }
   if (!isLoaded) return <div className="card">Térkép betöltése…</div>;
 
+  const liveCount = Object.keys(driverPositions).length;
+
   return (
-    <GoogleMap
+    <div style={{ position: 'relative' }}>
+      {liveCount > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            zIndex: 10,
+            background: 'rgba(220, 38, 38, 0.95)',
+            color: '#fff',
+            padding: '6px 14px',
+            borderRadius: 999,
+            fontSize: 13,
+            fontWeight: 700,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+          }}
+        >
+          🔴 {liveCount} sofőr élőben követve
+        </div>
+      )}
+      <GoogleMap
       mapContainerStyle={containerStyle}
       center={HUNGARY_CENTER}
       zoom={7}
@@ -100,6 +122,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
           title="Sofőr (élő)"
         />
       ))}
-    </GoogleMap>
+      </GoogleMap>
+    </div>
   );
 }
