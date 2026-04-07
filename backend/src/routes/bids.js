@@ -3,6 +3,7 @@ const express = require('express');
 const db = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
 const realtime = require('../realtime');
+const barion = require('../services/barion');
 
 const router = express.Router();
 
@@ -49,8 +50,13 @@ router.post('/bids/:id/accept', authRequired, requireRole('shipper'), async (req
   try {
     await client.query('BEGIN');
     const { rows: bidRows } = await client.query(
-      `SELECT b.*, j.shipper_id, j.status AS job_status
-         FROM bids b JOIN jobs j ON j.id = b.job_id
+      `SELECT b.*, j.shipper_id, j.status AS job_status,
+              s.email AS shipper_email,
+              c.email AS carrier_email
+         FROM bids b
+         JOIN jobs j  ON j.id = b.job_id
+         JOIN users s ON s.id = j.shipper_id
+         JOIN users c ON c.id = b.carrier_id
         WHERE b.id = $1 FOR UPDATE`,
       [req.params.id],
     );
@@ -73,17 +79,59 @@ router.post('/bids/:id/accept', authRequired, requireRole('shipper'), async (req
         WHERE id = $3`,
       [bid.carrier_id, bid.amount_huf, bid.job_id],
     );
-    // Escrow szimuláció: a fuvardíj "letétbe kerül"
+    // Barion: foglalás indítása (Payment Reservation)
+    let barionRes = { paymentId: null, gatewayUrl: null };
+    try {
+      barionRes = await barion.reservePayment({
+        jobId: bid.job_id,
+        totalHuf: bid.amount_huf,
+        shipperEmail: bid.shipper_email,
+        carrierEmail: bid.carrier_email,
+      });
+    } catch (err) {
+      console.error('[barion] reservePayment hiba:', err.message);
+      await client.query('ROLLBACK');
+      return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+    }
+
+    const carrierShare = Math.round(bid.amount_huf * (1 - barion.COMMISSION_PCT));
+    const platformShare = bid.amount_huf - carrierShare;
+
     await client.query(
-      `INSERT INTO escrow_transactions (job_id, amount_huf, status)
-       VALUES ($1, $2, 'held')
-       ON CONFLICT (job_id) DO UPDATE SET amount_huf = EXCLUDED.amount_huf, status = 'held', held_at = NOW()`,
-      [bid.job_id, bid.amount_huf],
+      `INSERT INTO escrow_transactions
+         (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
+          carrier_share_huf, platform_share_huf)
+       VALUES ($1,$2,'held',$3,$4,$5,$6)
+       ON CONFLICT (job_id) DO UPDATE SET
+         amount_huf         = EXCLUDED.amount_huf,
+         status             = 'held',
+         barion_payment_id  = EXCLUDED.barion_payment_id,
+         barion_gateway_url = EXCLUDED.barion_gateway_url,
+         carrier_share_huf  = EXCLUDED.carrier_share_huf,
+         platform_share_huf = EXCLUDED.platform_share_huf,
+         held_at            = NOW()`,
+      [bid.job_id, bid.amount_huf, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
     );
 
     await client.query('COMMIT');
-    realtime.emitToJob(bid.job_id, 'job:accepted', { job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: bid.amount_huf });
-    res.json({ ok: true, job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: bid.amount_huf });
+    realtime.emitToJob(bid.job_id, 'job:accepted', {
+      job_id: bid.job_id,
+      carrier_id: bid.carrier_id,
+      amount_huf: bid.amount_huf,
+      barion_gateway_url: barionRes.gatewayUrl,
+    });
+    res.json({
+      ok: true,
+      job_id: bid.job_id,
+      carrier_id: bid.carrier_id,
+      amount_huf: bid.amount_huf,
+      barion: {
+        payment_id: barionRes.paymentId,
+        gateway_url: barionRes.gatewayUrl,
+        carrier_share_huf: carrierShare,
+        platform_share_huf: platformShare,
+      },
+    });
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;

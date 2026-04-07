@@ -1,0 +1,58 @@
+/* BiztosFuvar – globális stílusok. Letisztult, kék/fehér/szürke. */
+:root {
+  --primary: #1e40af;
+  --primary-dark: #1e3a8a;
+  --accent: #3b82f6;
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --success: #16a34a;
+  --danger: #dc2626;
+  --warning: #f59e0b;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+
+.site-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 32px; background: var(--primary); color: #fff;
+}
+.site-header .brand { color: #fff; font-weight: 800; font-size: 22px; text-decoration: none; }
+.site-header nav a { color: #fff; margin-left: 24px; text-decoration: none; font-weight: 500; }
+.site-header nav a:hover { text-decoration: underline; }
+
+.site-main { max-width: 1200px; margin: 0 auto; padding: 32px; }
+.site-footer { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+
+.btn { display: inline-block; padding: 10px 20px; background: var(--primary); color: #fff;
+  border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; }
+.btn:hover { background: var(--primary-dark); }
+.btn-secondary { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+
+.input, select, textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+  font-size: 14px; background: #fff; margin-top: 4px;
+}
+label { display: block; margin-top: 12px; font-size: 13px; color: var(--muted); }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.row { display: flex; gap: 16px; flex-wrap: wrap; }
+
+.pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.pill-bidding   { background: #dbeafe; color: #1e40af; }
+.pill-accepted  { background: #fef3c7; color: #92400e; }
+.pill-progress  { background: #e0e7ff; color: #3730a3; }
+.pill-delivered { background: #dcfce7; color: #166534; }
+.pill-cancelled { background: #fee2e2; color: #991b1b; }
+
+h1 { font-size: 28px; margin-top: 0; }
+h2 { font-size: 20px; }
+.muted { color: var(--muted); }
+.price { color: var(--primary); font-weight: 700; }

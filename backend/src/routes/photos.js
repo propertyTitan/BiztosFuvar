@@ -11,6 +11,7 @@ const { authRequired } = require('../middleware/auth');
 const { analyzeCargoPhoto } = require('../services/gemini');
 const { distanceMeters } = require('../utils/geo');
 const realtime = require('../realtime');
+const barion = require('../services/barion');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
@@ -90,12 +91,41 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
         `UPDATE jobs SET status = 'delivered', delivered_at = NOW(), updated_at = NOW() WHERE id = $1`,
         [jobId],
       );
-      // Escrow felszabadítás → kifizetés szimuláció
+
+      // Barion: foglalás véglegesítése + 90/10 split kifizetés
+      let payout = null;
+      try {
+        const { rows: escrowRows } = await db.query(
+          `SELECT et.barion_payment_id, et.amount_huf, u.email AS carrier_email
+             FROM escrow_transactions et
+             JOIN jobs j  ON j.id = et.job_id
+             JOIN users u ON u.id = j.carrier_id
+            WHERE et.job_id = $1`,
+          [jobId],
+        );
+        const esc = escrowRows[0];
+        if (esc && esc.barion_payment_id) {
+          payout = await barion.finishReservation({
+            paymentId: esc.barion_payment_id,
+            jobId,
+            totalHuf: esc.amount_huf,
+            carrierPayee: esc.carrier_email,
+          });
+        }
+      } catch (err) {
+        console.error('[barion] finishReservation hiba:', err.message);
+      }
+
+      // Escrow státusz frissítése (akkor is, ha Barion stub módban fut)
       await db.query(
-        `UPDATE escrow_transactions SET status = 'released', released_at = NOW() WHERE job_id = $1`,
+        `UPDATE escrow_transactions
+            SET status = 'released', released_at = NOW()
+          WHERE job_id = $1`,
         [jobId],
       );
-      realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation });
+
+      validation.payout = payout;
+      realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation, payout });
     } else {
       realtime.emitToJob(jobId, 'job:dropoff_rejected', { job_id: jobId, photo, validation });
     }

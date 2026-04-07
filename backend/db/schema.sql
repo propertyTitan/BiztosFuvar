@@ -153,14 +153,19 @@ CREATE TABLE IF NOT EXISTS reviews (
 -- ---------- Escrow tranzakciók (letét) --------------------------------
 
 CREATE TABLE IF NOT EXISTS escrow_transactions (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_id      UUID NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
-    amount_huf  INTEGER NOT NULL CHECK (amount_huf > 0),
-    status      escrow_status NOT NULL DEFAULT 'held',
-    held_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    released_at TIMESTAMPTZ,
-    refunded_at TIMESTAMPTZ,
-    notes       TEXT
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id              UUID NOT NULL UNIQUE REFERENCES jobs(id) ON DELETE CASCADE,
+    amount_huf          INTEGER NOT NULL CHECK (amount_huf > 0),
+    status              escrow_status NOT NULL DEFAULT 'held',
+    -- Barion Bridge mezők
+    barion_payment_id   TEXT,
+    barion_gateway_url  TEXT,
+    carrier_share_huf   INTEGER,    -- 90 % a fuvardíjból
+    platform_share_huf  INTEGER,    -- 10 % jutalék
+    held_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    released_at         TIMESTAMPTZ,
+    refunded_at         TIMESTAMPTZ,
+    notes               TEXT
 );
 
 -- ---------- Élő követés pozíció-loggal --------------------------------

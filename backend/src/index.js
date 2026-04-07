@@ -11,6 +11,7 @@ const bidRoutes = require('./routes/bids');
 const photoRoutes = require('./routes/photos');
 const trackingRoutes = require('./routes/tracking');
 const reviewRoutes = require('./routes/reviews');
+const paymentRoutes = require('./routes/payments');
 
 const app = express();
 app.use(cors());
@@ -24,6 +25,7 @@ app.use('/', bidRoutes);
 app.use('/', photoRoutes);
 app.use('/', trackingRoutes);
 app.use('/', reviewRoutes);
+app.use('/', paymentRoutes);
 
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {

@@ -45,6 +45,8 @@ export const api = {
     return request<any[]>(`/jobs?${qs.toString()}`);
   },
 
+  getJob: (id: string) => request<any>(`/jobs/${id}`),
+
   placeBid: (jobId: string, amount_huf: number, eta_minutes?: number, message?: string) =>
     request<any>(`/jobs/${jobId}/bids`, {
       method: 'POST',
