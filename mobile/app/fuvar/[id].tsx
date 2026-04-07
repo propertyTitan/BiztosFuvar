@@ -1,18 +1,67 @@
 // Fuvar részletek + licit feladás + "Fuvar lezárása" gomb (csak in_progress státuszban).
-import { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, TextInput, Alert, ScrollView } from 'react-native';
+// Új: react-native-maps térkép a felvétel/lerakodás vizualizálásához, és
+// in_progress státuszban automatikus GPS ping (a feladó a webes Dashboardon
+// élőben látja a sofőr piros pöttyét).
+import { useEffect, useRef, useState } from 'react';
+import {
+  View, Text, StyleSheet, Pressable, TextInput, Alert, ScrollView, Platform,
+} from 'react-native';
 import { useLocalSearchParams, Link } from 'expo-router';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { api } from '@/api';
 import { colors, spacing, radius } from '@/theme';
+
+const PING_INTERVAL_MS = 10_000; // 10 másodpercenként frissíti a sofőr pozícióját
 
 export default function FuvarReszletek() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [job, setJob] = useState<any>(null);
   const [bid, setBid] = useState('');
+  const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     api.getJob(id!).then(setJob).catch((e) => Alert.alert('Hiba', e.message));
   }, [id]);
+
+  // Élő GPS ping: amíg a fuvar 'in_progress', a sofőr telefonja 10 mp-enként
+  // küldi a pozíciót a backendre, ami Socket.IO-val továbbküldi a feladónak.
+  useEffect(() => {
+    if (!job || job.status !== 'in_progress') return;
+
+    let cancelled = false;
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted' || cancelled) return;
+
+      const sendPing = async () => {
+        try {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          await api.pingLocation(
+            id!,
+            pos.coords.latitude,
+            pos.coords.longitude,
+            pos.coords.speed != null ? pos.coords.speed * 3.6 : undefined, // m/s → km/h
+          );
+        } catch {
+          // csendben elnyeljük – nem akarjuk a sofőrt értesítésekkel zaklatni vezetés közben
+        }
+      };
+
+      sendPing(); // azonnali első ping
+      pingTimer.current = setInterval(sendPing, PING_INTERVAL_MS);
+    })();
+
+    return () => {
+      cancelled = true;
+      if (pingTimer.current) {
+        clearInterval(pingTimer.current);
+        pingTimer.current = null;
+      }
+    };
+  }, [job?.status, id]);
 
   async function placeBid() {
     try {
@@ -29,11 +78,53 @@ export default function FuvarReszletek() {
   if (!job) return <Text style={{ padding: 24 }}>Betöltés...</Text>;
 
   const canClose = job.status === 'in_progress';
+  const region = {
+    latitude: (job.pickup_lat + job.dropoff_lat) / 2,
+    longitude: (job.pickup_lng + job.dropoff_lng) / 2,
+    latitudeDelta: Math.abs(job.pickup_lat - job.dropoff_lat) * 1.6 + 0.5,
+    longitudeDelta: Math.abs(job.pickup_lng - job.dropoff_lng) * 1.6 + 0.5,
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{job.title}</Text>
       <Text style={styles.status}>Státusz: {hungarianStatus(job.status)}</Text>
+
+      {/* Térkép – pickup → dropoff */}
+      <View style={styles.mapWrap}>
+        <MapView
+          style={styles.map}
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          initialRegion={region}
+        >
+          <Marker
+            coordinate={{ latitude: job.pickup_lat, longitude: job.pickup_lng }}
+            title="Felvétel"
+            description={job.pickup_address}
+            pinColor={colors.success}
+          />
+          <Marker
+            coordinate={{ latitude: job.dropoff_lat, longitude: job.dropoff_lng }}
+            title="Lerakodás"
+            description={job.dropoff_address}
+            pinColor={colors.danger}
+          />
+          <Polyline
+            coordinates={[
+              { latitude: job.pickup_lat, longitude: job.pickup_lng },
+              { latitude: job.dropoff_lat, longitude: job.dropoff_lng },
+            ]}
+            strokeColor={colors.primary}
+            strokeWidth={4}
+          />
+        </MapView>
+      </View>
+
+      {job.status === 'in_progress' && (
+        <View style={styles.liveBanner}>
+          <Text style={styles.liveBannerText}>🔴 Élő követés aktív – pozíciód továbbítva a feladónak</Text>
+        </View>
+      )}
 
       <Section label="Felvétel">
         <Text style={styles.row}>{job.pickup_address}</Text>
@@ -99,6 +190,18 @@ const styles = StyleSheet.create({
   container: { padding: spacing.lg },
   title: { fontSize: 22, fontWeight: '800', color: colors.text },
   status: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
+  mapWrap: {
+    height: 220, borderRadius: radius.md, overflow: 'hidden',
+    marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border,
+  },
+  map: { flex: 1 },
+  liveBanner: {
+    backgroundColor: '#FEE2E2',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
+  },
+  liveBannerText: { color: colors.danger, fontWeight: '600', textAlign: 'center' },
   section: {
     backgroundColor: colors.surface,
     padding: spacing.md,

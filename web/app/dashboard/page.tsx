@@ -5,7 +5,9 @@
 // - Térkép placeholder (Google Maps kulcs hiányában grid).
 // - Új fuvar gomb.
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { api, Job } from '@/api';
+import DashboardOverviewMap from '@/components/DashboardOverviewMap';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -46,15 +48,9 @@ export default function Dashboard() {
         <a className="btn" href="/dashboard/uj-fuvar">+ Új fuvar feladása</a>
       </div>
 
-      {/* Térkép placeholder */}
-      <div className="card" style={{ height: 320, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#eef2ff' }}>
-        <div style={{ textAlign: 'center', color: 'var(--muted)' }}>
-          <div style={{ fontSize: 48 }}>🗺️</div>
-          <p>
-            Aktív fuvarok térkép-nézete<br />
-            <small>(Google Maps integráció: állítsd be a <code>NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> env-et)</small>
-          </p>
-        </div>
+      {/* Aktív fuvarok élő térképe (Google Maps + Socket.IO élő követés) */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <DashboardOverviewMap jobs={jobs} />
       </div>
 
       <h2>Fuvaraim ({jobs.length})</h2>
@@ -72,7 +68,7 @@ export default function Dashboard() {
       )}
 
       {jobs.map((j) => (
-        <div key={j.id} className="card">
+        <Link key={j.id} href={`/dashboard/fuvar/${j.id}`} className="card" style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>
           <div className="row" style={{ justifyContent: 'space-between' }}>
             <div style={{ flex: 1 }}>
               <h3 style={{ marginTop: 0 }}>{j.title}</h3>
@@ -91,7 +87,7 @@ export default function Dashboard() {
               </span>
             </div>
           </div>
-        </div>
+        </Link>
       ))}
     </div>
   );

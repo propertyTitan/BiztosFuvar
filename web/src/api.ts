@@ -79,5 +79,37 @@ export const api = {
 
   listBids: (jobId: string) => request<Bid[]>(`/jobs/${jobId}/bids`),
   acceptBid: (bidId: string) =>
-    request<{ ok: true }>(`/bids/${bidId}/accept`, { method: 'POST' }),
+    request<{ ok: true; barion?: { gateway_url: string | null } }>(
+      `/bids/${bidId}/accept`,
+      { method: 'POST' },
+    ),
+
+  /** Egy fuvar utolsó GPS pozíciója (élő követés első snapshot-ja). */
+  lastLocation: (jobId: string) =>
+    request<{ lat: number; lng: number; speed_kmh: number | null; recorded_at: string } | null>(
+      `/jobs/${jobId}/location/last`,
+    ),
+
+  /** Egy fuvar lerakott fotói. */
+  listPhotos: (jobId: string) =>
+    request<Array<{
+      id: string;
+      kind: 'pickup' | 'dropoff' | 'damage' | 'document';
+      url: string;
+      gps_lat: number | null;
+      gps_lng: number | null;
+      taken_at: string;
+      ai_has_cargo: boolean | null;
+    }>>(`/jobs/${jobId}/photos`),
+
+  /** Escrow / Barion állapot egy fuvarhoz. */
+  jobEscrow: (jobId: string) =>
+    request<{
+      amount_huf: number;
+      status: 'held' | 'released' | 'refunded';
+      barion_payment_id: string | null;
+      barion_gateway_url: string | null;
+      carrier_share_huf: number | null;
+      platform_share_huf: number | null;
+    } | null>(`/jobs/${jobId}/escrow`),
 };
