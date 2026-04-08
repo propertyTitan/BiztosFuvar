@@ -1,0 +1,47 @@
+// Mobil auth helper – AsyncStorage-ból olvas, és role-érzékeny redirect-et ad.
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export type Role = 'shipper' | 'carrier' | 'admin';
+
+export type CurrentUser = {
+  id: string;
+  email: string;
+  role: Role;
+  full_name?: string;
+};
+
+export async function setCurrentUser(user: CurrentUser, token: string) {
+  await AsyncStorage.setItem('biztosfuvar_user', JSON.stringify(user));
+  await AsyncStorage.setItem('biztosfuvar_token', token);
+}
+
+export async function clearCurrentUser() {
+  await AsyncStorage.removeItem('biztosfuvar_user');
+  await AsyncStorage.removeItem('biztosfuvar_token');
+}
+
+export async function getCurrentUser(): Promise<CurrentUser | null> {
+  const raw = await AsyncStorage.getItem('biztosfuvar_user');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as CurrentUser;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A login utáni alapértelmezett kezdőoldal a user role-ja alapján.
+ */
+export function homeForRole(role: Role): string {
+  switch (role) {
+    case 'shipper':
+      return '/feladas/sajat';
+    case 'carrier':
+      return '/fuvarok';
+    case 'admin':
+      return '/fuvarok'; // az adminnak jelen van csak a sofőr nézet mobilon
+    default:
+      return '/';
+  }
+}

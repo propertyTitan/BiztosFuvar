@@ -47,11 +47,50 @@ export const api = {
 
   getJob: (id: string) => request<any>(`/jobs/${id}`),
 
+  /** Saját fuvarok – backend a szerepkör alapján szűr. */
+  myJobs: () => request<any[]>('/jobs/mine/list'),
+
+  /** Új fuvar létrehozása (feladói). */
+  createJob: (body: {
+    title: string;
+    description?: string;
+    pickup_address: string;
+    pickup_lat: number;
+    pickup_lng: number;
+    dropoff_address: string;
+    dropoff_lat: number;
+    dropoff_lng: number;
+    weight_kg: number;
+    length_cm: number;
+    width_cm: number;
+    height_cm: number;
+    suggested_price_huf: number;
+  }) =>
+    request<any>('/jobs', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   placeBid: (jobId: string, amount_huf: number, eta_minutes?: number, message?: string) =>
     request<any>(`/jobs/${jobId}/bids`, {
       method: 'POST',
       body: JSON.stringify({ amount_huf, eta_minutes, message }),
     }),
+
+  /** Egy fuvar beérkezett licitjei. */
+  listBids: (jobId: string) =>
+    request<any[]>(`/jobs/${jobId}/bids`),
+
+  /** Feladó elfogadja a licitet. */
+  acceptBid: (bidId: string) =>
+    request<{ ok: true; barion?: { gateway_url: string | null } }>(
+      `/bids/${bidId}/accept`,
+      { method: 'POST' },
+    ),
+
+  /** Egy fuvar fotói (listing + pickup + dropoff). */
+  listPhotos: (jobId: string) =>
+    request<any[]>(`/jobs/${jobId}/photos`),
 
   /** Pozíció ping a háttérből. */
   pingLocation: (jobId: string, lat: number, lng: number, speed_kmh?: number) =>

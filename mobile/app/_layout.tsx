@@ -1,7 +1,26 @@
 // Expo Router root layout – stack navigáció magyar címekkel.
-import { Stack } from 'expo-router';
+// Header-jobb oldalán: "Kijelentkezés" gomb a bejelentkezett user számára.
+import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { Pressable, Text } from 'react-native';
 import { colors } from '@/theme';
+import { clearCurrentUser } from '@/auth';
+
+function LogoutButton() {
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={async () => {
+        await clearCurrentUser();
+        router.replace('/');
+      }}
+      style={{ paddingHorizontal: 12, paddingVertical: 6 }}
+      hitSlop={8}
+    >
+      <Text style={{ color: '#fff', fontWeight: '600' }}>Kilépés</Text>
+    </Pressable>
+  );
+}
 
 export default function RootLayout() {
   return (
@@ -13,16 +32,30 @@ export default function RootLayout() {
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: '700' },
           contentStyle: { backgroundColor: colors.background },
+          headerRight: () => <LogoutButton />,
         }}
       >
-        <Stack.Screen name="index" options={{ title: 'BiztosFuvar' }} />
-        <Stack.Screen name="bejelentkezes" options={{ title: 'Bejelentkezés' }} />
+        <Stack.Screen
+          name="index"
+          options={{ title: 'BiztosFuvar', headerRight: undefined }}
+        />
+        <Stack.Screen
+          name="bejelentkezes"
+          options={{ title: 'Bejelentkezés', headerRight: undefined }}
+        />
+
+        {/* Sofőr nézet */}
         <Stack.Screen name="fuvarok" options={{ title: 'Elérhető fuvarok' }} />
         <Stack.Screen name="fuvar/[id]" options={{ title: 'Fuvar részletek' }} />
         <Stack.Screen
           name="fuvar/[id]/lezaras"
           options={{ title: 'Fuvar lezárása', presentation: 'modal' }}
         />
+
+        {/* Feladó nézet */}
+        <Stack.Screen name="feladas/sajat" options={{ title: 'Fuvaraim' }} />
+        <Stack.Screen name="feladas/uj" options={{ title: 'Új fuvar feladása' }} />
+        <Stack.Screen name="feladas/[id]" options={{ title: 'Fuvar részletek' }} />
       </Stack>
     </>
   );

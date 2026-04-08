@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
+import { setCurrentUser, homeForRole, Role } from '@/lib/auth';
 
 export default function Bejelentkezes() {
   const router = useRouter();
@@ -17,9 +18,17 @@ export default function Bejelentkezes() {
     setError(null);
     try {
       const res = await api.login(email, password);
-      window.localStorage.setItem('biztosfuvar_token', res.token);
-      window.localStorage.setItem('biztosfuvar_user', JSON.stringify(res.user));
-      router.push('/dashboard');
+      // A res.user a backend-től, role-lal együtt
+      setCurrentUser(
+        {
+          id: res.user.id,
+          email: res.user.email,
+          role: res.user.role as Role,
+          full_name: (res.user as any).full_name,
+        },
+        res.token,
+      );
+      router.push(homeForRole(res.user.role as Role));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -40,7 +49,11 @@ export default function Bejelentkezes() {
           {loading ? 'Belépés...' : 'Belépés'}
         </button>
         <p className="muted" style={{ fontSize: 12, marginTop: 16 }}>
-          Tipp: a seed scriptben minden mintafelhasználó jelszava: <code>Jelszo123!</code>
+          Tipp: a seed felhasználók jelszava: <code>Jelszo123!</code>
+          <br />
+          Feladó: <code>kovacs.peter@example.hu</code>
+          <br />
+          Sofőr: <code>szabo.janos@example.hu</code>
         </p>
       </form>
     </div>

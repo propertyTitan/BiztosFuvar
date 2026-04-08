@@ -90,13 +90,21 @@ export const api = {
   createJob: (job: NewJobInput) =>
     request<Job>('/jobs', { method: 'POST', body: JSON.stringify(job) }),
 
-  listJobs: (params: { status?: string } = {}) => {
-    const qs = new URLSearchParams(params as Record<string, string>).toString();
-    return request<Job[]>(`/jobs?${qs}`);
+  listJobs: (params: { status?: string; lat?: number; lng?: number; radius_km?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.status) qs.set('status', params.status);
+    if (params.lat != null) qs.set('lat', String(params.lat));
+    if (params.lng != null) qs.set('lng', String(params.lng));
+    if (params.radius_km != null) qs.set('radius_km', String(params.radius_km));
+    return request<(Job & { distance_to_pickup_km?: number })[]>(`/jobs?${qs.toString()}`);
   },
 
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
   myJobs: () => request<Job[]>('/jobs/mine/list'),
+
+  /** Sofőr licitet ad egy fuvarra. */
+  placeBid: (jobId: string, body: { amount_huf: number; eta_minutes?: number; message?: string }) =>
+    request<Bid>(`/jobs/${jobId}/bids`, { method: 'POST', body: JSON.stringify(body) }),
 
   listBids: (jobId: string) => request<Bid[]>(`/jobs/${jobId}/bids`),
   acceptBid: (bidId: string) =>

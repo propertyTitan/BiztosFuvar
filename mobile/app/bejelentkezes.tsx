@@ -1,9 +1,10 @@
 // Egyszerű bejelentkezés a backend /auth/login végpontjához.
+// Login után role-alapú redirect: feladó → saját fuvarok, sofőr → elérhető fuvarok.
 import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '@/api';
+import { setCurrentUser, homeForRole, Role } from '@/auth';
 import { colors, spacing, radius } from '@/theme';
 
 export default function Bejelentkezes() {
@@ -16,9 +17,17 @@ export default function Bejelentkezes() {
     setLoading(true);
     try {
       const res = await api.login(email, password);
-      await AsyncStorage.setItem('biztosfuvar_token', res.token);
-      await AsyncStorage.setItem('biztosfuvar_user', JSON.stringify(res.user));
-      router.replace('/fuvarok');
+      const role = (res.user.role as Role) || 'shipper';
+      await setCurrentUser(
+        {
+          id: res.user.id,
+          email: res.user.email,
+          role,
+          full_name: (res.user as any).full_name,
+        },
+        res.token,
+      );
+      router.replace(homeForRole(role) as any);
     } catch (err: any) {
       Alert.alert('Sikertelen bejelentkezés', err.message);
     } finally {
@@ -46,7 +55,11 @@ export default function Bejelentkezes() {
       <Pressable style={styles.cta} disabled={loading} onPress={onSubmit}>
         <Text style={styles.ctaText}>{loading ? 'Belépés...' : 'Belépés'}</Text>
       </Pressable>
-      <Text style={styles.hint}>Tipp: a seed scriptben minden mintafelhasználó jelszava: Jelszo123!</Text>
+      <Text style={styles.hint}>
+        Tipp: minden seed felhasználó jelszava: Jelszo123!
+        {'\n'}Feladó: kovacs.peter@example.hu
+        {'\n'}Sofőr: szabo.janos@example.hu
+      </Text>
     </View>
   );
 }
