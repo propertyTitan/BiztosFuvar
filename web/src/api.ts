@@ -43,7 +43,7 @@ export type NewJobInput = {
   dropoff_address: string;
   dropoff_lat: number;
   dropoff_lng: number;
-  weight_kg?: number;
+  weight_kg: number;
   length_cm: number;
   width_cm: number;
   height_cm: number;

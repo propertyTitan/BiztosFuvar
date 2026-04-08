@@ -79,6 +79,7 @@ export default function UjFuvar() {
     form.pickup_confirmed &&
     form.dropoff_confirmed &&
     form.length_cm && form.width_cm && form.height_cm &&
+    form.weight_kg &&
     form.suggested_price_huf;
 
   async function onSubmit(e: React.FormEvent) {
@@ -96,7 +97,7 @@ export default function UjFuvar() {
         dropoff_address: form.dropoff_address,
         dropoff_lat: form.dropoff_lat!,
         dropoff_lng: form.dropoff_lng!,
-        weight_kg: form.weight_kg ? Number(form.weight_kg) : undefined,
+        weight_kg: Number(form.weight_kg),
         length_cm: Number(form.length_cm),
         width_cm: Number(form.width_cm),
         height_cm: Number(form.height_cm),
@@ -206,10 +207,11 @@ export default function UjFuvar() {
           </p>
         )}
 
-        {/* --- Csomag méretei --- */}
-        <h2 style={{ marginTop: 24 }}>Csomag méretei</h2>
+        {/* --- Csomag adatai --- */}
+        <h2 style={{ marginTop: 24 }}>Csomag adatai</h2>
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-          Kötelező – a sofőr ezek alapján dönti el, belefér-e a járművébe.
+          Kötelező – a sofőr ezek alapján dönti el, belefér-e a járművébe,
+          és hogy a jármű össztömeg-korlátját nem lépi-e át.
         </p>
         <div className="grid-2">
           <div>
@@ -240,56 +242,56 @@ export default function UjFuvar() {
               required
             />
           </div>
-        </div>
-        <label>Magasság (cm)</label>
-        <input
-          className="input"
-          type="number"
-          min={1}
-          value={form.height_cm}
-          onChange={(e) =>
-            set('height_cm', e.target.value === '' ? '' : Number(e.target.value))
-          }
-          placeholder="pl. 100"
-          required
-        />
-        {volumeM3 != null && (
-          <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            Számolt térfogat: <strong>{volumeM3} m³</strong>
-          </p>
-        )}
-
-        {/* --- Súly + ár --- */}
-        <h2 style={{ marginTop: 24 }}>Súly és ár</h2>
-        <div className="grid-2">
           <div>
-            <label>Becsült súly (kg)</label>
-            <input
-              className="input"
-              type="number"
-              min={0}
-              value={form.weight_kg}
-              onChange={(e) =>
-                set('weight_kg', e.target.value === '' ? '' : Number(e.target.value))
-              }
-              placeholder="opcionális"
-            />
-          </div>
-          <div>
-            <label>Javasolt fuvardíj (Ft)</label>
+            <label>Magasság (cm)</label>
             <input
               className="input"
               type="number"
               min={1}
-              value={form.suggested_price_huf}
+              value={form.height_cm}
               onChange={(e) =>
-                set('suggested_price_huf', e.target.value === '' ? '' : Number(e.target.value))
+                set('height_cm', e.target.value === '' ? '' : Number(e.target.value))
               }
-              placeholder="pl. 65000"
+              placeholder="pl. 100"
+              required
+            />
+          </div>
+          <div>
+            <label>Súly (kg)</label>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              step="0.1"
+              value={form.weight_kg}
+              onChange={(e) =>
+                set('weight_kg', e.target.value === '' ? '' : Number(e.target.value))
+              }
+              placeholder="pl. 350"
               required
             />
           </div>
         </div>
+        {volumeM3 != null && (
+          <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            Számolt térfogat: <strong>{volumeM3} m³</strong>
+          </p>
+        )}
+
+        {/* --- Ár --- */}
+        <h2 style={{ marginTop: 24 }}>Javasolt fuvardíj</h2>
+        <label>Összeg (Ft)</label>
+        <input
+          className="input"
+          type="number"
+          min={1}
+          value={form.suggested_price_huf}
+          onChange={(e) =>
+            set('suggested_price_huf', e.target.value === '' ? '' : Number(e.target.value))
+          }
+          placeholder="pl. 65000"
+          required
+        />
 
         {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
 

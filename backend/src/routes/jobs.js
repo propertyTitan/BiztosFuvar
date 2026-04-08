@@ -36,6 +36,14 @@ router.post('/', authRequired, requireRole('shipper'), async (req, res) => {
     });
   }
 
+  // Súly kötelező – a sofőr ez alapján tudja, befér-e a járműve össztömegébe
+  const weightKg = Number(weight_kg);
+  if (!Number.isFinite(weightKg) || weightKg <= 0) {
+    return res.status(400).json({
+      error: 'A csomag súlya kötelező és pozitív kell legyen (kg)',
+    });
+  }
+
   // Térfogat automatikus számítása: cm³ → m³
   const volumeM3 = +((L * W * H) / 1_000_000).toFixed(3);
 
@@ -67,7 +75,7 @@ router.post('/', authRequired, requireRole('shipper'), async (req, res) => {
       req.user.sub, title, description || null,
       pickup_address, pickup_lat, pickup_lng,
       dropoff_address, dropoff_lat, dropoff_lng,
-      distanceKm, weight_kg || null, volumeM3,
+      distanceKm, weightKg, volumeM3,
       L, W, H,
       suggested_price_huf || null,
       pickup_window_start || null, pickup_window_end || null,
