@@ -15,15 +15,29 @@ router.post('/', authRequired, requireRole('shipper'), async (req, res) => {
     title, description,
     pickup_address, pickup_lat, pickup_lng,
     dropoff_address, dropoff_lat, dropoff_lng,
-    weight_kg, volume_m3, suggested_price_huf,
+    weight_kg, suggested_price_huf,
+    length_cm, width_cm, height_cm,
     pickup_window_start, pickup_window_end,
   } = req.body || {};
 
+  // Alap kötelező mezők
   if (!title || !pickup_address || !dropoff_address ||
       pickup_lat == null || pickup_lng == null ||
       dropoff_lat == null || dropoff_lng == null) {
-    return res.status(400).json({ error: 'Hiányzó kötelező mezők' });
+    return res.status(400).json({ error: 'Hiányzó kötelező mezők (cím / koordináták)' });
   }
+
+  // Csomag-méretek kötelezők és pozitívak kell legyenek
+  const L = Number(length_cm), W = Number(width_cm), H = Number(height_cm);
+  if (!Number.isFinite(L) || !Number.isFinite(W) || !Number.isFinite(H) ||
+      L <= 0 || W <= 0 || H <= 0) {
+    return res.status(400).json({
+      error: 'A csomag mérete kötelező: hosszúság, szélesség és magasság (cm), mind pozitív szám',
+    });
+  }
+
+  // Térfogat automatikus számítása: cm³ → m³
+  const volumeM3 = +((L * W * H) / 1_000_000).toFixed(3);
 
   const distanceKm = +(distanceMeters(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng) / 1000).toFixed(2);
 
@@ -42,16 +56,20 @@ router.post('/', authRequired, requireRole('shipper'), async (req, res) => {
        shipper_id, title, description,
        pickup_address, pickup_lat, pickup_lng,
        dropoff_address, dropoff_lat, dropoff_lng,
-       distance_km, weight_kg, volume_m3, suggested_price_huf,
+       distance_km, weight_kg, volume_m3,
+       length_cm, width_cm, height_cm,
+       suggested_price_huf,
        pickup_window_start, pickup_window_end,
        status, ai_description_ok, ai_description_notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'bidding',$16,$17)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,$20)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
       pickup_address, pickup_lat, pickup_lng,
       dropoff_address, dropoff_lat, dropoff_lng,
-      distanceKm, weight_kg || null, volume_m3 || null, suggested_price_huf || null,
+      distanceKm, weight_kg || null, volumeM3,
+      L, W, H,
+      suggested_price_huf || null,
       pickup_window_start || null, pickup_window_end || null,
       aiOk, aiNotes,
     ],

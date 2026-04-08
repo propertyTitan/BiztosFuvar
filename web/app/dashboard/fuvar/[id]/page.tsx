@@ -78,6 +78,39 @@ export default function FuvarReszletek() {
         <LiveTrackingMap job={job} />
       </div>
 
+      {/* Csomag adatai */}
+      {(job.length_cm || job.width_cm || job.height_cm || job.weight_kg || job.distance_km) && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h2 style={{ marginTop: 0 }}>Csomag adatai</h2>
+          <div className="row" style={{ gap: 24, flexWrap: 'wrap' }}>
+            {job.length_cm && job.width_cm && job.height_cm && (
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>Méret (h × sz × m)</div>
+                <strong>{job.length_cm} × {job.width_cm} × {job.height_cm} cm</strong>
+              </div>
+            )}
+            {job.volume_m3 != null && (
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>Térfogat</div>
+                <strong>{job.volume_m3} m³</strong>
+              </div>
+            )}
+            {job.weight_kg != null && (
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>Súly</div>
+                <strong>{job.weight_kg} kg</strong>
+              </div>
+            )}
+            {job.distance_km != null && (
+              <div>
+                <div className="muted" style={{ fontSize: 12 }}>Távolság</div>
+                <strong>{job.distance_km} km</strong>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="grid-2" style={{ marginTop: 16 }}>
         {/* Fotók (Proof of Delivery 2.0) */}
         <div className="card">

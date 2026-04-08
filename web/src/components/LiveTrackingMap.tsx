@@ -11,16 +11,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import { subscribeJob } from '@/lib/socket';
 import { api, Job } from '@/api';
+import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey } from '@/lib/maps';
 
 type Props = { job: Job };
 
 const containerStyle = { width: '100%', height: '480px', borderRadius: '12px' };
 
 export default function LiveTrackingMap({ job }: Props) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || '';
+  const apiKey = getGoogleMapsApiKey();
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
-    id: 'biztosfuvar-maps',
+    id: GOOGLE_MAPS_ID,
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   const [driver, setDriver] = useState<{ lat: number; lng: number } | null>(null);

@@ -16,6 +16,11 @@ export type Job = {
   dropoff_lat: number;
   dropoff_lng: number;
   distance_km: number | null;
+  weight_kg: number | null;
+  volume_m3: number | null;
+  length_cm: number | null;
+  width_cm: number | null;
+  height_cm: number | null;
   suggested_price_huf: number | null;
   accepted_price_huf: number | null;
   status:
@@ -27,6 +32,22 @@ export type Job = {
     | 'completed'
     | 'disputed'
     | 'cancelled';
+};
+
+export type NewJobInput = {
+  title: string;
+  description?: string;
+  pickup_address: string;
+  pickup_lat: number;
+  pickup_lng: number;
+  dropoff_address: string;
+  dropoff_lat: number;
+  dropoff_lng: number;
+  weight_kg?: number;
+  length_cm: number;
+  width_cm: number;
+  height_cm: number;
+  suggested_price_huf: number;
 };
 
 export type Bid = {
@@ -66,7 +87,7 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ email, password }) },
     ),
 
-  createJob: (job: Partial<Job>) =>
+  createJob: (job: NewJobInput) =>
     request<Job>('/jobs', { method: 'POST', body: JSON.stringify(job) }),
 
   listJobs: (params: { status?: string } = {}) => {

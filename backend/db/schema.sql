@@ -78,6 +78,10 @@ CREATE TABLE IF NOT EXISTS jobs (
     distance_km          NUMERIC(8,2),
     weight_kg            NUMERIC(8,2),
     volume_m3            NUMERIC(8,2),
+    -- csomag-méretek centiméterben (kötelező új fuvaroknál – lásd jobs.js)
+    length_cm            INTEGER,
+    width_cm             INTEGER,
+    height_cm            INTEGER,
     suggested_price_huf  INTEGER,
     accepted_price_huf   INTEGER,
     pickup_window_start  TIMESTAMPTZ,

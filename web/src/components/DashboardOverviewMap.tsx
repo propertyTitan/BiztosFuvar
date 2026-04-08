@@ -7,14 +7,19 @@ import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import Link from 'next/link';
 import { Job } from '@/api';
 import { subscribeJob } from '@/lib/socket';
+import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey } from '@/lib/maps';
 
 const containerStyle = { width: '100%', height: '380px', borderRadius: '12px' };
 
 const HUNGARY_CENTER = { lat: 47.1625, lng: 19.5033 };
 
 export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || '';
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey, id: 'biztosfuvar-maps' });
+  const apiKey = getGoogleMapsApiKey();
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: apiKey,
+    id: GOOGLE_MAPS_ID,
+    libraries: GOOGLE_MAPS_LIBRARIES,
+  });
   const mapRef = useRef<google.maps.Map | null>(null);
 
   // A folyamatban lévő fuvarokhoz feliratkozunk az élő pozícióra
