@@ -146,6 +146,12 @@ export default function FuvarReszletek() {
               </div>
             )}
           </div>
+          {job.description && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Leírás</div>
+              <div style={{ whiteSpace: 'pre-wrap' }}>{job.description}</div>
+            </div>
+          )}
         </div>
       )}
 

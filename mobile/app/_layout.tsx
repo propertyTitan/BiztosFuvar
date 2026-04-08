@@ -46,6 +46,7 @@ export default function RootLayout() {
 
         {/* Sofőr nézet */}
         <Stack.Screen name="fuvarok" options={{ title: 'Elérhető fuvarok' }} />
+        <Stack.Screen name="licitjeim" options={{ title: 'Licitjeim' }} />
         <Stack.Screen name="fuvar/[id]" options={{ title: 'Fuvar részletek' }} />
         <Stack.Screen
           name="fuvar/[id]/lezaras"

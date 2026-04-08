@@ -33,6 +33,7 @@ export default function SiteHeader() {
         {user?.role === 'carrier' && (
           <>
             <a href="/sofor/fuvarok">Elérhető fuvarok</a>
+            <a href="/sofor/licitjeim">Licitjeim</a>
             <a href="/sofor/sajat-fuvarok">Saját fuvaraim</a>
           </>
         )}

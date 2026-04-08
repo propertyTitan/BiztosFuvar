@@ -77,6 +77,9 @@ export const api = {
       body: JSON.stringify({ amount_huf, eta_minutes, message }),
     }),
 
+  /** A bejelentkezett sofőr saját licitjei (a kapcsolódó fuvar alap mezőivel). */
+  myBids: () => request<any[]>('/bids/mine'),
+
   /** Egy fuvar beérkezett licitjei. */
   listBids: (jobId: string) =>
     request<any[]>(`/jobs/${jobId}/bids`),

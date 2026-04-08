@@ -132,16 +132,32 @@ export default function FuvarReszletek() {
       <Section label="Lerakodás">
         <Text style={styles.row}>{job.dropoff_address}</Text>
       </Section>
-      <Section label="Részletek">
-        <Text style={styles.row}>Távolság: {job.distance_km} km</Text>
-        {job.weight_kg && <Text style={styles.row}>Súly: {job.weight_kg} kg</Text>}
-        {job.volume_m3 && <Text style={styles.row}>Térfogat: {job.volume_m3} m³</Text>}
+      <Section label="Csomag adatai">
+        {job.length_cm && job.width_cm && job.height_cm && (
+          <Text style={styles.row}>
+            Méret: {job.length_cm} × {job.width_cm} × {job.height_cm} cm
+          </Text>
+        )}
+        {job.volume_m3 != null && (
+          <Text style={styles.row}>Térfogat: {job.volume_m3} m³</Text>
+        )}
+        {job.weight_kg != null && (
+          <Text style={styles.row}>Súly: {job.weight_kg} kg</Text>
+        )}
+        {job.distance_km != null && (
+          <Text style={styles.row}>Távolság: {job.distance_km} km</Text>
+        )}
         {job.suggested_price_huf && (
-          <Text style={[styles.row, { color: colors.primary, fontWeight: '700' }]}>
+          <Text style={[styles.row, { color: colors.primary, fontWeight: '700', marginTop: 4 }]}>
             Javasolt ár: {job.suggested_price_huf.toLocaleString('hu-HU')} Ft
           </Text>
         )}
       </Section>
+      {job.description ? (
+        <Section label="Leírás a feladótól">
+          <Text style={styles.description}>{job.description}</Text>
+        </Section>
+      ) : null}
 
       {(job.status === 'pending' || job.status === 'bidding') && (
         <Section label="Licit feladása">
@@ -211,6 +227,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: { fontSize: 12, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing.xs },
   row: { color: colors.text, marginBottom: 2 },
+  description: { color: colors.text, lineHeight: 20 },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     padding: spacing.md, fontSize: 16, marginBottom: spacing.md, backgroundColor: '#fff',

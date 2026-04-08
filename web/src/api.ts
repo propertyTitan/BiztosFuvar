@@ -106,6 +106,30 @@ export const api = {
   placeBid: (jobId: string, body: { amount_huf: number; eta_minutes?: number; message?: string }) =>
     request<Bid>(`/jobs/${jobId}/bids`, { method: 'POST', body: JSON.stringify(body) }),
 
+  /**
+   * A bejelentkezett sofőr összes licitje a kapcsolódó fuvar alap mezőivel.
+   * A sofőr ebből látja: mire licitált, mi a licit + fuvar állapota,
+   * és hogy az adott fuvart neki ítélték-e oda.
+   */
+  myBids: () =>
+    request<Array<{
+      bid_id: string;
+      amount_huf: number;
+      eta_minutes: number | null;
+      message: string | null;
+      bid_status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+      bid_created_at: string;
+      job_id: string;
+      job_title: string;
+      job_status: Job['status'];
+      pickup_address: string;
+      dropoff_address: string;
+      distance_km: number | null;
+      suggested_price_huf: number | null;
+      accepted_price_huf: number | null;
+      job_carrier_id: string | null;
+    }>>('/bids/mine'),
+
   listBids: (jobId: string) => request<Bid[]>(`/jobs/${jobId}/bids`),
   acceptBid: (bidId: string) =>
     request<{ ok: true; barion?: { gateway_url: string | null } }>(

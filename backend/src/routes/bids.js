@@ -7,6 +7,36 @@ const barion = require('../services/barion');
 
 const router = express.Router();
 
+// GET /bids/mine – a bejelentkezett sofőr összes licitje
+//   visszaadja a kapcsolódó fuvar alap mezőit is (cím, ár, státusz).
+//   A sofőr ebből látja: mire licitált, mi az állapota, mit fogadtak el.
+router.get('/bids/mine', authRequired, requireRole('carrier'), async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT
+        b.id              AS bid_id,
+        b.amount_huf,
+        b.eta_minutes,
+        b.message,
+        b.status          AS bid_status,
+        b.created_at      AS bid_created_at,
+        j.id              AS job_id,
+        j.title           AS job_title,
+        j.status          AS job_status,
+        j.pickup_address,
+        j.dropoff_address,
+        j.distance_km,
+        j.suggested_price_huf,
+        j.accepted_price_huf,
+        j.carrier_id      AS job_carrier_id
+       FROM bids b
+       JOIN jobs j ON j.id = b.job_id
+      WHERE b.carrier_id = $1
+      ORDER BY b.created_at DESC`,
+    [req.user.sub],
+  );
+  res.json(rows);
+});
+
 // POST /jobs/:jobId/bids – sofőr licitál
 router.post('/jobs/:jobId/bids', authRequired, requireRole('carrier'), async (req, res) => {
   const { jobId } = req.params;

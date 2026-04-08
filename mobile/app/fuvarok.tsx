@@ -47,6 +47,13 @@ export default function Fuvarok() {
       keyExtractor={(j) => j.id}
       contentContainerStyle={{ padding: spacing.md }}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
+      ListHeaderComponent={
+        <Link href="/licitjeim" asChild>
+          <Pressable style={styles.myBidsBtn}>
+            <Text style={styles.myBidsBtnText}>📋 Licitjeim megtekintése</Text>
+          </Pressable>
+        </Link>
+      }
       ListEmptyComponent={
         <Text style={styles.empty}>Jelenleg nincs elérhető fuvar a környéken.</Text>
       }
@@ -87,4 +94,14 @@ const styles = StyleSheet.create({
   metaItem: { fontSize: 13, color: colors.textMuted },
   price: { color: colors.primary, fontWeight: '700' },
   empty: { textAlign: 'center', color: colors.textMuted, marginTop: spacing.xl },
+  myBidsBtn: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  myBidsBtnText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
 });
