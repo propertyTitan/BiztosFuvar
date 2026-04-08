@@ -78,6 +78,44 @@ export default function FuvarReszletek() {
         <LiveTrackingMap job={job} />
       </div>
 
+      {/* Hirdetési fotók (amit a feladó töltött fel) */}
+      {photos.some((p) => p.kind === 'listing') && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h2 style={{ marginTop: 0 }}>Fotók a csomagról</h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+              gap: 8,
+            }}
+          >
+            {photos
+              .filter((p) => p.kind === 'listing')
+              .map((p) => (
+                <a
+                  key={p.id}
+                  href={p.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: 'block',
+                    aspectRatio: '1 / 1',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <img
+                    src={p.url}
+                    alt="Fuvar fotó"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                </a>
+              ))}
+          </div>
+        </div>
+      )}
+
       {/* Csomag adatai */}
       {(job.length_cm || job.width_cm || job.height_cm || job.weight_kg || job.distance_km) && (
         <div className="card" style={{ marginTop: 16 }}>
@@ -112,27 +150,40 @@ export default function FuvarReszletek() {
       )}
 
       <div className="grid-2" style={{ marginTop: 16 }}>
-        {/* Fotók (Proof of Delivery 2.0) */}
+        {/* Bizonyíték-fotók: pickup/dropoff/damage/document (a sofőrtől) */}
         <div className="card">
-          <h2>Fotók (Bizonyíték)</h2>
-          {photos.length === 0 && <p className="muted">Még nincs fotó feltöltve.</p>}
-          {photos.map((p) => (
-            <div key={p.id} style={{ marginBottom: 12 }}>
-              <strong>{p.kind === 'pickup' ? 'Felvétel' : p.kind === 'dropoff' ? 'Lerakodás' : p.kind}</strong>
-              <div className="muted" style={{ fontSize: 12 }}>
-                {new Date(p.taken_at).toLocaleString('hu-HU')}
-                {p.gps_lat && ` · ${p.gps_lat.toFixed(5)}, ${p.gps_lng?.toFixed(5)}`}
-                {p.ai_has_cargo != null && ` · AI: ${p.ai_has_cargo ? '✓ áru azonosítva' : '✗ nem található áru'}`}
+          <h2>Bizonyíték-fotók (sofőr)</h2>
+          {photos.filter((p) => p.kind !== 'listing').length === 0 && (
+            <p className="muted">Még nincs pickup/dropoff fotó feltöltve.</p>
+          )}
+          {photos
+            .filter((p) => p.kind !== 'listing')
+            .map((p) => (
+              <div key={p.id} style={{ marginBottom: 12 }}>
+                <strong>
+                  {p.kind === 'pickup' ? 'Felvétel' : p.kind === 'dropoff' ? 'Lerakodás' : p.kind}
+                </strong>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {new Date(p.taken_at).toLocaleString('hu-HU')}
+                  {p.gps_lat && ` · ${p.gps_lat.toFixed(5)}, ${p.gps_lng?.toFixed(5)}`}
+                  {p.ai_has_cargo != null &&
+                    ` · AI: ${p.ai_has_cargo ? '✓ áru azonosítva' : '✗ nem található áru'}`}
+                </div>
+                {p.url && (
+                  <img
+                    src={p.url}
+                    alt={p.kind}
+                    style={{
+                      width: '100%',
+                      borderRadius: 8,
+                      marginTop: 8,
+                      maxHeight: 240,
+                      objectFit: 'cover',
+                    }}
+                  />
+                )}
               </div>
-              {p.url && (
-                <img
-                  src={p.url}
-                  alt={p.kind}
-                  style={{ width: '100%', borderRadius: 8, marginTop: 8, maxHeight: 240, objectFit: 'cover' }}
-                />
-              )}
-            </div>
-          ))}
+            ))}
         </div>
 
         {/* Escrow / Barion */}

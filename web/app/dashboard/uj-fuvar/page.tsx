@@ -11,10 +11,13 @@
 //  - Kötelező csomag-méretek: hossz × szélesség × magasság (cm).
 //    A térfogatot NEM a user adja meg – a backend automatikusan számolja.
 // =====================================================================
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
+
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB – egyezik a backend limittel
+const MAX_PHOTO_COUNT = 8;
 
 type FormState = {
   title: string;
@@ -60,9 +63,39 @@ export default function UjFuvar() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+
+  // Előnézeti URL-ek a kiválasztott képekhez. Memoizáljuk, mert a URL.createObjectURL
+  // memória-leak-et okozhat, ha minden renderre új URL-t generálunk.
+  const photoPreviews = useMemo(
+    () => photos.map((f) => ({ file: f, url: URL.createObjectURL(f) })),
+    [photos],
+  );
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function onPickPhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    const valid: File[] = [];
+    for (const f of files) {
+      if (!f.type.startsWith('image/')) continue;
+      if (f.size > MAX_PHOTO_BYTES) {
+        setError(`"${f.name}" túl nagy (max ${MAX_PHOTO_BYTES / 1024 / 1024} MB képenként).`);
+        continue;
+      }
+      valid.push(f);
+    }
+    const merged = [...photos, ...valid].slice(0, MAX_PHOTO_COUNT);
+    setPhotos(merged);
+    // fontos: reset, különben ugyanaz a fájl kétszer nem választható újra
+    e.target.value = '';
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
   }
 
   // Automatikus térfogat kiszámítás (csak a kijelzéshez – a backend is számolja)
@@ -87,7 +120,9 @@ export default function UjFuvar() {
     if (!canSubmit) return;
     setSubmitting(true);
     setError(null);
+    setUploadProgress(null);
     try {
+      // 1) Létrehozzuk a fuvart – ekkor kapunk jobId-t
       const job = await api.createJob({
         title: form.title,
         description: form.description,
@@ -103,11 +138,26 @@ export default function UjFuvar() {
         height_cm: Number(form.height_cm),
         suggested_price_huf: Number(form.suggested_price_huf),
       });
-      router.push(`/dashboard?created=${job.id}`);
+
+      // 2) Kép-feltöltés sorban (így látjuk a progress-t és nem önmagával versenyez
+      //    a backend AI/tárolás réteg).
+      for (let i = 0; i < photos.length; i++) {
+        setUploadProgress(`Fotó feltöltés: ${i + 1} / ${photos.length}…`);
+        try {
+          await api.uploadJobPhoto(job.id, photos[i], 'listing');
+        } catch (err: any) {
+          // nem törjük meg a fuvar létrejöttét egy hibás fotó miatt,
+          // csak naplózzuk és továbbmegyünk
+          console.warn('Fotó feltöltés hiba:', err.message);
+        }
+      }
+
+      router.push(`/dashboard/fuvar/${job.id}`);
     } catch (err: any) {
       setError(err.message);
     } finally {
       setSubmitting(false);
+      setUploadProgress(null);
     }
   }
 
@@ -137,6 +187,72 @@ export default function UjFuvar() {
           onChange={(e) => set('description', e.target.value)}
           placeholder="Mit viszünk? Lift van? Kézi cipelés?"
         />
+
+        {/* --- Fotók --- */}
+        <h2 style={{ marginTop: 24 }}>Fotók a csomagról</h2>
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+          Opcionális, de erősen ajánlott. A sofőrök pontosabb licitet adnak,
+          ha látják, mit kell szállítani. Max {MAX_PHOTO_COUNT} kép, fotónként
+          legfeljebb {MAX_PHOTO_BYTES / 1024 / 1024} MB.
+        </p>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={onPickPhotos}
+          disabled={photos.length >= MAX_PHOTO_COUNT}
+          style={{ marginTop: 4 }}
+        />
+        {photoPreviews.length > 0 && (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+              gap: 8,
+              marginTop: 12,
+            }}
+          >
+            {photoPreviews.map((p, i) => (
+              <div
+                key={i}
+                style={{
+                  position: 'relative',
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  border: '1px solid var(--border)',
+                  aspectRatio: '1 / 1',
+                }}
+              >
+                <img
+                  src={p.url}
+                  alt={p.file.name}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removePhoto(i)}
+                  title="Eltávolítás"
+                  style={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    background: 'rgba(0,0,0,0.65)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: 24,
+                    height: 24,
+                    cursor: 'pointer',
+                    fontSize: 14,
+                    lineHeight: 1,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* --- Felvétel --- */}
         <h2 style={{ marginTop: 24 }}>Felvétel helye</h2>
@@ -294,6 +410,9 @@ export default function UjFuvar() {
         />
 
         {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
+        {uploadProgress && (
+          <p className="muted" style={{ marginTop: 16 }}>{uploadProgress}</p>
+        )}
 
         <button
           className="btn"
@@ -301,7 +420,11 @@ export default function UjFuvar() {
           disabled={!canSubmit || submitting}
           style={{ marginTop: 24, opacity: canSubmit ? 1 : 0.5 }}
         >
-          {submitting ? 'Feladás...' : 'Fuvar feladása'}
+          {submitting
+            ? (uploadProgress || 'Feladás...')
+            : photos.length > 0
+              ? `Fuvar feladása (${photos.length} fotó)`
+              : 'Fuvar feladása'}
         </button>
       </form>
     </div>

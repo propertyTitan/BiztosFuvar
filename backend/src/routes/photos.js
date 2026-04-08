@@ -14,42 +14,59 @@ const realtime = require('../realtime');
 const barion = require('../services/barion');
 
 const router = express.Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+// 10 MB kép-korlát: base64-ben a DB-ben ez kb. ~13 MB-ot foglal, ami még kezelhető
+// a prototípus adat URL megközelítésünkhöz. Supabase Storage bekötése után emelhető.
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const MAX_DROPOFF_DISTANCE_M = parseInt(process.env.DELIVERY_MAX_DISTANCE_METERS || '50', 10);
 
-// MEGJEGYZÉS: Production-ben a fájlt S3 / Supabase Storage / GCS-be töltjük fel
-// és a visszakapott URL-t mentjük. Itt egyelőre data URL-t mentünk – ezt
-// cseréld le, mielőtt élesbe kerül.
-function fakeUpload(file) {
-  return `data:${file.mimetype};base64,${file.buffer.toString('base64').slice(0, 64)}...`;
+// MEGJEGYZÉS: Production-ben a fájlt Supabase Storage / S3 / GCS-be töltjük fel
+// és a visszakapott URL-t mentjük. Itt egyelőre data URL-t mentünk a DB-be –
+// ez a prototípushoz elég, mert a feladó a dashboardon azonnal látja a képet,
+// de éles rendszerben tárolási okokból le kell cserélni valós objektumtárolóra.
+function encodeAsDataUrl(file) {
+  return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 }
 
+const ALLOWED_KINDS = ['listing', 'pickup', 'dropoff', 'damage', 'document'];
+
 // POST /jobs/:jobId/photos
-//   multipart/form-data: file, kind, gps_lat, gps_lng, gps_accuracy_m
+//   multipart/form-data: file, kind, [gps_lat, gps_lng, gps_accuracy_m]
 router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (req, res) => {
   const { jobId } = req.params;
   const { kind, gps_lat, gps_lng, gps_accuracy_m } = req.body;
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
-  if (!['pickup', 'dropoff', 'damage', 'document'].includes(kind)) {
+  if (!ALLOWED_KINDS.includes(kind)) {
     return res.status(400).json({ error: 'Érvénytelen kind' });
   }
 
   const { rows: jobRows } = await db.query('SELECT * FROM jobs WHERE id = $1', [jobId]);
   const job = jobRows[0];
   if (!job) return res.status(404).json({ error: 'Fuvar nem található' });
-  if (job.carrier_id !== req.user.sub) return res.status(403).json({ error: 'Csak a kijelölt sofőr tölthet fel fotót' });
 
-  // 1) AI elemzés
-  let ai = { has_cargo: null, confidence: null, raw: null };
-  try {
-    ai = await analyzeCargoPhoto(req.file.buffer, req.file.mimetype, kind);
-  } catch (err) {
-    console.warn('[gemini] photo analyze hiba:', err.message);
+  // Jogosultság: 'listing' fotót csak a feladó tölthet fel; minden más
+  // (pickup/dropoff/damage/document) csak a kijelölt sofőré.
+  if (kind === 'listing') {
+    if (job.shipper_id !== req.user.sub) {
+      return res.status(403).json({ error: 'Csak a feladó tölthet fel hirdetés fotót' });
+    }
+  } else if (job.carrier_id !== req.user.sub) {
+    return res.status(403).json({ error: 'Csak a kijelölt sofőr tölthet fel pickup/dropoff fotót' });
   }
 
-  // 2) Tárolás (jelenleg fake URL)
-  const url = fakeUpload(req.file);
+  // 1) AI elemzés – csak a pickup/dropoff/damage fotókra futtatjuk,
+  //    a listing fotókat a feladó tölti fel, ott nem kell "van-e áru" ellenőrzés.
+  let ai = { has_cargo: null, confidence: null, raw: null };
+  if (kind !== 'listing') {
+    try {
+      ai = await analyzeCargoPhoto(req.file.buffer, req.file.mimetype, kind);
+    } catch (err) {
+      console.warn('[gemini] photo analyze hiba:', err.message);
+    }
+  }
+
+  // 2) Tárolás – data URL a DB-ben (Supabase Storage bekötése még TODO).
+  const url = encodeAsDataUrl(req.file);
 
   // 3) Mentés
   const { rows } = await db.query(

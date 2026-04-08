@@ -29,7 +29,7 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN
-    CREATE TYPE photo_kind AS ENUM ('pickup', 'dropoff', 'damage', 'document');
+    CREATE TYPE photo_kind AS ENUM ('listing', 'pickup', 'dropoff', 'damage', 'document');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN

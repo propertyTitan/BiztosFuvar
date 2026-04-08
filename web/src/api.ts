@@ -111,17 +111,44 @@ export const api = {
       `/jobs/${jobId}/location/last`,
     ),
 
-  /** Egy fuvar lerakott fotói. */
+  /** Egy fuvar összes fotója (listing + pickup + dropoff + damage + document). */
   listPhotos: (jobId: string) =>
     request<Array<{
       id: string;
-      kind: 'pickup' | 'dropoff' | 'damage' | 'document';
+      kind: 'listing' | 'pickup' | 'dropoff' | 'damage' | 'document';
       url: string;
       gps_lat: number | null;
       gps_lng: number | null;
       taken_at: string;
       ai_has_cargo: boolean | null;
     }>>(`/jobs/${jobId}/photos`),
+
+  /**
+   * Fotó feltöltés multipart/form-data-val.
+   * - 'listing' típusnál a feladó tölt fel (nem kell GPS).
+   * - 'pickup' / 'dropoff' típusnál a sofőr tölt fel GPS-sel.
+   */
+  uploadJobPhoto: async (
+    jobId: string,
+    file: File,
+    kind: 'listing' | 'pickup' | 'dropoff' | 'damage' | 'document',
+  ) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('kind', kind);
+
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/jobs/${jobId}/photos`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Fotó feltöltés sikertelen');
+    }
+    return res.json();
+  },
 
   /** Escrow / Barion állapot egy fuvarhoz. */
   jobEscrow: (jobId: string) =>
