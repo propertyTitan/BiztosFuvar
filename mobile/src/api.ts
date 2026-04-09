@@ -163,6 +163,13 @@ export const api = {
   rejectRouteBooking: (id: string) =>
     request<any>(`/route-bookings/${id}/reject`, { method: 'POST' }),
 
+  /** Lusta Barion reservation – a "Fizetés Barionnal" gomb kattintáskor hívjuk. */
+  payRouteBooking: (id: string) =>
+    request<{ payment_id: string; gateway_url: string; is_stub: boolean; reused: boolean }>(
+      `/route-bookings/${id}/pay`,
+      { method: 'POST' },
+    ),
+
   // ---------- Notifications ----------
 
   listNotifications: () => request<any[]>('/notifications'),

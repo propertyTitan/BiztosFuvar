@@ -8,6 +8,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/api';
 import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
+import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -30,8 +31,26 @@ const STATUS_COLOR: Record<string, string> = {
 
 export default function Foglalasaim() {
   const router = useRouter();
+  const toast = useToast();
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  async function startPayment(bookingId: string) {
+    setPayingId(bookingId);
+    try {
+      const r = await api.payRouteBooking(bookingId);
+      if (r.is_stub) {
+        router.push({ pathname: '/fizetes-stub', params: { booking: bookingId } });
+      } else {
+        await Linking.openURL(r.gateway_url);
+      }
+    } catch (e: any) {
+      toast.error('Fizetés indítása sikertelen', e.message);
+    } finally {
+      setPayingId(null);
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -119,26 +138,18 @@ export default function Foglalasaim() {
           )}
 
           {/* Fizetés gomb — a sofőri megerősítés után elérhető.
-              STUB módban egy in-app /fizetes-stub képernyőre navigál, valódi
-              gateway esetén pedig a külső Barion URL-t nyitja meg. */}
-          {b.status === 'confirmed' && b.barion_gateway_url && (
+              A backend `/pay` végpontja LUSTÁN hozza létre a Barion
+              foglalást (ha még nincs), és visszaadja a gateway URL-t.
+              Így a gomb akkor is működik, ha a foglalás régebbi kóddal
+              készült és a `barion_gateway_url` üres. */}
+          {b.status === 'confirmed' && (
             <Pressable
-              style={styles.payBtn}
-              onPress={() => {
-                const isStub = (b.barion_gateway_url || '').startsWith('stub:');
-                if (isStub) {
-                  router.push({
-                    pathname: '/fizetes-stub',
-                    params: { booking: b.id },
-                  });
-                } else {
-                  Linking.openURL(b.barion_gateway_url);
-                }
-              }}
+              style={[styles.payBtn, payingId === b.id && { opacity: 0.7 }]}
+              disabled={payingId === b.id}
+              onPress={() => startPayment(b.id)}
             >
               <Text style={styles.payBtnText}>
-                💳 Fizetés Barionnal
-                {(b.barion_gateway_url || '').startsWith('stub:') ? ' (STUB)' : ''}
+                {payingId === b.id ? 'Fizetés indítása…' : '💳 Fizetés Barionnal'}
               </Text>
             </Pressable>
           )}

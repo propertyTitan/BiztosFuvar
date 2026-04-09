@@ -5,10 +5,12 @@
 // amit a feladó egy sofőri útvonalon foglalt, és a státusz frissül, ahogy
 // a sofőr megerősíti, elutasítja, vagy éppen elindul.
 import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api, RouteBooking } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
+import { useToast } from '@/components/ToastProvider';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Sofőri megerősítésre vár',
@@ -31,9 +33,29 @@ const STATUS_PILL: Record<string, string> = {
 
 export default function FoglalasaimOldal() {
   const user = useCurrentUser();
+  const router = useRouter();
+  const toast = useToast();
   const [rows, setRows] = useState<RouteBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Melyik foglalás fizetésgombja tölt éppen (egyszerre csak egy lehet).
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  async function startPayment(bookingId: string) {
+    setPayingId(bookingId);
+    try {
+      const r = await api.payRouteBooking(bookingId);
+      if (r.is_stub) {
+        router.push(`/fizetes-stub?booking=${bookingId}`);
+      } else {
+        window.location.href = r.gateway_url;
+      }
+    } catch (e: any) {
+      toast.error('Fizetés indítása sikertelen', e.message);
+    } finally {
+      setPayingId(null);
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -132,31 +154,30 @@ export default function FoglalasaimOldal() {
               </div>
             )}
 
-            {/* Fizetés gomb – amint a sofőr megerősítette, ide kattintva nyílik
-                a Barion kapuja. STUB módban (ha nincs BARION_POS_KEY) egy
-                in-app /fizetes-stub oldalra navigál, ami szimulálja az élményt. */}
-            {b.status === 'confirmed' && b.barion_gateway_url && (() => {
-              const isStub = b.barion_gateway_url.startsWith('stub:');
-              const href = isStub
-                ? `/fizetes-stub?booking=${b.id}`
-                : b.barion_gateway_url;
-              return (
-                <a
-                  href={href}
-                  target={isStub ? undefined : '_blank'}
-                  rel={isStub ? undefined : 'noreferrer'}
-                  className="btn"
-                  style={{
-                    marginTop: 10,
-                    display: 'inline-block',
-                    background: '#16a34a',
-                    fontSize: 14,
-                  }}
-                >
-                  💳 Fizetés Barionnal{isStub ? ' (STUB)' : ''}
-                </a>
-              );
-            })()}
+            {/* Fizetés gomb – amint a sofőr megerősítette a foglalást,
+                itt lehet fizetni. A backend `/pay` végpontja lusta: ha
+                még nincs Barion reservation, most hozza létre, ha van,
+                azt adja vissza. Ezért a gomb akkor is megjelenik, ha
+                a `barion_gateway_url` még üres (régebbi foglalásoknál). */}
+            {b.status === 'confirmed' && (
+              <button
+                type="button"
+                onClick={() => startPayment(b.id)}
+                disabled={payingId === b.id}
+                className="btn"
+                style={{
+                  marginTop: 10,
+                  display: 'inline-block',
+                  background: '#16a34a',
+                  fontSize: 14,
+                  border: 'none',
+                  cursor: payingId === b.id ? 'wait' : 'pointer',
+                  opacity: payingId === b.id ? 0.7 : 1,
+                }}
+              >
+                {payingId === b.id ? 'Fizetés indítása…' : '💳 Fizetés Barionnal'}
+              </button>
+            )}
           </div>
         </div>
       </div>

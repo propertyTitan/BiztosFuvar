@@ -368,6 +368,18 @@ export const api = {
   rejectRouteBooking: (id: string) =>
     request<{ ok: true }>(`/route-bookings/${id}/reject`, { method: 'POST' }),
 
+  /**
+   * Lusta Barion reservation — akkor hívjuk, amikor a feladó a "Fizetés
+   * Barionnal" gombra kattint. Ha a foglaláshoz már tartozik gateway URL,
+   * azt kapjuk vissza; ha nem, a backend most hozza létre, elmenti, és
+   * visszaadja. Idempotens, bármikor hívható egy megerősített foglalásra.
+   */
+  payRouteBooking: (id: string) =>
+    request<{ payment_id: string; gateway_url: string; is_stub: boolean; reused: boolean }>(
+      `/route-bookings/${id}/pay`,
+      { method: 'POST' },
+    ),
+
   // ---------- Notifications ----------
 
   listNotifications: () =>

@@ -521,6 +521,82 @@ router.post(
   },
 );
 
+// POST /route-bookings/:id/pay – lusta Barion foglalás létrehozás.
+//
+// Akkor hívjuk, amikor a feladó a "Fizetés Barionnal" gombra kattint.
+//   - Ha a foglaláshoz már tartozik `barion_gateway_url`, azt adjuk vissza.
+//   - Ha nincs (pl. régebbi kóddal erősítette meg a sofőr, amikor még nem
+//     volt Barion integráció), MOST hozzuk létre a reservation-t, eltároljuk
+//     a paymentId + gatewayUrl-t, és azt adjuk vissza.
+//
+// Így az "Elfogadva, de nincs fizetés gomb" állapot mostantól öngyógyul:
+// a kattintás triggereli a hiányzó reservation-t.
+router.post('/route-bookings/:id/pay', authRequired, async (req, res) => {
+  const { rows: bRows } = await db.query(
+    `SELECT b.*, s.email AS shipper_email, c.email AS carrier_email
+       FROM route_bookings b
+       JOIN carrier_routes r ON r.id = b.route_id
+       JOIN users s ON s.id = b.shipper_id
+       JOIN users c ON c.id = r.carrier_id
+      WHERE b.id = $1`,
+    [req.params.id],
+  );
+  const b = bRows[0];
+  if (!b) return res.status(404).json({ error: 'Foglalás nem található' });
+  if (b.shipper_id !== req.user.sub) {
+    return res.status(403).json({ error: 'Csak a foglalás feladója fizethet' });
+  }
+  if (b.status !== 'confirmed') {
+    return res.status(409).json({
+      error: 'Csak megerősített foglalást lehet fizetni (státusz: ' + b.status + ')',
+    });
+  }
+
+  // Idempotens: ha már megvan, csak visszaadjuk.
+  if (b.barion_gateway_url) {
+    return res.json({
+      payment_id: b.barion_payment_id,
+      gateway_url: b.barion_gateway_url,
+      is_stub: String(b.barion_gateway_url).startsWith('stub:'),
+      reused: true,
+    });
+  }
+
+  // Nincs még reservation → most hozzuk létre, és mentsük el a sorra.
+  let barionRes;
+  try {
+    barionRes = await barion.reservePayment({
+      jobId: b.id,
+      totalHuf: b.price_huf,
+      shipperEmail: b.shipper_email,
+      carrierEmail: b.carrier_email,
+    });
+  } catch (err) {
+    console.error('[barion] lusta reservePayment hiba:', err.message);
+    return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+  }
+
+  const carrierShare = Math.round(b.price_huf * (1 - barion.COMMISSION_PCT));
+  const platformShare = b.price_huf - carrierShare;
+
+  await db.query(
+    `UPDATE route_bookings
+        SET barion_payment_id   = $1,
+            barion_gateway_url  = $2,
+            carrier_share_huf   = COALESCE(carrier_share_huf, $3),
+            platform_share_huf  = COALESCE(platform_share_huf, $4)
+      WHERE id = $5`,
+    [barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare, b.id],
+  );
+
+  res.json({
+    payment_id: barionRes.paymentId,
+    gateway_url: barionRes.gatewayUrl,
+    is_stub: !!barionRes.stub,
+    reused: false,
+  });
+});
+
 // POST /route-bookings/:id/reject – az útvonal tulajdonosa elutasítja
 router.post(
   '/route-bookings/:id/reject',
