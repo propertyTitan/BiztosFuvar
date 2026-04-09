@@ -197,9 +197,10 @@ export default function SoforFuvarReszletek() {
           )}
         </div>
         {job.description && (
-          <p className="muted" style={{ marginTop: 12, marginBottom: 0 }}>
-            <strong style={{ color: 'var(--text)' }}>Leírás:</strong> {job.description}
-          </p>
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Leírás a feladótól</div>
+            <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text)' }}>{job.description}</div>
+          </div>
         )}
       </div>
 

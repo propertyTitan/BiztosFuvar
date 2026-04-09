@@ -149,12 +149,13 @@ export default function FeladoiFuvarReszletek() {
         <Text style={styles.sectionLabel}>Cím</Text>
         <Text style={styles.row}>📍 {job.pickup_address}</Text>
         <Text style={styles.row}>🏁 {job.dropoff_address}</Text>
-        {job.description ? (
-          <Text style={[styles.row, { marginTop: 8, color: colors.textMuted }]}>
-            {job.description}
-          </Text>
-        ) : null}
       </View>
+      {job.description ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Leírás</Text>
+          <Text style={styles.description}>{job.description}</Text>
+        </View>
+      ) : null}
 
       {/* Licitek */}
       {(job.status === 'pending' || job.status === 'bidding') && (
@@ -236,6 +237,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   row: { color: colors.text, marginBottom: 2 },
+  description: { color: colors.text, lineHeight: 20, fontSize: 15 },
   muted: { color: colors.textMuted, fontSize: 13 },
   thumb: {
     width: 120,

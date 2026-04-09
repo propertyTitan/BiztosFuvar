@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   },
   sectionLabel: { fontSize: 12, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing.xs },
   row: { color: colors.text, marginBottom: 2 },
-  description: { color: colors.text, lineHeight: 20 },
+  description: { color: colors.text, lineHeight: 20, fontSize: 15 },
   input: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.md,
     padding: spacing.md, fontSize: 16, marginBottom: spacing.md, backgroundColor: '#fff',
