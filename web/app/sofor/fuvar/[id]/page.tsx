@@ -13,6 +13,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
+import { useToast } from '@/components/ToastProvider';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -29,6 +30,7 @@ export default function SoforFuvarReszletek() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const me = useCurrentUser();
+  const toast = useToast();
 
   const [job, setJob] = useState<Job | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
@@ -74,12 +76,13 @@ export default function SoforFuvarReszletek() {
         eta_minutes: bidEta ? parseInt(bidEta, 10) : undefined,
         message: bidMessage || undefined,
       });
+      toast.success('Licit elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
       setBidAmount('');
       setBidEta('');
       setBidMessage('');
       await load();
     } catch (err: any) {
-      alert('Licit hiba: ' + err.message);
+      toast.error('Licit hiba', err.message);
     } finally {
       setSubmitting(false);
     }

@@ -12,6 +12,7 @@ import { colors } from '@/theme';
 import { clearCurrentUser, getCurrentUser } from '@/auth';
 import { api } from '@/api';
 import { getSocket, joinUserRoom } from '@/socket';
+import { ToastProvider } from '@/components/ToastProvider';
 
 function LogoutButton() {
   const router = useRouter();
@@ -92,7 +93,7 @@ function NotificationBellButton() {
 
 export default function RootLayout() {
   return (
-    <>
+    <ToastProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -117,6 +118,7 @@ export default function RootLayout() {
         />
         <Stack.Screen name="ertesitesek" options={{ title: 'Értesítések' }} />
         <Stack.Screen name="ai-chat" options={{ title: 'AI Segéd' }} />
+        <Stack.Screen name="fizetes-stub" options={{ title: 'Fizetés (STUB)' }} />
         <Stack.Screen name="hirdeteseim" options={{ title: 'Saját hirdetéseim' }} />
         <Stack.Screen name="sajat-fuvaraim" options={{ title: 'Fuvaraim' }} />
 
@@ -140,6 +142,6 @@ export default function RootLayout() {
         <Stack.Screen name="feladas/utvonal/[id]" options={{ title: 'Útvonal' }} />
         <Stack.Screen name="feladas/foglalasaim" options={{ title: 'Foglalásaim' }} />
       </Stack>
-    </>
+    </ToastProvider>
   );
 }

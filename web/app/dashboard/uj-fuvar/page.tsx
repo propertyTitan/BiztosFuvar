@@ -15,6 +15,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
+import { useToast } from '@/components/ToastProvider';
 
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB – egyezik a backend limittel
 const MAX_PHOTO_COUNT = 8;
@@ -60,6 +61,7 @@ const initialForm: FormState = {
 
 export default function UjFuvar() {
   const router = useRouter();
+  const toast = useToast();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
@@ -152,9 +154,14 @@ export default function UjFuvar() {
         }
       }
 
+      toast.success(
+        'Fuvar feladva',
+        photos.length > 0 ? `${photos.length} fotóval együtt` : undefined,
+      );
       router.push(`/dashboard/fuvar/${job.id}`);
     } catch (err: any) {
       setError(err.message);
+      toast.error('Hiba a fuvar feladáskor', err.message);
     } finally {
       setSubmitting(false);
       setUploadProgress(null);

@@ -7,11 +7,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { api } from '@/api';
 import { PACKAGE_SIZES, classifyPackage, PackageSizeId } from '@/constants';
+import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
 export default function FeladoUtvonalReszletekMobil() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const [route, setRoute] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -71,10 +73,10 @@ export default function FeladoUtvonalReszletekMobil() {
         dropoff_lng: dropoffLng!,
         notes: notes || undefined,
       });
-      Alert.alert('Sikeres foglalás', 'A sofőrnek meg kell erősítenie. Amint megerősíti, a Barion letétbe helyezi az összeget.');
-      router.replace('/feladas/sajat');
+      toast.success('Foglalás elküldve', 'A sofőrnek meg kell erősítenie');
+      router.replace('/feladas/foglalasaim');
     } catch (err: any) {
-      Alert.alert('Hiba', err.message);
+      toast.error('Hiba', err.message);
     } finally {
       setSubmitting(false);
     }

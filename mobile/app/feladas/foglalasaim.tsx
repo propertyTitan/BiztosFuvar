@@ -118,19 +118,29 @@ export default function Foglalasaim() {
             </View>
           )}
 
-          {/* Fizetés gomb – amint a sofőr megerősítette, a Barion gateway elérhető */}
+          {/* Fizetés gomb — a sofőri megerősítés után elérhető.
+              STUB módban egy in-app /fizetes-stub képernyőre navigál, valódi
+              gateway esetén pedig a külső Barion URL-t nyitja meg. */}
           {b.status === 'confirmed' && b.barion_gateway_url && (
             <Pressable
               style={styles.payBtn}
-              onPress={() => Linking.openURL(b.barion_gateway_url)}
+              onPress={() => {
+                const isStub = (b.barion_gateway_url || '').startsWith('stub:');
+                if (isStub) {
+                  router.push({
+                    pathname: '/fizetes-stub',
+                    params: { booking: b.id },
+                  });
+                } else {
+                  Linking.openURL(b.barion_gateway_url);
+                }
+              }}
             >
-              <Text style={styles.payBtnText}>💳 Fizetés Barionnal</Text>
+              <Text style={styles.payBtnText}>
+                💳 Fizetés Barionnal
+                {(b.barion_gateway_url || '').startsWith('stub:') ? ' (STUB)' : ''}
+              </Text>
             </Pressable>
-          )}
-          {b.status === 'confirmed' && !b.barion_gateway_url && (
-            <Text style={styles.stubNote}>
-              Barion STUB mód – valódi gateway nincs
-            </Text>
           )}
         </View>
       )}

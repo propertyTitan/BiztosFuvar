@@ -132,35 +132,31 @@ export default function FoglalasaimOldal() {
               </div>
             )}
 
-            {/* Fizetés gomb – amint a sofőr megerősítette, a Barion gateway elérhető */}
-            {b.status === 'confirmed' && b.barion_gateway_url && (
-              <a
-                href={b.barion_gateway_url}
-                target="_blank"
-                rel="noreferrer"
-                className="btn"
-                style={{
-                  marginTop: 10,
-                  display: 'inline-block',
-                  background: '#16a34a',
-                  fontSize: 14,
-                }}
-              >
-                💳 Fizetés Barionnal
-              </a>
-            )}
-            {b.status === 'confirmed' && !b.barion_gateway_url && (
-              <div
-                style={{
-                  marginTop: 10,
-                  fontSize: 12,
-                  color: 'var(--muted)',
-                  fontStyle: 'italic',
-                }}
-              >
-                Barion STUB mód – valódi gateway nincs
-              </div>
-            )}
+            {/* Fizetés gomb – amint a sofőr megerősítette, ide kattintva nyílik
+                a Barion kapuja. STUB módban (ha nincs BARION_POS_KEY) egy
+                in-app /fizetes-stub oldalra navigál, ami szimulálja az élményt. */}
+            {b.status === 'confirmed' && b.barion_gateway_url && (() => {
+              const isStub = b.barion_gateway_url.startsWith('stub:');
+              const href = isStub
+                ? `/fizetes-stub?booking=${b.id}`
+                : b.barion_gateway_url;
+              return (
+                <a
+                  href={href}
+                  target={isStub ? undefined : '_blank'}
+                  rel={isStub ? undefined : 'noreferrer'}
+                  className="btn"
+                  style={{
+                    marginTop: 10,
+                    display: 'inline-block',
+                    background: '#16a34a',
+                    fontSize: 14,
+                  }}
+                >
+                  💳 Fizetés Barionnal{isStub ? ' (STUB)' : ''}
+                </a>
+              );
+            })()}
           </div>
         </div>
       </div>

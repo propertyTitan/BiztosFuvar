@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Link, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '@/api';
+import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
 const BOOKING_STATUS_LABEL: Record<string, string> = {
@@ -21,6 +22,7 @@ const BOOKING_STATUS_LABEL: Record<string, string> = {
 export default function SoforUtvonalReszletek() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const [route, setRoute] = useState<any>(null);
   const [bookings, setBookings] = useState<any[]>([]);
 
@@ -45,18 +47,11 @@ export default function SoforUtvonalReszletek() {
 
   async function confirmBooking(bookingId: string) {
     try {
-      const res = await api.confirmRouteBooking(bookingId);
+      await api.confirmRouteBooking(bookingId);
+      toast.success('Foglalás elfogadva', 'A feladó most tudja kifizetni');
       await load();
-      if (res.barion?.gateway_url) {
-        Alert.alert('Elfogadva', 'A fizetési oldalt mindjárt megnyitom.', [
-          { text: 'Később' },
-          { text: 'Megnyitom', onPress: () => Linking.openURL(res.barion.gateway_url) },
-        ]);
-      } else {
-        Alert.alert('Elfogadva', 'A Barion STUB módban fut – valódi fizetés nincs.');
-      }
     } catch (err: any) {
-      Alert.alert('Hiba', err.message);
+      toast.error('Hiba', err.message);
     }
   }
 
@@ -69,9 +64,10 @@ export default function SoforUtvonalReszletek() {
         onPress: async () => {
           try {
             await api.rejectRouteBooking(bookingId);
+            toast.info('Foglalás elutasítva');
             await load();
           } catch (err: any) {
-            Alert.alert('Hiba', err.message);
+            toast.error('Hiba', err.message);
           }
         },
       },

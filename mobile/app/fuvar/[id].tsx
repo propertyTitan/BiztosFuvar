@@ -10,12 +10,14 @@ import { useLocalSearchParams, Link } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { api } from '@/api';
+import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
 const PING_INTERVAL_MS = 10_000; // 10 másodpercenként frissíti a sofőr pozícióját
 
 export default function FuvarReszletek() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const toast = useToast();
   const [job, setJob] = useState<any>(null);
   const [bid, setBid] = useState('');
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -66,12 +68,15 @@ export default function FuvarReszletek() {
   async function placeBid() {
     try {
       const amount = parseInt(bid, 10);
-      if (!amount) return Alert.alert('Adj meg egy összeget');
+      if (!amount) {
+        toast.error('Adj meg egy érvényes összeget');
+        return;
+      }
       await api.placeBid(id!, amount);
-      Alert.alert('Sikeres licit', `${amount.toLocaleString('hu-HU')} Ft`);
+      toast.success('Licit elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
       setBid('');
     } catch (e: any) {
-      Alert.alert('Sikertelen licit', e.message);
+      toast.error('Sikertelen licit', e.message);
     }
   }
 

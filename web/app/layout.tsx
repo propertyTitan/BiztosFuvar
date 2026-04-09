@@ -5,6 +5,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
 import AiChatWidget from '@/components/AiChatWidget';
+import { ToastProvider } from '@/components/ToastProvider';
 
 export const metadata: Metadata = {
   title: 'GoFuvar',
@@ -18,10 +19,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="hu">
       <body>
-        <SiteHeader />
-        <main className="site-main">{children}</main>
-        <footer className="site-footer">© GoFuvar – Bizalom. Fotó. Kód. Letét.</footer>
-        <AiChatWidget />
+        <ToastProvider>
+          <SiteHeader />
+          <main className="site-main">{children}</main>
+          <footer className="site-footer">© GoFuvar – Bizalom. Fotó. Kód. Letét.</footer>
+          <AiChatWidget />
+        </ToastProvider>
       </body>
     </html>
   );

@@ -10,6 +10,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { api } from '@/api';
 import { PACKAGE_SIZES, PackageSizeId } from '@/constants';
+import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
 type Tag = {
@@ -24,6 +25,7 @@ type SizeRow = { enabled: boolean; price: string };
 
 export default function UjUtvonalMobil() {
   const router = useRouter();
+  const toast = useToast();
   const { edit } = useLocalSearchParams<{ edit?: string }>();
   const isEdit = !!edit;
 
@@ -142,9 +144,12 @@ export default function UjUtvonalMobil() {
       } else {
         await api.createCarrierRoute(body);
       }
+      toast.success(
+        isEdit ? 'Útvonal mentve' : (publishNow ? 'Útvonal publikálva' : 'Piszkozat mentve'),
+      );
       router.replace('/utvonalaim');
     } catch (err: any) {
-      Alert.alert('Hiba', err.message);
+      toast.error('Hiba', err.message);
     } finally {
       setSubmitting(false);
     }

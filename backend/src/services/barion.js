@@ -54,9 +54,12 @@ async function barionFetch(path, body) {
  */
 async function reservePayment({ jobId, totalHuf, shipperEmail, carrierEmail }) {
   if (isStub()) {
+    // STUB módban egy "stub:" URI-t adunk vissza, amit a frontend felismer,
+    // és a saját in-app `/fizetes-stub` oldalára navigál. Így a felhasználó
+    // ugyanazt a "van Barion gomb" élményt kapja, de nem zavar be élesben.
     return {
       paymentId: `stub-${jobId}`,
-      gatewayUrl: null,
+      gatewayUrl: `stub:payment/${jobId}`,
       stub: true,
       message: 'Barion STUB – nincs BARION_POS_KEY beállítva.',
     };

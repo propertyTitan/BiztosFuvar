@@ -10,6 +10,7 @@ import { useParams } from 'next/navigation';
 import { api, Job, Bid } from '@/api';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { subscribeJob } from '@/lib/socket';
+import { useToast } from '@/components/ToastProvider';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik', bidding: 'Licitálható', accepted: 'Elfogadva',
@@ -19,6 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function FuvarReszletek() {
   const { id } = useParams<{ id: string }>();
+  const toast = useToast();
   const [job, setJob] = useState<Job | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
@@ -52,12 +54,20 @@ export default function FuvarReszletek() {
   async function acceptBid(bidId: string) {
     try {
       const res = await api.acceptBid(bidId);
+      toast.success('Licit elfogadva', 'A Barion letét lefoglalva');
       if (res.barion?.gateway_url) {
-        // Sandbox / élesben itt átirányítjuk a feladót a Barion felületre
+        const isStub = res.barion.gateway_url.startsWith('stub:');
+        if (isStub) {
+          // STUB fizetés oldal
+          window.location.href = `/fizetes-stub?job=${id}`;
+          return;
+        }
         window.open(res.barion.gateway_url, '_blank');
       }
       loadAll();
-    } catch (err: any) { alert('Hiba: ' + err.message); }
+    } catch (err: any) {
+      toast.error('Hiba a licit elfogadásakor', err.message);
+    }
   }
 
   if (error) return <div className="card" style={{ borderColor: 'var(--danger)' }}>Hiba: {error}</div>;
@@ -248,11 +258,23 @@ export default function FuvarReszletek() {
                   <p className="muted">Platform jutalék (10%): {escrow.platform_share_huf?.toLocaleString('hu-HU')} Ft</p>
                 </>
               )}
-              {escrow.barion_gateway_url && (
-                <a className="btn" href={escrow.barion_gateway_url} target="_blank" rel="noreferrer">
-                  Fizetés a Barionon
-                </a>
-              )}
+              {escrow.barion_gateway_url && (() => {
+                const isStub = escrow.barion_gateway_url.startsWith('stub:');
+                const href = isStub
+                  ? `/fizetes-stub?job=${id}`
+                  : escrow.barion_gateway_url;
+                return (
+                  <a
+                    className="btn"
+                    href={href}
+                    target={isStub ? undefined : '_blank'}
+                    rel={isStub ? undefined : 'noreferrer'}
+                    style={{ background: '#16a34a' }}
+                  >
+                    💳 Fizetés a Barionon{isStub ? ' (STUB)' : ''}
+                  </a>
+                );
+              })()}
               {escrow.barion_payment_id?.startsWith('stub-') && (
                 <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
                   ⚠️ Barion STUB mód – élesben sandbox/produkciós kapuhoz csatlakozik.

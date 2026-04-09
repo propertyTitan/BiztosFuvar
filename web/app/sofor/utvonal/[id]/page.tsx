@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, CarrierRoute, RouteBooking } from '@/api';
+import { useToast } from '@/components/ToastProvider';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -22,6 +23,7 @@ const STATUS_LABEL: Record<string, string> = {
 export default function UtvonalReszletek() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const toast = useToast();
   const [route, setRoute] = useState<CarrierRoute | null>(null);
   const [bookings, setBookings] = useState<RouteBooking[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -46,13 +48,11 @@ export default function UtvonalReszletek() {
 
   async function confirmBooking(bookingId: string) {
     try {
-      const res = await api.confirmRouteBooking(bookingId);
-      if (res.barion?.gateway_url) {
-        window.open(res.barion.gateway_url, '_blank');
-      }
+      await api.confirmRouteBooking(bookingId);
+      toast.success('Foglalás elfogadva', 'A feladó most tudja kifizetni');
       await load();
     } catch (err: any) {
-      alert('Hiba: ' + err.message);
+      toast.error('Hiba a foglalás elfogadásakor', err.message);
     }
   }
 
@@ -60,9 +60,10 @@ export default function UtvonalReszletek() {
     if (!confirm('Biztosan elutasítod?')) return;
     try {
       await api.rejectRouteBooking(bookingId);
+      toast.info('Foglalás elutasítva');
       await load();
     } catch (err: any) {
-      alert('Hiba: ' + err.message);
+      toast.error('Hiba', err.message);
     }
   }
 

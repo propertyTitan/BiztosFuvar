@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'expo-router';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { api } from '@/api';
+import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
 type FormState = {
@@ -54,6 +55,7 @@ const initial: FormState = {
 
 export default function UjFuvarFeladas() {
   const router = useRouter();
+  const toast = useToast();
   const [form, setForm] = useState<FormState>(initial);
   const [submitting, setSubmitting] = useState(false);
 
@@ -98,9 +100,10 @@ export default function UjFuvarFeladas() {
         height_cm: Number(form.height_cm),
         suggested_price_huf: Number(form.suggested_price_huf),
       });
+      toast.success('Fuvar feladva', 'A sofőrök hamarosan licitálnak rá');
       router.replace({ pathname: '/feladas/[id]', params: { id: job.id } });
     } catch (err: any) {
-      Alert.alert('Hiba a fuvar feladásakor', err.message);
+      toast.error('Hiba a fuvar feladásakor', err.message);
     } finally {
       setSubmitting(false);
     }
