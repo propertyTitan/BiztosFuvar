@@ -4,13 +4,16 @@
 // - Közelség szerint rendezve, ha a böngésző megadja a geolocation-t.
 // - Új fuvar érkezéskor (Socket.IO `jobs:new`) automatikusan frissül a lista.
 // - Minden kártya → a fuvar részletes oldalára visz, ahol licitálni lehet.
+// - Lista / térkép toggle: a user eldöntheti melyik nézetben böngészik.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { getSocket } from '@/lib/socket';
+import JobBrowseMap from '@/components/JobBrowseMap';
 
 type ListedJob = Job & { distance_to_pickup_km?: number };
+type ViewMode = 'list' | 'map';
 
 export default function SoforFuvarokLista() {
   const me = useCurrentUser();
@@ -18,6 +21,7 @@ export default function SoforFuvarokLista() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
+  const [view, setView] = useState<ViewMode>('list');
 
   async function load(lat?: number, lng?: number) {
     setLoading(true);
@@ -77,9 +81,56 @@ export default function SoforFuvarokLista() {
               : 'A helymeghatározás nem érhető el – a teljes nyitott lista látható'}
           </p>
         </div>
-        <button className="btn btn-secondary" type="button" onClick={() => load(here?.lat, here?.lng)}>
-          Frissítés
-        </button>
+        <div className="row" style={{ gap: 8 }}>
+          {/* Nézet váltó: lista ↔ térkép */}
+          <div
+            style={{
+              display: 'inline-flex',
+              background: '#f1f5f9',
+              borderRadius: 999,
+              padding: 3,
+              border: '1px solid var(--border)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setView('list')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 999,
+                border: 'none',
+                background: view === 'list' ? '#fff' : 'transparent',
+                fontWeight: view === 'list' ? 700 : 500,
+                cursor: 'pointer',
+                fontSize: 13,
+                color: 'var(--text)',
+                boxShadow: view === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              📋 Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('map')}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 999,
+                border: 'none',
+                background: view === 'map' ? '#fff' : 'transparent',
+                fontWeight: view === 'map' ? 700 : 500,
+                cursor: 'pointer',
+                fontSize: 13,
+                color: 'var(--text)',
+                boxShadow: view === 'map' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              🗺️ Térkép
+            </button>
+          </div>
+          <button className="btn btn-secondary" type="button" onClick={() => load(here?.lat, here?.lng)}>
+            Frissítés
+          </button>
+        </div>
       </div>
 
       {loading && <p style={{ marginTop: 24 }}>Betöltés…</p>}
@@ -96,7 +147,19 @@ export default function SoforFuvarokLista() {
         </div>
       )}
 
-      {jobs.map((j) => {
+      {/* Térképes nézet: minden fuvar felvételi + lerakodási markerrel
+          és egy halvány szaggatott vonallal. A saját posztok sárga
+          markerrel jelennek meg. */}
+      {!loading && !error && jobs.length > 0 && view === 'map' && (
+        <div style={{ marginTop: 16 }}>
+          <JobBrowseMap jobs={jobs} currentUserId={me?.id || null} />
+          <p className="muted" style={{ fontSize: 12, marginTop: 8, textAlign: 'center' }}>
+            🟢 Felvétel · 🔴 Lerakodás · 🟡 Saját poszt · Kattints bármelyik markerre a részletekhez.
+          </p>
+        </div>
+      )}
+
+      {view === 'list' && jobs.map((j) => {
         const isMine = !!me && j.shipper_id === me.id;
         // Saját poszton csak szerkesztés/megtekintés. A részletek oldal
         // ilyenkor a feladói nézetre visz (dashboard/fuvar/[id]), hogy

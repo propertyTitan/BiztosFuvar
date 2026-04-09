@@ -9,6 +9,9 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, CarrierRoute } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import RouteBrowseMap from '@/components/RouteBrowseMap';
+
+type ViewMode = 'list' | 'map';
 
 export default function FeladoiUtvonalBongeszo() {
   const me = useCurrentUser();
@@ -16,6 +19,7 @@ export default function FeladoiUtvonalBongeszo() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [city, setCity] = useState('');
+  const [view, setView] = useState<ViewMode>('list');
 
   async function load(filterCity?: string) {
     setLoading(true);
@@ -47,6 +51,51 @@ export default function FeladoiUtvonalBongeszo() {
             Sofőrök által meghirdetett útvonalak. Foglalj helyet a csomagod
             számára az útjukon, fix áron — nincs licitálás.
           </p>
+        </div>
+        {/* Nézet váltó: lista ↔ térkép */}
+        <div
+          style={{
+            display: 'inline-flex',
+            background: '#f1f5f9',
+            borderRadius: 999,
+            padding: 3,
+            border: '1px solid var(--border)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 999,
+              border: 'none',
+              background: view === 'list' ? '#fff' : 'transparent',
+              fontWeight: view === 'list' ? 700 : 500,
+              cursor: 'pointer',
+              fontSize: 13,
+              color: 'var(--text)',
+              boxShadow: view === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}
+          >
+            📋 Lista
+          </button>
+          <button
+            type="button"
+            onClick={() => setView('map')}
+            style={{
+              padding: '6px 14px',
+              borderRadius: 999,
+              border: 'none',
+              background: view === 'map' ? '#fff' : 'transparent',
+              fontWeight: view === 'map' ? 700 : 500,
+              cursor: 'pointer',
+              fontSize: 13,
+              color: 'var(--text)',
+              boxShadow: view === 'map' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            }}
+          >
+            🗺️ Térkép
+          </button>
         </div>
       </div>
 
@@ -91,7 +140,18 @@ export default function FeladoiUtvonalBongeszo() {
         </div>
       )}
 
-      {routes.map((r) => {
+      {/* Térképes nézet: minden útvonalhoz zöld start + piros cél marker,
+          és egy halvány szaggatott vonal a teljes waypoint láncon. */}
+      {!loading && !error && routes.length > 0 && view === 'map' && (
+        <div style={{ marginTop: 16 }}>
+          <RouteBrowseMap routes={routes} currentUserId={me?.id || null} />
+          <p className="muted" style={{ fontSize: 12, marginTop: 8, textAlign: 'center' }}>
+            🟢 Indulás · 🔴 Cél · 🟡 Saját poszt · Kattints bármelyik markerre a részletekhez.
+          </p>
+        </div>
+      )}
+
+      {view === 'list' && routes.map((r) => {
         const first = r.waypoints[0]?.name || '?';
         const last = r.waypoints[r.waypoints.length - 1]?.name || '?';
         const stops = r.waypoints.slice(1, -1);
