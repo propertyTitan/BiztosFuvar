@@ -3,11 +3,18 @@
 // - Fix magasságú kártyák → nincs szakadás a wrap-nél, akkor se ha egy
 //   subtitle több sorra tördelődik
 // - Role-független: mindenki ugyanazt a 10 kártyát látja
+//
+// FONTOS: korábban `<Link href=... asChild><Pressable>` mintával navigáltunk,
+// de ez a minta expo-routerben néha elnyelte az első kattintást (a Link csak
+// a második render után volt teljesen bekötve az asChild Pressable-höz, és
+// a user azt tapasztalta, hogy "kattintottam de a régi oldal maradt, majd
+// másodikra jó lett"). Most explicit `router.push()`-t hívunk a Pressable
+// `onPress`-én, ami mindig azonnal megtörténik.
 import { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, FlatList, RefreshControl,
 } from 'react-native';
-import { Link, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/api';
 import { getCurrentUser, CurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
@@ -36,6 +43,7 @@ const CARDS: Card[] = [
 ];
 
 export default function Hub() {
+  const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [unread, setUnread] = useState(0);
 
@@ -78,20 +86,18 @@ export default function Hub() {
   function renderCard({ item: c }: { item: Card }) {
     const badge = c.badgeKey === 'unread' ? unread : 0;
     return (
-      <Link href={c.href as any} asChild>
-        <Pressable style={styles.card}>
-          <View style={[styles.iconWrap, { backgroundColor: c.accent }]}>
-            <Text style={styles.icon}>{c.icon}</Text>
+      <Pressable style={styles.card} onPress={() => router.push(c.href as any)}>
+        <View style={[styles.iconWrap, { backgroundColor: c.accent }]}>
+          <Text style={styles.icon}>{c.icon}</Text>
+        </View>
+        <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
+        <Text style={styles.cardSubtitle} numberOfLines={2}>{c.subtitle}</Text>
+        {badge > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge > 99 ? '99+' : String(badge)}</Text>
           </View>
-          <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
-          <Text style={styles.cardSubtitle} numberOfLines={2}>{c.subtitle}</Text>
-          {badge > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{badge > 99 ? '99+' : String(badge)}</Text>
-            </View>
-          )}
-        </Pressable>
-      </Link>
+        )}
+      </Pressable>
     );
   }
 

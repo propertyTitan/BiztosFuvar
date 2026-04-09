@@ -5,7 +5,13 @@
 // - Feladó: Főoldal + Új fuvar + Útba eső sofőrök + Fuvaraim + Foglalásaim
 // - Sofőr: Főoldal + Licitálható + Útvonalaim + Licitjeim + Saját fuvaraim
 // - Mindkettő: értesítés ikon olvasatlan számlálóval + AI segéd link
+//
+// FONTOS: a menülinkek Next.js `<Link>`-ek (nem plain `<a>`-k), hogy
+// kliensoldali soft navigation történjen. Plain `<a>`-val a böngésző
+// teljes reload-ot csinál, és a lassú backend alatt "első kattintásra
+// a régi oldal látszik, másodikra megjelenik az új" típusú hibát okoz.
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
@@ -41,29 +47,29 @@ export default function SiteHeader() {
 
   return (
     <header className="site-header">
-      <a href="/" className="brand" aria-label="GoFuvar – Főoldal">
+      <Link href="/" className="brand" aria-label="GoFuvar – Főoldal">
         {/* Inline fehér logó a sötétkék headerre */}
         <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 40, width: 'auto', display: 'block' }} />
-      </a>
+      </Link>
       <nav>
-        {!user && <a href="/bejelentkezes">Belépés</a>}
+        {!user && <Link href="/bejelentkezes">Belépés</Link>}
 
         {user && (
           <>
-            <a href="/">Főoldal</a>
-            <a href="/sofor/fuvarok">Licitálható fuvarok</a>
-            <a href="/dashboard/utvonalak">Fix áras fuvarok</a>
-            <a href="/sofor/sajat-fuvarok">Fuvaraim</a>
-            <a href="/dashboard/foglalasaim">Foglalásaim</a>
-            <a href="/hirdeteseim">Saját hirdetéseim</a>
+            <Link href="/">Főoldal</Link>
+            <Link href="/sofor/fuvarok">Licitálható fuvarok</Link>
+            <Link href="/dashboard/utvonalak">Fix áras fuvarok</Link>
+            <Link href="/sofor/sajat-fuvarok">Fuvaraim</Link>
+            <Link href="/dashboard/foglalasaim">Foglalásaim</Link>
+            <Link href="/hirdeteseim">Saját hirdetéseim</Link>
           </>
         )}
 
-        {user?.role === 'admin' && <a href="/admin">Admin</a>}
+        {user?.role === 'admin' && <Link href="/admin">Admin</Link>}
 
         {user && (
           <>
-            <a
+            <Link
               href="/ertesitesek"
               style={{ position: 'relative', marginLeft: 16 }}
               title="Értesítések"
@@ -88,7 +94,7 @@ export default function SiteHeader() {
                   {unread > 99 ? '99+' : unread}
                 </span>
               )}
-            </a>
+            </Link>
             <span style={{ opacity: 0.7, marginLeft: 16, fontSize: 13 }}>{user.email}</span>
             <button
               type="button"
