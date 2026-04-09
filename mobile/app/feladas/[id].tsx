@@ -117,6 +117,18 @@ export default function FeladoiFuvarReszletek() {
         </MapView>
       </View>
 
+      {/* Átvételi kód – csak a feladó látja */}
+      {job.delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
+        <View style={styles.codeCard}>
+          <Text style={styles.codeLabel}>🔐 Átvételi kód</Text>
+          <Text style={styles.codeValue}>{job.delivery_code}</Text>
+          <Text style={styles.codeHint}>
+            Add át ezt a 6 jegyű kódot a sofőrnek, amikor átveszi tőled (vagy a
+            címzettől) a csomagot. A sofőr ezzel tudja lezárni a fuvart.
+          </Text>
+        </View>
+      )}
+
       {/* Hirdetési fotók */}
       {listingPhotos.length > 0 && (
         <View style={styles.section}>
@@ -239,6 +251,37 @@ const styles = StyleSheet.create({
   row: { color: colors.text, marginBottom: 2 },
   description: { color: colors.text, lineHeight: 20, fontSize: 15 },
   muted: { color: colors.textMuted, fontSize: 13 },
+
+  codeCard: {
+    backgroundColor: colors.primary,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
+  },
+  codeLabel: {
+    color: '#fff',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    opacity: 0.85,
+    marginBottom: spacing.sm,
+    fontWeight: '600',
+  },
+  codeValue: {
+    color: '#fff',
+    fontSize: 40,
+    fontWeight: '800',
+    letterSpacing: 4,
+    textAlign: 'center',
+    paddingVertical: spacing.sm,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  codeHint: {
+    color: '#fff',
+    fontSize: 13,
+    opacity: 0.9,
+    marginTop: spacing.xs,
+    lineHeight: 18,
+  },
   thumb: {
     width: 120,
     height: 120,

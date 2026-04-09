@@ -1,15 +1,15 @@
 // Fotó-feltöltés (Proof of Delivery 2.0).
 // - Memóriából tölti fel a multipart fájlt.
-// - GPS koordináta + Gemini AI elemzés.
-// - Dropoff típusnál validálja a céltól mért távolságot.
-// - Sikeres validáció után a fuvar 'delivered' státuszba kerül és az
-//   escrow letét felszabadul ('released').
+// - GPS koordináta BIZONYÍTÉKKÉNT rögzítődik (vita esetén "hol volt a sofőr").
+// - A dropoff validáció 6 számjegyű ÁTVÉTELI KÓD alapján történik: a sofőr
+//   beírja a feladótól kapott kódot, és ha egyezik, a fuvar 'delivered' lesz.
+// - Az AI elemzést (Gemini) kivettük: a fotó csak bizonyíték, nem kerül
+//   automatikus minősítés alá.
+// - Sikeres validáció után az escrow letét felszabadul ('released').
 const express = require('express');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
-const { analyzeCargoPhoto } = require('../services/gemini');
-const { distanceMeters } = require('../utils/geo');
 const realtime = require('../realtime');
 const barion = require('../services/barion');
 
@@ -17,8 +17,6 @@ const router = express.Router();
 // 10 MB kép-korlát: base64-ben a DB-ben ez kb. ~13 MB-ot foglal, ami még kezelhető
 // a prototípus adat URL megközelítésünkhöz. Supabase Storage bekötése után emelhető.
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-
-const MAX_DROPOFF_DISTANCE_M = parseInt(process.env.DELIVERY_MAX_DISTANCE_METERS || '50', 10);
 
 // MEGJEGYZÉS: Production-ben a fájlt Supabase Storage / S3 / GCS-be töltjük fel
 // és a visszakapott URL-t mentjük. Itt egyelőre data URL-t mentünk a DB-be –
@@ -31,10 +29,14 @@ function encodeAsDataUrl(file) {
 const ALLOWED_KINDS = ['listing', 'pickup', 'dropoff', 'damage', 'document'];
 
 // POST /jobs/:jobId/photos
-//   multipart/form-data: file, kind, [gps_lat, gps_lng, gps_accuracy_m]
+//   multipart/form-data:
+//     file         – a kép
+//     kind         – 'listing' / 'pickup' / 'dropoff' / 'damage' / 'document'
+//     gps_lat,gps_lng,gps_accuracy_m – opcionális, de rögzítjük ha van
+//     delivery_code – CSAK dropoff esetén kötelező, a feladótól kapott 6 jegyű kód
 router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (req, res) => {
   const { jobId } = req.params;
-  const { kind, gps_lat, gps_lng, gps_accuracy_m } = req.body;
+  const { kind, gps_lat, gps_lng, gps_accuracy_m, delivery_code } = req.body;
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
   if (!ALLOWED_KINDS.includes(kind)) {
     return res.status(400).json({ error: 'Érvénytelen kind' });
@@ -54,37 +56,47 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     return res.status(403).json({ error: 'Csak a kijelölt sofőr tölthet fel pickup/dropoff fotót' });
   }
 
-  // 1) AI elemzés – csak a pickup/dropoff/damage fotókra futtatjuk,
-  //    a listing fotókat a feladó tölti fel, ott nem kell "van-e áru" ellenőrzés.
-  let ai = { has_cargo: null, confidence: null, raw: null };
-  if (kind !== 'listing') {
-    try {
-      ai = await analyzeCargoPhoto(req.file.buffer, req.file.mimetype, kind);
-    } catch (err) {
-      console.warn('[gemini] photo analyze hiba:', err.message);
+  // DROPOFF → átvételi kód kötelező, a feladó által generált kóddal kell egyezzen.
+  // Ha nem egyezik: 403, NEM mentünk fotót, NEM állítunk státuszt.
+  if (kind === 'dropoff') {
+    if (!delivery_code || String(delivery_code).trim().length === 0) {
+      return res.status(400).json({
+        error: 'Hiányzó átvételi kód – kérd el a feladótól/átvevőtől a 6 számjegyű kódot',
+      });
+    }
+    if (!job.delivery_code) {
+      // Régi (migráció előtti) fuvaroknál nincs kód. Éles prototípusban
+      // ezt nem szabad engedni, fallback nélkül.
+      return res.status(409).json({
+        error: 'Ehhez a fuvarhoz nem tartozik átvételi kód – vedd fel a kapcsolatot az ügyfélszolgálattal',
+      });
+    }
+    if (String(delivery_code).trim() !== job.delivery_code) {
+      return res.status(403).json({ error: 'Érvénytelen átvételi kód' });
     }
   }
 
-  // 2) Tárolás – data URL a DB-ben (Supabase Storage bekötése még TODO).
+  // Tárolás – data URL a DB-ben (Supabase Storage bekötése még TODO).
   const url = encodeAsDataUrl(req.file);
 
-  // 3) Mentés
+  // Mentés. Az AI elemzés-mezők mostantól mindig null-ok (csak rögzítjük a fotót,
+  // nem minősítjük). A GPS log-szerűen kerül be, bizonyítékként, akkor is ha
+  // nem pont a cél koordinátáján áll a sofőr.
   const { rows } = await db.query(
     `INSERT INTO photos (job_id, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m,
                          ai_has_cargo, ai_confidence, ai_raw_response)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+     VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL) RETURNING *`,
     [
       jobId, req.user.sub, kind, url,
       gps_lat ? parseFloat(gps_lat) : null,
       gps_lng ? parseFloat(gps_lng) : null,
       gps_accuracy_m ? parseFloat(gps_accuracy_m) : null,
-      ai.has_cargo, ai.confidence, ai.raw ? JSON.stringify(ai.raw) : null,
     ],
   );
   const photo = rows[0];
 
-  // 4) Workflow tranzíciók
-  const validation = { distance_m: null, max_distance_m: MAX_DROPOFF_DISTANCE_M, ok: true };
+  // Workflow tranzíciók
+  const validation = { ok: true };
 
   if (kind === 'pickup' && job.status === 'accepted') {
     await db.query(`UPDATE jobs SET status = 'in_progress', updated_at = NOW() WHERE id = $1`, [jobId]);
@@ -92,60 +104,46 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   }
 
   if (kind === 'dropoff' && job.status === 'in_progress') {
-    if (gps_lat == null || gps_lng == null) {
-      validation.ok = false;
-      validation.reason = 'Hiányzó GPS koordináta a lerakodáskor';
-    } else {
-      validation.distance_m = Math.round(
-        distanceMeters(parseFloat(gps_lat), parseFloat(gps_lng), job.dropoff_lat, job.dropoff_lng),
-      );
-      validation.ok = validation.distance_m <= MAX_DROPOFF_DISTANCE_M;
-      if (!validation.ok) validation.reason = `Túl messze a céltól (${validation.distance_m} m)`;
-    }
+    // A kód már validálva volt feljebb, ha eddig eljutottunk, OK-t mondunk.
+    await db.query(
+      `UPDATE jobs SET status = 'delivered', delivered_at = NOW(), updated_at = NOW() WHERE id = $1`,
+      [jobId],
+    );
 
-    if (validation.ok) {
-      await db.query(
-        `UPDATE jobs SET status = 'delivered', delivered_at = NOW(), updated_at = NOW() WHERE id = $1`,
+    // Barion: foglalás véglegesítése + 90/10 split kifizetés
+    let payout = null;
+    try {
+      const { rows: escrowRows } = await db.query(
+        `SELECT et.barion_payment_id, et.amount_huf, u.email AS carrier_email
+           FROM escrow_transactions et
+           JOIN jobs j  ON j.id = et.job_id
+           JOIN users u ON u.id = j.carrier_id
+          WHERE et.job_id = $1`,
         [jobId],
       );
-
-      // Barion: foglalás véglegesítése + 90/10 split kifizetés
-      let payout = null;
-      try {
-        const { rows: escrowRows } = await db.query(
-          `SELECT et.barion_payment_id, et.amount_huf, u.email AS carrier_email
-             FROM escrow_transactions et
-             JOIN jobs j  ON j.id = et.job_id
-             JOIN users u ON u.id = j.carrier_id
-            WHERE et.job_id = $1`,
-          [jobId],
-        );
-        const esc = escrowRows[0];
-        if (esc && esc.barion_payment_id) {
-          payout = await barion.finishReservation({
-            paymentId: esc.barion_payment_id,
-            jobId,
-            totalHuf: esc.amount_huf,
-            carrierPayee: esc.carrier_email,
-          });
-        }
-      } catch (err) {
-        console.error('[barion] finishReservation hiba:', err.message);
+      const esc = escrowRows[0];
+      if (esc && esc.barion_payment_id) {
+        payout = await barion.finishReservation({
+          paymentId: esc.barion_payment_id,
+          jobId,
+          totalHuf: esc.amount_huf,
+          carrierPayee: esc.carrier_email,
+        });
       }
-
-      // Escrow státusz frissítése (akkor is, ha Barion stub módban fut)
-      await db.query(
-        `UPDATE escrow_transactions
-            SET status = 'released', released_at = NOW()
-          WHERE job_id = $1`,
-        [jobId],
-      );
-
-      validation.payout = payout;
-      realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation, payout });
-    } else {
-      realtime.emitToJob(jobId, 'job:dropoff_rejected', { job_id: jobId, photo, validation });
+    } catch (err) {
+      console.error('[barion] finishReservation hiba:', err.message);
     }
+
+    // Escrow státusz frissítése (akkor is, ha Barion stub módban fut)
+    await db.query(
+      `UPDATE escrow_transactions
+          SET status = 'released', released_at = NOW()
+        WHERE job_id = $1`,
+      [jobId],
+    );
+
+    validation.payout = payout;
+    realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation, payout });
   }
 
   res.status(201).json({ photo, validation });

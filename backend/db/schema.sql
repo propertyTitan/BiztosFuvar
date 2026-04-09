@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     pickup_window_start  TIMESTAMPTZ,
     pickup_window_end    TIMESTAMPTZ,
     status               job_status NOT NULL DEFAULT 'pending',
+    -- 6 számjegyű átvételi kód: csak a feladó látja, az átvevő mondja meg
+    -- a sofőrnek az átadáskor, ezzel zárul le a fuvar (a GPS már csak log)
+    delivery_code        VARCHAR(6),
     -- AI ellenőrzés a leíráshoz
     ai_description_ok    BOOLEAN,
     ai_description_notes TEXT,

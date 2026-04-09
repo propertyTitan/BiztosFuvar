@@ -32,6 +32,8 @@ export type Job = {
     | 'completed'
     | 'disputed'
     | 'cancelled';
+  /** 6 számjegyű átvételi kód — a backend csak a feladónak adja vissza. */
+  delivery_code?: string | null;
 };
 
 export type NewJobInput = {

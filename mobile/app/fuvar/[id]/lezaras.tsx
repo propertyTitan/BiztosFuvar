@@ -1,25 +1,24 @@
 // =====================================================================
 //  FUVAR LEZÁRÁSA – a "Bizalmi Lánc" záró képernyője.
 //
-//  Kötelező lépések, sorrendben:
+//  Új, kód alapú flow:
 //   1) Kamera engedély + fotó készítése a lerakodott áruról
-//   2) GPS koordináta lekérése (foreground engedély)
-//   3) Lokális ellenőrzés: a célhelytől legfeljebb 50 m-re vagyunk-e
-//   4) Fotó + GPS feltöltése a backendre (kind: 'dropoff')
-//   5) A backend validál + Barion finishReservation → 90/10 split
-//   6) Sikeres válasz esetén kifizetés státusz megjelenítése
+//   2) Háttérben megkérjük a GPS-t is (nem blokkoló; log-szerűen
+//      rögzítődik bizonyítékként, vita esetén pontosan kiderül,
+//      hol volt a sofőr az átadás pillanatában)
+//   3) A sofőr beírja a feladótól kapott 6 SZÁMJEGYŰ ÁTVÉTELI KÓDOT
+//   4) Fotó + kód + (opcionális) GPS feltöltése → backend validálja a kódot
+//   5) Sikeres validáció után Barion finishReservation → 90/10 split
 // =====================================================================
 import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, ScrollView,
+  View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, ScrollView, TextInput,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Location from 'expo-location';
 import { api } from '@/api';
 import { colors, spacing, radius } from '@/theme';
-
-const MAX_DROPOFF_DISTANCE_M = 50;
 
 type Step = 'camera' | 'preview' | 'uploading' | 'done';
 
@@ -33,10 +32,10 @@ export default function FuvarLezarasa() {
   const [step, setStep] = useState<Step>('camera');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
-  const [distanceM, setDistanceM] = useState<number | null>(null);
+  const [code, setCode] = useState('');
   const [result, setResult] = useState<any>(null);
 
-  // Fuvar betöltése (kell a célkoordináta a lokális távolságszámításhoz)
+  // Fuvar betöltése
   useEffect(() => {
     api.getJob(id!).then(setJob).catch((e) => Alert.alert('Hiba', e.message));
   }, [id]);
@@ -68,47 +67,45 @@ export default function FuvarLezarasa() {
   async function takePhoto() {
     if (!camRef.current) return;
     try {
-      // 1) GPS engedély
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert('Hiba', 'A fuvar lezárásához GPS hozzáférés szükséges.');
-        return;
-      }
-
-      // 2) Fotó + GPS párhuzamosan
-      const [photo, pos] = await Promise.all([
-        camRef.current.takePictureAsync({ quality: 0.7, base64: false, exif: false }),
-        Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High }),
-      ]);
-
-      const coords = {
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        accuracy: pos.coords.accuracy ?? 0,
-      };
-
-      // 3) Lokális távolságszámítás (azonnali visszajelzés a sofőrnek)
-      const d = Math.round(
-        haversineMeters(coords.lat, coords.lng, job.dropoff_lat, job.dropoff_lng),
-      );
-
+      // Kép készítés. Közben NEM blokkoljuk a GPS-re – az csak log-szerűen
+      // megy, ha a sofőr megengedi.
+      const photo = await camRef.current.takePictureAsync({
+        quality: 0.7,
+        base64: false,
+        exif: false,
+      });
       setPhotoUri(photo!.uri);
-      setGps(coords);
-      setDistanceM(d);
       setStep('preview');
+
+      // GPS-t a háttérben próbáljuk megszerezni, ha elérhető.
+      // Nem blokkolunk rá: a fuvar lezáráshoz nem szükséges, csak bizonyíték.
+      Location.getForegroundPermissionsAsync().then(async ({ status }) => {
+        if (status !== 'granted') {
+          const req = await Location.requestForegroundPermissionsAsync();
+          if (req.status !== 'granted') return;
+        }
+        try {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setGps({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy ?? 0,
+          });
+        } catch {
+          // csendben elnyeljük – nem kell blokkolnunk a sofőrt
+        }
+      });
     } catch (e: any) {
       Alert.alert('Hiba a fotó készítésekor', e.message);
     }
   }
 
   async function uploadAndFinalize() {
-    if (!photoUri || !gps) return;
-
-    if (distanceM != null && distanceM > MAX_DROPOFF_DISTANCE_M) {
-      Alert.alert(
-        'Túl messze a céltól',
-        `${distanceM} m-re vagy a céltól. Csak ${MAX_DROPOFF_DISTANCE_M} m-en belül lehet lezárni a fuvart.`,
-      );
+    if (!photoUri) return;
+    if (code.trim().length !== 6) {
+      Alert.alert('Érvénytelen kód', 'A 6 számjegyű átvételi kódot kérd el a feladótól vagy az átvevőtől.');
       return;
     }
 
@@ -118,9 +115,11 @@ export default function FuvarLezarasa() {
         jobId: id!,
         kind: 'dropoff',
         fileUri: photoUri,
-        gps_lat: gps.lat,
-        gps_lng: gps.lng,
-        gps_accuracy_m: gps.accuracy,
+        delivery_code: code.trim(),
+        // GPS-t akkor is elküldjük, ha be tudtuk szerezni (log / bizonyíték)
+        gps_lat: gps?.lat,
+        gps_lng: gps?.lng,
+        gps_accuracy_m: gps?.accuracy,
       });
       setResult(res);
       setStep('done');
@@ -149,31 +148,49 @@ export default function FuvarLezarasa() {
   }
 
   if (step === 'preview') {
-    const ok = distanceM != null && distanceM <= MAX_DROPOFF_DISTANCE_M;
     return (
-      <ScrollView contentContainerStyle={styles.previewContainer}>
-        <Text style={styles.title}>Ellenőrzés</Text>
+      <ScrollView
+        contentContainerStyle={styles.previewContainer}
+        keyboardShouldPersistTaps="handled"
+      >
+        <Text style={styles.title}>Átvételi kód</Text>
+        <Text style={styles.helpText}>
+          Kérd el a feladótól (vagy az átvevőtől) a{'\n'}6 számjegyű átvételi kódot, és írd be ide.
+        </Text>
 
-        <View style={[styles.banner, ok ? styles.bannerOk : styles.bannerErr]}>
-          <Text style={styles.bannerText}>
-            {ok
-              ? `✓ A célhelyhez közel vagy (${distanceM} m)`
-              : `✗ Túl messze vagy a céltól (${distanceM} m). Maximum ${MAX_DROPOFF_DISTANCE_M} m engedélyezett.`}
-          </Text>
-        </View>
+        <TextInput
+          style={styles.codeInput}
+          value={code}
+          onChangeText={(t) => setCode(t.replace(/[^0-9]/g, '').slice(0, 6))}
+          placeholder="······"
+          placeholderTextColor={colors.textMuted}
+          keyboardType="number-pad"
+          maxLength={6}
+          autoFocus
+        />
 
         <Section label="Cél">
-          <Text>{job.dropoff_address}</Text>
-        </Section>
-        <Section label="Aktuális GPS">
-          <Text>
-            {gps?.lat.toFixed(5)}, {gps?.lng.toFixed(5)} (±{Math.round(gps?.accuracy ?? 0)} m)
-          </Text>
+          <Text style={styles.row}>{job.dropoff_address}</Text>
         </Section>
 
+        {gps ? (
+          <Section label="Rögzített GPS (bizonyíték)">
+            <Text style={styles.row}>
+              {gps.lat.toFixed(5)}, {gps.lng.toFixed(5)} (±{Math.round(gps.accuracy)} m)
+            </Text>
+          </Section>
+        ) : (
+          <Section label="GPS">
+            <Text style={styles.muted}>
+              Nem sikerült lekérni a pozíciót – a lezáráshoz nem szükséges,
+              csak vita esetén segítene.
+            </Text>
+          </Section>
+        )}
+
         <Pressable
-          style={[styles.cta, !ok && styles.ctaDisabled]}
-          disabled={!ok}
+          style={[styles.cta, code.length !== 6 && styles.ctaDisabled]}
+          disabled={code.length !== 6}
           onPress={uploadAndFinalize}
         >
           <Text style={styles.ctaText}>Lezárás és kifizetés indítása</Text>
@@ -189,14 +206,13 @@ export default function FuvarLezarasa() {
     return (
       <Centered>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={styles.helpText}>Fotó feltöltése és Barion fizetés indítása...</Text>
+        <Text style={styles.helpText}>Fotó feltöltése és Barion fizetés indítása…</Text>
       </Centered>
     );
   }
 
   // step === 'done'
-  const validation = result?.validation;
-  const payout = validation?.payout;
+  const payout = result?.validation?.payout;
   return (
     <ScrollView contentContainerStyle={styles.previewContainer}>
       <Text style={styles.title}>Sikeres lezárás 🎉</Text>
@@ -205,7 +221,7 @@ export default function FuvarLezarasa() {
       </View>
       {payout && (
         <Section label="Kifizetés (Barion split)">
-          <Text>Teljes összeg: {payout.total_huf?.toLocaleString('hu-HU')} Ft</Text>
+          <Text style={styles.row}>Teljes összeg: {payout.total_huf?.toLocaleString('hu-HU')} Ft</Text>
           <Text style={{ color: colors.success, fontWeight: '700' }}>
             Sofőri rész (90%): {payout.carrier_share_huf?.toLocaleString('hu-HU')} Ft
           </Text>
@@ -239,20 +255,9 @@ function Centered({ children }: { children: React.ReactNode }) {
   return <View style={styles.centered}>{children}</View>;
 }
 
-function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number) {
-  const R = 6371000;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 const styles = StyleSheet.create({
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
-  helpText: { color: colors.textMuted, marginBottom: spacing.md, textAlign: 'center' },
+  helpText: { color: colors.textMuted, marginBottom: spacing.md, textAlign: 'center', lineHeight: 20 },
   bottomBar: {
     backgroundColor: 'rgba(0,0,0,0.7)',
     padding: spacing.lg,
@@ -271,7 +276,6 @@ const styles = StyleSheet.create({
 
   banner: { padding: spacing.md, borderRadius: radius.md, marginBottom: spacing.md },
   bannerOk: { backgroundColor: '#DCFCE7' },
-  bannerErr: { backgroundColor: '#FEE2E2' },
   bannerText: { color: colors.text, fontWeight: '600' },
 
   section: {
@@ -282,6 +286,22 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border,
   },
   sectionLabel: { fontSize: 12, color: colors.textMuted, textTransform: 'uppercase', marginBottom: spacing.xs },
+  row: { color: colors.text, marginBottom: 2 },
+  muted: { color: colors.textMuted, fontSize: 13 },
+
+  codeInput: {
+    fontSize: 40,
+    textAlign: 'center',
+    letterSpacing: 8,
+    paddingVertical: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: radius.md,
+    backgroundColor: '#fff',
+    color: colors.text,
+    marginBottom: spacing.md,
+    fontWeight: '700',
+  },
 
   cta: {
     backgroundColor: colors.primary,
@@ -290,7 +310,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.sm,
   },
-  ctaDisabled: { backgroundColor: colors.textMuted },
+  ctaDisabled: { backgroundColor: colors.textMuted, opacity: 0.6 },
   ctaSecondary: { backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   stub: { color: colors.warning, marginTop: spacing.sm, fontSize: 12 },

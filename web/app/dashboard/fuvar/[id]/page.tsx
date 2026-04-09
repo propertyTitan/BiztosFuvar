@@ -78,6 +78,39 @@ export default function FuvarReszletek() {
         <LiveTrackingMap job={job} />
       </div>
 
+      {/* Átvételi kód – csak a feladó látja, a sofőrnek nincs benne a válaszban */}
+      {job.delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
+        <div
+          className="card"
+          style={{
+            marginTop: 16,
+            background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+            color: '#fff',
+            border: 'none',
+          }}
+        >
+          <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 8 }}>
+            🔐 Átvételi kód
+          </div>
+          <div
+            style={{
+              fontSize: 40,
+              fontWeight: 800,
+              letterSpacing: '0.15em',
+              fontFamily: 'monospace',
+              textAlign: 'center',
+              padding: '12px 0',
+            }}
+          >
+            {job.delivery_code}
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>
+            Add át ezt a 6 jegyű kódot a sofőrnek, amikor átveszi tőled (vagy a címzettől) a csomagot.
+            A sofőr ezzel tudja lezárni a fuvart. A kódot senki más nem látja.
+          </div>
+        </div>
+      )}
+
       {/* Hirdetési fotók (amit a feladó töltött fel) */}
       {photos.some((p) => p.kind === 'listing') && (
         <div className="card" style={{ marginTop: 16 }}>

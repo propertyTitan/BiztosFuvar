@@ -105,6 +105,11 @@ export const api = {
   /**
    * Fotó feltöltése (pickup / dropoff). A fájlt lokális URI-ból
    * adjuk át — az Expo Camera ilyen formában adja vissza.
+   *
+   * A GPS mezők most opcionálisak: rögzítjük bizonyítékként, de a
+   * dropoff validáció már a `delivery_code` alapján megy.
+   * A delivery_code CSAK dropoff típusnál kötelező, és a feladótól
+   * kapott 6 jegyű kódnak kell lennie.
    */
   uploadPhoto: async (params: {
     jobId: string;
@@ -112,9 +117,10 @@ export const api = {
     fileUri: string;
     fileName?: string;
     mimeType?: string;
-    gps_lat: number;
-    gps_lng: number;
+    gps_lat?: number;
+    gps_lng?: number;
     gps_accuracy_m?: number;
+    delivery_code?: string;
   }) => {
     const form = new FormData();
     // @ts-expect-error – React Native FormData fájl objektum
@@ -124,11 +130,12 @@ export const api = {
       type: params.mimeType || 'image/jpeg',
     });
     form.append('kind', params.kind);
-    form.append('gps_lat', String(params.gps_lat));
-    form.append('gps_lng', String(params.gps_lng));
+    if (params.gps_lat != null) form.append('gps_lat', String(params.gps_lat));
+    if (params.gps_lng != null) form.append('gps_lng', String(params.gps_lng));
     if (params.gps_accuracy_m != null) {
       form.append('gps_accuracy_m', String(params.gps_accuracy_m));
     }
+    if (params.delivery_code) form.append('delivery_code', params.delivery_code);
 
     const token = await getToken();
     const res = await fetch(`${BASE_URL}/jobs/${params.jobId}/photos`, {
