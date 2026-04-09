@@ -1,9 +1,11 @@
 // Hub képernyő — a bejelentkezett user itt választ menüpontot.
-// Kártya-rácsos felület, role-szerint más-más tartalommal.
-// Real-time értesítés számláló: a 🔔 kártya badge-e frissül, ahogy újak jönnek.
+// - FlatList numColumns=2 → mindig rendesen igazodó 2 oszlopos grid
+// - Fix magasságú kártyák → nincs szakadás a wrap-nél, akkor se ha egy
+//   subtitle több sorra tördelődik
+// - Role-független: mindenki ugyanazt a 10 kártyát látja
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, ScrollView, RefreshControl,
+  View, Text, StyleSheet, Pressable, FlatList, RefreshControl,
 } from 'react-native';
 import { Link, useFocusEffect } from 'expo-router';
 import { api } from '@/api';
@@ -17,21 +19,20 @@ type Card = {
   title: string;
   subtitle: string;
   accent: string;
-  badge?: number;
+  badgeKey?: 'unread';
 };
 
-// Egységes menü mindenkinek — bárki lehet feladó ÉS sofőr is.
-const CARDS: Omit<Card, 'badge'>[] = [
-  { href: '/fuvarok',               icon: '🎯', title: 'Licitálható fuvarok',      subtitle: 'Nyitott hirdetések — licitálj', accent: '#dbeafe' },
-  { href: '/feladas/utvonalak',     icon: '🛣️', title: 'Fix áras fuvarok',         subtitle: 'Útvonalak, amelyekre foglalhatsz', accent: '#dcfce7' },
-  { href: '/sajat-fuvaraim',        icon: '🚛', title: 'Fuvaraim',                  subtitle: 'Amiket TE teljesítesz sofőrként', accent: '#fef3c7' },
-  { href: '/feladas/foglalasaim',   icon: '📦', title: 'Foglalásaim',               subtitle: 'Amiket TE foglaltál egy útvonalon', accent: '#e0e7ff' },
-  { href: '/feladas/uj',            icon: '📝', title: 'Új licites hirdetés',      subtitle: 'Sofőrök licitálnak rá', accent: '#fce7f3' },
-  { href: '/uj-utvonal',            icon: '➕', title: 'Új fix áras útvonal',      subtitle: 'Hirdesd meg a saját utad', accent: '#f3e8ff' },
-  { href: '/hirdeteseim',           icon: '📋', title: 'Saját hirdetéseim',        subtitle: 'Minden általad feladott hirdetés', accent: '#fde68a' },
-  { href: '/licitjeim',             icon: '🏷️', title: 'Licitjeim',                subtitle: 'Az ajánlataid egy helyen', accent: '#bae6fd' },
-  { href: '/ertesitesek',           icon: '🔔', title: 'Értesítések',              subtitle: 'Minden fontos esemény', accent: '#ffe4e6' },
-  { href: '/ai-chat',               icon: '🤖', title: 'AI segéd',                 subtitle: 'Kérdezz bármit a platformról', accent: '#f3e8ff' },
+const CARDS: Card[] = [
+  { href: '/fuvarok',             icon: '🎯', title: 'Licitálható fuvarok', subtitle: 'Nyitott hirdetések — licitálj',      accent: '#dbeafe' },
+  { href: '/feladas/utvonalak',   icon: '🛣️', title: 'Fix áras fuvarok',    subtitle: 'Útvonalak, amelyekre foglalhatsz',  accent: '#dcfce7' },
+  { href: '/sajat-fuvaraim',      icon: '🚛', title: 'Fuvaraim',             subtitle: 'Amiket te teljesítesz sofőrként',   accent: '#fef3c7' },
+  { href: '/feladas/foglalasaim', icon: '📦', title: 'Foglalásaim',          subtitle: 'Fix áras foglalásaid állapota',     accent: '#e0e7ff' },
+  { href: '/feladas/uj',          icon: '📝', title: 'Új licites hirdetés',  subtitle: 'Sofőrök licitálnak rá',              accent: '#fce7f3' },
+  { href: '/uj-utvonal',          icon: '➕', title: 'Új fix áras útvonal',  subtitle: 'Hirdesd meg a saját utad',           accent: '#f3e8ff' },
+  { href: '/hirdeteseim',         icon: '📋', title: 'Saját hirdetéseim',    subtitle: 'Minden általad feladott hirdetés',   accent: '#fde68a' },
+  { href: '/licitjeim',           icon: '🏷️', title: 'Licitjeim',            subtitle: 'Az ajánlataid egy helyen',           accent: '#bae6fd' },
+  { href: '/ertesitesek',         icon: '🔔', title: 'Értesítések',          subtitle: 'Minden fontos esemény',              accent: '#ffe4e6', badgeKey: 'unread' },
+  { href: '/ai-chat',             icon: '🤖', title: 'AI segéd',             subtitle: 'Kérdezz bármit a platformról',       accent: '#f3e8ff' },
 ];
 
 export default function Hub() {
@@ -56,7 +57,6 @@ export default function Hub() {
     }, [load]),
   );
 
-  // Real-time: új értesítés → badge +1
   useEffect(() => {
     if (!user) return;
     const socket = getSocket();
@@ -75,69 +75,98 @@ export default function Hub() {
     );
   }
 
-  const cards = CARDS;
+  function renderCard({ item: c }: { item: Card }) {
+    const badge = c.badgeKey === 'unread' ? unread : 0;
+    return (
+      <Link href={c.href as any} asChild>
+        <Pressable style={styles.card}>
+          <View style={[styles.iconWrap, { backgroundColor: c.accent }]}>
+            <Text style={styles.icon}>{c.icon}</Text>
+          </View>
+          <Text style={styles.cardTitle} numberOfLines={1}>{c.title}</Text>
+          <Text style={styles.cardSubtitle} numberOfLines={2}>{c.subtitle}</Text>
+          {badge > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badge > 99 ? '99+' : String(badge)}</Text>
+            </View>
+          )}
+        </Pressable>
+      </Link>
+    );
+  }
 
   return (
-    <ScrollView
+    <FlatList
+      data={CARDS}
+      keyExtractor={(c) => c.href}
+      numColumns={2}
+      columnWrapperStyle={styles.row}
       contentContainerStyle={styles.container}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={colors.primary} />}
-    >
-      <Text style={styles.hello}>Szia, {user.full_name || user.email}! 👋</Text>
-      <Text style={styles.subHello}>
-        Válassz egy menüpontot a folytatáshoz.
-      </Text>
-
-      <View style={styles.grid}>
-        {cards.map((c) => (
-          <Link key={c.href} href={c.href as any} asChild>
-            <Pressable style={[styles.card, { borderTopColor: c.accent }]}>
-              <View style={[styles.iconWrap, { backgroundColor: c.accent }]}>
-                <Text style={styles.icon}>{c.icon}</Text>
-              </View>
-              <Text style={styles.cardTitle}>{c.title}</Text>
-              <Text style={styles.cardSubtitle}>{c.subtitle}</Text>
-              {c.href === '/ertesitesek' && unread > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
-                </View>
-              )}
-            </Pressable>
-          </Link>
-        ))}
-      </View>
-    </ScrollView>
+      refreshControl={
+        <RefreshControl refreshing={false} onRefresh={load} tintColor={colors.primary} />
+      }
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <Text style={styles.hello}>Szia, {user.full_name || user.email.split('@')[0]}! 👋</Text>
+          <Text style={styles.subHello}>Válassz egy menüpontot a folytatáshoz.</Text>
+        </View>
+      }
+      renderItem={renderCard}
+    />
   );
 }
 
+const CARD_HEIGHT = 160;
+
 const styles = StyleSheet.create({
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg },
-  container: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
-  hello: { fontSize: 22, fontWeight: '800', color: colors.text },
-  subHello: { color: colors.textMuted, fontSize: 14, marginTop: 4, marginBottom: spacing.lg },
+  container: { padding: spacing.md, paddingBottom: spacing.xl * 2 },
   muted: { color: colors.textMuted },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.sm },
+  header: { marginBottom: spacing.md, paddingHorizontal: spacing.xs, paddingTop: spacing.sm },
+  hello: { fontSize: 22, fontWeight: '800', color: colors.text },
+  subHello: { color: colors.textMuted, fontSize: 14, marginTop: 4 },
+
+  // numColumns={2} → minden sorban 2 kártya, automatikusan egyforma szélesség
+  row: { justifyContent: 'space-between', marginBottom: spacing.md },
+
   card: {
-    width: '47%',
+    flex: 1,
+    maxWidth: '48.5%',          // két oszlop + gap
+    height: CARD_HEIGHT,
     backgroundColor: colors.surface,
     borderRadius: radius.md,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderTopWidth: 4,
     position: 'relative',
+    // Kis shadow, hogy a kártya pöpecebb legyen
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   iconWrap: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.sm,
   },
-  icon: { fontSize: 24 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 },
-  cardSubtitle: { fontSize: 12, color: colors.textMuted, lineHeight: 16 },
+  icon: { fontSize: 22 },
+  cardTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+    lineHeight: 16,
+  },
 
   badge: {
     position: 'absolute',
