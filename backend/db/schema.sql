@@ -188,3 +188,76 @@ CREATE TABLE IF NOT EXISTS location_pings (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pings_job_time ON location_pings(job_id, recorded_at DESC);
+
+-- ---------- Sofőri útvonal-hirdetések ---------------------------------
+
+DO $$ BEGIN
+    CREATE TYPE carrier_route_status AS ENUM (
+        'draft', 'open', 'full', 'in_progress', 'completed', 'cancelled'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE route_booking_status AS ENUM (
+        'pending', 'confirmed', 'rejected', 'in_progress', 'delivered', 'cancelled', 'disputed'
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+    CREATE TYPE package_size_id AS ENUM ('S', 'M', 'L', 'XL');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+CREATE TABLE IF NOT EXISTS carrier_routes (
+    id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    carrier_id         UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title              TEXT NOT NULL,
+    description        TEXT,
+    departure_at       TIMESTAMPTZ NOT NULL,
+    waypoints          JSONB NOT NULL DEFAULT '[]'::jsonb,
+    vehicle_description TEXT,
+    is_template        BOOLEAN NOT NULL DEFAULT FALSE,
+    template_source_id UUID REFERENCES carrier_routes(id) ON DELETE SET NULL,
+    status             carrier_route_status NOT NULL DEFAULT 'draft',
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_carrier_routes_carrier ON carrier_routes(carrier_id);
+CREATE INDEX IF NOT EXISTS idx_carrier_routes_status  ON carrier_routes(status);
+CREATE INDEX IF NOT EXISTS idx_carrier_routes_depart  ON carrier_routes(departure_at);
+CREATE INDEX IF NOT EXISTS idx_carrier_routes_waypoints ON carrier_routes USING GIN (waypoints);
+
+CREATE TABLE IF NOT EXISTS carrier_route_prices (
+    route_id  UUID NOT NULL REFERENCES carrier_routes(id) ON DELETE CASCADE,
+    size      package_size_id NOT NULL,
+    price_huf INTEGER NOT NULL CHECK (price_huf > 0),
+    PRIMARY KEY (route_id, size)
+);
+
+CREATE TABLE IF NOT EXISTS route_bookings (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    route_id          UUID NOT NULL REFERENCES carrier_routes(id) ON DELETE CASCADE,
+    shipper_id        UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    package_size      package_size_id NOT NULL,
+    length_cm         INTEGER NOT NULL,
+    width_cm          INTEGER NOT NULL,
+    height_cm         INTEGER NOT NULL,
+    weight_kg         NUMERIC(8,2) NOT NULL,
+    pickup_address    TEXT NOT NULL,
+    pickup_lat        DOUBLE PRECISION NOT NULL,
+    pickup_lng        DOUBLE PRECISION NOT NULL,
+    dropoff_address   TEXT NOT NULL,
+    dropoff_lat       DOUBLE PRECISION NOT NULL,
+    dropoff_lng       DOUBLE PRECISION NOT NULL,
+    price_huf         INTEGER NOT NULL CHECK (price_huf > 0),
+    delivery_code     VARCHAR(6),
+    status            route_booking_status NOT NULL DEFAULT 'pending',
+    notes             TEXT,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    confirmed_at      TIMESTAMPTZ,
+    delivered_at      TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookings_route   ON route_bookings(route_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_shipper ON route_bookings(shipper_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_status  ON route_bookings(status);

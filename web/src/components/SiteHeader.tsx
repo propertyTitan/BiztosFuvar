@@ -27,6 +27,7 @@ export default function SiteHeader() {
           <>
             <a href="/dashboard">Irányítópult</a>
             <a href="/dashboard/uj-fuvar">Új fuvar</a>
+            <a href="/dashboard/utvonalak">Útba eső sofőrök</a>
           </>
         )}
 
@@ -35,6 +36,7 @@ export default function SiteHeader() {
             <a href="/sofor/fuvarok">Elérhető fuvarok</a>
             <a href="/sofor/licitjeim">Licitjeim</a>
             <a href="/sofor/sajat-fuvarok">Saját fuvaraim</a>
+            <a href="/sofor/utvonalaim">Útvonalaim</a>
           </>
         )}
 

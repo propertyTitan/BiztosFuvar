@@ -1,7 +1,71 @@
 // Megosztott API kliens a webfelülethez (Shipper Dashboard + Admin Panel).
-// A backend Express szerverhez beszél (`/auth`, `/jobs`, `/bids`, `/photos`).
+// A backend Express szerverhez beszél (`/auth`, `/jobs`, `/bids`, `/photos`,
+// `/carrier-routes`, `/route-bookings`).
+
+import type { PackageSizeId } from '@/lib/packageSizes';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
+// ---------- Carrier routes (új termék: sofőri útvonal-hirdetés) ----------
+
+export type Waypoint = {
+  name: string;
+  formatted_address?: string;
+  lat: number;
+  lng: number;
+  order: number;
+};
+
+export type RoutePrice = {
+  size: PackageSizeId;
+  price_huf: number;
+};
+
+export type CarrierRoute = {
+  id: string;
+  carrier_id: string;
+  title: string;
+  description: string | null;
+  departure_at: string;
+  waypoints: Waypoint[];
+  vehicle_description: string | null;
+  is_template: boolean;
+  template_source_id: string | null;
+  status: 'draft' | 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
+  created_at: string;
+  updated_at: string;
+  prices: RoutePrice[];
+};
+
+export type RouteBooking = {
+  id: string;
+  route_id: string;
+  shipper_id: string;
+  package_size: PackageSizeId;
+  length_cm: number;
+  width_cm: number;
+  height_cm: number;
+  weight_kg: number;
+  pickup_address: string;
+  pickup_lat: number;
+  pickup_lng: number;
+  dropoff_address: string;
+  dropoff_lat: number;
+  dropoff_lng: number;
+  price_huf: number;
+  delivery_code?: string | null;
+  status: 'pending' | 'confirmed' | 'rejected' | 'in_progress' | 'delivered' | 'cancelled' | 'disputed';
+  notes: string | null;
+  created_at: string;
+  confirmed_at: string | null;
+  delivered_at: string | null;
+  route_title?: string;
+  departure_at?: string;
+  waypoints?: Waypoint[];
+  carrier_id?: string;
+  carrier_name?: string;
+  shipper_name?: string;
+};
 
 export type Job = {
   id: string;
@@ -194,4 +258,87 @@ export const api = {
       carrier_share_huf: number | null;
       platform_share_huf: number | null;
     } | null>(`/jobs/${jobId}/escrow`),
+
+  // ---------- Sofőri útvonal-hirdetés ----------
+
+  /** Új útvonal létrehozása (sofőr). */
+  createCarrierRoute: (body: {
+    title: string;
+    description?: string;
+    departure_at: string; // ISO
+    waypoints: Waypoint[];
+    vehicle_description?: string;
+    is_template?: boolean;
+    template_source_id?: string;
+    prices: RoutePrice[];
+    status?: 'draft' | 'open';
+  }) =>
+    request<CarrierRoute>('/carrier-routes', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** A sofőr saját útvonalai (sablonok + publikáltak + régiek). */
+  myCarrierRoutes: () => request<CarrierRoute[]>('/carrier-routes/mine'),
+
+  /**
+   * Nyitott útvonalak böngészése (feladónak).
+   * Opcionális város-szűrés (a waypoints JSONB-ben keres).
+   */
+  listCarrierRoutes: (params: { city?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.city) qs.set('city', params.city);
+    return request<CarrierRoute[]>(
+      `/carrier-routes${qs.toString() ? `?${qs}` : ''}`,
+    );
+  },
+
+  getCarrierRoute: (id: string) => request<CarrierRoute>(`/carrier-routes/${id}`),
+
+  setCarrierRouteStatus: (id: string, status: 'draft' | 'open' | 'full' | 'cancelled') =>
+    request<CarrierRoute>(`/carrier-routes/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+
+  /** Feladói foglalás egy útvonalra. */
+  createRouteBooking: (
+    routeId: string,
+    body: {
+      length_cm: number;
+      width_cm: number;
+      height_cm: number;
+      weight_kg: number;
+      pickup_address: string;
+      pickup_lat: number;
+      pickup_lng: number;
+      dropoff_address: string;
+      dropoff_lat: number;
+      dropoff_lng: number;
+      notes?: string;
+    },
+  ) =>
+    request<RouteBooking>(`/carrier-routes/${routeId}/bookings`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** Egy adott útvonal beérkezett foglalásai (sofőr oldalon). */
+  listRouteBookings: (routeId: string) =>
+    request<RouteBooking[]>(`/carrier-routes/${routeId}/bookings`),
+
+  /** A feladó saját foglalásai. */
+  myRouteBookings: () => request<RouteBooking[]>('/route-bookings/mine'),
+
+  getRouteBooking: (id: string) => request<RouteBooking>(`/route-bookings/${id}`),
+
+  /** Sofőr elfogadja a foglalást → Barion escrow lefoglalás. */
+  confirmRouteBooking: (id: string) =>
+    request<{ ok: true; booking_id: string; barion?: { gateway_url: string | null } }>(
+      `/route-bookings/${id}/confirm`,
+      { method: 'POST' },
+    ),
+
+  rejectRouteBooking: (id: string) =>
+    request<{ ok: true }>(`/route-bookings/${id}/reject`, { method: 'POST' }),
 };

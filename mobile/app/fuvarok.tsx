@@ -48,11 +48,18 @@ export default function Fuvarok() {
       contentContainerStyle={{ padding: spacing.md }}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
       ListHeaderComponent={
-        <Link href="/licitjeim" asChild>
-          <Pressable style={styles.myBidsBtn}>
-            <Text style={styles.myBidsBtnText}>📋 Licitjeim megtekintése</Text>
-          </Pressable>
-        </Link>
+        <View style={{ gap: 8, marginBottom: spacing.md }}>
+          <Link href="/licitjeim" asChild>
+            <Pressable style={styles.myBidsBtn}>
+              <Text style={styles.myBidsBtnText}>📋 Licitjeim megtekintése</Text>
+            </Pressable>
+          </Link>
+          <Link href="/utvonalaim" asChild>
+            <Pressable style={styles.myBidsBtn}>
+              <Text style={styles.myBidsBtnText}>🛣 Útvonalaim (saját hirdetések)</Text>
+            </Pressable>
+          </Link>
+        </View>
       }
       ListEmptyComponent={
         <Text style={styles.empty}>Jelenleg nincs elérhető fuvar a környéken.</Text>

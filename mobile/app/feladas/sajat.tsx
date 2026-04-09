@@ -62,11 +62,18 @@ export default function FeladasSajat() {
         <RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />
       }
       ListHeaderComponent={
-        <Link href="/feladas/uj" asChild>
-          <Pressable style={styles.newCta}>
-            <Text style={styles.newCtaText}>+ Új fuvar feladása</Text>
-          </Pressable>
-        </Link>
+        <View style={{ gap: 8, marginBottom: spacing.md }}>
+          <Link href="/feladas/uj" asChild>
+            <Pressable style={styles.newCta}>
+              <Text style={styles.newCtaText}>+ Új fuvar feladása (licit)</Text>
+            </Pressable>
+          </Link>
+          <Link href="/feladas/utvonalak" asChild>
+            <Pressable style={[styles.newCta, { backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary }]}>
+              <Text style={[styles.newCtaText, { color: colors.primary }]}>🛣 Útba eső sofőrök (fix ár)</Text>
+            </Pressable>
+          </Link>
+        </View>
       }
       ListEmptyComponent={
         !loading ? (

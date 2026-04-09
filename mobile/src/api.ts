@@ -80,6 +80,45 @@ export const api = {
   /** A bejelentkezett sofőr saját licitjei (a kapcsolódó fuvar alap mezőivel). */
   myBids: () => request<any[]>('/bids/mine'),
 
+  // ---------- Sofőri útvonal-hirdetés ----------
+
+  createCarrierRoute: (body: any) =>
+    request<any>('/carrier-routes', { method: 'POST', body: JSON.stringify(body) }),
+
+  myCarrierRoutes: () => request<any[]>('/carrier-routes/mine'),
+
+  listCarrierRoutes: (city?: string) => {
+    const qs = city ? `?city=${encodeURIComponent(city)}` : '';
+    return request<any[]>(`/carrier-routes${qs}`);
+  },
+
+  getCarrierRoute: (id: string) => request<any>(`/carrier-routes/${id}`),
+
+  setCarrierRouteStatus: (id: string, status: string) =>
+    request<any>(`/carrier-routes/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }),
+
+  createRouteBooking: (routeId: string, body: any) =>
+    request<any>(`/carrier-routes/${routeId}/bookings`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  listRouteBookings: (routeId: string) =>
+    request<any[]>(`/carrier-routes/${routeId}/bookings`),
+
+  myRouteBookings: () => request<any[]>('/route-bookings/mine'),
+
+  getRouteBooking: (id: string) => request<any>(`/route-bookings/${id}`),
+
+  confirmRouteBooking: (id: string) =>
+    request<any>(`/route-bookings/${id}/confirm`, { method: 'POST' }),
+
+  rejectRouteBooking: (id: string) =>
+    request<any>(`/route-bookings/${id}/reject`, { method: 'POST' }),
+
   /** Egy fuvar beérkezett licitjei. */
   listBids: (jobId: string) =>
     request<any[]>(`/jobs/${jobId}/bids`),

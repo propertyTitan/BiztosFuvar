@@ -52,11 +52,16 @@ export default function RootLayout() {
           name="fuvar/[id]/lezaras"
           options={{ title: 'Fuvar lezárása', presentation: 'modal' }}
         />
+        <Stack.Screen name="utvonalaim" options={{ title: 'Útvonalaim' }} />
+        <Stack.Screen name="uj-utvonal" options={{ title: 'Új útvonal' }} />
+        <Stack.Screen name="utvonal/[id]" options={{ title: 'Útvonal részletek' }} />
 
         {/* Feladó nézet */}
         <Stack.Screen name="feladas/sajat" options={{ title: 'Fuvaraim' }} />
         <Stack.Screen name="feladas/uj" options={{ title: 'Új fuvar feladása' }} />
         <Stack.Screen name="feladas/[id]" options={{ title: 'Fuvar részletek' }} />
+        <Stack.Screen name="feladas/utvonalak" options={{ title: 'Útba eső sofőrök' }} />
+        <Stack.Screen name="feladas/utvonal/[id]" options={{ title: 'Útvonal' }} />
       </Stack>
     </>
   );
