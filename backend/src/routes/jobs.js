@@ -9,6 +9,7 @@ const { distanceMeters } = require('../utils/geo');
 const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
+const { writeRateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
@@ -37,8 +38,10 @@ function scrubJobForUser(job, user) {
 }
 
 // POST /jobs – bárki feladhat fuvart (a szerepkör szeparálást eltöröltük;
-// bárki egyaránt lehet feladó és sofőr is).
-router.post('/', authRequired, async (req, res) => {
+// bárki egyaránt lehet feladó és sofőr is). Rate limit: percenként max 30
+// írás a `writeRateLimit`-en keresztül — bőven elég normál használatra,
+// de botokat / spamet kilő.
+router.post('/', authRequired, writeRateLimit, async (req, res) => {
   const {
     title, description,
     pickup_address, pickup_lat, pickup_lng,
@@ -209,7 +212,7 @@ router.get('/mine/list', authRequired, async (req, res) => {
 //     visszaadjuk az új URL-t.
 //
 // Ugyanaz a minta, mint a `/route-bookings/:id/pay`-nél.
-router.post('/:id/pay', authRequired, async (req, res) => {
+router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             e.barion_gateway_url,
@@ -295,7 +298,7 @@ router.post('/:id/pay', authRequired, async (req, res) => {
 //   1) `paid_at` beállítása a jobs soron
 //   2) Értesítés a sofőrnek: "Péter kifizette a fuvarodat"
 //   3) Realtime event mindkét félnek (`job:paid`), hogy a UI frissüljön
-router.post('/:id/confirm-payment', authRequired, async (req, res) => {
+router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             s.full_name AS shipper_name

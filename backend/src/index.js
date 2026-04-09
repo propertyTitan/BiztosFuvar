@@ -15,12 +15,22 @@ const paymentRoutes = require('./routes/payments');
 const carrierRoutes = require('./routes/carrierRoutes');
 const { router: notificationsRouter } = require('./services/notifications');
 const aiRoutes = require('./routes/ai');
+const { globalRateLimit } = require('./middleware/rateLimit');
 
 const app = express();
+// A proxy (pl. Nginx, Render, Fly) IP-címeit megbízhatónak jelöljük, hogy
+// az X-Forwarded-For header alapján a rate limiter a valódi kliens IP-t lássa.
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
+
+// Globális, IP-alapú rate limit: 300 kérés / perc / IP. Második védelmi
+// vonal a per-endpoint limitek után — spike-ok, botok ellen védekezik.
+// A /health végpontra szándékosan nem alkalmazzuk, hogy a loadbalancer
+// health check-jeit ne korlátozza.
+app.use(globalRateLimit);
 
 app.use('/auth', authRoutes);
 app.use('/jobs', jobRoutes);

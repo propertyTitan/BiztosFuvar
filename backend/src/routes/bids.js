@@ -5,6 +5,7 @@ const { authRequired, requireRole } = require('../middleware/auth');
 const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
+const { writeRateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
@@ -38,7 +39,7 @@ router.get('/bids/mine', authRequired, async (req, res) => {
 });
 
 // POST /jobs/:jobId/bids – bárki licitálhat egy fuvarra, kivéve ha ő a feladója
-router.post('/jobs/:jobId/bids', authRequired, async (req, res) => {
+router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) => {
   const { jobId } = req.params;
   const { amount_huf, message, eta_minutes } = req.body || {};
   if (!amount_huf || amount_huf <= 0) return res.status(400).json({ error: 'Érvénytelen összeg' });
@@ -105,7 +106,7 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
 
 // POST /bids/:id/accept – a fuvar feladója elfogadja a licitet → ESCROW lefoglalás
 // (Bárki elfogadhat, aki feladta a fuvart — a tulajdonos-ellenőrzés alább.)
-router.post('/bids/:id/accept', authRequired, async (req, res) => {
+router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) => {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');

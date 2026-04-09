@@ -11,6 +11,7 @@ const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const barion = require('../services/barion');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
+const { writeRateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
@@ -52,7 +53,7 @@ async function attachPrices(routes) {
 // POST /carrier-routes
 // Új útvonal létrehozása. Sofőr-only. A `prices` tömb minden elemében
 // egy (size, price_huf) páros.
-router.post('/carrier-routes', authRequired, async (req, res) => {
+router.post('/carrier-routes', authRequired, writeRateLimit, async (req, res) => {
   const {
     title, description, departure_at, waypoints, vehicle_description,
     is_template = false, template_source_id = null, prices, status = 'open',
@@ -157,6 +158,7 @@ router.get('/carrier-routes/:id', authRequired, async (req, res) => {
 router.patch(
   '/carrier-routes/:id/status',
   authRequired,
+  writeRateLimit,
   async (req, res) => {
     const { status } = req.body || {};
     const allowed = ['draft', 'open', 'full', 'cancelled'];
@@ -176,7 +178,7 @@ router.patch(
 // PATCH /carrier-routes/:id – teljes szerkesztés (piszkozatok + publikált útvonalak)
 // Csak az útvonal tulajdonosa módosíthatja. A `prices` tömb teljesen felülírja
 // a meglévő ár-beállításokat (törlés + új beszúrás egy tranzakcióban).
-router.patch('/carrier-routes/:id', authRequired, async (req, res) => {
+router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, res) => {
   const {
     title, description, departure_at, waypoints, vehicle_description, prices, status,
   } = req.body || {};
@@ -261,6 +263,7 @@ router.patch('/carrier-routes/:id', authRequired, async (req, res) => {
 router.post(
   '/carrier-routes/:id/bookings',
   authRequired,
+  writeRateLimit,
   async (req, res) => {
     const routeId = req.params.id;
     const {
@@ -427,6 +430,7 @@ router.get('/route-bookings/:id', authRequired, async (req, res) => {
 router.post(
   '/route-bookings/:id/confirm',
   authRequired,
+  writeRateLimit,
   async (req, res) => {
     const client = await db.pool.connect();
     try {
@@ -535,7 +539,7 @@ router.post(
 //
 // Így az "Elfogadva, de nincs fizetés gomb" állapot mostantól öngyógyul:
 // a kattintás triggereli a hiányzó reservation-t.
-router.post('/route-bookings/:id/pay', authRequired, async (req, res) => {
+router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   const { rows: bRows } = await db.query(
     `SELECT b.*, s.email AS shipper_email, c.email AS carrier_email
        FROM route_bookings b
@@ -614,7 +618,7 @@ router.post('/route-bookings/:id/pay', authRequired, async (req, res) => {
 //      kifizette a foglalását"
 //   3) Realtime event a feladónak, hogy a Foglalásaim oldala frissüljön
 //      és a Fizetés gomb helyén a "FIZETVE" címke megjelenjen
-router.post('/route-bookings/:id/confirm-payment', authRequired, async (req, res) => {
+router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit, async (req, res) => {
   const { rows: bRows } = await db.query(
     `SELECT b.*, r.carrier_id, r.title AS route_title,
             s.full_name AS shipper_name, s.email AS shipper_email
@@ -678,6 +682,7 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, async (req, res
 router.post(
   '/route-bookings/:id/reject',
   authRequired,
+  writeRateLimit,
   async (req, res) => {
     const { rows: bRows } = await db.query(
       `SELECT b.*, r.carrier_id

@@ -4,6 +4,7 @@ const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const { loginRateLimit, registerRateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
 
@@ -26,8 +27,8 @@ function signToken(user) {
   );
 }
 
-// POST /auth/register
-router.post('/register', async (req, res) => {
+// POST /auth/register — óránként max 5 új fiók IP-nként
+router.post('/register', registerRateLimit, async (req, res) => {
   const { email, password, full_name, phone, vehicle_type, vehicle_plate } = req.body || {};
   // A role mező már opcionális — minden user lehet egyszerre feladó és sofőr is.
   // A DB-ben még tároljuk a legacy role mezőt, de a logika nem használja.
@@ -51,8 +52,8 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /auth/login
-router.post('/login', async (req, res) => {
+// POST /auth/login — percenként max 10 próbálkozás IP-nként (brute force védelem)
+router.post('/login', loginRateLimit, async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Hiányzó mezők' });
   const { rows } = await db.query(
