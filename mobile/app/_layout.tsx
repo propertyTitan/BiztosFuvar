@@ -4,15 +4,15 @@
 //                 JOBB felül: Értesítések csengő, olvasatlan piros ponttal
 // Minden más képernyő fejlécében csak a natív vissza gomb van — nincs
 // kilépés, hogy véletlenül ne nyomja meg senki.
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, Text, View } from 'react-native';
+import { DeviceEventEmitter, Pressable, Text, View } from 'react-native';
 import { colors } from '@/theme';
-import { clearCurrentUser, getCurrentUser } from '@/auth';
+import { AUTH_EVENT, clearCurrentUser, getCurrentUser } from '@/auth';
 import { api } from '@/api';
 import { getSocket, joinUserRoom, disconnectSocket } from '@/socket';
-import { ToastProvider } from '@/components/ToastProvider';
+import { ToastProvider, useToast } from '@/components/ToastProvider';
 
 function LogoutButton() {
   const router = useRouter();
@@ -113,9 +113,68 @@ function NotificationBellButton() {
   );
 }
 
+/**
+ * GLOBÁLIS notifikáció → toast híd.
+ *
+ * Minden bejövő `notification:new` esemény egy felpattanó buborékot
+ * is kiad a képernyő tetején — ne csak a harang számlálóján vegye
+ * észre a user. A komponens a ToastProvider-en belül van mountolva,
+ * egyszer az egész app élettartamára, és profilváltáskor (AUTH_EVENT)
+ * magától újra feliratkozik az új socket kapcsolatra.
+ *
+ * Ez miatt kell a `useToast`-os belső hook, hogy az egész app minden
+ * képernyőjén működjenek a toast-ok, nem csak a hub-on ahol a
+ * NotificationBellButton él.
+ */
+function NotificationToastBridge() {
+  const toast = useToast();
+
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+
+    async function setup() {
+      cleanup?.();
+      cleanup = undefined;
+      const u = await getCurrentUser();
+      if (!u || cancelled) return;
+      joinUserRoom(u.id);
+      const socket = getSocket();
+      const onNew = (n: any) => {
+        const kind: 'success' | 'error' | 'info' =
+          n?.type === 'booking_paid' || n?.type === 'booking_confirmed'
+            ? 'success'
+            : n?.type === 'booking_rejected'
+            ? 'error'
+            : 'info';
+        toast[kind](n?.title || 'Új értesítés', n?.body || undefined);
+      };
+      socket.on('notification:new', onNew);
+      cleanup = () => socket.off('notification:new', onNew);
+    }
+
+    // Első mount → próbáljuk meg a setup-ot, és feliratkozunk az
+    // AUTH_EVENT-re, hogy login/logout után friss socketre rakjuk a
+    // listenert.
+    setup();
+    const sub = DeviceEventEmitter.addListener(AUTH_EVENT, () => {
+      setup();
+    });
+
+    return () => {
+      cancelled = true;
+      sub.remove();
+      cleanup?.();
+    };
+  }, [toast]);
+
+  return null;
+}
+
 export default function RootLayout() {
   return (
     <ToastProvider>
+      <NotificationToastBridge />
       <StatusBar style="light" />
       <Stack
         screenOptions={{
