@@ -43,7 +43,7 @@ export default function SiteHeader() {
     <header className="site-header">
       <a href="/" className="brand" aria-label="GoFuvar – Főoldal">
         {/* Inline fehér logó a sötétkék headerre */}
-        <img src="/logo-white.svg" alt="GoFuvar" style={{ height: 40, width: 'auto', display: 'block' }} />
+        <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 40, width: 'auto', display: 'block' }} />
       </a>
       <nav>
         {!user && <a href="/bejelentkezes">Belépés</a>}

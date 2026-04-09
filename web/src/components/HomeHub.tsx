@@ -45,7 +45,7 @@ export default function HomeHub() {
   if (!user) {
     return (
       <div style={{ maxWidth: 600, textAlign: 'center', padding: '40px 0' }}>
-        <img src="/logo.svg" alt="GoFuvar" style={{ height: 64, marginBottom: 24 }} />
+        <img src="/logo.svg?v=2" alt="GoFuvar" style={{ height: 64, marginBottom: 24 }} />
         <h1 style={{ marginTop: 0 }}>Üdvözlünk a GoFuvar platformon</h1>
         <p className="muted">
           Közösségi fuvartőzsde — lépj be, hogy használhasd az alkalmazást,

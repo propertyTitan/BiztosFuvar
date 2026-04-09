@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: 'GoFuvar',
   description: 'Magyarországi közösségi fuvartőzsde – feladóknak és sofőröknek.',
   icons: {
-    icon: '/logo-icon.svg',
+    icon: '/logo-icon.svg?v=2',
   },
 };
 

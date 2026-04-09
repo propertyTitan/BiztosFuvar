@@ -2,8 +2,10 @@
 
 // Sofőr: egy konkrét útvonal részletei + beérkezett foglalások.
 // - Az útvonal adatai (waypoints, árak, státusz)
+// - Szerkesztés + publikálás gombok a tulajdonosnak (draft/open)
 // - Foglalások listája: feladó, csomag méret + pontos méretek, ár, gombok
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, CarrierRoute, RouteBooking } from '@/api';
 
@@ -58,6 +60,25 @@ export default function UtvonalReszletek() {
     if (!confirm('Biztosan elutasítod?')) return;
     try {
       await api.rejectRouteBooking(bookingId);
+      await load();
+    } catch (err: any) {
+      alert('Hiba: ' + err.message);
+    }
+  }
+
+  async function publishRoute() {
+    try {
+      await api.setCarrierRouteStatus(id, 'open');
+      await load();
+    } catch (err: any) {
+      alert('Hiba: ' + err.message);
+    }
+  }
+
+  async function closeRoute() {
+    if (!confirm('Lezárod az útvonalat (nem fogad további foglalást)?')) return;
+    try {
+      await api.setCarrierRouteStatus(id, 'full');
       await load();
     } catch (err: any) {
       alert('Hiba: ' + err.message);
@@ -124,10 +145,59 @@ export default function UtvonalReszletek() {
         ← Vissza
       </button>
 
-      <h1>{route.title}</h1>
-      <p className="muted">
-        🗓 {new Date(route.departure_at).toLocaleString('hu-HU')}
-      </p>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start', gap: 16 }}>
+        <div>
+          <h1 style={{ marginBottom: 4 }}>{route.title}</h1>
+          <p className="muted" style={{ margin: 0 }}>
+            🗓 {new Date(route.departure_at).toLocaleString('hu-HU')}
+          </p>
+          <span
+            className={`pill ${route.status === 'open' ? 'pill-delivered' : route.status === 'draft' ? 'pill-bidding' : 'pill-accepted'}`}
+            style={{ marginTop: 8, display: 'inline-block' }}
+          >
+            {route.status === 'draft'
+              ? 'Piszkozat'
+              : route.status === 'open'
+              ? 'Publikálva'
+              : route.status === 'full'
+              ? 'Betelt'
+              : route.status}
+          </span>
+        </div>
+
+        {/* Szerkesztés + publikálás / lezárás gombok — csak a tulajdonos látja
+            draft / open státuszban. A backend tulajdonos-ellenőrzés elbírál. */}
+        {(route.status === 'draft' || route.status === 'open') && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+            <Link
+              href={`/sofor/uj-utvonal?edit=${route.id}`}
+              className="btn btn-secondary"
+              style={{ textDecoration: 'none', textAlign: 'center' }}
+            >
+              ✏️ Szerkesztés
+            </Link>
+            {route.status === 'draft' && (
+              <button
+                type="button"
+                className="btn"
+                onClick={publishRoute}
+                style={{ background: '#16a34a' }}
+              >
+                🚀 Publikálás most
+              </button>
+            )}
+            {route.status === 'open' && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={closeRoute}
+              >
+                Lezárás (betelt)
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Útvonal megállói */}
       <div className="card">
