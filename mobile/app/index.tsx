@@ -13,7 +13,7 @@ export default function Index() {
     (async () => {
       const user = await getCurrentUser();
       if (user) {
-        router.replace(homeForRole(user.role) as any);
+        router.replace('/hub');
       } else {
         setChecking(false);
       }

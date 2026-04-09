@@ -341,4 +341,39 @@ export const api = {
 
   rejectRouteBooking: (id: string) =>
     request<{ ok: true }>(`/route-bookings/${id}/reject`, { method: 'POST' }),
+
+  // ---------- Notifications ----------
+
+  listNotifications: () =>
+    request<Array<{
+      id: string;
+      type: string;
+      title: string;
+      body: string | null;
+      link: string | null;
+      read_at: string | null;
+      created_at: string;
+    }>>('/notifications'),
+
+  unreadNotificationCount: () =>
+    request<{ count: number }>('/notifications/unread-count'),
+
+  markNotificationRead: (id: string) =>
+    request<{ id: string; read_at: string }>(`/notifications/${id}/read`, {
+      method: 'POST',
+    }),
+
+  markAllNotificationsRead: () =>
+    request<{ ok: true }>('/notifications/read-all', { method: 'POST' }),
+
+  // ---------- AI chat ----------
+
+  aiChat: (
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  ) =>
+    request<{ reply: string }>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history }),
+    }),
 };

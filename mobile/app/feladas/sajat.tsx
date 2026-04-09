@@ -73,6 +73,11 @@ export default function FeladasSajat() {
               <Text style={[styles.newCtaText, { color: colors.primary }]}>🛣 Útba eső sofőrök (fix ár)</Text>
             </Pressable>
           </Link>
+          <Link href="/feladas/foglalasaim" asChild>
+            <Pressable style={[styles.newCta, { backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary }]}>
+              <Text style={[styles.newCtaText, { color: colors.primary }]}>📦 Foglalásaim (fix áras)</Text>
+            </Pressable>
+          </Link>
         </View>
       }
       ListEmptyComponent={

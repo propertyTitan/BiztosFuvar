@@ -44,6 +44,11 @@ export default function RootLayout() {
           options={{ title: 'Bejelentkezés', headerRight: undefined }}
         />
 
+        {/* Hub — mindenkinek a kezdőoldala login után */}
+        <Stack.Screen name="hub" options={{ title: 'BiztosFuvar' }} />
+        <Stack.Screen name="ertesitesek" options={{ title: 'Értesítések' }} />
+        <Stack.Screen name="ai-chat" options={{ title: 'AI Segéd' }} />
+
         {/* Sofőr nézet */}
         <Stack.Screen name="fuvarok" options={{ title: 'Elérhető fuvarok' }} />
         <Stack.Screen name="licitjeim" options={{ title: 'Licitjeim' }} />
@@ -62,6 +67,7 @@ export default function RootLayout() {
         <Stack.Screen name="feladas/[id]" options={{ title: 'Fuvar részletek' }} />
         <Stack.Screen name="feladas/utvonalak" options={{ title: 'Útba eső sofőrök' }} />
         <Stack.Screen name="feladas/utvonal/[id]" options={{ title: 'Útvonal' }} />
+        <Stack.Screen name="feladas/foglalasaim" options={{ title: 'Foglalásaim' }} />
       </Stack>
     </>
   );

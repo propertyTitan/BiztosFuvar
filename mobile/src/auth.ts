@@ -32,16 +32,8 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
 /**
  * A login utáni alapértelmezett kezdőoldal a user role-ja alapján.
+ * Mindenki a hub-ra érkezik, onnan választ menüpontot.
  */
 export function homeForRole(role: Role): string {
-  switch (role) {
-    case 'shipper':
-      return '/feladas/sajat';
-    case 'carrier':
-      return '/fuvarok';
-    case 'admin':
-      return '/fuvarok'; // az adminnak jelen van csak a sofőr nézet mobilon
-    default:
-      return '/';
-  }
+  return '/hub';
 }

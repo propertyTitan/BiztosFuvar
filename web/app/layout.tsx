@@ -4,6 +4,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
+import AiChatWidget from '@/components/AiChatWidget';
 
 export const metadata: Metadata = {
   title: 'BiztosFuvar',
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <SiteHeader />
         <main className="site-main">{children}</main>
         <footer className="site-footer">© BiztosFuvar – Bizalom. Fotó. GPS. Letét.</footer>
+        <AiChatWidget />
       </body>
     </html>
   );

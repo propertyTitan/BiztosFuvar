@@ -10,6 +10,7 @@ const { authRequired, requireRole } = require('../middleware/auth');
 const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const barion = require('../services/barion');
 const realtime = require('../realtime');
+const { createNotification } = require('../services/notifications');
 
 const router = express.Router();
 
@@ -252,6 +253,23 @@ router.post(
     // Real-time értesítés a sofőrnek
     realtime.emitGlobal(`route-bookings:new:${route.carrier_id}`, booking);
 
+    // Értesítés a sofőrnek: új foglalás érkezett
+    try {
+      const { rows: shipperRows } = await db.query(
+        'SELECT full_name FROM users WHERE id = $1',
+        [req.user.sub],
+      );
+      await createNotification({
+        user_id: route.carrier_id,
+        type: 'booking_received',
+        title: '📦 Új foglalás az útvonaladon!',
+        body: `${shipperRows[0]?.full_name || 'Egy feladó'} helyet foglalt (${size}, ${priceHuf.toLocaleString('hu-HU')} Ft) a(z) "${route.title}" útvonaladon.`,
+        link: `/sofor/utvonal/${routeId}`,
+      });
+    } catch (e) {
+      console.warn('[notifications] booking_received hiba:', e.message);
+    }
+
     res.status(201).json(booking);
   },
 );
@@ -378,6 +396,24 @@ router.post(
         booking_id: b.id,
         barion_gateway_url: barionRes.gatewayUrl,
       });
+
+      // Értesítés a feladónak: a sofőr megerősítette a foglalást
+      try {
+        const { rows: carrierRows } = await db.query(
+          'SELECT full_name FROM users WHERE id = $1',
+          [b.carrier_id],
+        );
+        await createNotification({
+          user_id: b.shipper_id,
+          type: 'booking_confirmed',
+          title: '✅ A sofőr megerősítette a foglalásod!',
+          body: `${carrierRows[0]?.full_name || 'A sofőr'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizess a Barion oldalon.`,
+          link: `/dashboard/foglalasaim`,
+        });
+      } catch (e) {
+        console.warn('[notifications] booking_confirmed hiba:', e.message);
+      }
+
       res.json({
         ok: true,
         booking_id: b.id,
@@ -421,6 +457,20 @@ router.post(
       [b.id],
     );
     realtime.emitGlobal(`route-bookings:rejected:${b.shipper_id}`, { booking_id: b.id });
+
+    // Értesítés a feladónak: sajnos a sofőr elutasította
+    try {
+      await createNotification({
+        user_id: b.shipper_id,
+        type: 'booking_rejected',
+        title: '😕 A sofőr elutasította a foglalásod',
+        body: 'Sajnos a sofőr nem tudja vállalni ezt a csomagot. Keress másik útvonalat vagy fuvart.',
+        link: `/dashboard/foglalasaim`,
+      });
+    } catch (e) {
+      console.warn('[notifications] booking_rejected hiba:', e.message);
+    }
+
     res.json({ ok: true });
   },
 );

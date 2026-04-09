@@ -4,6 +4,7 @@ const db = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
 const realtime = require('../realtime');
 const barion = require('../services/barion');
+const { createNotification } = require('../services/notifications');
 
 const router = express.Router();
 
@@ -56,6 +57,29 @@ router.post('/jobs/:jobId/bids', authRequired, requireRole('carrier'), async (re
       [jobId, req.user.sub, amount_huf, message || null, eta_minutes || null],
     );
     realtime.emitToJob(jobId, 'bids:new', rows[0]);
+
+    // Értesítés a feladónak: új licit érkezett
+    try {
+      const { rows: jRows } = await db.query(
+        `SELECT j.shipper_id, j.title, u.full_name AS carrier_name
+           FROM jobs j
+           JOIN users u ON u.id = $2
+          WHERE j.id = $1`,
+        [jobId, req.user.sub],
+      );
+      if (jRows[0]) {
+        await createNotification({
+          user_id: jRows[0].shipper_id,
+          type: 'bid_received',
+          title: 'Új licit érkezett 🎯',
+          body: `${jRows[0].carrier_name} ${amount_huf.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${jRows[0].title}" fuvaradra.`,
+          link: `/dashboard/fuvar/${jobId}`,
+        });
+      }
+    } catch (e) {
+      console.warn('[notifications] bid_received hiba:', e.message);
+    }
+
     res.status(201).json(rows[0]);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Már licitáltál erre a fuvarra' });
@@ -150,6 +174,24 @@ router.post('/bids/:id/accept', authRequired, requireRole('shipper'), async (req
       amount_huf: bid.amount_huf,
       barion_gateway_url: barionRes.gatewayUrl,
     });
+
+    // Értesítés a nyertes sofőrnek
+    try {
+      const { rows: jobInfo } = await db.query(
+        'SELECT title FROM jobs WHERE id = $1',
+        [bid.job_id],
+      );
+      await createNotification({
+        user_id: bid.carrier_id,
+        type: 'bid_accepted',
+        title: '🎉 Elfogadták a licitedet!',
+        body: `A(z) "${jobInfo[0]?.title || 'fuvar'}" licitedet elfogadták ${bid.amount_huf.toLocaleString('hu-HU')} Ft-ért. Nyisd meg a mobilappot a fuvar indításához.`,
+        link: `/sofor/fuvar/${bid.job_id}`,
+      });
+    } catch (e) {
+      console.warn('[notifications] bid_accepted hiba:', e.message);
+    }
+
     res.json({
       ok: true,
       job_id: bid.job_id,

@@ -63,16 +63,9 @@ export function useCurrentUser(): CurrentUser | null {
 }
 
 /**
- * A login utáni alapértelmezett kezdőoldal a user role-ja alapján.
+ * A login utáni alapértelmezett kezdőoldal — mindenki a hub-ra érkezik,
+ * és onnan választ menüpontot.
  */
-export function homeForRole(role: Role): string {
-  switch (role) {
-    case 'carrier':
-      return '/sofor/fuvarok';
-    case 'admin':
-      return '/admin';
-    case 'shipper':
-    default:
-      return '/dashboard';
-  }
+export function homeForRole(_role: Role): string {
+  return '/';
 }

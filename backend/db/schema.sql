@@ -261,3 +261,19 @@ CREATE TABLE IF NOT EXISTS route_bookings (
 CREATE INDEX IF NOT EXISTS idx_bookings_route   ON route_bookings(route_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_shipper ON route_bookings(shipper_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status  ON route_bookings(status);
+
+-- ---------- Értesítések -----------------------------------------------
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    type        TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    body        TEXT,
+    link        TEXT,
+    read_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id) WHERE read_at IS NULL;

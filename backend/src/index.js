@@ -13,6 +13,8 @@ const trackingRoutes = require('./routes/tracking');
 const reviewRoutes = require('./routes/reviews');
 const paymentRoutes = require('./routes/payments');
 const carrierRoutes = require('./routes/carrierRoutes');
+const { router: notificationsRouter } = require('./services/notifications');
+const aiRoutes = require('./routes/ai');
 
 const app = express();
 app.use(cors());
@@ -28,6 +30,8 @@ app.use('/', trackingRoutes);
 app.use('/', reviewRoutes);
 app.use('/', paymentRoutes);
 app.use('/', carrierRoutes);
+app.use('/', notificationsRouter);
+app.use('/', aiRoutes);
 
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {

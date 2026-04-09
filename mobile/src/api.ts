@@ -119,6 +119,30 @@ export const api = {
   rejectRouteBooking: (id: string) =>
     request<any>(`/route-bookings/${id}/reject`, { method: 'POST' }),
 
+  // ---------- Notifications ----------
+
+  listNotifications: () => request<any[]>('/notifications'),
+
+  unreadNotificationCount: () =>
+    request<{ count: number }>('/notifications/unread-count'),
+
+  markNotificationRead: (id: string) =>
+    request<any>(`/notifications/${id}/read`, { method: 'POST' }),
+
+  markAllNotificationsRead: () =>
+    request<{ ok: true }>('/notifications/read-all', { method: 'POST' }),
+
+  // ---------- AI chat ----------
+
+  aiChat: (
+    message: string,
+    history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  ) =>
+    request<{ reply: string }>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, history }),
+    }),
+
   /** Egy fuvar beérkezett licitjei. */
   listBids: (jobId: string) =>
     request<any[]>(`/jobs/${jobId}/bids`),

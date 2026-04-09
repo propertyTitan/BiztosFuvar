@@ -19,6 +19,22 @@ export function getSocket(): Socket {
 }
 
 /**
+ * A belépett user saját szobájához csatlakoztatja a socket-et — ide
+ * érkeznek a neki szóló értesítések.
+ */
+export function joinUserRoom(userId: string) {
+  const s = getSocket();
+  s.emit('user:join', userId);
+  // Reconnect után is kell újra feliratkozni
+  s.on('connect', () => s.emit('user:join', userId));
+}
+
+export function leaveUserRoom(userId: string) {
+  const s = getSocket();
+  s.emit('user:leave', userId);
+}
+
+/**
  * Egy konkrét fuvar real-time eseményeire iratkozik fel.
  * Visszatér egy `unsubscribe` függvénnyel.
  */

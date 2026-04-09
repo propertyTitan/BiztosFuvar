@@ -10,11 +10,21 @@ function init(httpServer) {
   });
 
   io.on('connection', (socket) => {
+    // Egy konkrét fuvar élő követési szobája
     socket.on('job:join', (jobId) => {
       if (typeof jobId === 'string') socket.join(`job:${jobId}`);
     });
     socket.on('job:leave', (jobId) => {
       if (typeof jobId === 'string') socket.leave(`job:${jobId}`);
+    });
+
+    // Személyre szóló szoba – az értesítések ide érkeznek. A kliens a
+    // bejelentkezés után emit-eli a saját user id-ját.
+    socket.on('user:join', (userId) => {
+      if (typeof userId === 'string') socket.join(`user:${userId}`);
+    });
+    socket.on('user:leave', (userId) => {
+      if (typeof userId === 'string') socket.leave(`user:${userId}`);
     });
   });
 
@@ -26,9 +36,14 @@ function emitToJob(jobId, event, payload) {
   io.to(`job:${jobId}`).emit(event, payload);
 }
 
+function emitToUser(userId, event, payload) {
+  if (!io) return;
+  io.to(`user:${userId}`).emit(event, payload);
+}
+
 function emitGlobal(event, payload) {
   if (!io) return;
   io.emit(event, payload);
 }
 
-module.exports = { init, emitToJob, emitGlobal };
+module.exports = { init, emitToJob, emitToUser, emitGlobal };
