@@ -1,12 +1,12 @@
-// Sofőr: új útvonal hirdetés mobil form.
-// - Városok autocomplete-tel → tagek
-// - Indulás időpont (datepicker egyszerűsítve: dátum + óra:perc külön input)
-// - Méret kategóriák: S/M/L/XL checkbox + ár
-import { useMemo, useState } from 'react';
+// Sofőr: új / szerkesztés útvonal hirdetés mobil form.
+// - Új mód: route /uj-utvonal
+// - Szerkesztés: /uj-utvonal?edit=<id> → betölti a meglévő útvonalat,
+//   és a mentéskor PATCH-et hív POST helyett.
+import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { api } from '@/api';
 import { PACKAGE_SIZES, PackageSizeId } from '@/constants';
@@ -24,6 +24,9 @@ type SizeRow = { enabled: boolean; price: string };
 
 export default function UjUtvonalMobil() {
   const router = useRouter();
+  const { edit } = useLocalSearchParams<{ edit?: string }>();
+  const isEdit = !!edit;
+
   const [submitting, setSubmitting] = useState(false);
 
   const [title, setTitle] = useState('');
@@ -47,6 +50,42 @@ export default function UjUtvonalMobil() {
     L: { enabled: true, price: '' },
     XL: { enabled: false, price: '' },
   });
+
+  // Szerkesztés módban betöltjük a meglévő útvonalat
+  useEffect(() => {
+    if (!edit) return;
+    (async () => {
+      try {
+        const r = await api.getCarrierRoute(edit);
+        setTitle(r.title || '');
+        setDescription(r.description || '');
+        setVehicle(r.vehicle_description || '');
+        setTags((r.waypoints || []).map((w: any, i: number) => ({
+          name: w.name,
+          formatted_address: w.formatted_address,
+          lat: w.lat,
+          lng: w.lng,
+          order: i,
+        })));
+        const d = new Date(r.departure_at);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        setDateStr(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+        setTimeStr(`${pad(d.getHours())}:${pad(d.getMinutes())}`);
+        const nextSizes: Record<PackageSizeId, SizeRow> = {
+          S: { enabled: false, price: '' },
+          M: { enabled: false, price: '' },
+          L: { enabled: false, price: '' },
+          XL: { enabled: false, price: '' },
+        };
+        for (const p of r.prices || []) {
+          nextSizes[p.size as PackageSizeId] = { enabled: true, price: String(p.price_huf) };
+        }
+        setSizes(nextSizes);
+      } catch (err: any) {
+        Alert.alert('Hiba', err.message);
+      }
+    })();
+  }, [edit]);
 
   function addTag(addr: string, lat: number, lng: number) {
     setTags((prev) => [
@@ -88,7 +127,7 @@ export default function UjUtvonalMobil() {
       // YYYY-MM-DDTHH:MM — ISO lokális idő
       const departureAt = new Date(`${dateStr}T${timeStr.padStart(5, '0')}:00`).toISOString();
 
-      await api.createCarrierRoute({
+      const body = {
         title,
         description: description || undefined,
         departure_at: departureAt,
@@ -96,7 +135,13 @@ export default function UjUtvonalMobil() {
         vehicle_description: vehicle || undefined,
         prices,
         status: publishNow ? 'open' : 'draft',
-      });
+      };
+
+      if (isEdit && edit) {
+        await api.updateCarrierRoute(edit, body);
+      } else {
+        await api.createCarrierRoute(body);
+      }
       router.replace('/utvonalaim');
     } catch (err: any) {
       Alert.alert('Hiba', err.message);

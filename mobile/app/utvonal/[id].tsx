@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Pressable, Alert, Linking,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '@/api';
 import { colors, spacing, radius } from '@/theme';
 
@@ -86,6 +86,32 @@ export default function SoforUtvonalReszletek() {
       <Text style={styles.muted}>
         🗓 {new Date(route.departure_at).toLocaleString('hu-HU')}
       </Text>
+
+      {/* Szerkesztés + státusz váltás — csak a sofőré */}
+      {(route.status === 'draft' || route.status === 'open') && (
+        <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+          <Link href={{ pathname: '/uj-utvonal', params: { edit: route.id } }} asChild>
+            <Pressable style={styles.editBtn}>
+              <Text style={styles.editBtnText}>✏️ Szerkesztés</Text>
+            </Pressable>
+          </Link>
+          {route.status === 'draft' && (
+            <Pressable
+              style={styles.publishBtn}
+              onPress={async () => {
+                try {
+                  await api.setCarrierRouteStatus(route.id, 'open');
+                  await load();
+                } catch (err: any) {
+                  Alert.alert('Hiba', err.message);
+                }
+              }}
+            >
+              <Text style={styles.publishBtnText}>🚀 Publikálás</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
 
       {/* Waypoints */}
       <View style={styles.section}>
@@ -184,6 +210,25 @@ const styles = StyleSheet.create({
   muted: { color: colors.textMuted, fontSize: 13 },
   row: { color: colors.text, marginTop: 2, fontSize: 14 },
   description: { color: colors.text, lineHeight: 20, fontSize: 14, marginTop: 8 },
+
+  editBtn: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  editBtnText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+  publishBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  publishBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   section: {
     backgroundColor: colors.surface,

@@ -100,6 +100,15 @@ export default function UtvonalaimOldal() {
           <div style={{ textAlign: 'right' }}>
             <span className={`pill ${STATUS_PILL[r.status]}`}>{STATUS_LABEL[r.status]}</span>
             <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {(r.status === 'draft' || r.status === 'open') && (
+                <Link
+                  href={`/sofor/uj-utvonal?edit=${r.id}`}
+                  className="btn btn-secondary"
+                  style={{ fontSize: 12, padding: '4px 10px', textDecoration: 'none' }}
+                >
+                  ✏️ Szerkesztés
+                </Link>
+              )}
               {r.status === 'draft' && (
                 <button className="btn" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => changeStatus(r, 'open')}>
                   Publikálás

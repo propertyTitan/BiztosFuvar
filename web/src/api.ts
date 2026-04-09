@@ -312,6 +312,21 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
 
+  /** Teljes útvonal szerkesztés (a tulajdonos bármikor módosíthatja). */
+  updateCarrierRoute: (id: string, body: {
+    title?: string;
+    description?: string;
+    departure_at?: string;
+    waypoints?: Waypoint[];
+    vehicle_description?: string;
+    prices?: RoutePrice[];
+    status?: 'draft' | 'open' | 'full' | 'cancelled';
+  }) =>
+    request<CarrierRoute>(`/carrier-routes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
   /** Feladói foglalás egy útvonalra. */
   createRouteBooking: (
     routeId: string,

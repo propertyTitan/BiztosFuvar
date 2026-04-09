@@ -1,5 +1,8 @@
 // Expo Router root layout – stack navigáció magyar címekkel.
-// Header-jobb oldalán: "Kijelentkezés" gomb a bejelentkezett user számára.
+//
+// A kilépés gombot SZÁNDÉKOSAN csak a HUB képernyőn mutatjuk — a többi
+// oldalon a fejléc szabad, ott csak a natív "vissza" ikon van a bal
+// oldalon. Így nem nyomja meg senki véletlenül tévedésből.
 import { Stack, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, Text } from 'react-native';
@@ -32,26 +35,26 @@ export default function RootLayout() {
           headerTintColor: '#fff',
           headerTitleStyle: { fontWeight: '700' },
           contentStyle: { backgroundColor: colors.background },
-          headerRight: () => <LogoutButton />,
         }}
       >
-        <Stack.Screen
-          name="index"
-          options={{ title: 'GoFuvar', headerRight: undefined }}
-        />
-        <Stack.Screen
-          name="bejelentkezes"
-          options={{ title: 'Bejelentkezés', headerRight: undefined }}
-        />
+        <Stack.Screen name="index" options={{ title: 'GoFuvar' }} />
+        <Stack.Screen name="bejelentkezes" options={{ title: 'Bejelentkezés' }} />
 
-        {/* Hub — mindenkinek a kezdőoldala login után */}
-        <Stack.Screen name="hub" options={{ title: 'GoFuvar' }} />
+        {/* Hub — a kilépés gomb ÉS CSAK ITT jelenik meg */}
+        <Stack.Screen
+          name="hub"
+          options={{
+            title: 'GoFuvar',
+            headerRight: () => <LogoutButton />,
+            headerBackVisible: false,
+          }}
+        />
         <Stack.Screen name="ertesitesek" options={{ title: 'Értesítések' }} />
         <Stack.Screen name="ai-chat" options={{ title: 'AI Segéd' }} />
         <Stack.Screen name="hirdeteseim" options={{ title: 'Saját hirdetéseim' }} />
         <Stack.Screen name="sajat-fuvaraim" options={{ title: 'Fuvaraim' }} />
 
-        {/* Sofőr nézet */}
+        {/* Sofőr / licit nézet */}
         <Stack.Screen name="fuvarok" options={{ title: 'Elérhető fuvarok' }} />
         <Stack.Screen name="licitjeim" options={{ title: 'Licitjeim' }} />
         <Stack.Screen name="fuvar/[id]" options={{ title: 'Fuvar részletek' }} />

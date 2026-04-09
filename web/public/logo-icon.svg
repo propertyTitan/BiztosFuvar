@@ -1,20 +1,41 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  GoFuvar – csak az ikon (négyzetes, app launcher és favicon méretre).
-  72 × 72 viewBox. Ugyanaz a nyíl + progress bar motívum.
+  GoFuvar – csak az ikon (négyzetes, app launcher + favicon).
+  88 × 88 viewBox, ugyanaz a teherautó motívum.
 -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" role="img" aria-label="GoFuvar">
-  <rect x="0" y="0" width="72" height="72" rx="18" fill="#1e40af"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 88 88" role="img" aria-label="GoFuvar">
+  <rect x="0" y="0" width="88" height="88" rx="20" fill="#1e40af"/>
 
-  <!-- Halvány körív -->
-  <path d="M 14 50 Q 36 12 62 26" stroke="rgba(255,255,255,0.2)" stroke-width="3" fill="none" stroke-linecap="round"/>
-
-  <!-- Előre nyíl -->
-  <g stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none">
-    <line x1="16" y1="38" x2="48" y2="38"/>
-    <polyline points="40,24 56,38 40,52"/>
+  <!-- Sebesség vonalak -->
+  <g stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round" opacity="0.7">
+    <line x1="8" y1="28" x2="20" y2="28"/>
+    <line x1="6" y1="38" x2="16" y2="38"/>
+    <line x1="8" y1="48" x2="20" y2="48"/>
   </g>
 
-  <!-- Zöld progress -->
-  <rect x="16" y="58" width="40" height="4" rx="2" fill="#16a34a"/>
+  <!-- Teherautó raktér -->
+  <rect x="22" y="28" width="34" height="28" rx="3" fill="#ffffff"/>
+  <line x1="39" y1="30" x2="39" y2="54" stroke="#e2e8f0" stroke-width="1.5"/>
+
+  <!-- Vezetőfülke -->
+  <path d="M 56 32 L 68 32 L 74 40 L 74 56 L 56 56 Z" fill="#ffffff"/>
+  <!-- Szélvédő -->
+  <path d="M 58 34 L 66 34 L 71 40 L 58 40 Z" fill="#60a5fa"/>
+
+  <!-- Csomagok kilátszódnak -->
+  <rect x="26" y="18" width="14" height="12" rx="2" fill="#f59e0b"/>
+  <line x1="26" y1="24" x2="40" y2="24" stroke="#c2710c" stroke-width="1" opacity="0.6"/>
+  <line x1="33" y1="18" x2="33" y2="30" stroke="#c2710c" stroke-width="1" opacity="0.6"/>
+
+  <rect x="42" y="21" width="11" height="9" rx="1.5" fill="#16a34a"/>
+  <line x1="42" y1="25.5" x2="53" y2="25.5" stroke="#0f7a3a" stroke-width="1" opacity="0.6"/>
+
+  <!-- Kerekek -->
+  <circle cx="30" cy="60" r="7" fill="#0f172a"/>
+  <circle cx="30" cy="60" r="3" fill="#cbd5e1"/>
+  <circle cx="64" cy="60" r="7" fill="#0f172a"/>
+  <circle cx="64" cy="60" r="3" fill="#cbd5e1"/>
+
+  <!-- Út -->
+  <rect x="10" y="72" width="68" height="3" rx="1.5" fill="#86efac"/>
 </svg>

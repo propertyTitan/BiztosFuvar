@@ -99,6 +99,9 @@ export default function Utvonalaim() {
                   </View>
                 ))}
               </View>
+              {(item.status === 'draft' || item.status === 'open') && (
+                <Text style={styles.editHint}>Érintsd meg a részletekhez és szerkesztéshez →</Text>
+              )}
             </Pressable>
           </Link>
         );
@@ -135,6 +138,7 @@ const styles = StyleSheet.create({
   pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 11, fontWeight: '700', color: colors.text },
   row: { color: colors.textMuted, marginBottom: 2, fontSize: 13 },
+  editHint: { color: colors.primary, fontSize: 11, marginTop: spacing.sm, fontWeight: '600' },
   priceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
   priceChip: {
     backgroundColor: '#eff6ff',

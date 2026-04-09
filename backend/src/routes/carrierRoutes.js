@@ -169,6 +169,88 @@ router.patch(
   },
 );
 
+// PATCH /carrier-routes/:id – teljes szerkesztés (piszkozatok + publikált útvonalak)
+// Csak az útvonal tulajdonosa módosíthatja. A `prices` tömb teljesen felülírja
+// a meglévő ár-beállításokat (törlés + új beszúrás egy tranzakcióban).
+router.patch('/carrier-routes/:id', authRequired, async (req, res) => {
+  const {
+    title, description, departure_at, waypoints, vehicle_description, prices, status,
+  } = req.body || {};
+
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Jogosultság-ellenőrzés + zárolás
+    const { rows: existing } = await client.query(
+      'SELECT carrier_id FROM carrier_routes WHERE id = $1 FOR UPDATE',
+      [req.params.id],
+    );
+    if (!existing[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Útvonal nem található' });
+    }
+    if (existing[0].carrier_id !== req.user.sub) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Nincs jogosultság' });
+    }
+
+    // Mezőnkénti frissítés — csak a megadottakat írjuk át
+    const sets = [];
+    const params = [];
+    let idx = 1;
+    if (title !== undefined)               { sets.push(`title = $${idx++}`);               params.push(title); }
+    if (description !== undefined)         { sets.push(`description = $${idx++}`);         params.push(description || null); }
+    if (departure_at !== undefined)        { sets.push(`departure_at = $${idx++}`);        params.push(departure_at); }
+    if (waypoints !== undefined)           { sets.push(`waypoints = $${idx++}::jsonb`);    params.push(JSON.stringify(waypoints)); }
+    if (vehicle_description !== undefined) { sets.push(`vehicle_description = $${idx++}`); params.push(vehicle_description || null); }
+    if (status !== undefined) {
+      const allowed = ['draft', 'open', 'full', 'cancelled'];
+      if (!allowed.includes(status)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Érvénytelen státusz' });
+      }
+      sets.push(`status = $${idx++}`);
+      params.push(status);
+    }
+    sets.push(`updated_at = NOW()`);
+    params.push(req.params.id);
+    const updatedSql = `UPDATE carrier_routes SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`;
+
+    const { rows: updatedRows } = await client.query(updatedSql, params);
+
+    // Árak cseréje, ha megadták
+    if (Array.isArray(prices)) {
+      for (const p of prices) {
+        if (!ALLOWED_SIZES.includes(p.size) || !(p.price_huf > 0)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: `Érvénytelen ár: ${JSON.stringify(p)}` });
+        }
+      }
+      await client.query('DELETE FROM carrier_route_prices WHERE route_id = $1', [req.params.id]);
+      for (const p of prices) {
+        await client.query(
+          `INSERT INTO carrier_route_prices (route_id, size, price_huf) VALUES ($1, $2, $3)`,
+          [req.params.id, p.size, p.price_huf],
+        );
+      }
+    }
+
+    await client.query('COMMIT');
+    const withPrices = (await attachPrices(updatedRows))[0];
+    res.json(withPrices);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[carrier-routes] PATCH hiba:', err);
+    res.status(500).json({ error: 'Útvonal frissítés sikertelen', detail: err.message });
+  } finally {
+    client.release();
+  }
+});
+    res.json((await attachPrices(rows))[0]);
+  },
+);
+
 // =====================================================================
 //  FELADÓ – foglalás egy útvonalra
 // =====================================================================

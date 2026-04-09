@@ -1,14 +1,12 @@
 'use client';
 
-// Sofőr: új útvonal hirdetés form.
-// - Címkék (tagek) a városokhoz Google Places autocomplete-tel
-// - Indulási időpont
-// - Jármű leírás szabadon
-// - Méret kategóriák: S/M/L/XL — checkbox + ár. Csak a bepipáltak mennek
-//   a feladónak.
+// Sofőr: új / szerkesztés útvonal hirdetés form.
+// - Új mód: URL `/sofor/uj-utvonal`
+// - Szerkesztés mód: URL `/sofor/uj-utvonal?edit=<id>` → betölti a
+//   meglévő útvonalat, és a mentéskor PATCH-et hív POST helyett.
 // - Mentés draft-ként vagy publikálás azonnal
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api, Waypoint } from '@/api';
 import { PACKAGE_SIZES, PackageSizeId } from '@/lib/packageSizes';
 import CityTagsInput from '@/components/CityTagsInput';
@@ -20,7 +18,12 @@ type SizeRow = {
 
 export default function UjUtvonal() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+  const isEdit = !!editId;
+
   const [submitting, setSubmitting] = useState(false);
+  const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
@@ -36,6 +39,39 @@ export default function UjUtvonal() {
     L: { enabled: true, price: '' },
     XL: { enabled: false, price: '' },
   });
+
+  // Szerkesztés módban töltsük be a meglévő útvonalat
+  useEffect(() => {
+    if (!editId) return;
+    setLoading(true);
+    api.getCarrierRoute(editId)
+      .then((r) => {
+        setTitle(r.title);
+        setDescription(r.description || '');
+        setVehicle(r.vehicle_description || '');
+        setWaypoints(r.waypoints || []);
+        // Az ISO dátumot visszaalakítjuk datetime-local formátumra (YYYY-MM-DDTHH:MM)
+        const d = new Date(r.departure_at);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const local =
+          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+          `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        setDepartureLocal(local);
+        // Méretek feltöltése a sofőr meglévő árai alapján
+        const nextSizes: Record<PackageSizeId, SizeRow> = {
+          S:  { enabled: false, price: '' },
+          M:  { enabled: false, price: '' },
+          L:  { enabled: false, price: '' },
+          XL: { enabled: false, price: '' },
+        };
+        for (const p of r.prices || []) {
+          nextSizes[p.size] = { enabled: true, price: String(p.price_huf) };
+        }
+        setSizes(nextSizes);
+      })
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, [editId]);
 
   function toggleSize(id: PackageSizeId) {
     setSizes((prev) => ({
@@ -74,15 +110,21 @@ export default function UjUtvonal() {
           price_huf: Number(s.price),
         }));
 
-      const route = await api.createCarrierRoute({
+      const body = {
         title,
         description: description || undefined,
         departure_at: new Date(departureLocal).toISOString(),
         waypoints,
         vehicle_description: vehicle || undefined,
         prices,
-        status: publishNow ? 'open' : 'draft',
-      });
+        status: (publishNow ? 'open' : 'draft') as 'open' | 'draft',
+      };
+
+      if (isEdit && editId) {
+        await api.updateCarrierRoute(editId, body);
+      } else {
+        await api.createCarrierRoute(body);
+      }
       router.push('/sofor/utvonalaim');
     } catch (err: any) {
       setError(err.message);
@@ -93,12 +135,14 @@ export default function UjUtvonal() {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1>Új útvonal hirdetése</h1>
+      <h1>{isEdit ? 'Útvonal szerkesztése' : 'Új útvonal hirdetése'}</h1>
       <p className="muted">
-        Hirdesd meg az útvonalat amit bejársz — a feladók a csomagjaikat
-        felkínálhatják rá. Te döntöd el, milyen méretű csomagokat viszel, és
-        mennyiért.
+        {isEdit
+          ? 'Módosítsd az útvonal részleteit. Mentheted piszkozatként vagy publikálhatod azonnal.'
+          : 'Hirdesd meg az útvonalat amit bejársz — a feladók a csomagjaikat felkínálhatják rá. Te döntöd el, milyen méretű csomagokat viszel, és mennyiért.'}
       </p>
+
+      {loading && <p>Betöltés…</p>}
 
       <form className="card" onSubmit={(e) => { e.preventDefault(); submit(true); }}>
         <h2 style={{ marginTop: 0 }}>Útvonal</h2>

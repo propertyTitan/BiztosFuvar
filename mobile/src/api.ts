@@ -105,6 +105,13 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
 
+  /** Teljes útvonal szerkesztés (csak a tulajdonos hívhatja). */
+  updateCarrierRoute: (id: string, body: any) =>
+    request<any>(`/carrier-routes/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+
   createRouteBooking: (routeId: string, body: any) =>
     request<any>(`/carrier-routes/${routeId}/bookings`, {
       method: 'POST',
