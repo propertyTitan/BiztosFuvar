@@ -59,15 +59,19 @@ export default function FizetesStub() {
     await new Promise((r) => setTimeout(r, 1500));
 
     // STUB → mi magunk nyugtázzuk a backend-en. Éles Barion esetén
-    // a /payments/barion/callback IPN fogja ugyanezt csinálni.
-    if (booking) {
-      try {
+    // a /payments/barion/callback IPN fogja ugyanezt csinálni. Mindkét
+    // fizetési ág (licites fuvar + fix áras foglalás) saját confirm
+    // endpointtal rendelkezik.
+    try {
+      if (booking) {
         await api.confirmRouteBookingPayment(booking);
-      } catch (err: any) {
-        toast.error('Fizetés nyugtázása sikertelen', err.message);
-        setStep('review');
-        return;
+      } else if (job) {
+        await api.confirmJobPayment(job);
       }
+    } catch (err: any) {
+      toast.error('Fizetés nyugtázása sikertelen', err.message);
+      setStep('review');
+      return;
     }
 
     setStep('done');

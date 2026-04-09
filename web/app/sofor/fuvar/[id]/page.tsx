@@ -13,6 +13,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
+import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -61,6 +62,22 @@ export default function SoforFuvarReszletek() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // `job:paid` realtime event — ha a feladó kifizette a fuvart, a sofőr
+  // azonnal lássa a FIZETVE címkét, ne kelljen manuálisan refreshelni.
+  useEffect(() => {
+    if (!me) return;
+    joinUserRoom(me.id);
+    const socket = getSocket();
+    const onPaid = (p: any) => {
+      if (!p || p.job_id === id) load();
+    };
+    socket.on('job:paid', onPaid);
+    return () => {
+      socket.off('job:paid', onPaid);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, id]);
 
   async function submitBid(e: React.FormEvent) {
     e.preventDefault();
@@ -118,7 +135,38 @@ export default function SoforFuvarReszletek() {
             📍 {job.pickup_address} → 🏁 {job.dropoff_address}
           </p>
         </div>
-        <span className="pill pill-progress">{STATUS_LABEL[job.status] || job.status}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+          <span className="pill pill-progress">{STATUS_LABEL[job.status] || job.status}</span>
+          {/* Fizetés állapot — csak accepted+ státuszoknál érdekes.
+              A sofőr ebből látja, hogy a feladó már kifizette-e vagy sem. */}
+          {['accepted', 'in_progress', 'delivered'].includes(job.status) && (
+            job.paid_at ? (
+              <span
+                className="pill"
+                style={{
+                  background: '#dcfce7',
+                  color: '#166534',
+                  border: '1px solid #86efac',
+                  fontWeight: 700,
+                }}
+                title={`Fizetve: ${new Date(job.paid_at).toLocaleString('hu-HU')}`}
+              >
+                ✅ FIZETVE
+              </span>
+            ) : (
+              <span
+                className="pill"
+                style={{
+                  background: '#fef3c7',
+                  color: '#92400e',
+                  border: '1px solid #fde68a',
+                }}
+              >
+                ⏳ Fizetésre vár
+              </span>
+            )
+          )}
+        </div>
       </div>
 
       {/* Térkép */}

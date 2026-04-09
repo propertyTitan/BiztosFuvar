@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     ai_description_notes TEXT,
     created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    paid_at              TIMESTAMPTZ,
     delivered_at         TIMESTAMPTZ
 );
 
@@ -102,6 +103,7 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status     ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_shipper    ON jobs(shipper_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_carrier    ON jobs(carrier_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_pickup_geo ON jobs(pickup_lat, pickup_lng);
+CREATE INDEX IF NOT EXISTS idx_jobs_paid_at    ON jobs(paid_at);
 
 -- ---------- Licitek (Bids) --------------------------------------------
 

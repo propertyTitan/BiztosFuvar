@@ -10,6 +10,8 @@ import { useLocalSearchParams, Link } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { api } from '@/api';
+import { getCurrentUser } from '@/auth';
+import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
@@ -24,6 +26,26 @@ export default function FuvarReszletek() {
 
   useEffect(() => {
     api.getJob(id!).then(setJob).catch((e) => Alert.alert('Hiba', e.message));
+  }, [id]);
+
+  // `job:paid` realtime event: ha a feladó kifizeti a fuvart, a sofőr
+  // képernyőjén azonnal cserélődjön a pill "Fizetésre vár" → "FIZETVE"-re.
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    (async () => {
+      const u = await getCurrentUser();
+      if (!u) return;
+      joinUserRoom(u.id);
+      const socket = getSocket();
+      const onPaid = (p: any) => {
+        if (!p || p.job_id === id) {
+          api.getJob(id!).then(setJob).catch(() => {});
+        }
+      };
+      socket.on('job:paid', onPaid);
+      cleanup = () => socket.off('job:paid', onPaid);
+    })();
+    return () => cleanup?.();
   }, [id]);
 
   // Élő GPS ping: amíg a fuvar 'in_progress', a sofőr telefonja 10 mp-enként
@@ -94,6 +116,16 @@ export default function FuvarReszletek() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{job.title}</Text>
       <Text style={styles.status}>Státusz: {hungarianStatus(job.status)}</Text>
+
+      {/* Fizetés állapot — csak accepted+ státuszoknál. A sofőr ebből
+          tudja, hogy a feladó már kifizette-e a fuvart. */}
+      {['accepted', 'in_progress', 'delivered'].includes(job.status) && (
+        <View style={[styles.payStatus, job.paid_at ? styles.payStatusPaid : styles.payStatusWaiting]}>
+          <Text style={[styles.payStatusText, job.paid_at ? styles.payStatusPaidText : styles.payStatusWaitingText]}>
+            {job.paid_at ? '✅ FIZETVE' : '⏳ Fizetésre vár'}
+          </Text>
+        </View>
+      )}
 
       {/* Térkép – pickup → dropoff */}
       <View style={styles.mapWrap}>
@@ -210,7 +242,20 @@ function hungarianStatus(s: string) {
 const styles = StyleSheet.create({
   container: { padding: spacing.lg },
   title: { fontSize: 22, fontWeight: '800', color: colors.text },
-  status: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
+  status: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.sm },
+  payStatus: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: spacing.md,
+  },
+  payStatusPaid: { backgroundColor: '#dcfce7', borderColor: '#86efac' },
+  payStatusWaiting: { backgroundColor: '#fef3c7', borderColor: '#fde68a' },
+  payStatusText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.3 },
+  payStatusPaidText: { color: '#166534' },
+  payStatusWaitingText: { color: '#92400e' },
   mapWrap: {
     height: 220, borderRadius: radius.md, overflow: 'hidden',
     marginBottom: spacing.md, borderWidth: 1, borderColor: colors.border,

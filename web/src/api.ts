@@ -103,6 +103,10 @@ export type Job = {
     | 'cancelled';
   /** 6 számjegyű átvételi kód — a backend csak a feladónak adja vissza. */
   delivery_code?: string | null;
+  /** Sikeres feladói fizetés időbélyegzője (`accepted` után). */
+  paid_at?: string | null;
+  /** Barion fizetési URL — STUB módban `stub:...`. */
+  barion_gateway_url?: string | null;
 };
 
 export type NewJobInput = {
@@ -389,6 +393,20 @@ export const api = {
   confirmRouteBookingPayment: (id: string) =>
     request<{ ok: true; paid_at: string; already_paid?: boolean }>(
       `/route-bookings/${id}/confirm-payment`,
+      { method: 'POST' },
+    ),
+
+  /** Licites fuvar lusta Barion reservation — ugyanaz a minta, mint a route bookingnál. */
+  payJob: (id: string) =>
+    request<{ payment_id: string; gateway_url: string; is_stub: boolean; reused: boolean }>(
+      `/jobs/${id}/pay`,
+      { method: 'POST' },
+    ),
+
+  /** Licites fuvar fizetés nyugtázása — paid_at + notif a sofőrnek. */
+  confirmJobPayment: (id: string) =>
+    request<{ ok: true; paid_at: string; already_paid?: boolean }>(
+      `/jobs/${id}/confirm-payment`,
       { method: 'POST' },
     ),
 

@@ -7,6 +7,8 @@ const { authRequired, requireRole } = require('../middleware/auth');
 const { reviewJobDescription } = require('../services/gemini');
 const { distanceMeters } = require('../utils/geo');
 const realtime = require('../realtime');
+const barion = require('../services/barion');
+const { createNotification } = require('../services/notifications');
 
 const router = express.Router();
 
@@ -160,8 +162,19 @@ router.get('/', authRequired, async (req, res) => {
 });
 
 // GET /jobs/:id
+// A válasz tartalmazza a Barion gateway_url-t is (az escrow_transactions
+// táblából JOIN-olva), hogy a frontend egyszerűen eldönthesse, van-e már
+// aktív fizetés-lehetőség. A `paid_at` pedig eleve a jobs soron van.
 router.get('/:id', authRequired, async (req, res) => {
-  const { rows } = await db.query('SELECT * FROM jobs WHERE id = $1', [req.params.id]);
+  const { rows } = await db.query(
+    `SELECT j.*,
+            e.barion_gateway_url,
+            e.barion_payment_id
+       FROM jobs j
+  LEFT JOIN escrow_transactions e ON e.job_id = j.id
+      WHERE j.id = $1`,
+    [req.params.id],
+  );
   if (!rows[0]) return res.status(404).json({ error: 'Nem található' });
   res.json(scrubJobForUser(rows[0], req.user));
 });
@@ -179,6 +192,159 @@ router.get('/mine/list', authRequired, async (req, res) => {
     [req.user.sub],
   );
   res.json(rows.map((j) => scrubJobForUser(j, req.user)));
+});
+
+// POST /jobs/:id/pay
+//
+// Lusta Barion reservation a licites fuvarhoz. Akkor hívjuk, amikor a
+// feladó a "Fizetés Barionnal" gombra kattint a fuvar részletek oldalon.
+//   - Ha már létezik escrow_transactions sor gateway_url-lel, azt adjuk
+//     vissza (idempotens).
+//   - Ha nincs (pl. az accept régebbi kóddal futott, amikor még nem volt
+//     reservation), MOST hozzuk létre, eltároljuk az escrow sorra, és
+//     visszaadjuk az új URL-t.
+//
+// Ugyanaz a minta, mint a `/route-bookings/:id/pay`-nél.
+router.post('/:id/pay', authRequired, async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT j.*,
+            e.barion_gateway_url,
+            e.barion_payment_id,
+            s.email AS shipper_email,
+            c.email AS carrier_email
+       FROM jobs j
+  LEFT JOIN escrow_transactions e ON e.job_id = j.id
+       JOIN users s ON s.id = j.shipper_id
+  LEFT JOIN users c ON c.id = j.carrier_id
+      WHERE j.id = $1`,
+    [req.params.id],
+  );
+  const j = rows[0];
+  if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (j.shipper_id !== req.user.sub) {
+    return res.status(403).json({ error: 'Csak a fuvar feladója fizethet' });
+  }
+  if (j.status !== 'accepted') {
+    return res.status(409).json({
+      error: 'Csak elfogadott licit után fizethető (státusz: ' + j.status + ')',
+    });
+  }
+  const totalHuf = j.accepted_price_huf;
+  if (!totalHuf) {
+    return res.status(409).json({ error: 'Hiányzik az elfogadott ár' });
+  }
+
+  // Idempotens: ha már van gateway_url, csak visszaadjuk.
+  if (j.barion_gateway_url) {
+    return res.json({
+      payment_id: j.barion_payment_id,
+      gateway_url: j.barion_gateway_url,
+      is_stub: String(j.barion_gateway_url).startsWith('stub:'),
+      reused: true,
+    });
+  }
+
+  let barionRes;
+  try {
+    barionRes = await barion.reservePayment({
+      jobId: j.id,
+      totalHuf,
+      shipperEmail: j.shipper_email,
+      carrierEmail: j.carrier_email,
+    });
+  } catch (err) {
+    console.error('[barion] lusta reservePayment (job) hiba:', err.message);
+    return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+  }
+
+  const carrierShare = Math.round(totalHuf * (1 - barion.COMMISSION_PCT));
+  const platformShare = totalHuf - carrierShare;
+
+  await db.query(
+    `INSERT INTO escrow_transactions
+       (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
+        carrier_share_huf, platform_share_huf)
+     VALUES ($1,$2,'held',$3,$4,$5,$6)
+     ON CONFLICT (job_id) DO UPDATE SET
+       amount_huf         = EXCLUDED.amount_huf,
+       barion_payment_id  = EXCLUDED.barion_payment_id,
+       barion_gateway_url = EXCLUDED.barion_gateway_url,
+       carrier_share_huf  = EXCLUDED.carrier_share_huf,
+       platform_share_huf = EXCLUDED.platform_share_huf,
+       held_at            = NOW()`,
+    [j.id, totalHuf, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
+  );
+
+  res.json({
+    payment_id: barionRes.paymentId,
+    gateway_url: barionRes.gatewayUrl,
+    is_stub: !!barionRes.stub,
+    reused: false,
+  });
+});
+
+// POST /jobs/:id/confirm-payment
+//
+// Sikeres fizetés nyugtázása. STUB módban a `/fizetes-stub` oldal
+// "Fizetek most" gombja hívja; valódi Barion mellett a callback fogja.
+// Idempotens. Mit csinál:
+//   1) `paid_at` beállítása a jobs soron
+//   2) Értesítés a sofőrnek: "Péter kifizette a fuvarodat"
+//   3) Realtime event mindkét félnek (`job:paid`), hogy a UI frissüljön
+router.post('/:id/confirm-payment', authRequired, async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT j.*,
+            s.full_name AS shipper_name
+       FROM jobs j
+       JOIN users s ON s.id = j.shipper_id
+      WHERE j.id = $1`,
+    [req.params.id],
+  );
+  const j = rows[0];
+  if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (j.shipper_id !== req.user.sub) {
+    return res.status(403).json({ error: 'Csak a fuvar feladója nyugtázhatja a fizetést' });
+  }
+  if (j.status !== 'accepted') {
+    return res.status(409).json({
+      error: 'Csak elfogadott licit után fizethető (státusz: ' + j.status + ')',
+    });
+  }
+
+  if (j.paid_at) {
+    return res.json({ ok: true, already_paid: true, paid_at: j.paid_at });
+  }
+
+  const { rows: upd } = await db.query(
+    `UPDATE jobs SET paid_at = NOW() WHERE id = $1 RETURNING paid_at`,
+    [j.id],
+  );
+  const paidAt = upd[0].paid_at;
+
+  // Értesítés a sofőrnek (a licitet nyert carrier)
+  if (j.carrier_id) {
+    try {
+      await createNotification({
+        user_id: j.carrier_id,
+        type: 'job_paid',
+        title: '💰 Kifizették a fuvarodat!',
+        body: `${j.shipper_name || 'A feladó'} kifizette a(z) "${j.title}" fuvart ${j.accepted_price_huf.toLocaleString('hu-HU')} Ft értékben.`,
+        link: `/sofor/fuvar/${j.id}`,
+      });
+    } catch (e) {
+      console.warn('[notifications] job_paid hiba:', e.message);
+    }
+    realtime.emitToUser(j.carrier_id, 'job:paid', {
+      job_id: j.id,
+      paid_at: paidAt,
+    });
+  }
+  realtime.emitToUser(j.shipper_id, 'job:paid', {
+    job_id: j.id,
+    paid_at: paidAt,
+  });
+
+  res.json({ ok: true, paid_at: paidAt });
 });
 
 module.exports = router;

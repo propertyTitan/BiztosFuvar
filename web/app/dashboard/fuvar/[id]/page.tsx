@@ -6,10 +6,11 @@
 // - Fotók (pickup / dropoff) — Proof of Delivery 2.0
 // - Escrow / Barion állapot
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid } from '@/api';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
-import { subscribeJob } from '@/lib/socket';
+import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
+import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -20,12 +21,31 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function FuvarReszletek() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const toast = useToast();
+  const user = useCurrentUser();
   const [job, setJob] = useState<Job | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
   const [escrow, setEscrow] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [paying, setPaying] = useState(false);
+
+  async function startPayment() {
+    setPaying(true);
+    try {
+      const r = await api.payJob(id);
+      if (r.is_stub) {
+        router.push(`/fizetes-stub?job=${id}`);
+      } else {
+        window.location.href = r.gateway_url;
+      }
+    } catch (e: any) {
+      toast.error('Fizetés indítása sikertelen', e.message);
+    } finally {
+      setPaying(false);
+    }
+  }
 
   async function loadAll() {
     try {
@@ -51,20 +71,27 @@ export default function FuvarReszletek() {
     return unsub;
   }, [id]);
 
+  // Külön: `job:paid` user-szoba event, hogy a sikeres fizetés után
+  // a gomb helyén azonnal megjelenjen a FIZETVE címke refresh nélkül.
+  useEffect(() => {
+    if (!user) return;
+    joinUserRoom(user.id);
+    const socket = getSocket();
+    const onPaid = (p: any) => {
+      if (!p || p.job_id === id) loadAll();
+    };
+    socket.on('job:paid', onPaid);
+    return () => {
+      socket.off('job:paid', onPaid);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, id]);
+
   async function acceptBid(bidId: string) {
     try {
-      const res = await api.acceptBid(bidId);
-      toast.success('Licit elfogadva', 'A Barion letét lefoglalva');
-      if (res.barion?.gateway_url) {
-        const isStub = res.barion.gateway_url.startsWith('stub:');
-        if (isStub) {
-          // STUB fizetés oldal
-          window.location.href = `/fizetes-stub?job=${id}`;
-          return;
-        }
-        window.open(res.barion.gateway_url, '_blank');
-      }
-      loadAll();
+      await api.acceptBid(bidId);
+      toast.success('Licit elfogadva', 'Most már kifizetheted a fuvart.');
+      await loadAll();
     } catch (err: any) {
       toast.error('Hiba a licit elfogadásakor', err.message);
     }
@@ -237,49 +264,65 @@ export default function FuvarReszletek() {
             ))}
         </div>
 
-        {/* Escrow / Barion */}
+        {/* Letét + fizetés */}
         <div className="card">
           <h2>Letét (Barion)</h2>
-          {!escrow && <p className="muted">Nincs letét — még nincs elfogadott licit.</p>}
-          {escrow && (
+          {job.status !== 'accepted' && !escrow && (
+            <p className="muted">Nincs letét — még nincs elfogadott licit.</p>
+          )}
+          {(job.status === 'accepted' || escrow) && (
             <>
               <p>
-                Összeg: <strong>{escrow.amount_huf?.toLocaleString('hu-HU')} Ft</strong>
+                Összeg:{' '}
+                <strong>
+                  {(job.accepted_price_huf ?? escrow?.amount_huf ?? 0).toLocaleString('hu-HU')} Ft
+                </strong>
               </p>
-              <p>
-                Állapot:{' '}
-                <span className={`pill ${escrow.status === 'released' ? 'pill-delivered' : 'pill-accepted'}`}>
-                  {escrow.status === 'held' ? 'Lefoglalva' : escrow.status === 'released' ? 'Kifizetve' : 'Visszatérítve'}
-                </span>
-              </p>
-              {escrow.carrier_share_huf && (
+              {escrow?.carrier_share_huf && (
                 <>
                   <p className="muted">Sofőri rész (90%): {escrow.carrier_share_huf.toLocaleString('hu-HU')} Ft</p>
                   <p className="muted">Platform jutalék (10%): {escrow.platform_share_huf?.toLocaleString('hu-HU')} Ft</p>
                 </>
               )}
-              {escrow.barion_gateway_url && (() => {
-                const isStub = escrow.barion_gateway_url.startsWith('stub:');
-                const href = isStub
-                  ? `/fizetes-stub?job=${id}`
-                  : escrow.barion_gateway_url;
-                return (
-                  <a
-                    className="btn"
-                    href={href}
-                    target={isStub ? undefined : '_blank'}
-                    rel={isStub ? undefined : 'noreferrer'}
-                    style={{ background: '#16a34a' }}
-                  >
-                    💳 Fizetés a Barionon{isStub ? ' (STUB)' : ''}
-                  </a>
-                );
-              })()}
-              {escrow.barion_payment_id?.startsWith('stub-') && (
-                <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-                  ⚠️ Barion STUB mód – élesben sandbox/produkciós kapuhoz csatlakozik.
-                </p>
-              )}
+
+              {/* Fizetés állapot: FIZETVE címke, vagy Fizetés gomb.
+                  A /pay endpoint lusta (ha nincs még reservation, most
+                  hozza létre), úgyhogy a gomb akkor is működik, ha az
+                  escrow még nem jött létre az accept során. */}
+              {job.paid_at ? (
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: 'inline-block',
+                    background: '#dcfce7',
+                    color: '#166534',
+                    padding: '10px 18px',
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: 14,
+                    border: '1px solid #86efac',
+                  }}
+                  title={`Fizetve: ${new Date(job.paid_at).toLocaleString('hu-HU')}`}
+                >
+                  ✅ FIZETVE
+                </div>
+              ) : job.status === 'accepted' ? (
+                <button
+                  type="button"
+                  onClick={startPayment}
+                  disabled={paying}
+                  className="btn"
+                  style={{
+                    marginTop: 12,
+                    background: '#16a34a',
+                    border: 'none',
+                    cursor: paying ? 'wait' : 'pointer',
+                    opacity: paying ? 0.7 : 1,
+                  }}
+                >
+                  {paying ? 'Fizetés indítása…' : '💳 Fizetés Barionnal'}
+                </button>
+              ) : null}
             </>
           )}
         </div>

@@ -177,6 +177,20 @@ export const api = {
       { method: 'POST' },
     ),
 
+  /** Licites fuvar: lusta Barion reservation. */
+  payJob: (id: string) =>
+    request<{ payment_id: string; gateway_url: string; is_stub: boolean; reused: boolean }>(
+      `/jobs/${id}/pay`,
+      { method: 'POST' },
+    ),
+
+  /** Licites fuvar: sikeres fizetés nyugtázása. */
+  confirmJobPayment: (id: string) =>
+    request<{ ok: true; paid_at: string; already_paid?: boolean }>(
+      `/jobs/${id}/confirm-payment`,
+      { method: 'POST' },
+    ),
+
   // ---------- Notifications ----------
 
   listNotifications: () => request<any[]>('/notifications'),

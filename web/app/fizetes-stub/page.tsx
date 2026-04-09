@@ -76,16 +76,19 @@ export default function FizetesStub() {
 
     // STUB → itt mi magunk nyugtázzuk a backend-en a fizetést.
     // Valódi Barion esetén a /payments/barion/callback IPN hívja majd
-    // ugyanezt a logikát. Route booking esetében megtörténik a paid_at
-    // beállítása + értesítés a sofőrnek.
-    if (bookingId) {
-      try {
+    // ugyanezt a logikát. Mindkét fizetési flow-hoz (licites fuvar +
+    // fix áras foglalás) tartozik confirm-payment endpoint, ami
+    // beállítja a `paid_at`-ot és értesíti a sofőrt.
+    try {
+      if (bookingId) {
         await api.confirmRouteBookingPayment(bookingId);
-      } catch (e: any) {
-        toast.error('Fizetés nyugtázása sikertelen', e.message);
-        setStep('review');
-        return;
+      } else if (jobId) {
+        await api.confirmJobPayment(jobId);
       }
+    } catch (e: any) {
+      toast.error('Fizetés nyugtázása sikertelen', e.message);
+      setStep('review');
+      return;
     }
 
     setStep('done');

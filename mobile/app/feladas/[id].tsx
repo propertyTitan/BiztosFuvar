@@ -3,14 +3,18 @@
 // - Csomag adatai.
 // - Hirdetési fotók galériája (amit a webes feladásnál töltött fel).
 // - Beérkezett licitek listája "Elfogadom" gombbal.
-// - Ha a fuvar elfogadott/folyamatban, fizetési (Barion) link.
+// - Elfogadott licit után "Fizetés Barionnal" gomb — sikeres fizetés
+//   után a gomb helyén FIZETVE címke marad.
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Pressable, Image, Alert, Platform, Linking,
 } from 'react-native';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { api } from '@/api';
+import { getCurrentUser } from '@/auth';
+import { getSocket, joinUserRoom } from '@/socket';
+import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -26,9 +30,12 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function FeladoiFuvarReszletek() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const toast = useToast();
   const [job, setJob] = useState<any>(null);
   const [bids, setBids] = useState<any[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
+  const [paying, setPaying] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -51,24 +58,48 @@ export default function FeladoiFuvarReszletek() {
     }, [load]),
   );
 
+  // Real-time: ha a fizetés befejeződik (akár a mobilon, akár a weben),
+  // a `job:paid` event frissíti a fuvart — lecserélődik a gomb a
+  // FIZETVE címkére automatikusan.
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    (async () => {
+      const u = await getCurrentUser();
+      if (!u) return;
+      joinUserRoom(u.id);
+      const socket = getSocket();
+      const onPaid = (p: any) => {
+        if (!p || p.job_id === id) load();
+      };
+      socket.on('job:paid', onPaid);
+      cleanup = () => socket.off('job:paid', onPaid);
+    })();
+    return () => cleanup?.();
+  }, [id, load]);
+
   async function acceptBid(bidId: string) {
     try {
-      const res = await api.acceptBid(bidId);
+      await api.acceptBid(bidId);
       await load();
-      if (res.barion?.gateway_url) {
-        Alert.alert(
-          'Licit elfogadva',
-          'A fizetési felületet mindjárt megnyitom.',
-          [
-            { text: 'Később' },
-            { text: 'Megnyitom', onPress: () => Linking.openURL(res.barion!.gateway_url!) },
-          ],
-        );
-      } else {
-        Alert.alert('Licit elfogadva', 'A Barion STUB módban van – valódi fizetés nincs.');
-      }
+      toast.success('Licit elfogadva', 'Most már kifizetheted a fuvart.');
     } catch (err: any) {
-      Alert.alert('Hiba', err.message);
+      toast.error('Hiba a licit elfogadásakor', err.message);
+    }
+  }
+
+  async function startPayment() {
+    setPaying(true);
+    try {
+      const r = await api.payJob(id!);
+      if (r.is_stub) {
+        router.push({ pathname: '/fizetes-stub', params: { job: id } });
+      } else {
+        await Linking.openURL(r.gateway_url);
+      }
+    } catch (e: any) {
+      toast.error('Fizetés indítása sikertelen', e.message);
+    } finally {
+      setPaying(false);
     }
   }
 
@@ -207,13 +238,29 @@ export default function FeladoiFuvarReszletek() {
         </View>
       )}
 
-      {/* Elfogadott ár */}
+      {/* Elfogadott ár + fizetés / FIZETVE */}
       {job.accepted_price_huf && (
         <View style={[styles.section, { backgroundColor: '#eff6ff' }]}>
           <Text style={styles.sectionLabel}>Elfogadott fuvardíj</Text>
           <Text style={styles.bidAmount}>
             {job.accepted_price_huf.toLocaleString('hu-HU')} Ft
           </Text>
+
+          {job.paid_at ? (
+            <View style={styles.paidBox}>
+              <Text style={styles.paidText}>✅ FIZETVE</Text>
+            </View>
+          ) : job.status === 'accepted' ? (
+            <Pressable
+              style={[styles.payBtn, paying && { opacity: 0.7 }]}
+              disabled={paying}
+              onPress={startPayment}
+            >
+              <Text style={styles.payBtnText}>
+                {paying ? 'Fizetés indítása…' : '💳 Fizetés Barionnal'}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       )}
     </ScrollView>
@@ -306,4 +353,24 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
   },
   acceptBtnText: { color: '#fff', fontWeight: '700' },
+
+  payBtn: {
+    backgroundColor: '#16a34a',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  payBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  paidBox: {
+    backgroundColor: '#dcfce7',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  paidText: { color: '#166534', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 },
 });
