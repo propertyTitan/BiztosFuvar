@@ -247,9 +247,6 @@ router.patch('/carrier-routes/:id', authRequired, async (req, res) => {
     client.release();
   }
 });
-    res.json((await attachPrices(rows))[0]);
-  },
-);
 
 // =====================================================================
 //  FELADÓ – foglalás egy útvonalra
