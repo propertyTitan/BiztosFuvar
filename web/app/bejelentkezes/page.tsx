@@ -1,5 +1,8 @@
 'use client';
 
+// A mezők üresen indulnak, hogy profilváltáskor ne fussanak be a
+// tesztfelhasználók pre-fill-elt adatai (könnyen azt hiszi az ember,
+// hogy "ez vagyok én", és beléptet másnak).
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
@@ -7,8 +10,8 @@ import { setCurrentUser, homeForRole, Role } from '@/lib/auth';
 
 export default function Bejelentkezes() {
   const router = useRouter();
-  const [email, setEmail] = useState('kovacs.peter@example.hu');
-  const [password, setPassword] = useState('Jelszo123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

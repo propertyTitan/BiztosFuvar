@@ -4,14 +4,14 @@
 //                 JOBB felül: Értesítések csengő, olvasatlan piros ponttal
 // Minden más képernyő fejlécében csak a natív vissza gomb van — nincs
 // kilépés, hogy véletlenül ne nyomja meg senki.
-import { useEffect, useState } from 'react';
-import { Stack, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, Text, View } from 'react-native';
 import { colors } from '@/theme';
 import { clearCurrentUser, getCurrentUser } from '@/auth';
 import { api } from '@/api';
-import { getSocket, joinUserRoom } from '@/socket';
+import { getSocket, joinUserRoom, disconnectSocket } from '@/socket';
 import { ToastProvider } from '@/components/ToastProvider';
 
 function LogoutButton() {
@@ -19,8 +19,16 @@ function LogoutButton() {
   return (
     <Pressable
       onPress={async () => {
+        // 1) Töröljük a tárolt usert/token-t.
         await clearCurrentUser();
-        router.replace('/');
+        // 2) Bontjuk a Socket.IO kapcsolatot, hogy a következő login
+        //    teljesen friss sessiont kapjon (nincs régi szoba, nincs
+        //    halmozódó listener).
+        disconnectSocket();
+        // 3) Egyenesen a login űrlapra megyünk — a welcome screen
+        //    (index) lépés-felesleges, és félrevezető, ha a user csak
+        //    profilt akar váltani.
+        router.replace('/bejelentkezes');
       }}
       style={{ paddingHorizontal: 12, paddingVertical: 6 }}
       hitSlop={8}
@@ -33,28 +41,42 @@ function LogoutButton() {
 /**
  * Értesítések csengő a hub jobb oldalán. Piros pötty jelenik meg a
  * sarkon, ha van olvasatlan értesítés. Real-time frissül Socket.IO-n.
+ *
+ * A `useFocusEffect` biztosítja, hogy minden alkalommal, amikor a hub
+ * fókuszba kerül (beleértve a profilváltás utáni visszatérést is),
+ * a badge az AKTUÁLIS user-re frissüljön — nem marad ott az előző
+ * felhasználó olvasatlan száma.
  */
 function NotificationBellButton() {
   const router = useRouter();
   const [unread, setUnread] = useState(0);
 
-  useEffect(() => {
-    let cleanup: (() => void) | undefined;
-    (async () => {
-      const u = await getCurrentUser();
-      if (!u) return;
-      try {
-        const r = await api.unreadNotificationCount();
-        setUnread(r.count);
-      } catch {}
-      joinUserRoom(u.id);
-      const socket = getSocket();
-      const onNew = () => setUnread((c) => c + 1);
-      socket.on('notification:new', onNew);
-      cleanup = () => socket.off('notification:new', onNew);
-    })();
-    return () => cleanup?.();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let cleanup: (() => void) | undefined;
+      let cancelled = false;
+      (async () => {
+        const u = await getCurrentUser();
+        if (!u || cancelled) {
+          setUnread(0);
+          return;
+        }
+        try {
+          const r = await api.unreadNotificationCount();
+          if (!cancelled) setUnread(r.count);
+        } catch {}
+        joinUserRoom(u.id);
+        const socket = getSocket();
+        const onNew = () => setUnread((c) => c + 1);
+        socket.on('notification:new', onNew);
+        cleanup = () => socket.off('notification:new', onNew);
+      })();
+      return () => {
+        cancelled = true;
+        cleanup?.();
+      };
+    }, []),
+  );
 
   return (
     <Pressable

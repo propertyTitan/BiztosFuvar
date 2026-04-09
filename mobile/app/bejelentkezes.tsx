@@ -1,17 +1,31 @@
 // Egyszerű bejelentkezés a backend /auth/login végpontjához.
 // Login után role-alapú redirect: feladó → saját fuvarok, sofőr → elérhető fuvarok.
-import { useState } from 'react';
+//
+// A mezők EMPTY state-tel indulnak, és minden fókuszba-kerüléskor
+// (pl. profilváltás után) ki is ürülnek — így a user nem téveszti el
+// magát azzal, hogy egy másik user pre-fill-elt adatait látja.
+import { useCallback, useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/api';
 import { setCurrentUser, homeForRole, Role } from '@/auth';
 import { colors, spacing, radius } from '@/theme';
 
 export default function Bejelentkezes() {
   const router = useRouter();
-  const [email, setEmail] = useState('szabo.janos@example.hu');
-  const [password, setPassword] = useState('Jelszo123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Profilváltás: ha logout után visszajövünk erre az oldalra,
+  // minden régi érték tűnjön el, ne maradjon ott az előző felhasználó
+  // emailje és jelszava.
+  useFocusEffect(
+    useCallback(() => {
+      setEmail('');
+      setPassword('');
+    }, []),
+  );
 
   async function onSubmit() {
     setLoading(true);

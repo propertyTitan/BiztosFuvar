@@ -15,7 +15,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
-import { getSocket, joinUserRoom } from '@/lib/socket';
+import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
 
 export default function SiteHeader() {
   const user = useCurrentUser();
@@ -42,6 +42,9 @@ export default function SiteHeader() {
 
   function logout() {
     clearCurrentUser();
+    // Bontsuk a WebSocket-et, hogy a régi user szobája/listener-jei
+    // ne maradjanak bent a következő sessionban (profilváltás).
+    disconnectSocket();
     router.push('/bejelentkezes');
   }
 
