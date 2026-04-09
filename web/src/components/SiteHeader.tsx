@@ -48,23 +48,14 @@ export default function SiteHeader() {
       <nav>
         {!user && <a href="/bejelentkezes">Belépés</a>}
 
-        {user && <a href="/">Főoldal</a>}
-
-        {user?.role === 'shipper' && (
+        {user && (
           <>
-            <a href="/dashboard/uj-fuvar">Új fuvar</a>
-            <a href="/dashboard/utvonalak">Útba eső sofőrök</a>
-            <a href="/dashboard">Fuvaraim</a>
-            <a href="/dashboard/foglalasaim">Foglalásaim</a>
-          </>
-        )}
-
-        {user?.role === 'carrier' && (
-          <>
+            <a href="/">Főoldal</a>
             <a href="/sofor/fuvarok">Licitálható fuvarok</a>
-            <a href="/sofor/utvonalaim">Útvonalaim</a>
-            <a href="/sofor/licitjeim">Licitjeim</a>
-            <a href="/sofor/sajat-fuvarok">Saját fuvaraim</a>
+            <a href="/dashboard/utvonalak">Fix áras fuvarok</a>
+            <a href="/sofor/sajat-fuvarok">Fuvaraim</a>
+            <a href="/dashboard/foglalasaim">Foglalásaim</a>
+            <a href="/hirdeteseim">Saját hirdetéseim</a>
           </>
         )}
 

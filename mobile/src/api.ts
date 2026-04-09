@@ -47,8 +47,13 @@ export const api = {
 
   getJob: (id: string) => request<any>(`/jobs/${id}`),
 
-  /** Saját fuvarok – backend a szerepkör alapján szűr. */
-  myJobs: () => request<any[]>('/jobs/mine/list'),
+  /**
+   * Saját fuvarok.
+   * - as='posted'   → amiket ÉN adtam fel
+   * - as='assigned' → amiket ÉN teljesítek sofőrként
+   */
+  myJobs: (as: 'posted' | 'assigned' = 'posted') =>
+    request<any[]>(`/jobs/mine/list?as=${as}`),
 
   /** Új fuvar létrehozása (feladói). */
   createJob: (body: {

@@ -20,21 +20,18 @@ type Card = {
   badge?: number;
 };
 
-const SHIPPER_CARDS: Omit<Card, 'badge'>[] = [
-  { href: '/feladas/uj', icon: '📝', title: 'Új fuvar', subtitle: 'Licites: a sofőrök ajánlatot tesznek', accent: '#dbeafe' },
-  { href: '/feladas/utvonalak', icon: '🛣️', title: 'Útba eső sofőrök', subtitle: 'Fix áras foglalás egy útvonalra', accent: '#dcfce7' },
-  { href: '/feladas/sajat', icon: '📦', title: 'Fuvaraim', subtitle: 'Licites + foglalt fuvaraid', accent: '#fef3c7' },
-  { href: '/ertesitesek', icon: '🔔', title: 'Értesítések', subtitle: 'Új licit, elfogadás, megerősítés', accent: '#ffe4e6' },
-  { href: '/ai-chat', icon: '🤖', title: 'AI segéd', subtitle: 'Kérdezz bármit a platformról', accent: '#f3e8ff' },
-];
-
-const CARRIER_CARDS: Omit<Card, 'badge'>[] = [
-  { href: '/fuvarok', icon: '🎯', title: 'Licitálható fuvarok', subtitle: 'Ajánlj érte jó fuvarokra', accent: '#dbeafe' },
-  { href: '/utvonalaim', icon: '🛣️', title: 'Útvonalaim', subtitle: 'Saját hirdetett utak', accent: '#dcfce7' },
-  { href: '/uj-utvonal', icon: '➕', title: 'Új útvonal', subtitle: 'Hirdess meg egy teljes utat', accent: '#f3e8ff' },
-  { href: '/licitjeim', icon: '📋', title: 'Licitjeim', subtitle: 'Mit ajánlottál, mi nyert', accent: '#fef3c7' },
-  { href: '/ertesitesek', icon: '🔔', title: 'Értesítések', subtitle: 'Új foglalás, licit elfogadás', accent: '#ffe4e6' },
-  { href: '/ai-chat', icon: '🤖', title: 'AI segéd', subtitle: 'Kérdezz bármit a platformról', accent: '#f3e8ff' },
+// Egységes menü mindenkinek — bárki lehet feladó ÉS sofőr is.
+const CARDS: Omit<Card, 'badge'>[] = [
+  { href: '/fuvarok',               icon: '🎯', title: 'Licitálható fuvarok',      subtitle: 'Nyitott hirdetések — licitálj', accent: '#dbeafe' },
+  { href: '/feladas/utvonalak',     icon: '🛣️', title: 'Fix áras fuvarok',         subtitle: 'Útvonalak, amelyekre foglalhatsz', accent: '#dcfce7' },
+  { href: '/sajat-fuvaraim',        icon: '🚛', title: 'Fuvaraim',                  subtitle: 'Amiket TE teljesítesz sofőrként', accent: '#fef3c7' },
+  { href: '/feladas/foglalasaim',   icon: '📦', title: 'Foglalásaim',               subtitle: 'Amiket TE foglaltál egy útvonalon', accent: '#e0e7ff' },
+  { href: '/feladas/uj',            icon: '📝', title: 'Új licites hirdetés',      subtitle: 'Sofőrök licitálnak rá', accent: '#fce7f3' },
+  { href: '/uj-utvonal',            icon: '➕', title: 'Új fix áras útvonal',      subtitle: 'Hirdesd meg a saját utad', accent: '#f3e8ff' },
+  { href: '/hirdeteseim',           icon: '📋', title: 'Saját hirdetéseim',        subtitle: 'Minden általad feladott hirdetés', accent: '#fde68a' },
+  { href: '/licitjeim',             icon: '🏷️', title: 'Licitjeim',                subtitle: 'Az ajánlataid egy helyen', accent: '#bae6fd' },
+  { href: '/ertesitesek',           icon: '🔔', title: 'Értesítések',              subtitle: 'Minden fontos esemény', accent: '#ffe4e6' },
+  { href: '/ai-chat',               icon: '🤖', title: 'AI segéd',                 subtitle: 'Kérdezz bármit a platformról', accent: '#f3e8ff' },
 ];
 
 export default function Hub() {
@@ -78,7 +75,7 @@ export default function Hub() {
     );
   }
 
-  const cards = user.role === 'carrier' ? CARRIER_CARDS : SHIPPER_CARDS;
+  const cards = CARDS;
 
   return (
     <ScrollView

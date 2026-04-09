@@ -56,6 +56,10 @@ export type RouteBooking = {
   delivery_code?: string | null;
   status: 'pending' | 'confirmed' | 'rejected' | 'in_progress' | 'delivered' | 'cancelled' | 'disputed';
   notes: string | null;
+  barion_payment_id?: string | null;
+  barion_gateway_url?: string | null;
+  carrier_share_huf?: number | null;
+  platform_share_huf?: number | null;
   created_at: string;
   confirmed_at: string | null;
   delivered_at: string | null;
@@ -166,7 +170,14 @@ export const api = {
   },
 
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
-  myJobs: () => request<Job[]>('/jobs/mine/list'),
+
+  /**
+   * Saját fuvarok — két külön lista szemszögtől függően:
+   * - as=posted   → amiket én adtam fel
+   * - as=assigned → amiket én teljesítek sofőrként
+   */
+  myJobs: (as: 'posted' | 'assigned' = 'posted') =>
+    request<Job[]>(`/jobs/mine/list?as=${as}`),
 
   /** Sofőr licitet ad egy fuvarra. */
   placeBid: (jobId: string, body: { amount_huf: number; eta_minutes?: number; message?: string }) =>

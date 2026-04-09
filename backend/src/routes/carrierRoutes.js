@@ -6,7 +6,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired, requireRole } = require('../middleware/auth');
+const { authRequired } = require('../middleware/auth');
 const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const barion = require('../services/barion');
 const realtime = require('../realtime');
@@ -52,7 +52,7 @@ async function attachPrices(routes) {
 // POST /carrier-routes
 // Új útvonal létrehozása. Sofőr-only. A `prices` tömb minden elemében
 // egy (size, price_huf) páros.
-router.post('/carrier-routes', authRequired, requireRole('carrier'), async (req, res) => {
+router.post('/carrier-routes', authRequired, async (req, res) => {
   const {
     title, description, departure_at, waypoints, vehicle_description,
     is_template = false, template_source_id = null, prices, status = 'open',
@@ -116,7 +116,7 @@ router.post('/carrier-routes', authRequired, requireRole('carrier'), async (req,
 });
 
 // GET /carrier-routes/mine – a sofőr saját útvonalai (publikált + sablon + minden)
-router.get('/carrier-routes/mine', authRequired, requireRole('carrier'), async (req, res) => {
+router.get('/carrier-routes/mine', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT * FROM carrier_routes WHERE carrier_id = $1 ORDER BY is_template ASC, departure_at DESC`,
     [req.user.sub],
@@ -149,11 +149,10 @@ router.get('/carrier-routes/:id', authRequired, async (req, res) => {
   res.json((await attachPrices(rows))[0]);
 });
 
-// PATCH /carrier-routes/:id/status – sofőr állítja draft→open, open→full, stb.
+// PATCH /carrier-routes/:id/status – az útvonal tulajdonosa állítja draft→open stb.
 router.patch(
   '/carrier-routes/:id/status',
   authRequired,
-  requireRole('carrier'),
   async (req, res) => {
     const { status } = req.body || {};
     const allowed = ['draft', 'open', 'full', 'cancelled'];
@@ -174,11 +173,11 @@ router.patch(
 //  FELADÓ – foglalás egy útvonalra
 // =====================================================================
 
-// POST /carrier-routes/:id/bookings – feladó helyet foglal
+// POST /carrier-routes/:id/bookings – bárki foglalhat egy útvonalon, kivéve
+// az útvonal saját hirdetője
 router.post(
   '/carrier-routes/:id/bookings',
   authRequired,
-  requireRole('shipper'),
   async (req, res) => {
     const routeId = req.params.id;
     const {
@@ -215,6 +214,9 @@ router.post(
     );
     const route = routeRows[0];
     if (!route) return res.status(404).json({ error: 'Útvonal nem található' });
+    if (route.carrier_id === req.user.sub) {
+      return res.status(403).json({ error: 'A saját útvonaladon nem foglalhatsz helyet.' });
+    }
     if (route.status !== 'open') {
       return res.status(409).json({ error: 'Ez az útvonal már nem fogad foglalást' });
     }
@@ -274,11 +276,10 @@ router.post(
   },
 );
 
-// GET /carrier-routes/:id/bookings – a sofőr látja egy saját útvonalához tartozó foglalásokat
+// GET /carrier-routes/:id/bookings – az útvonal tulajdonosa látja a beérkezett foglalásokat
 router.get(
   '/carrier-routes/:id/bookings',
   authRequired,
-  requireRole('carrier'),
   async (req, res) => {
     // jogosultság
     const { rows: rr } = await db.query(
@@ -300,8 +301,8 @@ router.get(
   },
 );
 
-// GET /route-bookings/mine – a feladó saját foglalásai
-router.get('/route-bookings/mine', authRequired, requireRole('shipper'), async (req, res) => {
+// GET /route-bookings/mine – a bejelentkezett user saját foglalásai
+router.get('/route-bookings/mine', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT b.*, r.title AS route_title, r.departure_at, r.waypoints, r.carrier_id,
             u.full_name AS carrier_name
@@ -339,11 +340,10 @@ router.get('/route-bookings/:id', authRequired, async (req, res) => {
   res.json(b);
 });
 
-// POST /route-bookings/:id/confirm – sofőr elfogadja a foglalást, escrow lefoglalás
+// POST /route-bookings/:id/confirm – az útvonal tulajdonosa elfogadja a foglalást
 router.post(
   '/route-bookings/:id/confirm',
   authRequired,
-  requireRole('carrier'),
   async (req, res) => {
     const client = await db.pool.connect();
     try {
@@ -386,9 +386,20 @@ router.post(
         return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
       }
 
+      // 90/10 split – a mentésnél is tároljuk, hogy a lezáráskor elő tudjuk venni
+      const carrierShare = Math.round(b.price_huf * (1 - barion.COMMISSION_PCT));
+      const platformShare = b.price_huf - carrierShare;
+
       await client.query(
-        `UPDATE route_bookings SET status = 'confirmed', confirmed_at = NOW() WHERE id = $1`,
-        [b.id],
+        `UPDATE route_bookings
+            SET status              = 'confirmed',
+                confirmed_at        = NOW(),
+                barion_payment_id   = $1,
+                barion_gateway_url  = $2,
+                carrier_share_huf   = $3,
+                platform_share_huf  = $4
+          WHERE id = $5`,
+        [barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare, b.id],
       );
 
       await client.query('COMMIT');
@@ -431,11 +442,10 @@ router.post(
   },
 );
 
-// POST /route-bookings/:id/reject – sofőr elutasítja
+// POST /route-bookings/:id/reject – az útvonal tulajdonosa elutasítja
 router.post(
   '/route-bookings/:id/reject',
   authRequired,
-  requireRole('carrier'),
   async (req, res) => {
     const { rows: bRows } = await db.query(
       `SELECT b.*, r.carrier_id

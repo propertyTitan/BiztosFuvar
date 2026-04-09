@@ -2,7 +2,7 @@
 // Ez az, ahol Péter látja, hogy János elfogadta-e a fix áras foglalást.
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, FlatList, Pressable, StyleSheet, RefreshControl,
+  View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Linking,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/api';
@@ -117,6 +117,21 @@ export default function Foglalasaim() {
               </Text>
             </View>
           )}
+
+          {/* Fizetés gomb – amint a sofőr megerősítette, a Barion gateway elérhető */}
+          {b.status === 'confirmed' && b.barion_gateway_url && (
+            <Pressable
+              style={styles.payBtn}
+              onPress={() => Linking.openURL(b.barion_gateway_url)}
+            >
+              <Text style={styles.payBtnText}>💳 Fizetés Barionnal</Text>
+            </Pressable>
+          )}
+          {b.status === 'confirmed' && !b.barion_gateway_url && (
+            <Text style={styles.stubNote}>
+              Barion STUB mód – valódi gateway nincs
+            </Text>
+          )}
         </View>
       )}
     />
@@ -170,4 +185,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Courier',
   },
   codeHint: { color: '#fff', fontSize: 12, opacity: 0.9, marginTop: 6, textAlign: 'center' },
+
+  payBtn: {
+    backgroundColor: '#16a34a',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  payBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  stubNote: {
+    marginTop: spacing.sm,
+    color: colors.textMuted,
+    fontSize: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
 });

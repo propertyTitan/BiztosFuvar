@@ -1,13 +1,13 @@
 // Élő követés: a sofőr periódikusan POST-olja a pozícióját.
 const express = require('express');
 const db = require('../db');
-const { authRequired, requireRole } = require('../middleware/auth');
+const { authRequired } = require('../middleware/auth');
 const realtime = require('../realtime');
 
 const router = express.Router();
 
-// POST /jobs/:jobId/location
-router.post('/jobs/:jobId/location', authRequired, requireRole('carrier'), async (req, res) => {
+// POST /jobs/:jobId/location – a fuvar kijelölt sofőre küld GPS pinget
+router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
   const { jobId } = req.params;
   const { lat, lng, speed_kmh } = req.body || {};
   if (lat == null || lng == null) return res.status(400).json({ error: 'Hiányzó koordináta' });

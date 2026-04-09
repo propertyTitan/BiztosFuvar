@@ -58,24 +58,20 @@ export default function HomeHub() {
     );
   }
 
-  const shipperCards: Card[] = [
-    { href: '/dashboard/uj-fuvar', icon: '📝', title: 'Új fuvar feladása', subtitle: 'Hirdesd meg, a sofőrök licitálnak rá', color: '#dbeafe' },
-    { href: '/dashboard/utvonalak', icon: '🛣️', title: 'Útba eső sofőrök', subtitle: 'Fix árat fizetsz egy útvonalra', color: '#dcfce7' },
-    { href: '/dashboard', icon: '🚛', title: 'Fuvaraim', subtitle: 'Licittel feladott fuvaraid', color: '#fef3c7' },
-    { href: '/dashboard/foglalasaim', icon: '📦', title: 'Foglalásaim', subtitle: 'Fix áras foglalásaid állapota', color: '#e0e7ff' },
-    { href: '/ertesitesek', icon: '🔔', title: 'Értesítések', subtitle: 'Minden, ami veled történt', badge: unread || null, color: '#ffe4e6' },
+  // Egységes menü mindenkinek: bárki lehet feladó ÉS sofőr is, ezért egyetlen
+  // kártya-rácsot mutatunk. Az egyes oldalak belül még el tudják dönteni,
+  // hogy a user a konkrét fuvar feladója vagy sofőre-e.
+  const cards: Card[] = [
+    { href: '/sofor/fuvarok',           icon: '🎯',  title: 'Licitálható fuvarok',        subtitle: 'Nyitott hirdetések — tegyél ajánlatot', color: '#dbeafe' },
+    { href: '/dashboard/utvonalak',     icon: '🛣️',  title: 'Fix áras fuvarok',           subtitle: 'Sofőri útvonalak, amelyekre helyet foglalhatsz', color: '#dcfce7' },
+    { href: '/sofor/sajat-fuvarok',     icon: '🚛',  title: 'Fuvaraim',                   subtitle: 'Amiket TE teljesítesz sofőrként', color: '#fef3c7' },
+    { href: '/dashboard/foglalasaim',   icon: '📦',  title: 'Foglalásaim',                subtitle: 'Amiket TE foglaltál egy fix áras útvonalon', color: '#e0e7ff' },
+    { href: '/dashboard/uj-fuvar',      icon: '📝',  title: 'Új licites hirdetés',        subtitle: 'Hirdess meg fuvart, a sofőrök licitálnak rá', color: '#fce7f3' },
+    { href: '/sofor/uj-utvonal',        icon: '➕',  title: 'Új fix áras útvonal',        subtitle: 'Hirdesd meg a saját utadat fix árakkal', color: '#f3e8ff' },
+    { href: '/hirdeteseim',             icon: '📋',  title: 'Saját hirdetéseim',          subtitle: 'Minden általad feladott fuvar és útvonal', color: '#fde68a' },
+    { href: '/sofor/licitjeim',         icon: '🏷️',  title: 'Licitjeim',                  subtitle: 'Ajánlataid egy helyen', color: '#bae6fd' },
+    { href: '/ertesitesek',             icon: '🔔',  title: 'Értesítések',                subtitle: 'Minden, ami veled történik', badge: unread || null, color: '#ffe4e6' },
   ];
-
-  const carrierCards: Card[] = [
-    { href: '/sofor/fuvarok', icon: '🎯', title: 'Licitálható fuvarok', subtitle: 'Ajánlj érted jó fuvarokra', color: '#dbeafe' },
-    { href: '/sofor/utvonalaim', icon: '🛣️', title: 'Útvonalaim', subtitle: 'Hirdesd meg a saját utadat, fix áron', color: '#dcfce7' },
-    { href: '/sofor/uj-utvonal', icon: '➕', title: 'Új útvonal hirdetése', subtitle: 'Minden megálló + méret-árak', color: '#f3e8ff' },
-    { href: '/sofor/licitjeim', icon: '📋', title: 'Licitjeim', subtitle: 'Mire licitáltál, mik nyertek', color: '#fef3c7' },
-    { href: '/sofor/sajat-fuvarok', icon: '🚚', title: 'Saját fuvaraim', subtitle: 'Elfogadott, folyamatban lévő fuvarok', color: '#e0e7ff' },
-    { href: '/ertesitesek', icon: '🔔', title: 'Értesítések', subtitle: 'Új licit, új foglalás, elfogadás', badge: unread || null, color: '#ffe4e6' },
-  ];
-
-  const cards = user.role === 'carrier' ? carrierCards : shipperCards;
 
   return (
     <div>

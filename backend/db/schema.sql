@@ -253,6 +253,11 @@ CREATE TABLE IF NOT EXISTS route_bookings (
     delivery_code     VARCHAR(6),
     status            route_booking_status NOT NULL DEFAULT 'pending',
     notes             TEXT,
+    -- Barion mezők – a sofőri megerősítés után töltődnek
+    barion_payment_id   TEXT,
+    barion_gateway_url  TEXT,
+    carrier_share_huf   INTEGER,
+    platform_share_huf  INTEGER,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     confirmed_at      TIMESTAMPTZ,
     delivered_at      TIMESTAMPTZ

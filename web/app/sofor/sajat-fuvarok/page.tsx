@@ -1,8 +1,9 @@
 'use client';
 
-// Sofőr saját fuvarai: mindent, amit a /jobs/mine/list visszaad neki.
-// A backend role alapján szűr (carrier → carrier_id = user).
-// Itt látja a sofőr az elfogadott / folyamatban / lerakott fuvarait.
+// Fuvaraim: minden olyan fuvar, amit a user SOFŐRKÉNT teljesít
+// (licites fuvar, amire licitált és elfogadták, vagy fix áras foglalás,
+// amit megerősített).
+// A backend most már as=assigned paraméterrel szűr carrier_id-ra.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job } from '@/api';
@@ -33,7 +34,7 @@ export default function SoforSajatFuvarok() {
 
   useEffect(() => {
     api
-      .myJobs()
+      .myJobs('assigned')
       .then(setJobs)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));

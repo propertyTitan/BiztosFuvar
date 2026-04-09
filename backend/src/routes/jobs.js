@@ -34,8 +34,9 @@ function scrubJobForUser(job, user) {
   return rest;
 }
 
-// POST /jobs – feladó hirdetést ad fel
-router.post('/', authRequired, requireRole('shipper'), async (req, res) => {
+// POST /jobs – bárki feladhat fuvart (a szerepkör szeparálást eltöröltük;
+// bárki egyaránt lehet feladó és sofőr is).
+router.post('/', authRequired, async (req, res) => {
   const {
     title, description,
     pickup_address, pickup_lat, pickup_lng,
@@ -154,9 +155,14 @@ router.get('/:id', authRequired, async (req, res) => {
   res.json(scrubJobForUser(rows[0], req.user));
 });
 
-// GET /jobs/mine/list – saját fuvarok (shipper vagy carrier)
+// GET /jobs/mine/list?as=posted|assigned – saját fuvarok
+//   as=posted   → amiket ÉN adtam fel (shipper_id = me)
+//   as=assigned → amiket ÉN teljesítek (carrier_id = me)
+// Régebben a role alapján volt szűrve, de mióta bárki lehet feladó ÉS sofőr is,
+// az `as` paraméter dönti el, milyen szemszögből kérjük a listát.
 router.get('/mine/list', authRequired, async (req, res) => {
-  const col = req.user.role === 'carrier' ? 'carrier_id' : 'shipper_id';
+  const as = (req.query.as === 'assigned') ? 'assigned' : 'posted';
+  const col = as === 'assigned' ? 'carrier_id' : 'shipper_id';
   const { rows } = await db.query(
     `SELECT * FROM jobs WHERE ${col} = $1 ORDER BY created_at DESC`,
     [req.user.sub],

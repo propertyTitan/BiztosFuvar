@@ -28,12 +28,12 @@ function signToken(user) {
 
 // POST /auth/register
 router.post('/register', async (req, res) => {
-  const { email, password, full_name, role, phone, vehicle_type, vehicle_plate } = req.body || {};
-  if (!email || !password || !full_name || !role) {
+  const { email, password, full_name, phone, vehicle_type, vehicle_plate } = req.body || {};
+  // A role mező már opcionális — minden user lehet egyszerre feladó és sofőr is.
+  // A DB-ben még tároljuk a legacy role mezőt, de a logika nem használja.
+  const role = (req.body?.role === 'carrier' || req.body?.role === 'admin') ? req.body.role : 'shipper';
+  if (!email || !password || !full_name) {
     return res.status(400).json({ error: 'Hiányzó mezők' });
-  }
-  if (!['shipper', 'carrier'].includes(role)) {
-    return res.status(400).json({ error: 'Érvénytelen szerepkör' });
   }
   try {
     const { rows } = await db.query(

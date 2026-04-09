@@ -8,10 +8,9 @@ const { createNotification } = require('../services/notifications');
 
 const router = express.Router();
 
-// GET /bids/mine – a bejelentkezett sofőr összes licitje
-//   visszaadja a kapcsolódó fuvar alap mezőit is (cím, ár, státusz).
-//   A sofőr ebből látja: mire licitált, mi az állapota, mit fogadtak el.
-router.get('/bids/mine', authRequired, requireRole('carrier'), async (req, res) => {
+// GET /bids/mine – a bejelentkezett felhasználó összes leadott licitje
+//   (bárki lehet most már licitáló, nem csak "carrier" role).
+router.get('/bids/mine', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT
         b.id              AS bid_id,
@@ -38,14 +37,20 @@ router.get('/bids/mine', authRequired, requireRole('carrier'), async (req, res) 
   res.json(rows);
 });
 
-// POST /jobs/:jobId/bids – sofőr licitál
-router.post('/jobs/:jobId/bids', authRequired, requireRole('carrier'), async (req, res) => {
+// POST /jobs/:jobId/bids – bárki licitálhat egy fuvarra, kivéve ha ő a feladója
+router.post('/jobs/:jobId/bids', authRequired, async (req, res) => {
   const { jobId } = req.params;
   const { amount_huf, message, eta_minutes } = req.body || {};
   if (!amount_huf || amount_huf <= 0) return res.status(400).json({ error: 'Érvénytelen összeg' });
 
-  const { rows: jobRows } = await db.query('SELECT status FROM jobs WHERE id = $1', [jobId]);
+  const { rows: jobRows } = await db.query(
+    'SELECT status, shipper_id FROM jobs WHERE id = $1',
+    [jobId],
+  );
   if (!jobRows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (jobRows[0].shipper_id === req.user.sub) {
+    return res.status(403).json({ error: 'A saját fuvarodra nem licitálhatsz.' });
+  }
   if (!['pending', 'bidding'].includes(jobRows[0].status)) {
     return res.status(409).json({ error: 'A fuvarra már nem lehet licitálni' });
   }
@@ -98,8 +103,9 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
   res.json(rows);
 });
 
-// POST /bids/:id/accept – feladó elfogadja a licitet → ESCROW lefoglalás
-router.post('/bids/:id/accept', authRequired, requireRole('shipper'), async (req, res) => {
+// POST /bids/:id/accept – a fuvar feladója elfogadja a licitet → ESCROW lefoglalás
+// (Bárki elfogadhat, aki feladta a fuvart — a tulajdonos-ellenőrzés alább.)
+router.post('/bids/:id/accept', authRequired, async (req, res) => {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');

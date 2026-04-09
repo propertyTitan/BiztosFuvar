@@ -131,6 +131,36 @@ export default function FoglalasaimOldal() {
                 🔐 {b.delivery_code}
               </div>
             )}
+
+            {/* Fizetés gomb – amint a sofőr megerősítette, a Barion gateway elérhető */}
+            {b.status === 'confirmed' && b.barion_gateway_url && (
+              <a
+                href={b.barion_gateway_url}
+                target="_blank"
+                rel="noreferrer"
+                className="btn"
+                style={{
+                  marginTop: 10,
+                  display: 'inline-block',
+                  background: '#16a34a',
+                  fontSize: 14,
+                }}
+              >
+                💳 Fizetés Barionnal
+              </a>
+            )}
+            {b.status === 'confirmed' && !b.barion_gateway_url && (
+              <div
+                style={{
+                  marginTop: 10,
+                  fontSize: 12,
+                  color: 'var(--muted)',
+                  fontStyle: 'italic',
+                }}
+              >
+                Barion STUB mód – valódi gateway nincs
+              </div>
+            )}
           </div>
         </div>
       </div>
