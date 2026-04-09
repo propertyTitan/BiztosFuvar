@@ -8,8 +8,10 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, CarrierRoute } from '@/api';
+import { useCurrentUser } from '@/lib/auth';
 
 export default function FeladoiUtvonalBongeszo() {
+  const me = useCurrentUser();
   const [routes, setRoutes] = useState<CarrierRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,14 +95,40 @@ export default function FeladoiUtvonalBongeszo() {
         const first = r.waypoints[0]?.name || '?';
         const last = r.waypoints[r.waypoints.length - 1]?.name || '?';
         const stops = r.waypoints.slice(1, -1);
+        const isMine = !!me && r.carrier_id === me.id;
+        // A saját posztot a sofőri részletek oldalra visszük (ott van
+        // szerkesztés/publikálás), a többit a feladói foglalás oldalra.
+        const href = isMine ? `/sofor/utvonal/${r.id}` : `/dashboard/utvonal/${r.id}`;
         return (
           <Link
             key={r.id}
-            href={`/dashboard/utvonal/${r.id}`}
+            href={href}
             className="card"
-            style={{ display: 'block', textDecoration: 'none', color: 'inherit', marginTop: 16 }}
+            style={{
+              display: 'block',
+              textDecoration: 'none',
+              color: 'inherit',
+              marginTop: 16,
+              ...(isMine ? { background: '#fefce8', borderColor: '#facc15' } : {}),
+            }}
           >
-            <h3 style={{ marginTop: 0 }}>{r.title}</h3>
+            <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <h3 style={{ marginTop: 0, marginBottom: 0 }}>{r.title}</h3>
+              {isMine && (
+                <span
+                  className="pill"
+                  style={{
+                    background: '#facc15',
+                    color: '#713f12',
+                    fontWeight: 800,
+                    fontSize: 11,
+                  }}
+                  title="Ezt te hirdetted — nem foglalhatsz rá helyet."
+                >
+                  SAJÁT POSZT
+                </span>
+              )}
+            </div>
             <p className="muted" style={{ margin: '4px 0' }}>
               📍 <strong>{first}</strong>
               {stops.length > 0 && (

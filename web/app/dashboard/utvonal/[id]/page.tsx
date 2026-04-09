@@ -6,14 +6,17 @@
 // - Automatikus méret-besorolás
 // - "Helyet foglalok" gomb → beállítja a státuszt pending-re (sofőrre vár)
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, CarrierRoute } from '@/api';
 import { PACKAGE_SIZES, classifyPackage } from '@/lib/packageSizes';
+import { useCurrentUser } from '@/lib/auth';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 
 export default function FeladoUtvonalReszletek() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const me = useCurrentUser();
   const [route, setRoute] = useState<CarrierRoute | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -93,6 +96,8 @@ export default function FeladoUtvonalReszletek() {
   if (error && !route) return <div className="card" style={{ borderColor: 'var(--danger)' }}>Hiba: {error}</div>;
   if (!route) return <p>Betöltés…</p>;
 
+  const isMine = !!me && route.carrier_id === me.id;
+
   return (
     <div style={{ maxWidth: 760 }}>
       <button
@@ -106,6 +111,24 @@ export default function FeladoUtvonalReszletek() {
 
       <h1>{route.title}</h1>
       <p className="muted">🗓 {new Date(route.departure_at).toLocaleString('hu-HU')}</p>
+
+      {/* Saját poszt figyelmeztetés: a saját útvonaladon nem foglalhatsz
+          helyet, de megnézheted/szerkesztheted. */}
+      {isMine && (
+        <div
+          className="card"
+          style={{ background: '#fefce8', borderColor: '#facc15', marginTop: 16 }}
+        >
+          <h2 style={{ marginTop: 0 }}>📣 Ez a te saját útvonalad</h2>
+          <p style={{ marginBottom: 8 }}>
+            A saját hirdetésedre nem foglalhatsz helyet. A foglalások
+            kezeléséhez és szerkesztéshez nyisd meg a sofőri nézetet.
+          </p>
+          <Link className="btn" href={`/sofor/utvonal/${route.id}`}>
+            Sofőri nézet →
+          </Link>
+        </div>
+      )}
 
       {/* Útvonal */}
       <div className="card">
@@ -170,7 +193,9 @@ export default function FeladoUtvonalReszletek() {
         </div>
       </div>
 
-      {/* Foglalás form */}
+      {/* Foglalás form — saját posztnál nem jelenítjük meg, hogy el se
+          lehessen kezdeni a foglalást. A backend is 403-mal utasítja el. */}
+      {!isMine && (
       <form className="card" onSubmit={submit}>
         <h2 style={{ marginTop: 0 }}>Foglalás</h2>
 
@@ -284,6 +309,7 @@ export default function FeladoUtvonalReszletek() {
           pickup fotó, átvételi kód, kifizetés.
         </p>
       </form>
+      )}
     </div>
   );
 }

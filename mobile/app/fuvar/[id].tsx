@@ -22,7 +22,12 @@ export default function FuvarReszletek() {
   const toast = useToast();
   const [job, setJob] = useState<any>(null);
   const [bid, setBid] = useState('');
+  const [meId, setMeId] = useState<string | null>(null);
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    getCurrentUser().then((u) => setMeId(u?.id || null));
+  }, []);
 
   useEffect(() => {
     api.getJob(id!).then(setJob).catch((e) => Alert.alert('Hiba', e.message));
@@ -196,7 +201,28 @@ export default function FuvarReszletek() {
         </Section>
       ) : null}
 
-      {(job.status === 'pending' || job.status === 'bidding') && (
+      {/* Ha a saját hirdetésedről van szó, nem licitálhatsz — helyette
+          egy "Saját poszt" figyelmeztetés és átirányító link a feladói
+          részletek oldalra (licitek kezelése / szerkesztés). */}
+      {meId && job.shipper_id === meId && (
+        <View style={styles.ownPostBox}>
+          <Text style={styles.ownPostTitle}>📣 Ez a te saját fuvarod</Text>
+          <Text style={styles.ownPostBody}>
+            A saját hirdetésedre nem licitálhatsz. Nyisd meg a feladói nézetet
+            a licitek áttekintéséhez és a szerkesztéshez.
+          </Text>
+          <Link
+            href={{ pathname: '/feladas/[id]', params: { id: id! } }}
+            asChild
+          >
+            <Pressable style={styles.cta}>
+              <Text style={styles.ctaText}>Feladói nézet →</Text>
+            </Pressable>
+          </Link>
+        </View>
+      )}
+
+      {meId && job.shipper_id !== meId && (job.status === 'pending' || job.status === 'bidding') && (
         <Section label="Licit feladása">
           <TextInput
             style={styles.input}
@@ -288,4 +314,15 @@ const styles = StyleSheet.create({
   },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   bigCta: { paddingVertical: spacing.lg, marginTop: spacing.md },
+
+  ownPostBox: {
+    backgroundColor: '#fefce8',
+    borderColor: '#facc15',
+    borderWidth: 1,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
+  },
+  ownPostTitle: { fontSize: 16, fontWeight: '800', color: '#713f12', marginBottom: spacing.xs },
+  ownPostBody: { color: '#713f12', fontSize: 14, marginBottom: spacing.sm, lineHeight: 20 },
 });

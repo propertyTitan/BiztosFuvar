@@ -7,11 +7,13 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job } from '@/api';
+import { useCurrentUser } from '@/lib/auth';
 import { getSocket } from '@/lib/socket';
 
 type ListedJob = Job & { distance_to_pickup_km?: number };
 
 export default function SoforFuvarokLista() {
+  const me = useCurrentUser();
   const [jobs, setJobs] = useState<ListedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,40 +96,71 @@ export default function SoforFuvarokLista() {
         </div>
       )}
 
-      {jobs.map((j) => (
-        <Link
-          key={j.id}
-          href={`/sofor/fuvar/${j.id}`}
-          className="card"
-          style={{ display: 'block', textDecoration: 'none', color: 'inherit', marginTop: 16 }}
-        >
-          <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
-            <div style={{ flex: 1 }}>
-              <h3 style={{ marginTop: 0 }}>{j.title}</h3>
-              <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
-              <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>
-              <div className="row" style={{ marginTop: 6, gap: 16, fontSize: 13 }}>
-                {j.distance_km != null && <span className="muted">{j.distance_km} km össztáv</span>}
-                {j.distance_to_pickup_km != null && (
-                  <span className="muted">📍 {j.distance_to_pickup_km} km tőled</span>
-                )}
-                {j.weight_kg != null && <span className="muted">{j.weight_kg} kg</span>}
-                {j.length_cm && j.width_cm && j.height_cm && (
-                  <span className="muted">
-                    {j.length_cm}×{j.width_cm}×{j.height_cm} cm
-                  </span>
-                )}
+      {jobs.map((j) => {
+        const isMine = !!me && j.shipper_id === me.id;
+        // Saját poszton csak szerkesztés/megtekintés. A részletek oldal
+        // ilyenkor a feladói nézetre visz (dashboard/fuvar/[id]), hogy
+        // a licitek listáját és a szerkesztést lássa.
+        const href = isMine ? `/dashboard/fuvar/${j.id}` : `/sofor/fuvar/${j.id}`;
+        return (
+          <Link
+            key={j.id}
+            href={href}
+            className="card"
+            style={{
+              display: 'block',
+              textDecoration: 'none',
+              color: 'inherit',
+              marginTop: 16,
+              ...(isMine ? { background: '#fefce8', borderColor: '#facc15' } : {}),
+            }}
+          >
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
+              <div style={{ flex: 1 }}>
+                <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <h3 style={{ marginTop: 0, marginBottom: 0 }}>{j.title}</h3>
+                  {isMine && (
+                    <span
+                      className="pill"
+                      style={{
+                        background: '#facc15',
+                        color: '#713f12',
+                        fontWeight: 800,
+                        fontSize: 11,
+                      }}
+                      title="Ezt te adtad fel — nem licitálhatsz rá."
+                    >
+                      SAJÁT POSZT
+                    </span>
+                  )}
+                </div>
+                <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
+                <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>
+                <div className="row" style={{ marginTop: 6, gap: 16, fontSize: 13 }}>
+                  {j.distance_km != null && <span className="muted">{j.distance_km} km össztáv</span>}
+                  {j.distance_to_pickup_km != null && (
+                    <span className="muted">📍 {j.distance_to_pickup_km} km tőled</span>
+                  )}
+                  {j.weight_kg != null && <span className="muted">{j.weight_kg} kg</span>}
+                  {j.length_cm && j.width_cm && j.height_cm && (
+                    <span className="muted">
+                      {j.length_cm}×{j.width_cm}×{j.height_cm} cm
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div className="price" style={{ fontSize: 18 }}>
+                  {j.suggested_price_huf?.toLocaleString('hu-HU')} Ft
+                </div>
+                <div className="muted" style={{ fontSize: 12 }}>
+                  {isMine ? 'saját hirdetés' : 'javasolt ár'}
+                </div>
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div className="price" style={{ fontSize: 18 }}>
-                {j.suggested_price_huf?.toLocaleString('hu-HU')} Ft
-              </div>
-              <div className="muted" style={{ fontSize: 12 }}>javasolt ár</div>
-            </div>
-          </div>
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
     </div>
   );
 }

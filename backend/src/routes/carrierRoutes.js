@@ -127,6 +127,10 @@ router.get('/carrier-routes/mine', authRequired, async (req, res) => {
 // GET /carrier-routes – publikált (open) útvonalak a feladóknak.
 // Opcionális szűrés: ?city=Kecskemét — az összes olyan útvonal, aminek a
 // waypoints mezőjében szerepel ez a város.
+// A saját útvonalait a user is látja — a frontend "Saját poszt" címkével
+// jelöli és letiltja rajta a "Helyet foglalok" akciót. Szerver oldalon
+// a POST /route-bookings végpont úgyis 403-mal elutasítja, ha a carrier_id
+// megegyezik a hívóval.
 router.get('/carrier-routes', authRequired, async (req, res) => {
   const { city } = req.query;
   let sql = `SELECT * FROM carrier_routes

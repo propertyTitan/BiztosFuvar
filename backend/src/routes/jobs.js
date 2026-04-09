@@ -139,7 +139,11 @@ router.post('/', authRequired, async (req, res) => {
   });
 });
 
-// GET /jobs – nyitott fuvarok (sofőröknek), opcionálisan közelség alapján
+// GET /jobs – nyitott fuvarok (sofőröknek), opcionálisan közelség alapján.
+// A saját feladások is megjelennek a listában — de a frontend letiltja
+// rajtuk a licit-akciót és "Saját poszt" címkével látja el őket, hogy
+// egyértelmű legyen. (A szerver oldali védelem a `POST /jobs/:id/bids`
+// végpontban: saját fuvarra nem lehet licitálni.)
 router.get('/', authRequired, async (req, res) => {
   const { status = 'bidding', lat, lng, radius_km } = req.query;
   const { rows } = await db.query(

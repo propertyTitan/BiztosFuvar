@@ -1,13 +1,17 @@
 // Sofőr nézet: elérhető fuvarok listája távolság szerint.
+// A saját feladásokat "Saját poszt" címkével jelöljük, és koppintáskor
+// a feladói részletek oldalra visszük — ne lehessen rájuk licitálni.
 import { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Alert } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import * as Location from 'expo-location';
 import { api } from '@/api';
+import { getCurrentUser, CurrentUser } from '@/auth';
 import { colors, spacing, radius } from '@/theme';
 
 type Job = {
   id: string;
+  shipper_id: string;
   title: string;
   pickup_address: string;
   dropoff_address: string;
@@ -17,8 +21,14 @@ type Job = {
 };
 
 export default function Fuvarok() {
+  const router = useRouter();
+  const [me, setMe] = useState<CurrentUser | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    getCurrentUser().then(setMe);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,10 +74,27 @@ export default function Fuvarok() {
       ListEmptyComponent={
         <Text style={styles.empty}>Jelenleg nincs elérhető fuvar a környéken.</Text>
       }
-      renderItem={({ item }) => (
-        <Link href={{ pathname: '/fuvar/[id]', params: { id: item.id } }} asChild>
-          <Pressable style={styles.card}>
-            <Text style={styles.title}>{item.title}</Text>
+      renderItem={({ item }) => {
+        const isMine = !!me && item.shipper_id === me.id;
+        // Saját poszt → feladói részletek (licites lista + szerkesztés),
+        // nem a sofőri nézet, ahol licit űrlap van.
+        const onPress = () => {
+          if (isMine) {
+            router.push({ pathname: '/feladas/[id]', params: { id: item.id } });
+          } else {
+            router.push({ pathname: '/fuvar/[id]', params: { id: item.id } });
+          }
+        };
+        return (
+          <Pressable style={[styles.card, isMine && styles.mineCard]} onPress={onPress}>
+            <View style={styles.titleRow}>
+              <Text style={styles.title} numberOfLines={1}>{item.title}</Text>
+              {isMine && (
+                <View style={styles.mineBadge}>
+                  <Text style={styles.mineBadgeText}>SAJÁT POSZT</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.row}>📍 {item.pickup_address}</Text>
             <Text style={styles.row}>🏁 {item.dropoff_address}</Text>
             <View style={styles.meta}>
@@ -80,8 +107,8 @@ export default function Fuvarok() {
               </Text>
             </View>
           </Pressable>
-        </Link>
-      )}
+        );
+      }}
     />
   );
 }
@@ -95,7 +122,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  title: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  mineCard: { backgroundColor: '#fefce8', borderColor: '#facc15' },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  mineBadge: {
+    backgroundColor: '#facc15',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  mineBadgeText: { color: '#713f12', fontWeight: '800', fontSize: 10, letterSpacing: 0.3 },
+  title: { fontSize: 17, fontWeight: '700', color: colors.text, flex: 1 },
   row: { color: colors.textMuted, marginBottom: 2, fontSize: 14 },
   meta: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.sm, gap: spacing.sm },
   metaItem: { fontSize: 13, color: colors.textMuted },

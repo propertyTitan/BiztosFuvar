@@ -1,11 +1,14 @@
 // Feladó: egy sofőri útvonal részlete + foglalás form mobilon.
+// Saját útvonalon nem lehet helyet foglalni — ilyenkor "Saját poszt"
+// figyelmeztetés és link a sofőri részletek oldalra.
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Pressable, TextInput, Alert,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { api } from '@/api';
+import { getCurrentUser } from '@/auth';
 import { PACKAGE_SIZES, classifyPackage, PackageSizeId } from '@/constants';
 import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
@@ -15,7 +18,12 @@ export default function FeladoUtvonalReszletekMobil() {
   const router = useRouter();
   const toast = useToast();
   const [route, setRoute] = useState<any>(null);
+  const [meId, setMeId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    getCurrentUser().then((u) => setMeId(u?.id || null));
+  }, []);
 
   const [length, setLength] = useState('');
   const [width, setWidth] = useState('');
@@ -84,12 +92,33 @@ export default function FeladoUtvonalReszletekMobil() {
 
   if (!route) return <Text style={{ padding: 24 }}>Betöltés…</Text>;
 
+  const isMine = meId && route.carrier_id === meId;
+
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>{route.title}</Text>
       <Text style={styles.muted}>
         🗓 {new Date(route.departure_at).toLocaleString('hu-HU')}
       </Text>
+
+      {/* Saját poszt figyelmeztetés */}
+      {isMine && (
+        <View style={styles.ownPostBox}>
+          <Text style={styles.ownPostTitle}>📣 Ez a te saját útvonalad</Text>
+          <Text style={styles.ownPostBody}>
+            A saját hirdetésedre nem foglalhatsz helyet. Nyisd meg a sofőri
+            nézetet a foglalások kezeléséhez és a szerkesztéshez.
+          </Text>
+          <Link
+            href={{ pathname: '/utvonal/[id]', params: { id: id! } }}
+            asChild
+          >
+            <Pressable style={styles.cta}>
+              <Text style={styles.ctaText}>Sofőri nézet →</Text>
+            </Pressable>
+          </Link>
+        </View>
+      )}
 
       {/* Útvonal */}
       <View style={styles.section}>
@@ -144,7 +173,10 @@ export default function FeladoUtvonalReszletekMobil() {
         </View>
       </View>
 
-      {/* Foglalás form */}
+      {/* Foglalás form – saját posztnál teljesen elrejtjük, hogy el se
+          lehessen indítani. A backend is 403-mal utasítja el. */}
+      {!isMine && (
+      <>
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Csomagod méretei</Text>
         <View style={styles.grid2}>
@@ -267,6 +299,8 @@ export default function FeladoUtvonalReszletekMobil() {
             : `Helyet foglalok${priceForSelected ? ` — ${priceForSelected.price_huf.toLocaleString('hu-HU')} Ft` : ''}`}
         </Text>
       </Pressable>
+      </>
+      )}
     </ScrollView>
   );
 }
@@ -342,4 +376,15 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: { backgroundColor: colors.textMuted, opacity: 0.6 },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+  ownPostBox: {
+    backgroundColor: '#fefce8',
+    borderColor: '#facc15',
+    borderWidth: 1,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+  },
+  ownPostTitle: { fontSize: 16, fontWeight: '800', color: '#713f12', marginBottom: spacing.xs },
+  ownPostBody: { color: '#713f12', fontSize: 14, marginBottom: spacing.sm, lineHeight: 20 },
 });

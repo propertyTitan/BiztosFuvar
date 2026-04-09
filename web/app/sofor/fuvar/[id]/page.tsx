@@ -9,6 +9,7 @@
 // - Ha a fuvar már az övé (in_progress), figyelmezteti, hogy a lezárás
 //   CSAK a mobilalkalmazásban lehetséges (GPS + fotó miatt).
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
@@ -114,6 +115,7 @@ export default function SoforFuvarReszletek() {
   if (!job) return <p>Betöltés…</p>;
 
   const iAmTheCarrier = me?.id === job.carrier_id;
+  const iAmTheShipper = me?.id === job.shipper_id;
   const myBid = bids.find((b) => b.carrier_id === me?.id);
   const listingPhotos = photos.filter((p) => p.kind === 'listing');
 
@@ -255,8 +257,30 @@ export default function SoforFuvarReszletek() {
         )}
       </div>
 
+      {/* Saját poszt figyelmeztetés — ha a user a saját fuvarát nézi
+          a sofőr oldalról, ne hagyjuk licitálni. A feladói nézetet a
+          dashboard/fuvar/[id] oldalon találja. */}
+      {iAmTheShipper && (
+        <div
+          className="card"
+          style={{
+            marginTop: 16,
+            background: '#fefce8',
+            borderColor: '#facc15',
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>📣 Ez a te saját hirdetésed</h2>
+          <p style={{ marginBottom: 8 }}>
+            A saját fuvaradra nem licitálhatsz. A licitek kezeléséhez nyisd meg a feladói nézetet.
+          </p>
+          <Link className="btn" href={`/dashboard/fuvar/${job.id}`}>
+            Feladói nézet →
+          </Link>
+        </div>
+      )}
+
       {/* Licit feladás vagy meglévő licit állapota */}
-      {(job.status === 'pending' || job.status === 'bidding') && !myBid && (
+      {!iAmTheShipper && (job.status === 'pending' || job.status === 'bidding') && !myBid && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 style={{ marginTop: 0 }}>Licit feladása</h2>
           <form onSubmit={submitBid}>

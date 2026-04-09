@@ -1,18 +1,28 @@
 // Feladó: sofőri útvonalak böngészése mobilon.
 // - Város alapú szűrés (egyszerű szöveges input)
 // - Kártyák → részletek + foglalás
-import { useCallback, useState } from 'react';
+// - A saját útvonalak is megjelennek, de "Saját poszt" címkével és
+//   koppintásra a sofőri részletek oldalra visszük (ott van szerkesztés),
+//   nem a foglalás űrlapra.
+import { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, FlatList, Pressable, StyleSheet, RefreshControl, TextInput, Alert,
 } from 'react-native';
-import { Link, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/api';
+import { getCurrentUser, CurrentUser } from '@/auth';
 import { colors, spacing, radius } from '@/theme';
 
 export default function UtvonalBongeszo() {
+  const router = useRouter();
+  const [me, setMe] = useState<CurrentUser | null>(null);
   const [routes, setRoutes] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [city, setCity] = useState('');
+
+  useEffect(() => {
+    getCurrentUser().then(setMe);
+  }, []);
 
   const load = useCallback(async (filterCity?: string) => {
     setLoading(true);
@@ -71,30 +81,44 @@ export default function UtvonalBongeszo() {
         const first = item.waypoints[0]?.name || '?';
         const last = item.waypoints[item.waypoints.length - 1]?.name || '?';
         const stops = item.waypoints.length > 2 ? ` (+${item.waypoints.length - 2} megálló)` : '';
+        const isMine = !!me && item.carrier_id === me.id;
+        const onPress = () => {
+          if (isMine) {
+            // Saját útvonal → sofőri részletek (szerkesztés, foglalások listája)
+            router.push({ pathname: '/utvonal/[id]', params: { id: item.id } });
+          } else {
+            router.push({ pathname: '/feladas/utvonal/[id]', params: { id: item.id } });
+          }
+        };
         return (
-          <Link href={{ pathname: '/feladas/utvonal/[id]', params: { id: item.id } }} asChild>
-            <Pressable style={styles.card}>
+          <Pressable style={[styles.card, isMine && styles.mineCard]} onPress={onPress}>
+            <View style={styles.titleRow}>
               <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
-              <Text style={styles.row} numberOfLines={1}>
-                📍 {first} → {last}{stops}
-              </Text>
-              <Text style={styles.row}>
-                🗓 {new Date(item.departure_at).toLocaleString('hu-HU')}
-              </Text>
-              {item.vehicle_description ? (
-                <Text style={styles.row}>🚛 {item.vehicle_description}</Text>
-              ) : null}
-              <View style={styles.priceRow}>
-                {item.prices.map((p: any) => (
-                  <View key={p.size} style={styles.priceChip}>
-                    <Text style={styles.priceChipText}>
-                      <Text style={{ fontWeight: '800' }}>{p.size}</Text> {p.price_huf.toLocaleString('hu-HU')} Ft
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </Pressable>
-          </Link>
+              {isMine && (
+                <View style={styles.mineBadge}>
+                  <Text style={styles.mineBadgeText}>SAJÁT POSZT</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.row} numberOfLines={1}>
+              📍 {first} → {last}{stops}
+            </Text>
+            <Text style={styles.row}>
+              🗓 {new Date(item.departure_at).toLocaleString('hu-HU')}
+            </Text>
+            {item.vehicle_description ? (
+              <Text style={styles.row}>🚛 {item.vehicle_description}</Text>
+            ) : null}
+            <View style={styles.priceRow}>
+              {item.prices.map((p: any) => (
+                <View key={p.size} style={styles.priceChip}>
+                  <Text style={styles.priceChipText}>
+                    <Text style={{ fontWeight: '800' }}>{p.size}</Text> {p.price_huf.toLocaleString('hu-HU')} Ft
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Pressable>
         );
       }}
     />
@@ -132,7 +156,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
+  mineCard: { backgroundColor: '#fefce8', borderColor: '#facc15' },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  mineBadge: {
+    backgroundColor: '#facc15',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  mineBadgeText: { color: '#713f12', fontWeight: '800', fontSize: 10, letterSpacing: 0.3 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: colors.text, flex: 1 },
   row: { color: colors.textMuted, marginBottom: 2, fontSize: 13 },
   priceRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.sm },
   priceChip: {
