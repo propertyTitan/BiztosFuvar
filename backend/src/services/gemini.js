@@ -1,5 +1,12 @@
 // Google Gemini API integráció – fotó "szemrevételezés" és leírás-ellenőrzés.
+//
+// Modell verziók: a Google 2025-ben kivezette a `gemini-1.5-flash`-t, ezért
+// alapból `gemini-2.0-flash`-re váltottunk. A felhasználó felülbírálhatja a
+// `GEMINI_MODEL` környezeti változóval (pl. `gemini-2.5-flash`, ha az a
+// projektjéhez engedélyezett).
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+const DEFAULT_MODEL = 'gemini-2.0-flash';
 
 let client = null;
 function getClient() {
@@ -12,7 +19,7 @@ function getModel(opts = {}) {
   const c = getClient();
   if (!c) return null;
   return c.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+    model: process.env.GEMINI_MODEL || DEFAULT_MODEL,
     ...opts,
   });
 }
