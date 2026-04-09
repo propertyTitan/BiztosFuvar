@@ -54,11 +54,16 @@ export default function AiChatWidget() {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
     const userMsg: Message = { role: 'user', content: trimmed };
+    // FONTOS: a backend a `message`-t külön paraméterként kapja és
+    // önmaga adja hozzá a beszélgetéshez, a `history` csak az eddig
+    // lezajlott üzenetváltást jelenti. Korábban duplán küldtük: a
+    // history-ban is és a message mezőben is, ami összezavarta Gemini-t.
+    const historyBeforeSend = messages;
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setLoading(true);
     try {
-      const res = await api.aiChat(trimmed, [...messages, userMsg]);
+      const res = await api.aiChat(trimmed, historyBeforeSend);
       setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }]);
     } catch (e: any) {
       setMessages((prev) => [

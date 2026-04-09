@@ -48,11 +48,14 @@ export default function AiChat() {
     const trimmed = text.trim();
     if (!trimmed || loading) return;
     const userMsg: Message = { role: 'user', content: trimmed };
+    // A backend külön várja a `message`-t és a `history`-t. A history
+    // csak az EDDIGI beszélgetés, a most küldött üzenet NEM része.
+    const historyBeforeSend = messages;
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setLoading(true);
     try {
-      const res = await api.aiChat(trimmed, [...messages, userMsg]);
+      const res = await api.aiChat(trimmed, historyBeforeSend);
       setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }]);
     } catch (e: any) {
       setMessages((prev) => [

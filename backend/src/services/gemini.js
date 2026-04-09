@@ -8,11 +8,12 @@ function getClient() {
   return client;
 }
 
-function getModel() {
+function getModel(opts = {}) {
   const c = getClient();
   if (!c) return null;
   return c.getGenerativeModel({
     model: process.env.GEMINI_MODEL || 'gemini-1.5-flash',
+    ...opts,
   });
 }
 
@@ -151,7 +152,11 @@ async function supportChat(message, history = []) {
   if (!message || !message.trim()) {
     return { reply: 'Írj be egy kérdést, és segítek!' };
   }
-  const model = getModel();
+  // FONTOS: a @google/generative-ai 0.21 SDK-ban a `systemInstruction`-t
+  // a `getGenerativeModel()`-en KELL átadni, NEM a `startChat()`-ban.
+  // Korábban az utóbbiban volt, ami némán elvetődött és a modell
+  // rendszerprompt nélkül kapta a kérdéseket.
+  const model = getModel({ systemInstruction: SUPPORT_SYSTEM_PROMPT });
   if (!model) {
     // STUB válasz, amikor nincs Gemini kulcs beállítva
     return {
@@ -162,9 +167,28 @@ async function supportChat(message, history = []) {
     };
   }
   try {
+    // A `history` a KORÁBBI üzeneteket tartalmazza, NEM a mostanit.
+    // (A frontend esetleg régi kóddal még belerakja az új üzenetet is a
+    // listába — ha az utolsó elem pontosan a friss user message, levágjuk,
+    // mert `chat.sendMessage(message)` úgyis hozzáadja.)
+    let cleanHistory = Array.isArray(history) ? history.slice() : [];
+    if (
+      cleanHistory.length > 0 &&
+      cleanHistory[cleanHistory.length - 1]?.role === 'user' &&
+      String(cleanHistory[cleanHistory.length - 1]?.content || '') === message
+    ) {
+      cleanHistory.pop();
+    }
+
+    // Gemini elvárja: a history első eleme 'user' kell legyen, és
+    // utána váltakozva user/model. Ha az első elem véletlenül 'model'
+    // (vagy 'assistant'), dobjuk el.
+    while (cleanHistory.length > 0 && cleanHistory[0].role !== 'user') {
+      cleanHistory.shift();
+    }
+
     const chat = model.startChat({
-      systemInstruction: { role: 'system', parts: [{ text: SUPPORT_SYSTEM_PROMPT }] },
-      history: (history || []).slice(-20).map((m) => ({
+      history: cleanHistory.slice(-20).map((m) => ({
         role: m.role === 'assistant' ? 'model' : m.role,
         parts: [{ text: String(m.content || '') }],
       })),
