@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, CarrierRoute, RouteBooking } from '@/api';
 import { useToast } from '@/components/ToastProvider';
+import { useCurrentUser } from '@/lib/auth';
+import { getSocket, joinUserRoom } from '@/lib/socket';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -24,6 +26,7 @@ export default function UtvonalReszletek() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
+  const user = useCurrentUser();
   const [route, setRoute] = useState<CarrierRoute | null>(null);
   const [bookings, setBookings] = useState<RouteBooking[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +48,20 @@ export default function UtvonalReszletek() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Real-time: ha a feladó kifizet egy foglalást, a sofőr ezen az
+  // oldalon AZONNAL lássa a "FIZETVE" címkét.
+  useEffect(() => {
+    if (!user) return;
+    joinUserRoom(user.id);
+    const socket = getSocket();
+    const onPaid = () => load();
+    socket.on('route-booking:paid', onPaid);
+    return () => {
+      socket.off('route-booking:paid', onPaid);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, id]);
 
   async function confirmBooking(bookingId: string) {
     try {
@@ -115,6 +132,36 @@ export default function UtvonalReszletek() {
             <span className="pill pill-bidding" style={{ marginTop: 6 }}>
               {STATUS_LABEL[b.status]}
             </span>
+            {/* Fizetés állapot – csak confirmed+ státuszoknál érdekes. */}
+            {['confirmed', 'in_progress', 'delivered'].includes(b.status) && (
+              <div style={{ marginTop: 6 }}>
+                {b.paid_at ? (
+                  <span
+                    className="pill"
+                    style={{
+                      background: '#dcfce7',
+                      color: '#166534',
+                      border: '1px solid #86efac',
+                      fontWeight: 700,
+                    }}
+                    title={`Fizetve: ${new Date(b.paid_at).toLocaleString('hu-HU')}`}
+                  >
+                    ✅ FIZETVE
+                  </span>
+                ) : (
+                  <span
+                    className="pill"
+                    style={{
+                      background: '#fef3c7',
+                      color: '#92400e',
+                      border: '1px solid #fde68a',
+                    }}
+                  >
+                    ⏳ Fizetésre vár
+                  </span>
+                )}
+              </div>
+            )}
             {b.status === 'pending' && (
               <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <button className="btn" style={{ fontSize: 13, padding: '6px 14px' }} onClick={() => confirmBooking(b.id)}>

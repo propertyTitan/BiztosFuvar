@@ -1,11 +1,15 @@
 // Sofőr: egy konkrét útvonal részlete mobilon.
 // A beérkezett foglalásokat látja, és elfogadni/elutasítani tud.
-import { useCallback, useState } from 'react';
+// A foglalásokon látszik a FIZETVE címke is, ha a feladó már fizetett
+// (real-time `route-booking:paid` event frissíti azonnal).
+import { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, Pressable, Alert, Linking,
 } from 'react-native';
 import { Link, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '@/api';
+import { getCurrentUser } from '@/auth';
+import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
 import { colors, spacing, radius } from '@/theme';
 
@@ -44,6 +48,22 @@ export default function SoforUtvonalReszletek() {
       load();
     }, [load]),
   );
+
+  // Real-time: ha egy foglalást kifizet a feladó, azonnal frissítsük
+  // a listát, hogy a sofőr lássa a FIZETVE címkét.
+  useEffect(() => {
+    let cleanup: (() => void) | undefined;
+    (async () => {
+      const u = await getCurrentUser();
+      if (!u) return;
+      joinUserRoom(u.id);
+      const socket = getSocket();
+      const onPaid = () => load();
+      socket.on('route-booking:paid', onPaid);
+      cleanup = () => socket.off('route-booking:paid', onPaid);
+    })();
+    return () => cleanup?.();
+  }, [load]);
 
   async function confirmBooking(bookingId: string) {
     try {
@@ -175,14 +195,28 @@ export default function SoforUtvonalReszletek() {
           {b.notes ? (
             <Text style={[styles.muted, { fontStyle: 'italic', marginTop: 4 }]}>„{b.notes}"</Text>
           ) : null}
-          <View
-            style={[
-              styles.statusPill,
-              b.status === 'confirmed' && { backgroundColor: '#dcfce7' },
-              b.status === 'rejected' && { backgroundColor: '#fee2e2' },
-            ]}
-          >
-            <Text style={styles.statusText}>{BOOKING_STATUS_LABEL[b.status]}</Text>
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: spacing.sm, flexWrap: 'wrap' }}>
+            <View
+              style={[
+                styles.statusPill,
+                b.status === 'confirmed' && { backgroundColor: '#dcfce7' },
+                b.status === 'rejected' && { backgroundColor: '#fee2e2' },
+              ]}
+            >
+              <Text style={styles.statusText}>{BOOKING_STATUS_LABEL[b.status]}</Text>
+            </View>
+            {/* Fizetés állapot — csak confirmed+ státusznál érdekes. */}
+            {['confirmed', 'in_progress', 'delivered'].includes(b.status) && (
+              b.paid_at ? (
+                <View style={styles.paidPill}>
+                  <Text style={styles.paidPillText}>✅ FIZETVE</Text>
+                </View>
+              ) : (
+                <View style={styles.awaitingPill}>
+                  <Text style={styles.awaitingPillText}>⏳ Fizetésre vár</Text>
+                </View>
+              )
+            )}
           </View>
           {b.status === 'pending' && (
             <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
@@ -283,10 +317,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 999,
-    alignSelf: 'flex-start',
-    marginTop: spacing.sm,
   },
   statusText: { fontSize: 11, fontWeight: '700', color: colors.text },
+
+  paidPill: {
+    backgroundColor: '#dcfce7',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  paidPillText: { fontSize: 11, fontWeight: '800', color: '#166534' },
+  awaitingPill: {
+    backgroundColor: '#fef3c7',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  awaitingPillText: { fontSize: 11, fontWeight: '700', color: '#92400e' },
 
   confirmBtn: {
     flex: 1,

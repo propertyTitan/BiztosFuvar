@@ -68,8 +68,10 @@ export default function Foglalasaim() {
     }, [load]),
   );
 
-  // Real-time: ha értesítés érkezik foglalásra, újratöltünk
+  // Real-time: ha értesítés érkezik foglalásra, vagy a backend paid
+  // event-et szór ki (sikeres fizetés után), újratöltjük a listát.
   useEffect(() => {
+    let cleanup: (() => void) | undefined;
     (async () => {
       const u = await getCurrentUser();
       if (!u) return;
@@ -79,14 +81,21 @@ export default function Foglalasaim() {
         if (
           n.type === 'booking_confirmed' ||
           n.type === 'booking_rejected' ||
-          n.type === 'booking_received'
+          n.type === 'booking_received' ||
+          n.type === 'booking_paid'
         ) {
           load();
         }
       };
+      const onPaid = () => load();
       socket.on('notification:new', onNotif);
-      return () => socket.off('notification:new', onNotif);
+      socket.on('route-booking:paid', onPaid);
+      cleanup = () => {
+        socket.off('notification:new', onNotif);
+        socket.off('route-booking:paid', onPaid);
+      };
     })();
+    return () => cleanup?.();
   }, [load]);
 
   return (
@@ -137,12 +146,13 @@ export default function Foglalasaim() {
             </View>
           )}
 
-          {/* Fizetés gomb — a sofőri megerősítés után elérhető.
-              A backend `/pay` végpontja LUSTÁN hozza létre a Barion
-              foglalást (ha még nincs), és visszaadja a gateway URL-t.
-              Így a gomb akkor is működik, ha a foglalás régebbi kóddal
-              készült és a `barion_gateway_url` üres. */}
-          {b.status === 'confirmed' && (
+          {/* Ha már FIZETVE: zöld címke. Különben: Fizetés Barionnal gomb. */}
+          {b.status === 'confirmed' && b.paid_at && (
+            <View style={styles.paidBox}>
+              <Text style={styles.paidText}>✅ FIZETVE</Text>
+            </View>
+          )}
+          {b.status === 'confirmed' && !b.paid_at && (
             <Pressable
               style={[styles.payBtn, payingId === b.id && { opacity: 0.7 }]}
               disabled={payingId === b.id}
@@ -215,6 +225,17 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   payBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+
+  paidBox: {
+    backgroundColor: '#dcfce7',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+  },
+  paidText: { color: '#166534', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 },
   stubNote: {
     marginTop: spacing.sm,
     color: colors.textMuted,

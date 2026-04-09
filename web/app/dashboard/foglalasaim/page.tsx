@@ -72,7 +72,10 @@ export default function FoglalasaimOldal() {
     load();
   }, [load]);
 
-  // Real-time: amikor egy értesítés érkezik a foglalásokra, újratöltünk
+  // Real-time: amikor egy értesítés érkezik a foglalásokra, újratöltünk.
+  // És külön figyelünk a `route-booking:paid` event-re, hogy a sikeres
+  // fizetés után azonnal lecserélődjön a gomb a FIZETVE címkére (ne
+  // kelljen a felhasználónak manuálisan refresh-elnie).
   useEffect(() => {
     if (!user) return;
     joinUserRoom(user.id);
@@ -81,14 +84,18 @@ export default function FoglalasaimOldal() {
       if (
         n.type === 'booking_confirmed' ||
         n.type === 'booking_rejected' ||
-        n.type === 'booking_received'
+        n.type === 'booking_received' ||
+        n.type === 'booking_paid'
       ) {
         load();
       }
     };
+    const onPaid = () => load();
     socket.on('notification:new', onNotif);
+    socket.on('route-booking:paid', onPaid);
     return () => {
       socket.off('notification:new', onNotif);
+      socket.off('route-booking:paid', onPaid);
     };
   }, [user, load]);
 
@@ -154,12 +161,27 @@ export default function FoglalasaimOldal() {
               </div>
             )}
 
-            {/* Fizetés gomb – amint a sofőr megerősítette a foglalást,
-                itt lehet fizetni. A backend `/pay` végpontja lusta: ha
-                még nincs Barion reservation, most hozza létre, ha van,
-                azt adja vissza. Ezért a gomb akkor is megjelenik, ha
-                a `barion_gateway_url` még üres (régebbi foglalásoknál). */}
-            {b.status === 'confirmed' && (
+            {/* Ha már FIZETVE: csak egy címke. Különben: Fizetés gomb,
+                ami a backend lusta `/pay` végpontját hívja. */}
+            {b.status === 'confirmed' && b.paid_at && (
+              <div
+                style={{
+                  marginTop: 10,
+                  display: 'inline-block',
+                  background: '#dcfce7',
+                  color: '#166534',
+                  padding: '10px 18px',
+                  borderRadius: 8,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  border: '1px solid #86efac',
+                }}
+                title={`Fizetve: ${new Date(b.paid_at).toLocaleString('hu-HU')}`}
+              >
+                ✅ FIZETVE
+              </div>
+            )}
+            {b.status === 'confirmed' && !b.paid_at && (
               <button
                 type="button"
                 onClick={() => startPayment(b.id)}

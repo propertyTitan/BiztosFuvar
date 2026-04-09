@@ -69,17 +69,31 @@ export default function FizetesStub() {
     })();
   }, [bookingId, jobId]);
 
-  function pay() {
+  async function pay() {
     setStep('processing');
     // 1.5 másodperc "feldolgozás" – mint egy valódi Barion oldal
+    await new Promise((r) => setTimeout(r, 1500));
+
+    // STUB → itt mi magunk nyugtázzuk a backend-en a fizetést.
+    // Valódi Barion esetén a /payments/barion/callback IPN hívja majd
+    // ugyanezt a logikát. Route booking esetében megtörténik a paid_at
+    // beállítása + értesítés a sofőrnek.
+    if (bookingId) {
+      try {
+        await api.confirmRouteBookingPayment(bookingId);
+      } catch (e: any) {
+        toast.error('Fizetés nyugtázása sikertelen', e.message);
+        setStep('review');
+        return;
+      }
+    }
+
+    setStep('done');
+    toast.success('Fizetés sikeres (STUB)', `${data?.amount.toLocaleString('hu-HU')} Ft lefoglalva`);
+    // 2 másodperc múlva visszatérünk a foglalásaim oldalra
     setTimeout(() => {
-      setStep('done');
-      toast.success('Fizetés sikeres (STUB)', `${data?.amount.toLocaleString('hu-HU')} Ft lefoglalva`);
-      // 2 másodperc múlva visszatérünk a foglalásaim oldalra
-      setTimeout(() => {
-        if (data?.back) router.push(data.back);
-      }, 2000);
-    }, 1500);
+      if (data?.back) router.push(data.back);
+    }, 2000);
   }
 
   return (

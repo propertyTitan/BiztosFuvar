@@ -62,6 +62,7 @@ export type RouteBooking = {
   platform_share_huf?: number | null;
   created_at: string;
   confirmed_at: string | null;
+  paid_at: string | null;
   delivered_at: string | null;
   route_title?: string;
   departure_at?: string;
@@ -377,6 +378,17 @@ export const api = {
   payRouteBooking: (id: string) =>
     request<{ payment_id: string; gateway_url: string; is_stub: boolean; reused: boolean }>(
       `/route-bookings/${id}/pay`,
+      { method: 'POST' },
+    ),
+
+  /**
+   * A fizetés NYUGTÁZÁSA — STUB módban a /fizetes-stub oldal "Fizetek most"
+   * gombja hívja. Beállítja a `paid_at`-ot, értesítést küld a sofőrnek, és
+   * realtime eventet szór, hogy mindkét fél UI-ja friss legyen.
+   */
+  confirmRouteBookingPayment: (id: string) =>
+    request<{ ok: true; paid_at: string; already_paid?: boolean }>(
+      `/route-bookings/${id}/confirm-payment`,
       { method: 'POST' },
     ),
 

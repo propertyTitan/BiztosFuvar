@@ -260,12 +260,14 @@ CREATE TABLE IF NOT EXISTS route_bookings (
     platform_share_huf  INTEGER,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     confirmed_at      TIMESTAMPTZ,
+    paid_at           TIMESTAMPTZ,
     delivered_at      TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_bookings_route   ON route_bookings(route_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_shipper ON route_bookings(shipper_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status  ON route_bookings(status);
+CREATE INDEX IF NOT EXISTS idx_bookings_paid_at ON route_bookings(paid_at);
 
 -- ---------- Értesítések -----------------------------------------------
 

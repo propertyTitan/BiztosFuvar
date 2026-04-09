@@ -170,6 +170,13 @@ export const api = {
       { method: 'POST' },
     ),
 
+  /** Sikeres STUB fizetés nyugtázása – paid_at beállítás + notif a sofőrnek. */
+  confirmRouteBookingPayment: (id: string) =>
+    request<{ ok: true; paid_at: string; already_paid?: boolean }>(
+      `/route-bookings/${id}/confirm-payment`,
+      { method: 'POST' },
+    ),
+
   // ---------- Notifications ----------
 
   listNotifications: () => request<any[]>('/notifications'),

@@ -597,6 +597,79 @@ router.post('/route-bookings/:id/pay', authRequired, async (req, res) => {
   });
 });
 
+// POST /route-bookings/:id/confirm-payment
+//
+// A sikeres fizetés NYUGTÁZÁSA. STUB módban a `/fizetes-stub` oldal
+// "Fizetek most" gombja hívja (nincs valódi Barion callback); éles
+// Barion esetén a `payments.js` IPN callback-je fogja. Idempotens:
+// ha a foglalás már `paid_at`-tal rendelkezik, csak visszaadja.
+//
+// Mit csinál:
+//   1) `paid_at` beállítása NOW()-ra
+//   2) Értesítés küldése a SOFŐRnek (hirdetés létrehozója): "Péter
+//      kifizette a foglalását"
+//   3) Realtime event a feladónak, hogy a Foglalásaim oldala frissüljön
+//      és a Fizetés gomb helyén a "FIZETVE" címke megjelenjen
+router.post('/route-bookings/:id/confirm-payment', authRequired, async (req, res) => {
+  const { rows: bRows } = await db.query(
+    `SELECT b.*, r.carrier_id, r.title AS route_title,
+            s.full_name AS shipper_name, s.email AS shipper_email
+       FROM route_bookings b
+       JOIN carrier_routes r ON r.id = b.route_id
+       JOIN users s ON s.id = b.shipper_id
+      WHERE b.id = $1`,
+    [req.params.id],
+  );
+  const b = bRows[0];
+  if (!b) return res.status(404).json({ error: 'Foglalás nem található' });
+  if (b.shipper_id !== req.user.sub) {
+    return res.status(403).json({ error: 'Csak a foglalás feladója nyugtázhatja a fizetést' });
+  }
+  if (b.status !== 'confirmed') {
+    return res.status(409).json({
+      error: 'Csak megerősített foglaláshoz tartozhat fizetés (státusz: ' + b.status + ')',
+    });
+  }
+
+  // Idempotens: ha már fizetve van, nem küldünk új notifikációt és realtime-ot.
+  if (b.paid_at) {
+    return res.json({ ok: true, already_paid: true, paid_at: b.paid_at });
+  }
+
+  const { rows: updated } = await db.query(
+    `UPDATE route_bookings SET paid_at = NOW() WHERE id = $1 RETURNING paid_at`,
+    [b.id],
+  );
+  const paidAt = updated[0].paid_at;
+
+  // 1) Értesítés a sofőrnek (a hirdetés létrehozójának)
+  try {
+    await createNotification({
+      user_id: b.carrier_id,
+      type: 'booking_paid',
+      title: '💰 Kifizetett foglalás!',
+      body: `${b.shipper_name || 'A feladó'} kifizette a(z) "${b.route_title}" foglalását ${b.price_huf.toLocaleString('hu-HU')} Ft értékben.`,
+      link: `/sofor/utvonal/${b.route_id}`,
+    });
+  } catch (e) {
+    console.warn('[notifications] booking_paid hiba:', e.message);
+  }
+
+  // 2) Realtime event a feladónak – a Foglalásaim oldala ebből tudja
+  //    azonnal újratölteni és lecserélni a gombot "FIZETVE" címkére.
+  realtime.emitToUser(b.shipper_id, 'route-booking:paid', {
+    booking_id: b.id,
+    paid_at: paidAt,
+  });
+  // És a sofőrnek is, hogy a route részletek oldal frissüljön.
+  realtime.emitToUser(b.carrier_id, 'route-booking:paid', {
+    booking_id: b.id,
+    paid_at: paidAt,
+  });
+
+  res.json({ ok: true, paid_at: paidAt });
+});
+
 // POST /route-bookings/:id/reject – az útvonal tulajdonosa elutasítja
 router.post(
   '/route-bookings/:id/reject',

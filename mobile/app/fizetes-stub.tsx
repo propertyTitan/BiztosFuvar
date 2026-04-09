@@ -54,18 +54,30 @@ export default function FizetesStub() {
     })();
   }, [booking, job]);
 
-  function pay() {
+  async function pay() {
     setStep('processing');
+    await new Promise((r) => setTimeout(r, 1500));
+
+    // STUB → mi magunk nyugtázzuk a backend-en. Éles Barion esetén
+    // a /payments/barion/callback IPN fogja ugyanezt csinálni.
+    if (booking) {
+      try {
+        await api.confirmRouteBookingPayment(booking);
+      } catch (err: any) {
+        toast.error('Fizetés nyugtázása sikertelen', err.message);
+        setStep('review');
+        return;
+      }
+    }
+
+    setStep('done');
+    toast.success(
+      'Fizetés sikeres (STUB)',
+      data ? `${data.amount.toLocaleString('hu-HU')} Ft lefoglalva` : undefined,
+    );
     setTimeout(() => {
-      setStep('done');
-      toast.success(
-        'Fizetés sikeres (STUB)',
-        data ? `${data.amount.toLocaleString('hu-HU')} Ft lefoglalva` : undefined,
-      );
-      setTimeout(() => {
-        if (data?.back) router.replace(data.back as any);
-      }, 2000);
-    }, 1500);
+      if (data?.back) router.replace(data.back as any);
+    }, 2000);
   }
 
   if (!data) {
