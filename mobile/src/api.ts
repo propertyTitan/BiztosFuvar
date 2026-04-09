@@ -7,6 +7,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
 
+// 15 másodperc után lemondunk a hívásról. Ennek köszönhetően ha a
+// telefon nem látja a backend-et (pl. a `.env`-ben `localhost` maradt,
+// miközben a mobil fizikai eszköz és a `localhost` a telefonra mutat),
+// akkor **értelmes** hibaüzenetet kap a felhasználó ahelyett, hogy
+// a login gomb örökké "Belépés…"-t mutatna.
+const REQUEST_TIMEOUT_MS = 15_000;
+
 async function getToken(): Promise<string | null> {
   return AsyncStorage.getItem('gofuvar_token');
 }
@@ -19,7 +26,32 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = await getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  // AbortController-rel tudjuk 15 mp után megszakítani a fetch-et.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...init,
+      headers,
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error(
+        `Időtúllépés – nem érem el a backendet (${BASE_URL}). ` +
+        `Ha fizikai telefonról tesztelsz, a mobile/.env-ben írd át az ` +
+        `EXPO_PUBLIC_API_URL-t a géped LAN IP-jére, pl. http://192.168.1.42:4000`,
+      );
+    }
+    throw new Error(
+      `Hálózati hiba – ${BASE_URL} nem elérhető. Ellenőrizd, hogy fut-e ` +
+      `a backend, és hogy a telefon ugyanazon a WiFi-n van-e, mint a gép.`,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'API hiba');

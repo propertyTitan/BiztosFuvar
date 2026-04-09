@@ -1,12 +1,12 @@
 // Egyszerű bejelentkezés a backend /auth/login végpontjához.
 // Login után role-alapú redirect: feladó → saját fuvarok, sofőr → elérhető fuvarok.
 //
-// A mezők EMPTY state-tel indulnak, és minden fókuszba-kerüléskor
-// (pl. profilváltás után) ki is ürülnek — így a user nem téveszti el
-// magát azzal, hogy egy másik user pre-fill-elt adatait látja.
-import { useCallback, useState } from 'react';
+// A mezők üresen indulnak. A screen a router.replace miatt tényleg
+// unmount-ol logout↔login között, tehát a `useState('')` mindig friss
+// állapotot hoz — nincs szükség külön `useFocusEffect` reset-re.
+import { useState } from 'react';
 import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { api } from '@/api';
 import { setCurrentUser, homeForRole, Role } from '@/auth';
 import { colors, spacing, radius } from '@/theme';
@@ -17,20 +17,17 @@ export default function Bejelentkezes() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Profilváltás: ha logout után visszajövünk erre az oldalra,
-  // minden régi érték tűnjön el, ne maradjon ott az előző felhasználó
-  // emailje és jelszava.
-  useFocusEffect(
-    useCallback(() => {
-      setEmail('');
-      setPassword('');
-    }, []),
-  );
-
   async function onSubmit() {
+    // Whitespace-re érzékeny backend-ek miatt trim-elünk. A jelszót
+    // direkt NEM trim-eljük, mert abban lehet szándékos space.
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
+      Alert.alert('Hiányzó adat', 'Add meg az email címet és a jelszót.');
+      return;
+    }
     setLoading(true);
     try {
-      const res = await api.login(email, password);
+      const res = await api.login(cleanEmail, password);
       const role = (res.user.role as Role) || 'shipper';
       await setCurrentUser(
         {
