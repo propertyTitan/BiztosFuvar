@@ -282,11 +282,11 @@ export default function SoforFuvarReszletek() {
         >
           <h2 style={{ marginTop: 0 }}>📱 Folytasd a mobilalkalmazásban</h2>
           <p style={{ marginBottom: 0 }}>
-            A fuvart a <strong>BiztosFuvar mobilalkalmazásban</strong> kell elindítani és lezárni.
+            A fuvart a <strong>GoFuvar mobilalkalmazásban</strong> kell elindítani és lezárni.
             A felvételi és lerakodási fotókhoz, valamint az élő GPS követéshez a telefonod kamera
             és helymeghatározás szolgáltatása szükséges, ami <strong>csak a mobilból érhető el</strong>.
             <br />
-            Nyisd meg a BiztosFuvar appot a telefonodon, és lépj be a „Saját fuvaraim" menüpontba.
+            Nyisd meg a GoFuvar appot a telefonodon, és lépj be a „Saját fuvaraim" menüpontba.
           </p>
         </div>
       )}

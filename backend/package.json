@@ -1,8 +1,8 @@
 {
-  "name": "biztosfuvar-backend",
-  "version": "0.1.0",
+  "name": "gofuvar-backend",
+  "version": "0.2.0",
   "private": true,
-  "description": "BiztosFuvar backend API – Express + PostgreSQL + Gemini + Socket.IO",
+  "description": "GoFuvar backend API – Express + PostgreSQL + Gemini + Socket.IO",
   "main": "src/index.js",
   "scripts": {
     "dev": "node --watch src/index.js",

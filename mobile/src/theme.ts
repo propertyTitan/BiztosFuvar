@@ -1,4 +1,4 @@
-// BiztosFuvar színpaletta – modern, letisztult, bizalmat gerjesztő.
+// GoFuvar színpaletta – modern, letisztult, bizalmat gerjesztő.
 export const colors = {
   primary: '#1E40AF',     // mély kék
   primaryDark: '#1E3A8A',

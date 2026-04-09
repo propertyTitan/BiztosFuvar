@@ -10,7 +10,7 @@ import { colors, spacing, radius } from '@/theme';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
-const STORAGE_KEY = 'biztosfuvar_ai_history';
+const STORAGE_KEY = 'gofuvar_ai_history';
 
 const SUGGESTIONS = [
   'Hogyan adok fel új fuvart?',
@@ -83,7 +83,7 @@ export default function AiChat() {
         {messages.length === 0 && (
           <>
             <Text style={styles.intro}>
-              Szia! Miben segíthetek a BiztosFuvarral kapcsolatban?
+              Szia! Miben segíthetek a GoFuvarral kapcsolatban?
             </Text>
             {SUGGESTIONS.map((s) => (
               <Pressable

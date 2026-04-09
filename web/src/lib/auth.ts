@@ -15,23 +15,23 @@ export type CurrentUser = {
   full_name?: string;
 };
 
-const EVENT = 'biztosfuvar:auth';
+const EVENT = 'gofuvar:auth';
 
 export function setCurrentUser(user: CurrentUser, token: string) {
-  window.localStorage.setItem('biztosfuvar_user', JSON.stringify(user));
-  window.localStorage.setItem('biztosfuvar_token', token);
+  window.localStorage.setItem('gofuvar_user', JSON.stringify(user));
+  window.localStorage.setItem('gofuvar_token', token);
   window.dispatchEvent(new Event(EVENT));
 }
 
 export function clearCurrentUser() {
-  window.localStorage.removeItem('biztosfuvar_user');
-  window.localStorage.removeItem('biztosfuvar_token');
+  window.localStorage.removeItem('gofuvar_user');
+  window.localStorage.removeItem('gofuvar_token');
   window.dispatchEvent(new Event(EVENT));
 }
 
 function readUser(): CurrentUser | null {
   if (typeof window === 'undefined') return null;
-  const raw = window.localStorage.getItem('biztosfuvar_user');
+  const raw = window.localStorage.getItem('gofuvar_user');
   if (!raw) return null;
   try {
     return JSON.parse(raw) as CurrentUser;

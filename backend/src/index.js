@@ -1,4 +1,4 @@
-// BiztosFuvar backend belépési pont.
+// GoFuvar backend belépési pont.
 require('dotenv').config();
 const http = require('http');
 const express = require('express');
@@ -20,7 +20,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
 
-app.get('/health', (_req, res) => res.json({ ok: true, service: 'biztosfuvar-backend' }));
+app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
 
 app.use('/auth', authRoutes);
 app.use('/jobs', jobRoutes);
@@ -44,5 +44,5 @@ realtime.init(server);
 
 const port = parseInt(process.env.PORT || '4000', 10);
 server.listen(port, () => {
-  console.log(`[biztosfuvar] backend fut: http://localhost:${port}`);
+  console.log(`[gofuvar] backend fut: http://localhost:${port}`);
 });

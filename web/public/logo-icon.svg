@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  GoFuvar – csak az ikon (négyzetes, app launcher és favicon méretre).
+  72 × 72 viewBox. Ugyanaz a nyíl + progress bar motívum.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" role="img" aria-label="GoFuvar">
+  <rect x="0" y="0" width="72" height="72" rx="18" fill="#1e40af"/>
+
+  <!-- Halvány körív -->
+  <path d="M 14 50 Q 36 12 62 26" stroke="rgba(255,255,255,0.2)" stroke-width="3" fill="none" stroke-linecap="round"/>
+
+  <!-- Előre nyíl -->
+  <g stroke="#ffffff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <line x1="16" y1="38" x2="48" y2="38"/>
+    <polyline points="40,24 56,38 40,52"/>
+  </g>
+
+  <!-- Zöld progress -->
+  <rect x="16" y="58" width="40" height="4" rx="2" fill="#16a34a"/>
+</svg>

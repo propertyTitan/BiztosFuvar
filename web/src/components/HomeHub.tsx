@@ -44,11 +44,12 @@ export default function HomeHub() {
 
   if (!user) {
     return (
-      <div style={{ maxWidth: 600 }}>
-        <h1>Üdvözlünk a BiztosFuvar platformon</h1>
+      <div style={{ maxWidth: 600, textAlign: 'center', padding: '40px 0' }}>
+        <img src="/logo.svg" alt="GoFuvar" style={{ height: 64, marginBottom: 24 }} />
+        <h1 style={{ marginTop: 0 }}>Üdvözlünk a GoFuvar platformon</h1>
         <p className="muted">
-          Lépj be, hogy használhasd az alkalmazást — a szerepkörödnek megfelelő
-          menüpontokat látni fogod.
+          Közösségi fuvartőzsde — lépj be, hogy használhasd az alkalmazást,
+          és a szerepkörödnek megfelelő menüpontokat láthasd.
         </p>
         <Link href="/bejelentkezes" className="btn" style={{ marginTop: 16 }}>
           Belépés

@@ -39,7 +39,7 @@ const FELHASZNALOK = [
   { email: 'horvath.zoltan@example.hu', full_name: 'Horváth Zoltán', role: 'carrier', phone: '+36305556677',
     vehicle_type: 'platós teherautó', vehicle_plate: 'GHI-789', is_verified: false },
   // admin
-  { email: 'admin@biztosfuvar.hu', full_name: 'BiztosFuvar Admin', role: 'admin', phone: '+36301000000' },
+  { email: 'admin@gofuvar.hu', full_name: 'GoFuvar Admin', role: 'admin', phone: '+36301000000' },
 ];
 
 const FUVAROK = [

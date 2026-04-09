@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import { colors, spacing, radius } from '@/theme';
-import { getCurrentUser, homeForRole } from '@/auth';
+import { getCurrentUser } from '@/auth';
+import { LogoHorizontal } from '@/components/Logo';
 
 export default function Index() {
   const router = useRouter();
@@ -30,9 +31,11 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.brand}>BiztosFuvar</Text>
+      <View style={{ marginBottom: spacing.lg }}>
+        <LogoHorizontal size="lg" />
+      </View>
       <Text style={styles.tagline}>
-        Magyarország közösségi fuvartőzsdéje.{'\n'}Bizalom. Fotó. GPS. Letét.
+        Magyarország közösségi fuvartőzsdéje.{'\n'}Bizalom. Fotó. Kód. Letét.
       </Text>
 
       <Link href="/bejelentkezes" asChild>
@@ -46,7 +49,6 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.lg, justifyContent: 'center', alignItems: 'center' },
-  brand: { fontSize: 42, fontWeight: '800', color: colors.primary, marginBottom: spacing.sm },
   tagline: {
     textAlign: 'center',
     color: colors.textMuted,

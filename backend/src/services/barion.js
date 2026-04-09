@@ -3,7 +3,7 @@
 // A teljes fuvardíjat a feladótól FOGLALJUK (reservation), majd a sikeres
 // "Proof of Delivery 2.0" után FELOSZTJUK:
 //   - 90 % a sofőrnek (carrier)
-//   - 10 % a BiztosFuvar platformnak (jutalék)
+//   - 10 % a GoFuvar platformnak (jutalék)
 //
 // Barion API dokumentáció:
 //   - POST /v2/Payment/Start             (PaymentType: "Reservation")
@@ -19,7 +19,7 @@ const BARION_BASE_URL =
     : 'https://api.test.barion.com');
 
 const COMMISSION_PCT = parseFloat(process.env.PLATFORM_COMMISSION_PCT || '0.10');
-const PLATFORM_PAYEE = process.env.BARION_PLATFORM_PAYEE || 'platform@biztosfuvar.hu';
+const PLATFORM_PAYEE = process.env.BARION_PLATFORM_PAYEE || 'platform@gofuvar.hu';
 const RESERVATION_PERIOD = process.env.BARION_RESERVATION_PERIOD || '1.00:00:00'; // 1 nap
 
 function isStub() {
@@ -80,11 +80,11 @@ async function reservePayment({ jobId, totalHuf, shipperEmail, carrierEmail }) {
         POSTransactionId: `bf-${jobId}-reserve`,
         Payee: PLATFORM_PAYEE, // a foglalás kezdetben a platformra érkezik
         Total: totalHuf,
-        Comment: `BiztosFuvar fuvar ${jobId}`,
+        Comment: `GoFuvar fuvar ${jobId}`,
         Items: [
           {
             Name: 'Fuvar foglalás',
-            Description: `BiztosFuvar fuvar #${jobId}`,
+            Description: `GoFuvar fuvar #${jobId}`,
             Quantity: 1,
             Unit: 'db',
             UnitPrice: totalHuf,
@@ -149,7 +149,7 @@ async function finishReservation({ paymentId, jobId, totalHuf, carrierPayee }) {
       Currency: 'HUF',
       Amount: carrierShare,
       RecipientName: carrierPayee,
-      Comment: `BiztosFuvar fuvar #${jobId} – sofőri részesedés`,
+      Comment: `GoFuvar fuvar #${jobId} – sofőri részesedés`,
     }).catch((err) => {
       console.warn('[barion] transfer hiba:', err.message);
       return { error: err.message };

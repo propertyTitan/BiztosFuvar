@@ -8,7 +8,7 @@ const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 async function getToken(): Promise<string | null> {
-  return AsyncStorage.getItem('biztosfuvar_token');
+  return AsyncStorage.getItem('gofuvar_token');
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {

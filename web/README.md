@@ -1,27 +1,38 @@
-# BiztosFuvar Web
+# GoFuvar – Web
 
-Asztali / böngészős felület. Két fő modul:
+Next.js 14 (App Router) + TypeScript. A Shipper Dashboard, Carrier nézet,
+Admin Panel és AI segéd egyetlen app-ban.
 
-1. **Shipper Dashboard** – könnyű hirdetésfeladás, számlák letöltése, aktív
-   fuvarok követése nagy térképen.
-2. **Admin Panel** – panaszkezelés, sofőr-dokumentumok ellenőrzése,
-   statisztikák.
-
-## Tervezett stack
-
-- Next.js (React) + TypeScript
-- TailwindCSS
-- Google Maps JavaScript API
-- Socket.IO kliens a real-time fuvarkövetéshez
-- A backend `http://localhost:4000` címen érhető el (lásd `backend/`).
-
-## Indulás (placeholder)
+## Indítás
 
 ```bash
 cd web
-npx create-next-app@latest .
-# majd: a komponensek bekötése a backend végpontjaira
+cp .env.example .env.local
+# .env.local-ba írd be a Google Maps kulcsod:
+#   NEXT_PUBLIC_GOOGLE_MAPS_KEY=AIza...
+npm install
+npm run dev           # → http://localhost:3000
 ```
 
-> Ez a mappa egyelőre placeholder – a komponensek a backend API-ra épülnek
-> (`/auth`, `/jobs`, `/jobs/:id/bids`, `/jobs/:id/photos`).
+## Fő oldalak
+
+- `/`                       – Egységes HomeHub, role szerint más kártyákkal
+- `/bejelentkezes`          – Login, role-alapú redirect a hubra
+- `/ertesitesek`            – Értesítések, real-time badge-gel
+- `/dashboard` (shipper)    – Fuvaraim licites
+- `/dashboard/uj-fuvar`     – Új fuvar feladás licites
+- `/dashboard/foglalasaim`  – Fix áras foglalásaim
+- `/dashboard/utvonalak`    – Útba eső sofőrök böngészése
+- `/dashboard/utvonal/[id]` – Egy útvonal + foglalás form
+- `/dashboard/fuvar/[id]`   – Egy fuvar részletei, élő térkép
+- `/sofor/fuvarok` (carrier) – Licitálható fuvarok
+- `/sofor/licitjeim`        – Saját licitek listája
+- `/sofor/sajat-fuvarok`    – Elfogadott / folyamatban / kész
+- `/sofor/utvonalaim`       – Saját hirdetett útvonalak
+- `/sofor/uj-utvonal`       – Új útvonal hirdetése
+- `/sofor/utvonal/[id]`     – Útvonal részletei + beérkezett foglalások
+
+## AI segéd
+
+A jobb alsó sarokban egy lebegő 🤖 gomb jelenik meg — kérdezhetsz
+bármit a GoFuvar platform használatával kapcsolatban. Gemini alapú.

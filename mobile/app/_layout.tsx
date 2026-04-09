@@ -37,7 +37,7 @@ export default function RootLayout() {
       >
         <Stack.Screen
           name="index"
-          options={{ title: 'BiztosFuvar', headerRight: undefined }}
+          options={{ title: 'GoFuvar', headerRight: undefined }}
         />
         <Stack.Screen
           name="bejelentkezes"
@@ -45,7 +45,7 @@ export default function RootLayout() {
         />
 
         {/* Hub — mindenkinek a kezdőoldala login után */}
-        <Stack.Screen name="hub" options={{ title: 'BiztosFuvar' }} />
+        <Stack.Screen name="hub" options={{ title: 'GoFuvar' }} />
         <Stack.Screen name="ertesitesek" options={{ title: 'Értesítések' }} />
         <Stack.Screen name="ai-chat" options={{ title: 'AI Segéd' }} />
 

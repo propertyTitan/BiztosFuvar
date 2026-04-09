@@ -11,7 +11,7 @@ import { useCurrentUser } from '@/lib/auth';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
-const STORAGE_KEY = 'biztosfuvar_ai_history';
+const STORAGE_KEY = 'gofuvar_ai_history';
 
 const SUGGESTIONS = [
   'Hogyan adok fel új fuvart?',
@@ -138,7 +138,7 @@ export default function AiChatWidget() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 700 }}>BiztosFuvar Segéd 🤖</div>
+              <div style={{ fontWeight: 700 }}>GoFuvar Segéd 🤖</div>
               <div style={{ fontSize: 12, opacity: 0.85 }}>Kérdezz bármit!</div>
             </div>
             {messages.length > 0 && (
@@ -175,7 +175,7 @@ export default function AiChatWidget() {
             {messages.length === 0 && (
               <>
                 <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 8 }}>
-                  Szia! Miben segíthetek a BiztosFuvarral kapcsolatban?
+                  Szia! Miben segíthetek a GoFuvarral kapcsolatban?
                 </div>
                 {SUGGESTIONS.map((s) => (
                   <button

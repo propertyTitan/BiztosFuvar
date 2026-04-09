@@ -1,5 +1,5 @@
 -- =====================================================================
---  BiztosFuvar – PostgreSQL séma
+--  GoFuvar – PostgreSQL séma
 --  Felhasználók, fuvarok, licitek, fotók, értékelések, escrow tranzakciók.
 -- =====================================================================
 

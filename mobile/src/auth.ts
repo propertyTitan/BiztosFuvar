@@ -11,17 +11,17 @@ export type CurrentUser = {
 };
 
 export async function setCurrentUser(user: CurrentUser, token: string) {
-  await AsyncStorage.setItem('biztosfuvar_user', JSON.stringify(user));
-  await AsyncStorage.setItem('biztosfuvar_token', token);
+  await AsyncStorage.setItem('gofuvar_user', JSON.stringify(user));
+  await AsyncStorage.setItem('gofuvar_token', token);
 }
 
 export async function clearCurrentUser() {
-  await AsyncStorage.removeItem('biztosfuvar_user');
-  await AsyncStorage.removeItem('biztosfuvar_token');
+  await AsyncStorage.removeItem('gofuvar_user');
+  await AsyncStorage.removeItem('gofuvar_token');
 }
 
 export async function getCurrentUser(): Promise<CurrentUser | null> {
-  const raw = await AsyncStorage.getItem('biztosfuvar_user');
+  const raw = await AsyncStorage.getItem('gofuvar_user');
   if (!raw) return null;
   try {
     return JSON.parse(raw) as CurrentUser;

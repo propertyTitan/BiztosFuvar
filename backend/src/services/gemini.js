@@ -49,7 +49,7 @@ async function analyzeCargoPhoto(imageBuffer, mimeType, kind = 'pickup') {
     };
   }
 
-  const prompt = `Te egy logisztikai minőségellenőr vagy a BiztosFuvar platformon.
+  const prompt = `Te egy logisztikai minőségellenőr vagy a GoFuvar platformon.
 A kép típusa: "${kind}" (pickup = felvétel, dropoff = lerakodás, damage = sérülés).
 
 Elemezd a képet és válaszolj SZIGORÚAN JSON formátumban a következő mezőkkel:
@@ -86,7 +86,7 @@ async function reviewJobDescription(title, description) {
   if (!model) {
     return { ok: true, notes: 'Gemini API kulcs nincs beállítva – stub.' };
   }
-  const prompt = `Egy magyar fuvar-hirdetést kell ellenőrizned a BiztosFuvar platformon.
+  const prompt = `Egy magyar fuvar-hirdetést kell ellenőrizned a GoFuvar platformon.
 Cím: "${title}"
 Leírás: "${description || ''}"
 
@@ -109,11 +109,11 @@ félrevezető súly/méret. Csak a JSON-t add vissza.`;
 
 // ---------- AI chatbot (support) ----------
 //
-// Egy beépített, felhasználó-orientált segéd, ami válaszol a BiztosFuvar
+// Egy beépített, felhasználó-orientált segéd, ami válaszol a GoFuvar
 // platform használatával kapcsolatos kérdésekre. Nem csinál adatbázis-
 // műveleteket, csak magyarázatokat és irányítást ad.
 
-const SUPPORT_SYSTEM_PROMPT = `Te a BiztosFuvar nevű magyar közösségi fuvartőzsde AI segédje vagy.
+const SUPPORT_SYSTEM_PROMPT = `Te a GoFuvar nevű magyar közösségi fuvartőzsde AI segédje vagy.
 Magyarul válaszolj, röviden, barátságosan, 2-4 mondatban.
 
 A platform lényege:
@@ -133,8 +133,8 @@ A platform lényege:
 
 Szabályok:
 - Mindig magyarul válaszolj.
-- Ha a kérdés nem a BiztosFuvar platformról szól, udvariasan terelgesd
-  vissza: "Én a BiztosFuvar használatában segítek, ebben miben tudok
+- Ha a kérdés nem a GoFuvar platformról szól, udvariasan terelgesd
+  vissza: "Én a GoFuvar használatában segítek, ebben miben tudok
   segíteni?"
 - Ne találj ki olyan funkciót, ami nincs a fenti leírásban.
 - Ne adj tanácsot jogi, orvosi, pénzügyi kérdésekben.

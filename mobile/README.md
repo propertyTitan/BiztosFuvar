@@ -1,30 +1,40 @@
-# BiztosFuvar Mobile (Expo)
+# GoFuvar – Mobile (Expo)
 
-React Native (Expo) app sofőröknek és feladóknak.
+React Native / Expo SDK 54 app. Egyetlen alkalmazás, ami mindkét
+szerepkörben (feladó + sofőr) működik. Role szerint másképp jelenik
+meg a kezdő hub, de minden felhasználó ugyanazt az app-ot használja.
 
-## Tervezett képernyők
-
-### Sofőr mód
-- **Licitlista** – nyitott fuvarok távolság szerint (`GET /jobs?lat&lng&radius_km`).
-- **Licit feladás** – `POST /jobs/:id/bids`.
-- **Aktív fuvar** – navigáció indítása + `pickup` és `dropoff` fotó kamerával
-  (`POST /jobs/:id/photos`, `kind=pickup|dropoff`, GPS metaadattal).
-- **Élő pozíció küldés** – háttérben `POST /jobs/:id/location`.
+## Mit tud
 
 ### Feladó mód
-- **Hirdetés feladása** mobil­ról.
-- **Sofőr követése** térképen (Socket.IO `tracking:ping`).
-- **Értékelés** lerakodás után (`POST /jobs/:id/reviews`).
+- **Új fuvar feladása** (licites) — cím autocomplete-tel, méretek, súly, fotók
+- **Útba eső sofőrök** böngészése és helyfoglalás fix áron
+- **Fuvaraim** — licites + foglalt fuvarok összesítve
+- **Foglalásaim** — a fix áras foglalásaid állapota
+- **Értesítések** — real-time push a sofőr megerősítéséről / elutasításáról
 
-## Indulás (placeholder)
+### Sofőr mód
+- **Licitálható fuvarok** — GPS-közelség szerint rendezve
+- **Útvonalaim** — saját hirdetett útvonalak kezelése
+- **Új útvonal hirdetése** — tagek a megállókhoz, méret/ár tábla
+- **Licitjeim** — miket ajánlottál, mi nyert
+- **Saját fuvaraim** — elfogadott, folyamatban, teljesített
+- **📸 Fuvar lezárása** — kötelező fotó + 6 jegyű átvételi kód
+
+### Közös
+- **🔔 Értesítések** real-time Socket.IO-n
+- **🤖 AI segéd** — kérdezz bármit a GoFuvar működéséről
+
+## Indítás
 
 ```bash
 cd mobile
-npx create-expo-app@latest .
-# majd: react-native-maps, expo-camera, expo-location, socket.io-client
+# .env fájl létrehozás (gitignore-olt):
+#   GOOGLE_MAPS_API_KEY=AIza...
+#   EXPO_PUBLIC_GOOGLE_MAPS_KEY=AIza...
+#   EXPO_PUBLIC_API_URL=http://<gép-LAN-IP>:4000
+npm install
+npx expo start --clear
 ```
 
-## API kliens
-
-Lásd `mobile/src/api.ts` (TypeScript) – ugyanazokat a végpontokat hívja, mint a
-web kliens.
+Utána szkenneld be a QR kódot Expo Go-val (iOS).

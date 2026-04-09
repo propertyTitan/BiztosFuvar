@@ -1,4 +1,4 @@
-/* BiztosFuvar – globális stílusok. Letisztult, kék/fehér/szürke. */
+/* GoFuvar – globális stílusok. Letisztult, kék/fehér/szürke + zöld akcent. */
 :root {
   --primary: #1e40af;
   --primary-dark: #1e3a8a;
@@ -21,7 +21,7 @@ html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
   display: flex; align-items: center; justify-content: space-between;
   padding: 16px 32px; background: var(--primary); color: #fff;
 }
-.site-header .brand { color: #fff; font-weight: 800; font-size: 22px; text-decoration: none; }
+.site-header .brand { display: flex; align-items: center; text-decoration: none; }
 .site-header nav a { color: #fff; margin-left: 24px; text-decoration: none; font-weight: 500; }
 .site-header nav a:hover { text-decoration: underline; }
 

@@ -1,4 +1,4 @@
-# BiztosFuvar Backend
+# GoFuvar Backend
 
 Node.js + Express + PostgreSQL + Google Gemini + Socket.IO.
 
