@@ -78,16 +78,11 @@ router.post('/', authRequired, async (req, res) => {
   // 6 jegyű átvételi kód: csak a feladó látja, a sofőrnek az átvevő mondja meg
   const deliveryCode = generateDeliveryCode();
 
-  // AI: leírás-ellenőrzés (nem blokkoló hibára)
-  let aiOk = null, aiNotes = null;
-  try {
-    const review = await reviewJobDescription(title, description);
-    aiOk = review.ok;
-    aiNotes = review.notes || review.reason || null;
-  } catch (err) {
-    console.warn('[gemini] description review hiba:', err.message);
-  }
-
+  // FONTOS: a Gemini leírás-ellenőrzést NEM várjuk be a válasz előtt – ez
+  // egy 2–5 mp-es külső hívás, ami feleslegesen megfogná a user UI-ját
+  // ("network timeout"-ot is okozhat lassú csatolásnál). Először beszúrjuk
+  // a job-ot `ai_description_ok = NULL` értékkel, majd fire-and-forget
+  // elindítjuk a review-t, és amikor megjön, UPDATE-eljük a sort.
   const { rows } = await db.query(
     `INSERT INTO jobs (
        shipper_id, title, description,
@@ -98,7 +93,7 @@ router.post('/', authRequired, async (req, res) => {
        suggested_price_huf,
        pickup_window_start, pickup_window_end,
        status, delivery_code, ai_description_ok, ai_description_notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,$20,$21)
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -108,7 +103,7 @@ router.post('/', authRequired, async (req, res) => {
       L, W, H,
       suggested_price_huf || null,
       pickup_window_start || null, pickup_window_end || null,
-      deliveryCode, aiOk, aiNotes,
+      deliveryCode,
     ],
   );
 
@@ -124,6 +119,22 @@ router.post('/', authRequired, async (req, res) => {
 
   // A válaszban a kód látszik, mert a feladó most hozta létre a fuvart
   res.status(201).json(job);
+
+  // --- Fire-and-forget AI review ---
+  // A válasz már elment a kliensnek, itt már csak a háttérben dolgozunk.
+  // Hibát nyugodtan elnyelhetünk, mert az ai_description_ok csak tájékoztató.
+  setImmediate(() => {
+    reviewJobDescription(title, description)
+      .then((review) =>
+        db.query(
+          `UPDATE jobs SET ai_description_ok = $1, ai_description_notes = $2 WHERE id = $3`,
+          [review.ok, review.notes || review.reason || null, job.id],
+        ),
+      )
+      .catch((err) => {
+        console.warn('[gemini] description review hiba:', err.message);
+      });
+  });
 });
 
 // GET /jobs – nyitott fuvarok (sofőröknek), opcionálisan közelség alapján

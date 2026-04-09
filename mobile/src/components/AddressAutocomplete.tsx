@@ -70,7 +70,13 @@ export default function AddressAutocomplete({
       <TextInput
         style={styles.input}
         value={value}
-        onChangeText={(text) => onTextChange?.(text)}
+        onChangeText={(text) => {
+          // A user gépel → ez implicit fókusz. Re-mount után (pl. tag
+          // hozzáadás → parent clear) a natív TextInput nem tüzeli újra az
+          // onFocus-t, ezért itt visszakapcsoljuk a keresést.
+          setFocused(true);
+          onTextChange?.(text);
+        }}
         onFocus={() => setFocused(true)}
         placeholder={placeholder || 'Kezdd el beírni a címet…'}
         autoCorrect={false}

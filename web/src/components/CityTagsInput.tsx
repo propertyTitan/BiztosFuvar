@@ -140,7 +140,14 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
       )}
 
       {isLoaded ? (
+        // FONTOS: a `key={inputKey}` az <Autocomplete>-en van, nem az <input>-en.
+        // A @react-google-maps/api wrapper az onLoad-ban egy google.maps.places.Autocomplete
+        // instance-t köt a DOM input-hoz. Ha csak az inputot remount-oljuk,
+        // a wrapper a régi DOM node-ra hivatkozik, és a második várost nem
+        // fogja autocomplete-elni. A teljes wrapper újracsomagolása kényszerít
+        // egy friss Google Autocomplete bind-ot.
         <Autocomplete
+          key={inputKey}
           onLoad={(ac) => {
             autocompleteRef.current = ac;
           }}
@@ -152,7 +159,6 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
           }}
         >
           <input
-            key={inputKey}
             className="input"
             placeholder={
               placeholder ||
