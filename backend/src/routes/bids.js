@@ -98,6 +98,17 @@ router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) 
     return res.status(409).json({ error: 'A fuvarra már nem lehet licitálni' });
   }
 
+  // KYC: lejárt jogosítvány → nem licitálhat
+  const { rows: userCheck } = await db.query(
+    `SELECT can_bid FROM users WHERE id = $1`, [req.user.sub],
+  );
+  if (userCheck[0] && !userCheck[0].can_bid) {
+    return res.status(403).json({
+      error: 'A jogosítványod lejárt vagy nincs jóváhagyva. Frissítsd a profilodon a licitálás újraengedélyezéséhez.',
+      code: 'LICENSE_EXPIRED',
+    });
+  }
+
   try {
     // Árfolyam befagyasztás ha cross-currency licit
     let exchangeRate = null;
