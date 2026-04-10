@@ -6,6 +6,7 @@
 // - Fotók (pickup / dropoff) — Proof of Delivery 2.0
 // - Escrow / Barion állapot
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid } from '@/api';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
