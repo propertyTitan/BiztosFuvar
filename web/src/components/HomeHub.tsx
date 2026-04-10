@@ -75,7 +75,7 @@ export default function HomeHub() {
       </div>
 
       {/* ===== SOFŐR MÓD ===== */}
-      {mode === 'driver' && d && (
+      {mode === 'driver' && (
         <>
           {/* Fejléc: üdvözlés + heti kereset */}
           <div style={{
@@ -85,12 +85,13 @@ export default function HomeHub() {
             <div>
               <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Sofőr'}! 👋</h1>
               <p className="muted" style={{ margin: '4px 0 0' }}>
-                Level {d.level} {d.levelName}
-                {d.isVerified && ' · ✅ Verified'}
-                {' · '}⭐ {d.ratingCount > 0 ? Number(d.ratingAvg).toFixed(1) : '—'}
-                {d.availableVouchers > 0 && ` · 🎟️ ${d.availableVouchers} voucher`}
+                {d ? `Level ${d.level} ${d.levelName}` : ''}
+                {d?.isVerified ? ' · ✅ Verified' : ''}
+                {d?.ratingCount > 0 ? ` · ⭐ ${Number(d.ratingAvg).toFixed(1)}` : ''}
+                {d?.availableVouchers > 0 ? ` · 🎟️ ${d.availableVouchers} voucher` : ''}
               </p>
             </div>
+            {d && (
             <div style={{
               background: 'linear-gradient(135deg, var(--success) 0%, #22c55e 100%)',
               color: '#fff', padding: '12px 24px', borderRadius: 14, textAlign: 'center',
@@ -101,10 +102,11 @@ export default function HomeHub() {
               </div>
               <div style={{ fontSize: 11, opacity: 0.85 }}>{d.weekDeliveries} fuvar</div>
             </div>
+            )}
           </div>
 
           {/* ÁLLAPOT-ALAPÚ FŐ KÁRTYA */}
-          {d.activeJobs.length > 0 ? (
+          {d && d.activeJobs.length > 0 ? (
             // Van aktív fuvar → ez a fő tartalom
             <div style={{ marginBottom: 24 }}>
               <h2 style={{ margin: '0 0 12px' }}>🟢 Aktív fuvarjaid</h2>
@@ -167,14 +169,14 @@ export default function HomeHub() {
             }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
               <h2 style={{ margin: '0 0 8px' }}>
-                {d.nearbyJobsCount > 0
+                {(d?.nearbyJobsCount || 0) > 0
                   ? `${d.nearbyJobsCount} fuvar vár a közeledben!`
-                  : 'Jelenleg nincs nyitott fuvar'}
+                  : 'Keress licitálható fuvarokat!'}
               </h2>
               <p className="muted" style={{ marginBottom: 16 }}>
-                {d.nearbyJobsCount > 0
+                {(d?.nearbyJobsCount || 0) > 0
                   ? 'Nézd meg a licitálható fuvarokat és tegyél ajánlatot.'
-                  : 'Nézz vissza később, vagy hirdess meg egy fix áras útvonalat.'}
+                  : 'Nézz körül a fuvarok között, vagy hirdess meg egy fix áras útvonalat.'}
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <Link href="/sofor/fuvarok" className="btn" style={{ textDecoration: 'none' }}>
@@ -188,7 +190,7 @@ export default function HomeHub() {
           )}
 
           {/* Várakozó licitek */}
-          {d.pendingBidsCount > 0 && (
+          {d && d.pendingBidsCount > 0 && (
             <Link
               href="/sofor/licitjeim"
               className="card"
@@ -250,7 +252,7 @@ export default function HomeHub() {
             display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24,
           }}>
             <Link
-              href="/feladas/uj"
+              href="/dashboard/uj-fuvar"
               className="card home-hub-card"
               style={{
                 textDecoration: 'none', color: 'inherit', textAlign: 'center',
