@@ -461,6 +461,7 @@ export const api = {
   // ---------- Gamification ----------
 
   getGameStats: () => request<any>('/auth/me/game-stats'),
+  getDriverDashboard: () => request<any>('/auth/me/driver-dashboard'),
 
   // ---------- Admin ----------
 

@@ -184,6 +184,82 @@ router.get('/admin/stats', authRequired, async (req, res) => {
   });
 });
 
+// GET /auth/me/driver-dashboard — a sofőr okos főoldalához MINDEN adat
+// Egyetlen hívás: aktív fuvarok, várakozó licitek, heti kereset, közeli fuvarok száma.
+router.get('/me/driver-dashboard', authRequired, async (req, res) => {
+  const uid = req.user.sub;
+  const [
+    activeJobsRes, pendingBidsRes, weekEarningsRes,
+    nearbyCountRes, gameRes,
+  ] = await Promise.all([
+    // Aktív fuvarok (elfogadott + folyamatban)
+    db.query(
+      `SELECT j.id, j.title, j.status, j.pickup_address, j.dropoff_address,
+              j.accepted_price_huf, j.distance_km, j.paid_at,
+              s.full_name AS shipper_name
+         FROM jobs j
+         JOIN users s ON s.id = j.shipper_id
+        WHERE j.carrier_id = $1 AND j.status IN ('accepted','in_progress')
+        ORDER BY j.updated_at DESC LIMIT 5`,
+      [uid],
+    ),
+    // Várakozó licitek száma
+    db.query(
+      `SELECT COUNT(*)::int AS c FROM bids WHERE carrier_id = $1 AND status = 'pending'`,
+      [uid],
+    ),
+    // Heti kereset (delivered fuvarok az elmúlt 7 napban)
+    db.query(
+      `SELECT COALESCE(SUM(j.accepted_price_huf), 0)::int AS total,
+              COUNT(*)::int AS count
+         FROM jobs j
+        WHERE j.carrier_id = $1
+          AND j.status IN ('delivered','completed')
+          AND j.delivered_at >= NOW() - INTERVAL '7 days'`,
+      [uid],
+    ),
+    // Licitálható fuvarok száma (bidding státuszban, nem a sajátja)
+    db.query(
+      `SELECT COUNT(*)::int AS c FROM jobs
+        WHERE status = 'bidding' AND shipper_id <> $1`,
+      [uid],
+    ),
+    // Gamification stats
+    db.query(
+      `SELECT level, level_name, trust_score, total_deliveries,
+              rating_avg, rating_count, is_verified_carrier
+         FROM users WHERE id = $1`,
+      [uid],
+    ),
+  ]);
+
+  // Voucher-ek száma
+  const { rows: voucherRes } = await db.query(
+    `SELECT COUNT(*)::int AS c FROM fee_vouchers
+      WHERE user_id = $1 AND used_at IS NULL
+        AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE`,
+    [uid],
+  );
+
+  const game = gameRes.rows[0] || {};
+
+  res.json({
+    activeJobs: activeJobsRes.rows,
+    pendingBidsCount: pendingBidsRes.rows[0]?.c || 0,
+    weekEarnings: weekEarningsRes.rows[0]?.total || 0,
+    weekDeliveries: weekEarningsRes.rows[0]?.count || 0,
+    nearbyJobsCount: nearbyCountRes.rows[0]?.c || 0,
+    availableVouchers: voucherRes.rows[0]?.c || 0,
+    level: game.level || 1,
+    levelName: game.level_name || 'Kezdő',
+    trustScore: game.trust_score || 0,
+    totalDeliveries: game.total_deliveries || 0,
+    ratingAvg: game.rating_avg || 0,
+    ratingCount: game.rating_count || 0,
+    isVerified: game.is_verified_carrier || false,
+  });
+});
+
 // GET /auth/me/game-stats — gamifikációs dashboard adatok
 router.get('/me/game-stats', authRequired, async (req, res) => {
   const stats = await getDriverGameStats(req.user.sub);

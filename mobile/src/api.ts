@@ -236,6 +236,8 @@ export const api = {
     return res.json() as Promise<{ url: string }>;
   },
 
+  getDriverDashboard: () => request<any>('/auth/me/driver-dashboard'),
+
   // ---------- Push tokens ----------
 
   registerPushToken: (token: string, platform = 'ios') =>

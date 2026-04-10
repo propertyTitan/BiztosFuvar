@@ -1,229 +1,315 @@
 'use client';
 
-// GoFuvar Dashboard — kontextus-érzékeny, gamifikált kezdőoldal.
+// GoFuvar Okos Dashboard — mód-váltó (Sofőr / Feladó) + állapot-alapú.
 //
-// Nem egy flat kártya-rács többé, hanem:
-//   1) Gamifikációs fejléc (szint, progress, jelvények, voucher-ek)
-//   2) Aktív fuvarok/foglalások (ha vannak)
-//   3) Kontextus-alapú CTA ("3 fuvar vár rád a közeledben!")
-//   4) Gyors linkek (kisebb, alulra)
+// Sofőr mód: aktív fuvarok → 1 nagy CTA, heti kereset, közeli munkák
+// Feladó mód: saját hirdetések, foglalások, átvételi kódok
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
-import { useTranslation } from '@/lib/i18n';
+import { useTranslation, formatPrice } from '@/lib/i18n';
+
+type Mode = 'driver' | 'shipper';
 
 export default function HomeHub() {
   const user = useCurrentUser();
   const { t } = useTranslation();
+  const [mode, setMode] = useState<Mode>('driver');
   const [unread, setUnread] = useState(0);
+  const [driver, setDriver] = useState<any>(null);
   const [gameStats, setGameStats] = useState<any>(null);
-  const [activeJobs, setActiveJobs] = useState<any[]>([]);
 
   useEffect(() => {
     if (!user) return;
     api.unreadNotificationCount().then((r) => setUnread(r.count)).catch(() => {});
+    api.getDriverDashboard().then(setDriver).catch(() => {});
     api.getGameStats().then(setGameStats).catch(() => {});
-    // Aktív fuvarok (accepted + in_progress)
-    api.myJobs('assigned').then((jobs) => {
-      setActiveJobs(jobs.filter((j: any) => ['accepted', 'in_progress'].includes(j.status)));
-    }).catch(() => {});
+    // Tárolt mód visszaolvasása
+    const saved = localStorage.getItem('gofuvar_mode');
+    if (saved === 'shipper' || saved === 'driver') setMode(saved as Mode);
   }, [user]);
+
+  function switchMode(m: Mode) {
+    setMode(m);
+    localStorage.setItem('gofuvar_mode', m);
+  }
 
   if (!user) return null;
 
   const gs = gameStats;
-  const levelDef = gs ? {
-    progress: gs.progressToNext || 0,
-    icon: gs.levelIcon || '🌱',
-  } : null;
+  const d = driver;
 
   return (
     <div>
-      {/* ===== Gamifikációs fejléc ===== */}
-      {gs && (
-        <div
+      {/* ===== Mód-váltó ===== */}
+      <div style={{
+        display: 'flex', justifyContent: 'center', marginBottom: 24, gap: 4,
+        background: 'var(--surface)', borderRadius: 12, padding: 4,
+        border: '1px solid var(--border)', maxWidth: 320, margin: '0 auto 24px',
+      }}>
+        <button
+          type="button"
+          onClick={() => switchMode('driver')}
           style={{
-            background: 'linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%)',
-            borderRadius: 20,
-            padding: '28px 32px',
-            color: '#fff',
-            marginBottom: 24,
-            position: 'relative',
-            overflow: 'hidden',
+            flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+            fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
+            background: mode === 'driver' ? 'var(--primary)' : 'transparent',
+            color: mode === 'driver' ? '#fff' : 'var(--muted)',
           }}
         >
-          {/* Háttér dekoráció */}
-          <div style={{ position: 'absolute', right: -30, top: -30, fontSize: 140, opacity: 0.08 }}>
-            {gs.levelIcon}
-          </div>
+          🚛 Sofőr
+        </button>
+        <button
+          type="button"
+          onClick={() => switchMode('shipper')}
+          style={{
+            flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
+            fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
+            background: mode === 'shipper' ? 'var(--primary)' : 'transparent',
+            color: mode === 'shipper' ? '#fff' : 'var(--muted)',
+          }}
+        >
+          📦 Feladó
+        </button>
+      </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+      {/* ===== SOFŐR MÓD ===== */}
+      {mode === 'driver' && d && (
+        <>
+          {/* Fejléc: üdvözlés + heti kereset */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            marginBottom: 20, flexWrap: 'wrap', gap: 12,
+          }}>
             <div>
-              <div style={{ fontSize: 14, opacity: 0.8 }}>Level {gs.level}</div>
-              <div style={{ fontSize: 28, fontWeight: 900 }}>
-                {gs.levelIcon} {gs.levelName}
-              </div>
-              <div style={{ fontSize: 13, opacity: 0.85, marginTop: 4 }}>
-                {user.full_name || user.email}
-                {gs.isVerified && <span style={{ marginLeft: 8 }}>✅ Verified EU Carrier</span>}
-              </div>
+              <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Sofőr'}! 👋</h1>
+              <p className="muted" style={{ margin: '4px 0 0' }}>
+                Level {d.level} {d.levelName}
+                {d.isVerified && ' · ✅ Verified'}
+                {' · '}⭐ {d.ratingCount > 0 ? Number(d.ratingAvg).toFixed(1) : '—'}
+                {d.availableVouchers > 0 && ` · 🎟️ ${d.availableVouchers} voucher`}
+              </p>
             </div>
-
-            <div style={{ display: 'flex', gap: 20, textAlign: 'center' }}>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 900 }}>{gs.totalDeliveries}</div>
-                <div style={{ fontSize: 11, opacity: 0.75 }}>fuvar</div>
+            <div style={{
+              background: 'linear-gradient(135deg, var(--success) 0%, #22c55e 100%)',
+              color: '#fff', padding: '12px 24px', borderRadius: 14, textAlign: 'center',
+            }}>
+              <div style={{ fontSize: 11, opacity: 0.85 }}>Heti kereset</div>
+              <div style={{ fontSize: 26, fontWeight: 900 }}>
+                {formatPrice(d.weekEarnings)}
               </div>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 900 }}>
-                  {gs.ratingCount > 0 ? Number(gs.ratingAvg).toFixed(1) : '—'}
-                </div>
-                <div style={{ fontSize: 11, opacity: 0.75 }}>⭐ értékelés</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 900 }}>{gs.trustScore}</div>
-                <div style={{ fontSize: 11, opacity: 0.75 }}>trust</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 28, fontWeight: 900 }}>{gs.availableVouchers}</div>
-                <div style={{ fontSize: 11, opacity: 0.75 }}>🎟️ voucher</div>
-              </div>
+              <div style={{ fontSize: 11, opacity: 0.85 }}>{d.weekDeliveries} fuvar</div>
             </div>
           </div>
 
-          {/* Progress bar a következő szinthez */}
-          {gs.nextLevel && (
-            <div style={{ marginTop: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, opacity: 0.8, marginBottom: 6 }}>
-                <span>Level {gs.level}</span>
-                <span>Level {gs.nextLevel.level}: {gs.nextLevel.icon} {gs.nextLevel.name}</span>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: 999, height: 10, overflow: 'hidden' }}>
-                <div
+          {/* ÁLLAPOT-ALAPÚ FŐ KÁRTYA */}
+          {d.activeJobs.length > 0 ? (
+            // Van aktív fuvar → ez a fő tartalom
+            <div style={{ marginBottom: 24 }}>
+              <h2 style={{ margin: '0 0 12px' }}>🟢 Aktív fuvarjaid</h2>
+              {d.activeJobs.map((j: any) => (
+                <Link
+                  key={j.id}
+                  href={`/sofor/fuvar/${j.id}`}
+                  className="card"
                   style={{
-                    background: '#fff',
-                    height: '100%',
-                    borderRadius: 999,
-                    width: `${gs.progressToNext}%`,
-                    transition: 'width 0.5s ease',
-                  }}
-                />
-              </div>
-              <div style={{ fontSize: 11, opacity: 0.7, marginTop: 4 }}>
-                Még {gs.nextLevel.deliveriesNeeded} fuvar kell
-                {gs.nextLevel.monthlyVouchers > 0 && ` · havi ${gs.nextLevel.monthlyVouchers} jutalékmentes fuvar jár`}
-              </div>
-            </div>
-          )}
-
-          {/* Jelvények sor */}
-          {gs.badges.length > 0 && (
-            <div style={{ display: 'flex', gap: 6, marginTop: 16, flexWrap: 'wrap' }}>
-              {gs.badges.slice(0, 8).map((b: any) => (
-                <span
-                  key={b.badge_id}
-                  title={b.badge_name}
-                  style={{
-                    background: 'rgba(255,255,255,0.2)',
-                    borderRadius: 999,
-                    padding: '4px 10px',
-                    fontSize: 13,
-                    cursor: 'default',
+                    display: 'block', textDecoration: 'none', color: 'inherit',
+                    borderLeft: `4px solid ${j.status === 'in_progress' ? 'var(--success)' : 'var(--warning)'}`,
+                    marginBottom: 12,
                   }}
                 >
-                  {b.badge_icon} {b.badge_name}
-                </span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 16 }}>{j.title}</div>
+                      <div className="muted" style={{ fontSize: 13 }}>
+                        📍 {j.pickup_address?.split(',')[0]} → 🏁 {j.dropoff_address?.split(',')[0]}
+                      </div>
+                      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                        Feladó: {j.shipper_name} · {j.distance_km} km
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span className={`pill ${j.status === 'in_progress' ? 'pill-progress' : 'pill-accepted'}`}
+                        style={{ fontSize: 13, padding: '6px 14px' }}>
+                        {j.status === 'in_progress' ? '🟢 Úton' : '🟡 Elfogadva'}
+                      </span>
+                      <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
+                        {formatPrice(j.accepted_price_huf)}
+                      </div>
+                      {j.status === 'accepted' && (
+                        <div style={{
+                          marginTop: 8, background: 'var(--success)', color: '#fff',
+                          padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                        }}>
+                          📸 INDÍTÁS →
+                        </div>
+                      )}
+                      {j.status === 'in_progress' && (
+                        <div style={{
+                          marginTop: 8, background: '#dc2626', color: '#fff',
+                          padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                        }}>
+                          📸 LEZÁRÁS →
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
               ))}
             </div>
+          ) : (
+            // Nincs aktív fuvar → közeli munkák CTA
+            <div className="card" style={{
+              textAlign: 'center', padding: 32, marginBottom: 24,
+              border: '2px dashed var(--border)',
+              background: 'var(--bg)',
+            }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
+              <h2 style={{ margin: '0 0 8px' }}>
+                {d.nearbyJobsCount > 0
+                  ? `${d.nearbyJobsCount} fuvar vár a közeledben!`
+                  : 'Jelenleg nincs nyitott fuvar'}
+              </h2>
+              <p className="muted" style={{ marginBottom: 16 }}>
+                {d.nearbyJobsCount > 0
+                  ? 'Nézd meg a licitálható fuvarokat és tegyél ajánlatot.'
+                  : 'Nézz vissza később, vagy hirdess meg egy fix áras útvonalat.'}
+              </p>
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+                <Link href="/sofor/fuvarok" className="btn" style={{ textDecoration: 'none' }}>
+                  🎯 Fuvarok böngészése
+                </Link>
+                <Link href="/sofor/uj-utvonal" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                  ➕ Útvonal hirdetése
+                </Link>
+              </div>
+            </div>
           )}
-        </div>
-      )}
 
-      {/* ===== Aktív fuvarok (ha vannak) ===== */}
-      {activeJobs.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <h2 style={{ margin: '0 0 12px' }}>🚛 Aktív fuvarjaid</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-            {activeJobs.map((j) => (
+          {/* Várakozó licitek */}
+          {d.pendingBidsCount > 0 && (
+            <Link
+              href="/sofor/licitjeim"
+              className="card"
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                textDecoration: 'none', color: 'inherit', marginBottom: 12,
+                borderLeft: '4px solid var(--warning)',
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 700 }}>🏷️ {d.pendingBidsCount} licitedre válaszra vár</div>
+                <div className="muted" style={{ fontSize: 13 }}>Koppints a részletekhez</div>
+              </div>
+              <span style={{ fontSize: 20 }}>→</span>
+            </Link>
+          )}
+
+          {/* Gyors sofőr linkek */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+            {[
+              { href: '/sofor/fuvarok', icon: '🎯', label: 'Fuvarok' },
+              { href: '/sofor/licitjeim', icon: '🏷️', label: 'Licitjeim' },
+              { href: '/sofor/sajat-fuvarok', icon: '🚛', label: t('nav.myJobs') },
+              { href: '/sofor/uj-utvonal', icon: '➕', label: 'Új útvonal' },
+              { href: '/sofor/utvonalaim', icon: '🛣️', label: 'Útvonalaim' },
+            ].map((l) => (
               <Link
-                key={j.id}
-                href={`/sofor/fuvar/${j.id}`}
-                className="card"
-                style={{ textDecoration: 'none', color: 'inherit', borderLeft: `4px solid ${j.status === 'in_progress' ? 'var(--success)' : 'var(--warning)'}` }}
+                key={l.href}
+                href={l.href}
+                style={{
+                  flex: '1 1 calc(33% - 10px)', minWidth: 100,
+                  display: 'flex', gap: 8, alignItems: 'center',
+                  padding: '12px 14px', borderRadius: 10,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  textDecoration: 'none', color: 'var(--text)',
+                  fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
+                }}
+                className="home-hub-card"
               >
-                <div style={{ fontWeight: 700 }}>{j.title}</div>
-                <div className="muted" style={{ fontSize: 13 }}>
-                  📍 {j.pickup_address?.split(',')[0]}
-                </div>
-                <div style={{ marginTop: 8 }}>
-                  <span className={`pill ${j.status === 'in_progress' ? 'pill-progress' : 'pill-accepted'}`}>
-                    {j.status === 'in_progress' ? '🟢 Úton' : '🟡 Elfogadva'}
-                  </span>
-                </div>
+                <span style={{ fontSize: 18 }}>{l.icon}</span> {l.label}
               </Link>
             ))}
           </div>
-        </div>
+        </>
       )}
 
-      {/* ===== Gyors menü kártyák ===== */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-          gap: 14,
-        }}
-      >
-        {[
-          { href: '/sofor/fuvarok',           icon: '🎯', title: t('nav.biddableJobs'),  color: '#dbeafe' },
-          { href: '/dashboard/utvonalak',     icon: '🛣️', title: t('nav.fixedRoutes'),   color: '#dcfce7' },
-          { href: '/dashboard/foglalasaim',   icon: '📦', title: t('nav.myBookings'),    color: '#e0e7ff' },
-          { href: '/feladas/uj',              icon: '📝', title: 'Új licites hirdetés',  color: '#fce7f3' }, // TODO: i18n
-          { href: '/sofor/uj-utvonal',        icon: '➕', title: 'Új fix áras útvonal',  color: '#f3e8ff' },
-          { href: '/hirdeteseim',             icon: '📋', title: t('nav.myListings'),    color: '#fde68a' },
-          { href: '/sofor/licitjeim',         icon: '🏷️', title: 'Licitjeim',             color: '#bae6fd' },
-          { href: '/sofor/sajat-fuvarok',     icon: '🚛', title: t('nav.myJobs'),        color: '#fef3c7' },
-          { href: '/profil',                  icon: '👤', title: t('nav.profile'),       color: '#e0f2fe' },
-          { href: '/ertesitesek',             icon: '🔔', title: t('nav.notifications'), color: '#ffe4e6', badge: unread },
-          { href: '/ai-chat',                 icon: '🤖', title: t('nav.aiAssistant'),   color: '#f3e8ff' },
-        ].map((c) => (
-          <Link
-            key={c.href}
-            href={c.href}
-            style={{
-              display: 'flex', gap: 14, alignItems: 'center',
-              padding: '16px 20px', borderRadius: 14,
-              backgroundColor: 'var(--surface)',
-              border: '1px solid var(--border)',
-              textDecoration: 'none', color: 'inherit',
-              transition: 'transform 0.1s',
-              position: 'relative',
-            }}
-            className="home-hub-card"
-          >
-            <div
+      {/* ===== FELADÓ MÓD ===== */}
+      {mode === 'shipper' && (
+        <>
+          <div style={{ marginBottom: 20 }}>
+            <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Feladó'}! 👋</h1>
+            <p className="muted" style={{ margin: '4px 0 0' }}>
+              Mit szeretnél szállíttatni ma?
+            </p>
+          </div>
+
+          {/* Fő CTA: hirdetés feladás */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24,
+          }}>
+            <Link
+              href="/feladas/uj"
+              className="card home-hub-card"
               style={{
-                width: 44, height: 44, borderRadius: 10,
-                background: c.color, display: 'flex',
-                alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                textDecoration: 'none', color: 'inherit', textAlign: 'center',
+                padding: 28, borderTop: '4px solid var(--primary)',
               }}
             >
-              {c.icon}
-            </div>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>{c.title}</div>
-            {c.badge ? (
-              <div style={{
-                position: 'absolute', top: 10, right: 10,
-                background: '#ef4444', color: '#fff', fontSize: 11,
-                fontWeight: 700, borderRadius: 999, padding: '2px 8px',
-              }}>
-                {c.badge}
-              </div>
-            ) : null}
-          </Link>
-        ))}
-      </div>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Licites hirdetés</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Sofőrök licitálnak rá</div>
+            </Link>
+            <Link
+              href="/dashboard/utvonalak"
+              className="card home-hub-card"
+              style={{
+                textDecoration: 'none', color: 'inherit', textAlign: 'center',
+                padding: 28, borderTop: '4px solid var(--success)',
+              }}
+            >
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🛣️</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Fix áras útvonal</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Foglalj helyet egy sofőrnél</div>
+            </Link>
+          </div>
+
+          {/* Feladó gyors linkek */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {[
+              { href: '/hirdeteseim', icon: '📋', label: t('nav.myListings') },
+              { href: '/dashboard/foglalasaim', icon: '📦', label: t('nav.myBookings') },
+              { href: '/ertesitesek', icon: '🔔', label: t('nav.notifications'), badge: unread },
+              { href: '/profil', icon: '👤', label: t('nav.profile') },
+              { href: '/ai-chat', icon: '🤖', label: t('nav.aiAssistant') },
+            ].map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                style={{
+                  flex: '1 1 calc(33% - 10px)', minWidth: 100,
+                  display: 'flex', gap: 8, alignItems: 'center',
+                  padding: '12px 14px', borderRadius: 10, position: 'relative',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  textDecoration: 'none', color: 'var(--text)',
+                  fontSize: 13, fontWeight: 600, transition: 'all 0.15s',
+                }}
+                className="home-hub-card"
+              >
+                <span style={{ fontSize: 18 }}>{l.icon}</span> {l.label}
+                {l.badge ? (
+                  <span style={{
+                    position: 'absolute', top: 6, right: 8,
+                    background: '#ef4444', color: '#fff', fontSize: 10,
+                    fontWeight: 800, borderRadius: 999, padding: '1px 6px',
+                  }}>{l.badge}</span>
+                ) : null}
+              </Link>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
