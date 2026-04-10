@@ -462,6 +462,9 @@ export const api = {
 
   adminStats: () => request<any>('/auth/admin/stats'),
 
+  adminPaymentLog: (limit = 50) =>
+    request<any[]>(`/payments/admin/log?limit=${limit}`),
+
   // ---------- Profile ----------
 
   getMyProfile: () =>

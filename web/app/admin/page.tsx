@@ -23,6 +23,7 @@ export default function AdminPanel() {
 
   const [stats, setStats] = useState<any>(null);
   const [disputes, setDisputes] = useState<any[]>([]);
+  const [paymentLog, setPaymentLog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,12 +38,14 @@ export default function AdminPanel() {
   async function loadData() {
     setLoading(true);
     try {
-      const [s, d] = await Promise.all([
+      const [s, d, pl] = await Promise.all([
         api.adminStats(),
         api.myDisputes(),
+        api.adminPaymentLog(30),
       ]);
       setStats(s);
       setDisputes(d);
+      setPaymentLog(pl);
     } catch (e: any) {
       toast.error('Hiba', e.message);
     } finally {
@@ -183,6 +186,54 @@ export default function AdminPanel() {
             </div>
           </div>
         ))}
+      {/* 💰 Fizetési napló */}
+      <h2 style={{ marginTop: 32 }}>💰 Fizetési napló (utolsó {paymentLog.length})</h2>
+      {paymentLog.length === 0 && (
+        <div className="card"><p className="muted">Még nincs fizetési esemény.</p></div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {paymentLog.map((pe) => (
+          <div
+            key={pe.id}
+            className="card"
+            style={{
+              padding: 12,
+              borderLeft: `4px solid ${
+                pe.status === 'Succeeded' ? 'var(--success)' :
+                pe.status === 'Canceled' || pe.status === 'Expired' ? 'var(--danger)' :
+                'var(--border)'
+              }`,
+            }}
+          >
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>
+                  {pe.status === 'Succeeded' ? '✅' : pe.status === 'Canceled' ? '❌' : '⏳'}{' '}
+                  {pe.job_title || pe.route_title || pe.payment_id?.slice(0, 12)}
+                </div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                  {pe.summary || `${pe.status} — ${pe.total_amount || '?'} ${pe.currency || 'HUF'}`}
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                {pe.platform_fee != null && (
+                  <div style={{ fontWeight: 700, color: 'var(--success)', fontSize: 14 }}>
+                    +{pe.platform_fee} {pe.currency}
+                  </div>
+                )}
+                <div className="muted" style={{ fontSize: 11 }}>
+                  {new Date(pe.created_at).toLocaleString('hu-HU')}
+                </div>
+              </div>
+            </div>
+            {pe.is_reverse_charge && (
+              <span className="pill" style={{ marginTop: 4, background: 'var(--surface)', fontSize: 10 }}>
+                Fordított adózás
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
