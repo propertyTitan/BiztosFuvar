@@ -8,6 +8,7 @@ const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const realtime = require('../realtime');
+const { sendPushToUser } = require('./push');
 
 const router = express.Router();
 
@@ -28,6 +29,11 @@ async function createNotification({ user_id, type, title, body = null, link = nu
     );
     const notif = rows[0];
     realtime.emitToUser(user_id, 'notification:new', notif);
+    // Push notification: fire-and-forget, nem blokkolja az eredeti hívást
+    setImmediate(() => {
+      sendPushToUser(user_id, { title, body: body || '', data: { link, type } })
+        .catch(() => {});
+    });
     return notif;
   } catch (err) {
     console.error('[notifications] beszúrás hiba:', err.message);

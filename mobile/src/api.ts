@@ -214,6 +214,14 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ reason }) },
     ),
 
+  // ---------- Push tokens ----------
+
+  registerPushToken: (token: string, platform = 'ios') =>
+    request<{ ok: true }>('/auth/push-token', {
+      method: 'POST',
+      body: JSON.stringify({ token, platform }),
+    }),
+
   // ---------- Profile ----------
 
   getMyProfile: () =>

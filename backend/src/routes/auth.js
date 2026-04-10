@@ -124,4 +124,17 @@ router.get('/users/:id/profile', authRequired, async (req, res) => {
   res.json(rows[0]);
 });
 
+// POST /auth/push-token — Expo push token regisztrálása
+router.post('/push-token', authRequired, async (req, res) => {
+  const { token, platform } = req.body || {};
+  if (!token) return res.status(400).json({ error: 'Hiányzó token' });
+  await db.query(
+    `INSERT INTO push_tokens (user_id, token, platform)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (token) DO UPDATE SET user_id = $1, platform = $3`,
+    [req.user.sub, token, platform || 'ios'],
+  );
+  res.json({ ok: true });
+});
+
 module.exports = router;

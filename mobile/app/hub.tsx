@@ -15,6 +15,7 @@ import {
   View, Text, StyleSheet, Pressable, FlatList, RefreshControl,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
+import * as Notifications from 'expo-notifications';
 import { api } from '@/api';
 import { getCurrentUser, CurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
@@ -44,6 +45,35 @@ const CARDS: Card[] = [
   { href: '/ai-chat',             icon: '🤖', title: 'AI segéd',             subtitle: 'Kérdezz bármit a platformról',       accent: '#f3e8ff' },
 ];
 
+// Push notification regisztrálás — a user hub-ra érkezésekor
+// automatikusan elkérjük az engedélyt és regisztráljuk a tokent.
+async function registerPushToken() {
+  try {
+    const { status: existing } = await Notifications.getPermissionsAsync();
+    let finalStatus = existing;
+    if (existing !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') return;
+    const pushToken = await Notifications.getExpoPushTokenAsync();
+    if (pushToken?.data) {
+      await api.registerPushToken(pushToken.data).catch(() => {});
+    }
+  } catch (e) {
+    // Csendben: simulator-on vagy web-en nem megy a push, és ez OK
+  }
+}
+
+// Push notification megjelenítési konfig — a foreground-ban is mutassa
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
 export default function Hub() {
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -58,6 +88,8 @@ export default function Hub() {
         const r = await api.unreadNotificationCount();
         setUnread(r.count);
       } catch {}
+      // Push token regisztrálása (fire-and-forget, nem blokkolja a UI-t)
+      registerPushToken();
     }
   }, []);
 
