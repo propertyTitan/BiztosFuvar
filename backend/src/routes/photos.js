@@ -221,6 +221,14 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     } catch (e) {
       console.warn('[notifications] job_delivered hiba:', e.message);
     }
+
+    // Trust score újraszámolás a sofőrnek
+    if (job.carrier_id) {
+      setImmediate(() => {
+        const { recalcTrustScore } = require('../services/trustScore');
+        recalcTrustScore(job.carrier_id).catch(() => {});
+      });
+    }
   }
 
   res.status(201).json({ photo, validation });

@@ -126,7 +126,7 @@ router.get('/users/:id/profile', authRequired, async (req, res) => {
   const [userRes, jobsDone, routesDone, reviewsRes] = await Promise.all([
     db.query(
       `SELECT id, full_name, avatar_url, bio, vehicle_type, vehicle_plate,
-              rating_avg, rating_count, created_at
+              rating_avg, rating_count, trust_score, is_verified_carrier, created_at
          FROM users WHERE id = $1`,
       [uid],
     ),

@@ -7,8 +7,45 @@ const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendBidReceivedEmail, sendBidAcceptedEmail } = require('../services/email');
+const { convertEurToHuf, convertHufToEur, freezeExchangeRate } = require('../services/exchange');
 
 const router = express.Router();
+
+// GET /bids/preview — licit előnézet: mennyit kap kézhez a sofőr
+// ?amount=500&currency=EUR → { netPayout: 450, platformFee: 50, ... }
+router.get('/bids/preview', authRequired, async (req, res) => {
+  const { amount, currency = 'HUF', job_currency } = req.query;
+  const amt = Number(amount);
+  if (!amt || amt <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen összeg' });
+  }
+  const fee = Math.round(amt * barion.COMMISSION_PCT);
+  const payout = amt - fee;
+  const result = {
+    amount: amt,
+    currency,
+    platformFee: fee,
+    platformFeePct: Math.round(barion.COMMISSION_PCT * 100),
+    netPayout: payout,
+  };
+
+  // Ha a fuvar EUR-ban van de a sofőr HUF-ban akar licitálni (vagy fordítva)
+  if (job_currency && job_currency !== currency) {
+    if (currency === 'EUR' && job_currency === 'HUF') {
+      const conv = await convertEurToHuf(amt);
+      result.convertedAmount = conv.hufAmount;
+      result.convertedCurrency = 'HUF';
+      result.exchangeRate = conv.rate;
+    } else if (currency === 'HUF' && job_currency === 'EUR') {
+      const conv = await convertHufToEur(amt);
+      result.convertedAmount = conv.eurAmount;
+      result.convertedCurrency = 'EUR';
+      result.exchangeRate = conv.rate;
+    }
+  }
+
+  res.json(result);
+});
 
 // GET /bids/mine – a bejelentkezett felhasználó összes leadott licitje
 //   (bárki lehet most már licitáló, nem csak "carrier" role).
@@ -40,13 +77,17 @@ router.get('/bids/mine', authRequired, async (req, res) => {
 });
 
 // POST /jobs/:jobId/bids – bárki licitálhat egy fuvarra, kivéve ha ő a feladója
+// Támogatja a multi-currency-t: a sofőr a fuvar valutájában VAGY a sajátjában licitálhat
 router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) => {
   const { jobId } = req.params;
-  const { amount_huf, message, eta_minutes } = req.body || {};
-  if (!amount_huf || amount_huf <= 0) return res.status(400).json({ error: 'Érvénytelen összeg' });
+  const { amount_huf, amount, currency, message, eta_minutes } = req.body || {};
+  // Backward compat: amount_huf VAGY az új amount + currency páros
+  const bidAmount = amount || amount_huf;
+  const bidCurrency = currency || 'HUF';
+  if (!bidAmount || bidAmount <= 0) return res.status(400).json({ error: 'Érvénytelen összeg' });
 
   const { rows: jobRows } = await db.query(
-    'SELECT status, shipper_id FROM jobs WHERE id = $1',
+    'SELECT status, shipper_id, currency AS job_currency FROM jobs WHERE id = $1',
     [jobId],
   );
   if (!jobRows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
@@ -58,10 +99,20 @@ router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) 
   }
 
   try {
+    // Árfolyam befagyasztás ha cross-currency licit
+    let exchangeRate = null;
+    let exchangeFrozenAt = null;
+    const jobCurrency = jobRows[0].job_currency || 'HUF';
+    if (bidCurrency !== jobCurrency) {
+      const frozen = await freezeExchangeRate();
+      exchangeRate = frozen.rate;
+      exchangeFrozenAt = frozen.frozenAt;
+    }
+
     const { rows } = await db.query(
-      `INSERT INTO bids (job_id, carrier_id, amount_huf, message, eta_minutes)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [jobId, req.user.sub, amount_huf, message || null, eta_minutes || null],
+      `INSERT INTO bids (job_id, carrier_id, amount_huf, currency, exchange_rate, exchange_rate_frozen_at, message, eta_minutes)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [jobId, req.user.sub, bidAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null],
     );
     realtime.emitToJob(jobId, 'bids:new', rows[0]);
 
@@ -112,12 +163,22 @@ router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) 
 // GET /jobs/:jobId/bids
 router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
   const { rows } = await db.query(
-    `SELECT b.*, u.full_name AS carrier_name, u.rating_avg, u.rating_count
+    `SELECT b.*, b.currency AS bid_currency, b.exchange_rate,
+            u.full_name AS carrier_name, u.avatar_url AS carrier_avatar,
+            u.rating_avg, u.rating_count,
+            u.trust_score, u.is_verified_carrier,
+            u.vehicle_type AS carrier_vehicle
        FROM bids b JOIN users u ON u.id = b.carrier_id
       WHERE b.job_id = $1 ORDER BY b.amount_huf ASC`,
     [req.params.jobId],
   );
-  res.json(rows);
+  // Adjuk hozzá a nettó kifizetés előnézetét minden licithez
+  const enriched = rows.map((b) => ({
+    ...b,
+    platform_fee: Math.round((b.amount_huf || 0) * barion.COMMISSION_PCT),
+    net_payout: (b.amount_huf || 0) - Math.round((b.amount_huf || 0) * barion.COMMISSION_PCT),
+  }));
+  res.json(enriched);
 });
 
 // POST /bids/:id/accept – a fuvar feladója elfogadja a licitet → ESCROW lefoglalás
