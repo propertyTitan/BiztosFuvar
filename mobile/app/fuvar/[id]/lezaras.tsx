@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, ScrollView, TextInput, Keyboard,
+  InputAccessoryView, Button, Platform,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -164,7 +165,6 @@ export default function FuvarLezarasa() {
           onChangeText={(t) => {
             const clean = t.replace(/[^0-9]/g, '').slice(0, 6);
             setCode(clean);
-            // Ha mind a 6 szám megvan, automatikusan bezárjuk a billentyűzetet
             if (clean.length === 6) Keyboard.dismiss();
           }}
           placeholder="······"
@@ -172,13 +172,21 @@ export default function FuvarLezarasa() {
           keyboardType="number-pad"
           maxLength={6}
           autoFocus
-          returnKeyType="done"
-          onSubmitEditing={() => {
-            // 6 jegy beírva → billentyűzet eltűnik, és ha kész a kód
-            // a "Lezárás" gombra fókuszálhat a user
-          }}
-          blurOnSubmit
+          inputAccessoryViewID="codeKeyboardBar"
         />
+
+        {Platform.OS === 'ios' && (
+          <InputAccessoryView nativeID="codeKeyboardBar">
+            <View style={{
+              flexDirection: 'row', alignItems: 'center',
+              paddingHorizontal: 12, paddingVertical: 6,
+              backgroundColor: '#f1f5f9', borderTopWidth: 1, borderTopColor: '#d1d5db',
+            }}>
+              <View style={{ flex: 1 }} />
+              <Button title="Kész ✓" onPress={() => Keyboard.dismiss()} color="#1e40af" />
+            </View>
+          </InputAccessoryView>
+        )}
 
         <Section label="Cél">
           <Text style={styles.row}>{job.dropoff_address}</Text>

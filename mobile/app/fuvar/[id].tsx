@@ -5,6 +5,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, TextInput, Alert, ScrollView, Platform, Keyboard,
+  InputAccessoryView, Button,
 } from 'react-native';
 import { useLocalSearchParams, Link } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -309,25 +310,23 @@ export default function FuvarReszletek() {
             keyboardType="number-pad"
             value={bid}
             onChangeText={setBid}
+            inputAccessoryViewID="bidKeyboardBar"
           />
-          <Pressable
-            style={{
-              backgroundColor: colors.primary,
-              paddingVertical: 14,
-              borderRadius: 10,
-              alignItems: 'center',
-              marginBottom: 8,
-            }}
-            onPress={() => {
-              Keyboard.dismiss();
-              if (bid.trim()) placeBid();
-            }}
-          >
-            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
-              {bid.trim() ? 'Licit elküldése' : '✓ Billentyűzet bezárása'}
-            </Text>
+          <Pressable style={styles.cta} onPress={placeBid}>
+            <Text style={styles.ctaText}>Licit elküldése</Text>
           </Pressable>
         </Section>
+      )}
+
+      {/* iOS: "Kész" toolbar a szám-billentyűzet TETEJÉN — ez az egyetlen
+          mód amivel az iOS number-pad bezárható. Android-on nincs hatása. */}
+      {Platform.OS === 'ios' && (
+        <InputAccessoryView nativeID="bidKeyboardBar">
+          <View style={styles.keyboardBar}>
+            <View style={{ flex: 1 }} />
+            <Button title="Kész ✓" onPress={() => Keyboard.dismiss()} color={colors.primary} />
+          </View>
+        </InputAccessoryView>
       )}
 
       {/* Chat — elfogadott licit után a feladó és sofőr üzenhetnek egymásnak */}
@@ -509,6 +508,15 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radius.md,
     marginBottom: spacing.md,
+  },
+  keyboardBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#f1f5f9',
+    borderTopWidth: 1,
+    borderTopColor: '#d1d5db',
   },
   ownPostTitle: { fontSize: 16, fontWeight: '800', color: '#713f12', marginBottom: spacing.xs },
   ownPostBody: { color: '#713f12', fontSize: 14, marginBottom: spacing.sm, lineHeight: 20 },
