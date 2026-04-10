@@ -118,7 +118,13 @@ export default function SiteHeader() {
                 </span>
               )}
             </Link>
-            <span style={{ opacity: 0.7, marginLeft: 16, fontSize: 13 }}>{user.email}</span>
+            <Link
+              href="/profil"
+              style={{ marginLeft: 16, fontSize: 13, opacity: 0.85, textDecoration: 'none' }}
+              title="Profil szerkesztése"
+            >
+              👤 {user.full_name || user.email}
+            </Link>
             <button
               type="button"
               onClick={logout}

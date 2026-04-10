@@ -197,6 +197,7 @@ export default function RootLayout() {
             headerRight: () => <NotificationBellButton />,
           }}
         />
+        <Stack.Screen name="profil" options={{ title: 'Profil' }} />
         <Stack.Screen name="ertesitesek" options={{ title: 'Értesítések' }} />
         <Stack.Screen name="ai-chat" options={{ title: 'AI Segéd' }} />
         <Stack.Screen name="fizetes-stub" options={{ title: 'Fizetés (STUB)' }} />

@@ -39,6 +39,7 @@ const CARDS: Card[] = [
   { href: '/uj-utvonal',          icon: '➕', title: 'Új fix áras útvonal',  subtitle: 'Hirdesd meg a saját utad',           accent: '#f3e8ff' },
   { href: '/hirdeteseim',         icon: '📋', title: 'Saját hirdetéseim',    subtitle: 'Minden általad feladott hirdetés',   accent: '#fde68a' },
   { href: '/licitjeim',           icon: '🏷️', title: 'Licitjeim',            subtitle: 'Az ajánlataid egy helyen',           accent: '#bae6fd' },
+  { href: '/profil',               icon: '👤', title: 'Profil',                subtitle: 'Adataid, járműved, értékeléseid',    accent: '#e0f2fe' },
   { href: '/ertesitesek',         icon: '🔔', title: 'Értesítések',          subtitle: 'Minden fontos esemény',              accent: '#ffe4e6', badgeKey: 'unread' },
   { href: '/ai-chat',             icon: '🤖', title: 'AI segéd',             subtitle: 'Kérdezz bármit a platformról',       accent: '#f3e8ff' },
 ];

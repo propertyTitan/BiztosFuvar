@@ -214,6 +214,20 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ reason }) },
     ),
 
+  // ---------- Profile ----------
+
+  getMyProfile: () =>
+    request<any>('/auth/me'),
+
+  updateMyProfile: (data: {
+    full_name?: string; phone?: string; vehicle_type?: string;
+    vehicle_plate?: string; bio?: string; avatar_url?: string;
+  }) =>
+    request<any>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
+
+  getUserProfile: (id: string) =>
+    request<any>(`/auth/users/${id}/profile`),
+
   // ---------- Chat / Messages ----------
 
   sendMessage: (body: { job_id?: string; booking_id?: string; body: string }) =>

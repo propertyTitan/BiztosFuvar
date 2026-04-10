@@ -68,4 +68,60 @@ router.post('/login', loginRateLimit, async (req, res) => {
   res.json({ user, token: signToken(user) });
 });
 
+// GET /auth/me — a bejelentkezett user teljes profilja
+router.get('/me', authRequired, async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT id, role, email, full_name, phone, vehicle_type, vehicle_plate,
+            avatar_url, bio, rating_avg, rating_count, created_at
+       FROM users WHERE id = $1`,
+    [req.user.sub],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+  res.json(rows[0]);
+});
+
+// PATCH /auth/me — profil szerkesztés
+// Engedélyezett mezők: full_name, phone, vehicle_type, vehicle_plate, bio, avatar_url
+router.patch('/me', authRequired, async (req, res) => {
+  const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio', 'avatar_url'];
+  const updates = [];
+  const values = [];
+  let idx = 1;
+
+  for (const field of allowed) {
+    if (req.body[field] !== undefined) {
+      updates.push(`${field} = $${idx}`);
+      values.push(req.body[field] || null);
+      idx++;
+    }
+  }
+
+  if (updates.length === 0) {
+    return res.status(400).json({ error: 'Nincs módosítandó mező' });
+  }
+
+  values.push(req.user.sub);
+  const { rows } = await db.query(
+    `UPDATE users SET ${updates.join(', ')}, updated_at = NOW()
+      WHERE id = $${idx}
+    RETURNING id, role, email, full_name, phone, vehicle_type, vehicle_plate,
+              avatar_url, bio, rating_avg, rating_count, created_at`,
+    values,
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+  res.json(rows[0]);
+});
+
+// GET /auth/users/:id/profile — publikus profil (más felhasználók)
+router.get('/users/:id/profile', authRequired, async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT id, full_name, avatar_url, bio, vehicle_type, vehicle_plate,
+            rating_avg, rating_count, created_at
+       FROM users WHERE id = $1`,
+    [req.params.id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+  res.json(rows[0]);
+});
+
 module.exports = router;
