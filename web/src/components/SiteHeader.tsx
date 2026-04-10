@@ -72,26 +72,26 @@ export default function SiteHeader() {
 
   return (
     <header className="site-header">
-      <Link href="/" className="brand" aria-label="GoFuvar – Főoldal">
-        {/* Inline fehér logó a sötétkék headerre */}
-        <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 40, width: 'auto', display: 'block' }} />
-      </Link>
-      <nav>
-        {/* 🌐 Nyelvváltó */}
-        <div style={{ display: 'flex', gap: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Link href="/" className="brand" aria-label="GoFuvar – Főoldal">
+          <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 40, width: 'auto', display: 'block' }} />
+        </Link>
+        {/* 🌐 Nyelvváltó — a logo mellett */}
+        <div style={{ display: 'flex', gap: 2 }}>
           {SUPPORTED_LOCALES.map((l) => (
             <button
               key={l.code}
               type="button"
               onClick={() => setLocale(l.code)}
               style={{
-                background: locale === l.code ? 'rgba(255,255,255,0.25)' : 'transparent',
-                border: 'none',
-                borderRadius: 4,
-                padding: '2px 6px',
+                background: locale === l.code ? 'rgba(255,255,255,0.3)' : 'transparent',
+                border: locale === l.code ? '1px solid rgba(255,255,255,0.5)' : '1px solid transparent',
+                borderRadius: 6,
+                padding: '3px 6px',
                 cursor: 'pointer',
-                fontSize: 16,
-                opacity: locale === l.code ? 1 : 0.6,
+                fontSize: 18,
+                opacity: locale === l.code ? 1 : 0.5,
+                transition: 'all 0.15s',
               }}
               title={l.label}
             >
@@ -99,7 +99,8 @@ export default function SiteHeader() {
             </button>
           ))}
         </div>
-
+      </div>
+      <nav>
         {!user && <Link href="/bejelentkezes">{t('auth.login')}</Link>}
 
         {user && (

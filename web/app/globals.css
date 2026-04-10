@@ -51,6 +51,20 @@
     color: var(--text);
     border-color: var(--border);
   }
+  /* Dark mode: MINDEN szöveg és háttér a CSS változókat használja */
+  label { color: var(--muted) !important; }
+  h1, h2, h3, h4 { color: var(--text) !important; }
+  p, span, div, li { color: inherit; }
+  strong { color: inherit; }
+  .site-footer { color: var(--muted) !important; }
+  /* Pill badge-ek dark módban */
+  .pill { border: 1px solid var(--border); }
+  /* Ár kártyák / chip-ek amik #eff6ff háttérrel vannak */
+  [style*="#eff6ff"] { background: var(--surface) !important; border: 1px solid var(--border) !important; }
+  [style*="#dcfce7"] { background: #14532d !important; color: #bbf7d0 !important; }
+  [style*="#fef3c7"] { background: #451a03 !important; color: #fde68a !important; }
+  [style*="#dbeafe"] { background: #1e3a5f !important; color: #93c5fd !important; }
+  [style*="#fee2e2"] { background: #450a0a !important; color: #fecaca !important; }
   /* Saját poszt kártya sötét módban is olvasható */
   .own-post-card {
     background: #422006 !important;
