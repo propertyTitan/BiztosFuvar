@@ -50,7 +50,7 @@ export default function FeladoiUtvonalBongeszo() {
 
   return (
     <div>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ marginBottom: 4 }}>Útba eső sofőrök</h1>
           <p className="muted" style={{ margin: 0 }}>
@@ -58,6 +58,22 @@ export default function FeladoiUtvonalBongeszo() {
             számára az útjukon, fix áron — nincs licitálás.
           </p>
         </div>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <Link
+            href="/sofor/uj-utvonal"
+            className="btn"
+            style={{
+              background: 'var(--success)',
+              fontSize: 13,
+              padding: '8px 16px',
+              textDecoration: 'none',
+            }}
+          >
+            ➕ Új útvonal hirdetése
+          </Link>
+        </div>
+      </div>
+      <div className="row" style={{ justifyContent: 'flex-end', marginTop: 8, gap: 8 }}>
         {/* Nézet váltó: lista ↔ térkép */}
         <div
           style={{

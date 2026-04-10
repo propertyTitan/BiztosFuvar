@@ -82,7 +82,7 @@ export default function SoforFuvarokLista() {
 
   return (
     <div>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ marginBottom: 4 }}>{t('jobs.title')}</h1>
           <p className="muted" style={{ margin: 0 }}>
@@ -91,7 +91,19 @@ export default function SoforFuvarokLista() {
               : 'A helymeghatározás nem érhető el – a teljes nyitott lista látható'}
           </p>
         </div>
-        <div className="row" style={{ gap: 8 }}>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <Link
+            href="/feladas/uj"
+            className="btn"
+            style={{
+              background: 'var(--success)',
+              fontSize: 13,
+              padding: '8px 16px',
+              textDecoration: 'none',
+            }}
+          >
+            ➕ Új hirdetés feladása
+          </Link>
           {/* Nézet váltó: lista ↔ térkép */}
           <div
             style={{
