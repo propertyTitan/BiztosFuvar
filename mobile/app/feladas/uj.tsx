@@ -2,12 +2,14 @@
 // - AddressAutocomplete pickup + dropoff címekhez (Google Places).
 // - Kötelező: cím (választott), méretek (cm), súly (kg), ár (Ft).
 // - Térfogat automatikusan számolódik a méretekből.
-// - Fotó feltöltés egyelőre nem szerepel a mobilban (a webes űrlapon elérhető) –
-//   a sofőr nézet a listáját látja, ha a feladó töltött fel.
+// - Fotó feltöltés: a feladó a csomagról fényképet készíthet vagy
+//   galériából választhat (expo-image-picker). A fotókat a fuvar
+//   létrehozása UTÁN töltjük fel `api.uploadPhoto`-val.
 import { useMemo, useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView,
+  View, Text, TextInput, Pressable, StyleSheet, Alert, ScrollView, Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { api } from '@/api';
@@ -58,6 +60,42 @@ export default function UjFuvarFeladas() {
   const toast = useToast();
   const [form, setForm] = useState<FormState>(initial);
   const [submitting, setSubmitting] = useState(false);
+  const [photos, setPhotos] = useState<ImagePicker.ImagePickerAsset[]>([]);
+
+  async function pickPhoto() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Engedély szükséges', 'A fotó feltöltéshez a galéria-hozzáférés kell.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+      allowsMultipleSelection: true,
+      selectionLimit: 5,
+    });
+    if (!result.canceled && result.assets) {
+      setPhotos((prev) => [...prev, ...result.assets].slice(0, 5));
+    }
+  }
+
+  async function takePhoto() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Engedély szükséges', 'A fotó készítéshez a kamera-hozzáférés kell.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets?.[0]) {
+      setPhotos((prev) => [...prev, result.assets[0]].slice(0, 5));
+    }
+  }
+
+  function removePhoto(index: number) {
+    setPhotos((prev) => prev.filter((_, i) => i !== index));
+  }
 
   function up<K extends keyof FormState>(k: K, v: FormState[K]) {
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -100,6 +138,24 @@ export default function UjFuvarFeladas() {
         height_cm: Number(form.height_cm),
         suggested_price_huf: Number(form.suggested_price_huf),
       });
+      // Fotók feltöltése (fire-and-forget: a fuvar már létrejött, a fotók
+      // háttérben mennek fel — ha valamelyik elhasal, a fuvar akkor is él)
+      if (photos.length > 0) {
+        toast.info('Fotók feltöltése…', `${photos.length} fotó`);
+        for (const photo of photos) {
+          try {
+            await api.uploadPhoto({
+              jobId: job.id,
+              kind: 'listing',
+              fileUri: photo.uri,
+              fileName: photo.fileName || 'photo.jpg',
+              mimeType: photo.mimeType || 'image/jpeg',
+            });
+          } catch (e: any) {
+            console.warn('[foto] upload hiba:', e.message);
+          }
+        }
+      }
       toast.success('Fuvar feladva', 'A sofőrök hamarosan licitálnak rá');
       router.replace({ pathname: '/feladas/[id]', params: { id: job.id } });
     } catch (err: any) {
@@ -130,6 +186,39 @@ export default function UjFuvarFeladas() {
         placeholder="Mit viszünk? Lift van? Kézi cipelés?"
         multiline
       />
+
+      {/* Fotók a csomagról */}
+      <Text style={styles.h2}>Fotók a csomagról (opcionális)</Text>
+      <Text style={styles.muted}>
+        Adj hozzá akár 5 fotót, hogy a sofőr lássa mit visz. Galériából választhatsz
+        vagy most készíthetsz.
+      </Text>
+      <View style={styles.photoRow}>
+        {photos.map((p, i) => (
+          <View key={i} style={styles.photoThumb}>
+            <Image source={{ uri: p.uri }} style={styles.photoImg} />
+            <Pressable
+              style={styles.photoRemove}
+              onPress={() => removePhoto(i)}
+              hitSlop={8}
+            >
+              <Text style={styles.photoRemoveText}>×</Text>
+            </Pressable>
+          </View>
+        ))}
+        {photos.length < 5 && (
+          <>
+            <Pressable style={styles.photoAdd} onPress={pickPhoto}>
+              <Text style={{ fontSize: 24 }}>🖼️</Text>
+              <Text style={styles.photoAddText}>Galéria</Text>
+            </Pressable>
+            <Pressable style={styles.photoAdd} onPress={takePhoto}>
+              <Text style={{ fontSize: 24 }}>📸</Text>
+              <Text style={styles.photoAddText}>Kamera</Text>
+            </Pressable>
+          </>
+        )}
+      </View>
 
       <Text style={styles.h2}>Felvétel helye</Text>
       <AddressAutocomplete
@@ -284,4 +373,45 @@ const styles = StyleSheet.create({
   },
   ctaDisabled: { backgroundColor: colors.textMuted, opacity: 0.6 },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+  photoRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  photoThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.md,
+    overflow: 'hidden',
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  photoImg: { width: '100%', height: '100%' },
+  photoRemove: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  photoRemoveText: { color: '#fff', fontSize: 13, fontWeight: '700', lineHeight: 16 },
+  photoAdd: {
+    width: 80,
+    height: 80,
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+  },
+  photoAddText: { color: colors.textMuted, fontSize: 10, marginTop: 2 },
 });
