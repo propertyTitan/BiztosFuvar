@@ -48,6 +48,15 @@
     color: var(--text);
     border-color: var(--border);
   }
+  /* Saját poszt kártya sötét módban is olvasható */
+  a[style*="fefce8"], div[style*="fefce8"] {
+    background: #422006 !important;
+    border-color: #a16207 !important;
+  }
+  a[style*="fefce8"] h3, div[style*="fefce8"] h3,
+  a[style*="fefce8"] p, div[style*="fefce8"] p {
+    color: #fef3c7 !important;
+  }
 }
 
 * { box-sizing: border-box; }

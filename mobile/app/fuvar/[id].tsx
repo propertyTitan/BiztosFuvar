@@ -305,6 +305,9 @@ export default function FuvarReszletek() {
             keyboardType="number-pad"
             value={bid}
             onChangeText={setBid}
+            returnKeyType="done"
+            blurOnSubmit
+            onSubmitEditing={placeBid}
           />
           <Pressable style={styles.cta} onPress={placeBid}>
             <Text style={styles.ctaText}>Licit elküldése</Text>
@@ -347,6 +350,9 @@ export default function FuvarReszletek() {
               onChangeText={setChatInput}
               placeholder="Írj üzenetet…"
               editable={!chatSending}
+              returnKeyType="send"
+              onSubmitEditing={sendChatMessage}
+              blurOnSubmit={false}
             />
             <Pressable
               style={[styles.chatSendBtn, (!chatInput.trim() || chatSending) && { opacity: 0.4 }]}
