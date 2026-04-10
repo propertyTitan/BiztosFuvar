@@ -10,6 +10,13 @@ import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+function avatarSrc(url?: string) {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('data:')) return url;
+  return `${API}${url}`;
+}
+
 export default function ProfilOldal() {
   const router = useRouter();
   const me = useCurrentUser();
@@ -121,7 +128,7 @@ export default function ProfilOldal() {
           <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: 'none' }} />
           {profile.avatar_url ? (
             <img
-              src={profile.avatar_url}
+              src={avatarSrc(profile.avatar_url)}
               alt=""
               style={{
                 width: 88,
