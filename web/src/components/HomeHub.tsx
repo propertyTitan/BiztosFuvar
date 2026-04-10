@@ -43,19 +43,8 @@ export default function HomeHub() {
   }, [user]);
 
   if (!user) {
-    return (
-      <div style={{ maxWidth: 600, textAlign: 'center', padding: '40px 0' }}>
-        <img src="/logo.svg?v=2" alt="GoFuvar" style={{ height: 64, marginBottom: 24 }} />
-        <h1 style={{ marginTop: 0 }}>Üdvözlünk a GoFuvar platformon</h1>
-        <p className="muted">
-          Közösségi fuvartőzsde — lépj be, hogy használhasd az alkalmazást,
-          és a szerepkörödnek megfelelő menüpontokat láthasd.
-        </p>
-        <Link href="/bejelentkezes" className="btn" style={{ marginTop: 16 }}>
-          Belépés
-        </Link>
-      </div>
-    );
+    // A LandingPage server component jön helyette a page.tsx-ből.
+    return null;
   }
 
   // Egységes menü mindenkinek: bárki lehet feladó ÉS sofőr is, ezért egyetlen

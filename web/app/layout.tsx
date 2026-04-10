@@ -8,8 +8,20 @@ import AiChatWidget from '@/components/AiChatWidget';
 import { ToastProvider } from '@/components/ToastProvider';
 
 export const metadata: Metadata = {
-  title: 'GoFuvar',
-  description: 'Magyarországi közösségi fuvartőzsde – feladóknak és sofőröknek.',
+  title: 'GoFuvar – Magyarország közösségi fuvartőzsdéje',
+  description:
+    'Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. Biztonságos Barion letét, élő GPS követés, fotó bizonyíték, 6 jegyű átvételi kód. Ingyenes regisztráció.',
+  keywords: [
+    'fuvar', 'szállítás', 'csomag', 'költöztetés', 'sofőr', 'fuvartőzsde',
+    'GoFuvar', 'közösségi szállítás', 'licit', 'fix áras fuvar',
+    'Barion', 'escrow', 'Magyarország',
+  ],
+  openGraph: {
+    title: 'GoFuvar – Közösségi fuvartőzsde',
+    description: 'Csomagod van? Sofőröd is lesz. Biztonságos fizetés, élő követés, fotó bizonyíték.',
+    type: 'website',
+    locale: 'hu_HU',
+  },
   icons: {
     icon: '/logo-icon.svg?v=2',
   },
