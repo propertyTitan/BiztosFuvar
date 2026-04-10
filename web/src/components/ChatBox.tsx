@@ -120,7 +120,7 @@ export default function ChatBox({ entityKey, entityId }: Props) {
           flex: 1,
           overflowY: 'auto',
           padding: 12,
-          background: '#f8fafc',
+          background: 'var(--bg)',
           display: 'flex',
           flexDirection: 'column',
           gap: 6,
@@ -141,7 +141,7 @@ export default function ChatBox({ entityKey, entityId }: Props) {
                 maxWidth: '80%',
                 padding: '8px 12px',
                 borderRadius: 12,
-                background: isMine ? 'var(--primary)' : '#fff',
+                background: isMine ? 'var(--primary)' : 'var(--surface)',
                 color: isMine ? '#fff' : 'var(--text)',
                 border: isMine ? 'none' : '1px solid var(--border)',
                 fontSize: 14,
@@ -180,7 +180,7 @@ export default function ChatBox({ entityKey, entityId }: Props) {
           gap: 8,
           padding: 10,
           borderTop: '1px solid var(--border)',
-          background: '#fff',
+          background: 'var(--surface)',
         }}
       >
         <input
