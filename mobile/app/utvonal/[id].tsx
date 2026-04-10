@@ -11,6 +11,7 @@ import { api } from '@/api';
 import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
+import TruckLoader from '@/components/TruckLoader';
 import { colors, spacing, radius } from '@/theme';
 
 const BOOKING_STATUS_LABEL: Record<string, string> = {
@@ -117,7 +118,7 @@ export default function SoforUtvonalReszletek() {
     ]);
   }
 
-  if (!route) return <Text style={{ padding: 24 }}>Betöltés…</Text>;
+  if (!route) return <TruckLoader />;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>

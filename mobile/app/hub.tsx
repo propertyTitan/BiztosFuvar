@@ -18,6 +18,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/api';
 import { getCurrentUser, CurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
+import TruckLoader from '@/components/TruckLoader';
 import { colors, spacing, radius } from '@/theme';
 
 type Card = {
@@ -76,11 +77,7 @@ export default function Hub() {
   }, [user]);
 
   if (!user) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.muted}>Betöltés…</Text>
-      </View>
-    );
+    return <TruckLoader />;
   }
 
   function renderCard({ item: c }: { item: Card }) {

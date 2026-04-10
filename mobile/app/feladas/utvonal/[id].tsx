@@ -11,6 +11,7 @@ import { api } from '@/api';
 import { getCurrentUser } from '@/auth';
 import { PACKAGE_SIZES, classifyPackage, PackageSizeId } from '@/constants';
 import { useToast } from '@/components/ToastProvider';
+import TruckLoader from '@/components/TruckLoader';
 import { colors, spacing, radius } from '@/theme';
 
 export default function FeladoUtvonalReszletekMobil() {
@@ -90,7 +91,7 @@ export default function FeladoUtvonalReszletekMobil() {
     }
   }
 
-  if (!route) return <Text style={{ padding: 24 }}>Betöltés…</Text>;
+  if (!route) return <TruckLoader />;
 
   const isMine = meId && route.carrier_id === meId;
 

@@ -14,6 +14,7 @@ import { api } from '@/api';
 import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
+import TruckLoader from '@/components/TruckLoader';
 import { colors, spacing, radius } from '@/theme';
 
 const PING_INTERVAL_MS = 10_000; // 10 másodpercenként frissíti a sofőr pozícióját
@@ -181,7 +182,7 @@ export default function FuvarReszletek() {
     }
   }
 
-  if (!job) return <Text style={{ padding: 24 }}>Betöltés...</Text>;
+  if (!job) return <TruckLoader />;
 
   const canClose = job.status === 'in_progress';
   const region = {

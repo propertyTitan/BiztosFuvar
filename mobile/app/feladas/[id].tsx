@@ -15,6 +15,7 @@ import { api } from '@/api';
 import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
+import TruckLoader from '@/components/TruckLoader';
 import { colors, spacing, radius } from '@/theme';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -131,7 +132,7 @@ export default function FeladoiFuvarReszletek() {
     ]);
   }
 
-  if (!job) return <Text style={{ padding: 24 }}>Betöltés…</Text>;
+  if (!job) return <TruckLoader />;
 
   const listingPhotos = photos.filter((p) => p.kind === 'listing');
   const region = {
