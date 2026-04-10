@@ -66,14 +66,19 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  /** Licitálható fuvarok közelség szerint. */
-  nearbyJobs: (lat: number, lng: number, radiusKm = 50) => {
+  /** Licitálható fuvarok közelség + szűrők szerint. */
+  nearbyJobs: (lat: number, lng: number, radiusKm = 50, filters?: {
+    min_price?: number; max_price?: number; max_weight_kg?: number;
+  }) => {
     const qs = new URLSearchParams({
       status: 'bidding',
       lat: String(lat),
       lng: String(lng),
       radius_km: String(radiusKm),
     });
+    if (filters?.min_price) qs.set('min_price', String(filters.min_price));
+    if (filters?.max_price) qs.set('max_price', String(filters.max_price));
+    if (filters?.max_weight_kg) qs.set('max_weight_kg', String(filters.max_weight_kg));
     return request<any[]>(`/jobs?${qs.toString()}`);
   },
 
@@ -124,9 +129,13 @@ export const api = {
 
   myCarrierRoutes: () => request<any[]>('/carrier-routes/mine'),
 
-  listCarrierRoutes: (city?: string) => {
-    const qs = city ? `?city=${encodeURIComponent(city)}` : '';
-    return request<any[]>(`/carrier-routes${qs}`);
+  listCarrierRoutes: (params?: { city?: string; from_date?: string; to_date?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.city) qs.set('city', params.city);
+    if (params?.from_date) qs.set('from_date', params.from_date);
+    if (params?.to_date) qs.set('to_date', params.to_date);
+    const q = qs.toString();
+    return request<any[]>(`/carrier-routes${q ? `?${q}` : ''}`);
   },
 
   getCarrierRoute: (id: string) => request<any>(`/carrier-routes/${id}`),

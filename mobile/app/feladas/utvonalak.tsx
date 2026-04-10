@@ -38,7 +38,7 @@ export default function UtvonalBongeszo() {
   const load = useCallback(async (filterCity?: string) => {
     setLoading(true);
     try {
-      const data = await api.listCarrierRoutes(filterCity || undefined);
+      const data = await api.listCarrierRoutes({ city: filterCity || undefined });
       setRoutes(data);
     } catch (err: any) {
       Alert.alert('Hiba', err.message);

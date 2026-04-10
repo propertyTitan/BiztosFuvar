@@ -3,7 +3,7 @@
 // a feladói részletek oldalra visszük — ne lehessen rájuk licitálni.
 // Lista / térkép toggle a fejlécben.
 import { Fragment, useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Alert, Platform } from 'react-native';
+import { View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Alert, Platform, TextInput } from 'react-native';
 import { Link, useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -41,6 +41,11 @@ export default function Fuvarok() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<ViewMode>('list');
+  // Szűrők
+  const [filterMinPrice, setFilterMinPrice] = useState('');
+  const [filterMaxPrice, setFilterMaxPrice] = useState('');
+  const [filterMaxWeight, setFilterMaxWeight] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     getCurrentUser().then(setMe);
@@ -56,7 +61,11 @@ export default function Fuvarok() {
         lat = pos.coords.latitude;
         lng = pos.coords.longitude;
       }
-      const data = await api.nearbyJobs(lat, lng, 500);
+      const data = await api.nearbyJobs(lat, lng, 500, {
+        min_price: filterMinPrice ? Number(filterMinPrice) : undefined,
+        max_price: filterMaxPrice ? Number(filterMaxPrice) : undefined,
+        max_weight_kg: filterMaxWeight ? Number(filterMaxWeight) : undefined,
+      });
       setJobs(data);
     } catch (err: any) {
       Alert.alert('Hiba', err.message);
@@ -116,6 +125,67 @@ export default function Fuvarok() {
           </Text>
         </Pressable>
       </View>
+      {/* Szűrők */}
+      <Pressable onPress={() => setShowFilters((s) => !s)} style={{ alignSelf: 'center', marginBottom: spacing.sm }}>
+        <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 13 }}>
+          🔍 {showFilters ? 'Szűrők elrejtése' : 'Szűrők mutatása'}
+        </Text>
+      </Pressable>
+      {showFilters && (
+        <View style={styles.filterCard}>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.filterLabel}>Min ár (Ft)</Text>
+              <TextInput
+                style={styles.filterInput}
+                keyboardType="number-pad"
+                value={filterMinPrice}
+                onChangeText={setFilterMinPrice}
+                placeholder="10000"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.filterLabel}>Max ár (Ft)</Text>
+              <TextInput
+                style={styles.filterInput}
+                keyboardType="number-pad"
+                value={filterMaxPrice}
+                onChangeText={setFilterMaxPrice}
+                placeholder="100000"
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.filterLabel}>Max súly (kg)</Text>
+              <TextInput
+                style={styles.filterInput}
+                keyboardType="number-pad"
+                value={filterMaxWeight}
+                onChangeText={setFilterMaxWeight}
+                placeholder="50"
+              />
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
+            <Pressable style={styles.filterBtn} onPress={load}>
+              <Text style={styles.filterBtnText}>Szűrés</Text>
+            </Pressable>
+            {(filterMinPrice || filterMaxPrice || filterMaxWeight) && (
+              <Pressable
+                style={[styles.filterBtn, { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }]}
+                onPress={() => {
+                  setFilterMinPrice('');
+                  setFilterMaxPrice('');
+                  setFilterMaxWeight('');
+                  setTimeout(load, 50);
+                }}
+              >
+                <Text style={[styles.filterBtnText, { color: colors.textMuted }]}>Törlés</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
+
       <Link href="/licitjeim" asChild>
         <Pressable style={styles.myBidsBtn}>
           <Text style={styles.myBidsBtnText}>📋 Licitjeim megtekintése</Text>
@@ -333,4 +403,31 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   mapLegendText: { fontSize: 12, color: colors.textMuted },
+
+  filterCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  filterLabel: { fontSize: 11, color: colors.textMuted, marginBottom: 2 },
+  filterInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 6,
+    fontSize: 14,
+    backgroundColor: '#fff',
+  },
+  filterBtn: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+  },
+  filterBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });

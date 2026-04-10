@@ -2,13 +2,14 @@
 // Új: react-native-maps térkép a felvétel/lerakodás vizualizálásához, és
 // in_progress státuszban automatikus GPS ping (a feladó a webes Dashboardon
 // élőben látja a sofőr piros pöttyét).
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, TextInput, Alert, ScrollView, Platform,
+  View, Text, StyleSheet, Pressable, TextInput, Alert, ScrollView, Platform, FlatList,
 } from 'react-native';
 import { useLocalSearchParams, Link } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { api } from '@/api';
 import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
@@ -24,6 +25,10 @@ export default function FuvarReszletek() {
   const [bid, setBid] = useState('');
   const [meId, setMeId] = useState<string | null>(null);
   const pingTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatSending, setChatSending] = useState(false);
 
   useEffect(() => {
     getCurrentUser().then((u) => setMeId(u?.id || null));
@@ -32,6 +37,35 @@ export default function FuvarReszletek() {
   useEffect(() => {
     api.getJob(id!).then(setJob).catch((e) => Alert.alert('Hiba', e.message));
   }, [id]);
+
+  // Chat üzenetek betöltése (ha a fuvar accepted+ és van carrier)
+  useEffect(() => {
+    if (!job || !job.carrier_id || !['accepted', 'in_progress', 'delivered', 'completed'].includes(job.status)) return;
+    api.getMessages({ job_id: id! }).then(setChatMessages).catch(() => {});
+    // Real-time: Socket.IO-ból érkező új üzenetek
+    const socket = getSocket();
+    const roomKey = `chat:job:${id}`;
+    const onMsg = (msg: any) => {
+      setChatMessages((prev) => prev.some((m: any) => m.id === msg.id) ? prev : [...prev, msg]);
+    };
+    socket.on(roomKey, onMsg);
+    return () => { socket.off(roomKey, onMsg); };
+  }, [job?.status, job?.carrier_id, id]);
+
+  async function sendChatMessage() {
+    const text = chatInput.trim();
+    if (!text || chatSending) return;
+    setChatSending(true);
+    try {
+      const msg = await api.sendMessage({ job_id: id!, body: text });
+      setChatMessages((prev) => prev.some((m: any) => m.id === msg.id) ? prev : [...prev, msg]);
+      setChatInput('');
+    } catch (e: any) {
+      toast.error('Hiba', e.message);
+    } finally {
+      setChatSending(false);
+    }
+  }
 
   // `job:paid` realtime event: ha a feladó kifizeti a fuvart, a sofőr
   // képernyőjén azonnal cserélődjön a pill "Fizetésre vár" → "FIZETVE"-re.
@@ -104,6 +138,46 @@ export default function FuvarReszletek() {
       setBid('');
     } catch (e: any) {
       toast.error('Sikertelen licit', e.message);
+    }
+  }
+
+  // Fuvar indítása: az "accepted" státuszú fuvarban a sofőr fotót
+  // készít a felvett csomagról (pickup fotó) → a backend automatikusan
+  // átállítja "in_progress"-re → élő GPS követés indul.
+  async function startJob() {
+    try {
+      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      if (camStatus !== 'granted') {
+        Alert.alert('Kamera engedély kell', 'A felvételi fotóhoz engedélyezd a kamerát.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+      if (result.canceled || !result.assets?.[0]) return;
+
+      toast.info('Felvételi fotó feltöltése…');
+      let gpsLat, gpsLng;
+      try {
+        const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+        if (locStatus === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          gpsLat = pos.coords.latitude;
+          gpsLng = pos.coords.longitude;
+        }
+      } catch {}
+
+      await api.uploadPhoto({
+        jobId: id!,
+        kind: 'pickup',
+        fileUri: result.assets[0].uri,
+        fileName: 'pickup.jpg',
+        mimeType: 'image/jpeg',
+        gps_lat: gpsLat,
+        gps_lng: gpsLng,
+      });
+      toast.success('Fuvar elindítva!', 'Élő GPS követés aktív.');
+      api.getJob(id!).then(setJob);
+    } catch (e: any) {
+      toast.error('Hiba', e.message);
     }
   }
 
@@ -237,10 +311,65 @@ export default function FuvarReszletek() {
         </Section>
       )}
 
+      {/* Chat — elfogadott licit után a feladó és sofőr üzenhetnek egymásnak */}
+      {job.carrier_id && ['accepted', 'in_progress', 'delivered', 'completed'].includes(job.status) && (
+        <View style={styles.chatSection}>
+          <Text style={styles.chatTitle}>💬 Chat a fuvarpartnerrel</Text>
+          <View style={styles.chatMessages}>
+            {chatMessages.length === 0 && (
+              <Text style={styles.chatEmpty}>Még nincs üzenet. Írj először!</Text>
+            )}
+            {chatMessages.map((m: any) => (
+              <View
+                key={m.id}
+                style={[
+                  styles.chatBubble,
+                  m.sender_id === meId ? styles.chatBubbleMine : styles.chatBubbleOther,
+                ]}
+              >
+                {m.sender_id !== meId && (
+                  <Text style={styles.chatSender}>{m.sender_name}</Text>
+                )}
+                <Text style={m.sender_id === meId ? styles.chatTextMine : styles.chatTextOther}>
+                  {m.body}
+                </Text>
+                <Text style={styles.chatTime}>
+                  {new Date(m.created_at).toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.chatInputRow}>
+            <TextInput
+              style={styles.chatInput}
+              value={chatInput}
+              onChangeText={setChatInput}
+              placeholder="Írj üzenetet…"
+              editable={!chatSending}
+            />
+            <Pressable
+              style={[styles.chatSendBtn, (!chatInput.trim() || chatSending) && { opacity: 0.4 }]}
+              onPress={sendChatMessage}
+              disabled={!chatInput.trim() || chatSending}
+            >
+              <Text style={styles.chatSendText}>Küldés</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      {/* Fuvar indítása: accepted állapotban a sofőr készít egy felvételi
+          fotót, ami átváltja in_progress-re → élő GPS indul. */}
+      {job.status === 'accepted' && (
+        <Pressable style={[styles.cta, styles.bigCta, { backgroundColor: '#16a34a' }]} onPress={startJob}>
+          <Text style={styles.ctaText}>📸 FUVAR INDÍTÁSA (felvételi fotó)</Text>
+        </Pressable>
+      )}
+
       {canClose && (
         <Link href={{ pathname: '/fuvar/[id]/lezaras', params: { id: id! } }} asChild>
           <Pressable style={[styles.cta, styles.bigCta]}>
-            <Text style={styles.ctaText}>📸 FUVAR LEZÁRÁSA</Text>
+            <Text style={styles.ctaText}>📸 FUVAR LEZÁRÁSA (lerakodás + kód)</Text>
           </Pressable>
         </Link>
       )}
@@ -325,4 +454,71 @@ const styles = StyleSheet.create({
   },
   ownPostTitle: { fontSize: 16, fontWeight: '800', color: '#713f12', marginBottom: spacing.xs },
   ownPostBody: { color: '#713f12', fontSize: 14, marginBottom: spacing.sm, lineHeight: 20 },
+
+  chatSection: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    overflow: 'hidden',
+  },
+  chatTitle: {
+    padding: spacing.md,
+    backgroundColor: colors.primary,
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  chatMessages: {
+    padding: spacing.sm,
+    maxHeight: 250,
+    gap: 6,
+  },
+  chatEmpty: { color: colors.textMuted, fontSize: 13, textAlign: 'center', padding: spacing.md },
+  chatBubble: {
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    maxWidth: '80%',
+  },
+  chatBubbleMine: {
+    backgroundColor: colors.primary,
+    alignSelf: 'flex-end',
+    borderBottomRightRadius: 4,
+  },
+  chatBubbleOther: {
+    backgroundColor: '#fff',
+    alignSelf: 'flex-start',
+    borderBottomLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  chatSender: { fontSize: 10, fontWeight: '700', color: colors.textMuted, marginBottom: 2 },
+  chatTextMine: { color: '#fff', fontSize: 14 },
+  chatTextOther: { color: colors.text, fontSize: 14 },
+  chatTime: { fontSize: 9, opacity: 0.6, marginTop: 2, textAlign: 'right' },
+  chatInputRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  chatInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    fontSize: 14,
+    backgroundColor: '#fff',
+  },
+  chatSendBtn: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+    borderRadius: radius.md,
+  },
+  chatSendText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });
