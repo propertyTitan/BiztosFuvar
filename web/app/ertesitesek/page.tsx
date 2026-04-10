@@ -103,8 +103,9 @@ export default function ErtesitesekOldal() {
             style={{
               cursor: 'pointer',
               marginTop: 12,
-              background: n.read_at ? 'var(--surface)' : '#eff6ff',
-              borderLeft: n.read_at ? undefined : '4px solid var(--primary)',
+              background: n.read_at ? 'var(--surface)' : 'var(--surface)',
+              borderLeft: n.read_at ? '4px solid transparent' : '4px solid var(--primary)',
+              boxShadow: n.read_at ? 'none' : '0 0 0 1px var(--primary)',
             }}
           >
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
