@@ -367,11 +367,15 @@ export default function FuvarReszletek() {
       )}
 
       {canClose && (
-        <Link href={{ pathname: '/fuvar/[id]/lezaras', params: { id: id! } }} asChild>
-          <Pressable style={[styles.cta, styles.bigCta, styles.closeCta]}>
-            <Text style={styles.ctaText}>📸 FUVAR LEZÁRÁSA (lerakodás + kód)</Text>
-          </Pressable>
-        </Link>
+        <View style={styles.closeCtaWrap}>
+          <Link href={{ pathname: '/fuvar/[id]/lezaras', params: { id: id! } }} asChild>
+            <Pressable style={styles.closeCta}>
+              <Text style={styles.closeCtaIcon}>📸</Text>
+              <Text style={styles.closeCtaTitle}>FUVAR LEZÁRÁSA</Text>
+              <Text style={styles.closeCtaSub}>Lerakodási fotó + 6 jegyű átvételi kód</Text>
+            </Pressable>
+          </Link>
+        </View>
       )}
     </ScrollView>
   );
@@ -443,15 +447,37 @@ const styles = StyleSheet.create({
   },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   bigCta: { paddingVertical: spacing.lg, marginTop: spacing.md },
+  closeCtaWrap: {
+    marginVertical: spacing.lg,
+    paddingHorizontal: spacing.sm,
+  },
   closeCta: {
     backgroundColor: '#dc2626',
+    borderRadius: radius.lg,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#fff',
+    borderColor: '#fca5a5',
     shadowColor: '#dc2626',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  closeCtaIcon: { fontSize: 40, marginBottom: spacing.sm },
+  closeCtaTitle: {
+    color: '#fff',
+    fontWeight: '900',
+    fontSize: 22,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  closeCtaSub: {
+    color: '#fecaca',
+    fontSize: 13,
+    marginTop: spacing.xs,
+    textAlign: 'center',
   },
 
   ownPostBox: {

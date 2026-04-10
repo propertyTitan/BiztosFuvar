@@ -65,23 +65,38 @@ export default function Ertesitesek() {
         );
       } catch {}
     }
-    // A web linkeket mobil routerre képezzük le: /dashboard/… → /feladas/…, /sofor/… → /…
-    // Egyelőre a legegyszerűbb: ha a link a `/feladas/foglalasaim`, átirányítjuk
-    // a mobil foglalasaim képernyőre; ha `/sofor/utvonal/xxx`, az utvonal/xxx-re.
+
     const link = n.link || '';
+
+    // Fuvar link: ellenőrizzük, hogy a user a feladó VAGY a sofőr,
+    // és ennek megfelelően a HELYES nézetre navigálunk.
+    // - Sofőr → /fuvar/[id] (van chat, lezárás gomb)
+    // - Feladó → /feladas/[id] (van átvételi kód, licit kezelés)
+    const fuvarMatch = link.match(/\/(?:dashboard|sofor)\/fuvar\/([a-f0-9-]+)/);
+    if (fuvarMatch) {
+      const jobId = fuvarMatch[1];
+      try {
+        const me = await getCurrentUser();
+        const job = await api.getJob(jobId);
+        if (me && job.carrier_id === me.id) {
+          // Én vagyok a sofőr → sofőri nézet (chat + lezárás)
+          router.push({ pathname: '/fuvar/[id]', params: { id: jobId } });
+        } else {
+          // Én vagyok a feladó → feladói nézet
+          router.push({ pathname: '/feladas/[id]', params: { id: jobId } });
+        }
+      } catch {
+        router.push({ pathname: '/fuvar/[id]', params: { id: jobId } });
+      }
+      return;
+    }
+
     if (link.startsWith('/dashboard/foglalasaim')) {
       router.push('/feladas/foglalasaim');
-    } else if (link.startsWith('/dashboard/fuvar/')) {
-      const id = link.split('/').pop();
-      router.push({ pathname: '/feladas/[id]', params: { id: id as string } });
     } else if (link.startsWith('/sofor/utvonal/')) {
       const id = link.split('/').pop();
       router.push({ pathname: '/utvonal/[id]', params: { id: id as string } });
-    } else if (link.startsWith('/sofor/fuvar/')) {
-      const id = link.split('/').pop();
-      router.push({ pathname: '/fuvar/[id]', params: { id: id as string } });
     }
-    // Egyébként a képernyőn maradunk.
   }
 
   async function markAll() {
