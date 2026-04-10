@@ -139,7 +139,7 @@ router.get('/users/:id/profile', authRequired, async (req, res) => {
     db.query(
       `SELECT COUNT(*)::int AS c FROM route_bookings b
          JOIN carrier_routes r ON r.id = b.route_id
-        WHERE r.carrier_id = $1 AND b.status IN ('delivered','completed')`,
+        WHERE r.carrier_id = $1 AND b.status = 'delivered'`,
       [uid],
     ),
     // Legutóbbi értékelések (max 10)
