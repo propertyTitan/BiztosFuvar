@@ -205,6 +205,18 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ reason }) },
     ),
 
+  // ---------- Chat / Messages ----------
+
+  sendMessage: (body: { job_id?: string; booking_id?: string; body: string }) =>
+    request<any>('/messages', { method: 'POST', body: JSON.stringify(body) }),
+
+  getMessages: (params: { job_id?: string; booking_id?: string }) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => !!v)) as Record<string, string>,
+    ).toString();
+    return request<any[]>(`/messages?${qs}`);
+  },
+
   // ---------- Reviews ----------
 
   submitReview: (body: { job_id?: string; booking_id?: string; stars: number; comment?: string }) =>

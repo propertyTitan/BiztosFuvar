@@ -13,6 +13,7 @@ import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
+import ChatBox from '@/components/ChatBox';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik', bidding: 'Licitálható', accepted: 'Elfogadva',
@@ -437,6 +438,14 @@ export default function FuvarReszletek() {
             Erre a fuvarra vita van nyitva. Az admin felülvizsgálja a helyzetet, és döntést hoz.
             Az értesítések között követheted az állapotot.
           </p>
+        </div>
+      )}
+
+      {/* Chat — az elfogadott licittől kezdve a feladó és a sofőr
+          üzenhetnek egymásnak, telefonszám-csere nélkül. */}
+      {['accepted', 'in_progress', 'delivered', 'completed'].includes(job.status) && job.carrier_id && (
+        <div style={{ marginTop: 16 }}>
+          <ChatBox entityKey="job_id" entityId={id} />
         </div>
       )}
 

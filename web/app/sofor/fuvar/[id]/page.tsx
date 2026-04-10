@@ -17,6 +17,7 @@ import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
+import ChatBox from '@/components/ChatBox';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -364,6 +365,13 @@ export default function SoforFuvarReszletek() {
             <br />
             Nyisd meg a GoFuvar appot a telefonodon, és lépj be a „Saját fuvaraim" menüpontba.
           </p>
+        </div>
+      )}
+
+      {/* Chat */}
+      {['accepted', 'in_progress', 'delivered', 'completed'].includes(job.status) && job.carrier_id && (
+        <div style={{ marginTop: 16 }}>
+          <ChatBox entityKey="job_id" entityId={id} />
         </div>
       )}
 
