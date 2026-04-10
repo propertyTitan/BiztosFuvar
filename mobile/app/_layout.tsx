@@ -201,7 +201,7 @@ export default function RootLayout() {
         <Stack.Screen name="ai-chat" options={{ title: 'AI Segéd' }} />
         <Stack.Screen name="fizetes-stub" options={{ title: 'Fizetés (STUB)' }} />
         <Stack.Screen name="hirdeteseim" options={{ title: 'Saját hirdetéseim' }} />
-        <Stack.Screen name="sajat-fuvaraim" options={{ title: 'Fuvaraim' }} />
+        <Stack.Screen name="sajat-fuvaraim" options={{ title: 'Saját fuvarjaim' }} />
 
         {/* Sofőr / licit nézet */}
         <Stack.Screen name="fuvarok" options={{ title: 'Elérhető fuvarok' }} />

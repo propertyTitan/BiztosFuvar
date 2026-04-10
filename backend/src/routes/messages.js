@@ -82,14 +82,33 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
   });
 
   // Értesítés a másik félnek (ha van)
+  // A link a CÍMZETT szemszögéből kell legyen: ha ő a sofőr, a sofőri
+  // fuvar nézetre (/sofor/fuvar/...), ha feladó, a feladói nézetre
+  // (/dashboard/fuvar/...). Így a mobil route mapping is a megfelelő
+  // képernyőre viszi (ahol van chat + lezárás gomb).
   if (access.otherUserId) {
+    let notifLink = '/ertesitesek';
+    if (job_id) {
+      const { rows: jobRows } = await db.query(
+        'SELECT shipper_id FROM jobs WHERE id = $1',
+        [job_id],
+      );
+      // Ha a másik fél a feladó → feladói nézet; ha sofőr → sofőri nézet
+      const otherIsShipper = jobRows[0]?.shipper_id === access.otherUserId;
+      notifLink = otherIsShipper
+        ? `/dashboard/fuvar/${job_id}`
+        : `/sofor/fuvar/${job_id}`;
+    }
+    if (booking_id) {
+      notifLink = `/dashboard/foglalasaim`;
+    }
     try {
       await createNotification({
         user_id: access.otherUserId,
         type: 'chat_message',
         title: `💬 Új üzenet – ${senderName}`,
         body: body.trim().slice(0, 100),
-        link: job_id ? `/dashboard/fuvar/${job_id}` : `/dashboard/foglalasaim`,
+        link: notifLink,
       });
     } catch {}
   }

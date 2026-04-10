@@ -32,7 +32,7 @@ type Card = {
 const CARDS: Card[] = [
   { href: '/fuvarok',             icon: '🎯', title: 'Licitálható fuvarok', subtitle: 'Nyitott hirdetések — licitálj',      accent: '#dbeafe' },
   { href: '/feladas/utvonalak',   icon: '🛣️', title: 'Fix áras fuvarok',    subtitle: 'Útvonalak, amelyekre foglalhatsz',  accent: '#dcfce7' },
-  { href: '/sajat-fuvaraim',      icon: '🚛', title: 'Fuvaraim',             subtitle: 'Amiket te teljesítesz sofőrként',   accent: '#fef3c7' },
+  { href: '/sajat-fuvaraim',      icon: '🚛', title: 'Saját fuvarjaim',       subtitle: 'Amiket te teljesítesz sofőrként',   accent: '#fef3c7' },
   { href: '/feladas/foglalasaim', icon: '📦', title: 'Foglalásaim',          subtitle: 'Fix áras foglalásaid állapota',     accent: '#e0e7ff' },
   { href: '/feladas/uj',          icon: '📝', title: 'Új licites hirdetés',  subtitle: 'Sofőrök licitálnak rá',              accent: '#fce7f3' },
   { href: '/uj-utvonal',          icon: '➕', title: 'Új fix áras útvonal',  subtitle: 'Hirdesd meg a saját utad',           accent: '#f3e8ff' },

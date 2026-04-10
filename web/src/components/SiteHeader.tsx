@@ -82,7 +82,7 @@ export default function SiteHeader() {
             <Link href="/">Főoldal</Link>
             <Link href="/sofor/fuvarok">Licitálható fuvarok</Link>
             <Link href="/dashboard/utvonalak">Fix áras fuvarok</Link>
-            <Link href="/sofor/sajat-fuvarok">Fuvaraim</Link>
+            <Link href="/sofor/sajat-fuvarok">Saját fuvarjaim</Link>
             <Link href="/dashboard/foglalasaim">Foglalásaim</Link>
             <Link href="/hirdeteseim">Saját hirdetéseim</Link>
           </>

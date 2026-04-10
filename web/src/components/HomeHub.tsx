@@ -53,7 +53,7 @@ export default function HomeHub() {
   const cards: Card[] = [
     { href: '/sofor/fuvarok',           icon: '🎯',  title: 'Licitálható fuvarok',        subtitle: 'Nyitott hirdetések — tegyél ajánlatot', color: '#dbeafe' },
     { href: '/dashboard/utvonalak',     icon: '🛣️',  title: 'Fix áras fuvarok',           subtitle: 'Sofőri útvonalak, amelyekre helyet foglalhatsz', color: '#dcfce7' },
-    { href: '/sofor/sajat-fuvarok',     icon: '🚛',  title: 'Fuvaraim',                   subtitle: 'Amiket TE teljesítesz sofőrként', color: '#fef3c7' },
+    { href: '/sofor/sajat-fuvarok',     icon: '🚛',  title: 'Saját fuvarjaim',             subtitle: 'Amiket TE teljesítesz sofőrként', color: '#fef3c7' },
     { href: '/dashboard/foglalasaim',   icon: '📦',  title: 'Foglalásaim',                subtitle: 'Amiket TE foglaltál egy fix áras útvonalon', color: '#e0e7ff' },
     { href: '/dashboard/uj-fuvar',      icon: '📝',  title: 'Új licites hirdetés',        subtitle: 'Hirdess meg fuvart, a sofőrök licitálnak rá', color: '#fce7f3' },
     { href: '/sofor/uj-utvonal',        icon: '➕',  title: 'Új fix áras útvonal',        subtitle: 'Hirdesd meg a saját utadat fix árakkal', color: '#f3e8ff' },
