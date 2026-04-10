@@ -182,6 +182,7 @@ export default function HomeHub() {
           { href: '/feladas/uj',              icon: '📝', title: 'Új licites hirdetés',  color: '#fce7f3' }, // TODO: i18n
           { href: '/sofor/uj-utvonal',        icon: '➕', title: 'Új fix áras útvonal',  color: '#f3e8ff' },
           { href: '/hirdeteseim',             icon: '📋', title: t('nav.myListings'),    color: '#fde68a' },
+          { href: '/sofor/licitjeim',         icon: '🏷️', title: 'Licitjeim',             color: '#bae6fd' },
           { href: '/sofor/sajat-fuvarok',     icon: '🚛', title: t('nav.myJobs'),        color: '#fef3c7' },
           { href: '/profil',                  icon: '👤', title: t('nav.profile'),       color: '#e0f2fe' },
           { href: '/ertesitesek',             icon: '🔔', title: t('nav.notifications'), color: '#ffe4e6', badge: unread },
