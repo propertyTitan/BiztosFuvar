@@ -16,6 +16,7 @@ import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
+import ReviewBox from '@/components/ReviewBox';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -363,6 +364,17 @@ export default function SoforFuvarReszletek() {
             <br />
             Nyisd meg a GoFuvar appot a telefonodon, és lépj be a „Saját fuvaraim" menüpontba.
           </p>
+        </div>
+      )}
+
+      {/* Értékelés — delivered / completed állapotban */}
+      {['delivered', 'completed'].includes(job.status) && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h2 style={{ marginTop: 0 }}>⭐ Értékeld a feladót</h2>
+          <p className="muted" style={{ marginBottom: 12 }}>
+            Hogyan ment a kommunikáció? Megvolt a csomag? Kattints a csillagokra.
+          </p>
+          <ReviewBox entityKey="job_id" entityId={id} onDone={() => load()} />
         </div>
       )}
 

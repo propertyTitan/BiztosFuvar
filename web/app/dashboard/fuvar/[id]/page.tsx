@@ -12,6 +12,7 @@ import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
+import ReviewBox from '@/components/ReviewBox';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik', bidding: 'Licitálható', accepted: 'Elfogadva',
@@ -436,6 +437,17 @@ export default function FuvarReszletek() {
             Erre a fuvarra vita van nyitva. Az admin felülvizsgálja a helyzetet, és döntést hoz.
             Az értesítések között követheted az állapotot.
           </p>
+        </div>
+      )}
+
+      {/* Értékelés — delivered / completed állapotban */}
+      {['delivered', 'completed'].includes(job.status) && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h2 style={{ marginTop: 0 }}>⭐ Értékeld a sofőrt</h2>
+          <p className="muted" style={{ marginBottom: 12 }}>
+            Hogyan teljesített a sofőr? Kattints a csillagokra és írd meg a véleményed.
+          </p>
+          <ReviewBox entityKey="job_id" entityId={id} onDone={loadAll} />
         </div>
       )}
 

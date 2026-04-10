@@ -205,6 +205,18 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ reason }) },
     ),
 
+  // ---------- Reviews ----------
+
+  submitReview: (body: { job_id?: string; booking_id?: string; stars: number; comment?: string }) =>
+    request<any>('/reviews', { method: 'POST', body: JSON.stringify(body) }),
+
+  getReviews: (params: { job_id?: string; booking_id?: string; user_id?: string }) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => !!v)) as Record<string, string>,
+    ).toString();
+    return request<any[]>(`/reviews?${qs}`);
+  },
+
   // ---------- Disputes ----------
 
   openDispute: (body: { job_id?: string; booking_id?: string; description: string; evidence_url?: string }) =>
