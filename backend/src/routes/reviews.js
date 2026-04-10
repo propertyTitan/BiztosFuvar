@@ -85,9 +85,9 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
     try {
       const { rows } = await db.query(
         `INSERT INTO reviews (job_id, booking_id, reviewer_id, reviewee_id, stars, rating, comment)
-         VALUES ($1, $2, $3, $4, $5, $5, $6)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
-        [job_id || null, booking_id || null, req.user.sub, revieweeId, stars, comment || null],
+        [job_id || null, booking_id || null, req.user.sub, revieweeId, stars, stars, comment || null],
       );
       review = rows[0];
     } catch (insertErr) {
@@ -188,8 +188,8 @@ router.post('/jobs/:jobId/reviews', authRequired, writeRateLimit, async (req, re
   try {
     const { rows } = await db.query(
       `INSERT INTO reviews (job_id, reviewer_id, reviewee_id, stars, rating, comment)
-       VALUES ($1,$2,$3,$4,$4,$5) RETURNING *`,
-      [job_id, req.user.sub, revieweeId, stars, comment || null],
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [job_id, req.user.sub, revieweeId, stars, stars, comment || null],
     );
     await recalcRating(revieweeId);
     res.status(201).json(rows[0]);
