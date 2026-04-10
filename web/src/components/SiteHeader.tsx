@@ -237,7 +237,7 @@ export default function SiteHeader() {
                     <DropdownItem href="/sofor/sajat-fuvarok" icon="🚛" label={t('nav.myJobs')} onClick={() => setMenuOpen(false)} />
                     <DropdownItem href="/dashboard/foglalasaim" icon="📦" label={t('nav.myBookings')} onClick={() => setMenuOpen(false)} />
                     <DropdownItem href="/hirdeteseim" icon="📋" label={t('nav.myListings')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/licitjeim" icon="🏷️" label="Licitjeim" onClick={() => setMenuOpen(false)} />
+                    <DropdownItem href="/sofor/licitjeim" icon="🏷️" label="Licitjeim" onClick={() => setMenuOpen(false)} />
                     <DropdownItem href="/ai-chat" icon="🤖" label={t('nav.aiAssistant')} onClick={() => setMenuOpen(false)} />
                     {user.role === 'admin' && (
                       <DropdownItem href="/admin" icon="🛡️" label="Admin" onClick={() => setMenuOpen(false)} />
