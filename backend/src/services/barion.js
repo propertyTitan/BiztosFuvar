@@ -41,27 +41,32 @@ async function barionFetch(path, body) {
   return json;
 }
 
+// Támogatott valuták — a Barion EU licensszel HUF-ot és EUR-t is kezel.
+const SUPPORTED_CURRENCIES = ['HUF', 'EUR'];
+const CURRENCY_LOCALE = { HUF: 'hu-HU', EUR: 'en-EU' };
+
 /**
  * Foglalás indítása – a feladó a visszakapott `gatewayUrl`-en fizet.
- * A teljes összeget egyetlen tranzakcióban foglaljuk le, a SPLIT csak
- * a `finishReservation` során történik (akkor már ismerjük a sofőrt).
  *
  * @param {object} p
  * @param {string} p.jobId
- * @param {number} p.totalHuf
+ * @param {number} p.amount        – összeg (a currency-ben)
+ * @param {string} [p.currency='HUF'] – 'HUF' | 'EUR'
  * @param {string} p.shipperEmail
- * @param {string} [p.carrierEmail]  – opcionálisan már ismert
+ * @param {string} [p.carrierEmail]
  */
-async function reservePayment({ jobId, totalHuf, shipperEmail, carrierEmail }) {
+async function reservePayment({ jobId, amount, totalHuf, shipperEmail, carrierEmail, currency = 'HUF' }) {
+  // Backward compat: ha a hívó még totalHuf-ot küld, azt használjuk
+  const total = amount || totalHuf;
+  const cur = SUPPORTED_CURRENCIES.includes(currency) ? currency : 'HUF';
+
   if (isStub()) {
-    // STUB módban egy "stub:" URI-t adunk vissza, amit a frontend felismer,
-    // és a saját in-app `/fizetes-stub` oldalára navigál. Így a felhasználó
-    // ugyanazt a "van Barion gomb" élményt kapja, de nem zavar be élesben.
     return {
       paymentId: `stub-${jobId}`,
       gatewayUrl: `stub:payment/${jobId}`,
       stub: true,
-      message: 'Barion STUB – nincs BARION_POS_KEY beállítva.',
+      currency: cur,
+      message: `Barion STUB – ${total} ${cur} foglalás.`,
     };
   }
 
@@ -73,25 +78,25 @@ async function reservePayment({ jobId, totalHuf, shipperEmail, carrierEmail }) {
     FundingSources: ['All'],
     PaymentRequestId: `bf-${jobId}-${Date.now()}`,
     PayerHint: shipperEmail,
-    Currency: 'HUF',
-    Locale: 'hu-HU',
+    Currency: cur,
+    Locale: CURRENCY_LOCALE[cur] || 'hu-HU',
     OrderNumber: `JOB-${jobId.substring(0, 8)}`,
     RedirectUrl: `${process.env.WEB_BASE_URL || 'http://localhost:3000'}/dashboard/fuvar/${jobId}`,
     CallbackUrl: `${process.env.API_BASE_URL || 'http://localhost:4000'}/payments/barion/callback`,
     Transactions: [
       {
         POSTransactionId: `bf-${jobId}-reserve`,
-        Payee: PLATFORM_PAYEE, // a foglalás kezdetben a platformra érkezik
-        Total: totalHuf,
-        Comment: `GoFuvar fuvar ${jobId}`,
+        Payee: PLATFORM_PAYEE,
+        Total: total,
+        Comment: `GoFuvar fuvar ${jobId} (${cur})`,
         Items: [
           {
-            Name: 'Fuvar foglalás',
-            Description: `GoFuvar fuvar #${jobId}`,
+            Name: cur === 'EUR' ? 'Transport reservation' : 'Fuvar foglalás',
+            Description: `GoFuvar #${jobId}`,
             Quantity: 1,
-            Unit: 'db',
-            UnitPrice: totalHuf,
-            ItemTotal: totalHuf,
+            Unit: cur === 'EUR' ? 'pcs' : 'db',
+            UnitPrice: total,
+            ItemTotal: total,
           },
         ],
       },
@@ -237,5 +242,6 @@ module.exports = {
   refundPayment,
   computeCancellationSettlement,
   COMMISSION_PCT,
+  SUPPORTED_CURRENCIES,
   isStub,
 };

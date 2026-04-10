@@ -11,12 +11,14 @@ import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { getSocket } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
+import { useTranslation, formatPrice } from '@/lib/i18n';
 
 type ListedJob = Job & { distance_to_pickup_km?: number };
 type ViewMode = 'list' | 'map';
 
 export default function SoforFuvarokLista() {
   const me = useCurrentUser();
+  const { t } = useTranslation();
   const [jobs, setJobs] = useState<ListedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,7 +84,7 @@ export default function SoforFuvarokLista() {
     <div>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div>
-          <h1 style={{ marginBottom: 4 }}>Elérhető fuvarok</h1>
+          <h1 style={{ marginBottom: 4 }}>{t('jobs.title')}</h1>
           <p className="muted" style={{ margin: 0 }}>
             {here
               ? 'Közelség szerint rendezve a jelenlegi pozíciódhoz'

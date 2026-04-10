@@ -1,0 +1,201 @@
+{
+  "common": {
+    "loading": "Betöltés…",
+    "save": "Mentés",
+    "cancel": "Mégse",
+    "delete": "Törlés",
+    "edit": "Szerkesztés",
+    "back": "Vissza",
+    "refresh": "Frissítés",
+    "send": "Küldés",
+    "search": "Keresés",
+    "filter": "Szűrés",
+    "clearFilters": "Szűrők törlése",
+    "showFilters": "Szűrők mutatása",
+    "hideFilters": "Szűrők elrejtése",
+    "viewList": "Lista",
+    "viewMap": "Térkép",
+    "error": "Hiba",
+    "success": "Sikeres",
+    "confirm": "Megerősítés",
+    "noResults": "Nincs találat.",
+    "currency": {
+      "HUF": "Ft",
+      "EUR": "€"
+    }
+  },
+  "auth": {
+    "login": "Belépés",
+    "register": "Regisztráció",
+    "logout": "Kijelentkezés",
+    "email": "Email",
+    "password": "Jelszó",
+    "fullName": "Teljes név",
+    "phone": "Telefon",
+    "loginFailed": "Hibás email vagy jelszó",
+    "tooManyAttempts": "Túl sok belépési kísérlet. Kérlek várj egy percet."
+  },
+  "nav": {
+    "home": "Főoldal",
+    "biddableJobs": "Licitálható fuvarok",
+    "fixedRoutes": "Fix áras fuvarok",
+    "myJobs": "Saját fuvarjaim",
+    "myBookings": "Foglalásaim",
+    "myListings": "Saját hirdetéseim",
+    "notifications": "Értesítések",
+    "profile": "Profil",
+    "aiAssistant": "AI segéd",
+    "admin": "Admin"
+  },
+  "jobs": {
+    "title": "Elérhető fuvarok",
+    "newJob": "Új fuvar feladása",
+    "jobDetails": "Fuvar részletek",
+    "suggestedPrice": "Javasolt ár",
+    "acceptedPrice": "Elfogadott ár",
+    "pickup": "Felvétel",
+    "dropoff": "Lerakodás",
+    "distance": "Távolság",
+    "weight": "Súly",
+    "dimensions": "Méretek",
+    "volume": "Térfogat",
+    "description": "Leírás",
+    "ownPost": "SAJÁT POSZT",
+    "ownPostHint": "Ezt te adtad fel — nem licitálhatsz rá.",
+    "noJobs": "Jelenleg nincs licitálható fuvar a közelben.",
+    "photos": "Fotók a csomagról",
+    "category": {
+      "standard": "Standard fuvar",
+      "urgent_tow": "Autómentés",
+      "international_transit": "Nemzetközi tranzit"
+    }
+  },
+  "bids": {
+    "placeBid": "Licit feladása",
+    "bidAmount": "Ajánlott ár",
+    "sendBid": "Licit elküldése",
+    "bidSent": "Licit elküldve",
+    "acceptBid": "Elfogadom",
+    "myBids": "Licitjeim",
+    "noBids": "Még nincs licit."
+  },
+  "routes": {
+    "title": "Útba eső sofőrök",
+    "newRoute": "Új útvonal hirdetés",
+    "departure": "Indulás",
+    "destination": "Cél",
+    "departureTime": "Indulás időpontja",
+    "vehicle": "Jármű",
+    "bookSeat": "Helyet foglalok",
+    "noRoutes": "Nincs nyitott útvonal.",
+    "international": "Nemzetközi",
+    "returnTrip": "Visszaút",
+    "availableCapacity": "Szabad kapacitás"
+  },
+  "payment": {
+    "payWithBarion": "Fizetés Barionnal",
+    "paid": "FIZETVE",
+    "awaitingPayment": "Fizetésre vár",
+    "paymentStarting": "Fizetés indítása…",
+    "paymentSuccess": "Fizetés sikeres",
+    "cancellation": "Lemondás",
+    "cancellationFee": "Lemondási díj",
+    "refund": "Visszatérítés"
+  },
+  "delivery": {
+    "code": "Átvételi kód",
+    "codeHint": "Add át ezt a 6 jegyű kódot a sofőrnek az átvételkor. A sofőr ezzel zárja le a fuvart — nélküle nem kap fizetést.",
+    "startJob": "FUVAR INDÍTÁSA",
+    "startJobSub": "Felvételi fotó készítése",
+    "closeJob": "FUVAR LEZÁRÁSA",
+    "closeJobSub": "Lerakodási fotó + 6 jegyű átvételi kód",
+    "delivered": "Kézbesítve",
+    "jobStarted": "Fuvar elindítva!"
+  },
+  "chat": {
+    "title": "Chat a fuvarpartnerrel",
+    "placeholder": "Írj üzenetet…",
+    "noMessages": "Még nincs üzenet. Írj először!",
+    "newMessage": "Új üzenet"
+  },
+  "review": {
+    "title": "Értékelés",
+    "rateDriver": "Értékeld a sofőrt",
+    "rateShipper": "Értékeld a feladót",
+    "stars": "{count} csillag",
+    "submitReview": "Értékelés küldése",
+    "reviewSent": "Köszönjük az értékelésed!",
+    "alreadyReviewed": "Már értékelted ezt a fuvart.",
+    "labels": {
+      "1": "Gyenge",
+      "2": "Elfogadható",
+      "3": "Átlagos",
+      "4": "Jó",
+      "5": "Kiváló"
+    }
+  },
+  "profile": {
+    "title": "Profil",
+    "editProfile": "Profil szerkesztése",
+    "personalInfo": "Személyes adatok",
+    "vehicleSection": "Jármű (opcionális)",
+    "vehicleHint": "Ha sofőrként is tevékenykedsz, add meg a járműved adatait.",
+    "bio": "Bemutatkozás",
+    "memberSince": "Tag {date} óta",
+    "completedJobs": "Sikeres fuvar",
+    "rating": "Értékelés",
+    "reviews": "Vélemény",
+    "viewProfile": "profil",
+    "changePhoto": "Profilkép módosítása",
+    "taxId": "Adószám",
+    "companyName": "Cégnév",
+    "billingAddress": "Számlázási cím"
+  },
+  "notifications": {
+    "title": "Értesítések",
+    "markAllRead": "Összes olvasva",
+    "noNotifications": "Még nincs értesítésed.",
+    "newBid": "Új licit érkezett",
+    "bidAccepted": "Elfogadták a licitedet!",
+    "bookingConfirmed": "A sofőr megerősítette a foglalásod!",
+    "paymentReceived": "Kifizették a fuvarodat!",
+    "packageDelivered": "A csomagod megérkezett!",
+    "newReview": "Új értékelés!"
+  },
+  "dispute": {
+    "title": "Vitás eset",
+    "openDispute": "Vitás esetet nyitok",
+    "problemQuestion": "Probléma van a fuvarral?",
+    "problemHint": "Ha a csomagod sérült, nem érkezett meg, vagy egyéb gond van — indíts egy vitás esetet.",
+    "inProgress": "Vitás eset folyamatban"
+  },
+  "landing": {
+    "tagline": "Magyarország közösségi fuvartőzsdéje",
+    "heroTitle": "Csomagod van?",
+    "heroHighlight": "Sofőröd is lesz.",
+    "heroSub": "Hirdess meg egy fuvart és a sofőrök licitálnak rá — vagy foglalj helyet egy útba eső sofőr fix áras útvonalán.",
+    "cta": "Regisztráció / Belépés",
+    "ctaFree": "Ingyenes regisztráció · Nincs havidíj",
+    "howItWorks": "Hogyan működik?",
+    "step1Title": "Hirdesd meg a fuvart",
+    "step2Title": "Válassz sofőrt",
+    "step3Title": "Kövesd és vedd át",
+    "features": "Minden, ami a biztonságos fuvarhoz kell",
+    "twoRoles": "Két szerepkör — egy platform",
+    "startToday": "Kezdj el szállítani ma!"
+  },
+  "sos": {
+    "button": "Autómentés kérek!",
+    "alertTitle": "🚨 Autómentés",
+    "alertNearby": "{{distance}} km-re tőled!",
+    "urgent": "Sürgős"
+  },
+  "map": {
+    "legendPickup": "Felvétel",
+    "legendDropoff": "Lerakodás",
+    "legendOwnPost": "Saját poszt",
+    "legendStart": "Indulás",
+    "legendEnd": "Cél",
+    "clickForDetails": "Koppints a részletekhez"
+  }
+}

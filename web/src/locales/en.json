@@ -1,0 +1,201 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "refresh": "Refresh",
+    "send": "Send",
+    "search": "Search",
+    "filter": "Filter",
+    "clearFilters": "Clear filters",
+    "showFilters": "Show filters",
+    "hideFilters": "Hide filters",
+    "viewList": "List",
+    "viewMap": "Map",
+    "error": "Error",
+    "success": "Success",
+    "confirm": "Confirm",
+    "noResults": "No results found.",
+    "currency": {
+      "HUF": "Ft",
+      "EUR": "€"
+    }
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Register",
+    "logout": "Log out",
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full name",
+    "phone": "Phone",
+    "loginFailed": "Invalid email or password",
+    "tooManyAttempts": "Too many attempts. Please wait a minute."
+  },
+  "nav": {
+    "home": "Home",
+    "biddableJobs": "Available jobs",
+    "fixedRoutes": "Fixed-price routes",
+    "myJobs": "My deliveries",
+    "myBookings": "My bookings",
+    "myListings": "My listings",
+    "notifications": "Notifications",
+    "profile": "Profile",
+    "aiAssistant": "AI assistant",
+    "admin": "Admin"
+  },
+  "jobs": {
+    "title": "Available jobs",
+    "newJob": "Post a new job",
+    "jobDetails": "Job details",
+    "suggestedPrice": "Suggested price",
+    "acceptedPrice": "Accepted price",
+    "pickup": "Pickup",
+    "dropoff": "Drop-off",
+    "distance": "Distance",
+    "weight": "Weight",
+    "dimensions": "Dimensions",
+    "volume": "Volume",
+    "description": "Description",
+    "ownPost": "YOUR POST",
+    "ownPostHint": "This is your own listing — you can't bid on it.",
+    "noJobs": "No available jobs nearby.",
+    "photos": "Package photos",
+    "category": {
+      "standard": "Standard delivery",
+      "urgent_tow": "Roadside assistance",
+      "international_transit": "International transit"
+    }
+  },
+  "bids": {
+    "placeBid": "Place a bid",
+    "bidAmount": "Your offer",
+    "sendBid": "Submit bid",
+    "bidSent": "Bid submitted",
+    "acceptBid": "Accept",
+    "myBids": "My bids",
+    "noBids": "No bids yet."
+  },
+  "routes": {
+    "title": "Drivers on your route",
+    "newRoute": "New route listing",
+    "departure": "Departure",
+    "destination": "Destination",
+    "departureTime": "Departure time",
+    "vehicle": "Vehicle",
+    "bookSeat": "Book a spot",
+    "noRoutes": "No open routes available.",
+    "international": "International",
+    "returnTrip": "Return trip",
+    "availableCapacity": "Available capacity"
+  },
+  "payment": {
+    "payWithBarion": "Pay with Barion",
+    "paid": "PAID",
+    "awaitingPayment": "Awaiting payment",
+    "paymentStarting": "Starting payment…",
+    "paymentSuccess": "Payment successful",
+    "cancellation": "Cancellation",
+    "cancellationFee": "Cancellation fee",
+    "refund": "Refund"
+  },
+  "delivery": {
+    "code": "Delivery code",
+    "codeHint": "Give this 6-digit code to the driver at handover. The driver needs it to close the delivery — no code, no payment.",
+    "startJob": "START DELIVERY",
+    "startJobSub": "Take a pickup photo",
+    "closeJob": "CLOSE DELIVERY",
+    "closeJobSub": "Drop-off photo + 6-digit code",
+    "delivered": "Delivered",
+    "jobStarted": "Delivery started!"
+  },
+  "chat": {
+    "title": "Chat with your transport partner",
+    "placeholder": "Type a message…",
+    "noMessages": "No messages yet. Say hello!",
+    "newMessage": "New message"
+  },
+  "review": {
+    "title": "Review",
+    "rateDriver": "Rate the driver",
+    "rateShipper": "Rate the shipper",
+    "stars": "{count} stars",
+    "submitReview": "Submit review",
+    "reviewSent": "Thanks for your review!",
+    "alreadyReviewed": "You've already reviewed this delivery.",
+    "labels": {
+      "1": "Poor",
+      "2": "Fair",
+      "3": "Average",
+      "4": "Good",
+      "5": "Excellent"
+    }
+  },
+  "profile": {
+    "title": "Profile",
+    "editProfile": "Edit profile",
+    "personalInfo": "Personal information",
+    "vehicleSection": "Vehicle (optional)",
+    "vehicleHint": "If you're also a driver, add your vehicle details.",
+    "bio": "About me",
+    "memberSince": "Member since {date}",
+    "completedJobs": "Completed deliveries",
+    "rating": "Rating",
+    "reviews": "Reviews",
+    "viewProfile": "profile",
+    "changePhoto": "Change photo",
+    "taxId": "Tax ID / VAT number",
+    "companyName": "Company name",
+    "billingAddress": "Billing address"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "noNotifications": "No notifications yet.",
+    "newBid": "New bid received",
+    "bidAccepted": "Your bid was accepted!",
+    "bookingConfirmed": "The driver confirmed your booking!",
+    "paymentReceived": "Your delivery was paid!",
+    "packageDelivered": "Your package has been delivered!",
+    "newReview": "New review!"
+  },
+  "dispute": {
+    "title": "Dispute",
+    "openDispute": "Open a dispute",
+    "problemQuestion": "Problem with the delivery?",
+    "problemHint": "If your package is damaged, didn't arrive, or there's any other issue — open a dispute.",
+    "inProgress": "Dispute in progress"
+  },
+  "landing": {
+    "tagline": "Europe's community transport marketplace",
+    "heroTitle": "Got a package?",
+    "heroHighlight": "We'll find your driver.",
+    "heroSub": "Post a delivery job and drivers bid on it — or book a spot on a driver's fixed-price route.",
+    "cta": "Sign up / Log in",
+    "ctaFree": "Free to join · No monthly fees",
+    "howItWorks": "How it works",
+    "step1Title": "Post your delivery",
+    "step2Title": "Choose a driver",
+    "step3Title": "Track and receive",
+    "features": "Everything you need for secure transport",
+    "twoRoles": "Two roles — one platform",
+    "startToday": "Start shipping today!"
+  },
+  "sos": {
+    "button": "I need a tow truck!",
+    "alertTitle": "🚨 Roadside assistance",
+    "alertNearby": "{{distance}} km away!",
+    "urgent": "Urgent"
+  },
+  "map": {
+    "legendPickup": "Pickup",
+    "legendDropoff": "Drop-off",
+    "legendOwnPost": "Your post",
+    "legendStart": "Start",
+    "legendEnd": "End",
+    "clickForDetails": "Tap for details"
+  }
+}

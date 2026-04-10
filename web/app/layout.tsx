@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
 import AiChatWidget from '@/components/AiChatWidget';
 import { ToastProvider } from '@/components/ToastProvider';
+import { I18nProvider } from '@/lib/i18n';
 
 export const metadata: Metadata = {
   title: 'GoFuvar – Magyarország közösségi fuvartőzsdéje',
@@ -31,12 +32,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="hu">
       <body>
+        <I18nProvider>
         <ToastProvider>
           <SiteHeader />
           <main className="site-main">{children}</main>
           <footer className="site-footer">© GoFuvar – Bizalom. Fotó. Kód. Letét.</footer>
           <AiChatWidget />
         </ToastProvider>
+        </I18nProvider>
       </body>
     </html>
   );

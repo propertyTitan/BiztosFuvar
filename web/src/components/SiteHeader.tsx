@@ -17,11 +17,13 @@ import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
 import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
+import { useTranslation, SUPPORTED_LOCALES } from '@/lib/i18n';
 
 export default function SiteHeader() {
   const user = useCurrentUser();
   const router = useRouter();
   const toast = useToast();
+  const { t, locale, setLocale } = useTranslation();
   const [unread, setUnread] = useState(0);
 
   // Értesítés számláló + valós idejű BUBORÉK (toast) a bejövő értesítésekhez.
@@ -75,16 +77,39 @@ export default function SiteHeader() {
         <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 40, width: 'auto', display: 'block' }} />
       </Link>
       <nav>
-        {!user && <Link href="/bejelentkezes">Belépés</Link>}
+        {/* 🌐 Nyelvváltó */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          {SUPPORTED_LOCALES.map((l) => (
+            <button
+              key={l.code}
+              type="button"
+              onClick={() => setLocale(l.code)}
+              style={{
+                background: locale === l.code ? 'rgba(255,255,255,0.25)' : 'transparent',
+                border: 'none',
+                borderRadius: 4,
+                padding: '2px 6px',
+                cursor: 'pointer',
+                fontSize: 16,
+                opacity: locale === l.code ? 1 : 0.6,
+              }}
+              title={l.label}
+            >
+              {l.flag}
+            </button>
+          ))}
+        </div>
+
+        {!user && <Link href="/bejelentkezes">{t('auth.login')}</Link>}
 
         {user && (
           <>
-            <Link href="/">Főoldal</Link>
-            <Link href="/sofor/fuvarok">Licitálható fuvarok</Link>
-            <Link href="/dashboard/utvonalak">Fix áras fuvarok</Link>
-            <Link href="/sofor/sajat-fuvarok">Saját fuvarjaim</Link>
-            <Link href="/dashboard/foglalasaim">Foglalásaim</Link>
-            <Link href="/hirdeteseim">Saját hirdetéseim</Link>
+            <Link href="/">{t('nav.home')}</Link>
+            <Link href="/sofor/fuvarok">{t('nav.biddableJobs')}</Link>
+            <Link href="/dashboard/utvonalak">{t('nav.fixedRoutes')}</Link>
+            <Link href="/sofor/sajat-fuvarok">{t('nav.myJobs')}</Link>
+            <Link href="/dashboard/foglalasaim">{t('nav.myBookings')}</Link>
+            <Link href="/hirdeteseim">{t('nav.myListings')}</Link>
           </>
         )}
 
@@ -95,7 +120,7 @@ export default function SiteHeader() {
             <Link
               href="/ertesitesek"
               style={{ position: 'relative', marginLeft: 16 }}
-              title="Értesítések"
+              title={t('nav.notifications')}
             >
               🔔
               {unread > 0 && (
