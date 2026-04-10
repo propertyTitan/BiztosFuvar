@@ -290,6 +290,56 @@ async function sendBookingRejectedEmail({ to, shipperName, routeTitle }) {
   });
 }
 
+/**
+ * Lemondás értesítés — a másik fél kapja meg az infót.
+ * @param {object} opts
+ * @param {string} opts.to – címzett email
+ * @param {string} opts.recipientName – címzett neve
+ * @param {string} opts.jobTitle – a fuvar/útvonal címe
+ * @param {'shipper'|'carrier'} opts.cancelledByRole – ki mondta le
+ * @param {number} opts.refundHuf – a feladónak visszautalt összeg
+ * @param {number} opts.feeHuf – a levont lemondási díj
+ * @param {boolean} opts.recipientIsShipper – a címzett a feladó-e
+ */
+async function sendCancellationEmail({
+  to,
+  recipientName,
+  jobTitle,
+  cancelledByRole,
+  refundHuf,
+  feeHuf,
+  recipientIsShipper,
+}) {
+  const whoCancelled = cancelledByRole === 'shipper' ? 'a feladó' : 'a sofőr';
+  const heading = '❌ Fuvar lemondva';
+  let bodyHtml = `
+    <p>Szia ${recipientName || 'GoFuvar felhasználó'}!</p>
+    <p>Az alábbi fuvart <strong>${whoCancelled}</strong> lemondta:
+    <strong>"${jobTitle}"</strong>.</p>
+  `;
+  if (recipientIsShipper && refundHuf > 0) {
+    bodyHtml += `
+      <p>A Barion letétből <strong>${formatHuf(refundHuf)} Ft</strong> visszatérül a számládra
+      a következő napokban.</p>
+    `;
+    if (feeHuf > 0) {
+      bodyHtml += `
+        <p class="muted">Lemondási díj: ${formatHuf(feeHuf)} Ft (10%, max 1000 Ft) – ez a szabályzatunk szerinti díj, amit levontunk a visszatérítésből.</p>
+      `;
+    }
+  }
+  if (!recipientIsShipper) {
+    bodyHtml += `
+      <p>Az útvonaladon/licites fuvaron lévő foglalás visszavonásra került. Nincs további teendőd.</p>
+    `;
+  }
+  return sendEmail({
+    to,
+    subject: `Lemondva: ${jobTitle}`,
+    html: wrapHtml({ heading, bodyHtml }),
+  });
+}
+
 module.exports = {
   sendEmail,
   sendBidReceivedEmail,
@@ -299,5 +349,6 @@ module.exports = {
   sendBookingConfirmedEmail,
   sendBookingPaidEmail,
   sendBookingRejectedEmail,
+  sendCancellationEmail,
   isStub,
 };

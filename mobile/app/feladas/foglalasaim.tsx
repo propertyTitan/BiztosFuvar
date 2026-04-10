@@ -52,6 +52,33 @@ export default function Foglalasaim() {
     }
   }
 
+  function cancelBookingPress(b: any) {
+    const wasPaid = !!b.paid_at;
+    const message = wasPaid
+      ? 'Biztosan lemondod a foglalást? A 10% lemondási díjat (max 1000 Ft) levonjuk.'
+      : 'Biztosan lemondod a foglalást? Még nem volt fizetés, díj sincs.';
+    Alert.alert('Lemondás', message, [
+      { text: 'Mégse' },
+      {
+        text: 'Lemondom',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await api.cancelRouteBooking(b.id);
+            const msg =
+              res.refund_huf > 0
+                ? `Visszatérítés: ${res.refund_huf.toLocaleString('hu-HU')} Ft${res.cancellation_fee_huf > 0 ? ` (díj: ${res.cancellation_fee_huf.toLocaleString('hu-HU')} Ft)` : ''}.`
+                : undefined;
+            toast.success('Foglalás lemondva', msg);
+            await load();
+          } catch (e: any) {
+            toast.error('Lemondás sikertelen', e.message);
+          }
+        },
+      },
+    ]);
+  }
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -163,6 +190,13 @@ export default function Foglalasaim() {
               </Text>
             </Pressable>
           )}
+
+          {/* Lemondás gomb — csak még lemondható állapotban */}
+          {['pending', 'confirmed'].includes(b.status) && (
+            <Pressable style={styles.cancelBookingBtn} onPress={() => cancelBookingPress(b)}>
+              <Text style={styles.cancelBookingBtnText}>❌ Lemondás</Text>
+            </Pressable>
+          )}
         </View>
       )}
     />
@@ -236,6 +270,16 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   paidText: { color: '#166534', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 },
+
+  cancelBookingBtn: {
+    borderWidth: 1,
+    borderColor: colors.danger,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  cancelBookingBtnText: { color: colors.danger, fontWeight: '700', fontSize: 12 },
   stubNote: {
     marginTop: spacing.sm,
     color: colors.textMuted,

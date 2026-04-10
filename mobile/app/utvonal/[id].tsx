@@ -75,6 +75,29 @@ export default function SoforUtvonalReszletek() {
     }
   }
 
+  function cancelBookingPress(b: any) {
+    const wasPaid = !!b.paid_at;
+    const message = wasPaid
+      ? 'Biztosan lemondod ezt a már elfogadott foglalást? A teljes fuvardíj visszajár a feladónak.'
+      : 'Biztosan lemondod ezt a foglalást?';
+    Alert.alert('Lemondás', message, [
+      { text: 'Mégse' },
+      {
+        text: 'Lemondom',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.cancelRouteBooking(b.id);
+            toast.info('Foglalás lemondva', 'A feladó visszakapja a teljes díjat.');
+            await load();
+          } catch (e: any) {
+            toast.error('Lemondás sikertelen', e.message);
+          }
+        },
+      },
+    ]);
+  }
+
   async function rejectBooking(bookingId: string) {
     Alert.alert('Elutasítás', 'Biztosan elutasítod ezt a foglalást?', [
       { text: 'Mégse' },
@@ -228,6 +251,12 @@ export default function SoforUtvonalReszletek() {
               </Pressable>
             </View>
           )}
+          {/* Lemondás már elfogadott foglalásra (sofőri 100% refund) */}
+          {b.status === 'confirmed' && (
+            <Pressable style={styles.cancelBookingBtn} onPress={() => cancelBookingPress(b)}>
+              <Text style={styles.cancelBookingBtnText}>❌ Lemondás</Text>
+            </Pressable>
+          )}
         </View>
       ))}
     </ScrollView>
@@ -357,4 +386,16 @@ const styles = StyleSheet.create({
     borderColor: colors.danger,
   },
   rejectBtnText: { color: colors.danger, fontWeight: '700' },
+
+  cancelBookingBtn: {
+    borderWidth: 1,
+    borderColor: colors.danger,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+  },
+  cancelBookingBtnText: { color: colors.danger, fontWeight: '700', fontSize: 12 },
 });

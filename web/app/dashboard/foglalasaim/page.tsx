@@ -57,6 +57,26 @@ export default function FoglalasaimOldal() {
     }
   }
 
+  async function cancelBooking(b: RouteBooking) {
+    const wasPaid = !!b.paid_at;
+    const warning = wasPaid
+      ? 'Biztosan lemondod a foglalást? A 10% lemondási díjat (max 1000 Ft) levonjuk a visszatérítésből.'
+      : 'Biztosan lemondod a foglalást? Még nem történt fizetés, díj sincs.';
+    if (!window.confirm(warning)) return;
+    const reason = window.prompt('Indok (opcionális):') || '';
+    try {
+      const res = await api.cancelRouteBooking(b.id, reason);
+      const msg =
+        res.refund_huf > 0
+          ? `Foglalás lemondva. Visszatérítés: ${res.refund_huf.toLocaleString('hu-HU')} Ft${res.cancellation_fee_huf > 0 ? ` (díj: ${res.cancellation_fee_huf.toLocaleString('hu-HU')} Ft)` : ''}.`
+          : 'Foglalás lemondva.';
+      toast.success('Lemondás kész', msg);
+      await load();
+    } catch (e: any) {
+      toast.error('Lemondás sikertelen', e.message);
+    }
+  }
+
   const load = useCallback(async () => {
     try {
       const data = await api.myRouteBookings();
@@ -199,6 +219,28 @@ export default function FoglalasaimOldal() {
               >
                 {payingId === b.id ? 'Fizetés indítása…' : '💳 Fizetés Barionnal'}
               </button>
+            )}
+
+            {/* Lemondás gomb — csak még lemondható állapotban */}
+            {['pending', 'confirmed'].includes(b.status) && (
+              <div style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => cancelBooking(b)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--danger)',
+                    color: 'var(--danger)',
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  ❌ Lemondás
+                </button>
+              </div>
             )}
           </div>
         </div>

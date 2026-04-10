@@ -103,6 +103,34 @@ export default function FeladoiFuvarReszletek() {
     }
   }
 
+  function cancelJobPress() {
+    if (!job) return;
+    const wasPaid = !!job.paid_at;
+    const message = wasPaid
+      ? 'Biztosan lemondod a fuvart? A 10% lemondási díjat (max 1000 Ft) levonjuk a Barion visszatérítésből.'
+      : 'Biztosan lemondod a fuvart? Még nem volt fizetés, díj sincs.';
+    Alert.alert('Lemondás', message, [
+      { text: 'Mégse' },
+      {
+        text: 'Lemondom',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const res = await api.cancelJob(id!);
+            const msg =
+              res.refund_huf > 0
+                ? `Visszatérítés: ${res.refund_huf.toLocaleString('hu-HU')} Ft${res.cancellation_fee_huf > 0 ? ` (díj: ${res.cancellation_fee_huf.toLocaleString('hu-HU')} Ft)` : ''}.`
+                : undefined;
+            toast.success('Fuvar lemondva', msg);
+            await load();
+          } catch (e: any) {
+            toast.error('Lemondás sikertelen', e.message);
+          }
+        },
+      },
+    ]);
+  }
+
   if (!job) return <Text style={{ padding: 24 }}>Betöltés…</Text>;
 
   const listingPhotos = photos.filter((p) => p.kind === 'listing');
@@ -263,6 +291,27 @@ export default function FeladoiFuvarReszletek() {
           ) : null}
         </View>
       )}
+
+      {/* Lemondás gomb — még lemondható állapotban */}
+      {!['in_progress', 'delivered', 'completed', 'cancelled'].includes(job.status) && (
+        <Pressable style={styles.cancelBtn} onPress={cancelJobPress}>
+          <Text style={styles.cancelBtnText}>❌ Fuvar lemondása</Text>
+        </Pressable>
+      )}
+
+      {/* Lemondott állapot info */}
+      {job.status === 'cancelled' && (
+        <View style={styles.cancelledBox}>
+          <Text style={styles.cancelledTitle}>❌ Ez a fuvar le lett mondva.</Text>
+          {job.refund_huf > 0 && (
+            <Text style={styles.cancelledBody}>
+              Visszatérítve: {job.refund_huf.toLocaleString('hu-HU')} Ft
+              {job.cancellation_fee_huf > 0 &&
+                ` (díj: ${job.cancellation_fee_huf.toLocaleString('hu-HU')} Ft)`}
+            </Text>
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -373,4 +422,25 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   paidText: { color: '#166534', fontWeight: '800', fontSize: 15, letterSpacing: 0.5 },
+
+  cancelBtn: {
+    borderWidth: 1,
+    borderColor: colors.danger,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    marginTop: spacing.md,
+    marginBottom: spacing.md,
+  },
+  cancelBtnText: { color: colors.danger, fontWeight: '700', fontSize: 14 },
+  cancelledBox: {
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.md,
+  },
+  cancelledTitle: { color: '#7f1d1d', fontWeight: '800', fontSize: 14 },
+  cancelledBody: { color: '#7f1d1d', fontSize: 13, marginTop: 4 },
 });

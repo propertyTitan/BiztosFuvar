@@ -10,7 +10,7 @@ const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
-const { sendJobPaidEmail } = require('../services/email');
+const { sendJobPaidEmail, sendCancellationEmail } = require('../services/email');
 
 const router = express.Router();
 
@@ -368,6 +368,147 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
   });
 
   res.json({ ok: true, paid_at: paidAt });
+});
+
+// POST /jobs/:id/cancel
+//
+// Licites fuvar lemondása. Bárki hívhatja, aki érdekelt fél:
+//   - a feladó (shipper_id = me) VAGY
+//   - a kijelölt sofőr (carrier_id = me), ha már elfogadtuk a licitet.
+//
+// Szabályok:
+//   - Ha a fuvar már `in_progress`/`delivered`/`completed`/`cancelled` →
+//     nem lehet lemondani (későn érkezett).
+//   - Ha még nincs kifizetve, egyszerűen `status='cancelled'` + notif.
+//   - Ha ki van fizetve és a FELADÓ mondja le → 10% díj (max 1000 Ft),
+//     a maradék refund Barion-on keresztül.
+//   - Ha a SOFŐR mondja le → 100% refund a feladónak.
+router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
+  const { reason } = req.body || {};
+  const { rows } = await db.query(
+    `SELECT j.*,
+            s.full_name AS shipper_name, s.email AS shipper_email,
+            c.full_name AS carrier_name, c.email AS carrier_email,
+            e.barion_payment_id
+       FROM jobs j
+       JOIN users s ON s.id = j.shipper_id
+  LEFT JOIN users c ON c.id = j.carrier_id
+  LEFT JOIN escrow_transactions e ON e.job_id = j.id
+      WHERE j.id = $1`,
+    [req.params.id],
+  );
+  const j = rows[0];
+  if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
+
+  const iAmShipper = j.shipper_id === req.user.sub;
+  const iAmCarrier = j.carrier_id && j.carrier_id === req.user.sub;
+  if (!iAmShipper && !iAmCarrier) {
+    return res.status(403).json({ error: 'Nincs jogosultság a lemondáshoz' });
+  }
+
+  const blockedStatuses = ['in_progress', 'delivered', 'completed', 'cancelled'];
+  if (blockedStatuses.includes(j.status)) {
+    return res.status(409).json({
+      error:
+        j.status === 'cancelled'
+          ? 'Ez a fuvar már le van mondva.'
+          : `Ez a fuvar már nem mondható le (státusz: ${j.status}). Vitás esetben nyiss egy reklamációt.`,
+    });
+  }
+
+  const cancelledByRole = iAmShipper ? 'shipper' : 'carrier';
+  const paid = !!j.paid_at;
+  const total = j.accepted_price_huf || 0;
+  const { fee, refund } = barion.computeCancellationSettlement({
+    totalHuf: total,
+    paid,
+    cancelledByRole,
+  });
+
+  // Ha már volt fizetés és a sofőr már dolgozik rajta: Barion refund.
+  // STUB módban ez csak log, éles üzemben a Payment/Refund API.
+  if (paid && refund > 0 && j.barion_payment_id) {
+    try {
+      await barion.refundPayment({
+        paymentId: j.barion_payment_id,
+        jobId: j.id,
+        refundAmountHuf: refund,
+        reason: reason || `Fuvar lemondva (${cancelledByRole})`,
+      });
+    } catch (err) {
+      console.error('[barion] refund hiba:', err.message);
+      return res.status(502).json({ error: 'A visszatérítés sikertelen, próbáld később.' });
+    }
+  }
+
+  await db.query(
+    `UPDATE jobs
+        SET status = 'cancelled',
+            cancelled_at = NOW(),
+            cancelled_by = $1,
+            cancel_reason = $2,
+            cancellation_fee_huf = $3,
+            refund_huf = $4,
+            updated_at = NOW()
+      WHERE id = $5`,
+    [req.user.sub, reason || null, fee, refund, j.id],
+  );
+
+  // Notifikáció a másik félnek (in-app + email)
+  const otherUserId = iAmShipper ? j.carrier_id : j.shipper_id;
+  const otherEmail = iAmShipper ? j.carrier_email : j.shipper_email;
+  const otherName = iAmShipper ? j.carrier_name : j.shipper_name;
+  if (otherUserId) {
+    try {
+      await createNotification({
+        user_id: otherUserId,
+        type: 'job_cancelled',
+        title: '❌ Fuvar lemondva',
+        body: iAmShipper
+          ? `A feladó lemondta a(z) "${j.title}" fuvart.`
+          : `A sofőr lemondta a(z) "${j.title}" fuvart. A teljes fuvardíj visszajár.`,
+        link: `/dashboard/fuvar/${j.id}`,
+      });
+    } catch (e) {
+      console.warn('[notifications] job_cancelled hiba:', e.message);
+    }
+    if (otherEmail) {
+      setImmediate(() => {
+        sendCancellationEmail({
+          to: otherEmail,
+          recipientName: otherName,
+          jobTitle: j.title,
+          cancelledByRole,
+          refundHuf: refund,
+          feeHuf: fee,
+          recipientIsShipper: !iAmShipper, // a "másik" fél, szóval ha én sofőr vagyok, ő a feladó
+        }).catch((e) => console.warn('[email] job_cancelled hiba:', e.message));
+      });
+    }
+  }
+
+  // A user saját magának is kaphasson visszajelzést (pl. a feladó
+  // visszalátja mennyit kap vissza)
+  if (paid && iAmShipper && refund > 0) {
+    try {
+      await createNotification({
+        user_id: j.shipper_id,
+        type: 'refund_issued',
+        title: '💸 Visszatérítés folyamatban',
+        body: `${refund.toLocaleString('hu-HU')} Ft visszautalás indult${fee > 0 ? ` (${fee.toLocaleString('hu-HU')} Ft lemondási díj levonva)` : ''}.`,
+        link: `/hirdeteseim`,
+      });
+    } catch {}
+  }
+
+  realtime.emitGlobal('jobs:cancelled', { job_id: j.id, cancelled_by: cancelledByRole });
+
+  res.json({
+    ok: true,
+    status: 'cancelled',
+    cancellation_fee_huf: fee,
+    refund_huf: refund,
+  });
 });
 
 module.exports = router;

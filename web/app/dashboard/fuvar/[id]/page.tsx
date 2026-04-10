@@ -47,6 +47,27 @@ export default function FuvarReszletek() {
     }
   }
 
+  async function cancelJob() {
+    if (!job) return;
+    const wasPaid = !!job.paid_at;
+    const warning = wasPaid
+      ? 'Biztosan lemondod a fuvart? A 10% lemondási díjat (max 1000 Ft) levonjuk a Barion visszatérítésből, a maradék néhány napon belül visszakerül a kártyádra.'
+      : 'Biztosan lemondod a fuvart? Még nem történt fizetés, így díj sincs.';
+    if (!window.confirm(warning)) return;
+    const reason = window.prompt('Indok (opcionális):') || '';
+    try {
+      const res = await api.cancelJob(id, reason);
+      const msg =
+        res.refund_huf > 0
+          ? `Fuvar lemondva. Visszatérítés: ${res.refund_huf.toLocaleString('hu-HU')} Ft${res.cancellation_fee_huf > 0 ? ` (díj: ${res.cancellation_fee_huf.toLocaleString('hu-HU')} Ft)` : ''}.`
+          : 'Fuvar lemondva.';
+      toast.success('Lemondás kész', msg);
+      await loadAll();
+    } catch (e: any) {
+      toast.error('Lemondás sikertelen', e.message);
+    }
+  }
+
   async function loadAll() {
     try {
       const [j, b, p, e] = await Promise.all([
@@ -324,6 +345,56 @@ export default function FuvarReszletek() {
                 </button>
               ) : null}
             </>
+          )}
+
+          {/* Lemondás gomb — bárhol elérhető, ha a fuvar még lemondható */}
+          {!['in_progress', 'delivered', 'completed', 'cancelled'].includes(job.status) && (
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <button
+                type="button"
+                onClick={cancelJob}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--danger)',
+                  color: 'var(--danger)',
+                  padding: '6px 14px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                ❌ Fuvar lemondása
+              </button>
+              {job.paid_at && (
+                <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                  Lemondási díj: 10% (max 1000 Ft) — a maradék automatikusan visszajár.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Lemondott állapot info */}
+          {job.status === 'cancelled' && (
+            <div
+              style={{
+                marginTop: 16,
+                padding: 12,
+                background: '#fee2e2',
+                borderRadius: 8,
+                border: '1px solid #fca5a5',
+                fontSize: 13,
+              }}
+            >
+              <strong>❌ Ez a fuvar le lett mondva.</strong>
+              {(job as any).refund_huf > 0 && (
+                <div style={{ marginTop: 4 }}>
+                  Visszatérítve: {(job as any).refund_huf.toLocaleString('hu-HU')} Ft
+                  {(job as any).cancellation_fee_huf > 0 &&
+                    ` (díj: ${(job as any).cancellation_fee_huf.toLocaleString('hu-HU')} Ft)`}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

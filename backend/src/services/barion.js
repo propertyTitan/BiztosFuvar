@@ -181,10 +181,61 @@ async function cancelReservation({ paymentId, jobId }) {
   return barionFetch('/v2/Payment/CancelAuthorization', { PaymentId: paymentId });
 }
 
+/**
+ * Részleges visszatérítés — a lemondási flow-hoz használjuk, amikor
+ * a feladó a már kifizetett fuvart mondja le és 10% (max 1000 Ft)
+ * lemondási díjat levonunk a visszatérítésből. A refundAmount a
+ * TÉNYLEGESEN visszautalandó összeg Ft-ban.
+ *
+ * STUB módban csak logol. Éles Barion esetén a Payment/Refund API-t
+ * hívja (ez teszi lehetővé a részleges refund-ot, szemben a
+ * CancelAuthorization-val, ami mindig 100%).
+ */
+async function refundPayment({ paymentId, jobId, refundAmountHuf, reason }) {
+  if (isStub()) {
+    console.log(`[barion STUB] refund: ${refundAmountHuf} Ft (${reason || 'no reason'}) → payment ${paymentId}`);
+    return {
+      stub: true,
+      paymentId,
+      refund_huf: refundAmountHuf,
+      message: 'Barion STUB – visszatérítés szimulálva.',
+    };
+  }
+  return barionFetch('/v2/Payment/Refund', {
+    PaymentId: paymentId,
+    TransactionsToRefund: [
+      {
+        TransactionId: `bf-${jobId}-reserve`,
+        POSTransactionId: `bf-${jobId}-refund-${Date.now()}`,
+        AmountToRefund: refundAmountHuf,
+        Comment: reason || `GoFuvar lemondás – fuvar #${jobId}`,
+      },
+    ],
+  });
+}
+
+/**
+ * A GoFuvar lemondási díj-szabálya egy helyen:
+ *   - Ha még nem történt fizetés → díj = 0, refund = 0 (nincs pénz)
+ *   - Ha a SOFŐR mondja le → díj = 0, 100% refund (max szigorú a feladó felé)
+ *   - Ha a FELADÓ mondja le a már kifizetett fuvart → 10% díj (max 1000 Ft)
+ */
+function computeCancellationSettlement({ totalHuf, paid, cancelledByRole }) {
+  if (!paid || !totalHuf) return { fee: 0, refund: 0 };
+  if (cancelledByRole === 'carrier') return { fee: 0, refund: totalHuf };
+  // Feladó lemondás:
+  const rawFee = Math.round(totalHuf * 0.10);
+  const fee = Math.min(rawFee, 1000);
+  const refund = totalHuf - fee;
+  return { fee, refund };
+}
+
 module.exports = {
   reservePayment,
   finishReservation,
   cancelReservation,
+  refundPayment,
+  computeCancellationSettlement,
   COMMISSION_PCT,
   isStub,
 };

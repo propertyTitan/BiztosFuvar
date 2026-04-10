@@ -96,14 +96,21 @@ CREATE TABLE IF NOT EXISTS jobs (
     created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     paid_at              TIMESTAMPTZ,
-    delivered_at         TIMESTAMPTZ
+    delivered_at         TIMESTAMPTZ,
+    -- Lemondás audit
+    cancelled_at         TIMESTAMPTZ,
+    cancelled_by         UUID REFERENCES users(id) ON DELETE SET NULL,
+    cancel_reason        TEXT,
+    cancellation_fee_huf INTEGER NOT NULL DEFAULT 0,
+    refund_huf           INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_jobs_status     ON jobs(status);
-CREATE INDEX IF NOT EXISTS idx_jobs_shipper    ON jobs(shipper_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_carrier    ON jobs(carrier_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_pickup_geo ON jobs(pickup_lat, pickup_lng);
-CREATE INDEX IF NOT EXISTS idx_jobs_paid_at    ON jobs(paid_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_status        ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_shipper       ON jobs(shipper_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_carrier       ON jobs(carrier_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_pickup_geo    ON jobs(pickup_lat, pickup_lng);
+CREATE INDEX IF NOT EXISTS idx_jobs_paid_at       ON jobs(paid_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_cancelled_at  ON jobs(cancelled_at);
 
 -- ---------- Licitek (Bids) --------------------------------------------
 
@@ -263,13 +270,20 @@ CREATE TABLE IF NOT EXISTS route_bookings (
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     confirmed_at      TIMESTAMPTZ,
     paid_at           TIMESTAMPTZ,
-    delivered_at      TIMESTAMPTZ
+    delivered_at      TIMESTAMPTZ,
+    -- Lemondás audit
+    cancelled_at      TIMESTAMPTZ,
+    cancelled_by      UUID REFERENCES users(id) ON DELETE SET NULL,
+    cancel_reason     TEXT,
+    cancellation_fee_huf INTEGER NOT NULL DEFAULT 0,
+    refund_huf        INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_bookings_route   ON route_bookings(route_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_shipper ON route_bookings(shipper_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_status  ON route_bookings(status);
-CREATE INDEX IF NOT EXISTS idx_bookings_paid_at ON route_bookings(paid_at);
+CREATE INDEX IF NOT EXISTS idx_bookings_route        ON route_bookings(route_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_shipper      ON route_bookings(shipper_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_status       ON route_bookings(status);
+CREATE INDEX IF NOT EXISTS idx_bookings_paid_at      ON route_bookings(paid_at);
+CREATE INDEX IF NOT EXISTS idx_bookings_cancelled_at ON route_bookings(cancelled_at);
 
 -- ---------- Értesítések -----------------------------------------------
 

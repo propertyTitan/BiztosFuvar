@@ -84,6 +84,22 @@ export default function UtvonalReszletek() {
     }
   }
 
+  async function cancelBooking(b: RouteBooking) {
+    const wasPaid = !!b.paid_at;
+    const warning = wasPaid
+      ? 'Biztosan lemondod ezt a már elfogadott foglalást? A teljes fuvardíj visszajár a feladónak (sofőr lemondás → 100% refund).'
+      : 'Biztosan lemondod ezt a foglalást?';
+    if (!window.confirm(warning)) return;
+    const reason = window.prompt('Indok (opcionális):') || '';
+    try {
+      await api.cancelRouteBooking(b.id, reason);
+      toast.info('Foglalás lemondva', 'A feladó visszakapja a teljes fuvardíjat.');
+      await load();
+    } catch (e: any) {
+      toast.error('Lemondás sikertelen', e.message);
+    }
+  }
+
   async function publishRoute() {
     try {
       await api.setCarrierRouteStatus(id, 'open');
@@ -173,6 +189,27 @@ export default function UtvonalReszletek() {
                   onClick={() => rejectBooking(b.id)}
                 >
                   Elutasítom
+                </button>
+              </div>
+            )}
+            {/* Lemondás — már elfogadott foglalásra is, sofőri 100% refund */}
+            {b.status === 'confirmed' && (
+              <div style={{ marginTop: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => cancelBooking(b)}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--danger)',
+                    color: 'var(--danger)',
+                    padding: '4px 10px',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                    fontSize: 11,
+                    fontWeight: 600,
+                  }}
+                >
+                  ❌ Lemondás
                 </button>
               </div>
             )}

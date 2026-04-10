@@ -410,6 +410,20 @@ export const api = {
       { method: 'POST' },
     ),
 
+  /** Licites fuvar lemondása. Ha már fizetve, automatikus refund (10% díjjal a feladónál). */
+  cancelJob: (id: string, reason?: string) =>
+    request<{ ok: true; status: string; cancellation_fee_huf: number; refund_huf: number }>(
+      `/jobs/${id}/cancel`,
+      { method: 'POST', body: JSON.stringify({ reason }) },
+    ),
+
+  /** Fix áras foglalás lemondása. */
+  cancelRouteBooking: (id: string, reason?: string) =>
+    request<{ ok: true; status: string; cancellation_fee_huf: number; refund_huf: number }>(
+      `/route-bookings/${id}/cancel`,
+      { method: 'POST', body: JSON.stringify({ reason }) },
+    ),
+
   // ---------- Notifications ----------
 
   listNotifications: () =>

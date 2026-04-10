@@ -17,6 +17,7 @@ const {
   sendBookingConfirmedEmail,
   sendBookingPaidEmail,
   sendBookingRejectedEmail,
+  sendCancellationEmail,
 } = require('../services/email');
 
 const router = express.Router();
@@ -788,5 +789,134 @@ router.post(
     res.json({ ok: true });
   },
 );
+
+// POST /route-bookings/:id/cancel
+//
+// Fix áras foglalás lemondása. Bárki hívhatja, aki érdekelt fél:
+//   - a feladó (shipper_id = me) → 10% lemondási díj ha már fizetett (max 1000 Ft)
+//   - a sofőr (route.carrier_id = me) → 100% refund a feladónak
+//
+// Tiltott állapotok: in_progress, delivered, cancelled, rejected.
+router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
+  const { reason } = req.body || {};
+  const { rows } = await db.query(
+    `SELECT b.*, r.carrier_id, r.title AS route_title,
+            s.full_name AS shipper_name, s.email AS shipper_email,
+            c.full_name AS carrier_name, c.email AS carrier_email
+       FROM route_bookings b
+       JOIN carrier_routes r ON r.id = b.route_id
+       JOIN users s ON s.id = b.shipper_id
+       JOIN users c ON c.id = r.carrier_id
+      WHERE b.id = $1`,
+    [req.params.id],
+  );
+  const b = rows[0];
+  if (!b) return res.status(404).json({ error: 'Foglalás nem található' });
+
+  const iAmShipper = b.shipper_id === req.user.sub;
+  const iAmCarrier = b.carrier_id === req.user.sub;
+  if (!iAmShipper && !iAmCarrier) {
+    return res.status(403).json({ error: 'Nincs jogosultság a lemondáshoz' });
+  }
+
+  const blocked = ['in_progress', 'delivered', 'cancelled', 'rejected'];
+  if (blocked.includes(b.status)) {
+    return res.status(409).json({
+      error:
+        b.status === 'cancelled'
+          ? 'Ez a foglalás már le van mondva.'
+          : `Ez a foglalás már nem mondható le (státusz: ${b.status}).`,
+    });
+  }
+
+  const cancelledByRole = iAmShipper ? 'shipper' : 'carrier';
+  const paid = !!b.paid_at;
+  const total = b.price_huf || 0;
+  const { fee, refund } = barion.computeCancellationSettlement({
+    totalHuf: total,
+    paid,
+    cancelledByRole,
+  });
+
+  if (paid && refund > 0 && b.barion_payment_id) {
+    try {
+      await barion.refundPayment({
+        paymentId: b.barion_payment_id,
+        jobId: b.id,
+        refundAmountHuf: refund,
+        reason: reason || `Foglalás lemondva (${cancelledByRole})`,
+      });
+    } catch (err) {
+      console.error('[barion] refund hiba:', err.message);
+      return res.status(502).json({ error: 'A visszatérítés sikertelen, próbáld később.' });
+    }
+  }
+
+  await db.query(
+    `UPDATE route_bookings
+        SET status = 'cancelled',
+            cancelled_at = NOW(),
+            cancelled_by = $1,
+            cancel_reason = $2,
+            cancellation_fee_huf = $3,
+            refund_huf = $4
+      WHERE id = $5`,
+    [req.user.sub, reason || null, fee, refund, b.id],
+  );
+
+  const otherUserId = iAmShipper ? b.carrier_id : b.shipper_id;
+  const otherEmail = iAmShipper ? b.carrier_email : b.shipper_email;
+  const otherName = iAmShipper ? b.carrier_name : b.shipper_name;
+  if (otherUserId) {
+    try {
+      await createNotification({
+        user_id: otherUserId,
+        type: 'booking_cancelled',
+        title: '❌ Foglalás lemondva',
+        body: iAmShipper
+          ? `A feladó lemondta a foglalását a(z) "${b.route_title}" útvonalon.`
+          : `A sofőr lemondta a foglalásodat a(z) "${b.route_title}" útvonalon. A teljes díj visszajár.`,
+        link: iAmShipper ? `/sofor/utvonal/${b.route_id}` : `/dashboard/foglalasaim`,
+      });
+    } catch (e) {
+      console.warn('[notifications] booking_cancelled hiba:', e.message);
+    }
+    if (otherEmail) {
+      setImmediate(() => {
+        sendCancellationEmail({
+          to: otherEmail,
+          recipientName: otherName,
+          jobTitle: b.route_title,
+          cancelledByRole,
+          refundHuf: refund,
+          feeHuf: fee,
+          recipientIsShipper: !iAmShipper,
+        }).catch((e) => console.warn('[email] booking_cancelled hiba:', e.message));
+      });
+    }
+  }
+
+  if (paid && iAmShipper && refund > 0) {
+    try {
+      await createNotification({
+        user_id: b.shipper_id,
+        type: 'refund_issued',
+        title: '💸 Visszatérítés folyamatban',
+        body: `${refund.toLocaleString('hu-HU')} Ft visszautalás indult${fee > 0 ? ` (${fee.toLocaleString('hu-HU')} Ft lemondási díj levonva)` : ''}.`,
+        link: `/dashboard/foglalasaim`,
+      });
+    } catch {}
+  }
+
+  realtime.emitToUser(b.shipper_id, 'route-booking:cancelled', { booking_id: b.id });
+  realtime.emitToUser(b.carrier_id, 'route-booking:cancelled', { booking_id: b.id });
+
+  res.json({
+    ok: true,
+    status: 'cancelled',
+    cancellation_fee_huf: fee,
+    refund_huf: refund,
+  });
+});
 
 module.exports = router;
