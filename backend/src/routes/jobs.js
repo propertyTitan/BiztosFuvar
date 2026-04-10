@@ -10,6 +10,7 @@ const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
+const { sendJobPaidEmail } = require('../services/email');
 
 const router = express.Router();
 
@@ -301,9 +302,12 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
 router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
-            s.full_name AS shipper_name
+            s.full_name AS shipper_name,
+            c.full_name AS carrier_name,
+            c.email AS carrier_email
        FROM jobs j
        JOIN users s ON s.id = j.shipper_id
+  LEFT JOIN users c ON c.id = j.carrier_id
       WHERE j.id = $1`,
     [req.params.id],
   );
@@ -328,7 +332,7 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
   );
   const paidAt = upd[0].paid_at;
 
-  // Értesítés a sofőrnek (a licitet nyert carrier)
+  // Értesítés a sofőrnek (a licitet nyert carrier): in-app + email
   if (j.carrier_id) {
     try {
       await createNotification({
@@ -340,6 +344,18 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
       });
     } catch (e) {
       console.warn('[notifications] job_paid hiba:', e.message);
+    }
+    if (j.carrier_email) {
+      setImmediate(() => {
+        sendJobPaidEmail({
+          to: j.carrier_email,
+          carrierName: j.carrier_name,
+          jobTitle: j.title,
+          jobId: j.id,
+          amountHuf: j.accepted_price_huf,
+          shipperName: j.shipper_name,
+        }).catch((e) => console.warn('[email] job_paid hiba:', e.message));
+      });
     }
     realtime.emitToUser(j.carrier_id, 'job:paid', {
       job_id: j.id,

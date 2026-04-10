@@ -6,6 +6,7 @@ const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
+const { sendBidReceivedEmail, sendBidAcceptedEmail } = require('../services/email');
 
 const router = express.Router();
 
@@ -64,22 +65,37 @@ router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) 
     );
     realtime.emitToJob(jobId, 'bids:new', rows[0]);
 
-    // Értesítés a feladónak: új licit érkezett
+    // Értesítés a feladónak: új licit érkezett (in-app + email)
     try {
       const { rows: jRows } = await db.query(
-        `SELECT j.shipper_id, j.title, u.full_name AS carrier_name
+        `SELECT j.shipper_id, j.title,
+                s.email AS shipper_email, s.full_name AS shipper_name,
+                u.full_name AS carrier_name
            FROM jobs j
+           JOIN users s ON s.id = j.shipper_id
            JOIN users u ON u.id = $2
           WHERE j.id = $1`,
         [jobId, req.user.sub],
       );
       if (jRows[0]) {
+        const info = jRows[0];
         await createNotification({
-          user_id: jRows[0].shipper_id,
+          user_id: info.shipper_id,
           type: 'bid_received',
           title: 'Új licit érkezett 🎯',
-          body: `${jRows[0].carrier_name} ${amount_huf.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${jRows[0].title}" fuvaradra.`,
+          body: `${info.carrier_name} ${amount_huf.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
           link: `/dashboard/fuvar/${jobId}`,
+        });
+        // Email is, fire-and-forget (ne blokkolja a választ)
+        setImmediate(() => {
+          sendBidReceivedEmail({
+            to: info.shipper_email,
+            shipperName: info.shipper_name,
+            jobTitle: info.title,
+            jobId,
+            carrierName: info.carrier_name,
+            amountHuf: amount_huf,
+          }).catch((e) => console.warn('[email] bid_received hiba:', e.message));
         });
       }
     } catch (e) {
@@ -182,19 +198,34 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
       barion_gateway_url: barionRes.gatewayUrl,
     });
 
-    // Értesítés a nyertes sofőrnek
+    // Értesítés a nyertes sofőrnek (in-app + email)
     try {
       const { rows: jobInfo } = await db.query(
-        'SELECT title FROM jobs WHERE id = $1',
-        [bid.job_id],
+        `SELECT j.title, u.full_name AS carrier_name, u.email AS carrier_email
+           FROM jobs j
+           JOIN users u ON u.id = $2
+          WHERE j.id = $1`,
+        [bid.job_id, bid.carrier_id],
       );
+      const info = jobInfo[0] || {};
       await createNotification({
         user_id: bid.carrier_id,
         type: 'bid_accepted',
         title: '🎉 Elfogadták a licitedet!',
-        body: `A(z) "${jobInfo[0]?.title || 'fuvar'}" licitedet elfogadták ${bid.amount_huf.toLocaleString('hu-HU')} Ft-ért. Nyisd meg a mobilappot a fuvar indításához.`,
+        body: `A(z) "${info.title || 'fuvar'}" licitedet elfogadták ${bid.amount_huf.toLocaleString('hu-HU')} Ft-ért. Nyisd meg a mobilappot a fuvar indításához.`,
         link: `/sofor/fuvar/${bid.job_id}`,
       });
+      if (info.carrier_email) {
+        setImmediate(() => {
+          sendBidAcceptedEmail({
+            to: info.carrier_email,
+            carrierName: info.carrier_name,
+            jobTitle: info.title,
+            jobId: bid.job_id,
+            amountHuf: bid.amount_huf,
+          }).catch((e) => console.warn('[email] bid_accepted hiba:', e.message));
+        });
+      }
     } catch (e) {
       console.warn('[notifications] bid_accepted hiba:', e.message);
     }

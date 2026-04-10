@@ -12,6 +12,12 @@ const barion = require('../services/barion');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
+const {
+  sendBookingReceivedEmail,
+  sendBookingConfirmedEmail,
+  sendBookingPaidEmail,
+  sendBookingRejectedEmail,
+} = require('../services/email');
 
 const router = express.Router();
 
@@ -341,19 +347,35 @@ router.post(
     // Real-time értesítés a sofőrnek
     realtime.emitGlobal(`route-bookings:new:${route.carrier_id}`, booking);
 
-    // Értesítés a sofőrnek: új foglalás érkezett
+    // Értesítés a sofőrnek: új foglalás érkezett (in-app + email)
     try {
-      const { rows: shipperRows } = await db.query(
-        'SELECT full_name FROM users WHERE id = $1',
-        [req.user.sub],
+      const { rows: partyRows } = await db.query(
+        `SELECT s.full_name AS shipper_name,
+                c.full_name AS carrier_name, c.email AS carrier_email
+           FROM users s, users c
+          WHERE s.id = $1 AND c.id = $2`,
+        [req.user.sub, route.carrier_id],
       );
+      const info = partyRows[0] || {};
       await createNotification({
         user_id: route.carrier_id,
         type: 'booking_received',
         title: '📦 Új foglalás az útvonaladon!',
-        body: `${shipperRows[0]?.full_name || 'Egy feladó'} helyet foglalt (${size}, ${priceHuf.toLocaleString('hu-HU')} Ft) a(z) "${route.title}" útvonaladon.`,
+        body: `${info.shipper_name || 'Egy feladó'} helyet foglalt (${size}, ${priceHuf.toLocaleString('hu-HU')} Ft) a(z) "${route.title}" útvonaladon.`,
         link: `/sofor/utvonal/${routeId}`,
       });
+      if (info.carrier_email) {
+        setImmediate(() => {
+          sendBookingReceivedEmail({
+            to: info.carrier_email,
+            carrierName: info.carrier_name,
+            routeTitle: route.title,
+            routeId,
+            shipperName: info.shipper_name,
+            priceHuf,
+          }).catch((e) => console.warn('[email] booking_received hiba:', e.message));
+        });
+      }
     } catch (e) {
       console.warn('[notifications] booking_received hiba:', e.message);
     }
@@ -495,19 +517,39 @@ router.post(
         barion_gateway_url: barionRes.gatewayUrl,
       });
 
-      // Értesítés a feladónak: a sofőr megerősítette a foglalást
+      // Értesítés a feladónak: a sofőr megerősítette a foglalást (in-app + email)
       try {
-        const { rows: carrierRows } = await db.query(
-          'SELECT full_name FROM users WHERE id = $1',
-          [b.carrier_id],
+        const { rows: partyRows } = await db.query(
+          `SELECT c.full_name AS carrier_name,
+                  s.full_name AS shipper_name, s.email AS shipper_email,
+                  r.title AS route_title
+             FROM route_bookings rb
+             JOIN carrier_routes r ON r.id = rb.route_id
+             JOIN users c ON c.id = $1
+             JOIN users s ON s.id = $2
+            WHERE rb.id = $3`,
+          [b.carrier_id, b.shipper_id, b.id],
         );
+        const info = partyRows[0] || {};
         await createNotification({
           user_id: b.shipper_id,
           type: 'booking_confirmed',
           title: '✅ A sofőr megerősítette a foglalásod!',
-          body: `${carrierRows[0]?.full_name || 'A sofőr'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizess a Barion oldalon.`,
+          body: `${info.carrier_name || 'A sofőr'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizess a Barion oldalon.`,
           link: `/dashboard/foglalasaim`,
         });
+        if (info.shipper_email) {
+          setImmediate(() => {
+            sendBookingConfirmedEmail({
+              to: info.shipper_email,
+              shipperName: info.shipper_name,
+              routeTitle: info.route_title,
+              bookingId: b.id,
+              carrierName: info.carrier_name,
+              priceHuf: b.price_huf,
+            }).catch((e) => console.warn('[email] booking_confirmed hiba:', e.message));
+          });
+        }
       } catch (e) {
         console.warn('[notifications] booking_confirmed hiba:', e.message);
       }
@@ -621,10 +663,12 @@ router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req,
 router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit, async (req, res) => {
   const { rows: bRows } = await db.query(
     `SELECT b.*, r.carrier_id, r.title AS route_title,
-            s.full_name AS shipper_name, s.email AS shipper_email
+            s.full_name AS shipper_name, s.email AS shipper_email,
+            c.full_name AS carrier_name, c.email AS carrier_email
        FROM route_bookings b
        JOIN carrier_routes r ON r.id = b.route_id
        JOIN users s ON s.id = b.shipper_id
+       JOIN users c ON c.id = r.carrier_id
       WHERE b.id = $1`,
     [req.params.id],
   );
@@ -650,7 +694,7 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
   );
   const paidAt = updated[0].paid_at;
 
-  // 1) Értesítés a sofőrnek (a hirdetés létrehozójának)
+  // 1) Értesítés a sofőrnek (a hirdetés létrehozójának): in-app + email
   try {
     await createNotification({
       user_id: b.carrier_id,
@@ -661,6 +705,18 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
     });
   } catch (e) {
     console.warn('[notifications] booking_paid hiba:', e.message);
+  }
+  if (b.carrier_email) {
+    setImmediate(() => {
+      sendBookingPaidEmail({
+        to: b.carrier_email,
+        carrierName: b.carrier_name,
+        routeTitle: b.route_title,
+        bookingId: b.id,
+        priceHuf: b.price_huf,
+        shipperName: b.shipper_name,
+      }).catch((e) => console.warn('[email] booking_paid hiba:', e.message));
+    });
   }
 
   // 2) Realtime event a feladónak – a Foglalásaim oldala ebből tudja
@@ -685,9 +741,11 @@ router.post(
   writeRateLimit,
   async (req, res) => {
     const { rows: bRows } = await db.query(
-      `SELECT b.*, r.carrier_id
+      `SELECT b.*, r.carrier_id, r.title AS route_title,
+              s.email AS shipper_email, s.full_name AS shipper_name
          FROM route_bookings b
          JOIN carrier_routes r ON r.id = b.route_id
+         JOIN users s ON s.id = b.shipper_id
         WHERE b.id = $1`,
       [req.params.id],
     );
@@ -705,7 +763,7 @@ router.post(
     );
     realtime.emitGlobal(`route-bookings:rejected:${b.shipper_id}`, { booking_id: b.id });
 
-    // Értesítés a feladónak: sajnos a sofőr elutasította
+    // Értesítés a feladónak: sajnos a sofőr elutasította (in-app + email)
     try {
       await createNotification({
         user_id: b.shipper_id,
@@ -716,6 +774,15 @@ router.post(
       });
     } catch (e) {
       console.warn('[notifications] booking_rejected hiba:', e.message);
+    }
+    if (b.shipper_email) {
+      setImmediate(() => {
+        sendBookingRejectedEmail({
+          to: b.shipper_email,
+          shipperName: b.shipper_name,
+          routeTitle: b.route_title,
+        }).catch((e) => console.warn('[email] booking_rejected hiba:', e.message));
+      });
     }
 
     res.json({ ok: true });
