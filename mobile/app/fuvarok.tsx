@@ -284,7 +284,7 @@ export default function Fuvarok() {
     <FlatList
       data={jobs}
       keyExtractor={(j) => j.id}
-      contentContainerStyle={{ padding: spacing.md }}
+      contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
       ListHeaderComponent={header}
       ListEmptyComponent={

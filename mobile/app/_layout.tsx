@@ -7,12 +7,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { DeviceEventEmitter, Pressable, Text, View } from 'react-native';
+import { DeviceEventEmitter, Pressable, Text, View, StyleSheet } from 'react-native';
 import { colors } from '@/theme';
 import { AUTH_EVENT, clearCurrentUser, getCurrentUser } from '@/auth';
 import { api } from '@/api';
 import { getSocket, joinUserRoom, disconnectSocket } from '@/socket';
 import { ToastProvider, useToast } from '@/components/ToastProvider';
+import BottomTabBar from '@/components/BottomTabBar';
 
 function LogoutButton() {
   const router = useRouter();
@@ -176,12 +177,14 @@ export default function RootLayout() {
     <ToastProvider>
       <NotificationToastBridge />
       <StatusBar style="light" />
+      <View style={{ flex: 1 }}>
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.primary },
           headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: '700' },
+          headerTitleStyle: { fontWeight: '700', fontSize: 17 },
           contentStyle: { backgroundColor: colors.background },
+          headerShadowVisible: false,
         }}
       >
         <Stack.Screen name="index" options={{ title: 'GoFuvar' }} />
@@ -225,6 +228,8 @@ export default function RootLayout() {
         <Stack.Screen name="feladas/utvonal/[id]" options={{ title: 'Útvonal' }} />
         <Stack.Screen name="feladas/foglalasaim" options={{ title: 'Foglalásaim' }} />
       </Stack>
+      <BottomTabBar />
+      </View>
     </ToastProvider>
   );
 }

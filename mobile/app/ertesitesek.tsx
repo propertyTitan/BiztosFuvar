@@ -114,7 +114,7 @@ export default function Ertesitesek() {
     <FlatList
       data={items}
       keyExtractor={(n) => n.id}
-      contentContainerStyle={{ padding: spacing.md }}
+      contentContainerStyle={{ padding: spacing.md, paddingBottom: 100 }}
       refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={colors.primary} />}
       ListHeaderComponent={
         unreadCount > 0 ? (
