@@ -193,7 +193,11 @@ export default function FuvarReszletek() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      keyboardShouldPersistTaps="handled"
+      onScrollBeginDrag={() => Keyboard.dismiss()}
+    >
       <Text style={styles.title}>{job.title}</Text>
       <Text style={styles.status}>Státusz: {hungarianStatus(job.status)}</Text>
 
@@ -299,28 +303,29 @@ export default function FuvarReszletek() {
 
       {meId && job.shipper_id !== meId && (job.status === 'pending' || job.status === 'bidding') && (
         <Section label="Licit feladása">
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <TextInput
-              style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder="Ajánlott ár (Ft)"
-              keyboardType="number-pad"
-              value={bid}
-              onChangeText={setBid}
-            />
-            <Pressable
-              style={{
-                backgroundColor: colors.border,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                borderRadius: 8,
-              }}
-              onPress={() => Keyboard.dismiss()}
-            >
-              <Text style={{ fontWeight: '700', color: colors.text, fontSize: 14 }}>Kész</Text>
-            </Pressable>
-          </View>
-          <Pressable style={[styles.cta, { marginTop: 12 }]} onPress={placeBid}>
-            <Text style={styles.ctaText}>Licit elküldése</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ajánlott ár (Ft)"
+            keyboardType="number-pad"
+            value={bid}
+            onChangeText={setBid}
+          />
+          <Pressable
+            style={{
+              backgroundColor: colors.primary,
+              paddingVertical: 14,
+              borderRadius: 10,
+              alignItems: 'center',
+              marginBottom: 8,
+            }}
+            onPress={() => {
+              Keyboard.dismiss();
+              if (bid.trim()) placeBid();
+            }}
+          >
+            <Text style={{ color: '#fff', fontWeight: '800', fontSize: 16 }}>
+              {bid.trim() ? 'Licit elküldése' : '✓ Billentyűzet bezárása'}
+            </Text>
           </Pressable>
         </Section>
       )}
