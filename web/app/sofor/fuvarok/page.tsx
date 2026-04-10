@@ -22,6 +22,11 @@ export default function SoforFuvarokLista() {
   const [error, setError] = useState<string | null>(null);
   const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
   const [view, setView] = useState<ViewMode>('list');
+  // Szűrők
+  const [filterMinPrice, setFilterMinPrice] = useState('');
+  const [filterMaxPrice, setFilterMaxPrice] = useState('');
+  const [filterMaxWeight, setFilterMaxWeight] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   async function load(lat?: number, lng?: number) {
     setLoading(true);
@@ -31,6 +36,9 @@ export default function SoforFuvarokLista() {
         lat,
         lng,
         radius_km: lat != null ? 500 : undefined,
+        min_price: filterMinPrice ? Number(filterMinPrice) : undefined,
+        max_price: filterMaxPrice ? Number(filterMaxPrice) : undefined,
+        max_weight_kg: filterMaxWeight ? Number(filterMaxWeight) : undefined,
       });
       setJobs(data);
     } catch (err: any) {
@@ -131,6 +139,87 @@ export default function SoforFuvarokLista() {
             Frissítés
           </button>
         </div>
+      </div>
+
+      {/* Szűrő sáv */}
+      <div style={{ marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={() => setShowFilters((s) => !s)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--primary)',
+            cursor: 'pointer',
+            fontSize: 13,
+            fontWeight: 600,
+            padding: 0,
+          }}
+        >
+          🔍 {showFilters ? 'Szűrők elrejtése' : 'Szűrők mutatása'}
+        </button>
+        {showFilters && (
+          <div className="card" style={{ marginTop: 8, padding: 16 }}>
+            <div className="row" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
+              <div>
+                <label style={{ fontSize: 12 }}>Min ár (Ft)</label>
+                <input
+                  className="input"
+                  type="number"
+                  value={filterMinPrice}
+                  onChange={(e) => setFilterMinPrice(e.target.value)}
+                  placeholder="pl. 10000"
+                  style={{ width: 120 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12 }}>Max ár (Ft)</label>
+                <input
+                  className="input"
+                  type="number"
+                  value={filterMaxPrice}
+                  onChange={(e) => setFilterMaxPrice(e.target.value)}
+                  placeholder="pl. 100000"
+                  style={{ width: 120 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12 }}>Max súly (kg)</label>
+                <input
+                  className="input"
+                  type="number"
+                  value={filterMaxWeight}
+                  onChange={(e) => setFilterMaxWeight(e.target.value)}
+                  placeholder="pl. 50"
+                  style={{ width: 100 }}
+                />
+              </div>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => load(here?.lat, here?.lng)}
+                style={{ fontSize: 13, padding: '8px 16px' }}
+              >
+                Szűrés
+              </button>
+              {(filterMinPrice || filterMaxPrice || filterMaxWeight) && (
+                <button
+                  className="btn btn-secondary"
+                  type="button"
+                  onClick={() => {
+                    setFilterMinPrice('');
+                    setFilterMaxPrice('');
+                    setFilterMaxWeight('');
+                    setTimeout(() => load(here?.lat, here?.lng), 50);
+                  }}
+                  style={{ fontSize: 12, padding: '6px 12px' }}
+                >
+                  Szűrők törlése
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {loading && <p style={{ marginTop: 24 }}>Betöltés…</p>}

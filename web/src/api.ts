@@ -165,12 +165,18 @@ export const api = {
   createJob: (job: NewJobInput) =>
     request<Job>('/jobs', { method: 'POST', body: JSON.stringify(job) }),
 
-  listJobs: (params: { status?: string; lat?: number; lng?: number; radius_km?: number } = {}) => {
+  listJobs: (params: {
+    status?: string; lat?: number; lng?: number; radius_km?: number;
+    min_price?: number; max_price?: number; max_weight_kg?: number;
+  } = {}) => {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
     if (params.lat != null) qs.set('lat', String(params.lat));
     if (params.lng != null) qs.set('lng', String(params.lng));
     if (params.radius_km != null) qs.set('radius_km', String(params.radius_km));
+    if (params.min_price != null) qs.set('min_price', String(params.min_price));
+    if (params.max_price != null) qs.set('max_price', String(params.max_price));
+    if (params.max_weight_kg != null) qs.set('max_weight_kg', String(params.max_weight_kg));
     return request<(Job & { distance_to_pickup_km?: number })[]>(`/jobs?${qs.toString()}`);
   },
 
@@ -301,9 +307,11 @@ export const api = {
    * Nyitott útvonalak böngészése (feladónak).
    * Opcionális város-szűrés (a waypoints JSONB-ben keres).
    */
-  listCarrierRoutes: (params: { city?: string } = {}) => {
+  listCarrierRoutes: (params: { city?: string; from_date?: string; to_date?: string } = {}) => {
     const qs = new URLSearchParams();
     if (params.city) qs.set('city', params.city);
+    if (params.from_date) qs.set('from_date', params.from_date);
+    if (params.to_date) qs.set('to_date', params.to_date);
     return request<CarrierRoute[]>(
       `/carrier-routes${qs.toString() ? `?${qs}` : ''}`,
     );

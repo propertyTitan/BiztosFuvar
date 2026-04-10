@@ -20,11 +20,17 @@ export default function FeladoiUtvonalBongeszo() {
   const [error, setError] = useState<string | null>(null);
   const [city, setCity] = useState('');
   const [view, setView] = useState<ViewMode>('list');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
   async function load(filterCity?: string) {
     setLoading(true);
     try {
-      const data = await api.listCarrierRoutes({ city: filterCity || undefined });
+      const data = await api.listCarrierRoutes({
+        city: filterCity || undefined,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+      });
       setRoutes(data);
     } catch (err: any) {
       setError(err.message);
@@ -100,26 +106,50 @@ export default function FeladoiUtvonalBongeszo() {
       </div>
 
       <form className="card" onSubmit={onFilter} style={{ marginTop: 16 }}>
-        <label>Szűrés város alapján (opcionális)</label>
-        <div className="row" style={{ alignItems: 'end', gap: 8 }}>
-          <input
-            className="input"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-            placeholder="pl. Kecskemét – olyan útvonalak, amik érintik"
-            style={{ flex: 1 }}
-          />
+        <label>Szűrés</label>
+        <div className="row" style={{ alignItems: 'end', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <label style={{ fontSize: 12 }}>Város</label>
+            <input
+              className="input"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+              placeholder="pl. Kecskemét"
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Ettől</label>
+            <input
+              className="input"
+              type="date"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              style={{ width: 150 }}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 12 }}>Eddig</label>
+            <input
+              className="input"
+              type="date"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              style={{ width: 150 }}
+            />
+          </div>
           <button className="btn" type="submit">Keresés</button>
-          {city && (
+          {(city || fromDate || toDate) && (
             <button
               className="btn btn-secondary"
               type="button"
               onClick={() => {
                 setCity('');
-                load();
+                setFromDate('');
+                setToDate('');
+                setTimeout(() => load(), 50);
               }}
             >
-              Mutass mindent
+              Törlés
             </button>
           )}
         </div>

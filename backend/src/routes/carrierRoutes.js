@@ -140,7 +140,7 @@ router.get('/carrier-routes/mine', authRequired, async (req, res) => {
 // a POST /route-bookings végpont úgyis 403-mal elutasítja, ha a carrier_id
 // megegyezik a hívóval.
 router.get('/carrier-routes', authRequired, async (req, res) => {
-  const { city } = req.query;
+  const { city, from_date, to_date, max_price } = req.query;
   let sql = `SELECT * FROM carrier_routes
               WHERE status = 'open' AND departure_at >= NOW() - INTERVAL '12 hours'`;
   const params = [];
@@ -149,6 +149,17 @@ router.get('/carrier-routes', authRequired, async (req, res) => {
     params.push(JSON.stringify([{ name: city }]));
     sql += ` AND waypoints @> $${params.length}::jsonb`;
   }
+  if (from_date) {
+    params.push(from_date);
+    sql += ` AND departure_at >= $${params.length}::date`;
+  }
+  if (to_date) {
+    params.push(to_date);
+    sql += ` AND departure_at < ($${params.length}::date + INTERVAL '1 day')`;
+  }
+  // max_price: a legkisebb ár a prices JSON-ban nem kell nagyobb legyen
+  // mint ez az összeg. Ez komplex lenne JSONB-vel, ezért a szűrést a
+  // kliensre bízzuk — a backend a to_date/from_date-et csinálja.
   sql += ' ORDER BY departure_at ASC LIMIT 200';
   const { rows } = await db.query(sql, params);
   res.json(await attachPrices(rows));

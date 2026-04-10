@@ -148,12 +148,33 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
 // rajtuk a licit-akciót és "Saját poszt" címkével látja el őket, hogy
 // egyértelmű legyen. (A szerver oldali védelem a `POST /jobs/:id/bids`
 // végpontban: saját fuvarra nem lehet licitálni.)
+//
+// Szűrők (query paraméterek):
+//   ?status=bidding (default)
+//   ?lat=...&lng=...&radius_km=...
+//   ?min_price=...&max_price=...   — javasolt ár szűrés
+//   ?max_weight_kg=...             — max csomag súly
+//   ?max_size=S|M|L|XL            — max méret kategória (TODO)
 router.get('/', authRequired, async (req, res) => {
-  const { status = 'bidding', lat, lng, radius_km } = req.query;
-  const { rows } = await db.query(
-    `SELECT * FROM jobs WHERE status = $1 ORDER BY created_at DESC LIMIT 200`,
-    [status],
-  );
+  const { status = 'bidding', lat, lng, radius_km, min_price, max_price, max_weight_kg } = req.query;
+  let sql = 'SELECT * FROM jobs WHERE status = $1';
+  const params = [status];
+
+  if (min_price) {
+    params.push(Number(min_price));
+    sql += ` AND suggested_price_huf >= $${params.length}`;
+  }
+  if (max_price) {
+    params.push(Number(max_price));
+    sql += ` AND suggested_price_huf <= $${params.length}`;
+  }
+  if (max_weight_kg) {
+    params.push(Number(max_weight_kg));
+    sql += ` AND weight_kg <= $${params.length}`;
+  }
+
+  sql += ' ORDER BY created_at DESC LIMIT 200';
+  const { rows } = await db.query(sql, params);
   let jobs = rows;
   if (lat && lng) {
     const la = parseFloat(lat), ln = parseFloat(lng);
