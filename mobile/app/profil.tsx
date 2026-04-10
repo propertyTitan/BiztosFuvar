@@ -2,8 +2,9 @@
 // Nincs sofőr vs feladó megkülönböztetés — a jármű adatok opcionálisak.
 import { useCallback, useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert,
+  View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert, Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from 'expo-router';
 import { api } from '@/api';
 import { useToast } from '@/components/ToastProvider';
@@ -34,6 +35,31 @@ export default function ProfilScreen() {
       }).catch((e) => Alert.alert('Hiba', e.message));
     }, []),
   );
+
+  async function pickAvatar() {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Engedély kell', 'A profilkép feltöltéséhez engedélyezd a galéria-hozzáférést.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    // Feltöltjük a fotót a szerverre és az URL-t mentjük a profilra
+    try {
+      toast.info('Profilkép feltöltése…');
+      const uploaded = await api.uploadAvatar(result.assets[0].uri);
+      const updated = await api.updateMyProfile({ avatar_url: uploaded.url });
+      setProfile(updated);
+      toast.success('Profilkép mentve!');
+    } catch (e: any) {
+      toast.error('Hiba a feltöltésnél', e.message);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -67,9 +93,18 @@ export default function ProfilScreen() {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       {/* Avatar + név + rating */}
       <View style={styles.header}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
+        <Pressable onPress={pickAvatar} style={styles.avatarWrap}>
+          {profile.avatar_url ? (
+            <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initial}</Text>
+            </View>
+          )}
+          <View style={styles.avatarEditBadge}>
+            <Text style={{ fontSize: 14 }}>📷</Text>
+          </View>
+        </Pressable>
         <Text style={styles.name}>{profile.full_name}</Text>
         <Text style={styles.email}>{profile.email}</Text>
         <View style={styles.badges}>
@@ -168,16 +203,41 @@ export default function ProfilScreen() {
 const styles = StyleSheet.create({
   container: { padding: spacing.lg, paddingBottom: spacing.xl * 2 },
   header: { alignItems: 'center', marginBottom: spacing.lg },
+  avatarWrap: { position: 'relative', marginBottom: spacing.sm },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+  },
+  avatarImg: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 3,
+    borderColor: colors.primary,
   },
   avatarText: { color: '#fff', fontSize: 32, fontWeight: '800' },
+  avatarEditBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
   name: { fontSize: 24, fontWeight: '800', color: colors.text },
   email: { color: colors.textMuted, fontSize: 14, marginTop: 2 },
   badges: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm, alignItems: 'center' },

@@ -61,6 +61,32 @@ export default function ProfilOldal() {
     router.push('/bejelentkezes');
     return null;
   }
+  async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      toast.info('Profilkép feltöltése…');
+      const token = window.localStorage.getItem('gofuvar_token');
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/avatar`,
+        {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          body: formData,
+        },
+      );
+      if (!res.ok) throw new Error('Feltöltés sikertelen');
+      const { url } = await res.json();
+      const updated = await api.updateMyProfile({ avatar_url: url });
+      setProfile(updated);
+      toast.success('Profilkép mentve!');
+    } catch (err: any) {
+      toast.error('Hiba', err.message);
+    }
+  }
+
   if (!profile) return <p>Betöltés…</p>;
 
   const memberSince = new Date(profile.created_at).toLocaleDateString('hu-HU', {
@@ -79,32 +105,70 @@ export default function ProfilOldal() {
           marginBottom: 32,
         }}
       >
-        {/* Avatar placeholder */}
-        <div
+        {/* Avatar — kattintásra profilkép feltöltés */}
+        <label
           style={{
+            position: 'relative',
             width: 88,
             height: 88,
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 36,
-            color: '#fff',
-            fontWeight: 800,
             flexShrink: 0,
+            cursor: 'pointer',
+            display: 'block',
           }}
+          title="Profilkép módosítása"
         >
+          <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: 'none' }} />
           {profile.avatar_url ? (
             <img
               src={profile.avatar_url}
               alt=""
-              style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+              style={{
+                width: 88,
+                height: 88,
+                borderRadius: '50%',
+                objectFit: 'cover',
+                border: '3px solid var(--primary)',
+              }}
             />
           ) : (
-            (profile.full_name || '?').charAt(0).toUpperCase()
+            <div
+              style={{
+                width: 88,
+                height: 88,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 36,
+                color: '#fff',
+                fontWeight: 800,
+              }}
+            >
+              {(profile.full_name || '?').charAt(0).toUpperCase()}
+            </div>
           )}
-        </div>
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              width: 28,
+              height: 28,
+              borderRadius: '50%',
+              background: '#fff',
+              border: '2px solid var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 14,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+            }}
+          >
+            📷
+          </div>
+        </label>
         <div>
           <h1 style={{ margin: 0, fontSize: 26 }}>{profile.full_name}</h1>
           <p className="muted" style={{ margin: '4px 0' }}>{profile.email}</p>

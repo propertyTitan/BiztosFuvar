@@ -214,6 +214,28 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ reason }) },
     ),
 
+  /** Profilkép feltöltés — multipart/form-data. */
+  uploadAvatar: async (fileUri: string) => {
+    const form = new FormData();
+    // @ts-expect-error – React Native FormData
+    form.append('file', {
+      uri: fileUri,
+      name: 'avatar.jpg',
+      type: 'image/jpeg',
+    });
+    const token = await getToken();
+    const res = await fetch(`${BASE_URL}/auth/avatar`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form as any,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Feltöltés sikertelen' }));
+      throw new Error(err.error || 'Feltöltés sikertelen');
+    }
+    return res.json() as Promise<{ url: string }>;
+  },
+
   // ---------- Push tokens ----------
 
   registerPushToken: (token: string, platform = 'ios') =>

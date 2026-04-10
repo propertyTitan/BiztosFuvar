@@ -2,10 +2,17 @@
 // Megjegyzés: a jelszót `crypto.scrypt`-tel hash-eljük – nincs külön bcrypt függőség.
 const express = require('express');
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit } = require('../middleware/rateLimit');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const router = express.Router();
 
@@ -146,6 +153,21 @@ router.get('/admin/stats', authRequired, async (req, res) => {
     total_bookings: bookings.rows[0].c,
     open_disputes: disputes.rows[0].c,
   });
+});
+
+// POST /auth/avatar — profilkép feltöltés
+router.post('/avatar', authRequired, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
+  const ext = req.file.originalname?.split('.').pop() || 'jpg';
+  const filename = `avatar-${crypto.randomBytes(12).toString('hex')}.${ext}`;
+  const filepath = path.join(UPLOADS_DIR, filename);
+  fs.writeFileSync(filepath, req.file.buffer);
+  const url = `/uploads/${filename}`;
+  await db.query(
+    `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`,
+    [url, req.user.sub],
+  );
+  res.json({ url });
 });
 
 // POST /auth/push-token — Expo push token regisztrálása
