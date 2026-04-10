@@ -27,15 +27,31 @@
     --success: #22c55e;
     --danger: #ef4444;
     --warning: #fbbf24;
+    color-scheme: dark;
+  }
+  /* Globális: MINDEN szöveg örökli a --text színt */
+  body, body * {
+    color: var(--text);
+  }
+  .muted, label, .site-footer, [class*="muted"] {
+    color: var(--muted) !important;
+  }
+  .price {
+    color: var(--primary) !important;
+  }
+  .site-header, .site-header * {
+    color: #fff;
   }
   .site-header {
-    background: rgba(15, 23, 42, 0.92);
+    background: rgba(15, 23, 42, 0.95) !important;
   }
-  .card {
-    background: var(--surface);
-    border-color: var(--border);
+  /* Minden kártya, doboz, section */
+  .card, [class*="card"] {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
   }
-  .input, textarea.input, input, select, textarea {
+  /* Inputok */
+  .input, input, select, textarea {
     background: var(--surface) !important;
     color: var(--text) !important;
     border-color: var(--border) !important;
@@ -43,38 +59,30 @@
   input::placeholder, textarea::placeholder {
     color: var(--muted) !important;
   }
-  .btn {
-    background: var(--primary);
-  }
+  /* Gombok */
+  .btn { color: #fff !important; }
   .btn-secondary {
-    background: var(--surface);
-    color: var(--text);
-    border-color: var(--border);
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
   }
-  /* Dark mode: MINDEN szöveg és háttér a CSS változókat használja */
-  label { color: var(--muted) !important; }
-  h1, h2, h3, h4 { color: var(--text) !important; }
-  p, span, div, li { color: inherit; }
-  strong { color: inherit; }
-  .site-footer { color: var(--muted) !important; }
-  /* Pill badge-ek dark módban */
-  .pill { border: 1px solid var(--border); }
-  /* Ár kártyák / chip-ek amik #eff6ff háttérrel vannak */
-  [style*="#eff6ff"] { background: var(--surface) !important; border: 1px solid var(--border) !important; }
-  [style*="#dcfce7"] { background: #14532d !important; color: #bbf7d0 !important; }
-  [style*="#fef3c7"] { background: #451a03 !important; color: #fde68a !important; }
-  [style*="#dbeafe"] { background: #1e3a5f !important; color: #93c5fd !important; }
-  [style*="#fee2e2"] { background: #450a0a !important; color: #fecaca !important; }
-  /* Saját poszt kártya sötét módban is olvasható */
+  /* Pill / badge / chip — bármilyen inline háttérrel rendelkező kicsi elem */
+  .pill {
+    border: 1px solid var(--border) !important;
+    filter: brightness(0.7) saturate(1.5);
+  }
+  /* Hardkódolt világos hátterű elemek átírása sötétre.
+     Ezek inline style-ban vannak a komponensekben — amíg nem
+     migráljuk CSS változókra, a filter trükk segít. */
+  [style*="background"] {
+    --dark-override: 1;
+  }
+  /* Saját poszt */
   .own-post-card {
     background: #422006 !important;
     border-color: #a16207 !important;
-    color: #fef3c7 !important;
   }
-  .own-post-card h3,
-  .own-post-card p,
-  .own-post-card strong,
-  .own-post-card .muted {
+  .own-post-card, .own-post-card * {
     color: #fef3c7 !important;
   }
 }

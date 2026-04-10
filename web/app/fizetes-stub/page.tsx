@@ -173,7 +173,7 @@ export default function FizetesStub() {
             <div
               style={{
                 padding: '16px 20px',
-                background: '#f1f5f9',
+                background: 'var(--bg)',
                 borderRadius: 10,
                 marginBottom: 16,
                 textAlign: 'center',

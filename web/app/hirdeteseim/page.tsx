@@ -133,7 +133,7 @@ export default function SajatHirdeteseim() {
                   {r.prices.map((p) => (
                     <span
                       key={p.size}
-                      style={{ background: '#eff6ff', padding: '2px 8px', borderRadius: 999, fontSize: 12 }}
+                      style={{ background: 'var(--surface)', padding: '2px 8px', borderRadius: 999, fontSize: 12 }}
                     >
                       <strong>{p.size}</strong> {p.price_huf.toLocaleString('hu-HU')} Ft
                     </span>

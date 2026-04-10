@@ -164,7 +164,7 @@ export default function ProfilOldal() {
               width: 28,
               height: 28,
               borderRadius: '50%',
-              background: '#fff',
+              background: 'var(--surface)',
               border: '2px solid var(--primary)',
               display: 'flex',
               alignItems: 'center',

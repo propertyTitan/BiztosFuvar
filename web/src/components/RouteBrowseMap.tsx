@@ -177,7 +177,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
                 <span
                   key={p.size}
                   style={{
-                    background: '#eff6ff',
+                    background: 'var(--surface)',
                     padding: '2px 6px',
                     borderRadius: 999,
                     fontSize: 11,

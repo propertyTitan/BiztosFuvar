@@ -327,7 +327,7 @@ export default function SoforFuvarReszletek() {
       )}
 
       {myBid && (
-        <div className="card" style={{ marginTop: 16, background: '#eff6ff' }}>
+        <div className="card" style={{ marginTop: 16, background: 'var(--surface)' }}>
           <h2 style={{ marginTop: 0 }}>A te licitelt</h2>
           <p>
             <strong className="price">{myBid.amount_huf.toLocaleString('hu-HU')} Ft</strong>

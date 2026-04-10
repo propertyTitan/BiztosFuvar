@@ -86,7 +86,7 @@ export default function UtvonalaimOldal() {
                 <span
                   key={p.size}
                   style={{
-                    background: '#eff6ff',
+                    background: 'var(--surface)',
                     padding: '3px 8px',
                     borderRadius: 6,
                     fontSize: 12,

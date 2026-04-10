@@ -62,7 +62,7 @@ export default function FeladoiUtvonalBongeszo() {
         <div
           style={{
             display: 'inline-flex',
-            background: '#f1f5f9',
+            background: 'var(--bg)',
             borderRadius: 999,
             padding: 3,
             border: '1px solid var(--border)',
@@ -239,7 +239,8 @@ export default function FeladoiUtvonalBongeszo() {
                 <span
                   key={p.size}
                   style={{
-                    background: '#eff6ff',
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
                     padding: '4px 10px',
                     borderRadius: 999,
                     fontSize: 13,

@@ -276,7 +276,7 @@ export default function LandingPage() {
                   width: 48,
                   height: 48,
                   borderRadius: 12,
-                  background: '#eff6ff',
+                  background: 'var(--surface)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',

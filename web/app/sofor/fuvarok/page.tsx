@@ -96,7 +96,7 @@ export default function SoforFuvarokLista() {
           <div
             style={{
               display: 'inline-flex',
-              background: '#f1f5f9',
+              background: 'var(--bg)',
               borderRadius: 999,
               padding: 3,
               border: '1px solid var(--border)',
