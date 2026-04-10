@@ -12,7 +12,7 @@
 // =====================================================================
 import { useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, ScrollView, TextInput,
+  View, Text, StyleSheet, Pressable, Alert, ActivityIndicator, ScrollView, TextInput, Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -161,12 +161,23 @@ export default function FuvarLezarasa() {
         <TextInput
           style={styles.codeInput}
           value={code}
-          onChangeText={(t) => setCode(t.replace(/[^0-9]/g, '').slice(0, 6))}
+          onChangeText={(t) => {
+            const clean = t.replace(/[^0-9]/g, '').slice(0, 6);
+            setCode(clean);
+            // Ha mind a 6 szám megvan, automatikusan bezárjuk a billentyűzetet
+            if (clean.length === 6) Keyboard.dismiss();
+          }}
           placeholder="······"
           placeholderTextColor={colors.textMuted}
           keyboardType="number-pad"
           maxLength={6}
           autoFocus
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            // 6 jegy beírva → billentyűzet eltűnik, és ha kész a kód
+            // a "Lezárás" gombra fókuszálhat a user
+          }}
+          blurOnSubmit
         />
 
         <Section label="Cél">

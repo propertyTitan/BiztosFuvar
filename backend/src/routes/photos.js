@@ -12,6 +12,8 @@ const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const realtime = require('../realtime');
 const barion = require('../services/barion');
+const { createNotification } = require('../services/notifications');
+const { sendEmail } = require('../services/email');
 
 const router = express.Router();
 // 10 MB kép-korlát: base64-ben a DB-ben ez kb. ~13 MB-ot foglal, ami még kezelhető
@@ -144,6 +146,51 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
 
     validation.payout = payout;
     realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation, payout });
+
+    // Értesítés a FELADÓNAK: a csomagod megérkezett!
+    try {
+      const { rows: partyRows } = await db.query(
+        `SELECT j.shipper_id, j.title, j.accepted_price_huf,
+                s.full_name AS shipper_name, s.email AS shipper_email,
+                c.full_name AS carrier_name
+           FROM jobs j
+           JOIN users s ON s.id = j.shipper_id
+      LEFT JOIN users c ON c.id = j.carrier_id
+          WHERE j.id = $1`,
+        [jobId],
+      );
+      const info = partyRows[0];
+      if (info) {
+        await createNotification({
+          user_id: info.shipper_id,
+          type: 'job_delivered',
+          title: '📦 A csomagod megérkezett!',
+          body: `${info.carrier_name || 'A sofőr'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve, a kifizetés automatikusan megtörtént.`,
+          link: `/dashboard/fuvar/${jobId}`,
+        });
+        // Email is
+        if (info.shipper_email) {
+          setImmediate(() => {
+            const { sendEmail: _send, isStub: _isStub } = require('../services/email');
+            // Egyszerű inline email — a sendEmail wrapper-t használjuk
+            const emailHtml = `
+              <p>Szia ${info.shipper_name || 'GoFuvar felhasználó'}!</p>
+              <p>Nagyszerű hír — <strong>${info.carrier_name || 'a sofőr'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${info.title}"</strong> fuvarban!</p>
+              <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
+              <p>A 6 jegyű átvételi kód ellenőrizve, a Barion letét felszabadult. A sofőr megkapta a díjazását (90%), a platform jutalék (10%) levonva.</p>
+              <p>Ha bármi probléma van a csomagoddal, a fuvar részletek oldalán tudsz vitás esetet nyitni.</p>
+            `;
+            sendEmail({
+              to: info.shipper_email,
+              subject: `✅ Kézbesítve: ${info.title}`,
+              html: emailHtml,
+            }).catch((e) => console.warn('[email] job_delivered hiba:', e.message));
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('[notifications] job_delivered hiba:', e.message);
+    }
   }
 
   res.status(201).json({ photo, validation });

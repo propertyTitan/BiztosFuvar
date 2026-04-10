@@ -76,9 +76,11 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
   }
 
   try {
+    // A régi reviews tábla `rating NOT NULL` oszloppal rendelkezik a
+    // `stars` mellett — mindkettőt kitöltjük kompatibilitási okokból.
     const { rows: inserted } = await db.query(
-      `INSERT INTO reviews (job_id, booking_id, reviewer_id, reviewee_id, stars, comment)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO reviews (job_id, booking_id, reviewer_id, reviewee_id, stars, rating, comment)
+       VALUES ($1, $2, $3, $4, $5, $5, $6)
        RETURNING *`,
       [job_id || null, booking_id || null, req.user.sub, revieweeId, stars, comment || null],
     );
@@ -166,8 +168,8 @@ router.post('/jobs/:jobId/reviews', authRequired, writeRateLimit, async (req, re
   const revieweeId = job.shipper_id === req.user.sub ? job.carrier_id : job.shipper_id;
   try {
     const { rows } = await db.query(
-      `INSERT INTO reviews (job_id, reviewer_id, reviewee_id, stars, comment)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      `INSERT INTO reviews (job_id, reviewer_id, reviewee_id, stars, rating, comment)
+       VALUES ($1,$2,$3,$4,$4,$5) RETURNING *`,
       [job_id, req.user.sub, revieweeId, stars, comment || null],
     );
     await recalcRating(revieweeId);
