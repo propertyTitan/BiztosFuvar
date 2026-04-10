@@ -176,17 +176,7 @@ export default function FeladoiFuvarReszletek() {
         </MapView>
       </View>
 
-      {/* Átvételi kód – csak a feladó látja */}
-      {job.delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
-        <View style={styles.codeCard}>
-          <Text style={styles.codeLabel}>🔐 Átvételi kód</Text>
-          <Text style={styles.codeValue}>{job.delivery_code}</Text>
-          <Text style={styles.codeHint}>
-            Add át ezt a 6 jegyű kódot a sofőrnek, amikor átveszi tőled (vagy a
-            címzettől) a csomagot. A sofőr ezzel tudja lezárni a fuvart.
-          </Text>
-        </View>
-      )}
+      {/* Az átvételi kód most az oldal aljára került, az elfogadott ár mellé */}
 
       {/* Hirdetési fotók */}
       {listingPhotos.length > 0 && (
@@ -304,6 +294,21 @@ export default function FeladoiFuvarReszletek() {
         </View>
       )}
 
+      {/* Átvételi kód — NAGY és feltűnő, az oldal alján, az ár mellett.
+          A feladó ezt adja át a sofőrnek az átvételkor → ezzel záródik a fuvar. */}
+      {job.delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
+        <View style={styles.codeCard}>
+          <Text style={styles.codeLabel}>🔐 ÁTVÉTELI KÓD</Text>
+          <Text style={styles.codeValue}>{job.delivery_code}</Text>
+          <View style={styles.codeHintBox}>
+            <Text style={styles.codeHint}>
+              Add át ezt a 6 jegyű kódot a sofőrnek az átvételkor.{'\n'}
+              A sofőr ezzel zárja le a fuvart — nélküle nem kap fizetést.
+            </Text>
+          </View>
+        </View>
+      )}
+
       {/* Elfogadott ár + fizetés / FIZETVE */}
       {job.accepted_price_huf && (
         <View style={[styles.section, { backgroundColor: '#eff6ff' }]}>
@@ -387,34 +392,47 @@ const styles = StyleSheet.create({
   muted: { color: colors.textMuted, fontSize: 13 },
 
   codeCard: {
-    backgroundColor: colors.primary,
-    padding: spacing.md,
-    borderRadius: radius.md,
+    backgroundColor: '#1e40af',
+    padding: spacing.lg,
+    borderRadius: radius.lg,
     marginBottom: spacing.md,
+    borderWidth: 3,
+    borderColor: '#60a5fa',
+    shadowColor: '#1e40af',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   codeLabel: {
-    color: '#fff',
-    fontSize: 12,
+    color: '#93c5fd',
+    fontSize: 13,
     textTransform: 'uppercase',
-    opacity: 0.85,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: 2,
     marginBottom: spacing.sm,
-    fontWeight: '600',
   },
   codeValue: {
     color: '#fff',
-    fontSize: 40,
-    fontWeight: '800',
-    letterSpacing: 4,
+    fontSize: 48,
+    fontWeight: '900',
+    letterSpacing: 8,
     textAlign: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
+  codeHintBox: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.sm,
+  },
   codeHint: {
-    color: '#fff',
+    color: '#dbeafe',
     fontSize: 13,
-    opacity: 0.9,
-    marginTop: spacing.xs,
-    lineHeight: 18,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   thumb: {
     width: 120,

@@ -205,7 +205,22 @@ router.get('/:id', authRequired, async (req, res) => {
     [req.params.id],
   );
   if (!rows[0]) return res.status(404).json({ error: 'Nem található' });
-  res.json(scrubJobForUser(rows[0], req.user));
+  const job = rows[0];
+
+  // Ha a fuvarnak NINCS delivery_code-ja (régebbi fuvarnál előfordulhat),
+  // és a status accepted+ → most generálunk egyet és elmentjük. Így a
+  // feladó MINDIG lát egy 6 jegyű kódot amint a licit elfogadva van.
+  if (!job.delivery_code && ['accepted', 'in_progress'].includes(job.status)) {
+    const newCode = generateDeliveryCode();
+    await db.query(
+      `UPDATE jobs SET delivery_code = $1 WHERE id = $2 AND delivery_code IS NULL`,
+      [newCode, job.id],
+    );
+    job.delivery_code = newCode;
+    console.log(`[delivery-code] lusta generálás: job ${job.id} → ${newCode}`);
+  }
+
+  res.json(scrubJobForUser(job, req.user));
 });
 
 // GET /jobs/mine/list?as=posted|assigned – saját fuvarok
