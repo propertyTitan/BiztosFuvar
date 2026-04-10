@@ -4,7 +4,7 @@
 // élőben látja a sofőr piros pöttyét).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, TextInput, Alert, ScrollView, Platform, FlatList,
+  View, Text, StyleSheet, Pressable, TextInput, Alert, ScrollView, Platform, Keyboard,
 } from 'react-native';
 import { useLocalSearchParams, Link } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
@@ -299,17 +299,27 @@ export default function FuvarReszletek() {
 
       {meId && job.shipper_id !== meId && (job.status === 'pending' || job.status === 'bidding') && (
         <Section label="Licit feladása">
-          <TextInput
-            style={styles.input}
-            placeholder="Ajánlott ár (Ft)"
-            keyboardType="number-pad"
-            value={bid}
-            onChangeText={setBid}
-            returnKeyType="done"
-            blurOnSubmit
-            onSubmitEditing={placeBid}
-          />
-          <Pressable style={styles.cta} onPress={placeBid}>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <TextInput
+              style={[styles.input, { flex: 1, marginBottom: 0 }]}
+              placeholder="Ajánlott ár (Ft)"
+              keyboardType="number-pad"
+              value={bid}
+              onChangeText={setBid}
+            />
+            <Pressable
+              style={{
+                backgroundColor: colors.border,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                borderRadius: 8,
+              }}
+              onPress={() => Keyboard.dismiss()}
+            >
+              <Text style={{ fontWeight: '700', color: colors.text, fontSize: 14 }}>Kész</Text>
+            </Pressable>
+          </View>
+          <Pressable style={[styles.cta, { marginTop: 12 }]} onPress={placeBid}>
             <Text style={styles.ctaText}>Licit elküldése</Text>
           </Pressable>
         </Section>

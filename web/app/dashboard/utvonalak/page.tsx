@@ -193,7 +193,7 @@ export default function FeladoiUtvonalBongeszo() {
           <Link
             key={r.id}
             href={href}
-            className="card"
+            className={`card${isMine ? ' own-post-card' : ''}`}
             style={{
               display: 'block',
               textDecoration: 'none',

@@ -49,12 +49,15 @@
     border-color: var(--border);
   }
   /* Saját poszt kártya sötét módban is olvasható */
-  a[style*="fefce8"], div[style*="fefce8"] {
+  .own-post-card {
     background: #422006 !important;
     border-color: #a16207 !important;
+    color: #fef3c7 !important;
   }
-  a[style*="fefce8"] h3, div[style*="fefce8"] h3,
-  a[style*="fefce8"] p, div[style*="fefce8"] p {
+  .own-post-card h3,
+  .own-post-card p,
+  .own-post-card strong,
+  .own-post-card .muted {
     color: #fef3c7 !important;
   }
 }

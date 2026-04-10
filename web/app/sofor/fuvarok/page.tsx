@@ -258,7 +258,7 @@ export default function SoforFuvarokLista() {
           <Link
             key={j.id}
             href={href}
-            className="card"
+            className={`card${isMine ? ' own-post-card' : ''}`}
             style={{
               display: 'block',
               textDecoration: 'none',
