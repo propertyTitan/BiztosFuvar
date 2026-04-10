@@ -97,22 +97,14 @@ export default function SiteHeader() {
       {/* ── Közép: 3 fő navigáció (csak bejelentkezve) ── */}
       {user && (
         <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <Link href="/" style={navLinkStyle}>
+            🏠 {t('nav.home')}
+          </Link>
           <Link href="/sofor/fuvarok" style={navLinkStyle}>
             🎯 {t('nav.biddableJobs')}
           </Link>
           <Link href="/dashboard/utvonalak" style={navLinkStyle}>
             🛣️ {t('nav.fixedRoutes')}
-          </Link>
-          <Link
-            href="/feladas/uj"
-            style={{
-              ...navLinkStyle,
-              background: 'rgba(255,255,255,0.2)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              fontWeight: 700,
-            }}
-          >
-            ➕ {locale === 'hu' ? 'Hirdetés' : 'Post job'}
           </Link>
         </nav>
       )}
