@@ -458,6 +458,10 @@ export const api = {
 
   // ---------- AI chat ----------
 
+  // ---------- Admin ----------
+
+  adminStats: () => request<any>('/auth/admin/stats'),
+
   // ---------- Profile ----------
 
   getMyProfile: () =>

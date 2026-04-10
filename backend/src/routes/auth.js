@@ -124,6 +124,29 @@ router.get('/users/:id/profile', authRequired, async (req, res) => {
   res.json(rows[0]);
 });
 
+// GET /auth/admin/stats — admin dashboard statisztikák
+router.get('/admin/stats', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Csak admin' });
+  }
+  const [jobs, activeJobs, users, routes, bookings, disputes] = await Promise.all([
+    db.query("SELECT COUNT(*)::int AS c FROM jobs"),
+    db.query("SELECT COUNT(*)::int AS c FROM jobs WHERE status IN ('bidding','accepted','in_progress')"),
+    db.query("SELECT COUNT(*)::int AS c FROM users"),
+    db.query("SELECT COUNT(*)::int AS c FROM carrier_routes"),
+    db.query("SELECT COUNT(*)::int AS c FROM route_bookings"),
+    db.query("SELECT COUNT(*)::int AS c FROM disputes WHERE status IN ('open','under_review')"),
+  ]);
+  res.json({
+    total_jobs: jobs.rows[0].c,
+    active_jobs: activeJobs.rows[0].c,
+    total_users: users.rows[0].c,
+    total_routes: routes.rows[0].c,
+    total_bookings: bookings.rows[0].c,
+    open_disputes: disputes.rows[0].c,
+  });
+});
+
 // POST /auth/push-token — Expo push token regisztrálása
 router.post('/push-token', authRequired, async (req, res) => {
   const { token, platform } = req.body || {};
