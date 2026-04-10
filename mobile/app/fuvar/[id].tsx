@@ -368,7 +368,7 @@ export default function FuvarReszletek() {
 
       {canClose && (
         <Link href={{ pathname: '/fuvar/[id]/lezaras', params: { id: id! } }} asChild>
-          <Pressable style={[styles.cta, styles.bigCta]}>
+          <Pressable style={[styles.cta, styles.bigCta, styles.closeCta]}>
             <Text style={styles.ctaText}>📸 FUVAR LEZÁRÁSA (lerakodás + kód)</Text>
           </Pressable>
         </Link>
@@ -443,6 +443,16 @@ const styles = StyleSheet.create({
   },
   ctaText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   bigCta: { paddingVertical: spacing.lg, marginTop: spacing.md },
+  closeCta: {
+    backgroundColor: '#dc2626',
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#dc2626',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
 
   ownPostBox: {
     backgroundColor: '#fefce8',
