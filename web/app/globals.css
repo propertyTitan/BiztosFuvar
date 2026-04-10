@@ -35,10 +35,13 @@
     background: var(--surface);
     border-color: var(--border);
   }
-  .input, textarea.input {
-    background: var(--surface);
-    color: var(--text);
-    border-color: var(--border);
+  .input, textarea.input, input, select, textarea {
+    background: var(--surface) !important;
+    color: var(--text) !important;
+    border-color: var(--border) !important;
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--muted) !important;
   }
   .btn {
     background: var(--primary);
@@ -93,9 +96,10 @@ html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
 .btn:hover { background: var(--primary-dark); }
 .btn-secondary { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
 
-.input, select, textarea {
+.input, select, textarea, input[type="text"], input[type="email"], input[type="password"],
+input[type="number"], input[type="date"], input[type="tel"], input:not([type]) {
   width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
-  font-size: 14px; background: #fff; margin-top: 4px;
+  font-size: 14px; background: var(--surface); color: var(--text); margin-top: 4px;
 }
 label { display: block; margin-top: 12px; font-size: 13px; color: var(--muted); }
 
