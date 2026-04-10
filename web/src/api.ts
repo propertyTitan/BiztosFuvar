@@ -458,6 +458,10 @@ export const api = {
 
   // ---------- AI chat ----------
 
+  // ---------- Gamification ----------
+
+  getGameStats: () => request<any>('/auth/me/game-stats'),
+
   // ---------- Admin ----------
 
   adminStats: () => request<any>('/auth/admin/stats'),

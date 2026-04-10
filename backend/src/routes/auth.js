@@ -9,6 +9,7 @@ const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit } = require('../middleware/rateLimit');
+const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
@@ -181,6 +182,20 @@ router.get('/admin/stats', authRequired, async (req, res) => {
     total_bookings: bookings.rows[0].c,
     open_disputes: disputes.rows[0].c,
   });
+});
+
+// GET /auth/me/game-stats — gamifikációs dashboard adatok
+router.get('/me/game-stats', authRequired, async (req, res) => {
+  const stats = await getDriverGameStats(req.user.sub);
+  if (!stats) return res.status(404).json({ error: 'Nem található' });
+  res.json(stats);
+});
+
+// POST /auth/admin/grant-monthly-vouchers — havi voucher generálás (admin)
+router.post('/admin/grant-monthly-vouchers', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Csak admin' });
+  const count = await grantMonthlyVouchers();
+  res.json({ ok: true, granted: count });
 });
 
 // POST /auth/avatar — profilkép feltöltés

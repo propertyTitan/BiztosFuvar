@@ -142,7 +142,17 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       [jobId],
     );
 
-    // Barion: foglalás véglegesítése + 90/10 split kifizetés
+    // Jutalékmentes voucher ellenőrzés — ha a sofőrnek van, 0% jutalék
+    const { useVoucherIfAvailable } = require('../services/gamification');
+    let voucherUsed = false;
+    if (job.carrier_id) {
+      voucherUsed = await useVoucherIfAvailable(job.carrier_id, jobId, null);
+      if (voucherUsed) {
+        console.log(`[gamification] Voucher felhasználva! Sofőr: ${job.carrier_id}, Job: ${jobId} → 0% jutalék`);
+      }
+    }
+
+    // Barion: foglalás véglegesítése — ha voucher, a sofőr 100%-ot kap
     let payout = null;
     try {
       const { rows: escrowRows } = await db.query(
@@ -161,6 +171,15 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           totalHuf: esc.amount_huf,
           carrierPayee: esc.carrier_email,
         });
+      }
+      // Ha voucher → az escrow-ban is jelöljük hogy 0% volt a jutalék
+      if (voucherUsed && esc) {
+        await db.query(
+          `UPDATE escrow_transactions
+              SET carrier_share_huf = amount_huf, platform_share_huf = 0
+            WHERE job_id = $1`,
+          [jobId],
+        );
       }
     } catch (err) {
       console.error('[barion] finishReservation hiba:', err.message);
@@ -222,11 +241,23 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       console.warn('[notifications] job_delivered hiba:', e.message);
     }
 
-    // Trust score újraszámolás a sofőrnek
+    // Trust score + szint + jelvények újraszámolása a sofőrnek
     if (job.carrier_id) {
-      setImmediate(() => {
-        const { recalcTrustScore } = require('../services/trustScore');
-        recalcTrustScore(job.carrier_id).catch(() => {});
+      setImmediate(async () => {
+        try {
+          const { recalcTrustScore } = require('../services/trustScore');
+          const { recalcLevel } = require('../services/gamification');
+          await recalcTrustScore(job.carrier_id);
+          const result = await recalcLevel(job.carrier_id);
+          if (result.leveledUp) {
+            console.log(`[gamification] ${job.carrier_id} szintet lépett: Level ${result.level} (${result.levelName})`);
+          }
+          if (result.newBadges.length > 0) {
+            console.log(`[gamification] Új jelvények: ${result.newBadges.map((b) => b.icon + b.name).join(', ')}`);
+          }
+        } catch (e) {
+          console.warn('[gamification] hiba:', e.message);
+        }
       });
     }
   }
