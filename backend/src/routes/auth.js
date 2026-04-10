@@ -4,6 +4,7 @@ const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const { authRequired } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit } = require('../middleware/rateLimit');
 
 const router = express.Router();
