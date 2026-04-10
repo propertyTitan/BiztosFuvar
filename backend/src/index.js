@@ -28,6 +28,10 @@ app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
 
+// Statikus fájl-kiszolgálás a feltöltött fotókhoz
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
 // Globális, IP-alapú rate limit: 300 kérés / perc / IP. Második védelmi
 // vonal a per-endpoint limitek után — spike-ok, botok ellen védekezik.
 // A /health végpontra szándékosan nem alkalmazzuk, hogy a loadbalancer
