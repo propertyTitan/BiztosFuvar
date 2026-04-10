@@ -1,141 +1,318 @@
-/* GoFuvar – globális stílusok. Letisztult, kék/fehér/szürke + zöld akcent. */
+/* ================================================================
+   GoFuvar Design System v2.0 — Európai szintű, profi, i18n-ready.
+   Inspiráció: Uber, Stripe, Airbnb, Revolut.
+   ================================================================ */
+
+/* ── Betűtípus: Inter (Google Fonts) ── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ── Színpaletta (CSS változók) ── */
 :root {
   --primary: #1e40af;
-  --primary-dark: #1e3a8a;
-  --accent: #3b82f6;
+  --primary-hover: #1e3a8a;
+  --primary-light: #3b82f6;
+  --primary-subtle: #dbeafe;
   --bg: #f8fafc;
   --surface: #ffffff;
+  --surface-hover: #f1f5f9;
   --text: #0f172a;
+  --text-secondary: #475569;
   --muted: #64748b;
   --border: #e2e8f0;
+  --border-hover: #cbd5e1;
   --success: #16a34a;
+  --success-light: #dcfce7;
   --danger: #dc2626;
+  --danger-light: #fee2e2;
   --warning: #f59e0b;
+  --warning-light: #fef3c7;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Dark mode — automatikusan az OS beállítás alapján vált */
+/* ── Dark mode ── */
 @media (prefers-color-scheme: dark) {
   :root {
     --primary: #3b82f6;
-    --primary-dark: #1e40af;
-    --accent: #60a5fa;
-    --bg: #0f172a;
-    --surface: #1e293b;
+    --primary-hover: #2563eb;
+    --primary-light: #60a5fa;
+    --primary-subtle: #1e3a5f;
+    --bg: #0c1222;
+    --surface: #162032;
+    --surface-hover: #1e293b;
     --text: #f1f5f9;
-    --muted: #94a3b8;
-    --border: #334155;
+    --text-secondary: #94a3b8;
+    --muted: #64748b;
+    --border: #1e3a5f;
+    --border-hover: #334155;
     --success: #22c55e;
+    --success-light: #14532d;
     --danger: #ef4444;
+    --danger-light: #450a0a;
     --warning: #fbbf24;
+    --warning-light: #451a03;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+    --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
     color-scheme: dark;
   }
-  /* Globális: MINDEN szöveg örökli a --text színt */
-  body, body * {
-    color: var(--text);
-  }
-  .muted, label, .site-footer, [class*="muted"] {
-    color: var(--muted) !important;
-  }
-  .price {
-    color: var(--primary) !important;
-  }
-  .site-header, .site-header * {
-    color: #fff;
-  }
-  .site-header {
-    background: rgba(15, 23, 42, 0.95) !important;
-  }
-  /* Minden kártya, doboz, section */
-  .card, [class*="card"] {
-    background: var(--surface) !important;
-    border-color: var(--border) !important;
-  }
-  /* Inputok */
-  .input, input, select, textarea {
+  body, body * { color: var(--text); }
+  .muted, label, .site-footer { color: var(--muted) !important; }
+  .price { color: var(--primary-light) !important; }
+  .site-header, .site-header * { color: #fff !important; }
+  .site-header { background: rgba(12, 18, 34, 0.95) !important; }
+  .card { background: var(--surface) !important; border-color: var(--border) !important; }
+  input, select, textarea, .input {
     background: var(--surface) !important;
     color: var(--text) !important;
     border-color: var(--border) !important;
   }
-  input::placeholder, textarea::placeholder {
-    color: var(--muted) !important;
-  }
-  /* Gombok */
+  input::placeholder, textarea::placeholder { color: var(--muted) !important; }
   .btn { color: #fff !important; }
   .btn-secondary {
     background: var(--surface) !important;
     color: var(--text) !important;
     border-color: var(--border) !important;
   }
-  /* Pill / badge / chip — bármilyen inline háttérrel rendelkező kicsi elem */
-  .pill {
-    border: 1px solid var(--border) !important;
-    filter: brightness(0.7) saturate(1.5);
-  }
-  /* Hardkódolt világos hátterű elemek átírása sötétre.
-     Ezek inline style-ban vannak a komponensekben — amíg nem
-     migráljuk CSS változókra, a filter trükk segít. */
-  [style*="background"] {
-    --dark-override: 1;
-  }
-  /* Saját poszt */
-  .own-post-card {
-    background: #422006 !important;
-    border-color: #a16207 !important;
-  }
-  .own-post-card, .own-post-card * {
-    color: #fef3c7 !important;
-  }
+  .pill-bidding   { background: var(--primary-subtle); color: var(--primary-light); }
+  .pill-accepted  { background: var(--warning-light); color: var(--warning); }
+  .pill-progress  { background: var(--primary-subtle); color: var(--primary-light); }
+  .pill-delivered { background: var(--success-light); color: var(--success); }
+  .pill-cancelled { background: var(--danger-light); color: var(--danger); }
+  .own-post-card { background: #422006 !important; border-color: #a16207 !important; }
+  .own-post-card, .own-post-card * { color: #fef3c7 !important; }
 }
 
-* { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0; padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+::selection {
+  background: var(--primary);
+  color: #fff;
+}
 
+/* ── Scrollbar (webkit) ── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+/* ── Typography ── */
+h1 { font-size: 28px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.5px; line-height: 1.2; }
+h2 { font-size: 20px; font-weight: 700; margin: 24px 0 8px; letter-spacing: -0.3px; }
+h3 { font-size: 16px; font-weight: 700; margin: 16px 0 4px; }
+p { margin: 0 0 8px; }
+a { color: var(--primary); }
+
+/* ── Layout ── */
+.site-main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px;
+  min-height: calc(100vh - 160px);
+}
+@media (max-width: 768px) {
+  .site-main { padding: 16px; }
+}
+
+/* ── Header ── */
 .site-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 16px 32px;
-  background: rgba(30, 64, 175, 0.92);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.97) 0%, rgba(37, 99, 235, 0.95) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   color: #fff;
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 1px 20px rgba(30, 64, 175, 0.25);
 }
-.site-header .brand { display: flex; align-items: center; text-decoration: none; }
-.site-header nav a { color: #fff; margin-left: 24px; text-decoration: none; font-weight: 500; }
-.site-header nav a:hover { text-decoration: underline; }
-
-.site-main { max-width: 1200px; margin: 0 auto; padding: 32px; }
-.site-footer { text-align: center; padding: 24px; color: var(--muted); font-size: 13px; }
-
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-
-.btn { display: inline-block; padding: 10px 20px; background: var(--primary); color: #fff;
-  border: none; border-radius: 8px; font-weight: 600; cursor: pointer; text-decoration: none; }
-.btn:hover { background: var(--primary-dark); }
-.btn-secondary { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
-
-.input, select, textarea, input[type="text"], input[type="email"], input[type="password"],
-input[type="number"], input[type="date"], input[type="tel"], input:not([type]) {
-  width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
-  font-size: 14px; background: var(--surface); color: var(--text); margin-top: 4px;
+.site-header .brand {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
 }
-label { display: block; margin-top: 12px; font-size: 13px; color: var(--muted); }
+.site-header nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.site-header nav a {
+  color: rgba(255,255,255,0.85);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 13px;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.site-header nav a:hover {
+  color: #fff;
+  background: rgba(255,255,255,0.12);
+  text-decoration: none;
+}
 
+/* ── Footer ── */
+.site-footer {
+  text-align: center;
+  padding: 32px 24px;
+  color: var(--muted);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+  margin-top: 32px;
+}
+
+/* ── Cards ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition);
+}
+.card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-hover);
+}
+a.card:hover, .home-hub-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── Buttons ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+.btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+}
+.btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+.btn-secondary {
+  background: var(--surface);
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+.btn-secondary:hover {
+  background: var(--primary-subtle);
+  transform: translateY(-1px);
+}
+
+/* ── Inputs ── */
+.input, input, select, textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  margin-top: 4px;
+  transition: all var(--transition);
+  outline: none;
+}
+.input:focus, input:focus, select:focus, textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
+}
+label {
+  display: block;
+  margin-top: 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.3px;
+}
+
+/* ── Grid & Flex helpers ── */
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .row { display: flex; gap: 16px; flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .grid-2 { grid-template-columns: 1fr; }
+}
 
-.pill { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-.pill-bidding   { background: #dbeafe; color: #1e40af; }
-.pill-accepted  { background: #fef3c7; color: #92400e; }
+/* ── Pills / Badges ── */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  transition: all var(--transition);
+}
+.pill-bidding   { background: var(--primary-subtle, #dbeafe); color: var(--primary); }
+.pill-accepted  { background: var(--warning-light, #fef3c7); color: #92400e; }
 .pill-progress  { background: #e0e7ff; color: #3730a3; }
-.pill-delivered { background: #dcfce7; color: #166534; }
-.pill-cancelled { background: #fee2e2; color: #991b1b; }
+.pill-delivered { background: var(--success-light, #dcfce7); color: #166534; }
+.pill-cancelled { background: var(--danger-light, #fee2e2); color: #991b1b; }
 
-h1 { font-size: 28px; margin-top: 0; }
-h2 { font-size: 20px; }
+/* ── Utility ── */
 .muted { color: var(--muted); }
 .price { color: var(--primary); font-weight: 700; }
+.text-center { text-align: center; }
+
+/* ── Animations ── */
+@keyframes gofuvar-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.card, .site-main > * {
+  animation: gofuvar-fade-in 0.3s ease-out;
+}
+
+/* ── Loading spinner (használható a teherautó mellett) ── */
+@keyframes gofuvar-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
