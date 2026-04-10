@@ -11,9 +11,10 @@ const router = express.Router();
 
 /** Újraszámolja a reviewee rating_avg/rating_count-ját a reviews-ból. */
 async function recalcRating(userId) {
+  // COALESCE(stars, rating): a régi reviews-ben `rating`, az újban `stars`
   await db.query(
     `UPDATE users
-        SET rating_avg   = COALESCE((SELECT ROUND(AVG(stars)::numeric, 1) FROM reviews WHERE reviewee_id = $1), 0),
+        SET rating_avg   = COALESCE((SELECT ROUND(AVG(COALESCE(stars, rating))::numeric, 1) FROM reviews WHERE reviewee_id = $1), 0),
             rating_count = (SELECT COUNT(*) FROM reviews WHERE reviewee_id = $1)
       WHERE id = $1`,
     [userId],
@@ -76,16 +77,34 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
   }
 
   try {
-    // A régi reviews tábla `rating NOT NULL` oszloppal rendelkezik a
-    // `stars` mellett — mindkettőt kitöltjük kompatibilitási okokból.
-    const { rows: inserted } = await db.query(
-      `INSERT INTO reviews (job_id, booking_id, reviewer_id, reviewee_id, stars, rating, comment)
-       VALUES ($1, $2, $3, $4, $5, $5, $6)
-       RETURNING *`,
-      [job_id || null, booking_id || null, req.user.sub, revieweeId, stars, comment || null],
-    );
-    const review = inserted[0];
-
+    // Kompatibilis INSERT: a régi reviews tábla `rating NOT NULL`-t vár,
+    // a `booking_id` és `stars` oszlopok pedig lehet hogy nem léteznek.
+    // Ezért először megpróbáljuk az új formátumot, és ha az nem megy,
+    // fallback-elünk a régire.
+    let review;
+    try {
+      const { rows } = await db.query(
+        `INSERT INTO reviews (job_id, booking_id, reviewer_id, reviewee_id, stars, rating, comment)
+         VALUES ($1, $2, $3, $4, $5, $5, $6)
+         RETURNING *`,
+        [job_id || null, booking_id || null, req.user.sub, revieweeId, stars, comment || null],
+      );
+      review = rows[0];
+    } catch (insertErr) {
+      // Ha a booking_id vagy stars oszlop nem létezik, próbáljuk régi formátummal
+      if (insertErr.code === '42703') {
+        console.warn('[reviews] fallback INSERT (régi séma):', insertErr.message);
+        const { rows } = await db.query(
+          `INSERT INTO reviews (job_id, reviewer_id, reviewee_id, rating, comment)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING *`,
+          [job_id, req.user.sub, revieweeId, stars, comment || null],
+        );
+        review = rows[0];
+      } else {
+        throw insertErr;
+      }
+    }
     // Rating újraszámolás
     await recalcRating(revieweeId);
 
