@@ -228,6 +228,44 @@ export default function FeladoiFuvarReszletek() {
         </View>
       ) : null}
 
+      {/* Vita indítása */}
+      {['in_progress', 'delivered'].includes(job.status) && (
+        <View style={[styles.section, { backgroundColor: '#fefce8', borderColor: '#f59e0b' }]}>
+          <Text style={[styles.sectionLabel, { color: '#92400e' }]}>Probléma van?</Text>
+          <Text style={{ color: '#92400e', fontSize: 13, marginBottom: spacing.sm, lineHeight: 18 }}>
+            Ha a csomagod sérült, nem érkezett meg, vagy egyéb gond van — indíts egy vitás esetet.
+          </Text>
+          <Pressable
+            style={[styles.payBtn, { backgroundColor: '#d97706' }]}
+            onPress={() => {
+              Alert.prompt
+                ? Alert.prompt('Vitás eset', 'Írd le mi a probléma:', async (desc) => {
+                    if (!desc?.trim()) return;
+                    try {
+                      await api.openDispute({ job_id: id!, description: desc });
+                      toast.info('Vitás eset megnyitva', 'Az admin hamarosan felülvizsgálja.');
+                      load();
+                    } catch (e: any) {
+                      toast.error('Hiba', e.message);
+                    }
+                  })
+                : Alert.alert('Vitás eset', 'Írd le a problémát az AI Segédnek vagy az értesítések oldalon.', [{ text: 'OK' }]);
+            }}
+          >
+            <Text style={styles.payBtnText}>⚖️ Vitás esetet nyitok</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {job.status === 'disputed' && (
+        <View style={[styles.section, { backgroundColor: '#fef3c7', borderColor: '#f59e0b' }]}>
+          <Text style={[styles.sectionLabel, { color: '#92400e' }]}>⚖️ Vitás eset folyamatban</Text>
+          <Text style={{ color: '#92400e', fontSize: 13, lineHeight: 18 }}>
+            Erre a fuvarra vita van nyitva. Az admin felülvizsgálja a helyzetet.
+          </Text>
+        </View>
+      )}
+
       {/* Licitek */}
       {(job.status === 'pending' || job.status === 'bidding') && (
         <View style={styles.section}>

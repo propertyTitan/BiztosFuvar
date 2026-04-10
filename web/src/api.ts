@@ -450,6 +450,20 @@ export const api = {
 
   // ---------- AI chat ----------
 
+  // ---------- Disputes ----------
+
+  openDispute: (body: { job_id?: string; booking_id?: string; description: string; evidence_url?: string }) =>
+    request<any>('/disputes', { method: 'POST', body: JSON.stringify(body) }),
+
+  myDisputes: () => request<any[]>('/disputes/mine'),
+
+  getDispute: (id: string) => request<any>(`/disputes/${id}`),
+
+  resolveDispute: (id: string, body: { status: string; resolution_note?: string; refund_huf?: number }) =>
+    request<any>(`/disputes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+
+  // ---------- AI ----------
+
   aiChat: (
     message: string,
     history: Array<{ role: 'user' | 'assistant'; content: string }>,

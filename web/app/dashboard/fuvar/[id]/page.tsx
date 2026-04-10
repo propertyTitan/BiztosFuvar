@@ -399,6 +399,46 @@ export default function FuvarReszletek() {
         </div>
       </div>
 
+      {/* Vita indítása — in_progress vagy delivered státuszban,
+          ha valami baj van a csomaggal / szállítással / sofőrrel. */}
+      {['in_progress', 'delivered'].includes(job.status) && (
+        <div className="card" style={{ marginTop: 16, background: '#fefce8', borderColor: '#f59e0b' }}>
+          <h2 style={{ marginTop: 0 }}>Probléma van a fuvarral?</h2>
+          <p className="muted" style={{ marginBottom: 12 }}>
+            Ha a csomagod sérült, nem érkezett meg, vagy egyéb gond van — indíts egy vitás esetet,
+            és az admin felülvizsgálja a helyzetet.
+          </p>
+          <button
+            type="button"
+            className="btn"
+            style={{ background: '#d97706', border: 'none' }}
+            onClick={async () => {
+              const desc = window.prompt('Írd le mi a probléma (kötelező):');
+              if (!desc || !desc.trim()) return;
+              try {
+                await api.openDispute({ job_id: id, description: desc });
+                toast.info('Vitás eset megnyitva', 'Az admin hamarosan felülvizsgálja.');
+                loadAll();
+              } catch (e: any) {
+                toast.error('Hiba', e.message);
+              }
+            }}
+          >
+            ⚖️ Vitás esetet nyitok
+          </button>
+        </div>
+      )}
+
+      {job.status === 'disputed' && (
+        <div className="card" style={{ marginTop: 16, background: '#fef3c7', borderColor: '#f59e0b' }}>
+          <h2 style={{ marginTop: 0 }}>⚖️ Vitás eset folyamatban</h2>
+          <p className="muted">
+            Erre a fuvarra vita van nyitva. Az admin felülvizsgálja a helyzetet, és döntést hoz.
+            Az értesítések között követheted az állapotot.
+          </p>
+        </div>
+      )}
+
       {/* Licitek */}
       {(job.status === 'pending' || job.status === 'bidding') && (
         <div className="card" style={{ marginTop: 16 }}>

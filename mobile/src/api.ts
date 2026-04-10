@@ -205,6 +205,13 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ reason }) },
     ),
 
+  // ---------- Disputes ----------
+
+  openDispute: (body: { job_id?: string; booking_id?: string; description: string; evidence_url?: string }) =>
+    request<any>('/disputes', { method: 'POST', body: JSON.stringify(body) }),
+
+  myDisputes: () => request<any[]>('/disputes/mine'),
+
   // ---------- Notifications ----------
 
   listNotifications: () => request<any[]>('/notifications'),
