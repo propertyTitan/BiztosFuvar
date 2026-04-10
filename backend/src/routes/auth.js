@@ -120,16 +120,44 @@ router.patch('/me', authRequired, async (req, res) => {
   res.json(rows[0]);
 });
 
-// GET /auth/users/:id/profile — publikus profil (más felhasználók)
+// GET /auth/users/:id/profile — publikus profil + statisztikák
 router.get('/users/:id/profile', authRequired, async (req, res) => {
-  const { rows } = await db.query(
-    `SELECT id, full_name, avatar_url, bio, vehicle_type, vehicle_plate,
-            rating_avg, rating_count, created_at
-       FROM users WHERE id = $1`,
-    [req.params.id],
-  );
-  if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
-  res.json(rows[0]);
+  const uid = req.params.id;
+  const [userRes, jobsDone, routesDone, reviewsRes] = await Promise.all([
+    db.query(
+      `SELECT id, full_name, avatar_url, bio, vehicle_type, vehicle_plate,
+              rating_avg, rating_count, created_at
+         FROM users WHERE id = $1`,
+      [uid],
+    ),
+    // Sofőrként befejezett fuvarok
+    db.query(
+      `SELECT COUNT(*)::int AS c FROM jobs WHERE carrier_id = $1 AND status IN ('delivered','completed')`,
+      [uid],
+    ),
+    // Fix áras útvonalakon befejezett foglalások
+    db.query(
+      `SELECT COUNT(*)::int AS c FROM route_bookings b
+         JOIN carrier_routes r ON r.id = b.route_id
+        WHERE r.carrier_id = $1 AND b.status IN ('delivered','completed')`,
+      [uid],
+    ),
+    // Legutóbbi értékelések (max 10)
+    db.query(
+      `SELECT r.stars, r.comment, r.created_at, u.full_name AS reviewer_name
+         FROM reviews r JOIN users u ON u.id = r.reviewer_id
+        WHERE r.reviewee_id = $1
+        ORDER BY r.created_at DESC LIMIT 10`,
+      [uid],
+    ),
+  ]);
+  if (!userRes.rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+  res.json({
+    ...userRes.rows[0],
+    completed_jobs: jobsDone.rows[0].c,
+    completed_route_deliveries: routesDone.rows[0].c,
+    recent_reviews: reviewsRes.rows,
+  });
 });
 
 // GET /auth/admin/stats — admin dashboard statisztikák

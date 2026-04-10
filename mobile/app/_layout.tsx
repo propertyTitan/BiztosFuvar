@@ -198,6 +198,7 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen name="profil" options={{ title: 'Profil' }} />
+        <Stack.Screen name="user-profil" options={{ title: 'Felhasználó profil' }} />
         <Stack.Screen name="ertesitesek" options={{ title: 'Értesítések' }} />
         <Stack.Screen name="ai-chat" options={{ title: 'AI Segéd' }} />
         <Stack.Screen name="fizetes-stub" options={{ title: 'Fizetés (STUB)' }} />

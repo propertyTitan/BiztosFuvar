@@ -468,8 +468,8 @@ export default function FuvarReszletek() {
           {bids.map((b) => (
             <div key={b.id} style={{ borderBottom: '1px solid var(--border)', padding: '16px 0' }}>
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="row" style={{ gap: 12, alignItems: 'center' }}>
-                  {/* Sofőr avatar + info */}
+                <Link href={`/profil/${b.carrier_id}`} className="row" style={{ gap: 12, alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
+                  {/* Sofőr avatar + info — kattintható profil */}
                   <div
                     style={{
                       width: 40,
@@ -483,12 +483,13 @@ export default function FuvarReszletek() {
                       fontWeight: 800,
                       fontSize: 16,
                       flexShrink: 0,
+                      overflow: 'hidden',
                     }}
                   >
                     {(b.carrier_name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{b.carrier_name || 'Sofőr'}</div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{b.carrier_name || 'Sofőr'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span></div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {b.rating_avg > 0 && (
                         <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
@@ -499,7 +500,7 @@ export default function FuvarReszletek() {
                       {b.eta_minutes && <span className="muted" style={{ fontSize: 12 }}>~{b.eta_minutes} perc</span>}
                     </div>
                   </div>
-                </div>
+                </Link>
                 <div style={{ textAlign: 'right' }}>
                   <strong className="price" style={{ fontSize: 18 }}>{b.amount_huf.toLocaleString('hu-HU')} Ft</strong>
                 </div>

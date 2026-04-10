@@ -269,24 +269,43 @@ export default function FeladoiFuvarReszletek() {
             </Text>
           )}
           {bids.map((b) => (
-            <View key={b.id} style={styles.bidRow}>
-              <View style={{ flex: 1 }}>
+            <View key={b.id} style={styles.bidCard}>
+              {/* Sofőr profil — kattintható */}
+              <Pressable
+                style={styles.bidCarrierRow}
+                onPress={() => router.push({ pathname: '/user-profil', params: { id: b.carrier_id } })}
+              >
+                <View style={styles.bidAvatar}>
+                  <Text style={styles.bidAvatarText}>
+                    {(b.carrier_name || '?').charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.bidCarrierName}>
+                    {b.carrier_name || 'Sofőr'}{' '}
+                    <Text style={{ fontSize: 11, color: colors.textMuted }}>→ profil</Text>
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    {b.rating_avg > 0 && (
+                      <Text style={{ fontSize: 12, color: '#f59e0b', fontWeight: '700' }}>
+                        ⭐ {Number(b.rating_avg).toFixed(1)}
+                        {b.rating_count > 0 ? ` (${b.rating_count})` : ''}
+                      </Text>
+                    )}
+                    {b.eta_minutes ? (
+                      <Text style={styles.muted}>~{b.eta_minutes} perc</Text>
+                    ) : null}
+                  </View>
+                </View>
                 <Text style={styles.bidAmount}>
                   {b.amount_huf.toLocaleString('hu-HU')} Ft
                 </Text>
-                {b.carrier_name && (
-                  <Text style={styles.muted}>
-                    {b.carrier_name}
-                    {b.rating_avg ? ` · ⭐ ${Number(b.rating_avg).toFixed(1)}` : ''}
-                    {b.eta_minutes ? ` · ~${b.eta_minutes} perc` : ''}
-                  </Text>
-                )}
-                {b.message ? (
-                  <Text style={styles.muted} numberOfLines={2}>
-                    „{b.message}"
-                  </Text>
-                ) : null}
-              </View>
+              </Pressable>
+              {b.message ? (
+                <Text style={[styles.muted, { marginTop: 4, marginLeft: 48 }]} numberOfLines={2}>
+                  „{b.message}"
+                </Text>
+              ) : null}
               <Pressable style={styles.acceptBtn} onPress={() => acceptBid(b.id)}>
                 <Text style={styles.acceptBtnText}>Elfogadom</Text>
               </Pressable>
@@ -451,12 +470,33 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     gap: spacing.sm,
   },
-  bidAmount: { color: colors.primary, fontWeight: '700', fontSize: 16 },
+  bidCard: {
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  bidCarrierRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  bidAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bidAvatarText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  bidCarrierName: { fontWeight: '700', fontSize: 14, color: colors.text },
+  bidAmount: { color: colors.primary, fontWeight: '800', fontSize: 16 },
   acceptBtn: {
     backgroundColor: colors.primary,
-    paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: radius.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
   },
   acceptBtnText: { color: '#fff', fontWeight: '700' },
 
