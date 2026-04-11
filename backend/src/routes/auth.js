@@ -249,7 +249,7 @@ router.get('/me/driver-dashboard', authRequired, async (req, res) => {
     weekEarnings: weekEarningsRes.rows[0]?.total || 0,
     weekDeliveries: weekEarningsRes.rows[0]?.count || 0,
     nearbyJobsCount: nearbyCountRes.rows[0]?.c || 0,
-    availableVouchers: voucherRes.rows[0]?.c || 0,
+    availableVouchers: voucherRes[0]?.c || 0,
     level: game.level || 1,
     levelName: game.level_name || 'Kezdő',
     trustScore: game.trust_score || 0,
