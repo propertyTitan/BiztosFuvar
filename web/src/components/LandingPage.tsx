@@ -179,6 +179,7 @@ export default function LandingPage() {
           {STEPS.map((s) => (
             <div
               key={s.num}
+              className="on-light"
               style={{
                 background: s.color,
                 borderRadius: 20,
@@ -216,10 +217,10 @@ export default function LandingPage() {
               >
                 {s.num}
               </div>
-              <h3 style={{ fontSize: 20, fontWeight: 800, marginBottom: 8 }}>
+              <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 8, color: '#0f172a' }}>
                 {s.title}
               </h3>
-              <p style={{ fontSize: 14, lineHeight: 1.6, color: '#334155', margin: 0 }}>
+              <p style={{ fontSize: 15, lineHeight: 1.6, color: '#334155', margin: 0 }}>
                 {s.desc}
               </p>
             </div>
@@ -353,6 +354,7 @@ export default function LandingPage() {
           }}
         >
           <div
+            className="on-light"
             style={{
               background: 'linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)',
               borderRadius: 20,
@@ -361,10 +363,10 @@ export default function LandingPage() {
             }}
           >
             <div style={{ fontSize: 40, marginBottom: 16 }}>📦</div>
-            <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>
+            <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, color: '#0f172a' }}>
               Feladó vagyok
             </h3>
-            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: '#334155' }}>
+            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: '#1e293b', fontSize: 15 }}>
               <li>Hirdesd meg a fuvart — a sofőrök licitálnak rá</li>
               <li>Vagy foglalj helyet egy fix áras útvonalon</li>
               <li>Fizess biztonságosan a Barion letétbe</li>
@@ -373,6 +375,7 @@ export default function LandingPage() {
             </ul>
           </div>
           <div
+            className="on-light"
             style={{
               background: 'linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%)',
               borderRadius: 20,
@@ -381,10 +384,10 @@ export default function LandingPage() {
             }}
           >
             <div style={{ fontSize: 40, marginBottom: 16 }}>🚛</div>
-            <h3 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>
+            <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, color: '#0f172a' }}>
               Sofőr vagyok
             </h3>
-            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: '#334155' }}>
+            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: '#1e293b', fontSize: 15 }}>
               <li>Licitálj nyitott fuvarokra — a legjobb nyer</li>
               <li>Vagy hirdesd meg az utadat fix árakkal</li>
               <li>A fuvardíj 90%-a a tiéd (10% platform jutalék)</li>
