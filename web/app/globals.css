@@ -136,6 +136,43 @@ a { color: var(--primary); }
   color: #475569 !important;
 }
 
+/* ── Google Places Autocomplete dropdown ──
+   Google saját komponens, nem tudjuk inline style-lal javítani — itt
+   rögzítjük a világos témát, hogy dark mode-ban is olvasható maradjon. */
+.pac-container {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  margin-top: 4px !important;
+}
+.pac-container, .pac-container * {
+  color: #0f172a !important;
+}
+.pac-item {
+  padding: 8px 12px !important;
+  font-size: 14px !important;
+  border-top: 1px solid #f1f5f9 !important;
+  cursor: pointer !important;
+}
+.pac-item:first-child { border-top: none !important; }
+.pac-item:hover {
+  background: #f1f5f9 !important;
+}
+.pac-item-query {
+  font-weight: 600 !important;
+  color: #0f172a !important;
+  font-size: 14px !important;
+}
+.pac-matched {
+  font-weight: 700 !important;
+  color: #1e40af !important;
+}
+.pac-icon {
+  filter: none !important;
+}
+
 /* ── Layout ── */
 .site-main {
   max-width: 1200px;
