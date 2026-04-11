@@ -24,6 +24,12 @@ export default function ProfilOldal() {
   const [profile, setProfile] = useState<any>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Mounted flag — az első renderen a useCurrentUser még null-t ad vissza,
+  // mert a useEffect csak utána olvassa ki a localStorage-t. Ha a profil
+  // oldal az első renderen rögtön redirect-elne, a belépett user is kidobna.
+  // Ezért várunk 1 frame-et, és csak akkor döntünk.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   // Form state
   const [fullName, setFullName] = useState('');
@@ -64,6 +70,16 @@ export default function ProfilOldal() {
     }
   }
 
+  // Amíg nem mountoltunk le, vagy még olvassuk a localStorage-t, semleges
+  // loading-state — NE redirect-eljünk, mert a useCurrentUser első renderen
+  // mindig null-t ad vissza (a useEffect utánra halasztja az olvasást).
+  if (!mounted) {
+    return (
+      <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--muted)' }}>
+        Betöltés…
+      </div>
+    );
+  }
   if (!me) {
     router.push('/bejelentkezes');
     return null;
