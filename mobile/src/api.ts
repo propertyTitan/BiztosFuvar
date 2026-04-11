@@ -66,6 +66,12 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
+  register: (body: { email: string; password: string; full_name: string; phone?: string }) =>
+    request<{ token: string; user: any }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   /** Licitálható fuvarok közelség + szűrők szerint. */
   nearbyJobs: (lat: number, lng: number, radiusKm = 50, filters?: {
     min_price?: number; max_price?: number; max_weight_kg?: number;
