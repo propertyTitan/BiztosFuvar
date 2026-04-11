@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { api, Job, Bid } from '@/api';
+import { api, Job, Bid, photoUrl } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom } from '@/lib/socket';
@@ -192,7 +192,7 @@ export default function SoforFuvarReszletek() {
             {listingPhotos.map((p) => (
               <a
                 key={p.id}
-                href={p.url}
+                href={photoUrl(p.url)}
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -204,7 +204,7 @@ export default function SoforFuvarReszletek() {
                 }}
               >
                 <img
-                  src={p.url}
+                  src={photoUrl(p.url)}
                   alt="Fuvar fotó"
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />

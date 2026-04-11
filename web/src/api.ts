@@ -6,6 +6,23 @@ import type { PackageSizeId } from '@/lib/packageSizes';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+/**
+ * A backend relatív URL-eket ad vissza a feltöltött fájlokra (pl.
+ * `/uploads/photo-xxx.jpg`). A böngésző viszont ezt a frontend saját
+ * domainjén (gofuvar.hu) próbálja meg elérni → 404. Prefixáljuk a
+ * backend URL-t, kivéve ha a válasz már teljes URL / data URL.
+ *
+ * Használd mindenhol, ahol backend-től kapott kép-URL-t jelenítesz meg.
+ */
+export function photoUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url;
+  }
+  // Relatív URL (pl. /uploads/photo-xxx.jpg) → prefixáljuk a backend-et
+  return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 // ---------- Carrier routes (új termék: sofőri útvonal-hirdetés) ----------
 
 export type Waypoint = {

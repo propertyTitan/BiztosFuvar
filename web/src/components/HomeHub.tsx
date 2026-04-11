@@ -15,7 +15,7 @@ type Mode = 'driver' | 'shipper';
 export default function HomeHub() {
   const user = useCurrentUser();
   const { t } = useTranslation();
-  const [mode, setMode] = useState<Mode>('driver');
+  const [mode, setMode] = useState<Mode>('shipper');
   const [unread, setUnread] = useState(0);
   const [driver, setDriver] = useState<any>(null);
   const [gameStats, setGameStats] = useState<any>(null);

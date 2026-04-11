@@ -93,7 +93,7 @@ export default function SoforFuvarokLista() {
         </div>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
           <Link
-            href="/feladas/uj"
+            href="/dashboard/uj-fuvar"
             className="btn"
             style={{
               background: 'var(--success)',
