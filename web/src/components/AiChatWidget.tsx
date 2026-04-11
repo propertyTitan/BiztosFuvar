@@ -208,14 +208,15 @@ export default function AiChatWidget() {
                 style={{
                   alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start',
                   maxWidth: '85%',
-                  padding: '8px 12px',
-                  borderRadius: 12,
-                  background: m.role === 'user' ? 'var(--primary)' : '#fff',
+                  padding: '10px 14px',
+                  borderRadius: 14,
+                  background: m.role === 'user' ? 'var(--primary)' : 'var(--surface)',
                   color: m.role === 'user' ? '#fff' : 'var(--text)',
                   border: m.role === 'assistant' ? '1px solid var(--border)' : undefined,
                   fontSize: 14,
-                  lineHeight: 1.4,
+                  lineHeight: 1.5,
                   whiteSpace: 'pre-wrap',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                 }}
               >
                 {m.content}
