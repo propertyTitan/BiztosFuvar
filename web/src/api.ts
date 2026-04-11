@@ -157,7 +157,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export const api = {
   login: (email: string, password: string) =>
-    request<{ token: string; user: { id: string; role: string } }>(
+    request<{ token: string; user: { id: string; role: string; email: string; full_name: string } }>(
       '/auth/login',
       { method: 'POST', body: JSON.stringify({ email, password }) },
     ),
