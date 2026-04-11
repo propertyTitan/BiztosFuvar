@@ -46,8 +46,8 @@
     --bg: #0c1222;
     --surface: #162032;
     --surface-hover: #1e293b;
-    --text: #f1f5f9;
-    --text-secondary: #cbd5e1;
+    --text: #ffffff;
+    --text-secondary: #e2e8f0;
     --muted: #94a3b8;
     --border: #1e3a5f;
     --border-hover: #334155;
@@ -80,11 +80,13 @@
     color: var(--text) !important;
     border-color: var(--border) !important;
   }
-  .pill-bidding   { background: var(--primary-subtle); color: var(--primary-light); }
-  .pill-accepted  { background: var(--warning-light); color: var(--warning); }
-  .pill-progress  { background: var(--primary-subtle); color: var(--primary-light); }
-  .pill-delivered { background: var(--success-light); color: var(--success); }
-  .pill-cancelled { background: var(--danger-light); color: var(--danger); }
+  /* Pills dark mode-ban: élénk, telített háttér + tiszta fehér szöveg,
+     hogy messziről is olvasható legyen. !important a base szabály felülírásához. */
+  .pill-bidding   { background: #2563eb !important; color: #ffffff !important; }
+  .pill-accepted  { background: #f59e0b !important; color: #ffffff !important; }
+  .pill-progress  { background: #3b82f6 !important; color: #ffffff !important; }
+  .pill-delivered { background: #16a34a !important; color: #ffffff !important; }
+  .pill-cancelled { background: #dc2626 !important; color: #ffffff !important; }
   .own-post-card { background: #422006 !important; border-color: #a16207 !important; }
   .own-post-card, .own-post-card * { color: #fef3c7 !important; }
 }
