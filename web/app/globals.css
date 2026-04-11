@@ -273,6 +273,34 @@ a { color: var(--primary); }
   text-decoration: none;
 }
 
+/* ── Responsive header ──
+   Mobilon (< 768px) elrejtjük a középső nav-ot, mert úgyis elérhető
+   a profil dropdown menüből és a HomeHub kártyáiból. Így elfér a logo,
+   a nyelvváltó, a 🔔 értesítés és a profil avatar a keskeny képernyőn is. */
+@media (max-width: 768px) {
+  .site-header {
+    padding: 10px 16px;
+    gap: 8px;
+  }
+  .site-header nav {
+    display: none !important;
+  }
+  .site-header .brand img {
+    height: 30px !important;
+  }
+}
+
+/* Még kisebb (< 400px): csak a logo és a profil, még a zászlók is tűnjenek el,
+   hogy biztosan elférjen mindez iPhone SE méretben is. */
+@media (max-width: 400px) {
+  .site-header .lang-switcher {
+    display: none !important;
+  }
+  .site-header {
+    padding: 10px 12px;
+  }
+}
+
 /* ── Footer ── */
 .site-footer {
   text-align: center;

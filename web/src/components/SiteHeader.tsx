@@ -70,7 +70,7 @@ export default function SiteHeader() {
         <Link href="/" className="brand" aria-label="GoFuvar">
           <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 36, width: 'auto', display: 'block' }} />
         </Link>
-        <div style={{ display: 'flex', gap: 2 }}>
+        <div className="lang-switcher" style={{ display: 'flex', gap: 2 }}>
           {SUPPORTED_LOCALES.map((l) => (
             <button
               key={l.code}
