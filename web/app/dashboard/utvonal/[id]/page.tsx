@@ -116,11 +116,11 @@ export default function FeladoUtvonalReszletek() {
           helyet, de megnézheted/szerkesztheted. */}
       {isMine && (
         <div
-          className="card"
-          style={{ background: '#fefce8', borderColor: '#facc15', marginTop: 16 }}
+          className="card on-light"
+          style={{ background: '#fefce8', borderColor: '#facc15', marginTop: 16, color: '#0f172a' }}
         >
-          <h2 style={{ marginTop: 0 }}>📣 Ez a te saját útvonalad</h2>
-          <p style={{ marginBottom: 8 }}>
+          <h2 style={{ marginTop: 0, color: '#0f172a' }}>📣 Ez a te saját útvonalad</h2>
+          <p style={{ marginBottom: 8, color: '#334155' }}>
             A saját hirdetésedre nem foglalhatsz helyet. A foglalások
             kezeléséhez és szerkesztéshez nyisd meg a sofőri nézetet.
           </p>
@@ -137,17 +137,19 @@ export default function FeladoUtvonalReszletek() {
           {route.waypoints.map((w, i) => (
             <div
               key={i}
+              className="on-light"
               style={{
                 background: i === 0 ? '#dcfce7' : i === route.waypoints.length - 1 ? '#fee2e2' : '#dbeafe',
-                padding: '6px 12px',
+                padding: '8px 14px',
                 borderRadius: 999,
                 fontSize: 14,
+                border: `1px solid ${i === 0 ? '#86efac' : i === route.waypoints.length - 1 ? '#fca5a5' : '#93c5fd'}`,
               }}
             >
-              <span style={{ fontSize: 11, opacity: 0.7 }}>
+              <span style={{ fontSize: 11, opacity: 0.7, color: '#475569' }}>
                 {i === 0 ? 'INDULÁS · ' : i === route.waypoints.length - 1 ? 'CÉL · ' : `${i}. · `}
               </span>
-              <strong>{w.name}</strong>
+              <strong style={{ color: '#0f172a' }}>{w.name}</strong>
             </div>
           ))}
         </div>
@@ -171,20 +173,23 @@ export default function FeladoUtvonalReszletek() {
             return (
               <div
                 key={ps.id}
+                className={active ? 'on-light' : undefined}
                 style={{
-                  padding: 12,
-                  borderRadius: 8,
-                  border: '1px solid var(--border)',
-                  background: active ? '#eff6ff' : '#f1f5f9',
-                  opacity: active ? 1 : 0.5,
+                  padding: 14,
+                  borderRadius: 10,
+                  border: `1px solid ${active ? '#93c5fd' : 'var(--border)'}`,
+                  background: active ? '#eff6ff' : 'var(--surface-hover)',
+                  opacity: active ? 1 : 0.6,
                   minWidth: 130,
                 }}
               >
-                <div style={{ fontWeight: 700 }}>{ps.id} — {ps.label_hu}</div>
-                <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
+                <div style={{ fontWeight: 700, color: active ? '#0f172a' : 'var(--text)' }}>
+                  {ps.id} — {ps.label_hu}
+                </div>
+                <div style={{ fontSize: 11, marginTop: 4, color: active ? '#475569' : 'var(--muted)' }}>
                   {ps.description_hu}
                 </div>
-                <div className="price" style={{ marginTop: 4 }}>
+                <div style={{ marginTop: 6, fontWeight: 800, fontSize: 15, color: active ? '#1e40af' : 'var(--muted)' }}>
                   {active ? `${price.price_huf.toLocaleString('hu-HU')} Ft` : 'nem vállalja'}
                 </div>
               </div>
@@ -222,12 +227,13 @@ export default function FeladoUtvonalReszletek() {
         {/* Automatikus besorolás megjelenítése */}
         {classification && (
           <div
-            className="card"
+            className="card on-light"
             style={{
               marginTop: 12,
               padding: 12,
               background: sofőrVisziE ? '#dcfce7' : '#fee2e2',
-              borderColor: sofőrVisziE ? 'var(--success)' : 'var(--danger)',
+              borderColor: sofőrVisziE ? '#86efac' : '#fca5a5',
+              color: '#0f172a',
             }}
           >
             <strong>Besorolás: {classification}</strong>

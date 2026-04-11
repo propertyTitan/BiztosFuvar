@@ -291,17 +291,19 @@ export default function UtvonalReszletek() {
           {route.waypoints.map((w, i) => (
             <div
               key={i}
+              className="on-light"
               style={{
                 background: i === 0 ? '#dcfce7' : i === route.waypoints.length - 1 ? '#fee2e2' : '#dbeafe',
-                padding: '6px 12px',
+                padding: '8px 14px',
                 borderRadius: 999,
                 fontSize: 14,
+                border: `1px solid ${i === 0 ? '#86efac' : i === route.waypoints.length - 1 ? '#fca5a5' : '#93c5fd'}`,
               }}
             >
-              <span style={{ fontSize: 11, opacity: 0.7 }}>
+              <span style={{ fontSize: 11, opacity: 0.7, color: '#475569' }}>
                 {i === 0 ? 'INDULÁS · ' : i === route.waypoints.length - 1 ? 'CÉL · ' : `${i}. · `}
               </span>
-              <strong>{w.name}</strong>
+              <strong style={{ color: '#0f172a' }}>{w.name}</strong>
             </div>
           ))}
         </div>
