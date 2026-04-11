@@ -24,7 +24,9 @@ export default function SiteHeader() {
   const { t, locale, setLocale } = useTranslation();
   const [unread, setUnread] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [langOpen, setLangOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const langRef = useRef<HTMLDivElement>(null);
 
   // Értesítés számláló + toast
   useEffect(() => {
@@ -43,11 +45,14 @@ export default function SiteHeader() {
     return () => { socket.off('notification:new', onNew); };
   }, [user?.id, toast]);
 
-  // Kívülre kattintás → dropdown bezárás
+  // Kívülre kattintás → dropdown bezárás (user menü ÉS nyelvváltó külön)
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
+      }
+      if (langRef.current && !langRef.current.contains(e.target as Node)) {
+        setLangOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClick);
@@ -70,27 +75,89 @@ export default function SiteHeader() {
         <Link href="/" className="brand" aria-label="GoFuvar">
           <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 36, width: 'auto', display: 'block' }} />
         </Link>
-        <div className="lang-switcher" style={{ display: 'flex', gap: 2 }}>
-          {SUPPORTED_LOCALES.map((l) => (
-            <button
-              key={l.code}
-              type="button"
-              onClick={() => setLocale(l.code)}
+        {/* ── Nyelvváltó (egy gomb + dropdown) ──
+            Emoji zászlók minden böngészőben nem egyformán jelennek meg
+            (Samsung Internet régebbi verzió pl. "HU"/"GB" betűt rajzol),
+            ezért egy kompakt gombot mutatunk a jelenlegi nyelv kódjával
+            és egy kis nyílhegy. Kattintásra nyílik egy mini dropdown a
+            többi nyelvvel. Ez minden képernyőméreten és témában működik. */}
+        <div className="lang-switcher" ref={langRef} style={{ position: 'relative' }}>
+          <button
+            type="button"
+            onClick={() => setLangOpen((o) => !o)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              background: 'rgba(255,255,255,0.12)',
+              border: '1px solid rgba(255,255,255,0.25)',
+              borderRadius: 8,
+              padding: '5px 10px',
+              cursor: 'pointer',
+              fontSize: 13,
+              fontWeight: 700,
+              color: '#fff',
+              transition: 'all 0.15s',
+            }}
+            aria-label="Nyelvváltó"
+            aria-expanded={langOpen}
+          >
+            <span style={{ fontSize: 14 }}>
+              {SUPPORTED_LOCALES.find((l) => l.code === locale)?.flag || '🌐'}
+            </span>
+            <span>{locale.toUpperCase()}</span>
+            <span style={{ fontSize: 9, opacity: 0.8 }}>{langOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {langOpen && (
+            <div
+              className="lang-switcher-menu"
               style={{
-                background: locale === l.code ? 'rgba(255,255,255,0.25)' : 'transparent',
-                border: locale === l.code ? '1px solid rgba(255,255,255,0.4)' : '1px solid transparent',
-                borderRadius: 6,
-                padding: '2px 5px',
-                cursor: 'pointer',
-                fontSize: 16,
-                opacity: locale === l.code ? 1 : 0.45,
-                transition: 'all 0.15s',
+                position: 'absolute',
+                top: 'calc(100% + 6px)',
+                left: 0,
+                minWidth: 160,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
+                zIndex: 210,
+                overflow: 'hidden',
               }}
-              title={l.label}
             >
-              {l.flag}
-            </button>
-          ))}
+              {SUPPORTED_LOCALES.map((l) => {
+                const active = l.code === locale;
+                return (
+                  <button
+                    key={l.code}
+                    type="button"
+                    onClick={() => {
+                      setLocale(l.code);
+                      setLangOpen(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      padding: '10px 14px',
+                      background: active ? 'var(--surface-hover)' : 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: 14,
+                      fontWeight: active ? 700 : 500,
+                      color: 'var(--text)',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ fontSize: 18 }}>{l.flag}</span>
+                    <span style={{ flex: 1 }}>{l.label}</span>
+                    {active && <span style={{ color: 'var(--primary)' }}>✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

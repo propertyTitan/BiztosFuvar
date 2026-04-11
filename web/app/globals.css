@@ -273,6 +273,16 @@ a { color: var(--primary); }
   text-decoration: none;
 }
 
+/* ── Nyelvváltó dropdown menü override ──
+   A .site-header * { color: #fff !important } szabály a dark mode-ban
+   felülírná a dropdown sötét szövegét. Itt visszavesszük: a dropdown
+   tartalma mindig a surface-on jól olvasható (dark mode-ban sötét bg +
+   világos szöveg; light mode-ban világos bg + sötét szöveg). */
+.site-header .lang-switcher-menu,
+.site-header .lang-switcher-menu * {
+  color: var(--text) !important;
+}
+
 /* ── Responsive header ──
    Mobilon (< 768px) elrejtjük a középső nav-ot, mert úgyis elérhető
    a profil dropdown menüből és a HomeHub kártyáiból. Így elfér a logo,
@@ -290,14 +300,14 @@ a { color: var(--primary); }
   }
 }
 
-/* Még kisebb (< 400px): csak a logo és a profil, még a zászlók is tűnjenek el,
-   hogy biztosan elférjen mindez iPhone SE méretben is. */
+/* Még kisebb (< 400px): szűkebb padding, de a kompakt nyelvváltó marad
+   (most már csak egy ~50px-es gomb, elfér iPhone SE-n is). */
 @media (max-width: 400px) {
-  .site-header .lang-switcher {
-    display: none !important;
-  }
   .site-header {
     padding: 10px 12px;
+  }
+  .site-header .brand img {
+    height: 26px !important;
   }
 }
 
