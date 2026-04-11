@@ -4,8 +4,12 @@
 // A Vercel-es prod deployhoz kellett a regisztráció, mert a seed
 // felhasználók nem léteznek a Neon DB-ben, és új usert csak curl-lel
 // lehetett korábban létrehozni.
+//
+// Query param-mal lehet előre beállítani a fület:
+//   /bejelentkezes              → alapból "login"
+//   /bejelentkezes?mode=register → alapból "register" (landing CTA-hoz)
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/api';
 import { setCurrentUser, homeForRole, Role } from '@/lib/auth';
 
@@ -13,7 +17,9 @@ type Mode = 'login' | 'register';
 
 export default function Bejelentkezes() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>('login');
+  const searchParams = useSearchParams();
+  const initialMode: Mode = searchParams.get('mode') === 'register' ? 'register' : 'login';
+  const [mode, setMode] = useState<Mode>(initialMode);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

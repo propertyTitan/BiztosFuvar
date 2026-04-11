@@ -132,7 +132,7 @@ export default function LandingPage() {
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link
-            href="/bejelentkezes"
+            href="/bejelentkezes?mode=register"
             className="btn"
             style={{
               fontSize: 17,
@@ -414,7 +414,7 @@ export default function LandingPage() {
           vagy licitálhatsz egyre.
         </p>
         <Link
-          href="/bejelentkezes"
+          href="/bejelentkezes?mode=register"
           className="btn"
           style={{
             fontSize: 18,
