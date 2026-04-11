@@ -162,6 +162,12 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ email, password }) },
     ),
 
+  register: (body: { email: string; password: string; full_name: string; phone?: string }) =>
+    request<{ token: string; user: { id: string; role: string; email: string; full_name: string } }>(
+      '/auth/register',
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+
   createJob: (job: NewJobInput) =>
     request<Job>('/jobs', { method: 'POST', body: JSON.stringify(job) }),
 
