@@ -73,7 +73,10 @@ function initR2() {
     return {
       client,
       bucket: R2_BUCKET_NAME,
-      publicUrl: R2_PUBLIC_URL.replace(/\/$/, ''), // trailing slash eltávolítás
+      // Defenzív tisztítás: bármely `<` vagy `>` karaktert (pl. Safari /
+      // clipboard auto-link felismerés a Raw Editor beillesztésnél), plusz
+      // trailing slash → levágjuk. Így robusztus a rossz env paste ellen.
+      publicUrl: R2_PUBLIC_URL.trim().replace(/[<>]/g, '').replace(/\/$/, ''),
     };
   } catch (err) {
     console.warn('[storage] R2 client init sikertelen, disk fallback:', err.message);

@@ -16,11 +16,20 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
  */
 export function photoUrl(url?: string | null): string {
   if (!url) return '';
-  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
-    return url;
+  // Defenzív tisztítás: ha az URL bárhol `<` vagy `>` karaktereket
+  // tartalmaz (pl. env var paste weirdness vagy chat markdown), vágjuk ki
+  // őket. Ez a már DB-ben tárolt "broken" URL-eket is kijavítja render
+  // időben, nem csak az újakat.
+  const cleaned = url.trim().replace(/[<>]/g, '').trim();
+  if (
+    cleaned.startsWith('http://') ||
+    cleaned.startsWith('https://') ||
+    cleaned.startsWith('data:')
+  ) {
+    return cleaned;
   }
   // Relatív URL (pl. /uploads/photo-xxx.jpg) → prefixáljuk a backend-et
-  return `${BASE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+  return `${BASE_URL}${cleaned.startsWith('/') ? '' : '/'}${cleaned}`;
 }
 
 // ---------- Carrier routes (új termék: sofőri útvonal-hirdetés) ----------
