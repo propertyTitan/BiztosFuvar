@@ -10,3 +10,4 @@ build/
 coverage/
 uploads/
 tsconfig.tsbuildinfo
+package-lock.json
