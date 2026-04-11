@@ -23,7 +23,17 @@ const app = express();
 // A proxy (pl. Nginx, Render, Fly) IP-címeit megbízhatónak jelöljük, hogy
 // az X-Forwarded-For header alapján a rate limiter a valódi kliens IP-t lássa.
 app.set('trust proxy', 1);
-app.use(cors());
+
+// CORS: prod-ban a CORS_ORIGIN env-ben felsorolt domain-eket engedjük
+// (vesszővel elválasztva), fejlesztéskor pedig mindent (*). A Socket.IO
+// transzport külön CORS-t használ a realtime.js-ben.
+const corsOrigins = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
+app.use(
+  cors({
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));

@@ -22,7 +22,11 @@ const { Client } = require('pg');
     return;
   }
 
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const useSsl = process.env.PGSSL === 'require' || /sslmode=require/.test(process.env.DATABASE_URL || '');
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+  });
   try {
     await client.connect();
     for (const f of files) {

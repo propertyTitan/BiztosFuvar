@@ -5,8 +5,14 @@ const { Server } = require('socket.io');
 let io = null;
 
 function init(httpServer) {
+  // Ugyanaz a CORS policy, mint az Express-nél — prod-ban a CORS_ORIGIN
+  // env-ben felsorolt domainek, fejlesztéskor minden origin.
+  const corsOrigins = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
   io = new Server(httpServer, {
-    cors: { origin: '*' },
+    cors: {
+      origin: corsOrigins.length > 0 ? corsOrigins : '*',
+      credentials: true,
+    },
   });
 
   io.on('connection', (socket) => {

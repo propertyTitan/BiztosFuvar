@@ -6,7 +6,11 @@ const { Client } = require('pg');
 
 (async () => {
   const sql = fs.readFileSync(path.join(__dirname, '..', 'db', 'schema.sql'), 'utf8');
-  const client = new Client({ connectionString: process.env.DATABASE_URL });
+  const useSsl = process.env.PGSSL === 'require' || /sslmode=require/.test(process.env.DATABASE_URL || '');
+  const client = new Client({
+    connectionString: process.env.DATABASE_URL,
+    ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+  });
   try {
     await client.connect();
     await client.query(sql);
