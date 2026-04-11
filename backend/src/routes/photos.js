@@ -8,45 +8,20 @@
 // - Sikeres validáció után az escrow letét felszabadul ('released').
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { sendEmail } = require('../services/email');
-
-// Fotó tárolás: fájlrendszerre mentjük (uploads/ mappa), nem base64-ként
-// a DB-be. A DB-ben csak az URL marad. Production-ben S3/Supabase Storage
-// váltja ki, de a URL formátum ugyanaz marad.
-const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const { saveFile } = require('../services/storage');
 
 const router = express.Router();
-// 10 MB kép-korlát: base64-ben a DB-ben ez kb. ~13 MB-ot foglal, ami még kezelhető
-// a prototípus adat URL megközelítésünkhöz. Supabase Storage bekötése után emelhető.
+// 10 MB kép-korlát: memóriából dolgozunk, mert a storage service
+// kapja meg a buffer-t és eldönti, hova ír (Cloudflare R2 / disk).
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-// MEGJEGYZÉS: Production-ben a fájlt Supabase Storage / S3 / GCS-be töltjük fel
-// és a visszakapott URL-t mentjük. Itt egyelőre data URL-t mentünk a DB-be –
-// ez a prototípushoz elég, mert a feladó a dashboardon azonnal látja a képet,
-// de éles rendszerben tárolási okokból le kell cserélni valós objektumtárolóra.
-/**
- * Fotó mentése a disk-re (uploads/ mappa) és az URL visszaadása.
- * A fájlnév: <random-hex>.<ext> — egyedi, nem ütközik.
- */
-function saveFileToDisk(file) {
-  const ext = file.originalname?.split('.').pop() || 'jpg';
-  const filename = `${crypto.randomBytes(16).toString('hex')}.${ext}`;
-  const filepath = path.join(UPLOADS_DIR, filename);
-  fs.writeFileSync(filepath, file.buffer);
-  // Az URL a backend-ről szervírozott statikus elérési útvonal lesz
-  return `/uploads/${filename}`;
-}
-
-// Fallback: ha valami miatt a disk mentés nem megy, base64 data URL
+// Fallback: ha valami miatt a storage hívás nem megy, base64 data URL
 function encodeAsDataUrl(file) {
   return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
 }
@@ -101,13 +76,14 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     }
   }
 
-  // Tárolás – data URL a DB-ben (Supabase Storage bekötése még TODO).
-  // Fájlra mentjük a disk-re — a DB-ben csak az URL marad.
+  // Tárolás: a storage service eldönti, hogy Cloudflare R2-re vagy
+  // lokális diskre írjon (env-től függően). Ha mindkettő sikertelen,
+  // visszaesünk base64 data URL-re.
   let url;
   try {
-    url = saveFileToDisk(req.file);
+    url = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
   } catch (err) {
-    console.warn('[photos] disk save failed, falling back to data URL:', err.message);
+    console.warn('[photos] storage save failed, falling back to data URL:', err.message);
     url = encodeAsDataUrl(req.file);
   }
 

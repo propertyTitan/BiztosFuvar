@@ -2,18 +2,15 @@
 // Megjegyzés: a jelszót `crypto.scrypt`-tel hash-eljük – nincs külön bcrypt függőség.
 const express = require('express');
 const crypto = require('crypto');
-const path = require('path');
-const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit } = require('../middleware/rateLimit');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
+const { saveFile } = require('../services/storage');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
-const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const router = express.Router();
 
@@ -274,19 +271,24 @@ router.post('/admin/grant-monthly-vouchers', authRequired, async (req, res) => {
   res.json({ ok: true, granted: count });
 });
 
-// POST /auth/avatar — profilkép feltöltés
+// POST /auth/avatar — profilkép feltöltés (Cloudflare R2 / disk fallback)
 router.post('/avatar', authRequired, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
-  const ext = req.file.originalname?.split('.').pop() || 'jpg';
-  const filename = `avatar-${crypto.randomBytes(12).toString('hex')}.${ext}`;
-  const filepath = path.join(UPLOADS_DIR, filename);
-  fs.writeFileSync(filepath, req.file.buffer);
-  const url = `/uploads/${filename}`;
-  await db.query(
-    `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`,
-    [url, req.user.sub],
-  );
-  res.json({ url });
+  try {
+    const url = await saveFile(
+      req.file.buffer,
+      req.file.originalname,
+      req.file.mimetype,
+    );
+    await db.query(
+      `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`,
+      [url, req.user.sub],
+    );
+    res.json({ url });
+  } catch (err) {
+    console.error('[auth] avatar upload hiba:', err);
+    res.status(500).json({ error: 'Fájl mentés sikertelen' });
+  }
 });
 
 // POST /auth/push-token — Expo push token regisztrálása
