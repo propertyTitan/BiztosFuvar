@@ -136,6 +136,51 @@ a { color: var(--primary); }
   color: #475569 !important;
 }
 
+/* ── Automatikus "on-light" az inline pasztell hátterekre ──
+   Ha egy elem style attribútumában egy ismert világos pasztell hex
+   szerepel, automatikusan sötét szöveggel rajzoljuk — különben
+   dark mode-ban láthatatlan lenne a fehér szöveg. Ez **minden** komponensre
+   érvényes a kódban anélkül, hogy minden helyre manuálisan kelljen rakni
+   a `.on-light` osztályt. */
+[style*="#dcfce7"],
+[style*="#fee2e2"],
+[style*="#dbeafe"],
+[style*="#fef3c7"],
+[style*="#e0e7ff"],
+[style*="#fce7f3"],
+[style*="#f3e8ff"],
+[style*="#fde68a"],
+[style*="#bae6fd"],
+[style*="#e0f2fe"],
+[style*="#ffe4e6"],
+[style*="#ecfdf5"],
+[style*="#fef9c3"],
+[style*="#f0fdf4"],
+[style*="#fef2f2"],
+[style*="#eff6ff"],
+[style*="#f0f9ff"] {
+  color: #0f172a !important;
+}
+[style*="#dcfce7"] *:not(.btn):not(button),
+[style*="#fee2e2"] *:not(.btn):not(button),
+[style*="#dbeafe"] *:not(.btn):not(button),
+[style*="#fef3c7"] *:not(.btn):not(button),
+[style*="#e0e7ff"] *:not(.btn):not(button),
+[style*="#fce7f3"] *:not(.btn):not(button),
+[style*="#f3e8ff"] *:not(.btn):not(button),
+[style*="#fde68a"] *:not(.btn):not(button),
+[style*="#bae6fd"] *:not(.btn):not(button),
+[style*="#e0f2fe"] *:not(.btn):not(button),
+[style*="#ffe4e6"] *:not(.btn):not(button),
+[style*="#ecfdf5"] *:not(.btn):not(button),
+[style*="#fef9c3"] *:not(.btn):not(button),
+[style*="#f0fdf4"] *:not(.btn):not(button),
+[style*="#fef2f2"] *:not(.btn):not(button),
+[style*="#eff6ff"] *:not(.btn):not(button),
+[style*="#f0f9ff"] *:not(.btn):not(button) {
+  color: #0f172a !important;
+}
+
 /* ── Google Places Autocomplete dropdown ──
    Google saját komponens, nem tudjuk inline style-lal javítani — itt
    rögzítjük a világos témát, hogy dark mode-ban is olvasható maradjon. */

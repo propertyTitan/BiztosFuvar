@@ -67,7 +67,7 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
 
   if (!apiKey) {
     return (
-      <div className="card" style={{ background: '#fef3c7' }}>
+      <div className="card on-light" style={{ background: '#fef3c7', color: '#0f172a' }}>
         <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
       </div>
     );
@@ -83,15 +83,17 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
           {value.map((w, i) => (
             <div
               key={`${w.lat}-${w.lng}-${i}`}
+              className="on-light"
               style={{
                 background: i === 0 ? '#dcfce7' : i === value.length - 1 ? '#fee2e2' : '#dbeafe',
-                padding: '6px 10px',
+                padding: '8px 14px',
                 borderRadius: 999,
                 fontSize: 14,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 6,
-                border: '1px solid var(--border)',
+                gap: 8,
+                border: `1px solid ${i === 0 ? '#86efac' : i === value.length - 1 ? '#fca5a5' : '#93c5fd'}`,
+                color: '#0f172a',
               }}
             >
               <span style={{ fontSize: 11, opacity: 0.7 }}>
