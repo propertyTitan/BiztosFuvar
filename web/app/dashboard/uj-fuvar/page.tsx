@@ -53,6 +53,7 @@ type FormState = {
   width_cm: number | '';
   height_cm: number | '';
   suggested_price_huf: number | '';
+  declared_value_huf: number | '';
 
   is_instant: boolean;
   instant_duration_minutes: number | '';
@@ -82,6 +83,7 @@ const initialForm: FormState = {
   width_cm: '',
   height_cm: '',
   suggested_price_huf: '',
+  declared_value_huf: '',
   is_instant: false,
   instant_duration_minutes: 30,
   instant_radius_km: 20,
@@ -205,6 +207,7 @@ export default function UjFuvar() {
           dropoff_floor: Number(form.dropoff_floor),
           dropoff_has_elevator: form.dropoff_has_elevator,
         } : {}),
+        ...(form.declared_value_huf ? { declared_value_huf: Number(form.declared_value_huf) } : {}),
       });
 
       // 2) Kép-feltöltés sorban (így látjuk a progress-t és nem önmagával versenyez
@@ -690,6 +693,25 @@ export default function UjFuvar() {
             és az első elfogadó nyer.
           </p>
         )}
+
+        {/* --- Csomag értéke --- */}
+        <h2 style={{ marginTop: 24 }}>Csomag értéke</h2>
+        <label>Becsült érték (Ft)</label>
+        <input
+          className="input"
+          type="number"
+          min={0}
+          value={form.declared_value_huf}
+          onChange={(e) =>
+            set('declared_value_huf', e.target.value === '' ? '' : Number(e.target.value))
+          }
+          placeholder="pl. 50000"
+        />
+        <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          Opcionális, de ajánlott. A sofőr ez alapján méri fel a felelősségét:
+          egy 500.000 Ft-os tárgy szállítása más hozzáállást igényel, mint egy
+          5.000 Ft-osé. Vitás esetben ez az összeg az irányadó.
+        </p>
 
         {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
         {uploadProgress && (

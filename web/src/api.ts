@@ -146,6 +146,7 @@ export type Job = {
   dropoff_needs_carrying?: boolean;
   dropoff_floor?: number | null;
   dropoff_has_elevator?: boolean;
+  declared_value_huf?: number | null;
 };
 
 export type NewJobInput = {
@@ -176,6 +177,7 @@ export type NewJobInput = {
   dropoff_needs_carrying?: boolean;
   dropoff_floor?: number;
   dropoff_has_elevator?: boolean;
+  declared_value_huf?: number;
 };
 
 export type BackhaulCandidate = Job & {
@@ -642,4 +644,41 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ message, history }),
     }),
+
+  /** SOS vészjelzés küldése. */
+  sendSOS: (body: { job_id?: string; booking_id?: string; lat?: number; lng?: number; message?: string }) =>
+    request<{ ok: true; sos_id: string }>('/sos', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /** Ár-kalkulátor (publikus, nem kell auth). */
+  priceEstimate: async (params: {
+    pickup_lat: number; pickup_lng: number;
+    dropoff_lat: number; dropoff_lng: number;
+    weight_kg?: number;
+    pickup_floor?: number; pickup_has_elevator?: boolean;
+    dropoff_floor?: number; dropoff_has_elevator?: boolean;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set('pickup_lat', String(params.pickup_lat));
+    qs.set('pickup_lng', String(params.pickup_lng));
+    qs.set('dropoff_lat', String(params.dropoff_lat));
+    qs.set('dropoff_lng', String(params.dropoff_lng));
+    if (params.weight_kg != null) qs.set('weight_kg', String(params.weight_kg));
+    if (params.pickup_floor != null) qs.set('pickup_floor', String(params.pickup_floor));
+    if (params.pickup_has_elevator != null) qs.set('pickup_has_elevator', String(params.pickup_has_elevator));
+    if (params.dropoff_floor != null) qs.set('dropoff_floor', String(params.dropoff_floor));
+    if (params.dropoff_has_elevator != null) qs.set('dropoff_has_elevator', String(params.dropoff_has_elevator));
+    const res = await fetch(`${BASE_URL}/calculator/estimate?${qs.toString()}`);
+    if (!res.ok) throw new Error('Kalkulátor hiba');
+    return res.json() as Promise<{
+      distance_km: number;
+      weight_kg: number;
+      estimate_huf: number;
+      range_low_huf: number;
+      range_high_huf: number;
+      note: string;
+    }>;
+  },
 };

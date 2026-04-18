@@ -18,6 +18,8 @@ const aiRoutes = require('./routes/ai');
 const disputeRoutes = require('./routes/disputes');
 const messageRoutes = require('./routes/messages');
 const backhaulRoutes = require('./routes/backhaul');
+const sosRoutes = require('./routes/sos');
+const calculatorRoutes = require('./routes/calculator');
 const { globalRateLimit } = require('./middleware/rateLimit');
 
 const app = express();
@@ -38,6 +40,7 @@ app.use(
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
+app.use('/', calculatorRoutes);
 
 // Statikus fájl-kiszolgálás a feltöltött fotókhoz
 const path = require('path');
@@ -62,6 +65,7 @@ app.use('/', aiRoutes);
 app.use('/', disputeRoutes);
 app.use('/', messageRoutes);
 app.use('/', backhaulRoutes);
+app.use('/', sosRoutes);
 
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {

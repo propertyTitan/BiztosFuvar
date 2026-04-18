@@ -69,6 +69,8 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
     dropoff_needs_carrying,
     dropoff_floor,
     dropoff_has_elevator,
+    // Csomag deklarált értéke
+    declared_value_huf,
   } = req.body || {};
 
   // Alap kötelező mezők
@@ -137,6 +139,9 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
   const dFloor = dCarry ? Math.max(0, Math.min(10, Number(dropoff_floor) || 0)) : 0;
   const dLift  = dCarry ? !!dropoff_has_elevator : false;
 
+  const declaredVal = Number(declared_value_huf);
+  const declaredValueClean = Number.isFinite(declaredVal) && declaredVal > 0 ? Math.round(declaredVal) : null;
+
   const { rows } = await db.query(
     `INSERT INTO jobs (
        shipper_id, title, description,
@@ -149,8 +154,9 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
        status, delivery_code, ai_description_ok, ai_description_notes,
        is_instant, instant_radius_km, instant_expires_at,
        pickup_needs_carrying, pickup_floor, pickup_has_elevator,
-       dropoff_needs_carrying, dropoff_floor, dropoff_has_elevator
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28)
+       dropoff_needs_carrying, dropoff_floor, dropoff_has_elevator,
+       declared_value_huf
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -164,6 +170,7 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
       wantsInstant, instantRadiusKm, instantExpiresAt,
       pCarry, pFloor, pLift,
       dCarry, dFloor, dLift,
+      declaredValueClean,
     ],
   );
 

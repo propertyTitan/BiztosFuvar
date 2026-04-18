@@ -199,6 +199,46 @@ export default function SiteHeader() {
 
         {user && (
           <>
+            {/* 🚨 SOS gomb */}
+            <button
+              type="button"
+              onClick={async () => {
+                if (!confirm('Biztosan SOS jelzést küldesz? Az admin és a fuvar-partnered értesítve lesz.')) return;
+                const msg = prompt('Mi történt? (opcionális)') || '';
+                try {
+                  let lat: number | undefined;
+                  let lng: number | undefined;
+                  if (navigator.geolocation) {
+                    await new Promise<void>((resolve) => {
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => { lat = pos.coords.latitude; lng = pos.coords.longitude; resolve(); },
+                        () => resolve(),
+                        { timeout: 3000 },
+                      );
+                    });
+                  }
+                  await api.sendSOS({ message: msg, lat, lng });
+                  toast.success('SOS elküldve', 'Az admin értesítve lett.');
+                } catch (e: any) {
+                  toast.error('SOS küldés sikertelen', e.message);
+                }
+              }}
+              title="Vészhelyzet jelzése"
+              style={{
+                background: '#DC2626',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 8,
+                padding: '6px 10px',
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: 700,
+                letterSpacing: 0.5,
+              }}
+            >
+              🚨 SOS
+            </button>
+
             {/* 🔔 Értesítés ikon */}
             <Link
               href="/ertesitesek"
