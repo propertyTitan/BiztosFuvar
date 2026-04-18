@@ -212,6 +212,7 @@ export default function HomeHub() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
             {[
               { href: '/sofor/fuvarok', icon: '🎯', label: 'Fuvarok' },
+              { href: '/sofor/dashboard', icon: '📊', label: 'Dashboard' },
               { href: '/sofor/licitjeim', icon: '🏷️', label: 'Licitjeim' },
               { href: '/sofor/sajat-fuvarok', icon: '🚛', label: t('nav.myJobs') },
               { href: '/sofor/visszafuvar', icon: '🔄', label: 'Visszafuvar' },

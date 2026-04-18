@@ -694,6 +694,9 @@ export const api = {
 
   myTowRequests: () => request<any[]>('/towing/my-requests'),
 
+  /** Sofőr bevétel és teljesítmény statisztikák. */
+  driverStats: () => request<any>('/driver-stats'),
+
   /** SOS vészjelzés küldése. */
   sendSOS: (body: { job_id?: string; booking_id?: string; lat?: number; lng?: number; message?: string }) =>
     request<{ ok: true; sos_id: string }>('/sos', {

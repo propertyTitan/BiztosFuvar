@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { api } from '@/api';
 import AddressAutocomplete from './AddressAutocomplete';
+import PriceComparison from './PriceComparison';
 
 type Result = {
   distance_km: number;
@@ -172,6 +173,12 @@ export default function PriceCalculator() {
             >
               Regisztrálok és feladok egy fuvart
             </a>
+
+            {/* Összehasonlítás versenytársakkal */}
+            <PriceComparison
+              goFuvarEstimate={result.estimate_huf}
+              weightKg={Number(weightKg) || 5}
+            />
           </div>
         )}
       </div>

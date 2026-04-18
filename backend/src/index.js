@@ -21,6 +21,7 @@ const backhaulRoutes = require('./routes/backhaul');
 const sosRoutes = require('./routes/sos');
 const calculatorRoutes = require('./routes/calculator');
 const towingRoutes = require('./routes/towing');
+const driverStatsRoutes = require('./routes/driverStats');
 const { globalRateLimit } = require('./middleware/rateLimit');
 
 const app = express();
@@ -68,6 +69,7 @@ app.use('/', messageRoutes);
 app.use('/', backhaulRoutes);
 app.use('/', sosRoutes);
 app.use('/', towingRoutes);
+app.use('/', driverStatsRoutes);
 
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {
