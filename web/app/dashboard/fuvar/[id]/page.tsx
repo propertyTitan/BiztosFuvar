@@ -15,6 +15,8 @@ import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
+import QrCode from '@/components/QrCode';
+import Confetti from '@/components/Confetti';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik', bidding: 'Licitálható', accepted: 'Elfogadva',
@@ -139,7 +141,7 @@ export default function FuvarReszletek() {
         <LiveTrackingMap job={job} />
       </div>
 
-      {/* Átvételi kód – csak a feladó látja, a sofőrnek nincs benne a válaszban */}
+      {/* Átvételi kód + QR – csak a feladó látja */}
       {job.delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
         <div
           className="card"
@@ -148,29 +150,22 @@ export default function FuvarReszletek() {
             background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
             color: '#fff',
             border: 'none',
+            textAlign: 'center',
           }}
         >
-          <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 8 }}>
-            🔐 Átvételi kód
+          <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 16 }}>
+            🔐 Átvételi kód & QR
           </div>
-          <div
-            style={{
-              fontSize: 40,
-              fontWeight: 800,
-              letterSpacing: '0.15em',
-              fontFamily: 'monospace',
-              textAlign: 'center',
-              padding: '12px 0',
-            }}
-          >
-            {job.delivery_code}
-          </div>
-          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>
-            Add át ezt a 6 jegyű kódot a sofőrnek, amikor átveszi tőled (vagy a címzettől) a csomagot.
-            A sofőr ezzel tudja lezárni a fuvart. A kódot senki más nem látja.
+          <QrCode jobId={job.id} deliveryCode={job.delivery_code} size={200} />
+          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 16 }}>
+            A sofőr beolvassa a QR kódot az appjában → a fuvar azonnal lezárul.
+            Vagy diktáld a 6 jegyű kódot, ha nincs kéznél a telefon.
           </div>
         </div>
       )}
+
+      {/* Confetti ha a fuvar éppen most lett lezárva */}
+      <Confetti active={job.status === 'delivered'} />
 
       {/* Hirdetési fotók (amit a feladó töltött fel) */}
       {photos.some((p) => p.kind === 'listing') && (

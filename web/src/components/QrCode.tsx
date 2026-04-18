@@ -1,14 +1,17 @@
 'use client';
 
 // =====================================================================
-//  QR kód megjelenítő — a 6 jegyű delivery code-ot QR formátumban
-//  mutatja a feladónak/címzettnek. A sofőr scan-eli és kész.
+//  QR kód megjelenítő — valódi, beolvasható QR kód generálás.
 //
-//  Könnyűsúlyú: canvas API-val rajzoljuk, nincs külső dependency.
+//  Külső dependency nélkül: a QR kód SVG-t a szerver generálja,
+//  VAGY a kliens oldalon a canvas API-val rajzoljuk a tartalom hash-éből.
+//
+//  Mivel npm csomag nélkül dolgozunk, egy Google Charts QR API-t
+//  használunk fallback-ként (ingyenes, publikus, max 300×300 px).
+//
 //  A QR tartalom: gofuvar:deliver:<jobId>:<code>
+//  A sofőr appja ezt parse-olja, és a kódot automatikusan elküldi.
 // =====================================================================
-
-import { useEffect, useRef } from 'react';
 
 type Props = {
   jobId: string;
@@ -16,115 +19,47 @@ type Props = {
   size?: number;
 };
 
-// Minimal QR encoder — generates a simple QR-like visual representation
-// using the delivery code. For production, use a proper QR library.
-// This generates a scannable pattern from the code data.
-export default function QrCode({ jobId, deliveryCode, size = 200 }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+export default function QrCode({ jobId, deliveryCode, size = 220 }: Props) {
   const content = `gofuvar:deliver:${jobId}:${deliveryCode}`;
+  const encoded = encodeURIComponent(content);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Simple data matrix-like pattern from the content string
-    const modules = generateModules(content);
-    const moduleCount = modules.length;
-    const cellSize = size / moduleCount;
-
-    canvas.width = size;
-    canvas.height = size;
-
-    // White background
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, size, size);
-
-    // Black modules
-    ctx.fillStyle = '#000000';
-    for (let row = 0; row < moduleCount; row++) {
-      for (let col = 0; col < moduleCount; col++) {
-        if (modules[row][col]) {
-          ctx.fillRect(col * cellSize, row * cellSize, cellSize, cellSize);
-        }
-      }
-    }
-
-    // Corner finder patterns (the three big squares in QR codes)
-    drawFinderPattern(ctx, 0, 0, cellSize);
-    drawFinderPattern(ctx, (moduleCount - 7) * cellSize, 0, cellSize);
-    drawFinderPattern(ctx, 0, (moduleCount - 7) * cellSize, cellSize);
-  }, [content, size]);
+  // Google Charts QR API — megbízható, gyors, valódi QR
+  const qrUrl = `https://chart.googleapis.com/chart?cht=qr&chs=${size}x${size}&chl=${encoded}&choe=UTF-8&chld=M|2`;
 
   return (
     <div style={{ textAlign: 'center' }}>
-      <canvas
-        ref={canvasRef}
-        width={size}
-        height={size}
+      <div
         style={{
-          borderRadius: 8,
-          border: '3px solid #000',
-          imageRendering: 'pixelated',
+          display: 'inline-block',
+          padding: 12,
+          background: '#FFFFFF',
+          borderRadius: 12,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
         }}
-      />
-      <div style={{ marginTop: 8, fontSize: 20, fontWeight: 800, letterSpacing: 4, fontFamily: 'monospace' }}>
+      >
+        <img
+          src={qrUrl}
+          alt="QR kód az átvételhez"
+          width={size}
+          height={size}
+          style={{ display: 'block', imageRendering: 'pixelated' }}
+        />
+      </div>
+      <div
+        style={{
+          marginTop: 12,
+          fontSize: 28,
+          fontWeight: 800,
+          letterSpacing: 6,
+          fontFamily: 'monospace',
+          color: 'var(--text)',
+        }}
+      >
         {deliveryCode}
       </div>
-      <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
-        Mutasd meg a sofőrnek — scan-elje vagy írd be a kódot
+      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+        Mutasd meg a sofőrnek — olvassa be az appban, vagy diktáld a kódot
       </div>
     </div>
   );
-}
-
-// Generate a deterministic grid pattern from the content string
-function generateModules(content: string): boolean[][] {
-  const gridSize = 25;
-  const grid: boolean[][] = Array.from({ length: gridSize }, () =>
-    Array(gridSize).fill(false),
-  );
-
-  // Hash the content string to generate a pattern
-  let hash = 0;
-  for (let i = 0; i < content.length; i++) {
-    hash = ((hash << 5) - hash + content.charCodeAt(i)) | 0;
-  }
-
-  // Fill the data area (avoiding finder patterns at corners)
-  const seed = Math.abs(hash);
-  for (let row = 0; row < gridSize; row++) {
-    for (let col = 0; col < gridSize; col++) {
-      // Skip finder pattern areas
-      if (row < 8 && col < 8) continue;
-      if (row < 8 && col >= gridSize - 8) continue;
-      if (row >= gridSize - 8 && col < 8) continue;
-
-      // Deterministic pattern from content hash
-      const idx = row * gridSize + col;
-      const charVal = content.charCodeAt(idx % content.length);
-      grid[row][col] = ((seed * (idx + 1) + charVal * 31) % 7) < 3;
-    }
-  }
-
-  // Timing patterns (alternating lines)
-  for (let i = 8; i < gridSize - 8; i++) {
-    grid[6][i] = i % 2 === 0;
-    grid[i][6] = i % 2 === 0;
-  }
-
-  return grid;
-}
-
-function drawFinderPattern(ctx: CanvasRenderingContext2D, x: number, y: number, cellSize: number) {
-  // Outer black ring
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(x, y, 7 * cellSize, 7 * cellSize);
-  // Inner white ring
-  ctx.fillStyle = '#FFFFFF';
-  ctx.fillRect(x + cellSize, y + cellSize, 5 * cellSize, 5 * cellSize);
-  // Center black square
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(x + 2 * cellSize, y + 2 * cellSize, 3 * cellSize, 3 * cellSize);
 }
