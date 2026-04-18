@@ -20,6 +20,20 @@ import { useToast } from '@/components/ToastProvider';
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB – egyezik a backend limittel
 const MAX_PHOTO_COUNT = 8;
 
+const FLOOR_OPTIONS = [
+  { value: '0', label: 'Földszint' },
+  { value: '1', label: '1. emelet' },
+  { value: '2', label: '2. emelet' },
+  { value: '3', label: '3. emelet' },
+  { value: '4', label: '4. emelet' },
+  { value: '5', label: '5. emelet' },
+  { value: '6', label: '6. emelet' },
+  { value: '7', label: '7. emelet' },
+  { value: '8', label: '8. emelet' },
+  { value: '9', label: '9. emelet' },
+  { value: '10', label: '10. emelet' },
+] as const;
+
 type FormState = {
   title: string;
   description: string;
@@ -27,7 +41,7 @@ type FormState = {
   pickup_address: string;
   pickup_lat: number | null;
   pickup_lng: number | null;
-  pickup_confirmed: boolean; // true ha kiválasztotta az autocomplete-ből
+  pickup_confirmed: boolean;
 
   dropoff_address: string;
   dropoff_lat: number | null;
@@ -40,10 +54,16 @@ type FormState = {
   height_cm: number | '';
   suggested_price_huf: number | '';
 
-  // Azonnali fuvar ("UberFuvar" mód) — fix ár, első elfogadó nyer.
   is_instant: boolean;
   instant_duration_minutes: number | '';
   instant_radius_km: number | '';
+
+  pickup_needs_carrying: boolean;
+  pickup_floor: string;
+  pickup_has_elevator: boolean;
+  dropoff_needs_carrying: boolean;
+  dropoff_floor: string;
+  dropoff_has_elevator: boolean;
 };
 
 const initialForm: FormState = {
@@ -65,6 +85,12 @@ const initialForm: FormState = {
   is_instant: false,
   instant_duration_minutes: 30,
   instant_radius_km: 20,
+  pickup_needs_carrying: false,
+  pickup_floor: '0',
+  pickup_has_elevator: false,
+  dropoff_needs_carrying: false,
+  dropoff_floor: '0',
+  dropoff_has_elevator: false,
 };
 
 const REQ = { color: '#EF4444', fontWeight: 700 } as const;
@@ -169,6 +195,16 @@ export default function UjFuvar() {
         ...(form.is_instant && form.instant_radius_km
           ? { instant_radius_km: Number(form.instant_radius_km) }
           : {}),
+        pickup_needs_carrying: form.pickup_needs_carrying,
+        ...(form.pickup_needs_carrying ? {
+          pickup_floor: Number(form.pickup_floor),
+          pickup_has_elevator: form.pickup_has_elevator,
+        } : {}),
+        dropoff_needs_carrying: form.dropoff_needs_carrying,
+        ...(form.dropoff_needs_carrying ? {
+          dropoff_floor: Number(form.dropoff_floor),
+          dropoff_has_elevator: form.dropoff_has_elevator,
+        } : {}),
       });
 
       // 2) Kép-feltöltés sorban (így látjuk a progress-t és nem önmagával versenyez
@@ -329,6 +365,65 @@ export default function UjFuvar() {
         )}
         </div>
 
+        {/* Felvételi bepakolás */}
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.pickup_needs_carrying}
+              onChange={(e) => set('pickup_needs_carrying', e.target.checked)}
+              style={{ width: 18, height: 18 }}
+            />
+            <span style={{ fontSize: 14 }}>
+              A sofőrnek be kell pakolnia a csomagot a felvételi helyen?
+            </span>
+          </label>
+          {form.pickup_needs_carrying && (
+            <div
+              style={{
+                marginTop: 10,
+                marginLeft: 28,
+                padding: 12,
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: 13 }}>Hányadik emelet? <span style={REQ}>*</span></label>
+                  <select
+                    className="input"
+                    value={form.pickup_floor}
+                    onChange={(e) => set('pickup_floor', e.target.value)}
+                    style={{ minWidth: 150 }}
+                  >
+                    {FLOOR_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {form.pickup_floor !== '0' && (
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
+                    <input
+                      type="checkbox"
+                      checked={form.pickup_has_elevator}
+                      onChange={(e) => set('pickup_has_elevator', e.target.checked)}
+                      style={{ width: 18, height: 18 }}
+                    />
+                    Van lift?
+                  </label>
+                )}
+              </div>
+              {form.pickup_floor !== '0' && !form.pickup_has_elevator && (
+                <p style={{ fontSize: 12, color: '#FB8C00', marginTop: 8, marginBottom: 0 }}>
+                  ⚠ Lépcsőn kell cipelni — a sofőrnek lényeges információ!
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* --- Lerakodás --- */}
         <h2 style={{ marginTop: 24 }}>Lerakodás helye <span style={REQ}>*</span></h2>
         <div style={missing(form.dropoff_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
@@ -363,6 +458,65 @@ export default function UjFuvar() {
             ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
           </p>
         )}
+        </div>
+
+        {/* Lerakodási bepakolás */}
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.dropoff_needs_carrying}
+              onChange={(e) => set('dropoff_needs_carrying', e.target.checked)}
+              style={{ width: 18, height: 18 }}
+            />
+            <span style={{ fontSize: 14 }}>
+              A sofőrnek fel kell vinnie a csomagot a lerakodási helyen?
+            </span>
+          </label>
+          {form.dropoff_needs_carrying && (
+            <div
+              style={{
+                marginTop: 10,
+                marginLeft: 28,
+                padding: 12,
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: 13 }}>Hányadik emelet? <span style={REQ}>*</span></label>
+                  <select
+                    className="input"
+                    value={form.dropoff_floor}
+                    onChange={(e) => set('dropoff_floor', e.target.value)}
+                    style={{ minWidth: 150 }}
+                  >
+                    {FLOOR_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
+                  </select>
+                </div>
+                {form.dropoff_floor !== '0' && (
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
+                    <input
+                      type="checkbox"
+                      checked={form.dropoff_has_elevator}
+                      onChange={(e) => set('dropoff_has_elevator', e.target.checked)}
+                      style={{ width: 18, height: 18 }}
+                    />
+                    Van lift?
+                  </label>
+                )}
+              </div>
+              {form.dropoff_floor !== '0' && !form.dropoff_has_elevator && (
+                <p style={{ fontSize: 12, color: '#FB8C00', marginTop: 8, marginBottom: 0 }}>
+                  ⚠ Lépcsőn kell cipelni — a sofőrnek lényeges információ!
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* --- Csomag adatai --- */}

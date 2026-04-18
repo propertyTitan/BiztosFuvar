@@ -138,6 +138,13 @@ export type Job = {
   instant_radius_km?: number | null;
   instant_expires_at?: string | null;
   instant_accepted_at?: string | null;
+  /** Bepakolás / cipelés infó — a sofőr számára kulcsfontosságú. */
+  pickup_needs_carrying?: boolean;
+  pickup_floor?: number | null;
+  pickup_has_elevator?: boolean;
+  dropoff_needs_carrying?: boolean;
+  dropoff_floor?: number | null;
+  dropoff_has_elevator?: boolean;
 };
 
 export type NewJobInput = {
@@ -160,6 +167,14 @@ export type NewJobInput = {
   instant_radius_km?: number;
   /** Meddig fogadható el (percben, max 240). Alap: 30 perc. */
   instant_duration_minutes?: number;
+  /** A sofőrnek kell-e bepakolnia a felvételi helyen? */
+  pickup_needs_carrying?: boolean;
+  pickup_floor?: number;
+  pickup_has_elevator?: boolean;
+  /** A sofőrnek kell-e felvinnie a lerakodási helyen? */
+  dropoff_needs_carrying?: boolean;
+  dropoff_floor?: number;
+  dropoff_has_elevator?: boolean;
 };
 
 export type BackhaulCandidate = Job & {

@@ -62,6 +62,13 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
     is_instant,
     instant_radius_km,
     instant_duration_minutes,
+    // Bepakolás / cipelés infó
+    pickup_needs_carrying,
+    pickup_floor,
+    pickup_has_elevator,
+    dropoff_needs_carrying,
+    dropoff_floor,
+    dropoff_has_elevator,
   } = req.body || {};
 
   // Alap kötelező mezők
@@ -122,6 +129,14 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
   // ("network timeout"-ot is okozhat lassú csatolásnál). Először beszúrjuk
   // a job-ot `ai_description_ok = NULL` értékkel, majd fire-and-forget
   // elindítjuk a review-t, és amikor megjön, UPDATE-eljük a sort.
+  // Bepakolás/cipelés mezők: floor 0-10, boolean-ök.
+  const pCarry = !!pickup_needs_carrying;
+  const pFloor = pCarry ? Math.max(0, Math.min(10, Number(pickup_floor) || 0)) : 0;
+  const pLift  = pCarry ? !!pickup_has_elevator : false;
+  const dCarry = !!dropoff_needs_carrying;
+  const dFloor = dCarry ? Math.max(0, Math.min(10, Number(dropoff_floor) || 0)) : 0;
+  const dLift  = dCarry ? !!dropoff_has_elevator : false;
+
   const { rows } = await db.query(
     `INSERT INTO jobs (
        shipper_id, title, description,
@@ -132,8 +147,10 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
        suggested_price_huf,
        pickup_window_start, pickup_window_end,
        status, delivery_code, ai_description_ok, ai_description_notes,
-       is_instant, instant_radius_km, instant_expires_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22)
+       is_instant, instant_radius_km, instant_expires_at,
+       pickup_needs_carrying, pickup_floor, pickup_has_elevator,
+       dropoff_needs_carrying, dropoff_floor, dropoff_has_elevator
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -145,6 +162,8 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
       pickup_window_start || null, pickup_window_end || null,
       deliveryCode,
       wantsInstant, instantRadiusKm, instantExpiresAt,
+      pCarry, pFloor, pLift,
+      dCarry, dFloor, dLift,
     ],
   );
 
