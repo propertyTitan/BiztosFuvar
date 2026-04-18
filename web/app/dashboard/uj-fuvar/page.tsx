@@ -421,39 +421,40 @@ export default function UjFuvar() {
           style={{
             marginTop: 24,
             padding: 16,
-            background: form.is_instant ? '#FFF8E1' : 'transparent',
-            border: `1px solid ${form.is_instant ? '#FFB300' : 'var(--border)'}`,
+            background: form.is_instant ? 'rgba(255,179,0,0.12)' : 'transparent',
+            border: `2px solid ${form.is_instant ? '#FFB300' : 'var(--border)'}`,
             borderRadius: 8,
           }}
         >
-          <label
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => set('is_instant', !form.is_instant)}
+            onKeyDown={(e) => e.key === 'Enter' && set('is_instant', !form.is_instant)}
             style={{
               display: 'flex',
-              gap: 10,
-              alignItems: 'flex-start',
+              gap: 12,
+              alignItems: 'center',
               cursor: 'pointer',
-              margin: 0,
             }}
           >
             <input
               type="checkbox"
               checked={form.is_instant}
               onChange={(e) => set('is_instant', e.target.checked)}
-              style={{ marginTop: 3 }}
+              style={{ width: 20, height: 20, flexShrink: 0 }}
             />
-            <span>
-              <strong>⚡ Azonnali fuvar (nincs licitálás)</strong>
-              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                Fix áron adod fel, és az első sofőr, aki elvállalja, elviszi.
-                Push értesítés megy minden közeli sofőrnek. Sürgős / városi
-                last-mile eseteknek ideális.
-              </div>
-            </span>
-          </label>
+            <strong style={{ fontSize: 15 }}>⚡ Azonnali fuvar (nincs licitálás)</strong>
+          </div>
+          <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
+            Fix áron adod fel, és az első sofőr, aki elvállalja, elviszi.
+            Push értesítés megy minden közeli sofőrnek. Sürgős / városi
+            last-mile eseteknek ideális.
+          </p>
           {form.is_instant && (
-            <div className="grid-2" style={{ marginTop: 12 }}>
-              <div>
-                <label>Meddig érvényes (perc)</label>
+            <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 140px' }}>
+                <label style={{ fontSize: 13 }}>Meddig érvényes (perc)</label>
                 <input
                   className="input"
                   type="number"
@@ -468,8 +469,8 @@ export default function UjFuvar() {
                   }
                 />
               </div>
-              <div>
-                <label>Push sugár (km)</label>
+              <div style={{ flex: '1 1 140px' }}>
+                <label style={{ fontSize: 13 }}>Push sugár (km)</label>
                 <input
                   className="input"
                   type="number"
