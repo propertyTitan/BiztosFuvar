@@ -39,6 +39,11 @@ type FormState = {
   width_cm: number | '';
   height_cm: number | '';
   suggested_price_huf: number | '';
+
+  // Azonnali fuvar ("UberFuvar" mód) — fix ár, első elfogadó nyer.
+  is_instant: boolean;
+  instant_duration_minutes: number | '';
+  instant_radius_km: number | '';
 };
 
 const initialForm: FormState = {
@@ -57,6 +62,9 @@ const initialForm: FormState = {
   width_cm: '',
   height_cm: '',
   suggested_price_huf: '',
+  is_instant: false,
+  instant_duration_minutes: 30,
+  instant_radius_km: 20,
 };
 
 export default function UjFuvar() {
@@ -139,6 +147,13 @@ export default function UjFuvar() {
         width_cm: Number(form.width_cm),
         height_cm: Number(form.height_cm),
         suggested_price_huf: Number(form.suggested_price_huf),
+        is_instant: form.is_instant,
+        ...(form.is_instant && form.instant_duration_minutes
+          ? { instant_duration_minutes: Number(form.instant_duration_minutes) }
+          : {}),
+        ...(form.is_instant && form.instant_radius_km
+          ? { instant_radius_km: Number(form.instant_radius_km) }
+          : {}),
       });
 
       // 2) Kép-feltöltés sorban (így látjuk a progress-t és nem önmagával versenyez
@@ -401,8 +416,82 @@ export default function UjFuvar() {
           </p>
         )}
 
+        {/* --- Azonnali fuvar toggle --- */}
+        <div
+          style={{
+            marginTop: 24,
+            padding: 16,
+            background: form.is_instant ? '#FFF8E1' : 'transparent',
+            border: `1px solid ${form.is_instant ? '#FFB300' : 'var(--border)'}`,
+            borderRadius: 8,
+          }}
+        >
+          <label
+            style={{
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-start',
+              cursor: 'pointer',
+              margin: 0,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={form.is_instant}
+              onChange={(e) => set('is_instant', e.target.checked)}
+              style={{ marginTop: 3 }}
+            />
+            <span>
+              <strong>⚡ Azonnali fuvar (nincs licitálás)</strong>
+              <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                Fix áron adod fel, és az első sofőr, aki elvállalja, elviszi.
+                Push értesítés megy minden közeli sofőrnek. Sürgős / városi
+                last-mile eseteknek ideális.
+              </div>
+            </span>
+          </label>
+          {form.is_instant && (
+            <div className="grid-2" style={{ marginTop: 12 }}>
+              <div>
+                <label>Meddig érvényes (perc)</label>
+                <input
+                  className="input"
+                  type="number"
+                  min={5}
+                  max={240}
+                  value={form.instant_duration_minutes}
+                  onChange={(e) =>
+                    set(
+                      'instant_duration_minutes',
+                      e.target.value === '' ? '' : Number(e.target.value),
+                    )
+                  }
+                />
+              </div>
+              <div>
+                <label>Push sugár (km)</label>
+                <input
+                  className="input"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={form.instant_radius_km}
+                  onChange={(e) =>
+                    set(
+                      'instant_radius_km',
+                      e.target.value === '' ? '' : Number(e.target.value),
+                    )
+                  }
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* --- Ár --- */}
-        <h2 style={{ marginTop: 24 }}>Javasolt fuvardíj</h2>
+        <h2 style={{ marginTop: 24 }}>
+          {form.is_instant ? 'Fix fuvardíj (végleges)' : 'Javasolt fuvardíj'}
+        </h2>
         <label>Összeg (Ft)</label>
         <input
           className="input"
@@ -412,9 +501,15 @@ export default function UjFuvar() {
           onChange={(e) =>
             set('suggested_price_huf', e.target.value === '' ? '' : Number(e.target.value))
           }
-          placeholder="pl. 65000"
+          placeholder={form.is_instant ? 'pl. 12000 (ezt kapja kézhez a sofőr + jutalék)' : 'pl. 65000'}
           required
         />
+        {form.is_instant && (
+          <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            Azonnali fuvarnál NINCS alkudozás: ezt fogja látni minden közeli sofőr,
+            és az első elfogadó nyer.
+          </p>
+        )}
 
         {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
         {uploadProgress && (

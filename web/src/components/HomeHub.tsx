@@ -214,6 +214,7 @@ export default function HomeHub() {
               { href: '/sofor/fuvarok', icon: '🎯', label: 'Fuvarok' },
               { href: '/sofor/licitjeim', icon: '🏷️', label: 'Licitjeim' },
               { href: '/sofor/sajat-fuvarok', icon: '🚛', label: t('nav.myJobs') },
+              { href: '/sofor/visszafuvar', icon: '🔄', label: 'Visszafuvar' },
               { href: '/sofor/uj-utvonal', icon: '➕', label: 'Új útvonal' },
               { href: '/sofor/utvonalaim', icon: '🛣️', label: 'Útvonalaim' },
             ].map((l) => (

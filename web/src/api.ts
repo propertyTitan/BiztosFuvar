@@ -133,6 +133,11 @@ export type Job = {
   paid_at?: string | null;
   /** Barion fizetési URL — STUB módban `stub:...`. */
   barion_gateway_url?: string | null;
+  /** Azonnali fuvar ("UberFuvar" mód) — fix ár, első elfogadó nyer. */
+  is_instant?: boolean;
+  instant_radius_km?: number | null;
+  instant_expires_at?: string | null;
+  instant_accepted_at?: string | null;
 };
 
 export type NewJobInput = {
@@ -149,6 +154,29 @@ export type NewJobInput = {
   width_cm: number;
   height_cm: number;
   suggested_price_huf: number;
+  /** Ha true: azonnali fuvar, a suggested_price_huf a fix (végleges) ár. */
+  is_instant?: boolean;
+  /** Push értesítés sugara km-ben (alap 20). Csak ha is_instant. */
+  instant_radius_km?: number;
+  /** Meddig fogadható el (percben, max 240). Alap: 30 perc. */
+  instant_duration_minutes?: number;
+};
+
+export type BackhaulCandidate = Job & {
+  backhaul_pickup_from_dest_km: number;
+  backhaul_drop_from_origin_km: number;
+  backhaul_score: number;
+  shipper_name?: string;
+  shipper_rating_avg?: number;
+  shipper_rating_count?: number;
+};
+
+export type BackhaulGroup = {
+  trip_id: string;
+  trip_title: string;
+  trip_pickup_address: string;
+  trip_dropoff_address: string;
+  candidates: BackhaulCandidate[];
 };
 
 export type Bid = {
@@ -200,6 +228,8 @@ export const api = {
   listJobs: (params: {
     status?: string; lat?: number; lng?: number; radius_km?: number;
     min_price?: number; max_price?: number; max_weight_kg?: number;
+    /** 'true' = csak azonnali fuvarok, 'false' = csak licites, undefined = mind. */
+    instant?: 'true' | 'false';
   } = {}) => {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
@@ -209,8 +239,29 @@ export const api = {
     if (params.min_price != null) qs.set('min_price', String(params.min_price));
     if (params.max_price != null) qs.set('max_price', String(params.max_price));
     if (params.max_weight_kg != null) qs.set('max_weight_kg', String(params.max_weight_kg));
+    if (params.instant) qs.set('instant', params.instant);
     return request<(Job & { distance_to_pickup_km?: number })[]>(`/jobs?${qs.toString()}`);
   },
+
+  /** Azonnali fuvar elfogadása (első sofőr nyer, 409-et kap a többi). */
+  acceptInstantJob: (jobId: string) =>
+    request<{
+      ok: true;
+      job_id: string;
+      carrier_id: string;
+      amount_huf: number;
+      barion: { gateway_url: string | null; payment_id: string | null };
+    }>(`/jobs/${jobId}/instant-accept`, { method: 'POST' }),
+
+  /** Visszafuvar-ajánlások a hívó sofőr összes aktív fuvarához. */
+  backhaulSuggestions: () =>
+    request<{ groups: BackhaulGroup[] }>('/backhaul/suggestions'),
+
+  /** Egy konkrét aktív fuvarhoz tartozó visszafuvar-jelöltek. */
+  backhaulForTrip: (jobId: string) =>
+    request<{ trip_id: string; candidates: BackhaulCandidate[] }>(
+      `/backhaul/for-trip/${jobId}`,
+    ),
 
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
 

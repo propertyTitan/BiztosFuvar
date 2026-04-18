@@ -11,8 +11,16 @@ const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendJobPaidEmail, sendCancellationEmail } = require('../services/email');
+const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
+const { findBackhaulCandidates } = require('../services/backhaul');
 
 const router = express.Router();
+
+// Azonnali fuvar (is_instant) lejárati ideje alapból: most + 30 perc.
+// A feladó felülírhatja, de 5 perc alatt és 4 óra felett nem engedjük.
+const INSTANT_DEFAULT_MINUTES = 30;
+const INSTANT_MIN_MINUTES = 5;
+const INSTANT_MAX_MINUTES = 240;
 
 /**
  * 6 számjegyű átvételi kód generálása. Kriptográfiailag erős randommal.
@@ -50,6 +58,10 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
     weight_kg, suggested_price_huf,
     length_cm, width_cm, height_cm,
     pickup_window_start, pickup_window_end,
+    // Azonnali fuvar paraméterek (opcionális)
+    is_instant,
+    instant_radius_km,
+    instant_duration_minutes,
   } = req.body || {};
 
   // Alap kötelező mezők
@@ -76,6 +88,27 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
     });
   }
 
+  // --- Azonnali fuvar (is_instant) validáció ---
+  // Az instant fuvarnál nincs licit: a suggested_price_huf a VÉGSŐ ár.
+  // Ezért ezeknél kötelező egy értelmes összeg.
+  const wantsInstant = !!is_instant;
+  let instantExpiresAt = null;
+  let instantRadiusKm = null;
+  if (wantsInstant) {
+    const price = Number(suggested_price_huf);
+    if (!Number.isFinite(price) || price <= 0) {
+      return res.status(400).json({
+        error: 'Azonnali fuvarnál a fix ár (suggested_price_huf) kötelező és pozitív kell legyen.',
+      });
+    }
+    const minutes = Number.isFinite(Number(instant_duration_minutes))
+      ? Math.max(INSTANT_MIN_MINUTES, Math.min(INSTANT_MAX_MINUTES, Number(instant_duration_minutes)))
+      : INSTANT_DEFAULT_MINUTES;
+    instantExpiresAt = new Date(Date.now() + minutes * 60 * 1000);
+    const rKm = Number(instant_radius_km);
+    instantRadiusKm = Number.isFinite(rKm) && rKm > 0 && rKm <= 100 ? Math.round(rKm) : 20;
+  }
+
   // Térfogat automatikus számítása: cm³ → m³
   const volumeM3 = +((L * W * H) / 1_000_000).toFixed(3);
 
@@ -98,8 +131,9 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
        length_cm, width_cm, height_cm,
        suggested_price_huf,
        pickup_window_start, pickup_window_end,
-       status, delivery_code, ai_description_ok, ai_description_notes
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL)
+       status, delivery_code, ai_description_ok, ai_description_notes,
+       is_instant, instant_radius_km, instant_expires_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -110,6 +144,7 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
       suggested_price_huf || null,
       pickup_window_start || null, pickup_window_end || null,
       deliveryCode,
+      wantsInstant, instantRadiusKm, instantExpiresAt,
     ],
   );
 
@@ -141,6 +176,61 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
         console.warn('[gemini] description review hiba:', err.message);
       });
   });
+
+  // --- Azonnali fuvar: közeli sofőrök push értesítése ---
+  if (wantsInstant) {
+    setImmediate(() => {
+      notifyNearbyCarriersOfInstantJob(job).catch(() => {});
+    });
+  } else {
+    // --- Klasszikus fuvarhoz: visszafuvar-push a passzoló sofőröknek ---
+    // Az új fuvar pickup-ja lehet pont valakinek a visszaútja. Nézzük meg,
+    // van-e olyan aktív sofőr, akinek a jelenlegi (carrier_id=me) A→B
+    // fuvarához ez visszafuvar lenne, és push-oljuk neki. Fire-and-forget.
+    setImmediate(async () => {
+      try {
+        // Keresünk aktív sofőröket, akiknek a dropoff-ja közel van az új
+        // fuvar pickup-jához ÉS a pickup-juk közel van az új fuvar dropoff-
+        // jához. Ezt egyetlen SQL-lel: a meglévő findBackhaulCandidates
+        // fordítottját implementáljuk itt, mivel az új job mondja ki a
+        // "jelölt" állapotot, és mi a passzoló SOFŐRÖKET keressük.
+        const { rows: activeTrips } = await db.query(
+          `SELECT DISTINCT carrier_id,
+                  pickup_lat, pickup_lng,
+                  dropoff_lat, dropoff_lng
+             FROM jobs
+            WHERE carrier_id IS NOT NULL
+              AND status IN ('accepted', 'in_progress')`,
+        );
+        // JS oldali távolság-szűrés — aktív fuvar ritkán több száz, ez
+        // tökéletes. Nagyobb skálán ebből SQL-alapú geo query lesz.
+        const { distanceMeters } = require('../utils/geo');
+        const RADIUS_KM = 30;
+        const notified = new Set();
+        for (const t of activeTrips) {
+          if (notified.has(t.carrier_id)) continue;
+          const pickupNearB_km = distanceMeters(
+            t.dropoff_lat, t.dropoff_lng, job.pickup_lat, job.pickup_lng,
+          ) / 1000;
+          const dropNearA_km = distanceMeters(
+            t.pickup_lat, t.pickup_lng, job.dropoff_lat, job.dropoff_lng,
+          ) / 1000;
+          if (pickupNearB_km <= RADIUS_KM && dropNearA_km <= RADIUS_KM) {
+            await createNotification({
+              user_id: t.carrier_id,
+              type: 'backhaul_match',
+              title: '🔄 Visszafuvar lehetőség!',
+              body: `Egy új fuvar passzol a visszaútadra: "${job.title}".`,
+              link: `/sofor/visszafuvar`,
+            }).catch(() => {});
+            notified.add(t.carrier_id);
+          }
+        }
+      } catch (err) {
+        console.warn('[backhaul] új-fuvar push hiba:', err.message);
+      }
+    });
+  }
 });
 
 // GET /jobs – nyitott fuvarok (sofőröknek), opcionálisan közelség alapján.
@@ -156,7 +246,7 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
 //   ?max_weight_kg=...             — max csomag súly
 //   ?max_size=S|M|L|XL            — max méret kategória (TODO)
 router.get('/', authRequired, async (req, res) => {
-  const { status = 'bidding', lat, lng, radius_km, min_price, max_price, max_weight_kg } = req.query;
+  const { status = 'bidding', lat, lng, radius_km, min_price, max_price, max_weight_kg, instant } = req.query;
   let sql = 'SELECT * FROM jobs WHERE status = $1';
   const params = [status];
 
@@ -173,7 +263,15 @@ router.get('/', authRequired, async (req, res) => {
     sql += ` AND weight_kg <= $${params.length}`;
   }
 
-  sql += ' ORDER BY created_at DESC LIMIT 200';
+  // ?instant=true → csak azonnali, még élő fuvarok (nem lejárt)
+  // ?instant=false → csak licites (hagyományos) fuvarok
+  if (instant === 'true') {
+    sql += ` AND is_instant = TRUE AND (instant_expires_at IS NULL OR instant_expires_at > NOW())`;
+  } else if (instant === 'false') {
+    sql += ` AND is_instant = FALSE`;
+  }
+
+  sql += ' ORDER BY is_instant DESC, created_at DESC LIMIT 200';
   const { rows } = await db.query(sql, params);
   let jobs = rows;
   if (lat && lng) {
@@ -545,6 +643,163 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
     cancellation_fee_huf: fee,
     refund_huf: refund,
   });
+});
+
+// POST /jobs/:id/instant-accept
+//
+// Azonnali fuvar elfogadása. Nincs licit — a feladó fix árat ad meg, a
+// jobs.suggested_price_huf lesz a végleges. Az ELSŐ sofőr, aki elhívja ezt
+// a végpontot, NYER, a többi 409-et kap.
+//
+// Ugyanazt csinálja, mint a licites elfogadás (escrow indítás, carrier_id
+// beállítás, notifikációk), csak bid sor nélkül.
+router.post('/:id/instant-accept', authRequired, writeRateLimit, async (req, res) => {
+  // KYC: lejárt jogosítvány → nem fogadhatja el
+  const { rows: kyc } = await db.query(
+    `SELECT can_bid FROM users WHERE id = $1`, [req.user.sub],
+  );
+  if (kyc[0] && kyc[0].can_bid === false) {
+    return res.status(403).json({
+      error: 'A jogosítványod lejárt vagy nincs jóváhagyva. Frissítsd a profilodon.',
+      code: 'LICENSE_EXPIRED',
+    });
+  }
+
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Atomi FIRST-WINS: csak akkor frissítünk, ha még senki nem fogadta el.
+    // Több feltétel a WHERE-ben: is_instant=TRUE, status=bidding, még nincs
+    // carrier_id, és nincs lejárva. Ha 0 sor frissült → valaki megelőzte.
+    const { rows: upd } = await client.query(
+      `UPDATE jobs
+          SET status             = 'accepted',
+              carrier_id         = $1,
+              accepted_price_huf = suggested_price_huf,
+              instant_accepted_at = NOW(),
+              updated_at         = NOW()
+        WHERE id = $2
+          AND is_instant = TRUE
+          AND status = 'bidding'
+          AND carrier_id IS NULL
+          AND shipper_id <> $1
+          AND (instant_expires_at IS NULL OR instant_expires_at > NOW())
+      RETURNING *`,
+      [req.user.sub, req.params.id],
+    );
+
+    if (!upd[0]) {
+      await client.query('ROLLBACK');
+      // Megnézzük: egyáltalán létezik-e az azonnali fuvar és miért nem ment?
+      const { rows: check } = await db.query(
+        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at
+           FROM jobs WHERE id = $1`,
+        [req.params.id],
+      );
+      const j = check[0];
+      if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
+      if (!j.is_instant) return res.status(409).json({ error: 'Ez nem azonnali fuvar — licitálj helyette.' });
+      if (j.shipper_id === req.user.sub) return res.status(403).json({ error: 'A saját fuvarodat nem fogadhatod el' });
+      if (j.carrier_id) return res.status(409).json({ error: 'Sajnos elkelt — valaki más gyorsabb volt.' });
+      if (j.instant_expires_at && new Date(j.instant_expires_at) < new Date()) {
+        return res.status(410).json({ error: 'Az azonnali fuvar lejárt.' });
+      }
+      return res.status(409).json({ error: 'Nem fogadható el (állapot: ' + j.status + ')' });
+    }
+
+    const job = upd[0];
+
+    // Ugyanaz az escrow init, mint a licit elfogadásnál: Barion Reservation.
+    const { rows: partyRows } = await client.query(
+      `SELECT s.email AS shipper_email, s.full_name AS shipper_name,
+              c.email AS carrier_email, c.full_name AS carrier_name
+         FROM users s, users c
+        WHERE s.id = $1 AND c.id = $2`,
+      [job.shipper_id, job.carrier_id],
+    );
+    const parties = partyRows[0] || {};
+
+    let barionRes = { paymentId: null, gatewayUrl: null };
+    try {
+      barionRes = await barion.reservePayment({
+        jobId: job.id,
+        totalHuf: job.accepted_price_huf,
+        shipperEmail: parties.shipper_email,
+        carrierEmail: parties.carrier_email,
+      });
+    } catch (err) {
+      console.error('[barion] instant reservePayment hiba:', err.message);
+      await client.query('ROLLBACK');
+      return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+    }
+
+    const carrierShare = Math.round(job.accepted_price_huf * (1 - barion.COMMISSION_PCT));
+    const platformShare = job.accepted_price_huf - carrierShare;
+
+    await client.query(
+      `INSERT INTO escrow_transactions
+         (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
+          carrier_share_huf, platform_share_huf)
+       VALUES ($1,$2,'held',$3,$4,$5,$6)
+       ON CONFLICT (job_id) DO UPDATE SET
+         amount_huf         = EXCLUDED.amount_huf,
+         status             = 'held',
+         barion_payment_id  = EXCLUDED.barion_payment_id,
+         barion_gateway_url = EXCLUDED.barion_gateway_url,
+         carrier_share_huf  = EXCLUDED.carrier_share_huf,
+         platform_share_huf = EXCLUDED.platform_share_huf,
+         held_at            = NOW()`,
+      [job.id, job.accepted_price_huf, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
+    );
+
+    await client.query('COMMIT');
+
+    // Realtime: szóljon a feladónak és a globális feednek is, hogy a többi
+    // sofőr UI-ja azonnal ki tudja venni a listából az azonnali fuvart.
+    realtime.emitToUser(job.shipper_id, 'job:accepted', {
+      job_id: job.id,
+      carrier_id: job.carrier_id,
+      amount_huf: job.accepted_price_huf,
+      barion_gateway_url: barionRes.gatewayUrl,
+      is_instant: true,
+    });
+    realtime.emitGlobal('jobs:instant-taken', {
+      job_id: job.id,
+      carrier_id: job.carrier_id,
+    });
+
+    // Értesítés a feladónak (in-app)
+    try {
+      await createNotification({
+        user_id: job.shipper_id,
+        type: 'instant_accepted',
+        title: '⚡ Sofőr vállalta az azonnali fuvart!',
+        body: `${parties.carrier_name || 'Egy sofőr'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizess a Barion oldalon.`,
+        link: `/dashboard/fuvar/${job.id}`,
+      });
+    } catch (e) {
+      console.warn('[notifications] instant_accepted hiba:', e.message);
+    }
+
+    res.json({
+      ok: true,
+      job_id: job.id,
+      carrier_id: job.carrier_id,
+      amount_huf: job.accepted_price_huf,
+      barion: {
+        payment_id: barionRes.paymentId,
+        gateway_url: barionRes.gatewayUrl,
+        carrier_share_huf: carrierShare,
+        platform_share_huf: platformShare,
+      },
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 module.exports = router;
