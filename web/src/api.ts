@@ -58,6 +58,7 @@ export type CarrierRoute = {
   is_template: boolean;
   template_source_id: string | null;
   status: 'draft' | 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
+  is_ride_along?: boolean;
   created_at: string;
   updated_at: string;
   prices: RoutePrice[];
@@ -392,6 +393,7 @@ export const api = {
     template_source_id?: string;
     prices: RoutePrice[];
     status?: 'draft' | 'open';
+    is_ride_along?: boolean;
   }) =>
     request<CarrierRoute>('/carrier-routes', {
       method: 'POST',
@@ -424,6 +426,17 @@ export const api = {
     }),
 
   /** Teljes útvonal szerkesztés (a tulajdonos bármikor módosíthatja). */
+  /** Útba eső fuvarok egy adott útvonalhoz. */
+  alongJobs: (routeId: string) =>
+    request<{ route_id: string; jobs: (Job & {
+      along_pickup_wp_name: string;
+      along_dropoff_wp_name: string;
+      along_pickup_detour_km: number;
+      along_dropoff_detour_km: number;
+      along_detour_km: number;
+      shipper_name?: string;
+    })[] }>(`/carrier-routes/${routeId}/along-jobs`),
+
   updateCarrierRoute: (id: string, body: {
     title?: string;
     description?: string;
@@ -432,6 +445,7 @@ export const api = {
     vehicle_description?: string;
     prices?: RoutePrice[];
     status?: 'draft' | 'open' | 'full' | 'cancelled';
+    is_ride_along?: boolean;
   }) =>
     request<CarrierRoute>(`/carrier-routes/${id}`, {
       method: 'PATCH',
