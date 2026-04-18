@@ -173,6 +173,9 @@ export default function SiteHeader() {
           <Link href="/dashboard/utvonalak" style={navLinkStyle}>
             🛣️ {t('nav.fixedRoutes')}
           </Link>
+          <Link href="/mentes" style={{ ...navLinkStyle, color: '#DC2626' }}>
+            🚨 Autómentés
+          </Link>
         </nav>
       )}
 

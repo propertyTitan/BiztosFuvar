@@ -645,6 +645,55 @@ export const api = {
       body: JSON.stringify({ message, history }),
     }),
 
+  // ==================== AUTÓMENTÉS ====================
+
+  requestTowing: (body: {
+    lat: number; lng: number; address?: string;
+    issue_type: string; issue_description?: string;
+    vehicle_type?: string; vehicle_plate?: string;
+    search_radius_km?: number;
+  }) =>
+    request<{ id: string; status: string }>('/towing/request', {
+      method: 'POST', body: JSON.stringify(body),
+    }),
+
+  cancelTowing: (towId: string) =>
+    request<{ ok: true }>(`/towing/${towId}/cancel`, { method: 'POST' }),
+
+  towingIncoming: (lat?: number, lng?: number) => {
+    const qs = new URLSearchParams();
+    if (lat != null) qs.set('lat', String(lat));
+    if (lng != null) qs.set('lng', String(lng));
+    return request<Array<any>>(`/towing/incoming${qs.toString() ? `?${qs}` : ''}`);
+  },
+
+  acceptTowing: (towId: string, estimatedPriceHuf?: number) =>
+    request<{ ok: true }>(`/towing/${towId}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ estimated_price_huf: estimatedPriceHuf }),
+    }),
+
+  arriveTowing: (towId: string) =>
+    request<{ ok: true }>(`/towing/${towId}/arrive`, { method: 'POST' }),
+
+  completeTowing: (towId: string, finalPriceHuf?: number) =>
+    request<{ ok: true }>(`/towing/${towId}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ final_price_huf: finalPriceHuf }),
+    }),
+
+  registerTowDriver: (body: { tow_services: string[]; tow_vehicle_description?: string }) =>
+    request<any>('/towing/register', {
+      method: 'POST', body: JSON.stringify(body),
+    }),
+
+  toggleTowAvailable: (available: boolean) =>
+    request<{ tow_available: boolean }>('/towing/toggle-available', {
+      method: 'POST', body: JSON.stringify({ available }),
+    }),
+
+  myTowRequests: () => request<any[]>('/towing/my-requests'),
+
   /** SOS vészjelzés küldése. */
   sendSOS: (body: { job_id?: string; booking_id?: string; lat?: number; lng?: number; message?: string }) =>
     request<{ ok: true; sos_id: string }>('/sos', {
