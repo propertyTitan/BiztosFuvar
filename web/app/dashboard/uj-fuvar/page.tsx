@@ -67,6 +67,9 @@ const initialForm: FormState = {
   instant_radius_km: 20,
 };
 
+const REQ = { color: '#EF4444', fontWeight: 700 } as const;
+const redBorder = { border: '2px solid #EF4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.15)' } as const;
+
 export default function UjFuvar() {
   const router = useRouter();
   const toast = useToast();
@@ -75,6 +78,14 @@ export default function UjFuvar() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [photos, setPhotos] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
+  const [tried, setTried] = useState(false);
+
+  function missing(filled: unknown): boolean {
+    if (!tried) return false;
+    if (typeof filled === 'string') return !filled.trim();
+    if (typeof filled === 'number') return false;
+    return !filled;
+  }
 
   // Előnézeti URL-ek a kiválasztott képekhez. Memoizáljuk, mert a URL.createObjectURL
   // memória-leak-et okozhat, ha minden renderre új URL-t generálunk.
@@ -127,7 +138,11 @@ export default function UjFuvar() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit) return;
+    setTried(true);
+    if (!canSubmit) {
+      toast.error('Hiányzó mezők', 'Kérlek töltsd ki az összes kötelező (*) mezőt.');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setUploadProgress(null);
@@ -192,13 +207,14 @@ export default function UjFuvar() {
       </p>
 
       <form className="card" onSubmit={onSubmit}>
-        <label>Megnevezés</label>
+        <label>Megnevezés <span style={REQ}>*</span></label>
         <input
           className="input"
           value={form.title}
           onChange={(e) => set('title', e.target.value)}
           placeholder="Pl. Költöztetés Budapest → Debrecen"
           required
+          style={missing(form.title) ? redBorder : undefined}
         />
 
         <label>Részletes leírás</label>
@@ -277,7 +293,8 @@ export default function UjFuvar() {
         )}
 
         {/* --- Felvétel --- */}
-        <h2 style={{ marginTop: 24 }}>Felvétel helye</h2>
+        <h2 style={{ marginTop: 24 }}>Felvétel helye <span style={REQ}>*</span></h2>
+        <div style={missing(form.pickup_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
         <AddressAutocomplete
           label="Cím (kezdd el beírni, majd válassz a listából)"
           value={form.pickup_address}
@@ -310,9 +327,11 @@ export default function UjFuvar() {
             ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
           </p>
         )}
+        </div>
 
         {/* --- Lerakodás --- */}
-        <h2 style={{ marginTop: 24 }}>Lerakodás helye</h2>
+        <h2 style={{ marginTop: 24 }}>Lerakodás helye <span style={REQ}>*</span></h2>
+        <div style={missing(form.dropoff_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
         <AddressAutocomplete
           label="Cím (kezdd el beírni, majd válassz a listából)"
           value={form.dropoff_address}
@@ -344,6 +363,7 @@ export default function UjFuvar() {
             ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
           </p>
         )}
+        </div>
 
         {/* --- Csomag adatai --- */}
         <h2 style={{ marginTop: 24 }}>Csomag adatai</h2>
@@ -353,7 +373,7 @@ export default function UjFuvar() {
         </p>
         <div className="grid-2">
           <div>
-            <label>Hosszúság (cm)</label>
+            <label>Hosszúság (cm) <span style={REQ}>*</span></label>
             <input
               className="input"
               type="number"
@@ -364,10 +384,11 @@ export default function UjFuvar() {
               }
               placeholder="pl. 120"
               required
+              style={missing(form.length_cm) ? redBorder : undefined}
             />
           </div>
           <div>
-            <label>Szélesség (cm)</label>
+            <label>Szélesség (cm) <span style={REQ}>*</span></label>
             <input
               className="input"
               type="number"
@@ -378,10 +399,11 @@ export default function UjFuvar() {
               }
               placeholder="pl. 80"
               required
+              style={missing(form.width_cm) ? redBorder : undefined}
             />
           </div>
           <div>
-            <label>Magasság (cm)</label>
+            <label>Magasság (cm) <span style={REQ}>*</span></label>
             <input
               className="input"
               type="number"
@@ -392,10 +414,11 @@ export default function UjFuvar() {
               }
               placeholder="pl. 100"
               required
+              style={missing(form.height_cm) ? redBorder : undefined}
             />
           </div>
           <div>
-            <label>Súly (kg)</label>
+            <label>Súly (kg) <span style={REQ}>*</span></label>
             <input
               className="input"
               type="number"
@@ -407,6 +430,7 @@ export default function UjFuvar() {
               }
               placeholder="pl. 350"
               required
+              style={missing(form.weight_kg) ? redBorder : undefined}
             />
           </div>
         </div>
@@ -493,7 +517,7 @@ export default function UjFuvar() {
         <h2 style={{ marginTop: 24 }}>
           {form.is_instant ? 'Fix fuvardíj (végleges)' : 'Javasolt fuvardíj'}
         </h2>
-        <label>Összeg (Ft)</label>
+        <label>Összeg (Ft) <span style={REQ}>*</span></label>
         <input
           className="input"
           type="number"
@@ -504,6 +528,7 @@ export default function UjFuvar() {
           }
           placeholder={form.is_instant ? 'pl. 12000 (ezt kapja kézhez a sofőr + jutalék)' : 'pl. 65000'}
           required
+          style={missing(form.suggested_price_huf) ? redBorder : undefined}
         />
         {form.is_instant && (
           <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
@@ -520,8 +545,8 @@ export default function UjFuvar() {
         <button
           className="btn"
           type="submit"
-          disabled={!canSubmit || submitting}
-          style={{ marginTop: 24, opacity: canSubmit ? 1 : 0.5 }}
+          disabled={submitting}
+          style={{ marginTop: 24 }}
         >
           {submitting
             ? (uploadProgress || 'Feladás...')
