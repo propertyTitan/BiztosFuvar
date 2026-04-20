@@ -44,6 +44,9 @@ module.exports = {
         'CAMERA',
         'ACCESS_FINE_LOCATION',
         'ACCESS_COARSE_LOCATION',
+        'ACCESS_BACKGROUND_LOCATION',
+        'FOREGROUND_SERVICE',
+        'FOREGROUND_SERVICE_LOCATION',
       ],
       config: {
         googleMaps: {
@@ -65,7 +68,9 @@ module.exports = {
         'expo-location',
         {
           locationAlwaysAndWhenInUsePermission:
-            'A GoFuvar a fuvar lezárásához használja a GPS-t.',
+            'A GoFuvar az élő csomag-követéshez használja a GPS-t, hogy a feladó lássa hol jársz — lezárt képernyőnél is.',
+          isAndroidBackgroundLocationEnabled: true,
+          isAndroidForegroundServiceEnabled: true,
         },
       ],
     ],
