@@ -1,7 +1,3 @@
-// Adatkezelési Tájékoztató (GDPR) — TERVEZET
-// Ezt a szöveget az ügyvéd készítette. Hatályba lépés előtt a
-// jelölt hiányosságokat ki kell pótolni (érintetti jogok, NAIH panaszjog,
-// EU-n kívüli adattovábbítás részletezése).
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -25,101 +21,91 @@ export default function AdatkezelesPage() {
         <strong>Hatályos:</strong> 2026. [Hónap] [Nap]-tól
       </p>
 
-      <div
-        style={{
-          marginTop: 20,
-          padding: 12,
-          borderRadius: 8,
-          background: 'rgba(251,191,36,0.12)',
-          border: '1px solid rgba(251,191,36,0.5)',
-          fontSize: 13,
-        }}
-      >
-        ⚠️ <strong>Tervezet státusz:</strong> jelen dokumentum jogi felülvizsgálat
-        alatt áll. A hatályba lépés előtt a végleges szöveget az ügyvéd véglegesíti.
-      </div>
-
-      <h2 style={{ marginTop: 32 }}>1. Az Adatkezelő és az Érintettek</h2>
+      <h2 style={{ marginTop: 32 }}>1. Az Adatkezelő</h2>
+      <ul>
+        <li><strong>Név:</strong> Tiszta Hód Korlátolt Felelősségű Társaság (Tiszta Hód Kft.)</li>
+        <li><strong>Székhely:</strong> 6800 Hódmezővásárhely, Szántó Kovács János utca 144.</li>
+        <li><strong>Cégjegyzékszám:</strong> 06-09-020646</li>
+        <li><strong>Adószám:</strong> 24750792-2-06</li>
+        <li><strong>E-mail:</strong> info@gofuvar.hu</li>
+      </ul>
       <p>
-        <strong>1.1. Adatkezelő:</strong> GoFuvar Kft. (bejegyzés alatt).
-      </p>
-      <p>
-        <strong>1.2. Gyermekek védelme:</strong> A szolgáltatás kizárólag 18
-        éven felüliek számára érhető el. Az Adatkezelő 18 éven aluli személyek
-        személyes adatait nem kezeli; amennyiben ilyen adat a birtokába jut,
-        azt haladéktalanul törli.
+        A szolgáltatás kizárólag 18 éven felüliek számára érhető el.
       </p>
 
       <h2 style={{ marginTop: 32 }}>2. A kezelt adatok köre és célja</h2>
       <ul>
         <li>
-          <strong>Azonosító és kapcsolattartási adatok:</strong> Név, e-mail
-          cím, telefonszám. <em>Cél:</em> Kapcsolattartás.
+          <strong>Azonosító adatok:</strong> Név, e-mail, telefonszám.
         </li>
         <li>
-          <strong>KYC (Know Your Customer) adatok:</strong> Személyazonosító
-          igazolvány másolata (minden Felhasználó), vezetői engedély (Sofőrök),
-          cégkivonat és adószám (Céges Felhasználók). <em>Cél:</em> Biztonság,
-          csalásmegelőzés, szerződéskötési feltételek ellenőrzése.
+          <strong>KYC adatok:</strong> Személyi igazolvány, jogosítvány, cégkivonat, adószám
+          (Biztonság, jogi megfelelés).
         </li>
         <li>
-          <strong>Pénzügyi adatok:</strong> Számlázási adatok, Barion tárca
-          azonosító. <em>Cél:</em> Kifizetések teljesítése, DAC7 jelentés.
+          <strong>Tranzakciós adatok:</strong> Számlázási adatok, Barion azonosító (DAC7).
         </li>
         <li>
-          <strong>Fuvarspecifikus és GPS adatok:</strong> Felvételi/lerakodási
-          címek, csomag fotók, a Sofőr aktuális tartózkodási helye aktív fuvar
-          esetén. <em>Cél:</em> Élő nyomon követés, teljesítés igazolása.
+          <strong>Rendszer és Fuvarspecifikus adatok:</strong> Címek, GPS koordináták (élő követés),
+          csomag fotók, in-app chat üzenetek, profil értékelések (Trust Score), IP címek,
+          eszközazonosítók és Push tokenek (működtetés és biztonság).
         </li>
       </ul>
 
       <h2 style={{ marginTop: 32 }}>3. Az adatkezelés jogalapja</h2>
-      <ul>
-        <li>
-          <strong>Szerződés teljesítése:</strong> A platform használata és a
-          fuvarok közvetítése.
-        </li>
-        <li>
-          <strong>Jogi kötelezettség teljesítése:</strong> Számviteli törvény
-          és DAC7 adóügyi adatszolgáltatás (NAV felé).
-        </li>
-        <li>
-          <strong>Jogos érdek:</strong> A platform biztonságának garantálása, a
-          „Bizalmi lánc" fenntartása (KYC dokumentumok manuális jóváhagyása és
-          ellenőrzése).
-        </li>
-      </ul>
-
-      <h2 style={{ marginTop: 32 }}>4. Adatfeldolgozók és adattovábbítás</h2>
       <p>
-        A GoFuvar az alábbi harmadik feleknek továbbít adatokat a szolgáltatás
-        zavartalan működése érdekében:
+        <strong>Szerződés teljesítése</strong> [GDPR 6. cikk (1) b)];{' '}
+        <strong>Jogi kötelezettség</strong> (Számvitel, DAC7) [GDPR 6. cikk (1) c)];{' '}
+        <strong>Jogos érdek</strong> (KYC, csalásmegelőzés, vitarendezés) [GDPR 6. cikk (1) f)].
       </p>
+
+      <h2 style={{ marginTop: 32 }}>4. Adatfeldolgozók és Adattovábbítás Harmadik Országba</h2>
+      <p>
+        <strong>4.1. Adatfeldolgozók:</strong> Barion Payment Zrt. (fizetés), Vercel, Railway,
+        Neon DB, Cloudflare R2, Resend.
+      </p>
+      <p>
+        <strong>4.2. USA adattovábbítás (SCC):</strong> A platform technikai működéséhez az Adatkezelő
+        igénybe veszi a Google Maps Platform (címek), a Google Gemini AI (tartalomelemzés) és az
+        Expo Push Notifications (mobil értesítések) szolgáltatásokat. Ezen, az EU-n kívülre (USA)
+        történő adattovábbítások jogalapját az Európai Bizottság által elfogadott Általános Szerződési
+        Feltételek (Standard Contractual Clauses - SCC) és az EU-US Data Privacy Framework biztosítják.
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>5. Adatbiztonság és Konkrét Megőrzési Idők</h2>
       <ul>
         <li>
-          <strong>Barion Payment Zrt.:</strong> Fizetési tranzakciók
-          lebonyolítása.
+          <strong>Számlázási adatok:</strong> A kiállítástól számított 8 évig (Számviteli tv.).
         </li>
         <li>
-          <strong>IT szolgáltatók:</strong> Vercel, Railway, Neon DB, Cloudflare
-          R2 (titkosított tárhely a fotóknak és KYC dokumentumoknak).
+          <strong>KYC dokumentumok:</strong> A fiók megszüntetését követő 5 évig
+          (Polgári jogi elévülés és csalásmegelőzés).
         </li>
-        <li>Hatósági megkeresés esetén a NAV és a rendészeti szervek.</li>
+        <li>
+          <strong>In-app Chat üzenetek és Értékelések:</strong> A fuvar lezárását követő 6 hónapig
+          (Kizárólag vitarendezés céljából, utána anonimizálásra kerülnek).
+        </li>
+        <li>
+          <strong>GPS ping adatok:</strong> Az aktív fuvar befejezését követő 7 napig tároljuk
+          nyers formában, majd töröljük.
+        </li>
+        <li>
+          A jelszavak <strong>scrypt</strong> algoritmussal titkosítva kerülnek tárolásra.
+        </li>
       </ul>
 
-      <h2 style={{ marginTop: 32 }}>5. Adatbiztonság és Megőrzési idő</h2>
-      <ul>
-        <li>A jelszavakat erős scrypt algoritmussal, titkosítva tároljuk.</li>
-        <li>
-          A KYC dokumentumokhoz csak a jogosult adminisztrátorok férnek hozzá a
-          jóváhagyási folyamat (Progressive Onboarding) során.
-        </li>
-        <li>
-          Az adatokat a fiók törléséig, számlázási adatokat a kiállítástól
-          számított 8 évig, a KYC dokumentumokat az ellenőrzési és elévülési
-          idő lezártáig őrizzük meg.
-        </li>
-      </ul>
+      <h2 style={{ marginTop: 32 }}>6. Az Érintettek Jogai és Jogorvoslat</h2>
+      <p>
+        A GDPR rendelet alapján a Felhasználót megilleti a hozzáférés, a helyesbítés, a törlés
+        (&quot;elfeledtetés&quot;), az adathordozhatóság, valamint az adatkezelés korlátozásának és a
+        tiltakozásnak a joga.
+      </p>
+      <p>
+        Amennyiben a Felhasználó úgy ítéli meg, hogy adatkezelésünk szabálytalan, kérjük, keressen
+        minket az <strong>info@gofuvar.hu</strong> címen. Jogosult továbbá panaszt tenni a felügyeleti
+        hatóságnál: <strong>Nemzeti Adatvédelmi és Információszabadság Hatóság (NAIH)</strong>{' '}
+        (1055 Bp., Falk Miksa utca 9-11., www.naih.hu), vagy bírósághoz fordulhat.
+      </p>
 
       <hr style={{ margin: '48px 0 24px', opacity: 0.3 }} />
       <p className="muted" style={{ fontSize: 13 }}>
