@@ -433,8 +433,7 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
     return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
   }
 
-  const carrierShare = Math.round(totalHuf * (1 - barion.COMMISSION_PCT));
-  const platformShare = totalHuf - carrierShare;
+  const { carrierShare, platformShare } = barion.calculatePlatformFee(totalHuf);
 
   await db.query(
     `INSERT INTO escrow_transactions
@@ -768,8 +767,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
     }
 
-    const carrierShare = Math.round(job.accepted_price_huf * (1 - barion.COMMISSION_PCT));
-    const platformShare = job.accepted_price_huf - carrierShare;
+    const { carrierShare, platformShare } = barion.calculatePlatformFee(job.accepted_price_huf);
 
     await client.query(
       `INSERT INTO escrow_transactions

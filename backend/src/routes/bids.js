@@ -19,14 +19,14 @@ router.get('/bids/preview', authRequired, async (req, res) => {
   if (!amt || amt <= 0) {
     return res.status(400).json({ error: 'Érvénytelen összeg' });
   }
-  const fee = Math.round(amt * barion.COMMISSION_PCT);
-  const payout = amt - fee;
+  const { carrierShare, platformShare } = barion.calculatePlatformFee(amt);
   const result = {
     amount: amt,
     currency,
-    platformFee: fee,
+    platformFee: platformShare,
     platformFeePct: Math.round(barion.COMMISSION_PCT * 100),
-    netPayout: payout,
+    platformFeeFixed: barion.COMMISSION_FIXED_HUF,
+    netPayout: carrierShare,
   };
 
   // Ha a fuvar EUR-ban van de a sofőr HUF-ban akar licitálni (vagy fordítva)
@@ -184,11 +184,10 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
     [req.params.jobId],
   );
   // Adjuk hozzá a nettó kifizetés előnézetét minden licithez
-  const enriched = rows.map((b) => ({
-    ...b,
-    platform_fee: Math.round((b.amount_huf || 0) * barion.COMMISSION_PCT),
-    net_payout: (b.amount_huf || 0) - Math.round((b.amount_huf || 0) * barion.COMMISSION_PCT),
-  }));
+  const enriched = rows.map((b) => {
+    const { carrierShare, platformShare } = barion.calculatePlatformFee(b.amount_huf || 0);
+    return { ...b, platform_fee: platformShare, net_payout: carrierShare };
+  });
   res.json(enriched);
 });
 
@@ -243,8 +242,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
       return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
     }
 
-    const carrierShare = Math.round(bid.amount_huf * (1 - barion.COMMISSION_PCT));
-    const platformShare = bid.amount_huf - carrierShare;
+    const { carrierShare, platformShare } = barion.calculatePlatformFee(bid.amount_huf);
 
     await client.query(
       `INSERT INTO escrow_transactions

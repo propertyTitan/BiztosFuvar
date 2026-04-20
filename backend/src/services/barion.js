@@ -19,11 +19,23 @@ const BARION_BASE_URL =
     : 'https://api.test.barion.com');
 
 const COMMISSION_PCT = parseFloat(process.env.PLATFORM_COMMISSION_PCT || '0.10');
+const COMMISSION_FIXED_HUF = parseInt(process.env.PLATFORM_COMMISSION_FIXED_HUF || '400', 10);
 const PLATFORM_PAYEE = process.env.BARION_PLATFORM_PAYEE || 'platform@gofuvar.hu';
 const RESERVATION_PERIOD = process.env.BARION_RESERVATION_PERIOD || '1.00:00:00'; // 1 nap
 
 function isStub() {
   return !process.env.BARION_POS_KEY;
+}
+
+/**
+ * Platformdíj számítása: 10% + 400 Ft fix adminisztrációs díj.
+ * Visszaadja a sofőr és a platform részét kerekítve.
+ */
+function calculatePlatformFee(totalHuf) {
+  const percentFee = Math.round(totalHuf * COMMISSION_PCT);
+  const platformShare = percentFee + COMMISSION_FIXED_HUF;
+  const carrierShare = Math.max(0, totalHuf - platformShare);
+  return { carrierShare, platformShare };
 }
 
 async function barionFetch(path, body) {
@@ -125,8 +137,7 @@ async function reservePayment({ jobId, amount, totalHuf, shipperEmail, carrierEm
  * Ez a leggyakoribb pattern, ha a sofőr nem regisztrált Barion fiókkal indul.
  */
 async function finishReservation({ paymentId, jobId, totalHuf, carrierPayee }) {
-  const carrierShare = Math.round(totalHuf * (1 - COMMISSION_PCT));
-  const platformShare = totalHuf - carrierShare;
+  const { carrierShare, platformShare } = calculatePlatformFee(totalHuf);
 
   if (isStub()) {
     return {
@@ -241,7 +252,9 @@ module.exports = {
   cancelReservation,
   refundPayment,
   computeCancellationSettlement,
+  calculatePlatformFee,
   COMMISSION_PCT,
+  COMMISSION_FIXED_HUF,
   SUPPORTED_CURRENCIES,
   isStub,
 };

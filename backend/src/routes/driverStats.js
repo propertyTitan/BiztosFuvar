@@ -25,7 +25,7 @@ router.get('/driver-stats', authRequired, async (req, res) => {
       `SELECT
          COUNT(*)::int AS total_deliveries,
          COALESCE(SUM(accepted_price_huf), 0)::int AS total_gross_earnings,
-         COALESCE(SUM(accepted_price_huf * 0.9), 0)::int AS total_net_earnings,
+         COALESCE(SUM(accepted_price_huf * 0.9 - 400), 0)::int AS total_net_earnings,
          COALESCE(AVG(accepted_price_huf), 0)::int AS avg_price,
          COALESCE(SUM(distance_km), 0)::numeric AS total_km
        FROM jobs
@@ -39,7 +39,7 @@ router.get('/driver-stats', authRequired, async (req, res) => {
          TO_CHAR(delivered_at, 'YYYY-MM') AS month,
          COUNT(*)::int AS deliveries,
          COALESCE(SUM(accepted_price_huf), 0)::int AS gross,
-         COALESCE(SUM(accepted_price_huf * 0.9), 0)::int AS net
+         COALESCE(SUM(accepted_price_huf * 0.9 - 400), 0)::int AS net
        FROM jobs
        WHERE carrier_id = $1
          AND status IN ('delivered', 'completed')

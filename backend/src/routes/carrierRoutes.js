@@ -537,8 +537,7 @@ router.post(
       }
 
       // 90/10 split – a mentésnél is tároljuk, hogy a lezáráskor elő tudjuk venni
-      const carrierShare = Math.round(b.price_huf * (1 - barion.COMMISSION_PCT));
-      const platformShare = b.price_huf - carrierShare;
+      const { carrierShare, platformShare } = barion.calculatePlatformFee(b.price_huf);
 
       await client.query(
         `UPDATE route_bookings
@@ -667,8 +666,7 @@ router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req,
     return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
   }
 
-  const carrierShare = Math.round(b.price_huf * (1 - barion.COMMISSION_PCT));
-  const platformShare = b.price_huf - carrierShare;
+  const { carrierShare, platformShare } = barion.calculatePlatformFee(b.price_huf);
 
   await db.query(
     `UPDATE route_bookings
