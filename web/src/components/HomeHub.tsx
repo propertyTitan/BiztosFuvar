@@ -286,26 +286,49 @@ export default function HomeHub() {
                     Addig is nyugodtan böngészd a platformot, töltsd ki a fuvar adatait —
                     a dokumentum feltöltést majd a feladás pillanatában kérjük tőled.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
-                      setShowKycWelcome(false);
-                    }}
-                    style={{
-                      marginTop: 12,
-                      padding: '8px 20px',
-                      borderRadius: 8,
-                      border: 'none',
-                      background: 'var(--primary)',
-                      color: '#fff',
-                      fontWeight: 700,
-                      fontSize: 14,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Megértettem ✓
-                  </button>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
+                        setShowKycWelcome(false);
+                        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
+                          detail: { code: 'IDENTITY_KYC_REQUIRED' },
+                        }));
+                      }}
+                      style={{
+                        padding: '10px 22px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: '#2E7D32',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🛡️ Megcsinálom most!
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
+                        setShowKycWelcome(false);
+                      }}
+                      style={{
+                        padding: '10px 22px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        background: 'transparent',
+                        color: 'var(--text)',
+                        fontWeight: 600,
+                        fontSize: 14,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Később
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
