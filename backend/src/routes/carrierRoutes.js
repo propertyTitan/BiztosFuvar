@@ -445,7 +445,8 @@ router.post(
           } catch (e) { console.warn('[recipient] email hiba:', e.message); }
         }
         if (recipient_phone) {
-          console.log(`[recipient] SMS küldendő: ${recipient_phone} → Csomag érkezik: ${trackUrl} Kód: ${deliveryCode}`);
+          const { sendSms } = require('../services/sms');
+            sendSms(recipient_phone, `Szia${recipient_name ? ` ${recipient_name}` : ''}! Csomag érkezik hozzád a GoFuvar-on. Átvételi kód: ${deliveryCode} Kövesd: ${trackUrl}`).catch(() => {});
         }
       });
     }

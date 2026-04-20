@@ -79,7 +79,8 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
             const trackUrl = `${baseUrl}/nyomon-kovetes/${job.tracking_token}`;
             const driverInfo = job.carrier_name ? `Sofőr: ${job.carrier_name}${job.carrier_phone ? ` (${job.carrier_phone})` : ''}` : '';
             if (job.recipient_phone) {
-              console.log(`[proximity-sms] VÁROS: ${job.recipient_phone} → Hamarosan megérkezik a csomagod! ${driverInfo} Átvételi kód: ${job.delivery_code} Kövesd: ${trackUrl}`);
+              const { sendSms } = require('../services/sms');
+                sendSms(job.recipient_phone, `Hamarosan megérkezik a csomagod! ${driverInfo} Átvételi kód: ${job.delivery_code} Kövesd: ${trackUrl}`).catch(() => {});
             }
             if (job.recipient_email) {
               const { sendEmail } = require('../services/email');
@@ -113,7 +114,8 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
           if (job.recipient_phone || job.recipient_email) {
             const driverContact = job.carrier_name ? `Sofőr: ${job.carrier_name}${job.carrier_phone ? ` (${job.carrier_phone})` : ''}` : '';
             if (job.recipient_phone) {
-              console.log(`[proximity-sms] SAROK: ${job.recipient_phone} → A sofőr egy saroknyira van! ${driverContact} Átvételi kód: ${job.delivery_code}`);
+              const { sendSms: sendSmsSarok } = require('../services/sms');
+                sendSmsSarok(job.recipient_phone, `A sofőr egy saroknyira van! ${driverContact} Átvételi kód: ${job.delivery_code}`).catch(() => {});
             }
             if (job.recipient_email) {
               const { sendEmail } = require('../services/email');

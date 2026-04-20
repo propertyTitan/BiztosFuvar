@@ -221,7 +221,8 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
       }
       // SMS küldés (ha van telefonszám)
       if (recipient_phone) {
-        console.log(`[recipient] SMS küldendő: ${recipient_phone} → ${recipientMsg}`);
+        const { sendSms } = require('../services/sms');
+            sendSms(recipient_phone, recipientMsg).catch(() => {});
         // TODO: Twilio/Infobip SMS integráció élesítéskor.
         // Egyelőre csak logolunk — a tracking link emailben megy.
       }
