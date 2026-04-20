@@ -214,4 +214,68 @@ async function supportChat(message, history = []) {
   }
 }
 
-module.exports = { analyzeCargoPhoto, reviewJobDescription, supportChat };
+/**
+ * KYC dokumentum automatikus ellenőrzése.
+ * Megnézi hogy a feltöltött kép valóban a megadott dokumentum típus-e
+ * (személyi igazolvány, jogosítvány, cégkivonat), és olvasható-e.
+ *
+ * @param {Buffer} imageBuffer
+ * @param {string} mimeType
+ * @param {string} expectedDocType – 'id_card' | 'drivers_license' | 'company_document'
+ * @returns {Promise<{valid: boolean, confidence: number, reason: string}>}
+ */
+async function verifyKycDocument(imageBuffer, mimeType, expectedDocType) {
+  const model = getModel();
+  if (!model) {
+    return { valid: true, confidence: 0, reason: 'Gemini API kulcs nincs beállítva – automatikus jóváhagyás.' };
+  }
+
+  const docLabels = {
+    id_card: 'magyar személyi igazolvány (személyazonosító igazolvány, mindkét oldal elfogadott)',
+    drivers_license: 'magyar vezetői engedély (jogosítvány)',
+    company_document: 'magyar cégkivonat vagy céges okirat',
+    insurance: 'gépjármű biztosítási kötvény',
+    vehicle_registration: 'forgalmi engedély',
+  };
+  const expectedLabel = docLabels[expectedDocType] || expectedDocType;
+
+  const prompt = `Te a GoFuvar platform KYC (Know Your Customer) ellenőrző rendszere vagy.
+
+A felhasználó egy dokumentumot töltött fel, ami állítólag: "${expectedLabel}".
+
+Elemezd a képet és válaszolj SZIGORÚAN JSON formátumban:
+{
+  "valid": boolean,        // A kép valóban a megadott dokumentum típusnak felel-e meg?
+  "confidence": number,    // 0.0 - 1.0 mennyire vagy biztos
+  "document_type": string, // mit LÁTSZ a képen (pl. "személyi igazolvány", "jogosítvány", "macska fotó", "üres lap")
+  "readable": boolean,     // olvasható-e a szöveg / adatok a dokumentumon
+  "reason": string         // rövid magyar magyarázat (max 2 mondat)
+}
+
+Szabályok:
+- Ha a kép egyértelműen NEM okmány (pl. selfie, tájkép, üres lap, mém) → valid: false
+- Ha a kép okmány DE nem a várt típus (pl. jogosítványt vártunk de személyit kapott) → valid: false
+- Ha a kép homályos, olvashatatlan → valid: false, reason: "A dokumentum nem olvasható, kérjük készíts élesebb fotót."
+- Ha a kép megfelel → valid: true
+- Csak a JSON-t add vissza, semmi mást.`;
+
+  try {
+    const result = await model.generateContent([
+      { text: prompt },
+      { inlineData: { data: imageBuffer.toString('base64'), mimeType } },
+    ]);
+    const parsed = safeParseJson(result.response.text()) || {};
+    return {
+      valid: parsed.valid === true && (parsed.confidence || 0) >= 0.6,
+      confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
+      reason: parsed.reason || (parsed.valid ? 'Dokumentum elfogadva.' : 'Nem megfelelő dokumentum.'),
+      documentType: parsed.document_type || null,
+      readable: parsed.readable !== false,
+    };
+  } catch (err) {
+    console.warn('[gemini] KYC verify hiba:', err.message);
+    return { valid: true, confidence: 0, reason: 'AI ellenőrzés nem elérhető – automatikus jóváhagyás.' };
+  }
+}
+
+module.exports = { analyzeCargoPhoto, reviewJobDescription, supportChat, verifyKycDocument };

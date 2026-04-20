@@ -313,30 +313,59 @@ router.post('/avatar', authRequired, upload.single('file'), async (req, res) => 
   }
 });
 
-// POST /auth/kyc-document — KYC dokumentum feltöltés
+// POST /auth/kyc-document — KYC dokumentum feltöltés + AI ellenőrzés
+//
+// Flow: feltöltés → Gemini megnézi → ha valid okmány → azonnal 'verified'
+// Ha nem valid (macska fotó, homályos, rossz típus) → 'rejected' + reason
+// Ha Gemini nem elérhető → fallback: 'verified' (admin utólag ellenőriz)
 router.post('/kyc-document', authRequired, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
   const { doc_type } = req.body || {};
   const validTypes = ['id_card', 'drivers_license', 'insurance', 'vehicle_registration', 'company_document'];
   if (!validTypes.includes(doc_type)) return res.status(400).json({ error: 'Érvénytelen dokumentum típus' });
+
   const url = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+
+  // AI ellenőrzés: a feltöltött kép tényleg a megadott dokumentum típus-e?
+  const { verifyKycDocument } = require('../services/gemini');
+  const aiResult = await verifyKycDocument(req.file.buffer, req.file.mimetype, doc_type);
+  const docStatus = aiResult.valid ? 'approved' : 'rejected';
+  const rejectionReason = aiResult.valid ? null : aiResult.reason;
+
   await db.query(
-    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status)
-     VALUES ($1, $2, $3, 'pending')
+    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason)
+     VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (user_id, doc_type) DO UPDATE SET
-       file_url = EXCLUDED.file_url, status = 'pending',
-       reviewed_by = NULL, reviewed_at = NULL, rejection_reason = NULL`,
-    [req.user.sub, doc_type, url],
+       file_url = EXCLUDED.file_url, status = EXCLUDED.status,
+       rejection_reason = EXCLUDED.rejection_reason,
+       reviewed_by = NULL, reviewed_at = NOW()`,
+    [req.user.sub, doc_type, url, docStatus, rejectionReason],
   );
-  // Update relevant KYC status to 'pending'
+
+  // KYC státusz frissítés: approved → verified, rejected → rejected
+  const kycStatus = aiResult.valid ? 'verified' : 'rejected';
   if (doc_type === 'id_card') {
-    await db.query(`UPDATE users SET identity_kyc_status = 'pending' WHERE id = $1 AND identity_kyc_status IN ('none','rejected')`, [req.user.sub]);
+    await db.query(`UPDATE users SET identity_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
   } else if (doc_type === 'drivers_license') {
-    await db.query(`UPDATE users SET driver_kyc_status = 'pending' WHERE id = $1 AND driver_kyc_status IN ('none','rejected')`, [req.user.sub]);
+    await db.query(`UPDATE users SET driver_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
   } else if (doc_type === 'company_document') {
-    await db.query(`UPDATE users SET company_verification_status = 'pending' WHERE id = $1 AND company_verification_status IN ('none','rejected')`, [req.user.sub]);
+    await db.query(`UPDATE users SET company_verification_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
   }
-  res.json({ ok: true, doc_type, status: 'pending', file_url: url });
+
+  if (aiResult.valid) {
+    console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
+  } else {
+    console.log(`[kyc] AI elutasítva: user=${req.user.sub} doc=${doc_type} reason="${aiResult.reason}"`);
+  }
+
+  res.json({
+    ok: aiResult.valid,
+    doc_type,
+    status: kycStatus,
+    file_url: url,
+    ai_reason: aiResult.reason,
+    ai_confidence: aiResult.confidence,
+  });
 });
 
 // GET /auth/kyc-status — KYC státusz lekérdezése

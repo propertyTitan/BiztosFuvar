@@ -39,7 +39,8 @@ export default function KycModal() {
   const [kycType, setKycType] = useState<KycType>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploaded, setUploaded] = useState(false);
+  const [uploadResult, setUploadResult] = useState<'verified' | 'rejected' | null>(null);
+  const [aiReason, setAiReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -52,7 +53,8 @@ export default function KycModal() {
         setKycType(type);
         setOpen(true);
         setFile(null);
-        setUploaded(false);
+        setUploadResult(null);
+        setAiReason(null);
         setError(null);
       }
     }
@@ -64,7 +66,8 @@ export default function KycModal() {
     setOpen(false);
     setKycType(null);
     setFile(null);
-    setUploaded(false);
+    setUploadResult(null);
+    setAiReason(null);
     setError(null);
   }
 
@@ -72,14 +75,29 @@ export default function KycModal() {
     if (!file || !kycType) return;
     setUploading(true);
     setError(null);
+    setUploadResult(null);
     try {
-      await api.uploadKycDocument(file, TYPE_TO_DOC[kycType]);
-      setUploaded(true);
+      const res = await api.uploadKycDocument(file, TYPE_TO_DOC[kycType]);
+      if (res.status === 'verified') {
+        setUploadResult('verified');
+        setTimeout(() => handleClose(), 2500);
+      } else {
+        setUploadResult('rejected');
+        setAiReason(res.ai_reason || 'A dokumentum nem felel meg. Kérjük próbáld újra.');
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
       setUploading(false);
     }
+  }
+
+  function resetForRetry() {
+    setFile(null);
+    setUploadResult(null);
+    setAiReason(null);
+    setError(null);
+    if (inputRef.current) inputRef.current.value = '';
   }
 
   if (!open || !kycType) return null;
@@ -144,19 +162,52 @@ export default function KycModal() {
           {TYPE_DESCRIPTIONS[kycType]}
         </p>
 
-        {uploaded ? (
+        {uploadResult === 'verified' ? (
           <div
             style={{
-              background: '#fef9c3',
-              color: '#854d0e',
+              background: '#dcfce7',
+              color: '#166534',
               borderRadius: 8,
-              padding: '12px 16px',
-              fontSize: 14,
-              fontWeight: 600,
+              padding: '16px 16px',
+              fontSize: 15,
+              fontWeight: 700,
               textAlign: 'center',
             }}
           >
-            Ellenorzes alatt — a dokumentumod beerkezett, hamarosan feldolgozzuk.
+            ✅ Dokumentum elfogadva! Most már feladhatsz fuvart.
+          </div>
+        ) : uploadResult === 'rejected' ? (
+          <div>
+            <div
+              style={{
+                background: '#fef2f2',
+                color: '#991b1b',
+                borderRadius: 8,
+                padding: '12px 16px',
+                fontSize: 14,
+                fontWeight: 600,
+                marginBottom: 16,
+              }}
+            >
+              ❌ {aiReason || 'A dokumentum nem megfelelő.'}
+            </div>
+            <button
+              type="button"
+              onClick={resetForRetry}
+              style={{
+                width: '100%',
+                padding: '12px 0',
+                borderRadius: 10,
+                border: 'none',
+                background: '#2563eb',
+                color: '#fff',
+                fontWeight: 700,
+                fontSize: 15,
+                cursor: 'pointer',
+              }}
+            >
+              Újra próbálom más képpel
+            </button>
           </div>
         ) : (
           <>
