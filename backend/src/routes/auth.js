@@ -328,9 +328,46 @@ router.post('/kyc-document', authRequired, upload.single('file'), async (req, re
 
   // AI ellenőrzés: a feltöltött kép tényleg a megadott dokumentum típus-e?
   const { verifyKycDocument } = require('../services/gemini');
+  const { createNotification } = require('../services/notifications');
   const aiResult = await verifyKycDocument(req.file.buffer, req.file.mimetype, doc_type);
-  const docStatus = aiResult.valid ? 'approved' : 'rejected';
-  const rejectionReason = aiResult.valid ? null : aiResult.reason;
+
+  // 18 év alatti → adminra vár (pending), nem rejected és nem verified
+  const isUnderage = aiResult.underage === true;
+  let docStatus, kycStatus, rejectionReason;
+
+  if (isUnderage) {
+    docStatus = 'pending';
+    kycStatus = 'pending';
+    rejectionReason = 'A dokumentum tulajdonosa 18 év alatti — adminisztrátori jóváhagyásra vár.';
+    console.log(`[kyc] 18 ÉV ALATTI GYANÚ: user=${req.user.sub} birthDate=${aiResult.birthDate}`);
+    // Admin értesítés
+    try {
+      const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+      const { rows: userInfo } = await db.query(`SELECT full_name, email FROM users WHERE id = $1`, [req.user.sub]);
+      const who = userInfo[0]?.full_name || req.user.email;
+      for (const admin of admins) {
+        await createNotification({
+          user_id: admin.id,
+          type: 'kyc_underage_alert',
+          title: '⚠️ 18 év alatti KYC!',
+          body: `${who} (${req.user.email}) személyi igazolványa alapján 18 év alatti (szül.: ${aiResult.birthDate || '?'}). Kézi jóváhagyás szükséges.`,
+          link: '/admin',
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[kyc] admin notify hiba:', e.message);
+    }
+  } else if (aiResult.valid) {
+    docStatus = 'approved';
+    kycStatus = 'verified';
+    rejectionReason = null;
+    console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}${aiResult.birthDate ? ` birthDate=${aiResult.birthDate}` : ''}`);
+  } else {
+    docStatus = 'rejected';
+    kycStatus = 'rejected';
+    rejectionReason = aiResult.reason;
+    console.log(`[kyc] AI elutasítva: user=${req.user.sub} doc=${doc_type} reason="${aiResult.reason}"`);
+  }
 
   await db.query(
     `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason)
@@ -342,8 +379,6 @@ router.post('/kyc-document', authRequired, upload.single('file'), async (req, re
     [req.user.sub, doc_type, url, docStatus, rejectionReason],
   );
 
-  // KYC státusz frissítés: approved → verified, rejected → rejected
-  const kycStatus = aiResult.valid ? 'verified' : 'rejected';
   if (doc_type === 'id_card') {
     await db.query(`UPDATE users SET identity_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
   } else if (doc_type === 'drivers_license') {
@@ -352,19 +387,16 @@ router.post('/kyc-document', authRequired, upload.single('file'), async (req, re
     await db.query(`UPDATE users SET company_verification_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
   }
 
-  if (aiResult.valid) {
-    console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
-  } else {
-    console.log(`[kyc] AI elutasítva: user=${req.user.sub} doc=${doc_type} reason="${aiResult.reason}"`);
-  }
-
   res.json({
-    ok: aiResult.valid,
+    ok: aiResult.valid && !isUnderage,
     doc_type,
     status: kycStatus,
     file_url: url,
-    ai_reason: aiResult.reason,
+    ai_reason: isUnderage
+      ? 'A születési dátumod alapján 18 év alatti vagy. A profilod adminisztrátori jóváhagyásra vár.'
+      : aiResult.reason,
     ai_confidence: aiResult.confidence,
+    underage: isUnderage || false,
   });
 });
 

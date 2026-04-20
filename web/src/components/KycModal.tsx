@@ -39,7 +39,7 @@ export default function KycModal() {
   const [kycType, setKycType] = useState<KycType>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<'verified' | 'rejected' | null>(null);
+  const [uploadResult, setUploadResult] = useState<'verified' | 'rejected' | 'underage' | null>(null);
   const [aiReason, setAiReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -81,6 +81,9 @@ export default function KycModal() {
       if (res.status === 'verified') {
         setUploadResult('verified');
         setTimeout(() => handleClose(), 2500);
+      } else if (res.underage) {
+        setUploadResult('underage' as any);
+        setAiReason(res.ai_reason || 'A születési dátumod alapján 18 év alatti vagy.');
       } else {
         setUploadResult('rejected');
         setAiReason(res.ai_reason || 'A dokumentum nem felel meg. Kérjük próbáld újra.');
@@ -162,7 +165,28 @@ export default function KycModal() {
           {TYPE_DESCRIPTIONS[kycType]}
         </p>
 
-        {uploadResult === 'verified' ? (
+        {uploadResult === 'underage' ? (
+          <div
+            style={{
+              background: '#fef3c7',
+              color: '#92400e',
+              borderRadius: 8,
+              padding: '16px 16px',
+              fontSize: 14,
+              textAlign: 'center',
+              lineHeight: 1.6,
+            }}
+          >
+            <div style={{ fontSize: 36, marginBottom: 8 }}>⚠️</div>
+            <strong>Adminisztrátori jóváhagyásra vár</strong>
+            <p style={{ margin: '8px 0 0' }}>
+              A személyi igazolványodon szereplő születési dátum alapján
+              a rendszer 18 év alatti felhasználót észlelt. Az adminisztrátorok
+              értesítve lettek, és manuálisan ellenőrzik a dokumentumodat.
+              Amíg a jóváhagyás meg nem történik, a platform funkciói korlátozottak.
+            </p>
+          </div>
+        ) : uploadResult === 'verified' ? (
           <div
             style={{
               background: '#dcfce7',

@@ -239,24 +239,39 @@ async function verifyKycDocument(imageBuffer, mimeType, expectedDocType) {
   };
   const expectedLabel = docLabels[expectedDocType] || expectedDocType;
 
+  const birthDateInstruction = expectedDocType === 'id_card'
+    ? `
+FONTOS — SZEMÉLYI IGAZOLVÁNY ESETÉN:
+- Olvasd ki a születési dátumot az okmányról (ÉÉÉÉ.HH.NN vagy ÉÉÉÉ-HH-NN formátum).
+- Add vissza a "birth_date" mezőben (formátum: "YYYY-MM-DD").
+- Ha a születési dátum alapján a személy NEM töltötte be a 18. életévét
+  (a mai dátum: ${new Date().toISOString().slice(0, 10)}), akkor:
+  → "underage": true, "valid": false, "reason": "A dokumentum tulajdonosa 18 év alatti."
+- Ha betöltötte a 18-at → "underage": false
+- Ha a születési dátum nem olvasható ki → "birth_date": null, "underage": null`
+    : '';
+
   const prompt = `Te a GoFuvar platform KYC (Know Your Customer) ellenőrző rendszere vagy.
 
 A felhasználó egy dokumentumot töltött fel, ami állítólag: "${expectedLabel}".
 
 Elemezd a képet és válaszolj SZIGORÚAN JSON formátumban:
 {
-  "valid": boolean,        // A kép valóban a megadott dokumentum típusnak felel-e meg?
-  "confidence": number,    // 0.0 - 1.0 mennyire vagy biztos
-  "document_type": string, // mit LÁTSZ a képen (pl. "személyi igazolvány", "jogosítvány", "macska fotó", "üres lap")
-  "readable": boolean,     // olvasható-e a szöveg / adatok a dokumentumon
-  "reason": string         // rövid magyar magyarázat (max 2 mondat)
+  "valid": boolean,
+  "confidence": number,
+  "document_type": string,
+  "readable": boolean,
+  "birth_date": string|null,
+  "underage": boolean|null,
+  "reason": string
 }
 
 Szabályok:
 - Ha a kép egyértelműen NEM okmány (pl. selfie, tájkép, üres lap, mém) → valid: false
-- Ha a kép okmány DE nem a várt típus (pl. jogosítványt vártunk de személyit kapott) → valid: false
+- Ha a kép okmány DE nem a várt típus → valid: false
 - Ha a kép homályos, olvashatatlan → valid: false, reason: "A dokumentum nem olvasható, kérjük készíts élesebb fotót."
 - Ha a kép megfelel → valid: true
+${birthDateInstruction}
 - Csak a JSON-t add vissza, semmi mást.`;
 
   try {
@@ -265,11 +280,16 @@ Szabályok:
       { inlineData: { data: imageBuffer.toString('base64'), mimeType } },
     ]);
     const parsed = safeParseJson(result.response.text()) || {};
+    const isUnderage = parsed.underage === true;
     return {
-      valid: parsed.valid === true && (parsed.confidence || 0) >= 0.6,
+      valid: parsed.valid === true && (parsed.confidence || 0) >= 0.6 && !isUnderage,
       confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
-      reason: parsed.reason || (parsed.valid ? 'Dokumentum elfogadva.' : 'Nem megfelelő dokumentum.'),
+      reason: isUnderage
+        ? 'A dokumentum tulajdonosa 18 év alatti. Adminisztrátori jóváhagyás szükséges.'
+        : (parsed.reason || (parsed.valid ? 'Dokumentum elfogadva.' : 'Nem megfelelő dokumentum.')),
       documentType: parsed.document_type || null,
+      underage: isUnderage,
+      birthDate: parsed.birth_date || null,
       readable: parsed.readable !== false,
     };
   } catch (err) {
