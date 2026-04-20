@@ -84,8 +84,7 @@ export async function startBackgroundTracking(jobId: string): Promise<boolean> {
 
   await Location.startLocationUpdatesAsync(TASK_NAME, {
     accuracy: Location.Accuracy.Balanced,
-    distanceInterval: 200,      // min 200 méterenként frissít
-    timeInterval: 60000,        // min 60 másodpercenként
+    timeInterval: 60000,        // 60 másodpercenként
     showsBackgroundLocationIndicator: true, // iOS: kék sáv felül
     foregroundService: {
       notificationTitle: 'GoFuvar — Élő követés',
