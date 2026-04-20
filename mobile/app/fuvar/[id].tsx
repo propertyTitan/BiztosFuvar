@@ -97,7 +97,7 @@ export default function FuvarReszletek() {
   useEffect(() => {
     if (!job || job.status !== 'in_progress') return;
 
-    startBackgroundTracking(id!).then((started) => {
+    startBackgroundTracking(id!, job.dropoff_lat, job.dropoff_lng).then((started) => {
       if (!started) {
         // Ha nem sikerült a háttér engedélyt megkapni, fallback foreground polling
         console.warn('[tracking] háttér engedély megtagadva, foreground fallback');
