@@ -20,11 +20,14 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
   if (lat == null || lng == null) return res.status(400).json({ error: 'Hiányzó koordináta' });
 
   const { rows: jobRows } = await db.query(
-    `SELECT carrier_id, shipper_id, status, dropoff_lat, dropoff_lng, dropoff_address,
-            notif_city_sent, notif_nearby_sent, title,
-            recipient_name, recipient_phone, recipient_email,
-            tracking_token, delivery_code
-       FROM jobs WHERE id = $1`,
+    `SELECT j.carrier_id, j.shipper_id, j.status, j.dropoff_lat, j.dropoff_lng, j.dropoff_address,
+            j.notif_city_sent, j.notif_nearby_sent, j.title,
+            j.recipient_name, j.recipient_phone, j.recipient_email,
+            j.tracking_token, j.delivery_code,
+            c.full_name AS carrier_name, c.phone AS carrier_phone
+       FROM jobs j
+  LEFT JOIN users c ON c.id = j.carrier_id
+      WHERE j.id = $1`,
     [jobId],
   );
   const job = jobRows[0];
@@ -74,15 +77,16 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
           if (job.recipient_phone || job.recipient_email) {
             const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
             const trackUrl = `${baseUrl}/nyomon-kovetes/${job.tracking_token}`;
+            const driverInfo = job.carrier_name ? `Sofőr: ${job.carrier_name}${job.carrier_phone ? ` (${job.carrier_phone})` : ''}` : '';
             if (job.recipient_phone) {
-              console.log(`[proximity-sms] VÁROS: ${job.recipient_phone} → Hamarosan megérkezik a csomagod! Kövesd: ${trackUrl}`);
+              console.log(`[proximity-sms] VÁROS: ${job.recipient_phone} → Hamarosan megérkezik a csomagod! ${driverInfo} Kövesd: ${trackUrl}`);
             }
             if (job.recipient_email) {
               const { sendEmail } = require('../services/email');
               sendEmail({
                 to: job.recipient_email,
                 subject: '🏙️ A sofőr hamarosan megérkezik a csomagoddal!',
-                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p>A sofőr beért a városba, hamarosan nálad a csomag.</p><p><a href="${trackUrl}">📍 Kövesd élőben itt</a></p><p>Átvételi kód: <strong style="font-size:24px;letter-spacing:4px">${job.delivery_code}</strong></p>`,
+                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p>A sofőr beért a városba, hamarosan nálad a csomag.</p>${job.carrier_name ? `<p>🚗 <strong>${job.carrier_name}</strong>${job.carrier_phone ? ` — <a href="tel:${job.carrier_phone}">${job.carrier_phone}</a>` : ''}</p>` : ''}<p><a href="${trackUrl}">📍 Kövesd élőben itt</a></p><p>Átvételi kód: <strong style="font-size:24px;letter-spacing:4px">${job.delivery_code}</strong></p>`,
               }).catch(() => {});
             }
           }
@@ -107,15 +111,16 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
           });
           // Címzett SMS/email — "egy saroknyira van + kód"
           if (job.recipient_phone || job.recipient_email) {
+            const driverContact = job.carrier_name ? `Sofőr: ${job.carrier_name}${job.carrier_phone ? ` (${job.carrier_phone})` : ''}` : '';
             if (job.recipient_phone) {
-              console.log(`[proximity-sms] SAROK: ${job.recipient_phone} → A sofőr egy saroknyira van! Átvételi kód: ${job.delivery_code}`);
+              console.log(`[proximity-sms] SAROK: ${job.recipient_phone} → A sofőr egy saroknyira van! ${driverContact} Átvételi kód: ${job.delivery_code}`);
             }
             if (job.recipient_email) {
               const { sendEmail } = require('../services/email');
               sendEmail({
                 to: job.recipient_email,
                 subject: '📍 A sofőr egy saroknyira van!',
-                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p><strong>A sofőr mindjárt megérkezik!</strong> Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a kódot mondd meg a sofőrnek, vagy mutasd meg a QR kódot a tracking oldalon.</p>`,
+                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p><strong>A sofőr mindjárt megérkezik!</strong></p>${job.carrier_name ? `<p>🚗 <strong>${job.carrier_name}</strong>${job.carrier_phone ? ` — <a href="tel:${job.carrier_phone}" style="font-size:18px;font-weight:700">${job.carrier_phone}</a>` : ''}</p>` : ''}<p>Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a kódot mondd meg a sofőrnek, vagy mutasd meg a QR kódot a tracking oldalon.</p>`,
               }).catch(() => {});
             }
           }
