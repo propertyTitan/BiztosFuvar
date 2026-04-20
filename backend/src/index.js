@@ -42,7 +42,9 @@ app.use(
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
+const publicTrackingRoutes = require('./routes/publicTracking');
 app.use('/', calculatorRoutes);
+app.use('/', publicTrackingRoutes);
 
 // Statikus fájl-kiszolgálás a feltöltött fotókhoz
 const path = require('path');

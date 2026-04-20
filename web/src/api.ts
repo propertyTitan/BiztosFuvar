@@ -183,6 +183,9 @@ export type NewJobInput = {
   dropoff_has_elevator?: boolean;
   declared_value_huf?: number;
   invoice_requested?: boolean;
+  recipient_name?: string;
+  recipient_phone?: string;
+  recipient_email?: string;
 };
 
 export type BackhaulCandidate = Job & {

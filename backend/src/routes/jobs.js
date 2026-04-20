@@ -73,6 +73,10 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
     declared_value_huf,
     // Számlakérés
     invoice_requested,
+    // Címzett adatai
+    recipient_name,
+    recipient_phone,
+    recipient_email,
   } = req.body || {};
 
   // Alap kötelező mezők
@@ -144,6 +148,9 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
   const declaredVal = Number(declared_value_huf);
   const declaredValueClean = Number.isFinite(declaredVal) && declaredVal > 0 ? Math.round(declaredVal) : null;
 
+  // Tracking token: egyedi, nem kitalálható, a címzett ezzel követi a fuvart
+  const trackingToken = crypto.randomBytes(24).toString('base64url');
+
   const { rows } = await db.query(
     `INSERT INTO jobs (
        shipper_id, title, description,
@@ -157,8 +164,9 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
        is_instant, instant_radius_km, instant_expires_at,
        pickup_needs_carrying, pickup_floor, pickup_has_elevator,
        dropoff_needs_carrying, dropoff_floor, dropoff_has_elevator,
-       declared_value_huf, invoice_requested
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
+       declared_value_huf, invoice_requested,
+       recipient_name, recipient_phone, recipient_email, tracking_token
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -173,6 +181,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
       pCarry, pFloor, pLift,
       dCarry, dFloor, dLift,
       declaredValueClean, !!invoice_requested,
+      recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
     ],
   );
 
@@ -182,12 +191,42 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
   const { delivery_code: _omit, ...publicJob } = job;
   realtime.emitGlobal('jobs:new', publicJob);
 
-  // Stub "email-küldés": jelenleg csak naplózunk. Éles rendszerben itt
-  // küldenénk el emailt / SMS-t a feladónak, de a kód a UI-n is látszik.
   console.log(`[delivery-code] job ${job.id} kódja: ${deliveryCode} (feladó: ${req.user.email})`);
 
   // A válaszban a kód látszik, mert a feladó most hozta létre a fuvart
   res.status(201).json(job);
+
+  // --- Címzett értesítése (SMS + email) a tracking linkkel ---
+  if (recipient_phone || recipient_email) {
+    const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
+    const trackingUrl = `${baseUrl}/nyomon-kovetes/${trackingToken}`;
+    const recipientMsg = `Szia${recipient_name ? ` ${recipient_name}` : ''}! Csomag érkezik hozzád a GoFuvar-on keresztül. Kövesd itt: ${trackingUrl} Az átvételi kód: ${deliveryCode}`;
+
+    setImmediate(async () => {
+      // Email küldés (ha van email + Resend API kulcs)
+      if (recipient_email) {
+        try {
+          const { sendRecipientTrackingEmail } = require('../services/email');
+          await sendRecipientTrackingEmail({
+            to: recipient_email,
+            recipientName: recipient_name,
+            jobTitle: title,
+            trackingUrl,
+            deliveryCode,
+          });
+          console.log(`[recipient] email küldve: ${recipient_email}`);
+        } catch (e) {
+          console.warn('[recipient] email hiba:', e.message);
+        }
+      }
+      // SMS küldés (ha van telefonszám)
+      if (recipient_phone) {
+        console.log(`[recipient] SMS küldendő: ${recipient_phone} → ${recipientMsg}`);
+        // TODO: Twilio/Infobip SMS integráció élesítéskor.
+        // Egyelőre csak logolunk — a tracking link emailben megy.
+      }
+    });
+  }
 
   // --- Fire-and-forget AI review ---
   // A válasz már elment a kliensnek, itt már csak a háttérben dolgozunk.

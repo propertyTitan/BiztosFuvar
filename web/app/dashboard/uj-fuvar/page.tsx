@@ -66,6 +66,9 @@ type FormState = {
   dropoff_floor: string;
   dropoff_has_elevator: boolean;
   invoice_requested: boolean;
+  recipient_name: string;
+  recipient_phone: string;
+  recipient_email: string;
 };
 
 const initialForm: FormState = {
@@ -95,6 +98,9 @@ const initialForm: FormState = {
   dropoff_floor: '0',
   dropoff_has_elevator: false,
   invoice_requested: false,
+  recipient_name: '',
+  recipient_phone: '',
+  recipient_email: '',
 };
 
 const REQ = { color: '#EF4444', fontWeight: 700 } as const;
@@ -211,6 +217,9 @@ export default function UjFuvar() {
         } : {}),
         ...(form.declared_value_huf ? { declared_value_huf: Number(form.declared_value_huf) } : {}),
         invoice_requested: form.invoice_requested,
+        ...(form.recipient_name ? { recipient_name: form.recipient_name } : {}),
+        ...(form.recipient_phone ? { recipient_phone: form.recipient_phone } : {}),
+        ...(form.recipient_email ? { recipient_email: form.recipient_email } : {}),
       });
 
       // 2) Kép-feltöltés sorban (így látjuk a progress-t és nem önmagával versenyez
@@ -726,6 +735,47 @@ export default function UjFuvar() {
           </label>
           <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
             Ha szamlat kersz, a sofor a fuvar lezarasakor szamlat allit ki a teljes fuvardijrol.
+          </p>
+        </div>
+
+        {/* --- Címzett adatai --- */}
+        <h2 style={{ marginTop: 24 }}>Címzett adatai</h2>
+        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+          Ha nem te veszed át a csomagot, add meg a címzett adatait.
+          Automatikus értesítést kap a tracking linkkel és az átvételi kóddal.
+        </p>
+        <div className="grid-2">
+          <div>
+            <label>Címzett neve</label>
+            <input
+              className="input"
+              value={form.recipient_name}
+              onChange={(e) => set('recipient_name', e.target.value)}
+              placeholder="pl. Kiss Anna"
+            />
+          </div>
+          <div>
+            <label>Címzett telefonszáma</label>
+            <input
+              className="input"
+              type="tel"
+              value={form.recipient_phone}
+              onChange={(e) => set('recipient_phone', e.target.value)}
+              placeholder="+36 30 123 4567"
+            />
+          </div>
+        </div>
+        <div>
+          <label>Címzett email (opcionális)</label>
+          <input
+            className="input"
+            type="email"
+            value={form.recipient_email}
+            onChange={(e) => set('recipient_email', e.target.value)}
+            placeholder="anna@email.hu"
+          />
+          <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            Ha megadod, a címzett emailben kapja a követési linket + QR kódot.
           </p>
         </div>
 
