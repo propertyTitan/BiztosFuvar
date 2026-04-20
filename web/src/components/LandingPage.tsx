@@ -402,68 +402,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ===== AUTÓMENTÉS SZEKCIÓ ===== */}
-      <section style={{
-        padding: '48px 20px',
-        background: 'rgba(220,38,38,0.05)',
-        borderTop: '1px solid var(--border)',
-        borderBottom: '1px solid var(--border)',
-      }}>
-        <div style={{ maxWidth: 800, margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 28, fontWeight: 800, marginBottom: 12 }}>
-            🚨 Lerobbanás? Defekt? Segítünk!
-          </h2>
-          <p style={{ fontSize: 16, maxWidth: 600, margin: '0 auto 24px', lineHeight: 1.6 }}>
-            Autómentős vagy mobilgumis a közeledben? Egy gombnyomás, és push értesítést
-            kap minden elérhető mentős a környékeden. Az első, aki elvállalja, már
-            indul is hozzád.
-          </p>
-          <div style={{
-            display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
-            gap: 12, maxWidth: 500, margin: '0 auto 24px',
-          }}>
-            {[
-              { icon: '🛞', label: 'Defekt' },
-              { icon: '🔧', label: 'Lerobbanás' },
-              { icon: '🔋', label: 'Akkumulátor' },
-              { icon: '💥', label: 'Baleset' },
-            ].map((item) => (
-              <div key={item.label} style={{
-                padding: 12, borderRadius: 8,
-                background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
-                textAlign: 'center',
-              }}>
-                <div style={{ fontSize: 28 }}>{item.icon}</div>
-                <div style={{ fontSize: 12, fontWeight: 600, marginTop: 4 }}>{item.label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <Link
-              href="/mentes"
-              style={{
-                display: 'inline-block', textDecoration: 'none',
-                background: '#DC2626', color: '#fff', padding: '14px 28px',
-                borderRadius: 8, fontWeight: 700, fontSize: 16,
-              }}
-            >
-              🚨 Mentőst kérek!
-            </Link>
-            <Link
-              href="/mentes/regisztracio"
-              style={{
-                display: 'inline-block', textDecoration: 'none',
-                background: 'transparent', color: 'var(--text)',
-                padding: '14px 28px', borderRadius: 8, fontWeight: 600,
-                fontSize: 14, border: '1px solid var(--border)',
-              }}
-            >
-              🚗 Mentősként regisztrálok
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {/* ===== CTA ===== */}
       <section
         style={{
