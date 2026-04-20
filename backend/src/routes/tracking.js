@@ -21,7 +21,9 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
 
   const { rows: jobRows } = await db.query(
     `SELECT carrier_id, shipper_id, status, dropoff_lat, dropoff_lng, dropoff_address,
-            notif_city_sent, notif_nearby_sent, title
+            notif_city_sent, notif_nearby_sent, title,
+            recipient_name, recipient_phone, recipient_email,
+            tracking_token, delivery_code
        FROM jobs WHERE id = $1`,
     [jobId],
   );
@@ -68,6 +70,22 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
           realtime.emitToUser(job.shipper_id, 'tracking:city-entered', {
             job_id: jobId, distance_m: Math.round(dist),
           });
+          // Címzett SMS/email — "hamarosan megérkezik"
+          if (job.recipient_phone || job.recipient_email) {
+            const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
+            const trackUrl = `${baseUrl}/nyomon-kovetes/${job.tracking_token}`;
+            if (job.recipient_phone) {
+              console.log(`[proximity-sms] VÁROS: ${job.recipient_phone} → Hamarosan megérkezik a csomagod! Kövesd: ${trackUrl}`);
+            }
+            if (job.recipient_email) {
+              const { sendEmail } = require('../services/email');
+              sendEmail({
+                to: job.recipient_email,
+                subject: '🏙️ A sofőr hamarosan megérkezik a csomagoddal!',
+                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p>A sofőr beért a városba, hamarosan nálad a csomag.</p><p><a href="${trackUrl}">📍 Kövesd élőben itt</a></p><p>Átvételi kód: <strong style="font-size:24px;letter-spacing:4px">${job.delivery_code}</strong></p>`,
+              }).catch(() => {});
+            }
+          }
           console.log(`[proximity] job ${jobId}: sofőr beért a városba (${Math.round(dist)} m)`);
         }
 
@@ -87,6 +105,20 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
           realtime.emitToUser(job.shipper_id, 'tracking:nearby', {
             job_id: jobId, distance_m: Math.round(dist),
           });
+          // Címzett SMS/email — "egy saroknyira van + kód"
+          if (job.recipient_phone || job.recipient_email) {
+            if (job.recipient_phone) {
+              console.log(`[proximity-sms] SAROK: ${job.recipient_phone} → A sofőr egy saroknyira van! Átvételi kód: ${job.delivery_code}`);
+            }
+            if (job.recipient_email) {
+              const { sendEmail } = require('../services/email');
+              sendEmail({
+                to: job.recipient_email,
+                subject: '📍 A sofőr egy saroknyira van!',
+                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p><strong>A sofőr mindjárt megérkezik!</strong> Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a kódot mondd meg a sofőrnek, vagy mutasd meg a QR kódot a tracking oldalon.</p>`,
+              }).catch(() => {});
+            }
+          }
           console.log(`[proximity] job ${jobId}: sofőr egy saroknyira (${Math.round(dist)} m)`);
         }
       } catch (err) {

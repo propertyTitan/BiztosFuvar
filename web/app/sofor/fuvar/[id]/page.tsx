@@ -142,6 +142,16 @@ export default function SoforFuvarReszletek() {
           <p className="muted" style={{ margin: 0 }}>
             📍 {job.pickup_address} → 🏁 {job.dropoff_address}
           </p>
+          {(job as any).recipient_name && (
+            <div style={{ marginTop: 6, fontSize: 13 }}>
+              <strong>Címzett:</strong> {(job as any).recipient_name}
+              {(job as any).recipient_phone && (
+                <> · <a href={`tel:${(job as any).recipient_phone}`} style={{ fontWeight: 700 }}>
+                  📞 {(job as any).recipient_phone}
+                </a></>
+              )}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
           <span className="pill pill-progress">{STATUS_LABEL[job.status] || job.status}</span>

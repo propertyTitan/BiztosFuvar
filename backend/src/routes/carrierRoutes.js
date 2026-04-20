@@ -318,6 +318,7 @@ router.post(
       pickup_address, pickup_lat, pickup_lng,
       dropoff_address, dropoff_lat, dropoff_lng,
       notes,
+      recipient_name, recipient_phone, recipient_email,
     } = req.body || {};
 
     if (
@@ -365,6 +366,7 @@ router.post(
     }
     const priceHuf = priceRows[0].price_huf;
     const deliveryCode = generateDeliveryCode();
+    const trackingToken = crypto.randomBytes(24).toString('base64url');
 
     const { rows: insertRows } = await db.query(
       `INSERT INTO route_bookings
@@ -372,8 +374,9 @@ router.post(
           length_cm, width_cm, height_cm, weight_kg,
           pickup_address, pickup_lat, pickup_lng,
           dropoff_address, dropoff_lat, dropoff_lng,
-          price_huf, delivery_code, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+          price_huf, delivery_code, notes,
+          recipient_name, recipient_phone, recipient_email, tracking_token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
        RETURNING *`,
       [
         routeId, req.user.sub, size,
@@ -381,6 +384,7 @@ router.post(
         pickup_address, pickup_lat, pickup_lng,
         dropoff_address, dropoff_lat, dropoff_lng,
         priceHuf, deliveryCode, notes || null,
+        recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
       ],
     );
     const booking = insertRows[0];
@@ -422,6 +426,29 @@ router.post(
     }
 
     res.status(201).json(booking);
+
+    // Címzett értesítése (email + SMS log)
+    if (recipient_phone || recipient_email) {
+      const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
+      const trackUrl = `${baseUrl}/nyomon-kovetes/${trackingToken}`;
+      setImmediate(async () => {
+        if (recipient_email) {
+          try {
+            const { sendRecipientTrackingEmail } = require('../services/email');
+            await sendRecipientTrackingEmail({
+              to: recipient_email,
+              recipientName: recipient_name,
+              jobTitle: route.title,
+              trackingUrl: trackUrl,
+              deliveryCode,
+            });
+          } catch (e) { console.warn('[recipient] email hiba:', e.message); }
+        }
+        if (recipient_phone) {
+          console.log(`[recipient] SMS küldendő: ${recipient_phone} → Csomag érkezik: ${trackUrl} Kód: ${deliveryCode}`);
+        }
+      });
+    }
   },
 );
 
