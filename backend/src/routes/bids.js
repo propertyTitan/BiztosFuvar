@@ -1,7 +1,7 @@
 // Licit (Bid) végpontok + escrow letét szimuláció.
 const express = require('express');
 const db = require('../db');
-const { authRequired, requireRole } = require('../middleware/auth');
+const { authRequired, requireDriverKYC } = require('../middleware/auth');
 const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
@@ -78,7 +78,7 @@ router.get('/bids/mine', authRequired, async (req, res) => {
 
 // POST /jobs/:jobId/bids – bárki licitálhat egy fuvarra, kivéve ha ő a feladója
 // Támogatja a multi-currency-t: a sofőr a fuvar valutájában VAGY a sajátjában licitálhat
-router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) => {
+router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const { jobId } = req.params;
   const { amount_huf, amount, currency, message, eta_minutes } = req.body || {};
   // Backward compat: amount_huf VAGY az új amount + currency páros

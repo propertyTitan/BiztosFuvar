@@ -147,6 +147,10 @@ export type Job = {
   dropoff_floor?: number | null;
   dropoff_has_elevator?: boolean;
   declared_value_huf?: number | null;
+  invoice_requested?: boolean;
+  shipper_account_type?: 'individual' | 'company';
+  shipper_company_name?: string | null;
+  shipper_company_verified?: string | null;
 };
 
 export type NewJobInput = {
@@ -178,6 +182,7 @@ export type NewJobInput = {
   dropoff_floor?: number;
   dropoff_has_elevator?: boolean;
   declared_value_huf?: number;
+  invoice_requested?: boolean;
 };
 
 export type BackhaulCandidate = Job & {
@@ -221,8 +226,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(error.error || 'API hiba');
+    const errorData = await res.json().catch(() => ({ error: res.statusText }));
+    if (res.status === 403 && typeof window !== 'undefined') {
+      const kycCodes = ['IDENTITY_KYC_REQUIRED', 'DRIVER_KYC_REQUIRED', 'COMPANY_KYC_REQUIRED'];
+      if (errorData.code && kycCodes.includes(errorData.code)) {
+        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code } }));
+      }
+    }
+    throw new Error(errorData.error || 'API hiba');
   }
   return res.json();
 }
@@ -234,7 +245,12 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ email, password }) },
     ),
 
-  register: (body: { email: string; password: string; full_name: string; phone?: string }) =>
+  register: (body: {
+    email: string; password: string; full_name: string; phone?: string;
+    account_type?: 'individual' | 'company';
+    company_name?: string; tax_id?: string; company_reg_number?: string;
+    eu_vat_number?: string; billing_address?: string;
+  }) =>
     request<{ token: string; user: { id: string; role: string; email: string; full_name: string } }>(
       '/auth/register',
       { method: 'POST', body: JSON.stringify(body) },
@@ -703,6 +719,34 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+
+  // ---------- KYC ----------
+
+  uploadKycDocument: async (file: File, docType: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('doc_type', docType);
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/auth/kyc-document`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'KYC dokumentum feltöltés sikertelen');
+    }
+    return res.json() as Promise<{ ok: true; doc_type: string; status: string; file_url: string }>;
+  },
+
+  getKycStatus: () =>
+    request<{
+      identity_kyc_status: string;
+      driver_kyc_status: string;
+      company_verification_status: string;
+      account_type: string;
+      documents: Array<{ doc_type: string; status: string; rejection_reason?: string; created_at: string }>;
+    }>('/auth/kyc-status'),
 
   /** Ár-kalkulátor (publikus, nem kell auth). */
   priceEstimate: async (params: {

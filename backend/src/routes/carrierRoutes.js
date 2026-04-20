@@ -6,7 +6,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireDriverKYC } = require('../middleware/auth');
 const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const barion = require('../services/barion');
 const realtime = require('../realtime');
@@ -61,7 +61,7 @@ async function attachPrices(routes) {
 // POST /carrier-routes
 // Új útvonal létrehozása. Sofőr-only. A `prices` tömb minden elemében
 // egy (size, price_huf) páros.
-router.post('/carrier-routes', authRequired, writeRateLimit, async (req, res) => {
+router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const {
     title, description, departure_at, waypoints, vehicle_description,
     is_template = false, template_source_id = null, prices, status = 'open',

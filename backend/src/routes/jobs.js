@@ -3,7 +3,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired, requireRole } = require('../middleware/auth');
+const { authRequired, requireIdentityKYC, requireDriverKYC } = require('../middleware/auth');
 const { reviewJobDescription } = require('../services/gemini');
 const { distanceMeters } = require('../utils/geo');
 const realtime = require('../realtime');
@@ -50,7 +50,7 @@ function scrubJobForUser(job, user) {
 // bárki egyaránt lehet feladó és sofőr is). Rate limit: percenként max 30
 // írás a `writeRateLimit`-en keresztül — bőven elég normál használatra,
 // de botokat / spamet kilő.
-router.post('/', authRequired, writeRateLimit, async (req, res) => {
+router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
   const {
     title, description,
     pickup_address, pickup_lat, pickup_lng,
@@ -71,6 +71,8 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
     dropoff_has_elevator,
     // Csomag deklarált értéke
     declared_value_huf,
+    // Számlakérés
+    invoice_requested,
   } = req.body || {};
 
   // Alap kötelező mezők
@@ -155,8 +157,8 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
        is_instant, instant_radius_km, instant_expires_at,
        pickup_needs_carrying, pickup_floor, pickup_has_elevator,
        dropoff_needs_carrying, dropoff_floor, dropoff_has_elevator,
-       declared_value_huf
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+       declared_value_huf, invoice_requested
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -170,7 +172,7 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
       wantsInstant, instantRadiusKm, instantExpiresAt,
       pCarry, pFloor, pLift,
       dCarry, dFloor, dLift,
-      declaredValueClean,
+      declaredValueClean, !!invoice_requested,
     ],
   );
 
@@ -273,31 +275,37 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
 //   ?max_size=S|M|L|XL            — max méret kategória (TODO)
 router.get('/', authRequired, async (req, res) => {
   const { status = 'bidding', lat, lng, radius_km, min_price, max_price, max_weight_kg, instant } = req.query;
-  let sql = 'SELECT * FROM jobs WHERE status = $1';
+  let sql = `SELECT j.*,
+       u.account_type AS shipper_account_type,
+       u.company_name AS shipper_company_name,
+       u.company_verification_status AS shipper_company_verified
+  FROM jobs j
+  JOIN users u ON u.id = j.shipper_id
+  WHERE j.status = $1`;
   const params = [status];
 
   if (min_price) {
     params.push(Number(min_price));
-    sql += ` AND suggested_price_huf >= $${params.length}`;
+    sql += ` AND j.suggested_price_huf >= $${params.length}`;
   }
   if (max_price) {
     params.push(Number(max_price));
-    sql += ` AND suggested_price_huf <= $${params.length}`;
+    sql += ` AND j.suggested_price_huf <= $${params.length}`;
   }
   if (max_weight_kg) {
     params.push(Number(max_weight_kg));
-    sql += ` AND weight_kg <= $${params.length}`;
+    sql += ` AND j.weight_kg <= $${params.length}`;
   }
 
   // ?instant=true → csak azonnali, még élő fuvarok (nem lejárt)
   // ?instant=false → csak licites (hagyományos) fuvarok
   if (instant === 'true') {
-    sql += ` AND is_instant = TRUE AND (instant_expires_at IS NULL OR instant_expires_at > NOW())`;
+    sql += ` AND j.is_instant = TRUE AND (j.instant_expires_at IS NULL OR j.instant_expires_at > NOW())`;
   } else if (instant === 'false') {
-    sql += ` AND is_instant = FALSE`;
+    sql += ` AND j.is_instant = FALSE`;
   }
 
-  sql += ' ORDER BY is_instant DESC, created_at DESC LIMIT 200';
+  sql += ' ORDER BY j.is_instant DESC, j.created_at DESC LIMIT 200';
   const { rows } = await db.query(sql, params);
   let jobs = rows;
   if (lat && lng) {
@@ -373,7 +381,7 @@ router.get('/mine/list', authRequired, async (req, res) => {
 //     visszaadjuk az új URL-t.
 //
 // Ugyanaz a minta, mint a `/route-bookings/:id/pay`-nél.
-router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
+router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             e.barion_gateway_url,
@@ -459,7 +467,7 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
 //   1) `paid_at` beállítása a jobs soron
 //   2) Értesítés a sofőrnek: "Péter kifizette a fuvarodat"
 //   3) Realtime event mindkét félnek (`job:paid`), hogy a UI frissüljön
-router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, res) => {
+router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             s.full_name AS shipper_name,
@@ -679,7 +687,7 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
 //
 // Ugyanazt csinálja, mint a licites elfogadás (escrow indítás, carrier_id
 // beállítás, notifikációk), csak bid sor nélkül.
-router.post('/:id/instant-accept', authRequired, writeRateLimit, async (req, res) => {
+router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   // KYC: lejárt jogosítvány → nem fogadhatja el
   const { rows: kyc } = await db.query(
     `SELECT can_bid FROM users WHERE id = $1`, [req.user.sub],
