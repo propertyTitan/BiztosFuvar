@@ -19,7 +19,7 @@ import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
 import { colors, spacing, radius } from '@/theme';
 
-const PING_INTERVAL_MS = 10_000; // 10 másodpercenként frissíti a sofőr pozícióját
+const PING_INTERVAL_MS = 60_000; // 60 másodpercenként frissíti a sofőr pozícióját
 
 export default function FuvarReszletek() {
   const { id } = useLocalSearchParams<{ id: string }>();
