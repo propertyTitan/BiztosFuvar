@@ -65,6 +65,7 @@ type FormState = {
   dropoff_needs_carrying: boolean;
   dropoff_floor: string;
   dropoff_has_elevator: boolean;
+  invoice_requested: boolean;
 };
 
 const initialForm: FormState = {
@@ -93,6 +94,7 @@ const initialForm: FormState = {
   dropoff_needs_carrying: false,
   dropoff_floor: '0',
   dropoff_has_elevator: false,
+  invoice_requested: false,
 };
 
 const REQ = { color: '#EF4444', fontWeight: 700 } as const;
@@ -208,6 +210,7 @@ export default function UjFuvar() {
           dropoff_has_elevator: form.dropoff_has_elevator,
         } : {}),
         ...(form.declared_value_huf ? { declared_value_huf: Number(form.declared_value_huf) } : {}),
+        invoice_requested: form.invoice_requested,
       });
 
       // 2) Kép-feltöltés sorban (így látjuk a progress-t és nem önmagával versenyez
@@ -712,6 +715,19 @@ export default function UjFuvar() {
           egy 500.000 Ft-os tárgy szállítása más hozzáállást igényel, mint egy
           5.000 Ft-osé. Vitás esetben ez az összeg az irányadó.
         </p>
+
+        {/* --- Számlakérés --- */}
+        <div style={{ marginTop: 16 }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+            <input type="checkbox" checked={form.invoice_requested}
+              onChange={(e) => set('invoice_requested', e.target.checked)}
+              style={{ width: 18, height: 18 }} />
+            <span style={{ fontSize: 14 }}>Szamlat kerek errol a fuvarrol</span>
+          </label>
+          <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+            Ha szamlat kersz, a sofor a fuvar lezarasakor szamlat allit ki a teljes fuvardijrol.
+          </p>
+        </div>
 
         {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
         {uploadProgress && (

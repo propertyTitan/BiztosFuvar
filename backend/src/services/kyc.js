@@ -67,6 +67,15 @@ async function approveDocument(docId, adminId) {
     [doc.user_id, doc.expiry_date],
   );
 
+  // Progressive KYC: doc_type-specifikus státusz frissítése
+  if (doc.doc_type === 'id_card') {
+    await db.query(`UPDATE users SET identity_kyc_status = 'verified' WHERE id = $1`, [doc.user_id]);
+  } else if (doc.doc_type === 'drivers_license') {
+    await db.query(`UPDATE users SET driver_kyc_status = 'verified' WHERE id = $1`, [doc.user_id]);
+  } else if (doc.doc_type === 'company_document') {
+    await db.query(`UPDATE users SET company_verification_status = 'verified' WHERE id = $1`, [doc.user_id]);
+  }
+
   await createNotification({
     user_id: doc.user_id,
     type: 'kyc_approved',
@@ -90,6 +99,15 @@ async function rejectDocument(docId, adminId, reason) {
   );
   const doc = rows[0];
   if (!doc) return null;
+
+  // Progressive KYC: doc_type-specifikus státusz frissítése
+  if (doc.doc_type === 'id_card') {
+    await db.query(`UPDATE users SET identity_kyc_status = 'rejected' WHERE id = $1`, [doc.user_id]);
+  } else if (doc.doc_type === 'drivers_license') {
+    await db.query(`UPDATE users SET driver_kyc_status = 'rejected' WHERE id = $1`, [doc.user_id]);
+  } else if (doc.doc_type === 'company_document') {
+    await db.query(`UPDATE users SET company_verification_status = 'rejected' WHERE id = $1`, [doc.user_id]);
+  }
 
   await createNotification({
     user_id: doc.user_id,

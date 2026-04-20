@@ -360,6 +360,13 @@ export default function SoforFuvarokLista() {
                       SAJÁT POSZT
                     </span>
                   )}
+                  {j.shipper_account_type === 'company' && j.shipper_company_verified === 'verified' && (
+                    <span className="pill" style={{
+                      background: '#dcfce7', color: '#166534', fontWeight: 800, fontSize: 11,
+                    }}>
+                      Ellenorzott Ceg
+                    </span>
+                  )}
                 </div>
                 <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
                 <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>

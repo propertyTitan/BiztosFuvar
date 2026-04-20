@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
 import AiChatWidget from '@/components/AiChatWidget';
 import { ToastProvider } from '@/components/ToastProvider';
+import KycModalProvider from '@/components/KycModalProvider';
 import { I18nProvider } from '@/lib/i18n';
 
 export const metadata: Metadata = {
@@ -38,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <I18nProvider>
         <ToastProvider>
+          <KycModalProvider />
           <SiteHeader />
           <main className="site-main">{children}</main>
           <footer className="site-footer">

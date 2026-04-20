@@ -66,7 +66,18 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
 
-  register: (body: { email: string; password: string; full_name: string; phone?: string }) =>
+  register: (body: {
+    email: string;
+    password: string;
+    full_name: string;
+    phone?: string;
+    account_type?: 'individual' | 'company';
+    company_name?: string;
+    tax_id?: string;
+    company_reg_number?: string;
+    eu_vat_number?: string;
+    billing_address?: string;
+  }) =>
     request<{ token: string; user: any }>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -390,4 +401,37 @@ export const api = {
     }
     return res.json();
   },
+
+  // ---------- KYC ----------
+
+  uploadKycDocument: async (fileUri: string, docType: string) => {
+    const form = new FormData();
+    // @ts-expect-error – React Native FormData fájl objektum
+    form.append('file', {
+      uri: fileUri,
+      name: 'kyc_document.jpg',
+      type: 'image/jpeg',
+    });
+    form.append('doc_type', docType);
+    const token = await getToken();
+    const res = await fetch(`${BASE_URL}/auth/kyc-document`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form as any,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'KYC dokumentum feltöltés sikertelen' }));
+      throw new Error(err.error || 'KYC dokumentum feltöltés sikertelen');
+    }
+    return res.json() as Promise<{ ok: true; doc_type: string; status: string; file_url: string }>;
+  },
+
+  getKycStatus: () =>
+    request<{
+      identity_kyc_status: string;
+      driver_kyc_status: string;
+      company_verification_status: string;
+      account_type: string;
+      documents: Array<{ doc_type: string; status: string; rejection_reason?: string; created_at: string }>;
+    }>('/auth/kyc-status'),
 };
