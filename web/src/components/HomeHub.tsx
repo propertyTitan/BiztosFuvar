@@ -19,6 +19,15 @@ export default function HomeHub() {
   const [unread, setUnread] = useState(0);
   const [driver, setDriver] = useState<any>(null);
   const [gameStats, setGameStats] = useState<any>(null);
+  const [showKycWelcome, setShowKycWelcome] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const key = `gofuvar_kyc_welcome_${user.id}`;
+    if (!localStorage.getItem(key)) {
+      setShowKycWelcome(true);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;
@@ -248,6 +257,59 @@ export default function HomeHub() {
               Mit szeretnél szállíttatni ma?
             </p>
           </div>
+
+          {/* KYC tájékoztató — első belépéskor */}
+          {showKycWelcome && (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: 20,
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12))',
+                border: '1px solid rgba(59,130,246,0.3)',
+              }}
+            >
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 36, flexShrink: 0 }}>🛡️</span>
+                <div>
+                  <strong style={{ fontSize: 16 }}>Üdvözlünk a GoFuvar-on!</strong>
+                  <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
+                    Ahhoz, hogy fuvart adhass fel vagy licitálhass, szükség van az
+                    <strong> azonosításodra (KYC)</strong>. Ez egy egyszeri, gyors lépés:
+                  </p>
+                  <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
+                    <li><strong>Feladóként:</strong> személyi igazolvány fotója (mindkét oldal)</li>
+                    <li><strong>Sofőrként:</strong> személyi igazolvány + jogosítvány fotója</li>
+                    <li><strong>Cégként:</strong> a fentiek + cégkivonat</li>
+                  </ul>
+                  <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.6 }}>
+                    Addig is nyugodtan böngészd a platformot, töltsd ki a fuvar adatait —
+                    a dokumentum feltöltést majd a feladás pillanatában kérjük tőled.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
+                      setShowKycWelcome(false);
+                    }}
+                    style={{
+                      marginTop: 12,
+                      padding: '8px 20px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: 'var(--primary)',
+                      color: '#fff',
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Megértettem ✓
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Fő CTA: hirdetés feladás */}
           <div style={{
