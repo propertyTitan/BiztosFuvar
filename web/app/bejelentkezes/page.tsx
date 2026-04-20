@@ -326,7 +326,14 @@ export default function Bejelentkezes() {
 
         {mode === 'register' && (
           <p className="muted" style={{ fontSize: 12, marginTop: 12, textAlign: 'center' }}>
-            A regisztrációval elfogadod az ÁSZF-et és az Adatvédelmi tájékoztatót.
+            A regisztrációval elfogadod az{' '}
+            <a href="/aszf" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
+              ÁSZF-et
+            </a>{' '}
+            és az{' '}
+            <a href="/adatkezeles" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
+              Adatvédelmi tájékoztatót
+            </a>.
           </p>
         )}
       </form>
