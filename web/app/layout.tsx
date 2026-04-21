@@ -4,6 +4,7 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
+import SiteFooter from '@/components/SiteFooter';
 import AiChatWidget from '@/components/AiChatWidget';
 import { ToastProvider } from '@/components/ToastProvider';
 import KycModalProvider from '@/components/KycModalProvider';
@@ -42,15 +43,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <KycModalProvider />
           <SiteHeader />
           <main className="site-main">{children}</main>
-          <footer className="site-footer">
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>🚛 GoFuvar</div>
-            <div>Bizalom. Fotó. Kód. Letét.</div>
-            <div style={{ marginTop: 10, fontSize: 13, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-              <a href="/aszf" style={{ color: 'inherit', textDecoration: 'underline' }}>ÁSZF</a>
-              <a href="/adatkezeles" style={{ color: 'inherit', textDecoration: 'underline' }}>Adatkezelési tájékoztató</a>
-            </div>
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>© {new Date().getFullYear()} GoFuvar Kft. · Minden jog fenntartva.</div>
-          </footer>
+          <SiteFooter />
           <AiChatWidget />
         </ToastProvider>
         </I18nProvider>
