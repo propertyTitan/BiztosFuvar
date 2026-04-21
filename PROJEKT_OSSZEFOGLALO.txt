@@ -1,0 +1,216 @@
+═══════════════════════════════════════════════════════════════
+              GOFUVAR.HU — PROJEKT ÖSSZEFOGLALÓ
+                     2026. április 21.
+═══════════════════════════════════════════════════════════════
+
+
+MI A GOFUVAR?
+─────────────
+Magyarország első közösségi fuvartőzsdéje. Az emberek csomagot
+adnak fel, a sofőrök elviszik — olcsóbban, gyorsabban és
+biztonságosabban mint a hagyományos futárszolgálatok.
+
+Olyan mint a BlaBlaCar, csak csomagoknak.
+
+
+SZÁMOK
+──────
+• Kódbázis:       31.812 sor kód
+• Platformok:     3 (web + iOS + Android)
+• Üzleti modell:  4 különböző
+• DB migrációk:   31 db
+• Havi fix költség: ~5.000 Ft (hosting)
+• Fejlesztés:     KÉSZ — tesztelésre vár
+
+
+CÉG ÉS JOGI HÁTTÉR
+───────────────────
+• Cég:            Tiszta Hód Kft.
+• Cégjegyzékszám: 06-09-020646
+• Székhely:       6800 Hódmezővásárhely, Szántó Kovács J. u. 144.
+• Ügyvezető:      Jovány Gyula
+• ÁSZF:           Kész, ügyvéd által jóváhagyva, a weboldalon elérhető
+• GDPR:           Kész, NAIH-kompatibilis, minden adatkategória lefedve
+• DAC7:           Felkészítve (NAV adatszolgáltatás)
+
+
+MIT TUD A PLATFORM?
+───────────────────
+
+1) LICITES FUVAR
+   Feladó kiírja → sofőrök licitálnak → legjobb ajánlat nyer.
+   A feladó bármikor elfogadhatja a tetszőleges licitet.
+
+2) FIX ÁRAS ÚTVONAL
+   Sofőr meghirdeti az útját fix árakkal (S/M/L/XL méret) →
+   feladó foglal helyet. Ideális rendszeres sofőröknek.
+
+3) AZONNALI FUVAR ("UberFuvar" mód)
+   Fix ár, nincs licit. Push értesítés a közeli sofőröknek.
+   Az első elfogadó nyer — 3 másodperc alatt történik.
+
+4) AUTÓMENTÉS (előkészítve, jogi engedélyezés után aktiválható)
+   Defekt, lerobbanás, akkumulátor → mobilgumis/mentős push.
+   A kód kész, az UI jelenleg el van rejtve.
+
+
+BIZALMI LÁNC — A CSOMAG VÉDELME
+────────────────────────────────
+• BARION ESCROW: A pénz zárolva van, amíg a csomag meg nem érkezik.
+  A platform nem kezeli a pénzt — a Barion Payment Zrt. az MNB
+  engedélyével tartja letétben.
+
+• 6 JEGYŰ ÁTVÉTELI KÓD: Csak a címzett tudja. A sofőr ezzel
+  zárja le a fuvart → pénz felszabadul.
+
+• QR KÓD: A címzett megmutatja → sofőr beolvassa → azonnal lezárul.
+  Nulla gépelés szükséges.
+
+• FOTÓ BIZONYÍTÉK: Felvételkor és lerakáskor kötelező fotó.
+
+• GPS KÖVETÉS: Élő sofőr-pozíció a feladónak, ETA visszaszámlálóval.
+  Lezárt telefonnal is működik (háttér GPS, 60 mp-enként,
+  5 km-en belül 15 mp-re gyorsul).
+
+
+SMS ÉRTESÍTÉSEK — A CÍMZETT MINDIG TUDJA MI TÖRTÉNIK
+────────────────────────────────────────────────────
+Feladó: "GoFuvar" (alfanumerikus, nem telefonszám)
+Szolgáltató: SeeMe.hu (magyar)
+
+5 automatikus SMS a fuvar során:
+  1. Fuvar feladva → címzett: sofőr neve + telefon + átvételi kód
+  2. Sofőr 5 km-re → címzett: "Hamarosan megérkezik!" + kód
+  3. Sofőr 300 m-re → címzett: "Egy saroknyira van!" + kód
+  4. Kézbesítve → címzett: "Csomag átvéve!"
+  5. Kézbesítve → feladó: "A csomagod kézbesítve!"
+
+Minden SMS tartalmazza a sofőr nevét, telefonszámát és az
+átvételi kódot. A címzettnek NEM kell appot telepítenie —
+emailben tracking linket kap a sofőr élő pozíciójával.
+
+
+MESTERSÉGES INTELLIGENCIA
+─────────────────────────
+• KYC ELLENŐRZÉS: A Gemini AI 3 másodperc alatt ellenőrzi a
+  feltöltött személyit — valódi okmány-e, olvasható-e, 18 éves-e
+  a tulajdonos. Ha minden OK → azonnal verified. Ha 18 év alatti
+  → admin értesítve, platform funkciók blokkolva.
+
+• LEÍRÁS ELLENŐRZÉS: Fuvar feladásnál az AI ellenőrzi a leírást
+  (illegális tartalom, félrevezető információ).
+
+• AI CHATBOT: Beépített magyar nyelvű segéd a felhasználóknak.
+
+
+INTELLIGENS FUVAR-MATCHING
+──────────────────────────
+• VISSZAFUVAR: Ha egy sofőr megy A→B, automatikusan kiajánljuk
+  neki a B→A fuvarokat. Ne üresen jöjjön haza.
+
+• "ÚTBA ESIK" MÓD: Sofőr jelöli hogy amúgy is megy erre →
+  olcsóbb árak → 50-70%-kal olcsóbb mint a GLS.
+
+
+PROGRESSZÍV KYC (AZONOSÍTÁS)
+────────────────────────────
+A felhasználó regisztrál → AZONNAL böngészhet, űrlapot tölthet.
+A dokumentum feltöltést csak a feladás/licitálás pillanatában
+kérjük — elegáns modallal, nem blokkoló élmény.
+
+Típusok:
+  • Magánszemély: személyi igazolvány (AI ellenőrzött)
+  • Sofőr: személyi + jogosítvány
+  • Cég: személyi + cégkivonat + adószám
+
+
+PÉNZÜGYI MODELL
+───────────────
+Bevétel minden sikeres fuvarból:
+  • Fuvardíj 10%-a + 400 Ft fix adminisztrációs díj
+
+Példa: 8.000 Ft fuvar
+  → Bevétel: 800 + 400 = 1.200 Ft
+  → Költség: ~187 Ft (Barion díj + SMS)
+  → Nettó profit: ~1.013 Ft
+
+Még 500 Ft-os kis fuvarnál is: 377 Ft profit.
+
+Konzervatív becslés (Budapest, 2026 december):
+  → 80 aktív sofőr, 900 fuvar/hó → ~960.000 Ft/hó bevétel
+
+
+TECHNIKAI ARCHITEKTÚRA
+──────────────────────
+• Backend:    Node.js + Express + PostgreSQL    → Railway (~$5/hó)
+• Web:        Next.js 14                        → Vercel (ingyen)
+• Mobil:      Expo SDK 54 (iOS + Android)       → App Store + Play
+• Adatbázis:  PostgreSQL (Neon)                 → Ingyen
+• Fizetés:    Barion Bridge (escrow)            → Tranzakciós díj
+• Térképek:   Google Maps Platform              → Első $200/hó ingyen
+• AI:         Google Gemini 2.5 Flash           → Ingyen (free tier)
+• Fájlok:     Cloudflare R2                     → Ingyen (10 GB)
+• Email:      Resend                            → Ingyen (100/nap)
+• SMS:        SeeMe.hu                          → ~12 Ft/SMS
+  ─────────────────────────────────────────────────────────
+  HAVI FIX KÖLTSÉG ÖSSZESEN:                      ~5.000 Ft
+
+
+EXTRA FUNKCIÓK
+──────────────
+• Sofőr Dashboard: havi bevétel grafikon, top útvonalak, statisztikák
+• Gamifikáció: 10 szintű rendszer, jelvények, voucher-ek (0% jutalék)
+• Ár-kalkulátor: regisztráció nélkül a főoldalon + GLS/MPL összehasonlítás
+• Bepakolás infó: emelet, lift, cipelés szükséges-e
+• Csomag értékmegadás: sofőr felelősségi alapja (50.000 Ft plafon)
+• Számlakérés: céges feladóknak checkbox
+• Ellenőrzött Cég badge: verifikált céges feladók kiemelve
+• Confetti animáció: sikeres kézbesítésnél
+• Díj-figyelmeztetés: sofőr licitálásnál élő nettó összeg számolás
+
+
+AMI AZ INDULÁSHOZ KELL
+──────────────────────
+
+MOST FOLYAMATBAN:
+  ✓ Szoftver                     KÉSZ
+  ✓ ÁSZF + GDPR                  KÉSZ
+  ✓ DUNS szám igénylés            FOLYAMATBAN
+  • Tesztelés apukámmal           KÖVETKEZŐ LÉPÉS
+
+UTÁNA (párhuzamosan intézhető):
+  • Apple Developer Program       $99/év (DUNS után)
+  • Google Play Developer          $25 egyszer
+  • Barion POS élesítés            3-5 munkanap jóváhagyás
+  • Google Maps API kulcs          15 perc
+  • Cloudflare R2, Resend          10-15 perc
+  • Domain DNS beállítás           30 perc
+  • Deploy (Railway + Vercel)      1 nap
+
+INDULÁSIG BECSÜLT IDŐ:           3-4 hét
+
+
+5 MILLIÓ FORINT MARKETING TERV
+──────────────────────────────
+
+1. hónap — Sofőr toborzás:               800.000 Ft
+   Facebook hirdetés + belépési bónusz + flyer
+
+2-3. hónap — Feladó szerzés:           1.500.000 Ft
+   Facebook/Instagram + TikTok + "Első fuvar ingyen" kupon
+
+4-6. hónap — Növekedés:                2.000.000 Ft
+   Referral rendszer + Google Ads + PR/podcast
+
+Tartalék:                                 700.000 Ft
+
+6 hónap végén reálisan:
+   200-400 regisztrált sofőr
+   800-1.500 fuvar/hó
+   700.000-1.500.000 Ft/hó bevétel
+
+
+═══════════════════════════════════════════════════════════════
+  GoFuvar — Bizalom. Fotó. Kód. Letét.
+  gofuvar.hu | info@gofuvar.hu | +36 20 397 9223
+═══════════════════════════════════════════════════════════════
