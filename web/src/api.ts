@@ -229,6 +229,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
   if (!res.ok) {
+    // Token lejárt / érvénytelen → automatikus kijelentkezés + átirányítás
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.localStorage.removeItem('gofuvar_token');
+      window.localStorage.removeItem('gofuvar_user');
+      window.dispatchEvent(new CustomEvent('gofuvar:session-expired'));
+      window.location.href = '/bejelentkezes';
+      throw new Error('A munkameneted lejárt. Kérlek, jelentkezz be újra.');
+    }
     const errorData = await res.json().catch(() => ({ error: res.statusText }));
     if (res.status === 403 && typeof window !== 'undefined') {
       const kycCodes = ['IDENTITY_KYC_REQUIRED', 'DRIVER_KYC_REQUIRED', 'COMPANY_KYC_REQUIRED'];

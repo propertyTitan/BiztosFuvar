@@ -53,6 +53,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!res.ok) {
+    // Token lejárt / érvénytelen → kijelentkeztetés
+    if (res.status === 401) {
+      await AsyncStorage.multiRemove(['gofuvar_token', 'gofuvar_user']);
+      throw new Error('A munkameneted lejárt. Kérlek, jelentkezz be újra.');
+    }
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new Error(err.error || 'API hiba');
   }
