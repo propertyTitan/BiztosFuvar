@@ -176,7 +176,9 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     try {
       const { rows: partyRows } = await db.query(
         `SELECT j.shipper_id, j.title, j.accepted_price_huf,
+                j.recipient_name, j.recipient_phone,
                 s.full_name AS shipper_name, s.email AS shipper_email,
+                s.phone AS shipper_phone,
                 c.full_name AS carrier_name
            FROM jobs j
            JOIN users s ON s.id = j.shipper_id
@@ -192,6 +194,22 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           title: '📦 A csomagod megérkezett!',
           body: `${info.carrier_name || 'A sofőr'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve, a kifizetés automatikusan megtörtént.`,
           link: `/dashboard/fuvar/${jobId}`,
+        });
+
+        // 4. SMS: feladónak — csomag kézbesítve
+        setImmediate(() => {
+          const { sendSms } = require('../services/sms');
+          if (info.shipper_phone) {
+            sendSms(info.shipper_phone,
+              `A csomagod kezbesittes megtortent! Fuvar: ${info.title}. A Barion letet felszabadult.`
+            ).catch(() => {});
+          }
+          // Címzettnek is — sikeres átvétel visszaigazolás
+          if (info.recipient_phone) {
+            sendSms(info.recipient_phone,
+              `Koszonjuk! A csomag atveve. Fuvar: ${info.title}. Udv, GoFuvar`
+            ).catch(() => {});
+          }
         });
         // Email is
         if (info.shipper_email) {
