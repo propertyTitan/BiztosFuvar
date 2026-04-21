@@ -122,6 +122,28 @@ export default function AszfPage() {
         E-mail: bekelteto.testulet@csmkik.hu).
       </p>
 
+      <h2 style={{ marginTop: 32 }}>6.5. Automatizált SMS-értesítések és Címzetti adatok</h2>
+      <p>
+        <strong>Adatszolgáltatási felelősség:</strong> A Feladó kötelessége a Címzett pontos
+        telefonszámának megadása. A Feladó szavatol azért, hogy rendelkezik a Címzett
+        hozzájárulásával a telefonszám átadásához és az SMS-alapú tájékoztatáshoz.
+      </p>
+      <p>
+        <strong>Az értesítési folyamat:</strong> A Szolgáltató a fuvar biztonsága és a hatékony
+        kézbesítés érdekében összesen 5 db automatizált SMS-értesítést küld ki a folyamat során:
+      </p>
+      <ol>
+        <li><strong>Címzettnek:</strong> Értesítés a csomag felvételéről (sofőr adatai + átvételi kód).</li>
+        <li><strong>Címzettnek:</strong> Értesítés, amikor a sofőr 5 km-es körzeten belülre ér.</li>
+        <li><strong>Címzettnek:</strong> Értesítés, amikor a sofőr 300 méteres körzeten belülre ér (&quot;A saroknál van&quot;).</li>
+        <li><strong>Címzettnek:</strong> Visszaigazolás a sikeres kézbesítésről (a fuvar lezárásakor).</li>
+        <li><strong>Feladónak:</strong> Visszaigazolás a sikeres kézbesítésről (a fuvar lezárásakor).</li>
+      </ol>
+      <p>
+        <strong>Átvételi kód:</strong> A Címzett az SMS-ben kapja meg a 6 jegyű kódot, amelynek
+        közlése a Sofőrrel a teljesítés igazolásának alapfeltétele.
+      </p>
+
       <h2 style={{ marginTop: 32 }}>7. Az ÁSZF Módosítása</h2>
       <p>
         A Szolgáltató fenntartja a jogot az ÁSZF egyoldalú módosítására. A lényeges módosításokról

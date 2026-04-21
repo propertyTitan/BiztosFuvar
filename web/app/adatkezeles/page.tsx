@@ -50,19 +50,29 @@ export default function AdatkezelesPage() {
           csomag fotók, in-app chat üzenetek, profil értékelések (Trust Score), IP címek,
           eszközazonosítók és Push tokenek (működtetés és biztonság).
         </li>
+        <li>
+          <strong>Címzetti telefonszám:</strong> Többlépcsős tájékoztatás a csomag érkezéséről,
+          átvételi kód eljuttatása, sikeres kézbesítés visszaigazolása.
+        </li>
+        <li>
+          <strong>Feladói telefonszám:</strong> Kapcsolattartás mellett a sikeres teljesítésről
+          szóló záró SMS-értesítés küldése.
+        </li>
       </ul>
 
       <h2 style={{ marginTop: 32 }}>3. Az adatkezelés jogalapja</h2>
       <p>
         <strong>Szerződés teljesítése</strong> [GDPR 6. cikk (1) b)];{' '}
         <strong>Jogi kötelezettség</strong> (Számvitel, DAC7) [GDPR 6. cikk (1) c)];{' '}
-        <strong>Jogos érdek</strong> (KYC, csalásmegelőzés, vitarendezés) [GDPR 6. cikk (1) f)].
+        <strong>Jogos érdek</strong> (KYC, csalásmegelőzés, vitarendezés, a Címzett telefonszámának
+        kezelése a fuvarozási szerződés hatékony teljesítéséhez és a biztonságos kódátadáshoz,
+        a Feladó tájékoztatása a sikeres kézbesítésről) [GDPR 6. cikk (1) f)].
       </p>
 
       <h2 style={{ marginTop: 32 }}>4. Adatfeldolgozók és Adattovábbítás Harmadik Országba</h2>
       <p>
         <strong>4.1. Adatfeldolgozók:</strong> Barion Payment Zrt. (fizetés), Vercel, Railway,
-        Neon DB, Cloudflare R2, Resend.
+        Neon DB, Cloudflare R2, Resend, SeeMe / Dream Interactive Kft. (SMS-értesítések).
       </p>
       <p>
         <strong>4.2. USA adattovábbítás (SCC):</strong> A platform technikai működéséhez az Adatkezelő
