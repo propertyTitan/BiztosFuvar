@@ -8,6 +8,7 @@ import SiteFooter from '@/components/SiteFooter';
 import AiChatWidget from '@/components/AiChatWidget';
 import { ToastProvider } from '@/components/ToastProvider';
 import KycModalProvider from '@/components/KycModalProvider';
+import CoverageModal from '@/components/CoverageModal';
 import { I18nProvider } from '@/lib/i18n';
 
 export const metadata: Metadata = {
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <I18nProvider>
         <ToastProvider>
           <KycModalProvider />
+          <CoverageModal />
           <SiteHeader />
           <main className="site-main">{children}</main>
           <SiteFooter />

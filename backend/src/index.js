@@ -42,6 +42,12 @@ app.use(
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
+
+// Publikus: szolgáltatási zónák (térkép szürkítéshez)
+app.get('/coverage/zones', (_req, res) => {
+  const { getAllZones } = require('./utils/coverage');
+  res.json(getAllZones());
+});
 const publicTrackingRoutes = require('./routes/publicTracking');
 app.use('/', calculatorRoutes);
 app.use('/', publicTrackingRoutes);

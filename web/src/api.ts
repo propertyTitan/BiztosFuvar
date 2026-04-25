@@ -240,7 +240,9 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const errorData = await res.json().catch(() => ({ error: res.statusText }));
     if (res.status === 403 && typeof window !== 'undefined') {
       const kycCodes = ['IDENTITY_KYC_REQUIRED', 'DRIVER_KYC_REQUIRED', 'COMPANY_KYC_REQUIRED'];
-      if (errorData.code && kycCodes.includes(errorData.code)) {
+      if (errorData.code === 'OUTSIDE_COVERAGE') {
+        window.dispatchEvent(new CustomEvent('gofuvar:outside-coverage', { detail: { error: errorData.error } }));
+      } else if (errorData.code && kycCodes.includes(errorData.code)) {
         window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code } }));
       }
     }

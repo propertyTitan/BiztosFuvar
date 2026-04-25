@@ -86,6 +86,16 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
     return res.status(400).json({ error: 'Hiányzó kötelező mezők (cím / koordináták)' });
   }
 
+  // Szolgáltatási terület ellenőrzés: legalább az egyik pontnak (pickup vagy dropoff)
+  // aktív zónában kell lennie. Így Budapest → vidék is működik.
+  const { isInCoverageZone } = require('../utils/coverage');
+  if (!isInCoverageZone(pickup_lat, pickup_lng) && !isInCoverageZone(dropoff_lat, dropoff_lng)) {
+    return res.status(403).json({
+      error: 'Ez a terület még nem elérhető. Jelenleg Budapest és Pest megye területén működünk. Hamarosan bővítünk!',
+      code: 'OUTSIDE_COVERAGE',
+    });
+  }
+
   // Csomag-méretek kötelezők és pozitívak kell legyenek
   const L = Number(length_cm), W = Number(width_cm), H = Number(height_cm);
   if (!Number.isFinite(L) || !Number.isFinite(W) || !Number.isFinite(H) ||
