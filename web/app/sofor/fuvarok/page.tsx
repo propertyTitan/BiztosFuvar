@@ -295,7 +295,9 @@ export default function SoforFuvarokLista() {
 
       {view === 'list' && jobs.map((j) => {
         const isMine = !!me && j.shipper_id === me.id;
-        const isInstant = !!j.is_instant;
+        // IDEIGLENESEN KIKAPCSOLVA — 100+ sofőr után visszakapcsolni:
+        // const isInstant = !!j.is_instant;
+        const isInstant = false;
         // Saját poszton csak szerkesztés/megtekintés. A részletek oldal
         // ilyenkor a feladói nézetre visz (dashboard/fuvar/[id]), hogy
         // a licitek listáját és a szerkesztést lássa.

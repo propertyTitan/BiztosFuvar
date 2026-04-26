@@ -609,7 +609,7 @@ export default function UjFuvar() {
           </p>
         )}
 
-        {/* --- Azonnali fuvar toggle --- */}
+        {/* --- Azonnali fuvar toggle — IDEIGLENESEN KIKAPCSOLVA (100+ sofőr után visszakapcsolni) ---
         <div
           style={{
             marginTop: 24,
@@ -681,6 +681,7 @@ export default function UjFuvar() {
             </div>
           )}
         </div>
+        --- */}
 
         {/* --- Ár --- */}
         <h2 style={{ marginTop: 24 }}>
