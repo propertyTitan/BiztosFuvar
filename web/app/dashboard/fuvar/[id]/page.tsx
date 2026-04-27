@@ -141,8 +141,49 @@ export default function FuvarReszletek() {
         <LiveTrackingMap job={job} />
       </div>
 
-      {/* Átvételi kód + QR – csak a feladó látja */}
-      {job.delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
+      {/* Vészhelyzeti kód — a feladó látja (a címzett kód SMS-ben megy) */}
+      {(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
+        <div
+          className="card"
+          style={{
+            marginTop: 16,
+            background: 'linear-gradient(135deg, #92400e 0%, #b45309 100%)',
+            color: '#fff',
+            border: 'none',
+          }}
+        >
+          <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 8 }}>
+            🆘 Vészhelyzeti kód (csak ha a címzett nem elérhető!)
+          </div>
+          <div
+            style={{
+              fontSize: 36,
+              fontWeight: 800,
+              letterSpacing: '0.15em',
+              fontFamily: 'monospace',
+              textAlign: 'center',
+              padding: '12px 0',
+            }}
+          >
+            {(job as any).sender_delivery_code}
+          </div>
+          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 8, lineHeight: 1.5 }}>
+            ⚠️ Ezt a kódot <strong>CSAK</strong> akkor add meg a sofőrnek, ha a címzett
+            nem elérhető és te engedélyezed a lerakást. A rendszer logolja, hogy
+            ez a vészhelyzeti kóddal zárult le.
+          </div>
+          <div style={{
+            marginTop: 12, padding: '8px 12px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.15)', fontSize: 12,
+          }}>
+            📱 A címzett az átvételi kódot SMS-ben és emailben kapta meg.
+            A QR kódot a tracking linken látja.
+          </div>
+        </div>
+      )}
+
+      {/* Ha NINCS címzett megadva — a feladó saját maga veszi át, a normál kód jelenik meg */}
+      {job.delivery_code && !(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
         <div
           className="card"
           style={{
@@ -158,9 +199,19 @@ export default function FuvarReszletek() {
           </div>
           <QrCode jobId={job.id} deliveryCode={job.delivery_code} size={200} />
           <div style={{ fontSize: 13, opacity: 0.9, marginTop: 16 }}>
-            A sofőr beolvassa a QR kódot az appjában → a fuvar azonnal lezárul.
-            Vagy diktáld a 6 jegyű kódot, ha nincs kéznél a telefon.
+            Mutasd meg a sofőrnek a QR kódot vagy diktáld a 6 jegyű kódot.
           </div>
+        </div>
+      )}
+
+      {/* Figyelmeztetés ha vészhelyzeti kóddal zárult */}
+      {job.status === 'delivered' && (job as any).closed_by_code_type === 'sender_emergency' && (
+        <div className="card" style={{
+          marginTop: 16, background: '#fef3c7', borderColor: '#f59e0b',
+          color: '#92400e', borderLeft: '4px solid #f59e0b',
+        }}>
+          ⚠️ <strong>Ez a fuvar a feladó vészhelyzeti kódjával zárult le</strong> — a címzett
+          nem volt elérhető. Vita esetén ez az információ rendelkezésre áll.
         </div>
       )}
 

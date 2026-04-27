@@ -41,8 +41,14 @@ function scrubJobForUser(job, user) {
   if (!job) return job;
   const isShipper = user?.sub === job.shipper_id;
   const isAdmin = user?.role === 'admin';
-  if (isShipper || isAdmin) return job;
-  const { delivery_code, ...rest } = job;
+  if (isAdmin) return job;
+  if (isShipper) {
+    // Feladó látja a saját vészhelyzeti kódját, de a címzett kódját NEM
+    const { delivery_code, ...rest } = job;
+    return rest;
+  }
+  // Sofőr és mindenki más: sem a címzett, sem a feladó kódját nem látja
+  const { delivery_code, sender_delivery_code, ...rest } = job;
   return rest;
 }
 
@@ -141,6 +147,9 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
 
   // 6 jegyű átvételi kód: csak a feladó látja, a sofőrnek az átvevő mondja meg
   const deliveryCode = generateDeliveryCode();
+  // Feladó vészhelyzeti kód — eltérő a címzett kódjától
+  let senderCode = generateDeliveryCode();
+  while (senderCode === deliveryCode) senderCode = generateDeliveryCode();
 
   // FONTOS: a Gemini leírás-ellenőrzést NEM várjuk be a válasz előtt – ez
   // egy 2–5 mp-es külső hívás, ami feleslegesen megfogná a user UI-ját
@@ -175,8 +184,9 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
        pickup_needs_carrying, pickup_floor, pickup_has_elevator,
        dropoff_needs_carrying, dropoff_floor, dropoff_has_elevator,
        declared_value_huf, invoice_requested,
-       recipient_name, recipient_phone, recipient_email, tracking_token
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
+       recipient_name, recipient_phone, recipient_email, tracking_token,
+       sender_delivery_code
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -192,6 +202,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
       dCarry, dFloor, dLift,
       declaredValueClean, !!invoice_requested,
       recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
+      senderCode,
     ],
   );
 
