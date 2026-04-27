@@ -231,17 +231,18 @@ async function refundPayment({ paymentId, jobId, refundAmountHuf, reason }) {
 }
 
 /**
- * A GoFuvar lemondási díj-szabálya egy helyen:
- *   - Ha még nem történt fizetés → díj = 0, refund = 0 (nincs pénz)
- *   - Ha a SOFŐR mondja le → díj = 0, 100% refund (max szigorú a feladó felé)
- *   - Ha a FELADÓ mondja le a már kifizetett fuvart → 10% díj (max 1000 Ft)
+ * A GoFuvar lemondási díj-szabálya:
+ *   - Ha még nem történt fizetés → díj = 0, refund = 0
+ *   - Ha a SOFŐR mondja le → díj = 0, 100% refund a feladónak
+ *   - Ha a FELADÓ mondja le a már kifizetett fuvart:
+ *       → 8.000 Ft alatt: 400 Ft fix díj
+ *       → 8.000 Ft felett: 5%
  */
 function computeCancellationSettlement({ totalHuf, paid, cancelledByRole }) {
   if (!paid || !totalHuf) return { fee: 0, refund: 0 };
   if (cancelledByRole === 'carrier') return { fee: 0, refund: totalHuf };
   // Feladó lemondás:
-  const rawFee = Math.round(totalHuf * 0.10);
-  const fee = Math.min(rawFee, 1000);
+  const fee = totalHuf <= 8000 ? 400 : Math.round(totalHuf * 0.05);
   const refund = totalHuf - fee;
   return { fee, refund };
 }
