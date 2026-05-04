@@ -7,6 +7,7 @@
 // - Lista / térkép toggle: a user eldöntheti melyik nézetben böngészik.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { getSocket } from '@/lib/socket';
@@ -18,6 +19,7 @@ type ViewMode = 'list' | 'map';
 
 export default function SoforFuvarokLista() {
   const me = useCurrentUser();
+  const router = useRouter();
   const { t } = useTranslation();
   const [jobs, setJobs] = useState<ListedJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +31,26 @@ export default function SoforFuvarokLista() {
   const [filterMaxPrice, setFilterMaxPrice] = useState('');
   const [filterMaxWeight, setFilterMaxWeight] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  // Éppen melyik instant fuvart próbáljuk elvállalni (race-prevent UI)
+  const [acceptingInstantId, setAcceptingInstantId] = useState<string | null>(null);
+
+  async function acceptInstant(jobId: string) {
+    if (acceptingInstantId) return;
+    setAcceptingInstantId(jobId);
+    try {
+      const res = await api.acceptInstantJob(jobId);
+      // Siker → vigyük a fuvar részletek oldalra, ahol a feladó fizethet
+      // (a sofőr szempontjából: várakozás kifizetésre).
+      router.push(`/sofor/fuvar/${res.job_id}`);
+    } catch (err: any) {
+      setError(err.message);
+      // Frissítsük a listát: nagy eséllyel valaki megelőzött, így az
+      // instant fuvar eltűnik a listáról a következő load-kor.
+      load(here?.lat, here?.lng);
+    } finally {
+      setAcceptingInstantId(null);
+    }
+  }
 
   async function load(lat?: number, lng?: number) {
     setLoading(true);
@@ -68,15 +90,24 @@ export default function SoforFuvarokLista() {
     );
   }, []);
 
-  // Real-time: amikor új fuvar érkezik, rátesszük a listára
+  // Real-time: amikor új fuvar érkezik, rátesszük a listára.
+  // Azonnali fuvar esetén is külön event jön (`jobs:new-instant`), amit a
+  // globális `jobs:new` mellett a szerver is kiad — így figyeljük is.
+  // Ha egy instant fuvart valaki elkapott (`jobs:instant-taken`), azonnal
+  // eltüntetjük a listából, hogy a UI ne maradjon "kínálati" állapotban.
   useEffect(() => {
     const socket = getSocket();
     const onNew = (job: Job) => {
       setJobs((prev) => [job as ListedJob, ...prev.filter((j) => j.id !== job.id)]);
     };
+    const onInstantTaken = (payload: { job_id: string }) => {
+      setJobs((prev) => prev.filter((j) => j.id !== payload.job_id));
+    };
     socket.on('jobs:new', onNew);
+    socket.on('jobs:instant-taken', onInstantTaken);
     return () => {
       socket.off('jobs:new', onNew);
+      socket.off('jobs:instant-taken', onInstantTaken);
     };
   }, []);
 
@@ -264,27 +295,59 @@ export default function SoforFuvarokLista() {
 
       {view === 'list' && jobs.map((j) => {
         const isMine = !!me && j.shipper_id === me.id;
+        // IDEIGLENESEN KIKAPCSOLVA — 100+ sofőr után visszakapcsolni:
+        // const isInstant = !!j.is_instant;
+        const isInstant = false;
         // Saját poszton csak szerkesztés/megtekintés. A részletek oldal
         // ilyenkor a feladói nézetre visz (dashboard/fuvar/[id]), hogy
         // a licitek listáját és a szerkesztést lássa.
         const href = isMine ? `/dashboard/fuvar/${j.id}` : `/sofor/fuvar/${j.id}`;
+
+        // Stílus prioritás: instant felülírja az own-post sárgát, mert
+        // az "azonnali" elvállalás időérzékeny — ott a figyelmet maximumra
+        // pörgetjük.
+        const cardStyle: React.CSSProperties = {
+          display: 'block',
+          textDecoration: 'none',
+          color: 'inherit',
+          marginTop: 16,
+          ...(isMine ? { background: '#fefce8', borderColor: '#facc15' } : {}),
+          ...(isInstant && !isMine
+            ? {
+                background: '#FFF8E1',
+                borderColor: '#FB8C00',
+                borderWidth: 2,
+                boxShadow: '0 0 0 3px rgba(251,140,0,0.15)',
+              }
+            : {}),
+        };
+
         return (
           <Link
             key={j.id}
             href={href}
             className={`card${isMine ? ' own-post-card' : ''}`}
-            style={{
-              display: 'block',
-              textDecoration: 'none',
-              color: 'inherit',
-              marginTop: 16,
-              ...(isMine ? { background: '#fefce8', borderColor: '#facc15' } : {}),
-            }}
+            style={cardStyle}
           >
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
               <div style={{ flex: 1 }}>
                 <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                   <h3 style={{ marginTop: 0, marginBottom: 0 }}>{j.title}</h3>
+                  {isInstant && (
+                    <span
+                      className="pill"
+                      style={{
+                        background: '#FB8C00',
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: 11,
+                        letterSpacing: 0.5,
+                      }}
+                      title="Azonnali fuvar: első elfogadó nyer, nincs licitálás."
+                    >
+                      ⚡ AZONNALI
+                    </span>
+                  )}
                   {isMine && (
                     <span
                       className="pill"
@@ -297,6 +360,13 @@ export default function SoforFuvarokLista() {
                       title="Ezt te adtad fel — nem licitálhatsz rá."
                     >
                       SAJÁT POSZT
+                    </span>
+                  )}
+                  {j.shipper_account_type === 'company' && j.shipper_company_verified === 'verified' && (
+                    <span className="pill" style={{
+                      background: '#dcfce7', color: '#166534', fontWeight: 800, fontSize: 11,
+                    }}>
+                      Ellenorzott Ceg
                     </span>
                   )}
                 </div>
@@ -314,14 +384,55 @@ export default function SoforFuvarokLista() {
                     </span>
                   )}
                 </div>
+                {isInstant && !isMine && j.instant_expires_at && (
+                  <p
+                    style={{
+                      fontSize: 12,
+                      marginTop: 6,
+                      color: '#E65100',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Lejár: {new Date(j.instant_expires_at).toLocaleTimeString('hu-HU', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                )}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div className="price" style={{ fontSize: 18 }}>
                   {j.suggested_price_huf?.toLocaleString('hu-HU')} Ft
                 </div>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  {isMine ? 'saját hirdetés' : 'javasolt ár'}
+                  {isInstant ? 'fix ár' : isMine ? 'saját hirdetés' : 'javasolt ár'}
                 </div>
+                {isInstant && !isMine && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      // Link beágyazás miatt meg kell akadályozni a navigációt,
+                      // hogy csak az elvállalás fusson le.
+                      e.preventDefault();
+                      e.stopPropagation();
+                      acceptInstant(j.id);
+                    }}
+                    disabled={acceptingInstantId != null}
+                    style={{
+                      marginTop: 8,
+                      background: '#FB8C00',
+                      color: '#fff',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: 6,
+                      fontWeight: 700,
+                      cursor: acceptingInstantId ? 'wait' : 'pointer',
+                      fontSize: 13,
+                    }}
+                  >
+                    {acceptingInstantId === j.id ? 'Elvállalás…' : '⚡ Elvállalom!'}
+                  </button>
+                )}
               </div>
             </div>
           </Link>

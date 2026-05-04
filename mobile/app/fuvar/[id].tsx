@@ -11,6 +11,7 @@ import { useLocalSearchParams, Link } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { startBackgroundTracking, stopBackgroundTracking } from '@/services/backgroundTracking';
 import { api } from '@/api';
 import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
@@ -18,7 +19,7 @@ import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
 import { colors, spacing, radius } from '@/theme';
 
-const PING_INTERVAL_MS = 10_000; // 10 másodpercenként frissíti a sofőr pozícióját
+const PING_INTERVAL_MS = 60_000; // 60 másodpercenként frissíti a sofőr pozícióját
 
 export default function FuvarReszletek() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -89,38 +90,39 @@ export default function FuvarReszletek() {
     return () => cleanup?.();
   }, [id]);
 
-  // Élő GPS ping: amíg a fuvar 'in_progress', a sofőr telefonja 10 mp-enként
-  // küldi a pozíciót a backendre, ami Socket.IO-val továbbküldi a feladónak.
+  // Élő GPS tracking: amíg a fuvar 'in_progress', a háttér tracking szolgáltatás
+  // küldi a pozíciót — lezárt képernyőnél is működik (expo-task-manager).
+  // Android: notification bar-ban "GoFuvar — Élő követés" jelenik meg.
+  // iOS: kék sáv a képernyő tetején.
   useEffect(() => {
     if (!job || job.status !== 'in_progress') return;
 
-    let cancelled = false;
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted' || cancelled) return;
-
-      const sendPing = async () => {
-        try {
-          const pos = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          await api.pingLocation(
-            id!,
-            pos.coords.latitude,
-            pos.coords.longitude,
-            pos.coords.speed != null ? pos.coords.speed * 3.6 : undefined, // m/s → km/h
-          );
-        } catch {
-          // csendben elnyeljük – nem akarjuk a sofőrt értesítésekkel zaklatni vezetés közben
-        }
-      };
-
-      sendPing(); // azonnali első ping
-      pingTimer.current = setInterval(sendPing, PING_INTERVAL_MS);
-    })();
+    startBackgroundTracking(id!, job.dropoff_lat, job.dropoff_lng).then((started) => {
+      if (!started) {
+        // Ha nem sikerült a háttér engedélyt megkapni, fallback foreground polling
+        console.warn('[tracking] háttér engedély megtagadva, foreground fallback');
+        let cancelled = false;
+        const sendPing = async () => {
+          try {
+            const pos = await Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+            });
+            await api.pingLocation(
+              id!,
+              pos.coords.latitude,
+              pos.coords.longitude,
+              pos.coords.speed != null ? pos.coords.speed * 3.6 : undefined,
+            );
+          } catch {}
+        };
+        sendPing();
+        pingTimer.current = setInterval(sendPing, PING_INTERVAL_MS);
+      }
+    });
 
     return () => {
-      cancelled = true;
+      // Ha a fuvar lezárul vagy az oldalt elhagyjuk → leállítjuk a tracking-et
+      stopBackgroundTracking();
       if (pingTimer.current) {
         clearInterval(pingTimer.current);
         pingTimer.current = null;

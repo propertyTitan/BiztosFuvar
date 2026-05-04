@@ -4,8 +4,11 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
+import SiteFooter from '@/components/SiteFooter';
 import AiChatWidget from '@/components/AiChatWidget';
 import { ToastProvider } from '@/components/ToastProvider';
+import KycModalProvider from '@/components/KycModalProvider';
+import CoverageModal from '@/components/CoverageModal';
 import { I18nProvider } from '@/lib/i18n';
 
 export const metadata: Metadata = {
@@ -32,19 +35,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="hu">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
       </head>
       <body>
         <I18nProvider>
         <ToastProvider>
+          <KycModalProvider />
+          <CoverageModal />
           <SiteHeader />
           <main className="site-main">{children}</main>
-          <footer className="site-footer">
-            <div style={{ fontWeight: 600, marginBottom: 4 }}>🚛 GoFuvar</div>
-            <div>Bizalom. Fotó. Kód. Letét.</div>
-            <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>© {new Date().getFullYear()} GoFuvar Kft. · Minden jog fenntartva.</div>
-          </footer>
+          <SiteFooter />
           <AiChatWidget />
         </ToastProvider>
         </I18nProvider>

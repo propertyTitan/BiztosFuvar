@@ -19,6 +19,12 @@ export default function Bejelentkezes() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [accountType, setAccountType] = useState<'individual' | 'company'>('individual');
+  const [companyName, setCompanyName] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [companyRegNumber, setCompanyRegNumber] = useState('');
+  const [euVatNumber, setEuVatNumber] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
 
   const [loading, setLoading] = useState(false);
 
@@ -36,6 +42,16 @@ export default function Bejelentkezes() {
       Alert.alert('Túl rövid jelszó', 'A jelszó legalább 8 karakter legyen.');
       return;
     }
+    if (mode === 'register' && accountType === 'company') {
+      if (!companyName.trim()) {
+        Alert.alert('Hiányzó adat', 'Add meg a cégnevet.');
+        return;
+      }
+      if (!taxId.trim()) {
+        Alert.alert('Hiányzó adat', 'Add meg az adószámot.');
+        return;
+      }
+    }
 
     setLoading(true);
     try {
@@ -47,6 +63,14 @@ export default function Bejelentkezes() {
               password,
               full_name: fullName.trim(),
               phone: phone.trim() || undefined,
+              account_type: accountType,
+              ...(accountType === 'company' ? {
+                company_name: companyName.trim(),
+                tax_id: taxId.trim(),
+                company_reg_number: companyRegNumber.trim() || undefined,
+                eu_vat_number: euVatNumber.trim() || undefined,
+                billing_address: billingAddress.trim() || undefined,
+              } : {}),
             });
       const role = (res.user.role as Role) || 'shipper';
       await setCurrentUser(
@@ -55,6 +79,7 @@ export default function Bejelentkezes() {
           email: res.user.email,
           role,
           full_name: res.user.full_name,
+          account_type: res.user.account_type,
         },
         res.token,
       );
@@ -106,6 +131,26 @@ export default function Bejelentkezes() {
 
       {mode === 'register' && (
         <>
+          {/* Fiók típus választó */}
+          <View style={styles.accountTypeBar}>
+            <Pressable
+              style={[styles.accountTypeBtn, accountType === 'individual' && styles.accountTypeBtnActive]}
+              onPress={() => setAccountType('individual')}
+            >
+              <Text style={[styles.accountTypeBtnText, accountType === 'individual' && styles.accountTypeBtnTextActive]}>
+                Magánszemélyként
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.accountTypeBtn, accountType === 'company' && styles.accountTypeBtnActive]}
+              onPress={() => setAccountType('company')}
+            >
+              <Text style={[styles.accountTypeBtnText, accountType === 'company' && styles.accountTypeBtnTextActive]}>
+                Cégként
+              </Text>
+            </Pressable>
+          </View>
+
           <Text style={styles.label}>Teljes név</Text>
           <TextInput
             style={styles.input}
@@ -123,6 +168,51 @@ export default function Bejelentkezes() {
             placeholder="+36 30 123 4567"
             placeholderTextColor={colors.textMuted}
           />
+
+          {accountType === 'company' && (
+            <>
+              <Text style={styles.label}>Cégnév</Text>
+              <TextInput
+                style={styles.input}
+                value={companyName}
+                onChangeText={setCompanyName}
+                placeholder="Pl. Példa Kft."
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text style={styles.label}>Adószám</Text>
+              <TextInput
+                style={styles.input}
+                value={taxId}
+                onChangeText={setTaxId}
+                placeholder="12345678-1-42"
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text style={styles.label}>Cégjegyzékszám (opcionális)</Text>
+              <TextInput
+                style={styles.input}
+                value={companyRegNumber}
+                onChangeText={setCompanyRegNumber}
+                placeholder="01-09-123456"
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text style={styles.label}>EU ÁFA szám (opcionális)</Text>
+              <TextInput
+                style={styles.input}
+                value={euVatNumber}
+                onChangeText={setEuVatNumber}
+                placeholder="HU12345678"
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text style={styles.label}>Számlázási cím (opcionális)</Text>
+              <TextInput
+                style={styles.input}
+                value={billingAddress}
+                onChangeText={setBillingAddress}
+                placeholder="1234 Budapest, Példa utca 1."
+                placeholderTextColor={colors.textMuted}
+              />
+            </>
+          )}
         </>
       )}
 
@@ -245,5 +335,31 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     fontSize: 12,
     textAlign: 'center',
+  },
+  accountTypeBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+  },
+  accountTypeBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: radius.sm + 2,
+    alignItems: 'center',
+  },
+  accountTypeBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  accountTypeBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  accountTypeBtnTextActive: {
+    color: '#fff',
   },
 });

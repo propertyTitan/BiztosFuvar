@@ -340,6 +340,32 @@ async function sendCancellationEmail({
   });
 }
 
+async function sendRecipientTrackingEmail({ to, recipientName, jobTitle, trackingUrl, deliveryCode }) {
+  return sendEmail({
+    to,
+    subject: `📦 Csomag érkezik hozzád — ${jobTitle}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
+        <h2>Szia${recipientName ? ` ${recipientName}` : ''}! 👋</h2>
+        <p>Csomag van úton hozzád a <strong>GoFuvar</strong> platformon keresztül.</p>
+        <p style="font-size:14px;color:#666">Fuvar: <strong>${jobTitle}</strong></p>
+        <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:20px;text-align:center;margin:20px 0">
+          <div style="font-size:13px;color:#666;margin-bottom:8px">Átvételi kód</div>
+          <div style="font-size:36px;font-weight:800;letter-spacing:6px;font-family:monospace">${deliveryCode}</div>
+          <div style="font-size:12px;color:#666;margin-top:8px">Ezt a kódot add meg a sofőrnek amikor megérkezik</div>
+        </div>
+        <a href="${trackingUrl}" style="display:block;text-align:center;background:#1e40af;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px">
+          📍 Fuvar követése élőben
+        </a>
+        <p style="font-size:12px;color:#999;margin-top:20px;text-align:center">
+          Ezen az oldalon látod a sofőr pozícióját és a becsült érkezési időt.
+          Nem kell regisztrálnod a GoFuvar-ra.
+        </p>
+      </div>
+    `,
+  });
+}
+
 module.exports = {
   sendEmail,
   sendBidReceivedEmail,
@@ -350,5 +376,6 @@ module.exports = {
   sendBookingPaidEmail,
   sendBookingRejectedEmail,
   sendCancellationEmail,
+  sendRecipientTrackingEmail,
   isStub,
 };

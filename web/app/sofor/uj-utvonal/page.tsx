@@ -30,6 +30,7 @@ export default function UjUtvonal() {
   const [description, setDescription] = useState('');
   const [vehicle, setVehicle] = useState('');
   const [waypoints, setWaypoints] = useState<Waypoint[]>([]);
+  const [isRideAlong, setIsRideAlong] = useState(false);
   // datetime-local input kényelme miatt stringként kezeljük
   const [departureLocal, setDepartureLocal] = useState('');
 
@@ -50,6 +51,7 @@ export default function UjUtvonal() {
         setDescription(r.description || '');
         setVehicle(r.vehicle_description || '');
         setWaypoints(r.waypoints || []);
+        setIsRideAlong(!!r.is_ride_along);
         // Az ISO dátumot visszaalakítjuk datetime-local formátumra (YYYY-MM-DDTHH:MM)
         const d = new Date(r.departure_at);
         const pad = (n: number) => String(n).padStart(2, '0');
@@ -118,6 +120,7 @@ export default function UjUtvonal() {
         vehicle_description: vehicle || undefined,
         prices,
         status: (publishNow ? 'open' : 'draft') as 'open' | 'draft',
+        is_ride_along: isRideAlong,
       };
 
       if (isEdit && editId) {
@@ -197,6 +200,38 @@ export default function UjUtvonal() {
           onChange={(e) => setDescription(e.target.value)}
           placeholder="pl. Reggeli indulás 7-8 között. Csak nem törékeny áru."
         />
+
+        {/* --- "Útba esik" toggle --- */}
+        <div
+          style={{
+            marginTop: 24,
+            padding: 16,
+            background: isRideAlong ? 'rgba(46,125,50,0.1)' : 'transparent',
+            border: `2px solid ${isRideAlong ? '#2E7D32' : 'var(--border)'}`,
+            borderRadius: 8,
+          }}
+        >
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => setIsRideAlong(!isRideAlong)}
+            onKeyDown={(e) => e.key === 'Enter' && setIsRideAlong(!isRideAlong)}
+            style={{ display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer' }}
+          >
+            <input
+              type="checkbox"
+              checked={isRideAlong}
+              onChange={(e) => setIsRideAlong(e.target.checked)}
+              style={{ width: 20, height: 20, flexShrink: 0 }}
+            />
+            <strong style={{ fontSize: 15 }}>🚗 Útba esik mód — amúgy is megyek erre</strong>
+          </div>
+          <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
+            Ha bejelölöd, a rendszer automatikusan kiajánlja neked az útvonaladba
+            eső csomagokat, amiket minimális kitérővel felvehetsz. Mivel amúgy is
+            mész erre, olcsóbban is vállalhatod — a feladóknak ez nagyon vonzó.
+          </p>
+        </div>
 
         <h2 style={{ marginTop: 32 }}>Csomag kategóriák és árak</h2>
         <p className="muted" style={{ marginTop: 0 }}>

@@ -6,12 +6,13 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireDriverKYC } = require('../middleware/auth');
 const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const barion = require('../services/barion');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
+const { findJobsAlongRoute } = require('../services/routeAlong');
 const {
   sendBookingReceivedEmail,
   sendBookingConfirmedEmail,
@@ -60,10 +61,11 @@ async function attachPrices(routes) {
 // POST /carrier-routes
 // Új útvonal létrehozása. Sofőr-only. A `prices` tömb minden elemében
 // egy (size, price_huf) páros.
-router.post('/carrier-routes', authRequired, writeRateLimit, async (req, res) => {
+router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const {
     title, description, departure_at, waypoints, vehicle_description,
     is_template = false, template_source_id = null, prices, status = 'open',
+    is_ride_along = false,
   } = req.body || {};
 
   if (!title || !departure_at) {
@@ -87,13 +89,13 @@ router.post('/carrier-routes', authRequired, writeRateLimit, async (req, res) =>
     const { rows } = await client.query(
       `INSERT INTO carrier_routes
         (carrier_id, title, description, departure_at, waypoints,
-         vehicle_description, is_template, template_source_id, status)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9)
+         vehicle_description, is_template, template_source_id, status, is_ride_along)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
         req.user.sub, title, description || null, departure_at,
         JSON.stringify(waypoints), vehicle_description || null,
-        !!is_template, template_source_id, status,
+        !!is_template, template_source_id, status, !!is_ride_along,
       ],
     );
     const route = rows[0];
@@ -172,6 +174,31 @@ router.get('/carrier-routes/:id', authRequired, async (req, res) => {
   res.json((await attachPrices(rows))[0]);
 });
 
+// GET /carrier-routes/:id/along-jobs — "Útba eső fuvarok"
+// Az útvonal waypoint-jai mentén keresünk nyitott (bidding) fuvarokat,
+// amelyeket a sofőr felvehetne kitérő nélkül (vagy minimális kitérővel).
+router.get('/carrier-routes/:id/along-jobs', authRequired, async (req, res) => {
+  const { rows } = await db.query(
+    'SELECT carrier_id, waypoints, status FROM carrier_routes WHERE id = $1',
+    [req.params.id],
+  );
+  const route = rows[0];
+  if (!route) return res.status(404).json({ error: 'Útvonal nem található' });
+  if (route.carrier_id !== req.user.sub) {
+    return res.status(403).json({ error: 'Csak a saját útvonaladhoz érhető el' });
+  }
+  if (!['open', 'draft'].includes(route.status)) {
+    return res.json({ jobs: [] });
+  }
+
+  const waypoints = typeof route.waypoints === 'string'
+    ? JSON.parse(route.waypoints)
+    : route.waypoints;
+
+  const jobs = await findJobsAlongRoute(waypoints, req.user.sub);
+  res.json({ route_id: req.params.id, jobs });
+});
+
 // PATCH /carrier-routes/:id/status – az útvonal tulajdonosa állítja draft→open stb.
 router.patch(
   '/carrier-routes/:id/status',
@@ -199,6 +226,7 @@ router.patch(
 router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, res) => {
   const {
     title, description, departure_at, waypoints, vehicle_description, prices, status,
+    is_ride_along,
   } = req.body || {};
 
   const client = await db.pool.connect();
@@ -228,6 +256,7 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
     if (departure_at !== undefined)        { sets.push(`departure_at = $${idx++}`);        params.push(departure_at); }
     if (waypoints !== undefined)           { sets.push(`waypoints = $${idx++}::jsonb`);    params.push(JSON.stringify(waypoints)); }
     if (vehicle_description !== undefined) { sets.push(`vehicle_description = $${idx++}`); params.push(vehicle_description || null); }
+    if (is_ride_along !== undefined)      { sets.push(`is_ride_along = $${idx++}`);      params.push(!!is_ride_along); }
     if (status !== undefined) {
       const allowed = ['draft', 'open', 'full', 'cancelled'];
       if (!allowed.includes(status)) {
@@ -289,6 +318,7 @@ router.post(
       pickup_address, pickup_lat, pickup_lng,
       dropoff_address, dropoff_lat, dropoff_lng,
       notes,
+      recipient_name, recipient_phone, recipient_email,
     } = req.body || {};
 
     if (
@@ -336,6 +366,7 @@ router.post(
     }
     const priceHuf = priceRows[0].price_huf;
     const deliveryCode = generateDeliveryCode();
+    const trackingToken = crypto.randomBytes(24).toString('base64url');
 
     const { rows: insertRows } = await db.query(
       `INSERT INTO route_bookings
@@ -343,8 +374,9 @@ router.post(
           length_cm, width_cm, height_cm, weight_kg,
           pickup_address, pickup_lat, pickup_lng,
           dropoff_address, dropoff_lat, dropoff_lng,
-          price_huf, delivery_code, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+          price_huf, delivery_code, notes,
+          recipient_name, recipient_phone, recipient_email, tracking_token)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
        RETURNING *`,
       [
         routeId, req.user.sub, size,
@@ -352,6 +384,7 @@ router.post(
         pickup_address, pickup_lat, pickup_lng,
         dropoff_address, dropoff_lat, dropoff_lng,
         priceHuf, deliveryCode, notes || null,
+        recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
       ],
     );
     const booking = insertRows[0];
@@ -393,6 +426,30 @@ router.post(
     }
 
     res.status(201).json(booking);
+
+    // Címzett értesítése (email + SMS log)
+    if (recipient_phone || recipient_email) {
+      const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
+      const trackUrl = `${baseUrl}/nyomon-kovetes/${trackingToken}`;
+      setImmediate(async () => {
+        if (recipient_email) {
+          try {
+            const { sendRecipientTrackingEmail } = require('../services/email');
+            await sendRecipientTrackingEmail({
+              to: recipient_email,
+              recipientName: recipient_name,
+              jobTitle: route.title,
+              trackingUrl: trackUrl,
+              deliveryCode,
+            });
+          } catch (e) { console.warn('[recipient] email hiba:', e.message); }
+        }
+        if (recipient_phone) {
+          const { sendSms } = require('../services/sms');
+            sendSms(recipient_phone, `Szia${recipient_name ? ` ${recipient_name}` : ''}! Csomag érkezik hozzád a GoFuvar-on. Átvételi kód: ${deliveryCode} Kövesd: ${trackUrl}`).catch(() => {});
+        }
+      });
+    }
   },
 );
 
@@ -508,8 +565,7 @@ router.post(
       }
 
       // 90/10 split – a mentésnél is tároljuk, hogy a lezáráskor elő tudjuk venni
-      const carrierShare = Math.round(b.price_huf * (1 - barion.COMMISSION_PCT));
-      const platformShare = b.price_huf - carrierShare;
+      const { carrierShare, platformShare } = barion.calculatePlatformFee(b.price_huf);
 
       await client.query(
         `UPDATE route_bookings
@@ -638,8 +694,7 @@ router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req,
     return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
   }
 
-  const carrierShare = Math.round(b.price_huf * (1 - barion.COMMISSION_PCT));
-  const platformShare = b.price_huf - carrierShare;
+  const { carrierShare, platformShare } = barion.calculatePlatformFee(b.price_huf);
 
   await db.query(
     `UPDATE route_bookings

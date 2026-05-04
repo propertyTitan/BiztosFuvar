@@ -19,6 +19,15 @@ export default function HomeHub() {
   const [unread, setUnread] = useState(0);
   const [driver, setDriver] = useState<any>(null);
   const [gameStats, setGameStats] = useState<any>(null);
+  const [showKycWelcome, setShowKycWelcome] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const key = `gofuvar_kyc_welcome_${user.id}`;
+    if (!localStorage.getItem(key)) {
+      setShowKycWelcome(true);
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;
@@ -104,6 +113,66 @@ export default function HomeHub() {
             </div>
             )}
           </div>
+
+          {/* KYC tájékoztató — sofőr módban is, első belépéskor */}
+          {showKycWelcome && (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: 20,
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12))',
+                border: '1px solid rgba(59,130,246,0.3)',
+              }}
+            >
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 36, flexShrink: 0 }}>🛡️</span>
+                <div>
+                  <strong style={{ fontSize: 16 }}>Sofőrként is szükséges az azonosítás!</strong>
+                  <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
+                    Ahhoz, hogy licitálhass vagy útvonalat hirdethess, szükséged van:
+                  </p>
+                  <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
+                    <li><strong>Személyi igazolvány</strong> fotója (mindkét oldal)</li>
+                    <li><strong>Jogosítvány</strong> fotója</li>
+                  </ul>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
+                        setShowKycWelcome(false);
+                        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
+                          detail: { code: 'IDENTITY_KYC_REQUIRED' },
+                        }));
+                      }}
+                      style={{
+                        padding: '10px 22px', borderRadius: 8, border: 'none',
+                        background: '#2E7D32', color: '#fff', fontWeight: 700,
+                        fontSize: 14, cursor: 'pointer',
+                      }}
+                    >
+                      🛡️ Megcsinálom most!
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
+                        setShowKycWelcome(false);
+                      }}
+                      style={{
+                        padding: '10px 22px', borderRadius: 8,
+                        border: '1px solid var(--border)', background: 'transparent',
+                        color: 'var(--text)', fontWeight: 600, fontSize: 14, cursor: 'pointer',
+                      }}
+                    >
+                      Később
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ÁLLAPOT-ALAPÚ FŐ KÁRTYA */}
           {d && d.activeJobs.length > 0 ? (
@@ -212,8 +281,10 @@ export default function HomeHub() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
             {[
               { href: '/sofor/fuvarok', icon: '🎯', label: 'Fuvarok' },
+              { href: '/sofor/dashboard', icon: '📊', label: 'Dashboard' },
               { href: '/sofor/licitjeim', icon: '🏷️', label: 'Licitjeim' },
               { href: '/sofor/sajat-fuvarok', icon: '🚛', label: t('nav.myJobs') },
+              { href: '/sofor/visszafuvar', icon: '🔄', label: 'Visszafuvar' },
               { href: '/sofor/uj-utvonal', icon: '➕', label: 'Új útvonal' },
               { href: '/sofor/utvonalaim', icon: '🛣️', label: 'Útvonalaim' },
             ].map((l) => (
@@ -246,6 +317,82 @@ export default function HomeHub() {
               Mit szeretnél szállíttatni ma?
             </p>
           </div>
+
+          {/* KYC tájékoztató — első belépéskor */}
+          {showKycWelcome && (
+            <div
+              style={{
+                marginBottom: 20,
+                padding: 20,
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12))',
+                border: '1px solid rgba(59,130,246,0.3)',
+              }}
+            >
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 36, flexShrink: 0 }}>🛡️</span>
+                <div>
+                  <strong style={{ fontSize: 16 }}>Üdvözlünk a GoFuvar-on!</strong>
+                  <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
+                    Ahhoz, hogy fuvart adhass fel vagy licitálhass, szükség van az
+                    <strong> azonosításodra (KYC)</strong>. Ez egy egyszeri, gyors lépés:
+                  </p>
+                  <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
+                    <li><strong>Feladóként:</strong> személyi igazolvány fotója (mindkét oldal)</li>
+                    <li><strong>Sofőrként:</strong> személyi igazolvány + jogosítvány fotója</li>
+                    <li><strong>Cégként:</strong> a fentiek + cégkivonat</li>
+                  </ul>
+                  <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.6 }}>
+                    Addig is nyugodtan böngészd a platformot, töltsd ki a fuvar adatait —
+                    a dokumentum feltöltést majd a feladás pillanatában kérjük tőled.
+                  </p>
+                  <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
+                        setShowKycWelcome(false);
+                        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
+                          detail: { code: 'IDENTITY_KYC_REQUIRED' },
+                        }));
+                      }}
+                      style={{
+                        padding: '10px 22px',
+                        borderRadius: 8,
+                        border: 'none',
+                        background: '#2E7D32',
+                        color: '#fff',
+                        fontWeight: 700,
+                        fontSize: 14,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      🛡️ Megcsinálom most!
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
+                        setShowKycWelcome(false);
+                      }}
+                      style={{
+                        padding: '10px 22px',
+                        borderRadius: 8,
+                        border: '1px solid var(--border)',
+                        background: 'transparent',
+                        color: 'var(--text)',
+                        fontWeight: 600,
+                        fontSize: 14,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Később
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Fő CTA: hirdetés feladás */}
           <div style={{

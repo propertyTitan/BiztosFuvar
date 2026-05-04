@@ -42,6 +42,10 @@ export default function SoforFuvarReszletek() {
   const [error, setError] = useState<string | null>(null);
 
   const [bidAmount, setBidAmount] = useState('');
+  const [feeInfoDismissed, setFeeInfoDismissed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('gofuvar_fee_info_dismissed') === '1';
+  });
   const [bidEta, setBidEta] = useState('');
   const [bidMessage, setBidMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -138,6 +142,16 @@ export default function SoforFuvarReszletek() {
           <p className="muted" style={{ margin: 0 }}>
             📍 {job.pickup_address} → 🏁 {job.dropoff_address}
           </p>
+          {(job as any).recipient_name && (
+            <div style={{ marginTop: 6, fontSize: 13 }}>
+              <strong>Címzett:</strong> {(job as any).recipient_name}
+              {(job as any).recipient_phone && (
+                <> · <a href={`tel:${(job as any).recipient_phone}`} style={{ fontWeight: 700 }}>
+                  📞 {(job as any).recipient_phone}
+                </a></>
+              )}
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
           <span className="pill pill-progress">{STATUS_LABEL[job.status] || job.status}</span>
@@ -285,6 +299,52 @@ export default function SoforFuvarReszletek() {
       {!iAmTheShipper && (job.status === 'pending' || job.status === 'bidding') && !myBid && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 style={{ marginTop: 0 }}>Licit feladása</h2>
+
+          {/* Díj figyelmeztetés — egyszer megmutatjuk, utána "ne jelenjen meg többet" */}
+          {!feeInfoDismissed && (
+            <div
+              style={{
+                padding: 14,
+                marginBottom: 16,
+                borderRadius: 8,
+                background: 'rgba(251,191,36,0.12)',
+                border: '1px solid rgba(251,191,36,0.5)',
+              }}
+            >
+              <strong style={{ fontSize: 14 }}>💰 Fontos a licitálás előtt!</strong>
+              <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>
+                Az általad megadott összeg a <strong>teljes fuvardíj</strong>, amit a
+                feladó fizet. Ebből a GoFuvar platform <strong>10% + 400 Ft</strong> díjat
+                von le — a maradék a te bevételed.
+              </p>
+              <p style={{ fontSize: 13, margin: '6px 0 0', lineHeight: 1.5 }}>
+                Példa: ha 10.000 Ft-ot adsz meg → te <strong>8.600 Ft</strong>-ot kapsz kézhez.
+              </p>
+              <label
+                style={{
+                  display: 'flex',
+                  gap: 8,
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                  marginTop: 12,
+                  fontSize: 13,
+                }}
+              >
+                <input
+                  type="checkbox"
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      localStorage.setItem('gofuvar_fee_info_dismissed', '1');
+                      setFeeInfoDismissed(true);
+                    }
+                  }}
+                  style={{ width: 16, height: 16 }}
+                />
+                Megértettem, ne jelenjen meg többet
+              </label>
+            </div>
+          )}
+
           <form onSubmit={submitBid}>
             <div className="grid-2">
               <div>
@@ -311,6 +371,29 @@ export default function SoforFuvarReszletek() {
                 />
               </div>
             </div>
+            {/* Élő nettó kifizetés számolás */}
+            {bidAmount && parseInt(bidAmount, 10) > 0 && (() => {
+              const total = parseInt(bidAmount, 10);
+              const fee = Math.round(total * 0.10) + 400;
+              const net = Math.max(0, total - fee);
+              return (
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    background: 'rgba(46,125,50,0.1)',
+                    border: '1px solid rgba(46,125,50,0.3)',
+                    fontSize: 13,
+                    marginTop: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  Platform díj: <strong>{fee.toLocaleString('hu-HU')} Ft</strong> (10% + 400 Ft)
+                  {' · '}Te kapsz: <strong style={{ color: '#2E7D32', fontSize: 15 }}>{net.toLocaleString('hu-HU')} Ft</strong>
+                </div>
+              );
+            })()}
+
             <label>Üzenet a feladónak</label>
             <textarea
               className="input"
