@@ -433,8 +433,14 @@ Elemezd a képet és válaszolj SZIGORÚAN JSON formátumban:
   "readable": boolean,
   "birth_date": string|null,
   "underage": boolean|null,
+  "document_number": string|null,
   "reason": string
 }
+
+FONTOS — DOKUMENTUM SZÁM:
+- Olvasd ki az okmány számát/azonosítóját (személyi szám, jogosítvány szám, stb.)
+- Add vissza a "document_number" mezőben
+- Ha nem olvasható ki → null
 
 Szabályok:
 - Ha a kép egyértelműen NEM okmány (pl. selfie, tájkép, üres lap, mém) → valid: false
@@ -460,6 +466,7 @@ ${birthDateInstruction}
       documentType: parsed.document_type || null,
       underage: isUnderage,
       birthDate: parsed.birth_date || null,
+      documentNumber: parsed.document_number || null,
       readable: parsed.readable !== false,
     };
   } catch (err) {

@@ -332,6 +332,29 @@ router.post('/kyc-document', authRequired, upload.single('file'), async (req, re
   const aiResult = await verifyKycDocument(req.file.buffer, req.file.mimetype, doc_type);
 
   // 18 év alatti → adminra vár (pending), nem rejected és nem verified
+  // Dokumentum szám duplikáció ellenőrzés — egy személyi = egy fiók
+  const docNumberRaw = aiResult.documentNumber;
+  let docNumberHash = null;
+  if (docNumberRaw) {
+    docNumberHash = require('crypto').createHash('sha256').update(docNumberRaw.trim().toUpperCase()).digest('hex');
+    const { rows: existing } = await db.query(
+      `SELECT k.user_id, u.email FROM kyc_documents k
+       JOIN users u ON u.id = k.user_id
+       WHERE k.doc_number_hash = $1 AND k.user_id <> $2
+         AND k.status IN ('approved', 'pending')`,
+      [docNumberHash, req.user.sub],
+    );
+    if (existing.length > 0) {
+      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM: user=${req.user.sub} docNumber=${docNumberRaw} → már használja: ${existing[0].user_id}`);
+      return res.status(409).json({
+        ok: false,
+        status: 'rejected',
+        ai_reason: 'Ez a dokumentum már egy másik fiókhoz van regisztrálva. Minden felhasználó csak egy fiókot használhat.',
+        code: 'DUPLICATE_DOCUMENT',
+      });
+    }
+  }
+
   const isUnderage = aiResult.underage === true;
   let docStatus, kycStatus, rejectionReason;
 
@@ -370,13 +393,14 @@ router.post('/kyc-document', authRequired, upload.single('file'), async (req, re
   }
 
   await db.query(
-    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason)
-     VALUES ($1, $2, $3, $4, $5)
+    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason, doc_number_hash)
+     VALUES ($1, $2, $3, $4, $5, $6)
      ON CONFLICT (user_id, doc_type) DO UPDATE SET
        file_url = EXCLUDED.file_url, status = EXCLUDED.status,
        rejection_reason = EXCLUDED.rejection_reason,
+       doc_number_hash = EXCLUDED.doc_number_hash,
        reviewed_by = NULL, reviewed_at = NOW()`,
-    [req.user.sub, doc_type, url, docStatus, rejectionReason],
+    [req.user.sub, doc_type, url, docStatus, rejectionReason, docNumberHash],
   );
 
   if (doc_type === 'id_card') {
@@ -425,6 +449,38 @@ router.post('/push-token', authRequired, async (req, res) => {
     [req.user.sub, token, platform || 'ios'],
   );
   res.json({ ok: true });
+});
+
+// DELETE /auth/me — fiók törlése (GDPR "elfeledtetéshez való jog")
+router.delete('/me', authRequired, async (req, res) => {
+  const userId = req.user.sub;
+
+  // Ellenőrzés: van-e aktív fuvar (in_progress)
+  const { rows: active } = await db.query(
+    `SELECT id FROM jobs WHERE (shipper_id = $1 OR carrier_id = $1) AND status IN ('accepted', 'in_progress')`,
+    [userId],
+  );
+  if (active.length > 0) {
+    return res.status(409).json({
+      error: 'Nem törölheted a fiókodat amíg aktív fuvarod van. Zárd le vagy mondd le a fuvarjaidat.',
+    });
+  }
+
+  // Email hash mentése az audit logba (nem az email maga — GDPR)
+  const { rows: user } = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
+  const emailHash = crypto.createHash('sha256').update(user[0]?.email || '').digest('hex');
+
+  await db.query(
+    `INSERT INTO deleted_accounts (original_user_id, email_hash, reason)
+     VALUES ($1, $2, $3)`,
+    [userId, emailHash, 'Felhasználó saját kérésére'],
+  );
+
+  // CASCADE törli: jobs, bids, photos, reviews, notifications, kyc_documents, stb.
+  await db.query('DELETE FROM users WHERE id = $1', [userId]);
+
+  console.log(`[account-delete] user ${userId} törölve (email hash: ${emailHash.slice(0, 12)}...)`);
+  res.json({ ok: true, message: 'A fiókod és minden adatod törölve lett.' });
 });
 
 module.exports = router;
