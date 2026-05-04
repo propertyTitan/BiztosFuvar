@@ -97,7 +97,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
   const { isInCoverageZone } = require('../utils/coverage');
   if (!isInCoverageZone(pickup_lat, pickup_lng) && !isInCoverageZone(dropoff_lat, dropoff_lng)) {
     return res.status(403).json({
-      error: 'Ez a terület még nem elérhető. Jelenleg Budapest és Pest megye területén működünk. Hamarosan bővítünk!',
+      error: 'Ez a cím Magyarországon kívül van. A GoFuvar jelenleg csak Magyarország területén működik.',
       code: 'OUTSIDE_COVERAGE',
     });
   }

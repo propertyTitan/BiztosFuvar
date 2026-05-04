@@ -12,60 +12,14 @@
 
 const ZONES = [
   {
-    id: 'budapest_pest',
-    name: 'Budapest és Pest megye',
+    id: 'hungary',
+    name: 'Magyarország',
     active: true,
-    // Pest megye bounding box (bőven lefedi Budapestet is)
-    minLat: 47.05,
-    maxLat: 47.95,
-    minLng: 18.40,
-    maxLng: 19.60,
-  },
-  // Később aktiválható zónák:
-  {
-    id: 'szeged',
-    name: 'Szeged és környéke',
-    active: false,
-    minLat: 46.15,
-    maxLat: 46.40,
-    minLng: 19.95,
-    maxLng: 20.30,
-  },
-  {
-    id: 'debrecen',
-    name: 'Debrecen és környéke',
-    active: false,
-    minLat: 47.40,
-    maxLat: 47.65,
-    minLng: 21.50,
-    maxLng: 21.80,
-  },
-  {
-    id: 'gyor',
-    name: 'Győr és környéke',
-    active: false,
-    minLat: 47.60,
-    maxLat: 47.75,
-    minLng: 17.55,
-    maxLng: 17.75,
-  },
-  {
-    id: 'pecs',
-    name: 'Pécs és környéke',
-    active: false,
-    minLat: 46.00,
-    maxLat: 46.15,
-    minLng: 18.15,
-    maxLng: 18.35,
-  },
-  {
-    id: 'miskolc',
-    name: 'Miskolc és környéke',
-    active: false,
-    minLat: 48.05,
-    maxLat: 48.15,
-    minLng: 20.70,
-    maxLng: 20.85,
+    // Egész Magyarország bounding box
+    minLat: 45.73,
+    maxLat: 48.59,
+    minLng: 16.11,
+    maxLng: 22.90,
   },
 ];
 
