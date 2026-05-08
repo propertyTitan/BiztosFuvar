@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
+import KycBanner from '@/components/KycBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -119,6 +120,9 @@ export default function ProfilOldal() {
 
   return (
     <div style={{ maxWidth: 640 }}>
+      {/* KYC státusz / nudge — null ha verified és nem közelít a lejárat */}
+      <KycBanner variant="card" />
+
       {/* Fejléc: avatar + név + rating */}
       <div
         style={{

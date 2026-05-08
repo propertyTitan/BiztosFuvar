@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useTranslation, formatPrice } from '@/lib/i18n';
+import KycBanner from '@/components/KycBanner';
 
 type Mode = 'driver' | 'shipper';
 
@@ -42,6 +43,9 @@ export default function HomeHub() {
 
   return (
     <div>
+      {/* KYC nudge — null-t renderel ha verified és nem közelít a lejárat */}
+      <KycBanner variant="compact" />
+
       {/* ===== Mód-váltó ===== */}
       <div style={{
         display: 'flex', justifyContent: 'center', marginBottom: 24, gap: 4,

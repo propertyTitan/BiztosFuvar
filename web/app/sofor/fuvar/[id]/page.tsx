@@ -102,6 +102,15 @@ export default function SoforFuvarReszletek() {
       setBidMessage('');
       await load();
     } catch (err: any) {
+      // Ha LICENSE_EXPIRED → ne csak puszta toast: irányítsuk a KYC oldalra.
+      if (err?.code === 'LICENSE_EXPIRED') {
+        const ok = window.confirm(
+          (err.message || 'A jogosítványod lejárt vagy nincs jóváhagyva.') +
+            '\n\nIrányítsalak a hitelesítés oldalra?',
+        );
+        if (ok) router.push('/profil/kyc');
+        return;
+      }
       toast.error('Licit hiba', err.message);
     } finally {
       setSubmitting(false);
