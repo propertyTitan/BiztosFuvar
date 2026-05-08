@@ -31,9 +31,13 @@ module.exports = {
       infoPlist: {
         NSCameraUsageDescription:
           'A GoFuvar a fuvarhoz tartozó fotók készítéséhez használja a kamerát.',
+        NSPhotoLibraryUsageDescription:
+          'A GoFuvar a fuvarhoz tartozó fotók kiválasztásához fér hozzá a galériához.',
         NSLocationWhenInUseUsageDescription:
-          'A GoFuvar a fuvar lezárásakor ellenőrzi, hogy a célhelyen vagy.',
+          'A GoFuvar a környékbeli fuvarokat a helyzeted alapján listázza, és a fuvar lezárásakor ellenőrzi, hogy a célhelyen vagy.',
         NSLocationAlwaysAndWhenInUseUsageDescription:
+          'Élő követéshez háttérben is használjuk a helyzetedet.',
+        NSLocationAlwaysUsageDescription:
           'Élő követéshez háttérben is használjuk a helyzetedet.',
       },
     },
@@ -64,8 +68,18 @@ module.exports = {
       [
         'expo-location',
         {
+          locationWhenInUsePermission:
+            'A GoFuvar a környékbeli fuvarokat a helyzeted alapján listázza, és a fuvar lezárásakor ellenőrzi, hogy a célhelyen vagy.',
           locationAlwaysAndWhenInUsePermission:
-            'A GoFuvar a fuvar lezárásához használja a GPS-t.',
+            'Élő követéshez háttérben is használjuk a helyzetedet.',
+          isIosBackgroundLocationEnabled: false,
+        },
+      ],
+      [
+        'expo-image-picker',
+        {
+          photosPermission:
+            'A GoFuvar a fuvarhoz tartozó fotók kiválasztásához fér hozzá a galériához.',
         },
       ],
     ],
