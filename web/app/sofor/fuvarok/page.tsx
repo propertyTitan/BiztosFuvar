@@ -399,12 +399,16 @@ export default function SoforFuvarokLista() {
                     })}
                   </p>
                 )}
+                {/* Bepakolás infó */}
+                {((j as any).pickup_needs_carrying || (j as any).dropoff_needs_carrying) && (
+                  <p style={{ fontSize: 12, marginTop: 6, color: '#FB8C00', fontWeight: 600 }}>
+                    📦 Cipelés:
+                    {(j as any).pickup_needs_carrying && ` Felvétel ${(j as any).pickup_floor === 0 ? 'földszint' : `${(j as any).pickup_floor}. em.`}${(j as any).pickup_floor > 0 && !(j as any).pickup_has_elevator ? ' (nincs lift!)' : ''}`}
+                    {(j as any).pickup_needs_carrying && (j as any).dropoff_needs_carrying && ' ·'}
+                    {(j as any).dropoff_needs_carrying && ` Lerakás ${(j as any).dropoff_floor === 0 ? 'földszint' : `${(j as any).dropoff_floor}. em.`}${(j as any).dropoff_floor > 0 && !(j as any).dropoff_has_elevator ? ' (nincs lift!)' : ''}`}
+                  </p>
+                )}
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div className="price" style={{ fontSize: 18 }}>
-                  {j.suggested_price_huf?.toLocaleString('hu-HU')} Ft
-                </div>
-                <div className="muted" style={{ fontSize: 12 }}>
                   {isInstant ? 'fix ár' : isMine ? 'saját hirdetés' : 'javasolt ár'}
                 </div>
                 {isInstant && !isMine && (

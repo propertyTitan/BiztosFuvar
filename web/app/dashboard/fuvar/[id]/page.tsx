@@ -56,7 +56,7 @@ export default function FuvarReszletek() {
     if (!job) return;
     const wasPaid = !!job.paid_at;
     const warning = wasPaid
-      ? 'Biztosan lemondod a fuvart? A 10% lemondási díjat (max 1000 Ft) levonjuk a Barion visszatérítésből, a maradék néhány napon belül visszakerül a kártyádra.'
+      ? 'Biztosan lemondod a fuvart? 8.000 Ft alatt 400 Ft, felette 5% lemondási díjat vonunk le, a maradék visszakerül a kártyádra.'
       : 'Biztosan lemondod a fuvart? Még nem történt fizetés, így díj sincs.';
     if (!window.confirm(warning)) return;
     const reason = window.prompt('Indok (opcionális):') || '';
@@ -348,12 +348,7 @@ export default function FuvarReszletek() {
                   {(job.accepted_price_huf ?? escrow?.amount_huf ?? 0).toLocaleString('hu-HU')} Ft
                 </strong>
               </p>
-              {escrow?.carrier_share_huf && (
-                <>
-                  <p className="muted">Sofőri rész (90%): {escrow.carrier_share_huf.toLocaleString('hu-HU')} Ft</p>
-                  <p className="muted">Platform jutalék (10%): {escrow.platform_share_huf?.toLocaleString('hu-HU')} Ft</p>
-                </>
-              )}
+              {/* Jutalék részletezés eltávolítva — a feladónak nem releváns */}
 
               {/* Fizetés állapot: FIZETVE címke, vagy Fizetés gomb.
                   A /pay endpoint lusta (ha nincs még reservation, most
@@ -417,7 +412,7 @@ export default function FuvarReszletek() {
               </button>
               {job.paid_at && (
                 <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                  Lemondási díj: 10% (max 1000 Ft) — a maradék automatikusan visszajár.
+                  Lemondási díj: 8.000 Ft alatt 400 Ft, felette 5% — a maradék automatikusan visszajár.
                 </p>
               )}
             </div>
