@@ -17,6 +17,7 @@ const { router: notificationsRouter } = require('./services/notifications');
 const aiRoutes = require('./routes/ai');
 const disputeRoutes = require('./routes/disputes');
 const messageRoutes = require('./routes/messages');
+const kycRoutes = require('./routes/kyc');
 const { globalRateLimit } = require('./middleware/rateLimit');
 
 const app = express();
@@ -60,6 +61,7 @@ app.use('/', notificationsRouter);
 app.use('/', aiRoutes);
 app.use('/', disputeRoutes);
 app.use('/', messageRoutes);
+app.use('/', kycRoutes);
 
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {

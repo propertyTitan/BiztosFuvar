@@ -75,10 +75,15 @@ router.post('/login', loginRateLimit, async (req, res) => {
 });
 
 // GET /auth/me — a bejelentkezett user teljes profilja
+//
+// A KYC mezők (kyc_status, can_bid, license_expiry, kyc_verified_at) is
+// itt jönnek vissza, hogy a mobil/web kliensek egyetlen hívásból tudják
+// eldönteni, kell-e „hitelesítsd magad" banner / a licit gomb tiltása.
 router.get('/me', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT id, role, email, full_name, phone, vehicle_type, vehicle_plate,
-            avatar_url, bio, rating_avg, rating_count, created_at
+            avatar_url, bio, rating_avg, rating_count, created_at,
+            kyc_status, kyc_verified_at, license_expiry, can_bid
        FROM users WHERE id = $1`,
     [req.user.sub],
   );
