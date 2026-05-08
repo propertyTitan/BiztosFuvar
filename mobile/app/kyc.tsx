@@ -43,6 +43,8 @@ export default function KycScreen() {
   const [fullName, setFullName] = useState('');
   const [expiry, setExpiry] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [consented, setConsented] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -103,6 +105,17 @@ export default function KycScreen() {
       );
       return;
     }
+    if (!consented) {
+      Alert.alert(
+        'Adatkezelési tájékoztató',
+        'A feltöltéshez el kell fogadnod az adatkezelési tájékoztatót.',
+      );
+      return;
+    }
+    if (!kyc?.consent_version) {
+      Alert.alert('Hiba', 'Adatkezelési verzió nem elérhető — frissítsd az appot.');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.uploadLicense({
@@ -112,6 +125,7 @@ export default function KycScreen() {
         docNumber: docNumber.trim() || undefined,
         fullName: fullName.trim() || undefined,
         expiryDate: expiry,
+        consentVersion: kyc.consent_version,
       });
       toast.success('Jogosítvány feltöltve', 'Admin jóváhagyás folyamatban.');
       setPhotoUri(null);
@@ -217,10 +231,77 @@ export default function KycScreen() {
         style={styles.input}
       />
 
+      {/* Adatkezelési tájékoztató + kötelező checkbox.
+          A backend csak akkor fogadja el a feltöltést, ha a checkbox bepipálva
+          ÉS a consent_version megegyezik a backend aktuálisával. */}
+      <View style={styles.consentBox}>
+        <Pressable
+          onPress={() => setConsented((v) => !v)}
+          style={styles.consentRow}
+          hitSlop={8}
+        >
+          <View style={[styles.checkbox, consented && styles.checkboxChecked]}>
+            {consented && <Text style={styles.checkboxTick}>✓</Text>}
+          </View>
+          <Text style={styles.consentLabel}>
+            Elfogadom az adatkezelési tájékoztatót
+          </Text>
+        </Pressable>
+
+        <Pressable onPress={() => setShowConsent((v) => !v)}>
+          <Text style={styles.consentToggle}>
+            {showConsent ? '▲ Elrejtés' : '▼ Olvasd el (kötelező KYC-hez)'}
+          </Text>
+        </Pressable>
+
+        {showConsent && (
+          <View style={styles.consentText}>
+            <Text style={styles.consentP}>
+              <Text style={{ fontWeight: '700' }}>Mit gyűjtünk:</Text> a jogosítvány
+              fotóját, a rajta lévő nevet, okmányszámot és a lejárati dátumot.
+            </Text>
+            <Text style={styles.consentP}>
+              <Text style={{ fontWeight: '700' }}>Miért:</Text> jogszabály
+              kötelez a fuvarozó-azonosításra (KYC), és ezzel védjük a feladókat
+              attól, hogy nem-jogosított sofőrhöz kerüljön a csomagjuk.
+            </Text>
+              <Text style={styles.consentP}>
+              <Text style={{ fontWeight: '700' }}>Ki látja:</Text> KIZÁRÓLAG
+              te magad és a GoFuvar adminisztrátorok a hitelesítés idejére.
+              Más felhasználó NEM látja, és sose kerül publikus URL-re.
+            </Text>
+            <Text style={styles.consentP}>
+              <Text style={{ fontWeight: '700' }}>Hol tároljuk:</Text> EU-régiós
+              privát Cloudflare R2 tárolóban, AES-256 titkosítással, csak a
+              backendből — auth + jogosultság-check után — érhető el.
+            </Text>
+            <Text style={styles.consentP}>
+              <Text style={{ fontWeight: '700' }}>Meddig:</Text> a hitelesítés
+              jóváhagyása után 30 nappal a fotó automatikusan törlődik;
+              csak az anonimizált metaadat (név, okmányszám, lejárat) marad
+              a státusz fenntartásához. Bármikor kérheted a teljes törlést a
+              profilodon a „Fiók törlése" gombbal.
+            </Text>
+            <Text style={styles.consentP}>
+              <Text style={{ fontWeight: '700' }}>Audit log:</Text> minden
+              hozzáférés a fotódhoz naplózva van (ki, mikor, mely IP-ről).
+              Lekérheted az adatigénylési űrlapunkon.
+            </Text>
+            <Text style={styles.consentVersion}>
+              Verzió: {kyc?.consent_version || '—'}
+            </Text>
+          </View>
+        )}
+      </View>
+
       <Pressable
-        style={[styles.btn, styles.btnSubmit, submitting && { opacity: 0.6 }]}
+        style={[
+          styles.btn,
+          styles.btnSubmit,
+          (submitting || !consented) && { opacity: 0.5 },
+        ]}
         onPress={submit}
-        disabled={submitting}
+        disabled={submitting || !consented}
       >
         <Text style={styles.btnSubmitText}>
           {submitting ? 'Feltöltés…' : 'Feltöltés és beküldés ellenőrzésre'}
@@ -320,4 +401,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   btnSubmitText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+
+  // ── Adatkezelési tájékoztató + checkbox ──
+  consentBox: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  consentRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  checkbox: {
+    width: 22, height: 22, borderRadius: 4,
+    borderWidth: 2, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxChecked: { backgroundColor: colors.success, borderColor: colors.success },
+  checkboxTick: { color: '#fff', fontWeight: '800', fontSize: 14, lineHeight: 14 },
+  consentLabel: { ...typography.body, color: colors.text, flex: 1 },
+  consentToggle: {
+    color: colors.primary, marginTop: spacing.sm, fontWeight: '600', fontSize: 13,
+  },
+  consentText: { marginTop: spacing.sm },
+  consentP: { ...typography.bodySmall, color: colors.textSecondary, marginBottom: 8 },
+  consentVersion: {
+    ...typography.caption, color: colors.textMuted, marginTop: spacing.sm,
+  },
 });

@@ -70,10 +70,11 @@ export type KycMe = {
   kyc_verified_at: string | null;
   license_expiry: string | null;
   can_bid: boolean;
+  consent_version: string;
   document: null | {
     id: string;
     doc_type: 'drivers_license';
-    file_url: string;
+    file_id: string | null;       // a fájl törölhető 30 nap után, akkor null
     doc_number: string | null;
     full_name_on_doc: string | null;
     expiry_date: string | null;
@@ -83,6 +84,16 @@ export type KycMe = {
     created_at: string;
   };
 };
+
+// Privát file-letöltési URL — 5 perces lejáratú, query-tokenes.
+export type FileUrlResponse = { url: string; expires_in: number };
+
+export function fullFileUrl(relativeUrl: string): string {
+  // A backend `/files/:id?t=...`-t ad vissza relatívan; a klienseknek
+  // teljes URL kell az Image source-ba.
+  if (/^https?:\/\//i.test(relativeUrl)) return relativeUrl;
+  return `${BASE_URL}${relativeUrl.startsWith('/') ? '' : '/'}${relativeUrl}`;
+}
 
 export const api = {
   login: (email: string, password: string) =>
@@ -245,7 +256,7 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ reason }) },
     ),
 
-  /** Profilkép feltöltés — multipart/form-data. */
+  /** Profilkép feltöltés — multipart/form-data. Privát R2-ra kerül. */
   uploadAvatar: async (fileUri: string) => {
     const form = new FormData();
     // @ts-expect-error – React Native FormData
@@ -264,8 +275,14 @@ export const api = {
       const err = await res.json().catch(() => ({ error: 'Feltöltés sikertelen' }));
       throw new Error(err.error || 'Feltöltés sikertelen');
     }
-    return res.json() as Promise<{ url: string }>;
+    return res.json() as Promise<{ file_id: string }>;
   },
+
+  /** Egy file-hoz rövid lejáratú signed URL kérése. Auth + permission check. */
+  getFileUrl: (fileId: string) => request<FileUrlResponse>(`/files/${fileId}/url`),
+
+  /** Saját fiók törlése — Right-to-be-forgotten. */
+  deleteMyAccount: () => request<{ ok: true; purged_files: number }>('/auth/me', { method: 'DELETE' }),
 
   getDriverDashboard: () => request<any>('/auth/me/driver-dashboard'),
 
@@ -432,6 +449,7 @@ export const api = {
     docNumber?: string;
     fullName?: string;
     expiryDate: string;
+    consentVersion: string;
   }) => {
     const form = new FormData();
     // @ts-expect-error – React Native FormData fájl objektum
@@ -443,6 +461,7 @@ export const api = {
     if (params.docNumber) form.append('doc_number', params.docNumber);
     if (params.fullName) form.append('full_name', params.fullName);
     form.append('expiry_date', params.expiryDate);
+    form.append('consent_version', params.consentVersion);
 
     const token = await getToken();
     const res = await fetch(`${BASE_URL}/kyc/license`, {

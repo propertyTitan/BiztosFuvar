@@ -16,6 +16,7 @@ import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
+import RemoteImage from '@/components/RemoteImage';
 import { colors, spacing, radius } from '@/theme';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -184,10 +185,11 @@ export default function FeladoiFuvarReszletek() {
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Fotók</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            {listingPhotos.map((p) => (
-              <Image
+            {listingPhotos.map((p: any) => (
+              <RemoteImage
                 key={p.id}
-                source={{ uri: p.url }}
+                fileId={p.file_id}
+                fallbackUrl={p.url}
                 style={styles.thumb}
               />
             ))}

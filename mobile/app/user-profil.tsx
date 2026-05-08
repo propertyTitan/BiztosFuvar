@@ -1,9 +1,10 @@
 // Publikus felhasználói profil mobilon — statisztikák, értékelések, jármű.
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, Image } from 'react-native';
+import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { api } from '@/api';
 import TruckLoader from '@/components/TruckLoader';
+import RemoteImage from '@/components/RemoteImage';
 import { colors, spacing, radius } from '@/theme';
 
 export default function UserProfil() {
@@ -26,13 +27,16 @@ export default function UserProfil() {
     <ScrollView contentContainerStyle={styles.container}>
       {/* Fejléc */}
       <View style={styles.header}>
-        {profile.avatar_url ? (
-          <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
-        ) : (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initial}</Text>
-          </View>
-        )}
+        <RemoteImage
+          fileId={profile.avatar_file_id}
+          fallbackUrl={profile.avatar_url}
+          style={styles.avatarImg}
+          fallback={
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initial}</Text>
+            </View>
+          }
+        />
         <Text style={styles.name}>{profile.full_name}</Text>
         <Text style={styles.muted}>Tag {memberSince} óta</Text>
       </View>

@@ -5,15 +5,19 @@ import {
   View, Text, TextInput, Pressable, StyleSheet, ScrollView, Alert, Image,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/api';
+import { clearCurrentUser } from '@/auth';
+import { disconnectSocket } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
 import KycBanner from '@/components/KycBanner';
+import RemoteImage from '@/components/RemoteImage';
 import { colors, spacing, radius } from '@/theme';
 
 export default function ProfilScreen() {
   const toast = useToast();
+  const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -50,12 +54,13 @@ export default function ProfilScreen() {
       quality: 0.7,
     });
     if (result.canceled || !result.assets?.[0]) return;
-    // Feltöltjük a fotót a szerverre és az URL-t mentjük a profilra
+    // Feltöltés privát R2-re, a backend automatikusan beállítja az
+    // avatar_file_id-t. Frissítjük a profilt, hogy az új file_id látsszon.
     try {
       toast.info('Profilkép feltöltése…');
-      const uploaded = await api.uploadAvatar(result.assets[0].uri);
-      const updated = await api.updateMyProfile({ avatar_url: uploaded.url });
-      setProfile(updated);
+      await api.uploadAvatar(result.assets[0].uri);
+      const refreshed = await api.getMyProfile();
+      setProfile(refreshed);
       toast.success('Profilkép mentve!');
     } catch (e: any) {
       toast.error('Hiba a feltöltésnél', e.message);
@@ -95,13 +100,16 @@ export default function ProfilScreen() {
       {/* Avatar + név + rating */}
       <View style={styles.header}>
         <Pressable onPress={pickAvatar} style={styles.avatarWrap}>
-          {profile.avatar_url ? (
-            <Image source={{ uri: profile.avatar_url }} style={styles.avatarImg} />
-          ) : (
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initial}</Text>
-            </View>
-          )}
+          <RemoteImage
+            fileId={profile.avatar_file_id}
+            fallbackUrl={profile.avatar_url}
+            style={styles.avatarImg}
+            fallback={
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{initial}</Text>
+              </View>
+            }
+          />
           <View style={styles.avatarEditBadge}>
             <Text style={{ fontSize: 14 }}>📷</Text>
           </View>
@@ -168,6 +176,39 @@ export default function ProfilScreen() {
 
           <Pressable style={styles.editBtn} onPress={() => setEditing(true)}>
             <Text style={styles.editBtnText}>✏️ Profil szerkesztése</Text>
+          </Pressable>
+
+          {/* GDPR — Right-to-be-forgotten.
+              A fiók törlése: minden feltöltött fájl R2-ről + a profil
+              anonimizálva. A jogi okból kötelező naplók (fizetés-event,
+              audit log) megmaradnak, de már nem köthetők személyhez. */}
+          <Pressable
+            style={styles.deleteBtn}
+            onPress={() => {
+              Alert.alert(
+                'Fiók törlése',
+                'BIZTOS törölni akarod a fiókodat? Minden feltöltött adatod (jogosítvány, fotók, profilkép) véglegesen törlődik. Ez nem visszavonható.',
+                [
+                  { text: 'Mégsem', style: 'cancel' },
+                  {
+                    text: 'Igen, töröld',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await api.deleteMyAccount();
+                        await clearCurrentUser();
+                        disconnectSocket();
+                        router.replace('/bejelentkezes');
+                      } catch (e: any) {
+                        Alert.alert('Hiba', e.message);
+                      }
+                    },
+                  },
+                ],
+              );
+            }}
+          >
+            <Text style={styles.deleteBtnText}>🗑 Fiók törlése (GDPR)</Text>
           </Pressable>
         </>
       ) : (
@@ -291,4 +332,14 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   editBtnText: { color: colors.primary, fontWeight: '700', fontSize: 15 },
+  deleteBtn: {
+    marginTop: spacing.md,
+    paddingVertical: 12,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: colors.danger,
+  },
+  deleteBtnText: { color: colors.danger, fontWeight: '700', fontSize: 14 },
 });
