@@ -34,6 +34,8 @@ export default function KycPage() {
   const [fullName, setFullName] = useState('');
   const [expiry, setExpiry] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [consented, setConsented] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -64,6 +66,14 @@ export default function KycPage() {
       toast.error('Lejárati dátum', 'YYYY-MM-DD, csak jövőbeli dátum.');
       return;
     }
+    if (!consented) {
+      toast.error('Adatkezelési tájékoztató', 'A feltöltéshez el kell fogadnod a tájékoztatót.');
+      return;
+    }
+    if (!kyc?.consent_version) {
+      toast.error('Hiba', 'Adatkezelési verzió nem elérhető — frissítsd az oldalt.');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.uploadLicense({
@@ -71,6 +81,7 @@ export default function KycPage() {
         docNumber: docNumber.trim() || undefined,
         fullName: fullName.trim() || undefined,
         expiryDate: expiry,
+        consentVersion: kyc.consent_version,
       });
       toast.success('Jogosítvány feltöltve', 'Admin jóváhagyás folyamatban.');
       setFile(null);
@@ -212,9 +223,56 @@ export default function KycPage() {
           />
         </label>
 
+        {/* Beleegyezés-checkbox + lenyitható tájékoztató. A backend csak akkor
+            fogadja el, ha a checkbox bepipálva ÉS a consent_version egyezik. */}
+        <div
+          style={{
+            padding: 16,
+            borderRadius: 8,
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            marginTop: 8,
+          }}
+        >
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={consented}
+              onChange={(e) => setConsented(e.target.checked)}
+              style={{ marginTop: 4 }}
+            />
+            <span style={{ fontWeight: 600 }}>Elfogadom az adatkezelési tájékoztatót</span>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => setShowConsent((v) => !v)}
+            style={{
+              background: 'transparent', border: 'none', padding: 0, marginTop: 8,
+              color: 'var(--primary)', fontWeight: 600, fontSize: 13, cursor: 'pointer',
+            }}
+          >
+            {showConsent ? '▲ Elrejtés' : '▼ Olvasd el (kötelező KYC-hez)'}
+          </button>
+
+          {showConsent && (
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 12, lineHeight: 1.5 }}>
+              <p><strong>Mit gyűjtünk:</strong> a jogosítvány fotóját, a rajta lévő nevet, okmányszámot és a lejárati dátumot.</p>
+              <p><strong>Miért:</strong> jogszabály kötelez a fuvarozó-azonosításra (KYC), és ezzel védjük a feladókat attól, hogy nem-jogosított sofőrhöz kerüljön a csomagjuk.</p>
+              <p><strong>Ki látja:</strong> KIZÁRÓLAG te magad és a GoFuvar adminisztrátorok a hitelesítés idejére. Más felhasználó NEM látja, és sose kerül publikus URL-re.</p>
+              <p><strong>Hol tároljuk:</strong> EU-régiós privát Cloudflare R2 tárolóban, AES-256 titkosítással, csak a backendből — auth + jogosultság-check után — érhető el.</p>
+              <p><strong>Meddig:</strong> a hitelesítés jóváhagyása után 30 nappal a fotó automatikusan törlődik; csak az anonimizált metaadat (név, okmányszám, lejárat) marad a státusz fenntartásához. Bármikor kérheted a teljes törlést a profilodon a „Fiók törlése" gombbal.</p>
+              <p><strong>Audit log:</strong> minden hozzáférés a fotódhoz naplózva van (ki, mikor, mely IP-ről). Lekérheted az adatigénylési űrlapunkon.</p>
+              <p style={{ marginBottom: 0, fontSize: 11, color: 'var(--muted)' }}>
+                Verzió: {kyc?.consent_version || '—'}
+              </p>
+            </div>
+          )}
+        </div>
+
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || !consented}
           style={{
             marginTop: 12,
             padding: '12px 16px',
@@ -224,8 +282,8 @@ export default function KycPage() {
             fontSize: 15,
             border: 'none',
             borderRadius: 8,
-            cursor: submitting ? 'wait' : 'pointer',
-            opacity: submitting ? 0.6 : 1,
+            cursor: submitting || !consented ? 'not-allowed' : 'pointer',
+            opacity: submitting || !consented ? 0.5 : 1,
           }}
         >
           {submitting ? 'Feltöltés…' : 'Feltöltés és beküldés ellenőrzésre'}

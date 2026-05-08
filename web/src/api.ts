@@ -193,10 +193,11 @@ export type KycMe = {
   kyc_verified_at: string | null;
   license_expiry: string | null;
   can_bid: boolean;
+  consent_version: string;
   document: null | {
     id: string;
     doc_type: 'drivers_license';
-    file_url: string;
+    file_id: string | null;        // 30 nappal a jóváhagyás után törlődhet → null
     doc_number: string | null;
     full_name_on_doc: string | null;
     expiry_date: string | null;
@@ -206,6 +207,8 @@ export type KycMe = {
     created_at: string;
   };
 };
+
+export type FileUrlResponse = { url: string; expires_in: number };
 
 export const api = {
   login: (email: string, password: string) =>
@@ -608,12 +611,14 @@ export const api = {
     docNumber?: string;
     fullName?: string;
     expiryDate: string;
+    consentVersion: string;
   }) => {
     const form = new FormData();
     form.append('file', params.file);
     if (params.docNumber) form.append('doc_number', params.docNumber);
     if (params.fullName) form.append('full_name', params.fullName);
     form.append('expiry_date', params.expiryDate);
+    form.append('consent_version', params.consentVersion);
 
     const token = getToken();
     const res = await fetch(`${BASE_URL}/kyc/license`, {
@@ -626,5 +631,47 @@ export const api = {
       throw new Error(err.error || 'Feltöltés sikertelen');
     }
     return res.json() as Promise<{ document: KycMe['document'] }>;
+  },
+
+  // ---------- Privát file hozzáférés ----------
+  getFileUrl: (fileId: string) => request<FileUrlResponse>(`/files/${fileId}/url`),
+
+  /** A signed URL teljes formája — az `<img src>` ezt használja. */
+  fileSrc: async (fileId: string) => {
+    const r = await request<FileUrlResponse>(`/files/${fileId}/url`);
+    return `${BASE_URL}${r.url}`;
+  },
+
+  /** GDPR Right-to-be-forgotten — a saját fiók törlése. */
+  deleteMyAccount: () => request<{ ok: true; purged_files: number }>('/auth/me', { method: 'DELETE' }),
+
+  // ---------- ADMIN ----------
+  adminListPendingKyc: () =>
+    request<Array<{
+      id: string; user_id: string; doc_type: string; file_id: string | null;
+      doc_number: string | null; full_name_on_doc: string | null;
+      expiry_date: string | null; status: string; created_at: string;
+      full_name: string; email: string;
+    }>>('/kyc/admin/pending'),
+
+  adminApproveKyc: (docId: string) =>
+    request<{ document: any }>(`/kyc/admin/${docId}/approve`, { method: 'POST' }),
+
+  adminRejectKyc: (docId: string, reason: string) =>
+    request<{ document: any }>(`/kyc/admin/${docId}/reject`, {
+      method: 'POST', body: JSON.stringify({ reason }),
+    }),
+
+  adminFileAccessLog: (filter?: { file_id?: string; user_id?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (filter?.file_id) qs.set('file_id', filter.file_id);
+    if (filter?.user_id) qs.set('user_id', filter.user_id);
+    if (filter?.limit) qs.set('limit', String(filter.limit));
+    return request<Array<{
+      id: number; file_id: string | null; accessor_id: string | null;
+      accessed_at: string; ip: string | null; user_agent: string | null;
+      result: string; file_kind: string | null;
+      accessor_email: string | null; accessor_name: string | null;
+    }>>(`/files/admin/access-log?${qs.toString()}`);
   },
 };

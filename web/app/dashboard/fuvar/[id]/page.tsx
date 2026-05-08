@@ -8,7 +8,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { api, Job, Bid, photoUrl } from '@/api';
+import { api, Job, Bid } from '@/api';
+import RemoteImage from '@/components/RemoteImage';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
@@ -184,13 +185,10 @@ export default function FuvarReszletek() {
             }}
           >
             {photos
-              .filter((p) => p.kind === 'listing')
-              .map((p) => (
-                <a
+              .filter((p: any) => p.kind === 'listing')
+              .map((p: any) => (
+                <div
                   key={p.id}
-                  href={photoUrl(p.url)}
-                  target="_blank"
-                  rel="noreferrer"
                   style={{
                     display: 'block',
                     aspectRatio: '1 / 1',
@@ -199,12 +197,13 @@ export default function FuvarReszletek() {
                     border: '1px solid var(--border)',
                   }}
                 >
-                  <img
-                    src={photoUrl(p.url)}
+                  <RemoteImage
+                    fileId={p.file_id}
+                    fallbackUrl={p.url}
                     alt="Fuvar fotó"
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
-                </a>
+                </div>
               ))}
           </div>
         </div>
@@ -259,8 +258,8 @@ export default function FuvarReszletek() {
             <p className="muted">Még nincs pickup/dropoff fotó feltöltve.</p>
           )}
           {photos
-            .filter((p) => p.kind !== 'listing')
-            .map((p) => (
+            .filter((p: any) => p.kind !== 'listing')
+            .map((p: any) => (
               <div key={p.id} style={{ marginBottom: 12 }}>
                 <strong>
                   {p.kind === 'pickup' ? 'Felvétel' : p.kind === 'dropoff' ? 'Lerakodás' : p.kind}
@@ -271,9 +270,10 @@ export default function FuvarReszletek() {
                   {p.ai_has_cargo != null &&
                     ` · AI: ${p.ai_has_cargo ? '✓ áru azonosítva' : '✗ nem található áru'}`}
                 </div>
-                {p.url && (
-                  <img
-                    src={photoUrl(p.url)}
+                {(p.file_id || p.url) && (
+                  <RemoteImage
+                    fileId={p.file_id}
+                    fallbackUrl={p.url}
                     alt={p.kind}
                     style={{
                       width: '100%',

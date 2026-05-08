@@ -10,6 +10,7 @@ import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import KycBanner from '@/components/KycBanner';
+import RemoteImage from '@/components/RemoteImage';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -101,11 +102,30 @@ export default function ProfilOldal() {
           body: formData,
         },
       );
-      if (!res.ok) throw new Error('Feltöltés sikertelen');
-      const { url } = await res.json();
-      const updated = await api.updateMyProfile({ avatar_url: url });
-      setProfile(updated);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Feltöltés sikertelen');
+      }
+      // A backend most { file_id }-t ad vissza; frissítjük a profilt, hogy
+      // az új avatar_file_id látszódjon.
+      const refreshed = await api.getMyProfile();
+      setProfile(refreshed);
       toast.success('Profilkép mentve!');
+    } catch (err: any) {
+      toast.error('Hiba', err.message);
+    }
+  }
+
+  async function deleteAccount() {
+    const sure = window.confirm(
+      'BIZTOS törölni akarod a fiókodat?\n\nMinden feltöltött adatod (jogosítvány, fotók, profilkép) véglegesen törlődik. Ez nem visszavonható.',
+    );
+    if (!sure) return;
+    try {
+      await api.deleteMyAccount();
+      window.localStorage.removeItem('gofuvar_user');
+      window.localStorage.removeItem('gofuvar_token');
+      router.push('/bejelentkezes');
     } catch (err: any) {
       toast.error('Hiba', err.message);
     }
@@ -146,36 +166,36 @@ export default function ProfilOldal() {
           title="Profilkép módosítása"
         >
           <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: 'none' }} />
-          {profile.avatar_url ? (
-            <img
-              src={avatarSrc(profile.avatar_url)}
-              alt=""
-              style={{
-                width: 88,
-                height: 88,
-                borderRadius: '50%',
-                objectFit: 'cover',
-                border: '3px solid var(--primary)',
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: 88,
-                height: 88,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 36,
-                color: '#fff',
-                fontWeight: 800,
-              }}
-            >
-              {(profile.full_name || '?').charAt(0).toUpperCase()}
-            </div>
-          )}
+          <RemoteImage
+            fileId={profile.avatar_file_id}
+            fallbackUrl={profile.avatar_url}
+            alt="Profilkép"
+            style={{
+              width: 88,
+              height: 88,
+              borderRadius: '50%',
+              objectFit: 'cover',
+              border: '3px solid var(--primary)',
+            }}
+            placeholder={
+              <div
+                style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 36,
+                  color: '#fff',
+                  fontWeight: 800,
+                }}
+              >
+                {(profile.full_name || '?').charAt(0).toUpperCase()}
+              </div>
+            }
+          />
           <div
             style={{
               position: 'absolute',
@@ -346,6 +366,37 @@ export default function ProfilOldal() {
             </button>
           </div>
         </>
+      )}
+
+      {/* GDPR Right-to-be-forgotten — minden képernyő-aljához tartozóan,
+          függetlenül a szerkesztés módtól. Confirm után a backend törli a
+          fájljait R2-ről, anonimizálja a profilt; a jogi naplók megmaradnak. */}
+      {!editing && (
+        <div style={{ marginTop: 48, paddingTop: 24, borderTop: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 14, color: 'var(--muted)', marginBottom: 8 }}>
+            Veszélyes zóna
+          </h3>
+          <button
+            type="button"
+            onClick={deleteAccount}
+            style={{
+              padding: '10px 16px',
+              border: '1px solid var(--danger)',
+              background: 'transparent',
+              color: 'var(--danger)',
+              borderRadius: 8,
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            🗑 Fiók törlése (GDPR)
+          </button>
+          <p className="muted" style={{ fontSize: 12, marginTop: 8, marginBottom: 0 }}>
+            Minden feltöltött adatod (jogosítvány, fotók, profilkép) véglegesen
+            törlődik az R2 tárolóból. A fizetés-naplók a számviteli törvény miatt
+            anonimizált formában megmaradnak.
+          </p>
+        </div>
       )}
     </div>
   );

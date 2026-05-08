@@ -73,6 +73,38 @@ export default function AdminPanel() {
         Üzemeltetési áttekintő — fuvarok, viták, felhasználók.
       </p>
 
+      {/* Adatvédelem-vonatkozású quick-link gombsor */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+        <Link
+          href="/admin/kyc"
+          style={{
+            padding: '8px 14px',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            textDecoration: 'none',
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          🪪 KYC ellenőrzés
+        </Link>
+        <Link
+          href="/admin/audit"
+          style={{
+            padding: '8px 14px',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 8,
+            textDecoration: 'none',
+            fontWeight: 700,
+            fontSize: 14,
+          }}
+        >
+          📋 File-hozzáférés audit
+        </Link>
+      </div>
+
       {/* Statisztikák */}
       {stats && (
         <div

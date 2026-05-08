@@ -6,13 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-function avatarSrc(url?: string) {
-  if (!url) return '';
-  if (url.startsWith('http') || url.startsWith('data:')) return url;
-  return `${API}${url}`;
-}
+import RemoteImage from '@/components/RemoteImage';
 
 export default function PublikusProfil() {
   const { id } = useParams<{ id: string }>();
@@ -42,24 +36,24 @@ export default function PublikusProfil() {
 
       {/* Fejléc */}
       <div style={{ display: 'flex', gap: 24, alignItems: 'center', marginBottom: 32 }}>
-        {profile.avatar_url ? (
-          <img
-            src={avatarSrc(profile.avatar_url)}
-            alt=""
-            style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }}
-          />
-        ) : (
-          <div
-            style={{
-              width: 88, height: 88, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 36, color: '#fff', fontWeight: 800,
-            }}
-          >
-            {(profile.full_name || '?').charAt(0).toUpperCase()}
-          </div>
-        )}
+        <RemoteImage
+          fileId={profile.avatar_file_id}
+          fallbackUrl={profile.avatar_url}
+          alt={profile.full_name || ''}
+          style={{ width: 88, height: 88, borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--primary)' }}
+          placeholder={
+            <div
+              style={{
+                width: 88, height: 88, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 36, color: '#fff', fontWeight: 800,
+              }}
+            >
+              {(profile.full_name || '?').charAt(0).toUpperCase()}
+            </div>
+          }
+        />
         <div>
           <h1 style={{ margin: 0 }}>{profile.full_name}</h1>
           <p className="muted" style={{ margin: '4px 0' }}>Tag {memberSince} óta</p>
