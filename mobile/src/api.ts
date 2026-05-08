@@ -54,10 +54,35 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || 'API hiba');
+    const e = new Error(err.error || 'API hiba') as Error & { code?: string; status?: number };
+    if (err.code) e.code = err.code;
+    e.status = res.status;
+    throw e;
   }
   return res.json() as Promise<T>;
 }
+
+export type KycStatus = 'none' | 'pending' | 'verified' | 'suspended';
+export type KycDocStatus = 'pending' | 'approved' | 'rejected' | 'expired';
+
+export type KycMe = {
+  kyc_status: KycStatus;
+  kyc_verified_at: string | null;
+  license_expiry: string | null;
+  can_bid: boolean;
+  document: null | {
+    id: string;
+    doc_type: 'drivers_license';
+    file_url: string;
+    doc_number: string | null;
+    full_name_on_doc: string | null;
+    expiry_date: string | null;
+    status: KycDocStatus;
+    reviewed_at: string | null;
+    rejection_reason: string | null;
+    created_at: string;
+  };
+};
 
 export const api = {
   login: (email: string, password: string) =>
@@ -389,5 +414,46 @@ export const api = {
       throw new Error(err.error || 'Feltöltés sikertelen');
     }
     return res.json();
+  },
+
+  // ---------- KYC / Jogosítvány hitelesítés ----------
+
+  /** Aktuális user KYC-státusza + a legutóbbi feltöltött doksi (vagy null). */
+  getKycStatus: () => request<KycMe>('/kyc/me'),
+
+  /**
+   * Jogosítvány feltöltés. A `expiryDate` ISO formátum: "YYYY-MM-DD".
+   * A státusz fel-tölt-után automatikusan `pending`-re vált, admin kell jóváhagyja.
+   */
+  uploadLicense: async (params: {
+    fileUri: string;
+    fileName?: string;
+    mimeType?: string;
+    docNumber?: string;
+    fullName?: string;
+    expiryDate: string;
+  }) => {
+    const form = new FormData();
+    // @ts-expect-error – React Native FormData fájl objektum
+    form.append('file', {
+      uri: params.fileUri,
+      name: params.fileName || 'license.jpg',
+      type: params.mimeType || 'image/jpeg',
+    });
+    if (params.docNumber) form.append('doc_number', params.docNumber);
+    if (params.fullName) form.append('full_name', params.fullName);
+    form.append('expiry_date', params.expiryDate);
+
+    const token = await getToken();
+    const res = await fetch(`${BASE_URL}/kyc/license`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form as any,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Feltöltés sikertelen');
+    }
+    return res.json() as Promise<{ document: KycMe['document'] }>;
   },
 };

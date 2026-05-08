@@ -9,6 +9,7 @@ import { useFocusEffect } from 'expo-router';
 import { api } from '@/api';
 import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
+import KycBanner from '@/components/KycBanner';
 import { colors, spacing, radius } from '@/theme';
 
 export default function ProfilScreen() {
@@ -120,6 +121,11 @@ export default function ProfilScreen() {
           <Text style={styles.muted}>Tag {memberSince} óta</Text>
         </View>
       </View>
+
+      {/* KYC státusz kártya — csak akkor jelenik meg, ha van mit mondani.
+          Megtekint módban (read-only) láttatjuk, szerkesztés alatt el van rejtve, hogy
+          ne zavarja a profil-szerkesztés flow-t. */}
+      {!editing && <KycBanner variant="card" />}
 
       {!editing ? (
         <>

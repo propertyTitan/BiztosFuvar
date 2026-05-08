@@ -7,7 +7,7 @@ import {
   View, Text, StyleSheet, Pressable, TextInput, Alert, ScrollView, Platform, Keyboard,
   InputAccessoryView, Button,
 } from 'react-native';
-import { useLocalSearchParams, Link } from 'expo-router';
+import { useLocalSearchParams, Link, useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
@@ -22,6 +22,7 @@ const PING_INTERVAL_MS = 10_000; // 10 másodpercenként frissíti a sofőr poz�
 
 export default function FuvarReszletek() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
   const toast = useToast();
   const [job, setJob] = useState<any>(null);
   const [bid, setBid] = useState('');
@@ -139,6 +140,20 @@ export default function FuvarReszletek() {
       toast.success('Licit elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
       setBid('');
     } catch (e: any) {
+      // Ha a backend `LICENSE_EXPIRED` kódot dob, ne csak egy puszta toast
+      // legyen — a felhasználó tudja meg, hogy a profil hitelesítés kell, és
+      // egy gombbal el is jusson oda.
+      if (e?.code === 'LICENSE_EXPIRED') {
+        Alert.alert(
+          'Hitelesítés szükséges',
+          e.message || 'A jogosítványod lejárt vagy nincs jóváhagyva.',
+          [
+            { text: 'Mégsem', style: 'cancel' },
+            { text: 'Jogosítvány feltöltése', onPress: () => router.push('/kyc' as any) },
+          ],
+        );
+        return;
+      }
       toast.error('Sikertelen licit', e.message);
     }
   }
