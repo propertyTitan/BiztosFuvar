@@ -8,7 +8,8 @@ const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit } = require('../middleware/rateLimit');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
-const { saveFile } = require('../services/storage');
+const { uploadAndRegister } = require('./files');
+const { purgeUserData } = require('../services/kyc');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -82,7 +83,7 @@ router.post('/login', loginRateLimit, async (req, res) => {
 router.get('/me', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT id, role, email, full_name, phone, vehicle_type, vehicle_plate,
-            avatar_url, bio, rating_avg, rating_count, created_at,
+            avatar_url, avatar_file_id, bio, rating_avg, rating_count, created_at,
             kyc_status, kyc_verified_at, license_expiry, can_bid
        FROM users WHERE id = $1`,
     [req.user.sub],
@@ -91,10 +92,13 @@ router.get('/me', authRequired, async (req, res) => {
   res.json(rows[0]);
 });
 
-// PATCH /auth/me — profil szerkesztés
-// Engedélyezett mezők: full_name, phone, vehicle_type, vehicle_plate, bio, avatar_url
+// PATCH /auth/me — profil szerkesztés.
+// Az avatar mostantól csak a /auth/avatar feltöltésen keresztül változhat
+// (az állítja az avatar_file_id-t). Itt direkt URL-t SEM lehet beírni —
+// a régi `avatar_url` mezőre szándékosan nincs írás-jog, hogy a privát
+// gate-elt fájl-rendszer kötelező legyen.
 router.patch('/me', authRequired, async (req, res) => {
-  const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio', 'avatar_url'];
+  const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio'];
   const updates = [];
   const values = [];
   let idx = 1;
@@ -116,7 +120,7 @@ router.patch('/me', authRequired, async (req, res) => {
     `UPDATE users SET ${updates.join(', ')}, updated_at = NOW()
       WHERE id = $${idx}
     RETURNING id, role, email, full_name, phone, vehicle_type, vehicle_plate,
-              avatar_url, bio, rating_avg, rating_count, created_at`,
+              avatar_url, avatar_file_id, bio, rating_avg, rating_count, created_at`,
     values,
   );
   if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
@@ -128,7 +132,7 @@ router.get('/users/:id/profile', authRequired, async (req, res) => {
   const uid = req.params.id;
   const [userRes, jobsDone, routesDone, reviewsRes] = await Promise.all([
     db.query(
-      `SELECT id, full_name, avatar_url, bio, vehicle_type, vehicle_plate,
+      `SELECT id, full_name, avatar_url, avatar_file_id, bio, vehicle_type, vehicle_plate,
               rating_avg, rating_count, trust_score, is_verified_carrier, created_at
          FROM users WHERE id = $1`,
       [uid],
@@ -276,23 +280,41 @@ router.post('/admin/grant-monthly-vouchers', authRequired, async (req, res) => {
   res.json({ ok: true, granted: count });
 });
 
-// POST /auth/avatar — profilkép feltöltés (Cloudflare R2 / disk fallback)
+// POST /auth/avatar — profilkép feltöltés. Privát R2-ra; a kliens
+// a `users.avatar_file_id`-t kapja, a /files/:id endpointtal jeleníti meg.
 router.post('/avatar', authRequired, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
   try {
-    const url = await saveFile(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype,
-    );
+    const file = await uploadAndRegister({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimetypeHint: req.file.mimetype,
+      kind: 'avatar',
+      ownerId: req.user.sub,
+    });
     await db.query(
-      `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`,
-      [url, req.user.sub],
+      `UPDATE users SET avatar_file_id = $1, avatar_url = NULL, updated_at = NOW()
+        WHERE id = $2`,
+      [file.id, req.user.sub],
     );
-    res.json({ url });
+    res.json({ file_id: file.id });
   } catch (err) {
     console.error('[auth] avatar upload hiba:', err);
-    res.status(500).json({ error: 'Fájl mentés sikertelen' });
+    res.status(400).json({ error: err.message || 'Fájl mentés sikertelen' });
+  }
+});
+
+// DELETE /auth/me — Right-to-be-forgotten.
+// A user MINDEN feltöltött fájlja törlődik R2-ről, a profil anonimizálva,
+// a jogi okból megőrzendő naplók (file_access_log, payment_events) megmaradnak
+// de már nem köthetők személyhez.
+router.delete('/me', authRequired, async (req, res) => {
+  try {
+    const result = await purgeUserData(req.user.sub);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error('[auth] account purge hiba:', err);
+    res.status(500).json({ error: 'Adattörlés sikertelen — vedd fel a kapcsolatot az ügyfélszolgálattal.' });
   }
 });
 

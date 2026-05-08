@@ -18,6 +18,8 @@ const aiRoutes = require('./routes/ai');
 const disputeRoutes = require('./routes/disputes');
 const messageRoutes = require('./routes/messages');
 const kycRoutes = require('./routes/kyc');
+const { router: filesRouter } = require('./routes/files');
+const { checkExpiredLicenses, purgeApprovedKycFiles } = require('./services/kyc');
 const { globalRateLimit } = require('./middleware/rateLimit');
 
 const app = express();
@@ -39,9 +41,14 @@ app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
 
-// Statikus fájl-kiszolgálás a feltöltött fotókhoz
-const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// FONTOS: a `/uploads` statikus serve KIZÁRÓLAG fejlesztésre. Production-ben
+// minden file a privát R2-en él, a `/files/:id` endpoint-on keresztül érhető
+// el (auth + permission + audit log). Ha mégis itt landolnánk élesben, a
+// jogosítvány-fotó publikus lenne — ezért szándékos guard.
+if (process.env.NODE_ENV !== 'production') {
+  const path = require('path');
+  app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+}
 
 // Globális, IP-alapú rate limit: 300 kérés / perc / IP. Második védelmi
 // vonal a per-endpoint limitek után — spike-ok, botok ellen védekezik.
@@ -62,6 +69,7 @@ app.use('/', aiRoutes);
 app.use('/', disputeRoutes);
 app.use('/', messageRoutes);
 app.use('/', kycRoutes);
+app.use('/', filesRouter);
 
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {
@@ -76,3 +84,21 @@ const port = parseInt(process.env.PORT || '4000', 10);
 server.listen(port, () => {
   console.log(`[gofuvar] backend fut: http://localhost:${port}`);
 });
+
+// ── Napi cron-ok (egyszerű setInterval; CLOUD_FUNCTIONS / cronjob-runner
+//   környezetben ezt érdemes EXTERNAL trigger-rel kiváltani). ──
+//
+// 1) Lejárt jogosítványok ellenőrzése — license_expiry alapján 30/7 napos
+//    figyelmeztetés és a tényleges letiltás.
+// 2) KYC fájl-purge — a jóváhagyott jogosítvány-fotót 30 nap után töröljük
+//    a tárolóból (adat-minimalizálás, GDPR).
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+async function runDailyMaintenance() {
+  try { await checkExpiredLicenses(); }
+  catch (e) { console.error('[cron] checkExpiredLicenses hiba:', e); }
+  try { await purgeApprovedKycFiles(); }
+  catch (e) { console.error('[cron] purgeApprovedKycFiles hiba:', e); }
+}
+// Első futás 60s után (ne torpedozza a boot-ot), aztán naponta.
+setTimeout(runDailyMaintenance, 60_000);
+setInterval(runDailyMaintenance, ONE_DAY_MS);

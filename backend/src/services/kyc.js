@@ -14,14 +14,24 @@ const { createNotification } = require('./notifications');
 
 /**
  * Jogosítvány feltöltés feldolgozása.
- * A lejárati dátumot manuálisan adja meg a sofőr (OCR opcionális).
+ * A `fileId` a `files` táblába mutató UUID; a tényleges file-bytes
+ * privát R2-en él, csak a `/files/:id` endpointon keresztül érhető el.
  */
-async function submitLicenseDocument({ userId, fileUrl, docNumber, fullName, expiryDate }) {
+async function submitLicenseDocument({ userId, fileId, docNumber, fullName, expiryDate }) {
+  // Ha volt korábbi (rejected vagy elavult) doksi, annak fájlját töröljük
+  // a tárolóból — ne hagyjunk lógó adatot, GDPR-konform „adat-minimalizálás".
+  const { rows: oldRows } = await db.query(
+    `SELECT file_id FROM kyc_documents WHERE user_id = $1 AND doc_type = 'drivers_license'`,
+    [userId],
+  );
+  const oldFileId = oldRows[0]?.file_id;
+
   const { rows } = await db.query(
-    `INSERT INTO kyc_documents (user_id, doc_type, file_url, doc_number, full_name_on_doc, expiry_date, status)
+    `INSERT INTO kyc_documents (user_id, doc_type, file_id, doc_number, full_name_on_doc, expiry_date, status)
      VALUES ($1, 'drivers_license', $2, $3, $4, $5, 'pending')
      ON CONFLICT (user_id, doc_type) DO UPDATE SET
-       file_url = EXCLUDED.file_url,
+       file_id = EXCLUDED.file_id,
+       file_url = NULL,
        doc_number = EXCLUDED.doc_number,
        full_name_on_doc = EXCLUDED.full_name_on_doc,
        expiry_date = EXCLUDED.expiry_date,
@@ -32,13 +42,32 @@ async function submitLicenseDocument({ userId, fileUrl, docNumber, fullName, exp
        expiry_warned_30d = false,
        expiry_warned_7d = false
      RETURNING *`,
-    [userId, fileUrl, docNumber || null, fullName || null, expiryDate || null],
+    [userId, fileId, docNumber || null, fullName || null, expiryDate || null],
   );
 
   await db.query(
     `UPDATE users SET kyc_status = 'pending' WHERE id = $1`,
     [userId],
   );
+
+  // Korábbi fájl tényleges törlése R2-ről
+  if (oldFileId && oldFileId !== fileId) {
+    setImmediate(async () => {
+      try {
+        const { rows: f } = await db.query(
+          `SELECT id, storage_key, storage_backend FROM files WHERE id = $1`,
+          [oldFileId],
+        );
+        if (f[0]) {
+          const { deleteObject } = require('./storage');
+          await deleteObject(f[0]);
+          await db.query(`UPDATE files SET deleted_at = NOW() WHERE id = $1`, [oldFileId]);
+        }
+      } catch (e) {
+        console.warn('[kyc] régi file törlése sikertelen:', e.message);
+      }
+    });
+  }
 
   return rows[0];
 }
@@ -173,9 +202,87 @@ async function checkExpiredLicenses() {
   console.log(`[kyc] Napi check: ${warn30.length} 30d warn, ${warn7.length} 7d warn, ${expired.length} expired`);
 }
 
+/**
+ * Adat-minimalizálás: jóváhagyás után 30 nappal a tényleges KYC fájlt
+ * törüljük (R2-ről + file table soft delete). A `kyc_documents` sor
+ * megmarad: státusz, lejárat, név — ezek elégségesek a licit-gate-hez.
+ *
+ * Ha a license_expiry közeleg (-30 / -7 nap), a checkExpiredLicenses()
+ * újra-uploadot kér a sofőrtől, és onnantól megint van fájl 30 napig.
+ */
+async function purgeApprovedKycFiles() {
+  const { rows: docs } = await db.query(
+    `SELECT d.id AS doc_id, d.file_id, f.storage_key, f.storage_backend
+       FROM kyc_documents d
+       JOIN files f ON f.id = d.file_id
+      WHERE d.status = 'approved'
+        AND d.reviewed_at < NOW() - INTERVAL '30 days'
+        AND f.deleted_at IS NULL`,
+  );
+  if (docs.length === 0) return 0;
+
+  const { deleteObject } = require('./storage');
+  let purged = 0;
+  for (const d of docs) {
+    try {
+      await deleteObject({ storage_key: d.storage_key, storage_backend: d.storage_backend });
+      await db.query(`UPDATE files SET deleted_at = NOW() WHERE id = $1`, [d.file_id]);
+      // A doksi sor is kapjon egy file_id = NULL-t, hogy a UI tudja:
+      // a fotó már nincs, csak a metaadat
+      await db.query(`UPDATE kyc_documents SET file_id = NULL WHERE id = $1`, [d.doc_id]);
+      purged++;
+    } catch (e) {
+      console.warn('[kyc] purge hiba:', e.message);
+    }
+  }
+  console.log(`[kyc] purgeApprovedKycFiles: ${purged} fájl törölve adat-minimalizálásból`);
+  return purged;
+}
+
+/**
+ * Right-to-be-forgotten: a user MINDEN feltöltött fájlját töröljük R2-ről,
+ * a `files` táblában soft-delete-eljük, majd a user-rekordot anonimizáljuk.
+ * Ez NEM törli a jogi okból megőrzendő naplókat (file_access_log, payment_events,
+ * data_consent_log) — azok személyazonosítás nélkül megmaradnak.
+ */
+async function purgeUserData(userId) {
+  const { rows: files } = await db.query(
+    `SELECT id, storage_key, storage_backend FROM files
+      WHERE owner_id = $1 AND deleted_at IS NULL`,
+    [userId],
+  );
+  const { deleteObject } = require('./storage');
+  for (const f of files) {
+    try { await deleteObject(f); } catch (e) { console.warn('[purge] R2 hiba:', e.message); }
+    await db.query(`UPDATE files SET deleted_at = NOW() WHERE id = $1`, [f.id]);
+  }
+
+  // KYC dokumentumok teljes törlése
+  await db.query(`DELETE FROM kyc_documents WHERE user_id = $1`, [userId]);
+
+  // User-rekord anonimizálása — id megmarad külső kulcsokhoz, de a PII nem
+  await db.query(
+    `UPDATE users
+        SET email = CONCAT('deleted-', id, '@gofuvar.invalid'),
+            password_hash = '',
+            full_name = '[törölt felhasználó]',
+            phone = NULL, bio = NULL,
+            vehicle_type = NULL, vehicle_plate = NULL,
+            avatar_url = NULL, avatar_file_id = NULL,
+            kyc_status = 'none', kyc_verified_at = NULL, license_expiry = NULL,
+            can_bid = false,
+            updated_at = NOW()
+      WHERE id = $1`,
+    [userId],
+  );
+  return { purged_files: files.length };
+}
+
 module.exports = {
   submitLicenseDocument,
   approveDocument,
   rejectDocument,
   checkExpiredLicenses,
+  purgeApprovedKycFiles,
+  purgeUserData,
 };

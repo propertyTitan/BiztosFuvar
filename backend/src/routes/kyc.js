@@ -15,7 +15,7 @@ const express = require('express');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
-const { saveFile } = require('../services/storage');
+const { uploadAndRegister } = require('./files');
 const {
   submitLicenseDocument,
   approveDocument,
@@ -26,12 +26,14 @@ const router = express.Router();
 // 8 MB elég bőven egy jogosítvány fotóra (a fotó-route 10 MB-ot enged).
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
+// A pillanatnyi adatkezelési-tájékoztató szöveg verziója. Ha módosul,
+// a verziót INKREMENTÁLD — a beleegyezések historikusan visszanézhetők.
+const KYC_CONSENT_VERSION = 'kyc_v1_2026-05-08';
+
 // GET /kyc/me — user KYC státusza
 //
-// Ez egyetlen forrás-objektum a UI-knak: a hub banner, a profil státusz-kártya,
-// és a licit-blokkolás üzenet mind ebből olvas. Ezért tartalmaz mind a user-szintű
-// (kyc_status, can_bid, license_expiry), mind a doksi-szintű (status, rejection_reason)
-// mezőket.
+// Egyetlen forrás-objektum a UI-knak. A UI a `document.file_id`-vel
+// hivatkozik a fotóra, az URL-t SOSE adjuk vissza.
 router.get('/kyc/me', authRequired, async (req, res) => {
   const uid = req.user.sub;
   const [userRes, docRes] = await Promise.all([
@@ -41,7 +43,7 @@ router.get('/kyc/me', authRequired, async (req, res) => {
       [uid],
     ),
     db.query(
-      `SELECT id, doc_type, file_url, doc_number, full_name_on_doc, expiry_date,
+      `SELECT id, doc_type, file_id, doc_number, full_name_on_doc, expiry_date,
               status, reviewed_at, rejection_reason, created_at
          FROM kyc_documents
         WHERE user_id = $1 AND doc_type = 'drivers_license'
@@ -53,22 +55,31 @@ router.get('/kyc/me', authRequired, async (req, res) => {
   res.json({
     ...userRes.rows[0],
     document: docRes.rows[0] || null,
+    consent_version: KYC_CONSENT_VERSION,
   });
 });
 
 // POST /kyc/license — multipart upload
 // Mezők:
-//   file          (kép)              kötelező
-//   doc_number    (szöveg)           opcionális
-//   full_name     (szöveg)           opcionális (a doksin lévő név)
-//   expiry_date   (YYYY-MM-DD)       kötelező — e nélkül nincs lejárati cron logika
+//   file              (kép/PDF)         kötelező — magic-byte alapján validáljuk
+//   doc_number        (szöveg)          opcionális
+//   full_name         (szöveg)          opcionális (a doksin lévő név)
+//   expiry_date       (YYYY-MM-DD)      kötelező
+//   consent_version   (szöveg)          kötelező — meg kell egyeznie a backend
+//                                       jelenlegi `KYC_CONSENT_VERSION`-jével
 router.post('/kyc/license', authRequired, upload.single('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
-  const { doc_number, full_name, expiry_date } = req.body || {};
+  const { doc_number, full_name, expiry_date, consent_version } = req.body || {};
+  if (consent_version !== KYC_CONSENT_VERSION) {
+    return res.status(400).json({
+      error: 'Az adatkezelési tájékoztató elfogadása kötelező a feltöltéshez.',
+      code: 'CONSENT_REQUIRED',
+      expected_version: KYC_CONSENT_VERSION,
+    });
+  }
   if (!expiry_date) {
     return res.status(400).json({ error: 'A lejárati dátum kötelező (YYYY-MM-DD).' });
   }
-  // Egyszerű dátum-validáció: ne lehessen múltbeli lejáratot feltölteni.
   const exp = new Date(expiry_date);
   if (Number.isNaN(exp.getTime())) {
     return res.status(400).json({ error: 'Érvénytelen lejárati dátum.' });
@@ -78,17 +89,32 @@ router.post('/kyc/license', authRequired, upload.single('file'), async (req, res
     return res.status(400).json({ error: 'A megadott lejárati dátum már elmúlt.' });
   }
 
-  let fileUrl;
+  // Beleegyezés rögzítése MIELŐTT a fájlt elmentenénk — ha a DB write
+  // megbukik, vissza tudunk lépni anélkül hogy fájl maradjon függőben.
+  await db.query(
+    `INSERT INTO data_consent_log (user_id, consent_kind, text_version, ip)
+     VALUES ($1, 'kyc_upload', $2, $3)`,
+    [req.user.sub, KYC_CONSENT_VERSION, req.ip || null],
+  );
+
+  let file;
   try {
-    fileUrl = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+    file = await uploadAndRegister({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimetypeHint: req.file.mimetype,
+      kind: 'kyc_license',
+      ownerId: req.user.sub,
+      allowPdf: true, // KYC-nél engedjük a PDF-et is, ha az ország úgy adja ki
+    });
   } catch (err) {
-    console.error('[kyc] storage save failed:', err.message);
-    return res.status(500).json({ error: 'Fájl mentés sikertelen' });
+    console.error('[kyc] upload failed:', err.message);
+    return res.status(400).json({ error: err.message || 'Fájl mentés sikertelen' });
   }
 
   const doc = await submitLicenseDocument({
     userId: req.user.sub,
-    fileUrl,
+    fileId: file.id,
     docNumber: doc_number || null,
     fullName: full_name || null,
     expiryDate: expiry_date,

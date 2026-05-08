@@ -14,17 +14,12 @@ const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { sendEmail } = require('../services/email');
-const { saveFile } = require('../services/storage');
+const { uploadAndRegister } = require('./files');
 
 const router = express.Router();
 // 10 MB kép-korlát: memóriából dolgozunk, mert a storage service
 // kapja meg a buffer-t és eldönti, hova ír (Cloudflare R2 / disk).
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-
-// Fallback: ha valami miatt a storage hívás nem megy, base64 data URL
-function encodeAsDataUrl(file) {
-  return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-}
 
 const ALLOWED_KINDS = ['listing', 'pickup', 'dropoff', 'damage', 'document'];
 
@@ -76,26 +71,30 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     }
   }
 
-  // Tárolás: a storage service eldönti, hogy Cloudflare R2-re vagy
-  // lokális diskre írjon (env-től függően). Ha mindkettő sikertelen,
-  // visszaesünk base64 data URL-re.
-  let url;
+  // Tárolás: privát R2-ra megy, az URL-t SOSE adjuk vissza a kliensnek.
+  // A frontend a `photos.file_id`-vel hivatkozik, és a `/files/:id`
+  // endpoint streameli vissza auth + permission check után.
+  let file;
   try {
-    url = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+    file = await uploadAndRegister({
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+      mimetypeHint: req.file.mimetype,
+      kind: 'job_photo',
+      ownerId: req.user.sub,
+      jobId,
+    });
   } catch (err) {
-    console.warn('[photos] storage save failed, falling back to data URL:', err.message);
-    url = encodeAsDataUrl(req.file);
+    console.error('[photos] storage save failed:', err.message);
+    return res.status(400).json({ error: err.message || 'Fájl mentés sikertelen' });
   }
 
-  // Mentés. Az AI elemzés-mezők mostantól mindig null-ok (csak rögzítjük a fotót,
-  // nem minősítjük). A GPS log-szerűen kerül be, bizonyítékként, akkor is ha
-  // nem pont a cél koordinátáján áll a sofőr.
   const { rows } = await db.query(
-    `INSERT INTO photos (job_id, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m,
+    `INSERT INTO photos (job_id, uploader_id, kind, file_id, gps_lat, gps_lng, gps_accuracy_m,
                          ai_has_cargo, ai_confidence, ai_raw_response)
      VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL) RETURNING *`,
     [
-      jobId, req.user.sub, kind, url,
+      jobId, req.user.sub, kind, file.id,
       gps_lat ? parseFloat(gps_lat) : null,
       gps_lng ? parseFloat(gps_lng) : null,
       gps_accuracy_m ? parseFloat(gps_accuracy_m) : null,
