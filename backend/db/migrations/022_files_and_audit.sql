@@ -70,6 +70,12 @@ ALTER TABLE kyc_documents ADD COLUMN IF NOT EXISTS file_id        UUID REFERENCE
 ALTER TABLE photos        ADD COLUMN IF NOT EXISTS file_id        UUID REFERENCES files(id) ON DELETE SET NULL;
 ALTER TABLE users         ADD COLUMN IF NOT EXISTS avatar_file_id UUID REFERENCES files(id) ON DELETE SET NULL;
 
+-- A régi URL-oszlopok NOT NULL constraint-jét fel kell oldani: az új kód
+-- file_id-t ír, file_url-t / url-t pedig nem tölt — ezek nélkül az
+-- INSERT-ek elhasalnának NOT NULL violation-nel.
+ALTER TABLE kyc_documents ALTER COLUMN file_url DROP NOT NULL;
+ALTER TABLE photos        ALTER COLUMN url      DROP NOT NULL;
+
 COMMENT ON TABLE files IS 'Egységes file-tábla; minden upload itt landol metaadattal. Hozzáférés csak /files/:id-n keresztül, auth+audit-tal.';
 COMMENT ON TABLE file_access_log IS 'GDPR audit log file letöltésekről — incidenshez és adatigényléshez.';
 COMMENT ON TABLE data_consent_log IS 'Felhasználói beleegyezések rögzítése — különösen KYC-feltöltéshez.';
