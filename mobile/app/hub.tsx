@@ -15,6 +15,7 @@ import { api } from '@/api';
 import { getCurrentUser, CurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
 import TruckLoader from '@/components/TruckLoader';
+import EmailVerifyBanner from '@/components/EmailVerifyBanner';
 import { colors, spacing, radius, typography, shadows } from '@/theme';
 
 type Mode = 'driver' | 'shipper';
@@ -139,6 +140,7 @@ export default function Hub() {
         <RefreshControl refreshing={false} onRefresh={load} tintColor={colors.primary} />
       }
     >
+      <EmailVerifyBanner />
       {/* ===== Mód-váltó pill ===== */}
       <View style={styles.modeSwitch}>
         <Pressable

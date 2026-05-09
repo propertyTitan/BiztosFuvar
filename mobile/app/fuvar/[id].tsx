@@ -17,6 +17,7 @@ import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
+import DisputeButton from '@/components/DisputeButton';
 import { colors, spacing, radius } from '@/theme';
 
 const PING_INTERVAL_MS = 60_000; // 60 másodpercenként frissíti a sofőr pozícióját
@@ -400,6 +401,9 @@ export default function FuvarReszletek() {
           </Link>
         </View>
       )}
+
+      {/* Vita-nyitás — in_progress/delivered/completed státuszban */}
+      <DisputeButton jobId={String(id)} status={job.status} />
     </ScrollView>
   );
 }

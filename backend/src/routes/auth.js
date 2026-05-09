@@ -9,6 +9,24 @@ const { authRequired } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit } = require('../middleware/rateLimit');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
 const { saveFile } = require('../services/storage');
+const {
+  sendEmailVerificationEmail,
+  sendPasswordResetEmail,
+} = require('../services/email');
+
+// ---------- Helper a verifikációs / reset tokenekhez ----------
+// Egyszer használatos, kriptografikailag random token. A nyers token
+// CSAK a kimenő e-mailbe kerül. A DB-ben SHA-256 hash van. A user a
+// linkkel jön vissza, mi újra hash-eljük és így keressük.
+function generateAuthToken() {
+  return crypto.randomBytes(32).toString('hex');
+}
+function hashAuthToken(token) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+function getWebBase() {
+  return process.env.WEB_BASE_URL || 'http://localhost:3000';
+}
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -60,20 +78,175 @@ router.post('/register', registerRateLimit, async (req, res) => {
     }
   }
 
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'A jelszó minimum 8 karakter legyen' });
+  }
+
   try {
+    // Email verifikációs token előállítása már regisztrációkor —
+    // azonnal megy egy welcome+verify mail. A user be tud lépni
+    // verifikálatlanul is, csak banner figyelmezteti.
+    const verifyToken = generateAuthToken();
+    const verifyHash = hashAuthToken(verifyToken);
+
     const { rows } = await db.query(
       `INSERT INTO users (role, email, password_hash, full_name, phone, vehicle_type, vehicle_plate,
-                          account_type, company_name, tax_id, company_reg_number, eu_vat_number, billing_address)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       RETURNING id, role, email, full_name, account_type`,
+                          account_type, company_name, tax_id, company_reg_number, eu_vat_number, billing_address,
+                          email_verification_token_hash, email_verification_sent_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+       RETURNING id, role, email, full_name, account_type, email_verified`,
       [role, email, hashPassword(password), full_name, phone || null, vehicle_type || null, vehicle_plate || null,
-       accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null],
+       accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null,
+       verifyHash],
     );
     const user = rows[0];
+
+    // Email küldés — best-effort, soha nem akasztjuk meg vele a registert
+    sendEmailVerificationEmail({
+      to: email,
+      fullName: full_name,
+      verifyUrl: `${getWebBase()}/email-megerositese?token=${verifyToken}`,
+    }).catch((e) => console.warn('[auth] verify mail küldés hiba:', e.message));
+
     res.status(201).json({ user, token: signToken(user) });
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Foglalt email' });
     console.error(err);
+    res.status(500).json({ error: 'Szerverhiba' });
+  }
+});
+
+// POST /auth/forgot-password — jelszó-reset link küldése
+//
+// SECURITY: a válasz mindig 200 OK + ugyanaz az üzenet, akár létezik az
+// email akár nem. Így nem szivárogtatjuk ki, hogy melyik email-cím van
+// regisztrálva nálunk (enumeration védelem).
+router.post('/forgot-password', loginRateLimit, async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'Email kötelező' });
+  const generic = {
+    ok: true,
+    message: 'Ha létezik fiók ezzel az e-mail címmel, küldtünk egy linket a jelszó visszaállításához. Nézd meg a postaládád (és a spam-mappát is).',
+  };
+  try {
+    const { rows } = await db.query(
+      `SELECT id, full_name FROM users WHERE LOWER(email) = LOWER($1)`,
+      [email],
+    );
+    const user = rows[0];
+    if (user) {
+      const token = generateAuthToken();
+      const tokenHash = hashAuthToken(token);
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+      await db.query(
+        `UPDATE users SET password_reset_token_hash = $1, password_reset_expires_at = $2 WHERE id = $3`,
+        [tokenHash, expiresAt, user.id],
+      );
+      sendPasswordResetEmail({
+        to: email,
+        fullName: user.full_name,
+        resetUrl: `${getWebBase()}/jelszo-reset?token=${token}`,
+      }).catch((e) => console.warn('[auth] reset mail hiba:', e.message));
+    }
+  } catch (err) {
+    // SECURITY: DB hibát is generic módon kezelünk.
+    console.error('[auth] forgot-password hiba:', err.message);
+  }
+  res.json(generic);
+});
+
+// POST /auth/reset-password — új jelszó beállítása a tokennel
+router.post('/reset-password', async (req, res) => {
+  const { token, password } = req.body || {};
+  if (!token || !password) return res.status(400).json({ error: 'Hiányzó adatok' });
+  if (password.length < 8) return res.status(400).json({ error: 'A jelszó minimum 8 karakter legyen' });
+  try {
+    const tokenHash = hashAuthToken(token);
+    const { rows } = await db.query(
+      `SELECT id FROM users
+        WHERE password_reset_token_hash = $1
+          AND password_reset_expires_at > NOW()`,
+      [tokenHash],
+    );
+    const user = rows[0];
+    if (!user) {
+      return res.status(400).json({
+        error: 'A link érvénytelen vagy lejárt. Kérj újat a "Elfelejtett jelszó" gombbal.',
+      });
+    }
+    await db.query(
+      `UPDATE users
+          SET password_hash = $1,
+              password_reset_token_hash = NULL,
+              password_reset_expires_at = NULL,
+              updated_at = NOW()
+        WHERE id = $2`,
+      [hashPassword(password), user.id],
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[auth] reset-password hiba:', err.message);
+    res.status(500).json({ error: 'Szerverhiba — próbáld újra később.' });
+  }
+});
+
+// GET /auth/verify-email?token=... — email-megerősítés
+router.get('/verify-email', async (req, res) => {
+  const { token } = req.query || {};
+  if (!token) return res.status(400).json({ error: 'Hiányzó token' });
+  try {
+    const tokenHash = hashAuthToken(String(token));
+    const { rows } = await db.query(
+      `UPDATE users
+          SET email_verified = true,
+              email_verification_token_hash = NULL,
+              updated_at = NOW()
+        WHERE email_verification_token_hash = $1
+        RETURNING id, email`,
+      [tokenHash],
+    );
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'Érvénytelen vagy már felhasznált link.' });
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[auth] verify-email hiba:', err.message);
+    res.status(500).json({ error: 'Szerverhiba' });
+  }
+});
+
+// POST /auth/resend-verification — bejelentkezett user új verifikációs link
+router.post('/resend-verification', authRequired, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, email, full_name, email_verified, email_verification_sent_at FROM users WHERE id = $1`,
+      [req.user.sub],
+    );
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'Nincs ilyen user' });
+    if (user.email_verified) return res.json({ ok: true, already_verified: true });
+    if (user.email_verification_sent_at) {
+      const ago = Date.now() - new Date(user.email_verification_sent_at).getTime();
+      if (ago < 60 * 1000) {
+        return res.status(429).json({
+          error: 'Pár másodpercet várj — frissen küldtünk egyet. Nézd meg a postaládád + spam mappát.',
+        });
+      }
+    }
+    const verifyToken = generateAuthToken();
+    const verifyHash = hashAuthToken(verifyToken);
+    await db.query(
+      `UPDATE users SET email_verification_token_hash = $1, email_verification_sent_at = NOW() WHERE id = $2`,
+      [verifyHash, user.id],
+    );
+    sendEmailVerificationEmail({
+      to: user.email,
+      fullName: user.full_name,
+      verifyUrl: `${getWebBase()}/email-megerositese?token=${verifyToken}`,
+    }).catch((e) => console.warn('[auth] resend mail hiba:', e.message));
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[auth] resend-verification hiba:', err.message);
     res.status(500).json({ error: 'Szerverhiba' });
   }
 });
@@ -100,7 +273,8 @@ router.get('/me', authRequired, async (req, res) => {
     `SELECT id, role, email, full_name, phone, vehicle_type, vehicle_plate,
             avatar_url, bio, rating_avg, rating_count, created_at,
             account_type, identity_kyc_status, driver_kyc_status, company_verification_status,
-            company_name, tax_id, company_reg_number, eu_vat_number, billing_address
+            company_name, tax_id, company_reg_number, eu_vat_number, billing_address,
+            email_verified
        FROM users WHERE id = $1`,
     [req.user.sub],
   );

@@ -324,6 +324,14 @@ export default function Bejelentkezes() {
             : 'Fiók létrehozása →'}
         </button>
 
+        {mode === 'login' && (
+          <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13 }}>
+            <a href="/elfelejtett-jelszo" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
+              Elfelejtetted a jelszót?
+            </a>
+          </p>
+        )}
+
         {mode === 'register' && (
           <p className="muted" style={{ fontSize: 12, marginTop: 12, textAlign: 'center' }}>
             A regisztrációval elfogadod az{' '}
