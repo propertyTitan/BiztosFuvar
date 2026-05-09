@@ -1,129 +1,172 @@
-// FONTOS: Ez a szöveg PLACEHOLDER. Launch előtt egy ügyvéddel
-// felülvizsgáltatandó és a magyar jog szerint pontosítandó. A platform
-// jellegéhez (P2P fuvarozási marketplace, escrow + Barion + AI fotó
-// + GDPR kategorizált adatkezelés) speciális ÁSZF-pontok kellenek.
-//
-// Ez itt csak strukturált váz: hogy az "ÁSZF" link már a nyilvános
-// regisztrációkor és láblécekben működjön és ne 404-eljen.
+// GoFuvar Általános Szerződési Feltételek.
+// A szöveg a Tiszta Hód Kft. jogi tanácsadói által véglegesített dokumentum.
+// Bármilyen módosítás előtt egyeztetni kell a jogi kapcsolattartóval.
 
 import Link from 'next/link';
 
 export const metadata = {
   title: 'ÁSZF — GoFuvar',
-  description: 'A GoFuvar platform Általános Szerződési Feltételei.',
+  description: 'A GoFuvar platform Általános Szerződési Feltételei (Tiszta Hód Kft.).',
 };
 
 export default function ASZFPage() {
   return (
-    <div style={{ maxWidth: 800, margin: '0 auto' }}>
-      <h1>Általános Szerződési Feltételek</h1>
-      <p className="muted" style={{ fontStyle: 'italic' }}>
-        Verzió: 0.1 (placeholder) · Hatályos: 2026-05-09 (módosítva launch előtt)
+    <div style={{ maxWidth: 800, margin: '0 auto', lineHeight: 1.6 }}>
+      <h1>Általános Szerződési Feltételek (ÁSZF)</h1>
+      <p className="muted">
+        Platform: GoFuvar (gofuvar.hu és a mobilalkalmazások)<br />
+        Hatályos: 2026. [Hónap] [Nap]-tól
       </p>
 
-      <div
-        style={{
-          padding: 16, marginTop: 16, marginBottom: 32,
-          background: '#fef3c7', border: '1px solid #f59e0b',
-          borderRadius: 8, fontSize: 14,
-        }}
-      >
-        ⚠️ <strong>Munka-példány.</strong> Ezt a szöveget egy ügyvéd véglegesíti
-        a launch előtt. A linkek már működnek, hogy a regisztráció ne legyen
-        törött, de a tartalom <em>jogi értelemben még nem hatályos</em>.
-      </div>
-
-      <h2>1. Fogalmak</h2>
+      <h2>1. A Szolgáltató adatai és Elérhetőségei</h2>
+      <p>
+        Az e-Kereskedelemről szóló 2001. évi CVIII. törvény alapján a szolgáltató adatai:
+      </p>
       <ul>
-        <li><strong>Szolgáltató</strong>: GoFuvar Kft. (cégjegyzékszám: __, székhely: __, adószám: __)</li>
-        <li><strong>Felhasználó</strong>: a Platformra regisztráló természetes vagy jogi személy</li>
-        <li><strong>Feladó</strong>: a Felhasználó, aki fuvart hirdet meg a Platformon</li>
-        <li><strong>Sofőr</strong>: a Felhasználó, aki a fuvart elvállalja</li>
-        <li><strong>Platform</strong>: a www.gofuvar.hu honlap és a kapcsolódó mobilapplikáció</li>
-        <li><strong>Letét (escrow)</strong>: a Barion Payment Zrt. által kezelt ideiglenes pénztartás</li>
+        <li><strong>Cégnév:</strong> Tiszta Hód Korlátolt Felelősségű Társaság (Tiszta Hód Kft.)</li>
+        <li><strong>Székhely:</strong> 6800 Hódmezővásárhely, Szántó Kovács János utca 144.</li>
+        <li><strong>Cégjegyzékszám:</strong> 06-09-020646</li>
+        <li><strong>Adószám:</strong> 24750792-2-06</li>
+        <li><strong>Képviseli:</strong> Jovány Gyula</li>
+        <li><strong>Központi e-mail cím:</strong> <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a></li>
+        <li><strong>Panaszkezelési e-mail cím:</strong> <a href="mailto:panasz@gofuvar.hu">panasz@gofuvar.hu</a></li>
+        <li><strong>Telefonszám:</strong> +36 20 397 9223</li>
       </ul>
 
-      <h2>2. A Szolgáltató szerepe</h2>
+      <h2>2. A Szolgáltatás jellege és Közvetítői státusz</h2>
       <p>
-        A GoFuvar egy közvetítő platform, amely lehetőséget biztosít arra, hogy
-        a Feladók és Sofőrök egymással szerződéses kapcsolatba lépjenek. A
-        Szolgáltató NEM részese a fuvarszerződésnek és NEM vállal felelősséget
-        a fuvarozással kapcsolatos teljesítésért, kivéve a kifejezetten
-        rögzített szolgáltatásokért (technikai platform üzemeltetése, fizetési
-        közvetítés, vita-rendezési eljárás).
+        A Szolgáltató egy kétoldalú informatikai közvetítő platformot (Piacteret)
+        üzemeltet. A Szolgáltató NEM végez fuvarozási vagy postai tevékenységet. A
+        fuvarozási szerződés kizárólag a csomagot feladó (továbbiakban: Feladó) és a
+        fuvarozást vállaló (továbbiakban: Sofőr) között jön létre.
       </p>
 
-      <h2>3. Regisztráció és KYC</h2>
+      <h2>3. Regisztráció és Progresszív KYC</h2>
       <p>
-        A Sofőri státuszhoz kötelező a sofőri jogosítvány feltöltése és
-        az adminisztráció általi jóváhagyása. A Szolgáltató fenntartja a
-        jogot a regisztráció elutasítására, ha a benyújtott okmányok nem
-        megfelelőek vagy lejártak.
+        <strong>3.1.</strong> A regisztráció kizárólag 18. életévüket betöltött,
+        cselekvőképes személyek és jogi személyek számára engedélyezett.
+      </p>
+      <p>
+        <strong>3.2.</strong> A tranzakciók megkezdése a személyazonosság (KYC)
+        igazolásához kötött (Személyi igazolvány, Sofőröknél + Jogosítvány, Cégeknél
+        + Cégkivonat és Adószám).
       </p>
 
-      <h2>4. Fizetés és platformdíj</h2>
+      <h2>4. Pénzügyi Feltételek és Számlázás (Bolt-modell)</h2>
       <p>
-        A platform 10% jutalékot számol fel a sikeresen teljesített fuvarok
-        után. A Feladó a fuvardíjat a Barion Payment Zrt. által kezelt
-        letétbe fizeti, amelyből a sikeres teljesítés (átvételi kód +
-        proof-of-delivery fotó) után a Szolgáltató kifizeti a Sofőr 90%-os
-        részét, és levonja a 10% jutalékot.
+        <strong>4.1. Fizetés (Barion Escrow):</strong> A fuvardíjat a Feladó a Barion
+        Payment Zrt. letéti rendszerén keresztül egyenlíti ki. A letét a sikeres
+        kézbesítés (átvételi kód beolvasása) pillanatában szabadul fel a Sofőr
+        részére.
+      </p>
+      <p>
+        <strong>4.2. Platformhasználati díj:</strong> A Szolgáltató a Sofőr felé a
+        teljes fuvardíj <strong>10%-a + 400 Ft fix adminisztrációs díjat</strong> számít
+        fel.
+      </p>
+      <p>
+        <strong>4.3. Számlázás:</strong> A fuvardíj teljes (100%) összegéről a
+        számlát/bizonylatot a Sofőr állítja ki a Feladó részére. A Szolgáltató a
+        Platformhasználati díjról állít ki számlát a Sofőr részére.
       </p>
 
-      <h2>5. Lemondás</h2>
+      <h2>5. Lemondás, Kártérítési Felelősség és DAC7</h2>
+      <p><strong>5.1. Lemondás:</strong></p>
+      <ul>
+        <li>
+          <strong>Feladói lemondás (felvétel előtt):</strong> A Szolgáltató 10% (max.
+          1.000 Ft) adminisztrációs díjat von le.
+        </li>
+        <li>
+          <strong>Sofőri lemondás:</strong> A Feladó a kifizetett letét 100%-át
+          maradéktalanul visszakapja, a Sofőr platformon belüli „Trust Score" értéke
+          csökken.
+        </li>
+      </ul>
       <p>
-        A Feladó a fuvar elindulásáig (Sofőr GPS-ping-ig) lemondhatja a
-        fuvart. Ekkor 10% (max. 1.000 Ft) lemondási díj kerül levonásra,
-        a többi visszatérítésre kerül a fizetés módja szerint.
+        <strong>5.2. A Sofőr kártérítési felelőssége:</strong> A küldemény épségéért a
+        Sofőr felel. A kártérítési felelősség felső határa a Feladó által megadott
+        deklarált érték. Amennyiben a Feladó nem adott meg deklarált értéket, a Sofőr
+        felelősségének alapértelmezett felső határa egységesen{' '}
+        <strong>bruttó 50.000 Ft</strong>. A Szolgáltató a csomagok sérüléséért nem
+        felel.
+      </p>
+      <p>
+        <strong>5.3. DAC7:</strong> A Szolgáltató a jogszabályoknak megfelelően
+        adatot szolgáltat a NAV felé a Sofőrök bevételeiről.
       </p>
 
-      <h2>6. Felelősség és kárfelelősség</h2>
+      <h2>6. Fogyasztói Jogok: Elállás és Panaszkezelés</h2>
       <p>
-        A fuvarozás során bekövetkező károkért elsősorban a Sofőr felel.
-        A Szolgáltató moderált vita-rendezési eljárást biztosít, melynek
-        kötelező elemei: a kárt jelenteni 24 órán belül, fotó-bizonyítékot
-        feltölteni, a vita-modul használata.
+        <strong>6.1. 14 napos elállási jog (B2C):</strong> A fogyasztó és a
+        vállalkozás közötti szerződések részletes szabályairól szóló 45/2014. (II.
+        26.) Korm. rendelet alapján a fogyasztónak minősülő Feladót alapesetben 14
+        napos elállási jog illeti meg.
+      </p>
+      <p>
+        <strong>6.2. Kivételszabály (Az elállási jog elvesztése):</strong> Tekintettel
+        arra, hogy a platformon a fuvarozási szolgáltatás a Feladó kifejezett,
+        előzetes beleegyezésével kezdődik meg, a Feladó elveszíti a 14 napos
+        elállási jogát abban a pillanatban, amikor a szolgáltatás egésze
+        teljesítésre kerül (a csomag sikeres kézbesítése megtörténik) [Rendelet 29. §
+        (1) bek. a) pont].
+      </p>
+      <p>
+        <strong>6.3. Panaszkezelés:</strong> A Felhasználó panaszát a{' '}
+        <a href="mailto:panasz@gofuvar.hu">panasz@gofuvar.hu</a> e-mail címen vagy a
+        Szolgáltató székhelyére küldött postai levélben teheti meg. A Szolgáltató a
+        beérkezett panaszt 30 napon belül érdemben kivizsgálja és írásban
+        megválaszolja.
+      </p>
+      <p>
+        <strong>6.4. Békéltető Testület:</strong> A panasz elutasítása esetén a
+        fogyasztó jogosult a lakóhelye, vagy a Szolgáltató székhelye szerint
+        illetékes Békéltető Testülethez fordulni. A Szolgáltató székhelye szerinti
+        testület adatai:{' '}
+        <strong>Csongrád-Csanád Megyei Békéltető Testület</strong> (Cím: 6721
+        Szeged, Párizsi krt. 8-12., E-mail:{' '}
+        <a href="mailto:bekelteto.testulet@csmkik.hu">bekelteto.testulet@csmkik.hu</a>).
       </p>
 
-      <h2>7. Vita-rendezés</h2>
+      <h3>6.5. Automatizált SMS-értesítések és Címzetti adatok</h3>
       <p>
-        A Felek között felmerülő vitákat elsősorban a Szolgáltató Admin
-        csapata bírálja el a beadott bizonyítékok alapján (fotók, GPS log,
-        kommunikáció a Platformon, átvételi kód státusza). Az Admin döntés
-        a Felekre kötelező; ha a vesztes fél nem ért egyet, peres úton
-        érvényesítheti igényét, de a letétben tartott összeg felszabadul
-        az Admin-döntés szerint.
+        <strong>Adatszolgáltatási felelősség:</strong> A Feladó kötelessége a Címzett
+        pontos telefonszámának megadása. A Feladó szavatol azért, hogy rendelkezik a
+        Címzett hozzájárulásával a telefonszám átadásához és az SMS-alapú
+        tájékoztatáshoz.
+      </p>
+      <p>
+        <strong>Az értesítési folyamat:</strong> A Szolgáltató a fuvar biztonsága és
+        a hatékony kézbesítés érdekében összesen 5 db automatizált SMS-értesítést küld
+        ki a folyamat során:
+      </p>
+      <ol>
+        <li><strong>Címzettnek:</strong> Értesítés a csomag felvételéről (sofőr adatai + átvételi kód).</li>
+        <li><strong>Címzettnek:</strong> Értesítés, amikor a sofőr 5 km-es körzeten belülre ér.</li>
+        <li><strong>Címzettnek:</strong> Értesítés, amikor a sofőr 300 méteres körzeten belülre ér („A saroknál van").</li>
+        <li><strong>Címzettnek:</strong> Visszaigazolás a sikeres kézbesítésről (a fuvar lezárásakor).</li>
+        <li><strong>Feladónak:</strong> Visszaigazolás a sikeres kézbesítésről (a fuvar lezárásakor).</li>
+      </ol>
+      <p>
+        <strong>Átvételi kód:</strong> A Címzett az SMS-ben kapja meg a 6 jegyű kódot,
+        amelynek közlése a Sofőrrel a teljesítés igazolásának alapfeltétele.
       </p>
 
-      <h2>8. A Felhasználó kötelezettségei</h2>
+      <h2>7. Az ÁSZF Módosítása</h2>
       <p>
-        Tilos hamis adatokkal regisztrálni, jogosulatlan helyen / módon
-        szállítani, illegális vagy veszélyes árut feladni vagy szállítani
-        (külön mellékletben részletezve), a Platform megkerülésével
-        kommunikálni vagy fizetni. Súlyos megsértésnél a Szolgáltató
-        kizárhatja a Felhasználót.
+        A Szolgáltató fenntartja a jogot az ÁSZF egyoldalú módosítására. A lényeges
+        módosításokról a Felhasználókat a hatálybalépés előtt legalább 15 nappal
+        e-mailben, vagy a platformon belüli (in-app) értesítés formájában tájékoztatja.
       </p>
 
-      <h2>9. Adatkezelés</h2>
-      <p>
-        Az adatkezelés részleteit az{' '}
+      <hr style={{ marginTop: 32, marginBottom: 16, border: 'none', borderTop: '1px solid var(--border)' }} />
+      <p className="muted" style={{ fontSize: 13 }}>
+        Lásd még:{' '}
         <Link href="/jogi/adatkezeles" style={{ color: 'var(--primary)' }}>
-          Adatkezelési tájékoztató
-        </Link>{' '}
-        tartalmazza.
-      </p>
-
-      <h2>10. Záró rendelkezések</h2>
-      <p>
-        Jelen ÁSZF-re a magyar jog az irányadó. A Szolgáltató fenntartja
-        a jogot az ÁSZF egyoldalú módosítására, melyről a Felhasználókat
-        értesíti a regisztrált e-mail címen, az új verzió hatálybalépését
-        legalább 14 nappal megelőzően.
-      </p>
-
-      <p className="muted" style={{ marginTop: 32, fontSize: 13 }}>
-        Vissza a{' '}
-        <Link href="/" style={{ color: 'var(--primary)' }}>főoldalra</Link>.
+          Adatkezelési tájékoztató (GDPR)
+        </Link>
+        {' · '}
+        <Link href="/" style={{ color: 'var(--primary)' }}>Főoldal</Link>
       </p>
     </div>
   );
