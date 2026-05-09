@@ -1,23 +1,17 @@
 'use client';
 
-// „Problémám van ezzel a fuvarral" gomb + modal a vita-nyitáshoz.
-//
-// Megjelenik a fuvar/foglalás detail oldalon az érintett feleknek (shipper
-// vagy carrier), olyan állapotokban amikor releváns: in_progress / delivered /
-// completed. (Nem-elfogadott vagy lemondott fuvarra nincs értelme vitát
-// nyitni — ott a támogatás-kérdezz formot lehetne ráaplikálni, de
-// ez szándékosan kimarad most.)
+// "Problemam van ezzel a fuvarral" gomb + modal a vita-nyitashoz.
+// Megjelenik a fuvar-detail oldalon a feleknek (shipper vagy carrier),
+// in_progress / delivered / completed allapotban.
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { api } from '@/api';
 import { useToast } from './ToastProvider';
 
 type Props = {
   jobId?: string;
   bookingId?: string;
-  /** A fuvar/foglalás státusza — csak megfelelőben mutatjuk. */
   status: string;
-  /** Ha már nyitott vitája a usernek (azonnal-frissítés a hívóban). */
   alreadyOpen?: boolean;
 };
 
@@ -32,7 +26,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
   const eligible = ELIGIBLE_STATUSES.includes(status) && !alreadyOpen;
   if (!eligible) return null;
 
-  async function submit() {
+  const handleSubmit = async () => {
     if (description.trim().length < 20) {
       toast.error('Túl rövid leírás', 'Minimum 20 karakter — írd le mi a probléma.');
       return;
@@ -52,10 +46,10 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
     } finally {
       setSubmitting(false);
     }
-  }
+  };
 
   return (
-    <>
+    <div>
       <button
         type="button"
         onClick={() => setOpen(true)}
@@ -74,19 +68,29 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
         🚨 Problémám van ezzel a fuvarral
       </button>
 
-      {open && (
+      {open ? (
         <div
           onClick={() => setOpen(false)}
           style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
           }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: 'var(--bg)', borderRadius: 12, padding: 24,
-              maxWidth: 480, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              background: 'var(--bg)',
+              borderRadius: 12,
+              padding: 24,
+              maxWidth: 480,
+              width: '100%',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
             }}
           >
             <h2 style={{ marginTop: 0, fontSize: 18 }}>Vita megnyitása</h2>
@@ -98,15 +102,20 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Pl. „A csomag sérülten érkezett, képet csatolok…" (min. 20 karakter)"
+              placeholder="Pl. A csomag sérülten érkezett, képet csatolok. (min. 20 karakter)"
               maxLength={2000}
               rows={6}
               autoFocus
               style={{
-                width: '100%', padding: 10, fontSize: 14,
-                border: '1px solid var(--border)', borderRadius: 8,
-                background: 'var(--surface)', color: 'var(--text)',
-                resize: 'vertical', marginTop: 8,
+                width: '100%',
+                padding: 10,
+                fontSize: 14,
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                resize: 'vertical',
+                marginTop: 8,
               }}
             />
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
@@ -115,12 +124,18 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
             <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
               <button
                 type="button"
-                onClick={submit}
+                onClick={handleSubmit}
                 disabled={submitting}
                 style={{
-                  flex: 1, padding: '10px 16px', background: 'var(--danger)',
-                  color: '#fff', fontWeight: 700, border: 'none', borderRadius: 8,
-                  cursor: 'pointer', opacity: submitting ? 0.6 : 1,
+                  flex: 1,
+                  padding: '10px 16px',
+                  background: 'var(--danger)',
+                  color: '#fff',
+                  fontWeight: 700,
+                  border: 'none',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  opacity: submitting ? 0.6 : 1,
                 }}
               >
                 {submitting ? 'Küldés…' : '🚨 Vita megnyitása'}
@@ -129,9 +144,12 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
                 type="button"
                 onClick={() => setOpen(false)}
                 style={{
-                  padding: '10px 16px', background: 'var(--surface)',
-                  color: 'var(--text)', border: '1px solid var(--border)',
-                  borderRadius: 8, cursor: 'pointer',
+                  padding: '10px 16px',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  cursor: 'pointer',
                 }}
               >
                 Mégse
@@ -139,7 +157,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
             </div>
           </div>
         </div>
-      )}
-    </>
+      ) : null}
+    </div>
   );
 }
