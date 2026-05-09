@@ -439,4 +439,20 @@ export const api = {
       account_type: string;
       documents: Array<{ doc_type: string; status: string; rejection_reason?: string; created_at: string }>;
     }>('/auth/kyc-status'),
+
+  // ---------- Jelszó & email-megerősítés ----------
+  forgotPassword: (email: string) =>
+    request<{ ok: true; message: string }>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    }),
+  resetPassword: (token: string, password: string) =>
+    request<{ ok: true }>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
+  verifyEmail: (token: string) =>
+    request<{ ok: true }>(`/auth/verify-email?token=${encodeURIComponent(token)}`),
+  resendVerification: () =>
+    request<{ ok: true; already_verified?: boolean }>('/auth/resend-verification', { method: 'POST' }),
 };

@@ -18,6 +18,7 @@ import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
+import DisputeButton from '@/components/DisputeButton';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -510,6 +511,9 @@ export default function SoforFuvarReszletek() {
           <ReviewBox entityKey="job_id" entityId={id} onDone={() => load()} />
         </div>
       )}
+
+      {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
+      <DisputeButton jobId={id} status={job.status} />
 
       {/* Összes beérkezett licit (referencia) */}
       {(job.status === 'pending' || job.status === 'bidding') && bids.length > 0 && (

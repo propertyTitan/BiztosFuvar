@@ -16,6 +16,7 @@ import { getCurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
+import DisputeButton from '@/components/DisputeButton';
 import { colors, spacing, radius } from '@/theme';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -375,6 +376,9 @@ export default function FeladoiFuvarReszletek() {
           )}
         </View>
       )}
+
+      {/* Vita-nyitás — in_progress/delivered/completed státuszban */}
+      <DisputeButton jobId={id} status={job.status} />
     </ScrollView>
   );
 }

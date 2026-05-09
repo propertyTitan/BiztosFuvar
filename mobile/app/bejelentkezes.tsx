@@ -250,6 +250,17 @@ export default function Bejelentkezes() {
         </Text>
       </Pressable>
 
+      {mode === 'login' && (
+        <Pressable
+          onPress={() => router.push('/elfelejtett-jelszo')}
+          style={{ alignSelf: 'center', marginTop: spacing.md, padding: 8 }}
+        >
+          <Text style={{ color: colors.primary, fontSize: 14, fontWeight: '600' }}>
+            Elfelejtetted a jelszót?
+          </Text>
+        </Pressable>
+      )}
+
       {mode === 'register' && (
         <Text style={styles.hint}>
           A regisztrációval elfogadod az ÁSZF-et és az Adatvédelmi tájékoztatót.

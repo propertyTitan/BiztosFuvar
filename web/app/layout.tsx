@@ -6,6 +6,8 @@ import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import AiChatWidget from '@/components/AiChatWidget';
+import EmailVerifyBanner from '@/components/EmailVerifyBanner';
+import CookieConsentBanner from '@/components/CookieConsentBanner';
 import { ToastProvider } from '@/components/ToastProvider';
 import KycModalProvider from '@/components/KycModalProvider';
 import CoverageModal from '@/components/CoverageModal';
@@ -45,9 +47,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <KycModalProvider />
           <CoverageModal />
           <SiteHeader />
+          <EmailVerifyBanner />
           <main className="site-main">{children}</main>
           <SiteFooter />
           <AiChatWidget />
+          <CookieConsentBanner />
         </ToastProvider>
         </I18nProvider>
       </body>

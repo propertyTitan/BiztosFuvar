@@ -15,6 +15,7 @@ import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
+import DisputeButton from '@/components/DisputeButton';
 import QrCode from '@/components/QrCode';
 import Confetti from '@/components/Confetti';
 
@@ -482,6 +483,9 @@ export default function FuvarReszletek() {
           </p>
         </div>
       )}
+
+      {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
+      <DisputeButton jobId={id} status={job.status} />
 
       {/* Chat — az elfogadott licittől kezdve a feladó és a sofőr
           üzenhetnek egymásnak, telefonszám-csere nélkül. */}
