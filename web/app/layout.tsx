@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
 import AiChatWidget from '@/components/AiChatWidget';
 import EmailVerifyBanner from '@/components/EmailVerifyBanner';
+import CookieConsentBanner from '@/components/CookieConsentBanner';
 import { ToastProvider } from '@/components/ToastProvider';
 import { I18nProvider } from '@/lib/i18n';
 
@@ -48,6 +49,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>© {new Date().getFullYear()} GoFuvar Kft. · Minden jog fenntartva.</div>
           </footer>
           <AiChatWidget />
+          <CookieConsentBanner />
         </ToastProvider>
         </I18nProvider>
       </body>

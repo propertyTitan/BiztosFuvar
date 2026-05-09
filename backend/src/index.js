@@ -1,5 +1,28 @@
 // GoFuvar backend belépési pont.
 require('dotenv').config();
+
+// Sentry init — ha SENTRY_DSN be van állítva, automatikusan kapcsolódik
+// és minden uncaught exception + manuálisan jelentett hiba kimegy a
+// Sentry projektbe. A `Sentry.init()`-et MINDEN egyéb require előtt
+// kell hívni, hogy az auto-instrumentation a HTTP/Express-t is befogja.
+if (process.env.SENTRY_DSN) {
+  const Sentry = require('@sentry/node');
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    tracesSampleRate: 0.1, // 10% trace-sampling — production-ban elég
+    // Bizalmas adatok kiszűrése a Sentry payload-ból
+    beforeSend(event) {
+      if (event.request?.headers) {
+        delete event.request.headers.authorization;
+        delete event.request.headers.cookie;
+      }
+      return event;
+    },
+  });
+  console.log('[sentry] aktív');
+}
+
 const http = require('http');
 const express = require('express');
 const cors = require('cors');
@@ -81,13 +104,17 @@ const server = http.createServer(app);
 realtime.init(server);
 
 // Globális safety net — Node 22+ a kezelt unhandled promise rejection-t
-// process-killel jutalmazza. Inkább csak logolunk, hogy egy egyszerű DB
-// hibától ne álljon le az egész backend és ne legyen production outage.
+// process-killel jutalmazza. Inkább csak logolunk + Sentry-be küldünk,
+// hogy egy egyszerű DB hibától ne álljon le az egész backend és ne
+// legyen production outage.
+const Sentry = process.env.SENTRY_DSN ? require('@sentry/node') : null;
 process.on('unhandledRejection', (reason) => {
   console.error('[unhandledRejection]', reason);
+  if (Sentry) Sentry.captureException(reason);
 });
 process.on('uncaughtException', (err) => {
   console.error('[uncaughtException]', err);
+  if (Sentry) Sentry.captureException(err);
 });
 
 const port = parseInt(process.env.PORT || '4000', 10);
