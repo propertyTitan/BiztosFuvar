@@ -409,8 +409,7 @@ export default function SoforFuvarokLista() {
                   </p>
                 )}
               </div>
-                  {isInstant ? 'fix ár' : isMine ? 'saját hirdetés' : 'javasolt ár'}
-                </div>
+              <div style={{ textAlign: 'right' }}>
                 {isInstant && !isMine && (
                   <button
                     type="button"
