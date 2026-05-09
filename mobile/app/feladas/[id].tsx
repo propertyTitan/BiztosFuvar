@@ -17,6 +17,7 @@ import { getSocket, joinUserRoom } from '@/socket';
 import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
 import RemoteImage from '@/components/RemoteImage';
+import ReviewSection from '@/components/ReviewSection';
 import { colors, spacing, radius } from '@/theme';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -377,6 +378,9 @@ export default function FeladoiFuvarReszletek() {
           )}
         </View>
       )}
+
+      {/* Értékelések — csak delivered/completed státuszban */}
+      <ReviewSection jobId={id} status={job.status} />
     </ScrollView>
   );
 }
