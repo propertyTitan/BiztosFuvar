@@ -19,6 +19,7 @@ import TruckLoader from '@/components/TruckLoader';
 import RemoteImage from '@/components/RemoteImage';
 import ReviewSection from '@/components/ReviewSection';
 import DisputeButton from '@/components/DisputeButton';
+import ChatSection from '@/components/ChatSection';
 import { colors, spacing, radius } from '@/theme';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -379,6 +380,9 @@ export default function FeladoiFuvarReszletek() {
           )}
         </View>
       )}
+
+      {/* Chat — accepted/in_progress/delivered/completed státuszban */}
+      <ChatSection jobId={id} status={job.status} />
 
       {/* Értékelések — csak delivered/completed státuszban */}
       <ReviewSection jobId={id} status={job.status} />
