@@ -340,6 +340,53 @@ async function sendCancellationEmail({
   });
 }
 
+/**
+ * Email-megerősítés link új regisztrációkor (vagy újraküldés).
+ */
+async function sendEmailVerificationEmail({ to, fullName, verifyUrl }) {
+  const heading = '👋 Üdv a GoFuvarnál — erősítsd meg az email címedet';
+  const bodyHtml = `
+    <p>Szia ${fullName || 'GoFuvar felhasználó'}!</p>
+    <p>Köszönjük, hogy regisztráltál! Egy utolsó lépés van hátra: kattints az alábbi
+    gombra, hogy megerősítsd az e-mail címedet. E nélkül nem tudunk neked
+    fontos értesítéseket küldeni (új licit, fizetés, lejáró jogosítvány, stb.).</p>
+    <p style="font-size:13px;color:#64748b;margin-top:16px">A link 7 napig érvényes. Ha nem te regisztráltál, hagyd figyelmen kívül ezt az emailt.</p>
+  `;
+  return sendEmail({
+    to,
+    subject: 'Erősítsd meg az email címedet — GoFuvar',
+    html: wrapHtml({
+      heading,
+      bodyHtml,
+      ctaText: 'Email megerősítése',
+      ctaHref: verifyUrl,
+    }),
+  });
+}
+
+/**
+ * Jelszó-visszaállítás link.
+ */
+async function sendPasswordResetEmail({ to, fullName, resetUrl }) {
+  const heading = '🔑 Jelszó visszaállítása';
+  const bodyHtml = `
+    <p>Szia ${fullName || 'GoFuvar felhasználó'}!</p>
+    <p>Egy kérelem érkezett a jelszavad visszaállítására. Kattints az alábbi
+    gombra, hogy új jelszót adhass meg.</p>
+    <p style="font-size:13px;color:#64748b;margin-top:16px">A link <strong>30 percig</strong> érvényes. Ha nem te kérted ezt, hagyd figyelmen kívül — a jelszavadat senki nem tudja megváltoztatni a link nélkül.</p>
+  `;
+  return sendEmail({
+    to,
+    subject: 'Jelszó visszaállítása — GoFuvar',
+    html: wrapHtml({
+      heading,
+      bodyHtml,
+      ctaText: 'Új jelszó beállítása',
+      ctaHref: resetUrl,
+    }),
+  });
+}
+
 module.exports = {
   sendEmail,
   sendBidReceivedEmail,
@@ -350,5 +397,7 @@ module.exports = {
   sendBookingPaidEmail,
   sendBookingRejectedEmail,
   sendCancellationEmail,
+  sendEmailVerificationEmail,
+  sendPasswordResetEmail,
   isStub,
 };

@@ -16,6 +16,7 @@ import { getCurrentUser, CurrentUser } from '@/auth';
 import { getSocket, joinUserRoom } from '@/socket';
 import TruckLoader from '@/components/TruckLoader';
 import KycBanner from '@/components/KycBanner';
+import EmailVerifyBanner from '@/components/EmailVerifyBanner';
 import { colors, spacing, radius, typography, shadows } from '@/theme';
 
 type Mode = 'driver' | 'shipper';
@@ -162,6 +163,7 @@ export default function Hub() {
 
       {/* KYC nudge — ha verified, semmi nem jelenik meg. Sofőrnek a leglátványosabb,
           de feladónak is hasznos, hogy lássa a státuszát. */}
+      <EmailVerifyBanner />
       <KycBanner variant="compact" />
 
       {/* ===== SOFŐR MÓD ===== */}

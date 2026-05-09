@@ -5,6 +5,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import SiteHeader from '@/components/SiteHeader';
 import AiChatWidget from '@/components/AiChatWidget';
+import EmailVerifyBanner from '@/components/EmailVerifyBanner';
 import { ToastProvider } from '@/components/ToastProvider';
 import { I18nProvider } from '@/lib/i18n';
 
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <I18nProvider>
         <ToastProvider>
           <SiteHeader />
+          <EmailVerifyBanner />
           <main className="site-main">{children}</main>
           <footer className="site-footer">
             <div style={{ fontWeight: 600, marginBottom: 4 }}>🚛 GoFuvar</div>

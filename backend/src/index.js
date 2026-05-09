@@ -80,6 +80,16 @@ app.use((err, _req, res, _next) => {
 const server = http.createServer(app);
 realtime.init(server);
 
+// Globális safety net — Node 22+ a kezelt unhandled promise rejection-t
+// process-killel jutalmazza. Inkább csak logolunk, hogy egy egyszerű DB
+// hibától ne álljon le az egész backend és ne legyen production outage.
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+
 const port = parseInt(process.env.PORT || '4000', 10);
 server.listen(port, () => {
   console.log(`[gofuvar] backend fut: http://localhost:${port}`);
