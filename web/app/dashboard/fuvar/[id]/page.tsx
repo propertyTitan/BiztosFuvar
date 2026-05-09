@@ -15,6 +15,7 @@ import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
+import DisputeButton from '@/components/DisputeButton';
 import ChatBox from '@/components/ChatBox';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -441,6 +442,11 @@ export default function FuvarReszletek() {
           </p>
         </div>
       )}
+
+      {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban
+          látszik, és csak ha még nincs vita. */}
+      <DisputeButton jobId={id} status={job.status} />
+
 
       {/* Chat — az elfogadott licittől kezdve a feladó és a sofőr
           üzenhetnek egymásnak, telefonszám-csere nélkül. */}

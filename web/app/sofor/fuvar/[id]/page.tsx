@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid } from '@/api';
 import RemoteImage from '@/components/RemoteImage';
+import DisputeButton from '@/components/DisputeButton';
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom } from '@/lib/socket';
@@ -393,6 +394,9 @@ export default function SoforFuvarReszletek() {
           <ReviewBox entityKey="job_id" entityId={id} onDone={() => load()} />
         </div>
       )}
+
+      {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
+      <DisputeButton jobId={id} status={job.status} />
 
       {/* Összes beérkezett licit (referencia) */}
       {(job.status === 'pending' || job.status === 'bidding') && bids.length > 0 && (

@@ -18,6 +18,7 @@ import { useToast } from '@/components/ToastProvider';
 import TruckLoader from '@/components/TruckLoader';
 import RemoteImage from '@/components/RemoteImage';
 import ReviewSection from '@/components/ReviewSection';
+import DisputeButton from '@/components/DisputeButton';
 import { colors, spacing, radius } from '@/theme';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -381,6 +382,9 @@ export default function FeladoiFuvarReszletek() {
 
       {/* Értékelések — csak delivered/completed státuszban */}
       <ReviewSection jobId={id} status={job.status} />
+
+      {/* Vita-nyitás — in_progress/delivered/completed státuszban */}
+      <DisputeButton jobId={id} status={job.status} />
     </ScrollView>
   );
 }
