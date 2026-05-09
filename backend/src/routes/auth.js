@@ -35,19 +35,39 @@ function signToken(user) {
 
 // POST /auth/register — óránként max 5 új fiók IP-nként
 router.post('/register', registerRateLimit, async (req, res) => {
-  const { email, password, full_name, phone, vehicle_type, vehicle_plate } = req.body || {};
+  const {
+    email, password, full_name, phone, vehicle_type, vehicle_plate,
+    account_type: rawAccountType, company_name, tax_id, company_reg_number,
+    eu_vat_number, billing_address,
+  } = req.body || {};
   // A role mező már opcionális — minden user lehet egyszerre feladó és sofőr is.
   // A DB-ben még tároljuk a legacy role mezőt, de a logika nem használja.
   const role = (req.body?.role === 'carrier' || req.body?.role === 'admin') ? req.body.role : 'shipper';
   if (!email || !password || !full_name) {
     return res.status(400).json({ error: 'Hiányzó mezők' });
   }
+
+  const accountType = rawAccountType === 'company' ? 'company' : 'individual';
+  if (accountType === 'company') {
+    if (!company_name) {
+      return res.status(400).json({ error: 'Cégnév megadása kötelező céges fiók esetén' });
+    }
+    if (!tax_id) {
+      return res.status(400).json({ error: 'Adószám megadása kötelező céges fiók esetén' });
+    }
+    if (!/^\d{8}-\d{1,2}-\d{2}$/.test(tax_id)) {
+      return res.status(400).json({ error: 'Érvénytelen adószám formátum (pl. 12345678-1-42)' });
+    }
+  }
+
   try {
     const { rows } = await db.query(
-      `INSERT INTO users (role, email, password_hash, full_name, phone, vehicle_type, vehicle_plate)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, role, email, full_name`,
-      [role, email, hashPassword(password), full_name, phone || null, vehicle_type || null, vehicle_plate || null],
+      `INSERT INTO users (role, email, password_hash, full_name, phone, vehicle_type, vehicle_plate,
+                          account_type, company_name, tax_id, company_reg_number, eu_vat_number, billing_address)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+       RETURNING id, role, email, full_name, account_type`,
+      [role, email, hashPassword(password), full_name, phone || null, vehicle_type || null, vehicle_plate || null,
+       accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null],
     );
     const user = rows[0];
     res.status(201).json({ user, token: signToken(user) });
@@ -78,7 +98,9 @@ router.post('/login', loginRateLimit, async (req, res) => {
 router.get('/me', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT id, role, email, full_name, phone, vehicle_type, vehicle_plate,
-            avatar_url, bio, rating_avg, rating_count, created_at
+            avatar_url, bio, rating_avg, rating_count, created_at,
+            account_type, identity_kyc_status, driver_kyc_status, company_verification_status,
+            company_name, tax_id, company_reg_number, eu_vat_number, billing_address
        FROM users WHERE id = $1`,
     [req.user.sub],
   );
@@ -89,7 +111,7 @@ router.get('/me', authRequired, async (req, res) => {
 // PATCH /auth/me — profil szerkesztés
 // Engedélyezett mezők: full_name, phone, vehicle_type, vehicle_plate, bio, avatar_url
 router.patch('/me', authRequired, async (req, res) => {
-  const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio', 'avatar_url'];
+  const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio', 'avatar_url', 'company_name', 'tax_id', 'company_reg_number', 'eu_vat_number', 'billing_address'];
   const updates = [];
   const values = [];
   let idx = 1;
@@ -291,6 +313,131 @@ router.post('/avatar', authRequired, upload.single('file'), async (req, res) => 
   }
 });
 
+// POST /auth/kyc-document — KYC dokumentum feltöltés + AI ellenőrzés
+//
+// Flow: feltöltés → Gemini megnézi → ha valid okmány → azonnal 'verified'
+// Ha nem valid (macska fotó, homályos, rossz típus) → 'rejected' + reason
+// Ha Gemini nem elérhető → fallback: 'verified' (admin utólag ellenőriz)
+router.post('/kyc-document', authRequired, upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
+  const { doc_type } = req.body || {};
+  const validTypes = ['id_card', 'drivers_license', 'insurance', 'vehicle_registration', 'company_document'];
+  if (!validTypes.includes(doc_type)) return res.status(400).json({ error: 'Érvénytelen dokumentum típus' });
+
+  const url = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+
+  // AI ellenőrzés: a feltöltött kép tényleg a megadott dokumentum típus-e?
+  const { verifyKycDocument } = require('../services/gemini');
+  const { createNotification } = require('../services/notifications');
+  const aiResult = await verifyKycDocument(req.file.buffer, req.file.mimetype, doc_type);
+
+  // 18 év alatti → adminra vár (pending), nem rejected és nem verified
+  // Dokumentum szám duplikáció ellenőrzés — egy személyi = egy fiók
+  const docNumberRaw = aiResult.documentNumber;
+  let docNumberHash = null;
+  if (docNumberRaw) {
+    docNumberHash = require('crypto').createHash('sha256').update(docNumberRaw.trim().toUpperCase()).digest('hex');
+    const { rows: existing } = await db.query(
+      `SELECT k.user_id, u.email FROM kyc_documents k
+       JOIN users u ON u.id = k.user_id
+       WHERE k.doc_number_hash = $1 AND k.user_id <> $2
+         AND k.status IN ('approved', 'pending')`,
+      [docNumberHash, req.user.sub],
+    );
+    if (existing.length > 0) {
+      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM: user=${req.user.sub} docNumber=${docNumberRaw} → már használja: ${existing[0].user_id}`);
+      return res.status(409).json({
+        ok: false,
+        status: 'rejected',
+        ai_reason: 'Ez a dokumentum már egy másik fiókhoz van regisztrálva. Minden felhasználó csak egy fiókot használhat.',
+        code: 'DUPLICATE_DOCUMENT',
+      });
+    }
+  }
+
+  const isUnderage = aiResult.underage === true;
+  let docStatus, kycStatus, rejectionReason;
+
+  if (isUnderage) {
+    docStatus = 'pending';
+    kycStatus = 'pending';
+    rejectionReason = 'A dokumentum tulajdonosa 18 év alatti — adminisztrátori jóváhagyásra vár.';
+    console.log(`[kyc] 18 ÉV ALATTI GYANÚ: user=${req.user.sub} birthDate=${aiResult.birthDate}`);
+    // Admin értesítés
+    try {
+      const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+      const { rows: userInfo } = await db.query(`SELECT full_name, email FROM users WHERE id = $1`, [req.user.sub]);
+      const who = userInfo[0]?.full_name || req.user.email;
+      for (const admin of admins) {
+        await createNotification({
+          user_id: admin.id,
+          type: 'kyc_underage_alert',
+          title: '⚠️ 18 év alatti KYC!',
+          body: `${who} (${req.user.email}) személyi igazolványa alapján 18 év alatti (szül.: ${aiResult.birthDate || '?'}). Kézi jóváhagyás szükséges.`,
+          link: '/admin',
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[kyc] admin notify hiba:', e.message);
+    }
+  } else if (aiResult.valid) {
+    docStatus = 'approved';
+    kycStatus = 'verified';
+    rejectionReason = null;
+    console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}${aiResult.birthDate ? ` birthDate=${aiResult.birthDate}` : ''}`);
+  } else {
+    docStatus = 'rejected';
+    kycStatus = 'rejected';
+    rejectionReason = aiResult.reason;
+    console.log(`[kyc] AI elutasítva: user=${req.user.sub} doc=${doc_type} reason="${aiResult.reason}"`);
+  }
+
+  await db.query(
+    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason, doc_number_hash)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     ON CONFLICT (user_id, doc_type) DO UPDATE SET
+       file_url = EXCLUDED.file_url, status = EXCLUDED.status,
+       rejection_reason = EXCLUDED.rejection_reason,
+       doc_number_hash = EXCLUDED.doc_number_hash,
+       reviewed_by = NULL, reviewed_at = NOW()`,
+    [req.user.sub, doc_type, url, docStatus, rejectionReason, docNumberHash],
+  );
+
+  if (doc_type === 'id_card') {
+    await db.query(`UPDATE users SET identity_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
+  } else if (doc_type === 'drivers_license') {
+    await db.query(`UPDATE users SET driver_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
+  } else if (doc_type === 'company_document') {
+    await db.query(`UPDATE users SET company_verification_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
+  }
+
+  res.json({
+    ok: aiResult.valid && !isUnderage,
+    doc_type,
+    status: kycStatus,
+    file_url: url,
+    ai_reason: isUnderage
+      ? 'A születési dátumod alapján 18 év alatti vagy. A profilod adminisztrátori jóváhagyásra vár.'
+      : aiResult.reason,
+    ai_confidence: aiResult.confidence,
+    underage: isUnderage || false,
+  });
+});
+
+// GET /auth/kyc-status — KYC státusz lekérdezése
+router.get('/kyc-status', authRequired, async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT identity_kyc_status, driver_kyc_status, company_verification_status, account_type FROM users WHERE id = $1`,
+    [req.user.sub],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Nem található' });
+  const { rows: docs } = await db.query(
+    `SELECT doc_type, status, rejection_reason, created_at FROM kyc_documents WHERE user_id = $1`,
+    [req.user.sub],
+  );
+  res.json({ ...rows[0], documents: docs });
+});
+
 // POST /auth/push-token — Expo push token regisztrálása
 router.post('/push-token', authRequired, async (req, res) => {
   const { token, platform } = req.body || {};
@@ -302,6 +449,38 @@ router.post('/push-token', authRequired, async (req, res) => {
     [req.user.sub, token, platform || 'ios'],
   );
   res.json({ ok: true });
+});
+
+// DELETE /auth/me — fiók törlése (GDPR "elfeledtetéshez való jog")
+router.delete('/me', authRequired, async (req, res) => {
+  const userId = req.user.sub;
+
+  // Ellenőrzés: van-e aktív fuvar (in_progress)
+  const { rows: active } = await db.query(
+    `SELECT id FROM jobs WHERE (shipper_id = $1 OR carrier_id = $1) AND status IN ('accepted', 'in_progress')`,
+    [userId],
+  );
+  if (active.length > 0) {
+    return res.status(409).json({
+      error: 'Nem törölheted a fiókodat amíg aktív fuvarod van. Zárd le vagy mondd le a fuvarjaidat.',
+    });
+  }
+
+  // Email hash mentése az audit logba (nem az email maga — GDPR)
+  const { rows: user } = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
+  const emailHash = crypto.createHash('sha256').update(user[0]?.email || '').digest('hex');
+
+  await db.query(
+    `INSERT INTO deleted_accounts (original_user_id, email_hash, reason)
+     VALUES ($1, $2, $3)`,
+    [userId, emailHash, 'Felhasználó saját kérésére'],
+  );
+
+  // CASCADE törli: jobs, bids, photos, reviews, notifications, kyc_documents, stb.
+  await db.query('DELETE FROM users WHERE id = $1', [userId]);
+
+  console.log(`[account-delete] user ${userId} törölve (email hash: ${emailHash.slice(0, 12)}...)`);
+  res.json({ ok: true, message: 'A fiókod és minden adatod törölve lett.' });
 });
 
 module.exports = router;

@@ -13,6 +13,7 @@ export type CurrentUser = {
   email: string;
   role: Role;
   full_name?: string;
+  account_type?: 'individual' | 'company';
 };
 
 const EVENT = 'gofuvar:auth';

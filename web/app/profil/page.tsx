@@ -257,6 +257,30 @@ export default function ProfilOldal() {
             </div>
           </div>
 
+          {/* KYC státusz kártya */}
+          <div className="card" style={{ marginTop: 16 }}>
+            <h2 style={{ marginTop: 0 }}>🛡️ Azonosítás (KYC)</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <KycStatusRow
+                label="Személyi igazolvány"
+                status={profile.identity_kyc_status}
+                docType="id_card"
+              />
+              <KycStatusRow
+                label="Jogosítvány (sofőröknek)"
+                status={profile.driver_kyc_status}
+                docType="drivers_license"
+              />
+              {profile.account_type === 'company' && (
+                <KycStatusRow
+                  label="Céges verifikáció"
+                  status={profile.company_verification_status}
+                  docType="company_document"
+                />
+              )}
+            </div>
+          </div>
+
           <button
             className="btn"
             type="button"
@@ -264,6 +288,42 @@ export default function ProfilOldal() {
             style={{ marginTop: 24 }}
           >
             ✏️ Profil szerkesztése
+          </button>
+
+          {/* Fiók törlés */}
+          <button
+            type="button"
+            onClick={async () => {
+              if (!window.confirm('Biztosan törölni szeretnéd a fiókodat?\n\nEz a művelet VISSZAVONHATATLAN — minden adatod, fuvarod, értékelésed törlődik.')) return;
+              if (!window.confirm('UTOLSÓ FIGYELMEZTETÉS: A fiókod és minden adatod véglegesen törlődik. Folytatod?')) return;
+              try {
+                const token = localStorage.getItem('gofuvar_token');
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/me`, {
+                  method: 'DELETE',
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                localStorage.removeItem('gofuvar_token');
+                localStorage.removeItem('gofuvar_user');
+                window.location.href = '/bejelentkezes';
+              } catch (err: any) {
+                toast.error('Törlés sikertelen', err.message);
+              }
+            }}
+            style={{
+              marginTop: 32,
+              padding: '10px 20px',
+              borderRadius: 8,
+              border: '1px solid #EF4444',
+              background: 'transparent',
+              color: '#EF4444',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            🗑️ Fiók végleges törlése
           </button>
         </>
       ) : (
@@ -342,6 +402,83 @@ export default function ProfilOldal() {
             </button>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+function KycStatusRow({ label, status, docType }: { label: string; status?: string; docType: string }) {
+  const isVerified = status === 'verified';
+  const isPending = status === 'pending';
+  const isRejected = status === 'rejected';
+  const isNone = !status || status === 'none';
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '10px 14px',
+        borderRadius: 8,
+        background: isVerified
+          ? 'rgba(46,125,50,0.1)'
+          : isRejected
+            ? 'rgba(239,68,68,0.1)'
+            : 'rgba(255,255,255,0.05)',
+        border: `1px solid ${isVerified ? '#2E7D32' : isRejected ? '#EF4444' : 'var(--border)'}`,
+      }}
+    >
+      <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
+      {isVerified && (
+        <span style={{ color: '#2E7D32', fontWeight: 700, fontSize: 13 }}>✅ Elfogadva</span>
+      )}
+      {isPending && (
+        <span style={{ color: '#D97706', fontWeight: 700, fontSize: 13 }}>⏳ Ellenőrzés alatt</span>
+      )}
+      {isRejected && (
+        <button
+          type="button"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
+              detail: { code: docType === 'id_card' ? 'IDENTITY_KYC_REQUIRED' : docType === 'drivers_license' ? 'DRIVER_KYC_REQUIRED' : 'COMPANY_KYC_REQUIRED' },
+            }));
+          }}
+          style={{
+            background: '#EF4444',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 6,
+            padding: '6px 14px',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          ❌ Elutasítva — Újra feltöltöm
+        </button>
+      )}
+      {isNone && (
+        <button
+          type="button"
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
+              detail: { code: docType === 'id_card' ? 'IDENTITY_KYC_REQUIRED' : docType === 'drivers_license' ? 'DRIVER_KYC_REQUIRED' : 'COMPANY_KYC_REQUIRED' },
+            }));
+          }}
+          style={{
+            background: 'var(--primary)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 6,
+            padding: '6px 14px',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: 'pointer',
+          }}
+        >
+          📄 Feltöltöm most
+        </button>
       )}
     </div>
   );

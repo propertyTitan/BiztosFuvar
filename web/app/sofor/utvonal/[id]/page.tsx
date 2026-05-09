@@ -280,6 +280,17 @@ export default function UtvonalReszletek() {
                 Lezárás (betelt)
               </button>
             )}
+            <Link
+              href={`/sofor/utvonal/${route.id}/utba-eso`}
+              className="btn"
+              style={{
+                textDecoration: 'none',
+                textAlign: 'center',
+                background: '#2E7D32',
+              }}
+            >
+              🚗 Útba eső fuvarok
+            </Link>
           </div>
         )}
       </div>

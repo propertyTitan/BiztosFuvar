@@ -26,6 +26,7 @@ export default function LiveTrackingMap({ job }: Props) {
   });
 
   const [driver, setDriver] = useState<{ lat: number; lng: number } | null>(null);
+  const [speed, setSpeed] = useState<number | null>(null);
   const [trail, setTrail] = useState<Array<{ lat: number; lng: number }>>([]);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -53,6 +54,7 @@ export default function LiveTrackingMap({ job }: Props) {
       onTrackingPing: (p) => {
         const point = { lat: p.lat, lng: p.lng };
         setDriver(point);
+        if (p.speed_kmh) setSpeed(p.speed_kmh);
         setTrail((prev) => [...prev, point].slice(-TRAIL_MAX));
         setUpdatedAt(new Date());
       },
@@ -177,16 +179,61 @@ export default function LiveTrackingMap({ job }: Props) {
         )}
       </GoogleMap>
 
-      <div className="row" style={{ marginTop: 12, alignItems: 'center' }}>
-        <span className="pill pill-progress">
-          {driver ? '🔴 Élő követés aktív' : '⏳ Várakozás a sofőr pozíciójára'}
-        </span>
-        {updatedAt && (
-          <span className="muted" style={{ fontSize: 12 }}>
-            Utolsó frissítés: {updatedAt.toLocaleTimeString('hu-HU')}
+      {/* ETA + status bar */}
+      <div
+        style={{
+          marginTop: 12,
+          padding: '12px 16px',
+          borderRadius: 10,
+          background: driver ? 'rgba(46,125,50,0.1)' : 'rgba(255,255,255,0.05)',
+          border: `1px solid ${driver ? '#2E7D32' : 'var(--border)'}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8,
+        }}
+      >
+        <div>
+          <span className="pill pill-progress" style={{ marginRight: 8 }}>
+            {driver ? '🔴 Élő követés aktív' : '⏳ Várakozás a sofőr pozíciójára'}
           </span>
-        )}
+          {updatedAt && (
+            <span className="muted" style={{ fontSize: 12 }}>
+              {updatedAt.toLocaleTimeString('hu-HU')}
+              {speed ? ` · ${Math.round(speed)} km/h` : ''}
+            </span>
+          )}
+        </div>
+        {driver && (() => {
+          const targetLat = job.status === 'accepted' ? job.pickup_lat : job.dropoff_lat;
+          const targetLng = job.status === 'accepted' ? job.pickup_lng : job.dropoff_lng;
+          const distKm = haversineKm(driver.lat, driver.lng, targetLat, targetLng);
+          const avgSpeed = (speed && speed > 5) ? speed : 40;
+          const mins = Math.round((distKm / avgSpeed) * 60);
+          const etaText = mins <= 1 ? 'Mindjárt ott van!' : mins < 60 ? `~${mins} perc` : `~${Math.floor(mins / 60)} óra ${mins % 60} perc`;
+          return (
+            <div style={{
+              padding: '6px 16px', borderRadius: 20,
+              background: '#2E7D32', color: '#fff',
+              fontWeight: 800, fontSize: 16,
+            }}>
+              {etaText}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
+}
+
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }

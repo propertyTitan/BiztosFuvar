@@ -17,6 +17,12 @@ const { router: notificationsRouter } = require('./services/notifications');
 const aiRoutes = require('./routes/ai');
 const disputeRoutes = require('./routes/disputes');
 const messageRoutes = require('./routes/messages');
+const backhaulRoutes = require('./routes/backhaul');
+const sosRoutes = require('./routes/sos');
+const calculatorRoutes = require('./routes/calculator');
+const towingRoutes = require('./routes/towing');
+const driverStatsRoutes = require('./routes/driverStats');
+const adminRoutes = require('./routes/admin');
 const { globalRateLimit } = require('./middleware/rateLimit');
 
 const app = express();
@@ -37,6 +43,15 @@ app.use(
 app.use(express.json({ limit: '2mb' }));
 
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
+
+// Publikus: szolgáltatási zónák (térkép szürkítéshez)
+app.get('/coverage/zones', (_req, res) => {
+  const { getAllZones } = require('./utils/coverage');
+  res.json(getAllZones());
+});
+const publicTrackingRoutes = require('./routes/publicTracking');
+app.use('/', calculatorRoutes);
+app.use('/', publicTrackingRoutes);
 
 // Statikus fájl-kiszolgálás a feltöltött fotókhoz
 const path = require('path');
@@ -60,6 +75,11 @@ app.use('/', notificationsRouter);
 app.use('/', aiRoutes);
 app.use('/', disputeRoutes);
 app.use('/', messageRoutes);
+app.use('/', backhaulRoutes);
+app.use('/', sosRoutes);
+app.use('/', towingRoutes);
+app.use('/', driverStatsRoutes);
+app.use('/', adminRoutes);
 
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {

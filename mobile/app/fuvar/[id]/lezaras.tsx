@@ -21,7 +21,7 @@ import * as Location from 'expo-location';
 import { api } from '@/api';
 import { colors, spacing, radius } from '@/theme';
 
-type Step = 'camera' | 'preview' | 'uploading' | 'done';
+type Step = 'camera' | 'preview' | 'qr_scan' | 'uploading' | 'done';
 
 export default function FuvarLezarasa() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,6 +35,7 @@ export default function FuvarLezarasa() {
   const [gps, setGps] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [code, setCode] = useState('');
   const [result, setResult] = useState<any>(null);
+  const [qrProcessing, setQrProcessing] = useState(false);
 
   // Fuvar betöltése
   useEffect(() => {
@@ -103,6 +104,55 @@ export default function FuvarLezarasa() {
     }
   }
 
+  function handleQrScanned(data: string) {
+    if (qrProcessing) return;
+    // Format: gofuvar:deliver:<jobId>:<6-digit-code>
+    const match = data.match(/^gofuvar:deliver:([^:]+):(\d{6})$/);
+    if (!match) {
+      Alert.alert('Érvénytelen QR kód', 'Ez nem GoFuvar átvételi QR kód.');
+      return;
+    }
+    const [, scannedJobId, scannedCode] = match;
+    if (scannedJobId !== id) {
+      Alert.alert('Nem ehhez a fuvarhoz tartozik', 'Ez a QR kód egy másik fuvarhoz lett generálva.');
+      return;
+    }
+    // Auto-fill és azonnal lezárás
+    setCode(scannedCode);
+    setQrProcessing(true);
+    setStep('preview');
+    // Auto-submit: nem kell kézzel megnyomni a lezárás gombot
+    setTimeout(() => {
+      autoSubmitWithCode(scannedCode);
+    }, 300);
+  }
+
+  async function autoSubmitWithCode(scannedCode: string) {
+    if (!photoUri) {
+      setQrProcessing(false);
+      return;
+    }
+    setStep('uploading');
+    try {
+      const res = await api.uploadPhoto({
+        jobId: id!,
+        kind: 'dropoff',
+        fileUri: photoUri,
+        delivery_code: scannedCode,
+        gps_lat: gps?.lat,
+        gps_lng: gps?.lng,
+        gps_accuracy_m: gps?.accuracy,
+      });
+      setResult(res);
+      setStep('done');
+    } catch (e: any) {
+      setStep('preview');
+      Alert.alert('Sikertelen feltöltés', e.message);
+    } finally {
+      setQrProcessing(false);
+    }
+  }
+
   async function uploadAndFinalize() {
     if (!photoUri) return;
     if (code.trim().length !== 6) {
@@ -148,6 +198,32 @@ export default function FuvarLezarasa() {
     );
   }
 
+  if (step === 'qr_scan') {
+    return (
+      <View style={{ flex: 1 }}>
+        <CameraView
+          style={{ flex: 1 }}
+          facing="back"
+          barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+          onBarcodeScanned={(result) => handleQrScanned(result.data)}
+        />
+        <View style={styles.bottomBar}>
+          <Text style={styles.bottomLabel}>
+            Tartsd a kamerát a feladó/átvevő QR kódjára
+          </Text>
+          <Pressable
+            style={[styles.cta, styles.ctaSecondary, { marginTop: spacing.sm }]}
+            onPress={() => setStep('preview')}
+          >
+            <Text style={[styles.ctaText, { color: colors.primary }]}>
+              Inkább kézzel írom be a kódot
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   if (step === 'preview') {
     return (
       <ScrollView
@@ -156,7 +232,19 @@ export default function FuvarLezarasa() {
       >
         <Text style={styles.title}>Átvételi kód</Text>
         <Text style={styles.helpText}>
-          Kérd el a feladótól (vagy az átvevőtől) a{'\n'}6 számjegyű átvételi kódot, és írd be ide.
+          Kérd el a feladótól (vagy az átvevőtől) a{'\n'}6 számjegyű átvételi kódot.
+        </Text>
+
+        {/* QR scan gomb — nagy, feltűnő */}
+        <Pressable
+          style={[styles.cta, { backgroundColor: '#7C3AED', marginBottom: spacing.md }]}
+          onPress={() => setStep('qr_scan')}
+        >
+          <Text style={styles.ctaText}>📱 QR kód beolvasása</Text>
+        </Pressable>
+
+        <Text style={[styles.helpText, { marginBottom: spacing.sm }]}>
+          — vagy írd be kézzel —
         </Text>
 
         <TextInput

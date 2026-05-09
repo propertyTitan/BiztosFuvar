@@ -102,15 +102,23 @@ CREATE TABLE IF NOT EXISTS jobs (
     cancelled_by         UUID REFERENCES users(id) ON DELETE SET NULL,
     cancel_reason        TEXT,
     cancellation_fee_huf INTEGER NOT NULL DEFAULT 0,
-    refund_huf           INTEGER NOT NULL DEFAULT 0
+    refund_huf           INTEGER NOT NULL DEFAULT 0,
+    -- Azonnali fuvar ("UberFuvar" mód): fix áras, első-elfogadó-nyer.
+    -- A suggested_price_huf a végleges ár, licitálás nincs.
+    is_instant           BOOLEAN NOT NULL DEFAULT FALSE,
+    instant_radius_km    INTEGER,
+    instant_expires_at   TIMESTAMPTZ,
+    instant_accepted_at  TIMESTAMPTZ
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_status        ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_shipper       ON jobs(shipper_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_carrier       ON jobs(carrier_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_pickup_geo    ON jobs(pickup_lat, pickup_lng);
+CREATE INDEX IF NOT EXISTS idx_jobs_dropoff_geo   ON jobs(dropoff_lat, dropoff_lng);
 CREATE INDEX IF NOT EXISTS idx_jobs_paid_at       ON jobs(paid_at);
 CREATE INDEX IF NOT EXISTS idx_jobs_cancelled_at  ON jobs(cancelled_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_is_instant    ON jobs(is_instant, status) WHERE is_instant = TRUE;
 
 -- ---------- Licitek (Bids) --------------------------------------------
 

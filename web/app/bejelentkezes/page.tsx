@@ -26,6 +26,14 @@ export default function Bejelentkezes() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
+  // Céges regisztráció
+  const [accountType, setAccountType] = useState<'individual' | 'company'>('individual');
+  const [companyName, setCompanyName] = useState('');
+  const [taxId, setTaxId] = useState('');
+  const [companyRegNumber, setCompanyRegNumber] = useState('');
+  const [euVatNumber, setEuVatNumber] = useState('');
+  const [billingAddress, setBillingAddress] = useState('');
+
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -34,10 +42,35 @@ export default function Bejelentkezes() {
     setLoading(true);
     setError(null);
     try {
+      if (mode === 'register' && accountType === 'company') {
+        if (!companyName.trim()) {
+          setError('Cégnév megadása kötelező céges regisztrációnál.');
+          setLoading(false);
+          return;
+        }
+        if (!taxId.trim()) {
+          setError('Adószám megadása kötelező céges regisztrációnál.');
+          setLoading(false);
+          return;
+        }
+      }
       const res =
         mode === 'login'
           ? await api.login(email, password)
-          : await api.register({ email, password, full_name: fullName, phone });
+          : await api.register({
+              email,
+              password,
+              full_name: fullName,
+              phone,
+              account_type: accountType,
+              ...(accountType === 'company' ? {
+                company_name: companyName,
+                tax_id: taxId,
+                company_reg_number: companyRegNumber || undefined,
+                eu_vat_number: euVatNumber || undefined,
+                billing_address: billingAddress || undefined,
+              } : {}),
+            });
 
       setCurrentUser(
         {
@@ -142,6 +175,110 @@ export default function Bejelentkezes() {
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+36 30 123 4567"
             />
+
+            {/* Magánszemély / Cég toggle */}
+            <label style={{ marginTop: 12 }}>Fiók típusa</label>
+            <div
+              style={{
+                display: 'flex',
+                gap: 4,
+                background: 'var(--surface)',
+                borderRadius: 10,
+                padding: 3,
+                border: '1px solid var(--border)',
+                marginBottom: 8,
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setAccountType('individual')}
+                style={{
+                  flex: 1,
+                  padding: '8px 0',
+                  borderRadius: 8,
+                  border: 'none',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  background: accountType === 'individual' ? 'var(--primary)' : 'transparent',
+                  color: accountType === 'individual' ? '#fff' : 'var(--muted)',
+                }}
+              >
+                Magánszemélyként
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccountType('company')}
+                style={{
+                  flex: 1,
+                  padding: '8px 0',
+                  borderRadius: 8,
+                  border: 'none',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  background: accountType === 'company' ? 'var(--primary)' : 'transparent',
+                  color: accountType === 'company' ? '#fff' : 'var(--muted)',
+                }}
+              >
+                Cégként
+              </button>
+            </div>
+
+            {accountType === 'company' && (
+              <div style={{
+                padding: 16,
+                background: 'rgba(37,99,235,0.05)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                marginBottom: 8,
+              }}>
+                <label>Cégnév <span style={{ color: '#EF4444', fontWeight: 700 }}>*</span></label>
+                <input
+                  className="input"
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Pl. GoFuvar Kft."
+                  required
+                />
+                <label>Adószám <span style={{ color: '#EF4444', fontWeight: 700 }}>*</span></label>
+                <input
+                  className="input"
+                  type="text"
+                  value={taxId}
+                  onChange={(e) => setTaxId(e.target.value)}
+                  placeholder="Pl. 12345678-1-42"
+                  required
+                />
+                <label>Cégjegyzékszám</label>
+                <input
+                  className="input"
+                  type="text"
+                  value={companyRegNumber}
+                  onChange={(e) => setCompanyRegNumber(e.target.value)}
+                  placeholder="Pl. 01-09-123456"
+                />
+                <label>EU ÁFA szám</label>
+                <input
+                  className="input"
+                  type="text"
+                  value={euVatNumber}
+                  onChange={(e) => setEuVatNumber(e.target.value)}
+                  placeholder="Pl. HU12345678"
+                />
+                <label>Számlázási cím</label>
+                <input
+                  className="input"
+                  type="text"
+                  value={billingAddress}
+                  onChange={(e) => setBillingAddress(e.target.value)}
+                  placeholder="Pl. 1051 Budapest, Nádor utca 1."
+                />
+              </div>
+            )}
           </>
         )}
 
@@ -189,7 +326,14 @@ export default function Bejelentkezes() {
 
         {mode === 'register' && (
           <p className="muted" style={{ fontSize: 12, marginTop: 12, textAlign: 'center' }}>
-            A regisztrációval elfogadod az ÁSZF-et és az Adatvédelmi tájékoztatót.
+            A regisztrációval elfogadod az{' '}
+            <a href="/aszf" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
+              ÁSZF-et
+            </a>{' '}
+            és az{' '}
+            <a href="/adatkezeles" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'underline' }}>
+              Adatvédelmi tájékoztatót
+            </a>.
           </p>
         )}
       </form>

@@ -15,6 +15,8 @@ import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
+import QrCode from '@/components/QrCode';
+import Confetti from '@/components/Confetti';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik', bidding: 'Licitálható', accepted: 'Elfogadva',
@@ -54,7 +56,7 @@ export default function FuvarReszletek() {
     if (!job) return;
     const wasPaid = !!job.paid_at;
     const warning = wasPaid
-      ? 'Biztosan lemondod a fuvart? A 10% lemondási díjat (max 1000 Ft) levonjuk a Barion visszatérítésből, a maradék néhány napon belül visszakerül a kártyádra.'
+      ? 'Biztosan lemondod a fuvart? 8.000 Ft alatt 400 Ft, felette 5% lemondási díjat vonunk le, a maradék visszakerül a kártyádra.'
       : 'Biztosan lemondod a fuvart? Még nem történt fizetés, így díj sincs.';
     if (!window.confirm(warning)) return;
     const reason = window.prompt('Indok (opcionális):') || '';
@@ -139,23 +141,23 @@ export default function FuvarReszletek() {
         <LiveTrackingMap job={job} />
       </div>
 
-      {/* Átvételi kód – csak a feladó látja, a sofőrnek nincs benne a válaszban */}
-      {job.delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
+      {/* Vészhelyzeti kód — a feladó látja (a címzett kód SMS-ben megy) */}
+      {(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
         <div
           className="card"
           style={{
             marginTop: 16,
-            background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+            background: 'linear-gradient(135deg, #92400e 0%, #b45309 100%)',
             color: '#fff',
             border: 'none',
           }}
         >
           <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 8 }}>
-            🔐 Átvételi kód
+            🆘 Vészhelyzeti kód (csak ha a címzett nem elérhető!)
           </div>
           <div
             style={{
-              fontSize: 40,
+              fontSize: 36,
               fontWeight: 800,
               letterSpacing: '0.15em',
               fontFamily: 'monospace',
@@ -163,14 +165,58 @@ export default function FuvarReszletek() {
               padding: '12px 0',
             }}
           >
-            {job.delivery_code}
+            {(job as any).sender_delivery_code}
           </div>
-          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 4 }}>
-            Add át ezt a 6 jegyű kódot a sofőrnek, amikor átveszi tőled (vagy a címzettől) a csomagot.
-            A sofőr ezzel tudja lezárni a fuvart. A kódot senki más nem látja.
+          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 8, lineHeight: 1.5 }}>
+            ⚠️ Ezt a kódot <strong>CSAK</strong> akkor add meg a sofőrnek, ha a címzett
+            nem elérhető és te engedélyezed a lerakást. A rendszer logolja, hogy
+            ez a vészhelyzeti kóddal zárult le.
+          </div>
+          <div style={{
+            marginTop: 12, padding: '8px 12px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.15)', fontSize: 12,
+          }}>
+            📱 A címzett az átvételi kódot SMS-ben és emailben kapta meg.
+            A QR kódot a tracking linken látja.
           </div>
         </div>
       )}
+
+      {/* Ha NINCS címzett megadva — a feladó saját maga veszi át, a normál kód jelenik meg */}
+      {job.delivery_code && !(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
+        <div
+          className="card"
+          style={{
+            marginTop: 16,
+            background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+            color: '#fff',
+            border: 'none',
+            textAlign: 'center',
+          }}
+        >
+          <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 16 }}>
+            🔐 Átvételi kód & QR
+          </div>
+          <QrCode jobId={job.id} deliveryCode={job.delivery_code} size={200} />
+          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 16 }}>
+            Mutasd meg a sofőrnek a QR kódot vagy diktáld a 6 jegyű kódot.
+          </div>
+        </div>
+      )}
+
+      {/* Figyelmeztetés ha vészhelyzeti kóddal zárult */}
+      {job.status === 'delivered' && (job as any).closed_by_code_type === 'sender_emergency' && (
+        <div className="card" style={{
+          marginTop: 16, background: '#fef3c7', borderColor: '#f59e0b',
+          color: '#92400e', borderLeft: '4px solid #f59e0b',
+        }}>
+          ⚠️ <strong>Ez a fuvar a feladó vészhelyzeti kódjával zárult le</strong> — a címzett
+          nem volt elérhető. Vita esetén ez az információ rendelkezésre áll.
+        </div>
+      )}
+
+      {/* Confetti ha a fuvar éppen most lett lezárva */}
+      <Confetti active={job.status === 'delivered'} />
 
       {/* Hirdetési fotók (amit a feladó töltött fel) */}
       {photos.some((p) => p.kind === 'listing') && (
@@ -302,12 +348,7 @@ export default function FuvarReszletek() {
                   {(job.accepted_price_huf ?? escrow?.amount_huf ?? 0).toLocaleString('hu-HU')} Ft
                 </strong>
               </p>
-              {escrow?.carrier_share_huf && (
-                <>
-                  <p className="muted">Sofőri rész (90%): {escrow.carrier_share_huf.toLocaleString('hu-HU')} Ft</p>
-                  <p className="muted">Platform jutalék (10%): {escrow.platform_share_huf?.toLocaleString('hu-HU')} Ft</p>
-                </>
-              )}
+              {/* Jutalék részletezés eltávolítva — a feladónak nem releváns */}
 
               {/* Fizetés állapot: FIZETVE címke, vagy Fizetés gomb.
                   A /pay endpoint lusta (ha nincs még reservation, most
@@ -371,7 +412,7 @@ export default function FuvarReszletek() {
               </button>
               {job.paid_at && (
                 <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                  Lemondási díj: 10% (max 1000 Ft) — a maradék automatikusan visszajár.
+                  Lemondási díj: 8.000 Ft alatt 400 Ft, felette 5% — a maradék automatikusan visszajár.
                 </p>
               )}
             </div>

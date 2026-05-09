@@ -58,6 +58,7 @@ export type CarrierRoute = {
   is_template: boolean;
   template_source_id: string | null;
   status: 'draft' | 'open' | 'full' | 'in_progress' | 'completed' | 'cancelled';
+  is_ride_along?: boolean;
   created_at: string;
   updated_at: string;
   prices: RoutePrice[];
@@ -133,6 +134,23 @@ export type Job = {
   paid_at?: string | null;
   /** Barion fizetési URL — STUB módban `stub:...`. */
   barion_gateway_url?: string | null;
+  /** Azonnali fuvar ("UberFuvar" mód) — fix ár, első elfogadó nyer. */
+  is_instant?: boolean;
+  instant_radius_km?: number | null;
+  instant_expires_at?: string | null;
+  instant_accepted_at?: string | null;
+  /** Bepakolás / cipelés infó — a sofőr számára kulcsfontosságú. */
+  pickup_needs_carrying?: boolean;
+  pickup_floor?: number | null;
+  pickup_has_elevator?: boolean;
+  dropoff_needs_carrying?: boolean;
+  dropoff_floor?: number | null;
+  dropoff_has_elevator?: boolean;
+  declared_value_huf?: number | null;
+  invoice_requested?: boolean;
+  shipper_account_type?: 'individual' | 'company';
+  shipper_company_name?: string | null;
+  shipper_company_verified?: string | null;
 };
 
 export type NewJobInput = {
@@ -149,6 +167,42 @@ export type NewJobInput = {
   width_cm: number;
   height_cm: number;
   suggested_price_huf: number;
+  /** Ha true: azonnali fuvar, a suggested_price_huf a fix (végleges) ár. */
+  is_instant?: boolean;
+  /** Push értesítés sugara km-ben (alap 20). Csak ha is_instant. */
+  instant_radius_km?: number;
+  /** Meddig fogadható el (percben, max 240). Alap: 30 perc. */
+  instant_duration_minutes?: number;
+  /** A sofőrnek kell-e bepakolnia a felvételi helyen? */
+  pickup_needs_carrying?: boolean;
+  pickup_floor?: number;
+  pickup_has_elevator?: boolean;
+  /** A sofőrnek kell-e felvinnie a lerakodási helyen? */
+  dropoff_needs_carrying?: boolean;
+  dropoff_floor?: number;
+  dropoff_has_elevator?: boolean;
+  declared_value_huf?: number;
+  invoice_requested?: boolean;
+  recipient_name?: string;
+  recipient_phone?: string;
+  recipient_email?: string;
+};
+
+export type BackhaulCandidate = Job & {
+  backhaul_pickup_from_dest_km: number;
+  backhaul_drop_from_origin_km: number;
+  backhaul_score: number;
+  shipper_name?: string;
+  shipper_rating_avg?: number;
+  shipper_rating_count?: number;
+};
+
+export type BackhaulGroup = {
+  trip_id: string;
+  trip_title: string;
+  trip_pickup_address: string;
+  trip_dropoff_address: string;
+  candidates: BackhaulCandidate[];
 };
 
 export type Bid = {
@@ -175,8 +229,24 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(error.error || 'API hiba');
+    // Token lejárt / érvénytelen → automatikus kijelentkezés + átirányítás
+    if (res.status === 401 && typeof window !== 'undefined') {
+      window.localStorage.removeItem('gofuvar_token');
+      window.localStorage.removeItem('gofuvar_user');
+      window.dispatchEvent(new CustomEvent('gofuvar:session-expired'));
+      window.location.href = '/bejelentkezes';
+      throw new Error('A munkameneted lejárt. Kérlek, jelentkezz be újra.');
+    }
+    const errorData = await res.json().catch(() => ({ error: res.statusText }));
+    if (res.status === 403 && typeof window !== 'undefined') {
+      const kycCodes = ['IDENTITY_KYC_REQUIRED', 'DRIVER_KYC_REQUIRED', 'COMPANY_KYC_REQUIRED'];
+      if (errorData.code === 'OUTSIDE_COVERAGE') {
+        window.dispatchEvent(new CustomEvent('gofuvar:outside-coverage', { detail: { error: errorData.error } }));
+      } else if (errorData.code && kycCodes.includes(errorData.code)) {
+        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code } }));
+      }
+    }
+    throw new Error(errorData.error || 'API hiba');
   }
   return res.json();
 }
@@ -188,7 +258,12 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ email, password }) },
     ),
 
-  register: (body: { email: string; password: string; full_name: string; phone?: string }) =>
+  register: (body: {
+    email: string; password: string; full_name: string; phone?: string;
+    account_type?: 'individual' | 'company';
+    company_name?: string; tax_id?: string; company_reg_number?: string;
+    eu_vat_number?: string; billing_address?: string;
+  }) =>
     request<{ token: string; user: { id: string; role: string; email: string; full_name: string } }>(
       '/auth/register',
       { method: 'POST', body: JSON.stringify(body) },
@@ -200,6 +275,8 @@ export const api = {
   listJobs: (params: {
     status?: string; lat?: number; lng?: number; radius_km?: number;
     min_price?: number; max_price?: number; max_weight_kg?: number;
+    /** 'true' = csak azonnali fuvarok, 'false' = csak licites, undefined = mind. */
+    instant?: 'true' | 'false';
   } = {}) => {
     const qs = new URLSearchParams();
     if (params.status) qs.set('status', params.status);
@@ -209,8 +286,29 @@ export const api = {
     if (params.min_price != null) qs.set('min_price', String(params.min_price));
     if (params.max_price != null) qs.set('max_price', String(params.max_price));
     if (params.max_weight_kg != null) qs.set('max_weight_kg', String(params.max_weight_kg));
+    if (params.instant) qs.set('instant', params.instant);
     return request<(Job & { distance_to_pickup_km?: number })[]>(`/jobs?${qs.toString()}`);
   },
+
+  /** Azonnali fuvar elfogadása (első sofőr nyer, 409-et kap a többi). */
+  acceptInstantJob: (jobId: string) =>
+    request<{
+      ok: true;
+      job_id: string;
+      carrier_id: string;
+      amount_huf: number;
+      barion: { gateway_url: string | null; payment_id: string | null };
+    }>(`/jobs/${jobId}/instant-accept`, { method: 'POST' }),
+
+  /** Visszafuvar-ajánlások a hívó sofőr összes aktív fuvarához. */
+  backhaulSuggestions: () =>
+    request<{ groups: BackhaulGroup[] }>('/backhaul/suggestions'),
+
+  /** Egy konkrét aktív fuvarhoz tartozó visszafuvar-jelöltek. */
+  backhaulForTrip: (jobId: string) =>
+    request<{ trip_id: string; candidates: BackhaulCandidate[] }>(
+      `/backhaul/for-trip/${jobId}`,
+    ),
 
   getJob: (id: string) => request<Job>(`/jobs/${id}`),
 
@@ -326,6 +424,7 @@ export const api = {
     template_source_id?: string;
     prices: RoutePrice[];
     status?: 'draft' | 'open';
+    is_ride_along?: boolean;
   }) =>
     request<CarrierRoute>('/carrier-routes', {
       method: 'POST',
@@ -358,6 +457,17 @@ export const api = {
     }),
 
   /** Teljes útvonal szerkesztés (a tulajdonos bármikor módosíthatja). */
+  /** Útba eső fuvarok egy adott útvonalhoz. */
+  alongJobs: (routeId: string) =>
+    request<{ route_id: string; jobs: (Job & {
+      along_pickup_wp_name: string;
+      along_dropoff_wp_name: string;
+      along_pickup_detour_km: number;
+      along_dropoff_detour_km: number;
+      along_detour_km: number;
+      shipper_name?: string;
+    })[] }>(`/carrier-routes/${routeId}/along-jobs`),
+
   updateCarrierRoute: (id: string, body: {
     title?: string;
     description?: string;
@@ -366,6 +476,7 @@ export const api = {
     vehicle_description?: string;
     prices?: RoutePrice[];
     status?: 'draft' | 'open' | 'full' | 'cancelled';
+    is_ride_along?: boolean;
   }) =>
     request<CarrierRoute>(`/carrier-routes/${id}`, {
       method: 'PATCH',
@@ -562,4 +673,121 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ message, history }),
     }),
+
+  // ==================== AUTÓMENTÉS ====================
+
+  requestTowing: (body: {
+    lat: number; lng: number; address?: string;
+    issue_type: string; issue_description?: string;
+    vehicle_type?: string; vehicle_plate?: string;
+    search_radius_km?: number;
+  }) =>
+    request<{ id: string; status: string }>('/towing/request', {
+      method: 'POST', body: JSON.stringify(body),
+    }),
+
+  cancelTowing: (towId: string) =>
+    request<{ ok: true }>(`/towing/${towId}/cancel`, { method: 'POST' }),
+
+  towingIncoming: (lat?: number, lng?: number) => {
+    const qs = new URLSearchParams();
+    if (lat != null) qs.set('lat', String(lat));
+    if (lng != null) qs.set('lng', String(lng));
+    return request<Array<any>>(`/towing/incoming${qs.toString() ? `?${qs}` : ''}`);
+  },
+
+  acceptTowing: (towId: string, estimatedPriceHuf?: number) =>
+    request<{ ok: true }>(`/towing/${towId}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ estimated_price_huf: estimatedPriceHuf }),
+    }),
+
+  arriveTowing: (towId: string) =>
+    request<{ ok: true }>(`/towing/${towId}/arrive`, { method: 'POST' }),
+
+  completeTowing: (towId: string, finalPriceHuf?: number) =>
+    request<{ ok: true }>(`/towing/${towId}/complete`, {
+      method: 'POST',
+      body: JSON.stringify({ final_price_huf: finalPriceHuf }),
+    }),
+
+  registerTowDriver: (body: { tow_services: string[]; tow_vehicle_description?: string }) =>
+    request<any>('/towing/register', {
+      method: 'POST', body: JSON.stringify(body),
+    }),
+
+  toggleTowAvailable: (available: boolean) =>
+    request<{ tow_available: boolean }>('/towing/toggle-available', {
+      method: 'POST', body: JSON.stringify({ available }),
+    }),
+
+  myTowRequests: () => request<any[]>('/towing/my-requests'),
+
+  /** Sofőr bevétel és teljesítmény statisztikák. */
+  driverStats: () => request<any>('/driver-stats'),
+
+  /** SOS vészjelzés küldése. */
+  sendSOS: (body: { job_id?: string; booking_id?: string; lat?: number; lng?: number; message?: string }) =>
+    request<{ ok: true; sos_id: string }>('/sos', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  // ---------- KYC ----------
+
+  uploadKycDocument: async (file: File, docType: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('doc_type', docType);
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/auth/kyc-document`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'KYC dokumentum feltöltés sikertelen');
+    }
+    return res.json() as Promise<{ ok: true; doc_type: string; status: string; file_url: string }>;
+  },
+
+  getKycStatus: () =>
+    request<{
+      identity_kyc_status: string;
+      driver_kyc_status: string;
+      company_verification_status: string;
+      account_type: string;
+      documents: Array<{ doc_type: string; status: string; rejection_reason?: string; created_at: string }>;
+    }>('/auth/kyc-status'),
+
+  /** Ár-kalkulátor (publikus, nem kell auth). */
+  priceEstimate: async (params: {
+    pickup_lat: number; pickup_lng: number;
+    dropoff_lat: number; dropoff_lng: number;
+    weight_kg?: number;
+    pickup_floor?: number; pickup_has_elevator?: boolean;
+    dropoff_floor?: number; dropoff_has_elevator?: boolean;
+  }) => {
+    const qs = new URLSearchParams();
+    qs.set('pickup_lat', String(params.pickup_lat));
+    qs.set('pickup_lng', String(params.pickup_lng));
+    qs.set('dropoff_lat', String(params.dropoff_lat));
+    qs.set('dropoff_lng', String(params.dropoff_lng));
+    if (params.weight_kg != null) qs.set('weight_kg', String(params.weight_kg));
+    if (params.pickup_floor != null) qs.set('pickup_floor', String(params.pickup_floor));
+    if (params.pickup_has_elevator != null) qs.set('pickup_has_elevator', String(params.pickup_has_elevator));
+    if (params.dropoff_floor != null) qs.set('dropoff_floor', String(params.dropoff_floor));
+    if (params.dropoff_has_elevator != null) qs.set('dropoff_has_elevator', String(params.dropoff_has_elevator));
+    const res = await fetch(`${BASE_URL}/calculator/estimate?${qs.toString()}`);
+    if (!res.ok) throw new Error('Kalkulátor hiba');
+    return res.json() as Promise<{
+      distance_km: number;
+      weight_kg: number;
+      estimate_huf: number;
+      range_low_huf: number;
+      range_high_huf: number;
+      note: string;
+    }>;
+  },
 };
