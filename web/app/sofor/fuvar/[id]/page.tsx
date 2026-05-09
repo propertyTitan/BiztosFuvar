@@ -273,6 +273,48 @@ export default function SoforFuvarReszletek() {
         )}
       </div>
 
+      {/* Bepakolás / cipelés infó — a sofőrnek fontos látnia */}
+      {((job as any).pickup_needs_carrying || (job as any).dropoff_needs_carrying) && (
+        <div className="card" style={{
+          marginTop: 12,
+          borderLeft: '4px solid #FB8C00',
+          background: 'rgba(251,140,0,0.08)',
+        }}>
+          <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 15 }}>📦 Bepakolás / cipelés</h3>
+          {(job as any).pickup_needs_carrying && (
+            <div style={{ marginBottom: 6, fontSize: 14 }}>
+              <strong>Felvételi hely:</strong> Bepakolás szükséges
+              {' — '}
+              {(job as any).pickup_floor === 0 ? 'Földszint' : `${(job as any).pickup_floor}. emelet`}
+              {(job as any).pickup_floor > 0 && (
+                (job as any).pickup_has_elevator
+                  ? <span style={{ color: '#2E7D32', fontWeight: 700 }}> (lift van ✓)</span>
+                  : <span style={{ color: '#DC2626', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+              )}
+            </div>
+          )}
+          {(job as any).dropoff_needs_carrying && (
+            <div style={{ fontSize: 14 }}>
+              <strong>Lerakodási hely:</strong> Felvinni szükséges
+              {' — '}
+              {(job as any).dropoff_floor === 0 ? 'Földszint' : `${(job as any).dropoff_floor}. emelet`}
+              {(job as any).dropoff_floor > 0 && (
+                (job as any).dropoff_has_elevator
+                  ? <span style={{ color: '#2E7D32', fontWeight: 700 }}> (lift van ✓)</span>
+                  : <span style={{ color: '#DC2626', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Csomag deklarált értéke — ha megadta a feladó */}
+      {(job as any).declared_value_huf && (
+        <div className="card" style={{ marginTop: 12, fontSize: 14 }}>
+          💰 <strong>Csomag deklarált értéke:</strong> {(job as any).declared_value_huf.toLocaleString('hu-HU')} Ft
+        </div>
+      )}
+
       {/* Saját poszt figyelmeztetés — ha a user a saját fuvarát nézi
           a sofőr oldalról, ne hagyjuk licitálni. A feladói nézetet a
           dashboard/fuvar/[id] oldalon találja. */}

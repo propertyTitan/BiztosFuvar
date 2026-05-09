@@ -289,6 +289,42 @@ export default function ProfilOldal() {
           >
             ✏️ Profil szerkesztése
           </button>
+
+          {/* Fiók törlés */}
+          <button
+            type="button"
+            onClick={async () => {
+              if (!window.confirm('Biztosan törölni szeretnéd a fiókodat?\n\nEz a művelet VISSZAVONHATATLAN — minden adatod, fuvarod, értékelésed törlődik.')) return;
+              if (!window.confirm('UTOLSÓ FIGYELMEZTETÉS: A fiókod és minden adatod véglegesen törlődik. Folytatod?')) return;
+              try {
+                const token = localStorage.getItem('gofuvar_token');
+                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/me`, {
+                  method: 'DELETE',
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                localStorage.removeItem('gofuvar_token');
+                localStorage.removeItem('gofuvar_user');
+                window.location.href = '/bejelentkezes';
+              } catch (err: any) {
+                toast.error('Törlés sikertelen', err.message);
+              }
+            }}
+            style={{
+              marginTop: 32,
+              padding: '10px 20px',
+              borderRadius: 8,
+              border: '1px solid #EF4444',
+              background: 'transparent',
+              color: '#EF4444',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            🗑️ Fiók végleges törlése
+          </button>
         </>
       ) : (
         <>

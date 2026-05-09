@@ -68,8 +68,8 @@ export default function CoverageModal() {
           Hamarosan nálatok is!
         </h2>
         <p style={{ fontSize: 15, color: '#555', lineHeight: 1.6, marginBottom: 8 }}>
-          A GoFuvar jelenleg <strong>Budapest és Pest megye</strong> területén
-          érhető el. Dolgozunk a bővítésen — hamarosan az egész országban!
+          A GoFuvar jelenleg <strong>Magyarország</strong> területén
+          érhető el. A felvételi vagy lerakási címnek magyarországi címnek kell lennie.
         </p>
 
         <div

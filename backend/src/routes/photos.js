@@ -71,9 +71,14 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
         error: 'Ehhez a fuvarhoz nem tartozik átvételi kód – vedd fel a kapcsolatot az ügyfélszolgálattal',
       });
     }
-    if (String(delivery_code).trim() !== job.delivery_code) {
+    const codeInput = String(delivery_code).trim();
+    const isRecipientCode = codeInput === job.delivery_code;
+    const isSenderCode = codeInput === job.sender_delivery_code;
+    if (!isRecipientCode && !isSenderCode) {
       return res.status(403).json({ error: 'Érvénytelen átvételi kód' });
     }
+    // Logolás: melyik kóddal zárult le (vita rendezéshez)
+    req._closedByCodeType = isSenderCode ? 'sender_emergency' : 'recipient';
   }
 
   // Tárolás: a storage service eldönti, hogy Cloudflare R2-re vagy
@@ -114,8 +119,9 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   if (kind === 'dropoff' && job.status === 'in_progress') {
     // A kód már validálva volt feljebb, ha eddig eljutottunk, OK-t mondunk.
     await db.query(
-      `UPDATE jobs SET status = 'delivered', delivered_at = NOW(), updated_at = NOW() WHERE id = $1`,
-      [jobId],
+      `UPDATE jobs SET status = 'delivered', delivered_at = NOW(), updated_at = NOW(),
+              closed_by_code_type = $2 WHERE id = $1`,
+      [jobId, req._closedByCodeType || 'recipient'],
     );
 
     // Jutalékmentes voucher ellenőrzés — ha a sofőrnek van, 0% jutalék

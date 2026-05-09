@@ -77,8 +77,10 @@ export default function AszfPage() {
       </p>
       <ul>
         <li>
-          <strong>Feladói lemondás (felvétel előtt):</strong> A Szolgáltató 10% (max. 1.000 Ft)
-          adminisztrációs díjat von le.
+          <strong>Feladói lemondás (felvétel előtt):</strong> Amennyiben a fuvardíj letétbe helyezése
+          (fizetés) már megtörtént, a Szolgáltató 8.000 Ft alatti fuvardíj esetén 400 Ft fix
+          adminisztrációs díjat, 8.000 Ft feletti fuvardíj esetén a fuvardíj 5%-át vonja le.
+          Fizetés előtti lemondás esetén díjmentes.
         </li>
         <li>
           <strong>Sofőri lemondás:</strong> A Feladó a kifizetett letét 100%-át maradéktalanul
