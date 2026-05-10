@@ -19,7 +19,7 @@ export default function AszfPage() {
       <h1 style={{ marginBottom: 4 }}>Általános Szerződési Feltételek (ÁSZF)</h1>
       <p className="muted" style={{ margin: 0 }}>
         <strong>Platform:</strong> GoFuvar (gofuvar.hu és a mobilalkalmazások)<br />
-        <strong>Hatályos:</strong> 2026. [Hónap] [Nap]-tól
+        <strong>Hatályos:</strong> 2026. május 12-től
       </p>
 
       <h2 style={{ marginTop: 32 }}>1. A Szolgáltató adatai és Elérhetőségei</h2>
@@ -40,22 +40,87 @@ export default function AszfPage() {
       <h2 style={{ marginTop: 32 }}>2. A Szolgáltatás jellege és Közvetítői státusz</h2>
       <p>
         A Szolgáltató egy kétoldalú informatikai közvetítő platformot (<strong>Piacteret</strong>) üzemeltet.
-        A Szolgáltató <strong>NEM</strong> végez fuvarozási vagy postai tevékenységet.
+        A Szolgáltató <strong>NEM</strong> végez fuvarozási vagy postai tevékenységet, <strong>NEM</strong> köt fuvarozási
+        szerződést a Felhasználókkal a saját nevében, és <strong>NEM</strong> minősül fuvarozónak a Polgári Törvénykönyvről
+        szóló 2013. évi V. törvény (Ptk.) értelmében.
+      </p>
+      <p>
         A fuvarozási szerződés kizárólag a csomagot feladó (továbbiakban: <strong>Feladó</strong>) és
-        a fuvarozást vállaló (továbbiakban: <strong>Sofőr</strong>) között jön létre.
+        a fuvarozást vállaló (továbbiakban: <strong>Sofőr</strong>) között jön létre. A Szolgáltató szerepe
+        az ajánlat-közvetítésre, a kommunikációs felület biztosítására, az átvételi kód generálására,
+        a Barion letét kezelésének közvetítésére és a vita-rendezési eljárás lefolytatására korlátozódik.
       </p>
 
       <h2 style={{ marginTop: 32 }}>3. Regisztráció és Progresszív KYC</h2>
       <p>
-        <strong>3.1.</strong> A regisztráció kizárólag 18. életévüket betöltött, cselekvőképes személyek
-        és jogi személyek számára engedélyezett.
+        <strong>3.1.</strong> A regisztráció kizárólag 18. életévüket betöltött, cselekvőképes természetes
+        személyek és jogi személyek számára engedélyezett.
       </p>
       <p>
         <strong>3.2.</strong> A tranzakciók megkezdése a személyazonosság (KYC) igazolásához kötött
         (Személyi igazolvány, Sofőröknél + Jogosítvány, Cégeknél + Cégkivonat és Adószám).
       </p>
 
-      <h2 style={{ marginTop: 32 }}>4. Pénzügyi Feltételek és Számlázás (Bolt-modell)</h2>
+      <h3 style={{ marginTop: 24 }}>3.3. A Feladó felelőssége az áru jogszerű feladhatóságáért</h3>
+      <p>
+        A platform közvetítő természetéből adódóan a Szolgáltató <strong>NEM ellenőrzi</strong> a feladott áru
+        jogszerűségét vagy a Sofőr speciális engedélyeit. A Feladó kizárólagosan és teljes körűen felel azért, hogy:
+      </p>
+      <ul>
+        <li>
+          a feladott áru a magyar és uniós jogszabályoknak megfelel (nem tiltott, nem hamisított,
+          nem ellopott, nem szerzői jogot sértő)
+        </li>
+        <li>
+          ha az áru speciális szállítási engedélyt igényel (pl. <strong>élő állat</strong>, hűtőlánc-igényes
+          termék, gyógyszer, lőfegyver és lőszer érvényes engedéllyel, festék/akkumulátor és más veszélyes anyag,
+          radioaktív anyag), akkor a fuvar elvállalása előtt köteles meggyőződni arról, hogy a Sofőr
+          rendelkezik a vonatkozó hatósági engedéllyel és technikai feltételekkel
+        </li>
+        <li>
+          a Sofőrnek a fuvar lényeges tulajdonságairól (méret, súly, tartalom, hűtésigény,
+          értékhatár) <strong>előzetesen, valós tájékoztatást</strong> ad
+        </li>
+      </ul>
+      <p>
+        <strong>Abszolút tilos</strong> a platformon olyan áru feladása, amelynek szállítása minden engedély
+        mellett is jogellenes (kábítószer, illegális fegyver, hamisított termék, ellopott vagyontárgy,
+        emberi maradvány, robbanóanyag).
+      </p>
+      <p>
+        Az engedély nélkül feladott speciális áruból, valamint a tiltott áruk feladásából eredő minden kárért,
+        bírságért, hatósági eljárásért a Feladó kizárólagosan felel — ide értve a Sofőrnek okozott kárt is.
+        A Szolgáltató jogosult ilyen feladás észlelésekor a fiókot azonnal felfüggeszteni, és a hatóságoknak
+        a vonatkozó jogszabályok szerint adatot szolgáltatni.
+      </p>
+
+      <h3 style={{ marginTop: 24 }}>3.4. Sofőri minimumkövetelmények</h3>
+      <p>
+        A Sofőr a regisztrációkor és minden egyes fuvar elvállalásakor szavatol azért, hogy:
+      </p>
+      <ul>
+        <li>18. életévét betöltötte és cselekvőképes</li>
+        <li>érvényes, az általa használt jármű kategóriájának megfelelő vezetői engedéllyel rendelkezik</li>
+        <li>az általa használt jármű érvényes forgalmi engedéllyel és érvényes
+          <strong> kötelező gépjármű felelősségbiztosítással (KGFB)</strong> rendelkezik (a KGFB a kötelező
+          gépjármű-felelősségbiztosításról szóló 2009. évi LXII. törvény alapján a magyar jogban kötelező)</li>
+        <li>a fuvarra <strong>alkohol- és kábítószer-mentesen</strong> érkezik, és a fuvar teljes idejében
+          ebben az állapotban marad</li>
+        <li>nem áll vezetéstől eltiltás vagy a járművezetést kizáró egészségügyi állapot alatt</li>
+      </ul>
+      <p>
+        A Szolgáltató a fenti követelményeket <strong>nem ellenőrzi tételesen</strong>, hanem a Sofőr
+        nyilatkozatára támaszkodik. A Szolgáltató NEM követeli meg a Sofőröktől Casco-, árufuvarozó-
+        vagy CMR-biztosítás megkötését, és nem is ellenőrzi azok meglétét. A Feladó saját mérlegelési
+        jogkörében döntheti el, hogy a magas értékű fuvart kívánja-e olyan Sofőrre bízni, aki nem
+        rendelkezik kiegészítő árufuvarozó-biztosítással.
+      </p>
+      <p>
+        A fenti nyilatkozatok valótlan tartalmáért a Sofőr maga felel. A Szolgáltató fenntartja a jogot,
+        hogy nyilatkozat-szerinti hiányosság észlelésekor a fiókot azonnal felfüggessze.
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>4. Pénzügyi Feltételek és Számlázás</h2>
       <p>
         <strong>4.1. Fizetés (Barion Escrow):</strong> A fuvardíjat a Feladó a Barion Payment Zrt.
         letéti rendszerén keresztül egyenlíti ki. A letét a sikeres kézbesítés (átvételi kód beolvasása)
@@ -63,7 +128,8 @@ export default function AszfPage() {
       </p>
       <p>
         <strong>4.2. Platformhasználati díj:</strong> A Szolgáltató a Sofőr felé a teljes fuvardíj{' '}
-        <strong>10%-a + 400 Ft fix adminisztrációs díjat</strong> számít fel.
+        <strong>10%-a + 400 Ft fix adminisztrációs díjat</strong> számít fel, amely a Sofőr részére kifizetésre
+        kerülő összegből kerül levonásra.
       </p>
       <p>
         <strong>4.3. Számlázás:</strong> A fuvardíj teljes (100%) összegéről a számlát/bizonylatot
@@ -84,18 +150,73 @@ export default function AszfPage() {
         </li>
         <li>
           <strong>Sofőri lemondás:</strong> A Feladó a kifizetett letét 100%-át maradéktalanul
-          visszakapja, a Sofőr platformon belüli &quot;Trust Score&quot; értéke csökken.
+          visszakapja, a Sofőr platformon belüli &quot;Trust Score&quot; értéke csökken; ismételt indokolatlan
+          lemondás esetén a Szolgáltató a Sofőri fiókot felfüggesztheti.
         </li>
       </ul>
       <p>
-        <strong>5.2. A Sofőr kártérítési felelőssége:</strong> A küldemény épségéért a Sofőr felel.
-        A kártérítési felelősség felső határa a Feladó által megadott deklarált érték. Amennyiben a
-        Feladó nem adott meg deklarált értéket, a Sofőr felelősségének alapértelmezett felső határa
-        egységesen <strong>bruttó 50.000 Ft</strong>. A Szolgáltató a csomagok sérüléséért nem felel.
+        <strong>5.2. A Sofőr kártérítési felelőssége:</strong> A küldemény épségéért és hiánytalan
+        átadásáért a fuvar átvételétől a sikeres kézbesítésig <strong>a Sofőr felel</strong>. A
+        kártérítési felelősség felső határa a Feladó által a fuvar feladásakor megadott deklarált
+        érték. Amennyiben a Feladó nem adott meg deklarált értéket, a Sofőr felelősségének alapértelmezett
+        felső határa egységesen <strong>bruttó 50.000 Ft</strong>. A Szolgáltató a csomagok sérüléséért,
+        elvesztéséért, késedelmes átadásáért nem felel.
+      </p>
+
+      <h3 style={{ marginTop: 24 }}>5.3. Kárrendezés folyamata</h3>
+      <p>
+        Amennyiben a Feladó (vagy a nevében eljáró Címzett) a küldeményen sérülést, hiányt vagy más
+        kárt észlel:
+      </p>
+      <ol>
+        <li>
+          <strong>Bejelentési határidő:</strong> a kárt a kézbesítést követő <strong>24 órán belül</strong>
+          {' '}írásban (e-mailben a panasz@gofuvar.hu címre, vagy a Platform vita-megnyitás funkcióján
+          keresztül) jelezni kell. A 24 órás határidő után érkezett bejelentéseket a Szolgáltató jogosult
+          érdemi vizsgálat nélkül elutasítani.
+        </li>
+        <li>
+          <strong>Bizonyítékok:</strong> a Feladó köteles fotódokumentációval alátámasztani a kárt
+          (a sérült csomag és tartalom képei), a Platformon meglévő pickup és dropoff fotókat a
+          Szolgáltató automatikusan társítja. A vásárlási értéket lehetőség szerint számlával
+          (vagy egyéb hitelt érdemlő dokumentummal) kell igazolni.
+        </li>
+        <li>
+          <strong>Sofőri állásfoglalás:</strong> a Sofőr a bejelentéstől számított 7 naptári napon
+          belül érdemben nyilatkozik (elismeri vagy vitatja a kárt).
+        </li>
+        <li>
+          <strong>Pénzügyi rendezés:</strong> elismert kár esetén a Szolgáltató közvetít a Felek között
+          a fizetés módjáról; ha a fuvar még nyitott letéttel rendelkezik, a Sofőr hozzájárulásával
+          a kártérítés a letétből vonható le. A Szolgáltató NEM biztosító — a kártérítést nem ő fizeti,
+          csak a tranzakciót segíti.
+        </li>
+        <li>
+          <strong>Vita esetén:</strong> ha a Sofőr vitatja a kárt, vagy a felek a pénzügyi rendezésben
+          nem tudnak megegyezni, a Szolgáltató belső vita-eljárást folytat le a 7. pontban leírtak szerint.
+        </li>
+      </ol>
+
+      <h3 style={{ marginTop: 24 }}>5.4. Vis maior</h3>
+      <p>
+        A Felek egyike sem felel olyan szerződésszegésért, amely előre nem látható, kívülről érkező,
+        elháríthatatlan eseményből (vis maior) ered. Ide tartozik különösen: természeti katasztrófa,
+        pandémia, sztrájk, hatósági korlátozás, közlekedési útzár, kibertámadás, áramkimaradás vagy
+        a Barion / Vercel / Supabase szolgáltatás tartós kiesése.
       </p>
       <p>
-        <strong>5.3. DAC7:</strong> A Szolgáltató a jogszabályoknak megfelelően adatot szolgáltat
-        a NAV felé a Sofőrök bevételeiről.
+        Vis maior esetén a Szolgáltató jogosult az érintett fuvarokat felfüggeszteni, az escrow-t
+        biztosítani, és a Feleket a megoldás módjáról értesíteni. Vis maior eredetű kárért a
+        Szolgáltatót nem terheli kártérítési kötelezettség.
+      </p>
+
+      <h3 style={{ marginTop: 24 }}>5.5. DAC7</h3>
+      <p>
+        A Szolgáltató az adózás rendjéről szóló jogszabályok és a 2011/16/EU Tanácsi irányelv (DAC7)
+        szerint <strong>adatot szolgáltat a Nemzeti Adó- és Vámhivatal (NAV) felé</strong> a Sofőrök
+        platformon keresztül elért bevételeiről. Az adatszolgáltatás éves rendszerességgel történik,
+        és a NAV-tól elvárt formátumban tartalmazza a Sofőr azonosító adatait, a tranzakciók számát
+        és összegét.
       </p>
 
       <h2 style={{ marginTop: 32 }}>6. Fogyasztói Jogok: Elállás és Panaszkezelés</h2>
@@ -124,7 +245,7 @@ export default function AszfPage() {
         E-mail: bekelteto.testulet@csmkik.hu).
       </p>
 
-      <h2 style={{ marginTop: 32 }}>6.5. Automatizált SMS-értesítések és Címzetti adatok</h2>
+      <h3 style={{ marginTop: 24 }}>6.5. Automatizált SMS-értesítések és Címzetti adatok</h3>
       <p>
         <strong>Adatszolgáltatási felelősség:</strong> A Feladó kötelessége a Címzett pontos
         telefonszámának megadása. A Feladó szavatol azért, hogy rendelkezik a Címzett
@@ -142,15 +263,63 @@ export default function AszfPage() {
         <li><strong>Feladónak:</strong> Visszaigazolás a sikeres kézbesítésről (a fuvar lezárásakor).</li>
       </ol>
       <p>
+        Ezek az SMS-ek <strong>nem reklámcélú megkeresések</strong>, hanem a fuvarozási szerződés
+        teljesítéséhez szükséges tranzakciós értesítések, ezért nem esnek a 2008. évi XLVIII. törvény
+        (Grtv.) hatálya alá. A Szolgáltató külön reklám-jellegű hírlevelet vagy promóciós SMS-t kizárólag
+        kifejezett, dokumentált hozzájárulás alapján küld.
+      </p>
+      <p>
         <strong>Átvételi kód:</strong> A Címzett az SMS-ben kapja meg a 6 jegyű kódot, amelynek
         közlése a Sofőrrel a teljesítés igazolásának alapfeltétele.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>7. Az ÁSZF Módosítása</h2>
+      <h2 style={{ marginTop: 32 }}>7. Vita-rendezés a Platformon belül</h2>
+      <p>
+        A Felhasználók a köztük felmerülő vitákat elsősorban a Platformon belüli vita-funkción
+        (&quot;Problémám van ezzel a fuvarral&quot;) keresztül rendezhetik. A vita megnyitásával az érintett
+        fuvar escrow letéte automatikusan befagyasztásra kerül a vita lezárásáig.
+      </p>
+      <p>
+        A Szolgáltató Admin-csapata a vitát a beadott bizonyítékok (fotók, GPS-log, in-app
+        kommunikáció, átvételi kód státusza) alapján <strong>14 munkanapon belül</strong> bírálja
+        el, és írásban közli a döntést a Felekkel. A döntés alapján a letét felszabadításra,
+        részben vagy egészben visszatérítésre kerül.
+      </p>
+      <p>
+        Az Admin-döntést a vesztes fél jogosult a következő pontban szabályozott bírósági úton
+        támadni; a letét státusza azonban az Admin-döntés szerint alakul.
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>8. Joghatóság, Irányadó Jog és Bíróság</h2>
+      <p>
+        Jelen ÁSZF-re és a Felhasználók közötti szerződésekre <strong>a magyar jog</strong> az
+        irányadó. A Szolgáltató és a Felhasználó közötti vitás kérdésekben a Felek elsődlegesen
+        békés egyezségre törekednek.
+      </p>
+      <p>
+        Amennyiben békés rendezés nem lehetséges, a Felek alávetik magukat a Szolgáltató székhelye
+        szerint hatáskörrel és illetékességgel rendelkező magyar bíróság (a hatáskörtől függően a{' '}
+        <strong>Hódmezővásárhelyi Járásbíróság</strong> vagy a{' '}
+        <strong>Szegedi Törvényszék</strong>) kizárólagos illetékességének.
+      </p>
+      <p>
+        Fogyasztó-státuszú Felhasználó esetén a fenti illetékesség nem érinti a Polgári
+        Perrendtartás (2016. évi CXXX. törvény) szerinti, a fogyasztó lakóhelye szerinti bírósági
+        illetékességet, és nem érinti a fogyasztó Békéltető Testülethez fordulási jogát sem
+        (lásd 6.4. pont).
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>9. Az ÁSZF Módosítása</h2>
       <p>
         A Szolgáltató fenntartja a jogot az ÁSZF egyoldalú módosítására. A lényeges módosításokról
         a Felhasználókat a hatálybalépés előtt legalább 15 nappal e-mailben, vagy a platformon belüli
-        (in-app) értesítés formájában tájékoztatja.
+        (in-app) értesítés formájában tájékoztatja. Ha a Felhasználó a módosítást nem fogadja el,
+        jogosult a fiókját a hatálybalépés napjáig <strong>díjmentesen, indoklás nélkül</strong>{' '}
+        megszüntetni; folyamatban lévő fuvarjait a régi ÁSZF szerint végzi be.
+      </p>
+      <p>
+        Az új ÁSZF a hatálybalépés napjától, illetve az új regisztrálók esetén a regisztráció
+        pillanatától alkalmazandó.
       </p>
 
       <hr style={{ margin: '48px 0 24px', opacity: 0.3 }} />
