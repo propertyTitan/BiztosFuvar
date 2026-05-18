@@ -1,13 +1,15 @@
 // Globális Next.js layout – magyar nyelv, GoFuvar branding.
-// A fejléc (SiteHeader) egy client komponens, ami role-érzékenyen rajzolja
-// ki a menüt (feladó / sofőr / admin / nem bejelentkezett).
+// PWA-ként telepíthető — manifest.webmanifest + apple-touch-icon meta-k
+// gondoskodnak róla, hogy a user a kezdőképernyőjére telepíthesse a
+// böngészőjéből, így „app-érzettel" használhatja a natív app megjelenéséig.
 import './globals.css';
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import AiChatWidget from '@/components/AiChatWidget';
 import EmailVerifyBanner from '@/components/EmailVerifyBanner';
 import CookieConsentBanner from '@/components/CookieConsentBanner';
+import InstallPromptBanner from '@/components/InstallPromptBanner';
 import { ToastProvider } from '@/components/ToastProvider';
 import KycModalProvider from '@/components/KycModalProvider';
 import CoverageModal from '@/components/CoverageModal';
@@ -28,18 +30,44 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'hu_HU',
   },
-  icons: {
-    icon: '/logo-icon.svg?v=2',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'GoFuvar',
   },
+  icons: {
+    icon: [
+      { url: '/logo-icon.svg?v=3', type: 'image/svg+xml' },
+    ],
+    apple: [
+      { url: '/logo-icon.svg?v=3', type: 'image/svg+xml' },
+    ],
+  },
+};
+
+export const viewport: Viewport = {
+  // theme-color = a böngésző / iOS status-bar színe ha standalone módban indítják
+  themeColor: '#1e40af',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="hu">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        {/* iOS Safari PWA-támogatás (a Next.js metadata API nem mindig
+            generálja ezeket konzisztensen, ezért explicit kihúzzuk) */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="GoFuvar" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="GoFuvar" />
       </head>
       <body>
         <I18nProvider>
@@ -48,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CoverageModal />
           <SiteHeader />
           <EmailVerifyBanner />
+          <InstallPromptBanner />
           <main className="site-main">{children}</main>
           <SiteFooter />
           <AiChatWidget />
