@@ -1,0 +1,16 @@
+# GoFuvar — robots.txt
+#
+# Tesztelési fázisban a Google indexálását szándékosan elkerüljük,
+# hogy az első benyomás csak akkor menjen ki nyilvánosság felé, amikor
+# a launch hivatalosan megtörténik. Élesedéskor ezt a fájlt egy
+# „User-agent: * \n Allow: /" verzióra cseréljük.
+
+User-agent: *
+Disallow: /
+
+# Egyértelmű jelzés a fő keresőmotorokhoz, hogy várjanak
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /

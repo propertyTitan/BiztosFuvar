@@ -1,0 +1,43 @@
+{
+  "name": "GoFuvar — Magyarország közösségi fuvartőzsdéje",
+  "short_name": "GoFuvar",
+  "description": "Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. Biztonságos Barion letét, élő GPS követés, fotó bizonyíték.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#1e40af",
+  "lang": "hu",
+  "categories": ["business", "productivity", "travel"],
+  "icons": [
+    {
+      "src": "/logo-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/gofuvar-icon-round.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Új fuvar feladása",
+      "short_name": "Új fuvar",
+      "description": "Hirdess meg egy új fuvart",
+      "url": "/dashboard/uj-fuvar",
+      "icons": [{ "src": "/logo-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Elérhető fuvarok",
+      "short_name": "Fuvarok",
+      "description": "Sofőrként böngészd az elérhető fuvarokat",
+      "url": "/sofor/fuvarok",
+      "icons": [{ "src": "/logo-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
