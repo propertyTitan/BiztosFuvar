@@ -1,9 +1,16 @@
 // =====================================================================
 //  Szolgáltatási terület (coverage zone) kezelés.
 //
-//  Induláskor: csak Budapest + Pest megye.
-//  A koordináta-alapú bounding box egyszerű és gyors.
-//  Később bővíthető: Szeged, Debrecen, stb.
+//  Európa-szintű lefedettség: Magyarország fő piac + szomszédos országok
+//  + EU. A koordináta-alapú bounding box egyszerű és gyors.
+//
+//  A bbox tágan: Portugália (-10 lng) → Bulgária / EU-keleti határ
+//  (32 lng), Mediterrán partok (34 lat) → Skandinávia déli része
+//  (71 lat). EU + UK + Norvégia + Svájc + Balkán mind benne.
+//
+//  Megjegyzés: a fő piacunk továbbra is Magyarország, de magasabb áron
+//  vállalt nemzetközi fuvarokat (pl. Pest → Bécs / Pozsony / Bukarest)
+//  is engedjük a platformon.
 //
 //  Használat:
 //    const { isInCoverageZone, ZONES } = require('./coverage');
@@ -12,14 +19,13 @@
 
 const ZONES = [
   {
-    id: 'hungary',
-    name: 'Magyarország',
+    id: 'europe',
+    name: 'Európa',
     active: true,
-    // Egész Magyarország bounding box
-    minLat: 45.73,
-    maxLat: 48.59,
-    minLng: 16.11,
-    maxLng: 22.90,
+    minLat: 34.0,
+    maxLat: 71.0,
+    minLng: -10.0,
+    maxLng: 32.0,
   },
 ];
 

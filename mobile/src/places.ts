@@ -27,14 +27,16 @@ export type PlaceDetails = {
 
 /**
  * Autocomplete találatok a beírt szövegre.
- * Magyarországra szűrve, magyar nyelvű válaszokkal.
+ * Európa-szintű coverage: NEM korlátozzuk országra (Google csak 5
+ * országot enged a components-ben, ami nem fedi le az EU-t).
+ * Magyar nyelvű válaszokkal — magyar felhasználóknál a Google-bias
+ * miatt magyar címek jönnek elsőnek úgyis.
  */
 export async function autocompletePlaces(input: string): Promise<PlaceSuggestion[]> {
   if (!input.trim() || !API_KEY) return [];
   const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
     `?input=${encodeURIComponent(input)}` +
     `&language=hu` +
-    `&components=country:hu` +
     `&key=${API_KEY}`;
   try {
     const res = await fetch(url);
