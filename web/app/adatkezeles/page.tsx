@@ -80,6 +80,13 @@ export default function AdatkezelesPage() {
 
       <h2 style={{ marginTop: 32 }}>4. Adatfeldolgozók és Adattovábbítás</h2>
       <p>
+        A platform fő piaca Magyarország; európai (EU + EGT) viszonylatú nemzetközi fuvarokat is
+        kiszolgálunk. Az adatfeldolgozók EU-n belül helyezkednek el; a 4.2. pontban felsorolt
+        USA-szolgáltatók adattovábbítása kizárólag a felhasználói felület (térkép, AI-elemzés,
+        push-értesítés) működéséhez szükséges, és az Európai Bizottság SCC + EU-US Data Privacy
+        Framework jogalapján történik.
+      </p>
+      <p>
         <strong>4.1. Adatfeldolgozók (EU területén belül):</strong>
       </p>
       <ul>
@@ -274,6 +281,15 @@ export default function AdatkezelesPage() {
       <p>
         Vagy a Felhasználó közvetlenül polgári bírósághoz fordulhat — a lakóhelye vagy az
         Adatkezelő székhelye szerinti illetékességű bíróságon.
+      </p>
+      <p>
+        <strong>EU-tagállami Felhasználó esetén:</strong> az Európai Unió bármely tagállamában élő
+        érintett a saját lakóhelye, munkahelye vagy a feltételezett jogsértés helye szerinti
+        felügyeleti hatóságnál is panaszt tehet (GDPR 77. cikk). A nemzeti adatvédelmi hatóságok
+        elérhetőségei elérhetőek az Európai Adatvédelmi Testület (EDPB) honlapján:{' '}
+        <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_hu" target="_blank" rel="noopener noreferrer">
+          edpb.europa.eu/about-edpb/about-edpb/members_hu
+        </a>.
       </p>
 
       <h2 style={{ marginTop: 32 }}>9. Adatvédelmi Incidens-eljárás</h2>
