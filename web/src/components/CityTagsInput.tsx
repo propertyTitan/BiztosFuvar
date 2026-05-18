@@ -155,7 +155,9 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
           }}
           onPlaceChanged={handlePlaceChanged}
           options={{
-            componentRestrictions: { country: 'hu' },
+            // Európa-szintű coverage — minden EU város kereshető.
+            // Magyar felhasználóknál a Google-bias miatt magyar városok
+            // jönnek elsőnek.
             types: ['(cities)'],
             fields: ['name', 'formatted_address', 'geometry.location'],
           }}

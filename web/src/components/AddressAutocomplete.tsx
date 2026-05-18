@@ -83,7 +83,10 @@ export default function AddressAutocomplete({
         onLoad={(ac) => { autocompleteRef.current = ac; }}
         onPlaceChanged={handlePlaceChanged}
         options={{
-          componentRestrictions: { country: 'hu' },
+          // Európa-szintű coverage: NEM korlátozzuk országra (Google csak
+          // 5 országot enged a componentRestrictions-ben, ami nem fedi le
+          // az EU-t). Magyar felhasználóknál a nyelvi + IP-alapú bias
+          // miatt magyar címek továbbra is első helyen jönnek.
           fields: ['formatted_address', 'geometry.location', 'name'],
         }}
       >

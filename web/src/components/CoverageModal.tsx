@@ -68,8 +68,10 @@ export default function CoverageModal() {
           Hamarosan nálatok is!
         </h2>
         <p style={{ fontSize: 15, color: '#555', lineHeight: 1.6, marginBottom: 8 }}>
-          A GoFuvar jelenleg <strong>Magyarország</strong> területén
-          érhető el. A felvételi vagy lerakási címnek magyarországi címnek kell lennie.
+          A GoFuvar jelenleg <strong>Európa</strong> területén érhető el.
+          A felvételi vagy lerakási címnek európai címnek kell lennie.
+          Nemzetközi fuvarokhoz a sofőri kapacitás függvényében magasabb
+          árat is elkérhetsz.
         </p>
 
         <div
