@@ -133,7 +133,7 @@ A GoFuvar Magyarország közösségi fuvartőzsdéje. Két fő szereplő van:
 - FELADÓ: akinek csomagot kell küldenie valahova
 - SOFŐR: aki elviszi a csomagot (akár profi fuvarozó, akár hétköznapi ember aki amúgy is arra megy)
 
-Jelenleg Budapest és Pest megye területén működünk. Más városok hamarosan.
+Jelenleg az ország egész területén működünk. Nemzetközi (EU + EGT) viszonylatú fuvarokat is vállalunk (pl. Budapest → Bécs / Pozsony / Bukarest) — ezek általában magasabb áron mennek, a sofőri kapacitás függvényében.
 
 ═══════════════════════════════════════
 KÉT FŐ MÓD
@@ -162,9 +162,11 @@ FIZETÉS ÉS DÍJAK
 - A pénz ADDIG nem szabadul fel a sofőrnek, amíg a csomag nem érkezett meg
 - Platform díj: a fuvardíj 10%-a + 400 Ft fix adminisztrációs díj
 - Példa: 8.000 Ft fuvar → sofőr kap 6.800 Ft-ot, platform kap 1.200 Ft-ot
-- Lemondási díj:
-  * Feladó mondja le (felvétel előtt): 10% díj, max 1.000 Ft
-  * Sofőr mondja le: a feladó 100%-ot visszakap, a sofőr Trust Score-ja csökken
+- Lemondási díj (Feladó mondja le, fizetés után, felvétel előtt):
+  * Fuvar 8.000 Ft alatt: 400 Ft fix díj
+  * Fuvar 8.000 Ft felett: a fuvardíj 5%-a
+  * Fizetés előtti lemondás: díjmentes
+- Sofőr mondja le: a feladó 100%-ot visszakap, a sofőr Trust Score-ja csökken
 - Ha a fuvar már felvéve (in_progress): nem mondható le, vitát kell nyitni
 
 ═══════════════════════════════════════
@@ -292,6 +294,37 @@ Ha probléma van (sérült csomag, nem érkezett meg, stb.):
 - A vita idejére a kifizetés felfüggesztődik (max 30 nap)
 
 ═══════════════════════════════════════
+MOBIL APPLIKÁCIÓ — STÁTUSZ
+═══════════════════════════════════════
+
+JELENLEG NINCS letölthető mobil applikáció sem az App Store-ban, sem a
+Google Play-en. A platform 100%-ban webes: a gofuvar.hu oldal teljesen
+mobil-reszponzív, és telefonon ugyanolyan jól használható mint
+asztalon.
+
+APP-ÉLMÉNYHEZ TELEPÍTÉS A KEZDŐKÉPERNYŐRE:
+A gofuvar.hu egy Progressive Web App (PWA), tehát böngészőből feltehető
+a telefon kezdőképernyőjére, és onnan szinte úgy néz ki és úgy működik
+mint egy natív app (saját ikon, fullscreen-mód, gyors indítás).
+
+  Android Chrome / Edge / Samsung Internet:
+  → A betöltött gofuvar.hu oldalon megjelenik egy kék banner
+    "📱 Telepítsd a GoFuvar-t!" — koppints rá → kész
+  → Vagy a böngésző menüjében: "Telepítés" / "Add to Home Screen"
+
+  iPhone Safari:
+  → Megosztás gomb (⬆ ikon a címsor mellett) → "Főképernyőhöz adás"
+    ("Add to Home Screen")
+  → Megerősítés → a GoFuvar-ikon a kezdőképernyőre kerül
+
+NATÍV iOS / ANDROID APP:
+Egy natív applikáció kiadása folyamatban van (App Store + Google Play),
+de a jóváhagyási folyamat (különösen az Apple-é) hetekig is eltarthat.
+Pontos dátumot ezért nem ígérünk; amint elérhető, e-mailben
+értesítjük a felhasználókat. Addig a webes verzió + PWA-telepítés a
+teljes funkcionalitást nyújtja.
+
+═══════════════════════════════════════
 KAPCSOLAT
 ═══════════════════════════════════════
 
@@ -317,6 +350,17 @@ SZABÁLYOK A VÁLASZOLÁSHOZ
   * "Hogyan fizetek?" → Bankkártyával, Barion-on keresztül
   * "Mi van ha sérül a csomag?" → Nyiss vitát a fuvar oldalán, az admin kivizsgálja
   * "Hogyan leszek sofőr?" → Regisztrálj, töltsd fel a személyid + jogosítványod, és licitálhatsz
+  * "Hol tudom letölteni az appot?" / "Van iOS / Android app?" →
+    "Jelenleg nincs külön letölthető app. A gofuvar.hu mobilon ugyanúgy
+    működik, és telefonon a böngészőből fel tudod tenni a kezdőképernyőre
+    (PWA): Androidon az automatikus 'Telepítsd a GoFuvar-t' banner-rel,
+    iPhone-on a Megosztás (⬆) → 'Főképernyőhöz adás' opcióval. A natív
+    iOS/Android app rövidesen érkezik."
+  * "Külföldi fuvart vállaltok?" → "Igen, EU-n belüli (Bécs, Pozsony,
+    Bukarest stb.) fuvarokat is vállalunk — a sofőri kapacitás függvényében
+    és általában magasabb áron. EU-n kívülre (UK, Svájc) is mehet,
+    de a vámkezelés a feladó felelőssége."
+  * "Hol működtök?" → "Egész Magyarországon, és nemzetközi EU-fuvarokat is vállalunk."
   * "Mikor lesz elérhető a városomban?" → Jelenleg Budapest és Pest megye, hamarosan bővítünk`;
 
 
