@@ -50,6 +50,11 @@ export default function AszfPage() {
         az ajánlat-közvetítésre, a kommunikációs felület biztosítására, az átvételi kód generálására,
         a Barion letét kezelésének közvetítésére és a vita-rendezési eljárás lefolytatására korlátozódik.
       </p>
+      <p>
+        A Szolgáltató magyar székhelyű piactér; fő tevékenysége a magyarországi belföldi fuvarok
+        közvetítése. Az európai (EU + EGT) viszonylatú nemzetközi fuvarokat a platform szintén támogatja,
+        a Felhasználók és a Sofőrök kapacitásának függvényében.
+      </p>
 
       <h2 style={{ marginTop: 32 }}>3. Regisztráció és Progresszív KYC</h2>
       <p>
@@ -197,7 +202,23 @@ export default function AszfPage() {
         </li>
       </ol>
 
-      <h3 style={{ marginTop: 24 }}>5.4. Vis maior</h3>
+      <h3 style={{ marginTop: 24 }}>5.4. Nemzetközi fuvar és vámkezelés</h3>
+      <p>
+        Az Európai Unión belüli (EU + EGT) viszonylatú fuvarokra a magyarországi belföldi fuvarokkal
+        azonos szabályok érvényesek, azzal a kiegészítéssel, hogy a határátlépés rendészeti, közúti
+        és műszaki feltételeinek (jármű-kategória, ADR-anyag-engedély, élőállat-szállítási engedély stb.)
+        teljesítéséért a Sofőr, a fuvar jogszerű feladhatóságáért pedig a Feladó felel
+        (a 3.3. és 3.4. pontokban foglaltak szerint).
+      </p>
+      <p>
+        Az Európai Unión kívüli (pl. Egyesült Királyság, Svájc, nem EU-tagállam balkáni országok)
+        viszonylatú fuvar esetén a <strong>vámkezelés és a vám-/illetékfizetés a Feladó kizárólagos
+        felelőssége</strong>. A Szolgáltató és a Sofőr NEM jár el vámügyekben, és NEM felelnek a
+        hiányos vámdokumentációból eredő késedelmért, lefoglalásért vagy a vám-hatóság által
+        kiszabott bírságért.
+      </p>
+
+      <h3 style={{ marginTop: 24 }}>5.5. Vis maior</h3>
       <p>
         A Felek egyike sem felel olyan szerződésszegésért, amely előre nem látható, kívülről érkező,
         elháríthatatlan eseményből (vis maior) ered. Ide tartozik különösen: természeti katasztrófa,
@@ -210,7 +231,7 @@ export default function AszfPage() {
         Szolgáltatót nem terheli kártérítési kötelezettség.
       </p>
 
-      <h3 style={{ marginTop: 24 }}>5.5. DAC7</h3>
+      <h3 style={{ marginTop: 24 }}>5.6. DAC7</h3>
       <p>
         A Szolgáltató az adózás rendjéről szóló jogszabályok és a 2011/16/EU Tanácsi irányelv (DAC7)
         szerint <strong>adatot szolgáltat a Nemzeti Adó- és Vámhivatal (NAV) felé</strong> a Sofőrök
@@ -243,6 +264,14 @@ export default function AszfPage() {
         A Szolgáltató székhelye szerinti testület adatai:{' '}
         <strong>Csongrád-Csanád Megyei Békéltető Testület</strong> (Cím: 6721 Szeged, Párizsi krt. 8-12.,
         E-mail: bekelteto.testulet@csmkik.hu).
+      </p>
+      <p>
+        Az Európai Unió más tagállamában élő fogyasztó Felhasználó a saját lakóhelye szerinti
+        békéltető szervhez, illetve az Európai Fogyasztói Központok Hálózatához (ECC-Net) vagy
+        az EU online vitarendezési platformhoz is fordulhat:{' '}
+        <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">
+          ec.europa.eu/consumers/odr
+        </a>.
       </p>
 
       <h3 style={{ marginTop: 24 }}>6.5. Automatizált SMS-értesítések és Címzetti adatok</h3>
@@ -307,6 +336,13 @@ export default function AszfPage() {
         Perrendtartás (2016. évi CXXX. törvény) szerinti, a fogyasztó lakóhelye szerinti bírósági
         illetékességet, és nem érinti a fogyasztó Békéltető Testülethez fordulási jogát sem
         (lásd 6.4. pont).
+      </p>
+      <p>
+        Az Európai Unió más tagállamában élő fogyasztó Felhasználó esetén a fogyasztói szerződésekre
+        vonatkozó kötelező uniós védelmi szabályokat (a 593/2008/EK rendelet — „Róma I." — alapján)
+        a jelen ÁSZF nem korlátozza. Ezeknél a Felhasználóknál a saját lakóhelye szerinti jog azon
+        kógens rendelkezései, amelyektől a felek megállapodással nem térhetnek el, alkalmazandóak
+        maradnak.
       </p>
 
       <h2 style={{ marginTop: 32 }}>9. Az ÁSZF Módosítása</h2>
