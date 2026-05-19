@@ -18,6 +18,7 @@ import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
+import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -514,6 +515,14 @@ export default function SoforFuvarReszletek() {
 
       {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
       <DisputeButton jobId={id} status={job.status} />
+
+      {/* Publikus Q&A — sofőrként itt kérdezhetek a feladótól */}
+      <JobQuestions
+        jobId={id}
+        jobStatus={job.status}
+        shipperId={job.shipper_id}
+        currentUserId={me?.id}
+      />
 
       {/* Összes beérkezett licit (referencia) */}
       {(job.status === 'pending' || job.status === 'bidding') && bids.length > 0 && (
