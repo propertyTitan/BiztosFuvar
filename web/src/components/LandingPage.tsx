@@ -12,7 +12,6 @@
 // megjelenjen-e egyáltalán. Ha a user be van lépve, null-t adunk vissza.
 import Link from 'next/link';
 import { useCurrentUser } from '@/lib/auth';
-import PriceCalculator from './PriceCalculator';
 
 const FEATURES = [
   {
@@ -157,9 +156,6 @@ export default function LandingPage() {
           Ingyenes regisztráció · Nincs havidíj · Csak sikeres fuvar után fizetsz
         </p>
       </section>
-
-      {/* ===== Ár-kalkulátor ===== */}
-      <PriceCalculator />
 
       {/* ===== Hogyan működik? — 3 lépés ===== */}
       <section style={{ padding: '48px 0' }}>
