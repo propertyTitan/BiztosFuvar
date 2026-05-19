@@ -45,6 +45,7 @@ const calculatorRoutes = require('./routes/calculator');
 const towingRoutes = require('./routes/towing');
 const driverStatsRoutes = require('./routes/driverStats');
 const adminRoutes = require('./routes/admin');
+const jobQuestionsRoutes = require('./routes/jobQuestions');
 const { globalRateLimit } = require('./middleware/rateLimit');
 
 const app = express();
@@ -102,6 +103,7 @@ app.use('/', sosRoutes);
 app.use('/', towingRoutes);
 app.use('/', driverStatsRoutes);
 app.use('/', adminRoutes);
+app.use('/', jobQuestionsRoutes);
 
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {

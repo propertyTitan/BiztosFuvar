@@ -806,4 +806,29 @@ export const api = {
     request<{ ok: true }>(`/auth/verify-email?token=${encodeURIComponent(token)}`),
   resendVerification: () =>
     request<{ ok: true; already_verified?: boolean }>('/auth/resend-verification', { method: 'POST' }),
+
+  // ---------- Publikus Q&A a fuvarokhoz ----------
+  listJobQuestions: (jobId: string) =>
+    request<Array<{
+      id: string;
+      question: string;
+      answer: string | null;
+      created_at: string;
+      answered_at: string | null;
+      asker_name: string;
+      asker_id: string;
+      answerer_name: string | null;
+    }>>(`/jobs/${jobId}/questions`),
+
+  askJobQuestion: (jobId: string, question: string) =>
+    request<any>(`/jobs/${jobId}/questions`, {
+      method: 'POST',
+      body: JSON.stringify({ question }),
+    }),
+
+  answerJobQuestion: (questionId: string, answer: string) =>
+    request<any>(`/questions/${questionId}/answer`, {
+      method: 'POST',
+      body: JSON.stringify({ answer }),
+    }),
 };
