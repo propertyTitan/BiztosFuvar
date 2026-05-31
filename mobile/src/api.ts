@@ -354,7 +354,7 @@ export const api = {
    */
   uploadPhoto: async (params: {
     jobId: string;
-    kind: 'pickup' | 'dropoff' | 'damage' | 'document';
+    kind: 'listing' | 'pickup' | 'dropoff' | 'damage' | 'document';
     fileUri: string;
     fileName?: string;
     mimeType?: string;

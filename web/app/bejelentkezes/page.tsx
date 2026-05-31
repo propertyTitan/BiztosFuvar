@@ -8,14 +8,14 @@
 // Query param-mal lehet előre beállítani a fület:
 //   /bejelentkezes              → alapból "login"
 //   /bejelentkezes?mode=register → alapból "register" (landing CTA-hoz)
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/api';
 import { setCurrentUser, homeForRole, Role } from '@/lib/auth';
 
 type Mode = 'login' | 'register';
 
-export default function Bejelentkezes() {
+function BejelentkezesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialMode: Mode = searchParams.get('mode') === 'register' ? 'register' : 'login';
@@ -194,5 +194,13 @@ export default function Bejelentkezes() {
         )}
       </form>
     </div>
+  );
+}
+
+export default function Bejelentkezes() {
+  return (
+    <Suspense fallback={null}>
+      <BejelentkezesContent />
+    </Suspense>
   );
 }

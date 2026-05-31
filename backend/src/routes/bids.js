@@ -145,7 +145,7 @@ router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) 
           user_id: info.shipper_id,
           type: 'bid_received',
           title: 'Új licit érkezett 🎯',
-          body: `${info.carrier_name} ${amount_huf.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
+          body: `${info.carrier_name} ${bidAmount.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
           link: `/dashboard/fuvar/${jobId}`,
         });
         // Email is, fire-and-forget (ne blokkolja a választ)
@@ -156,7 +156,7 @@ router.post('/jobs/:jobId/bids', authRequired, writeRateLimit, async (req, res) 
             jobTitle: info.title,
             jobId,
             carrierName: info.carrier_name,
-            amountHuf: amount_huf,
+            amountHuf: bidAmount,
           }).catch((e) => console.warn('[email] bid_received hiba:', e.message));
         });
       }
