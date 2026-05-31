@@ -132,14 +132,25 @@ export function useNotificationToasts(enabled: boolean) {
   const toast = useToast();
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return;
-    // Dinamikusan importáljuk a socket-et (csak a böngészőben)
+    // A socket import async, ezért a cleanup-ot egy külső változóban
+    // tároljuk, és a useEffect-ből egy szinkron cleanup-ot adunk vissza.
+    // (Korábban a return a .then()-en belül volt → a useEffect undefined
+    // cleanup-ot kapott, a listener sosem iratkozott le, és minden mount-on
+    // halmozódott → duplikált toast-ok.)
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
     import('@/lib/socket').then(({ getSocket }) => {
+      if (cancelled) return;
       const socket = getSocket();
       const onNew = (n: any) => {
         toast.info(n.title || 'Új értesítés', n.body || undefined);
       };
       socket.on('notification:new', onNew);
-      return () => socket.off('notification:new', onNew);
+      unsubscribe = () => socket.off('notification:new', onNew);
     });
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [enabled, toast]);
 }

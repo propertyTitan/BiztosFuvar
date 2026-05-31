@@ -43,17 +43,27 @@ export default function Ertesitesek() {
 
   // Real-time
   useEffect(() => {
+    // getCurrentUser async, ezért a cleanup-ot külső változóban tároljuk és
+    // a useEffect-ből szinkron adjuk vissza. (Korábban a return az async
+    // IIFE-n belül volt → React egy Promise-t kapott cleanup helyett, a
+    // listener sosem iratkozott le, és minden remount-on halmozódott.)
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
     (async () => {
       const u = await getCurrentUser();
-      if (!u) return;
+      if (!u || cancelled) return;
       joinUserRoom(u.id);
       const socket = getSocket();
       const onNew = (n: Notification) => {
         setItems((prev) => [n, ...prev.filter((x) => x.id !== n.id)]);
       };
       socket.on('notification:new', onNew);
-      return () => socket.off('notification:new', onNew);
+      unsubscribe = () => socket.off('notification:new', onNew);
     })();
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   async function openItem(n: Notification) {

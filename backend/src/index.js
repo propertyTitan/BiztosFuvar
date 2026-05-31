@@ -24,6 +24,11 @@ if (process.env.SENTRY_DSN) {
 
 const http = require('http');
 const express = require('express');
+// Patch-eli az Express-t, hogy az async route handler-ekben dobott hibák
+// (pl. egy elszállt db.query) automatikusan a központi hibakezelőhöz
+// jussanak, ahelyett hogy lekezeletlen rejection-ként a kérést timeoutig
+// lógatnák. Muszáj az route-ok require-je ELŐTT betölteni.
+require('express-async-errors');
 const cors = require('cors');
 
 const realtime = require('./realtime');

@@ -14,7 +14,7 @@
 // A "Fizetek most" gomb NEM hív backend-et: csak vizuálisan mutatja a
 // sikert, majd visszaküldi a felhasználót. A valódi escrow felszabadítás
 // a dropoff fotó pillanatában történik, nem itt.
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useToast } from '@/components/ToastProvider';
@@ -27,7 +27,7 @@ type LoadedData = {
   back: string;
 } | null;
 
-export default function FizetesStub() {
+function FizetesStubContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const toast = useToast();
@@ -257,5 +257,13 @@ export default function FizetesStub() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function FizetesStub() {
+  return (
+    <Suspense fallback={null}>
+      <FizetesStubContent />
+    </Suspense>
   );
 }
