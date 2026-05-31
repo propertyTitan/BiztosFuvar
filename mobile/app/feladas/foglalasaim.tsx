@@ -2,7 +2,7 @@
 // Ez az, ahol Péter látja, hogy János elfogadta-e a fix áras foglalást.
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Linking,
+  View, Text, FlatList, Pressable, StyleSheet, RefreshControl, Linking, Alert,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '@/api';

@@ -330,6 +330,13 @@ a { color: var(--primary); }
   margin-bottom: 16px;
   box-shadow: var(--shadow-sm);
   transition: all var(--transition);
+  /* Dinamikus tartalom (útvonal-címek pl. "...visszfuvar", értesítés-
+     szövegek, user-nevek) hosszú, törhetetlen szavakat is tartalmazhat.
+     Az `anywhere` töri ezeket, ÉS csökkenti a min-content méretet, így a
+     belső flex:1 gyerekek (cím + jobb oldali pill/időbélyeg mellett) le
+     tudnak zsugorodni, ahelyett hogy keskeny telefonon kilógnának a
+     rublikából. Öröklődő property → a kártya teljes szövegére hat. */
+  overflow-wrap: anywhere;
 }
 .card:hover {
   box-shadow: var(--shadow-md);

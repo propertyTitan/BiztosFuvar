@@ -29,6 +29,7 @@ const STATUS_PILL: Record<string, string> = {
   in_progress: 'pill-progress',
   delivered: 'pill-delivered',
   cancelled: 'pill-cancelled',
+  disputed: 'pill-accepted',
 };
 
 export default function FoglalasaimOldal() {

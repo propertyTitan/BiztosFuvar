@@ -5,7 +5,7 @@
 // - Szerkesztés mód: URL `/sofor/uj-utvonal?edit=<id>` → betölti a
 //   meglévő útvonalat, és a mentéskor PATCH-et hív POST helyett.
 // - Mentés draft-ként vagy publikálás azonnal
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, Waypoint } from '@/api';
 import { PACKAGE_SIZES, PackageSizeId } from '@/lib/packageSizes';
@@ -16,7 +16,7 @@ type SizeRow = {
   price: string; // stringként tároljuk, hogy a "" üres állapot kezelhető legyen
 };
 
-export default function UjUtvonal() {
+function UjUtvonalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
@@ -299,5 +299,13 @@ export default function UjUtvonal() {
         </div>
       </form>
     </div>
+  );
+}
+
+export default function UjUtvonal() {
+  return (
+    <Suspense fallback={null}>
+      <UjUtvonalContent />
+    </Suspense>
   );
 }
