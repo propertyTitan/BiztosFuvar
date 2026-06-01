@@ -12,6 +12,7 @@
 // megjelenjen-e egyáltalán. Ha a user be van lépve, null-t adunk vissza.
 import Link from 'next/link';
 import { useCurrentUser } from '@/lib/auth';
+import TestModeBanner from '@/components/TestModeBanner';
 
 const FEATURES = [
   {
@@ -81,6 +82,8 @@ export default function LandingPage() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 16px' }}>
+
+      <TestModeBanner />
 
       {/* ===== Hero ===== */}
       <section
