@@ -12,6 +12,7 @@ import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '@/api';
 import { setCurrentUser, homeForRole, Role } from '@/lib/auth';
+import TestModeBanner from '@/components/TestModeBanner';
 
 type Mode = 'login' | 'register';
 
@@ -96,6 +97,7 @@ function BejelentkezesContent() {
 
   return (
     <div style={{ maxWidth: 440, margin: '0 auto' }}>
+      <TestModeBanner />
       {/* ── Tab-váltó ── */}
       <div
         style={{
