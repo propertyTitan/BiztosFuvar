@@ -113,6 +113,7 @@ app.use('/', jobQuestionsRoutes);
 // Központi hibakezelő
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);
+  if (Sentry) Sentry.captureException(err);
   res.status(500).json({ error: 'Szerverhiba', detail: err.message });
 });
 
