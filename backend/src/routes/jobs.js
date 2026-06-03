@@ -110,12 +110,45 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
       error: 'A csomag mérete kötelező: hosszúság, szélesség és magasság (cm), mind pozitív szám',
     });
   }
+  // Felső korlát: efölött a volume_m3 (NUMERIC(8,2)) túlcsordulna a DB-ben és
+  // 500-as szerverhiba lenne. 2000 cm = 20 m / oldal bőven elég bármilyen
+  // valós csomaghoz; ennél nagyobb szám valószínűleg elgépelés vagy rossz egység.
+  const MAX_DIM_CM = 2000;
+  if (L > MAX_DIM_CM || W > MAX_DIM_CM || H > MAX_DIM_CM) {
+    return res.status(400).json({
+      error: 'A megadott méret irreálisan nagy. Add meg centiméterben — oldalanként legfeljebb 2000 cm (20 m).',
+    });
+  }
 
   // Súly kötelező – a sofőr ez alapján tudja, befér-e a járműve össztömegébe
   const weightKg = Number(weight_kg);
   if (!Number.isFinite(weightKg) || weightKg <= 0) {
     return res.status(400).json({
       error: 'A csomag súlya kötelező és pozitív kell legyen (kg)',
+    });
+  }
+  // Felső korlát: a weight_kg NUMERIC(8,2), efölött túlcsordulna → 500. 100 tonna
+  // bőven minden valós fuvar fölött van; ennél nagyobb szám elgépelés (pl. gramm).
+  const MAX_WEIGHT_KG = 100000;
+  if (weightKg > MAX_WEIGHT_KG) {
+    return res.status(400).json({
+      error: 'A megadott súly irreálisan nagy. Add meg kilogrammban — legfeljebb 100 000 kg.',
+    });
+  }
+
+  // Ár / deklarált érték felső korlátja: ezek INTEGER oszlopok, irreálisan nagy
+  // szám "value out of range for integer" 500-at okozna. 100 millió Ft bőven elég.
+  const MAX_HUF = 100000000;
+  const priceNum = suggested_price_huf != null && suggested_price_huf !== '' ? Number(suggested_price_huf) : null;
+  if (priceNum != null && (!Number.isFinite(priceNum) || priceNum < 0 || priceNum > MAX_HUF)) {
+    return res.status(400).json({
+      error: 'A megadott ár érvénytelen vagy irreálisan magas (legfeljebb 100 000 000 Ft).',
+    });
+  }
+  const declaredNum = declared_value_huf != null && declared_value_huf !== '' ? Number(declared_value_huf) : null;
+  if (declaredNum != null && (!Number.isFinite(declaredNum) || declaredNum < 0 || declaredNum > MAX_HUF)) {
+    return res.status(400).json({
+      error: 'A megadott csomagérték irreálisan magas (legfeljebb 100 000 000 Ft).',
     });
   }
 
