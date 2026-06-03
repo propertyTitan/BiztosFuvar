@@ -85,6 +85,13 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
   const bidAmount = amount || amount_huf;
   const bidCurrency = currency || 'HUF';
   if (!bidAmount || bidAmount <= 0) return res.status(400).json({ error: 'Érvénytelen összeg' });
+  // Felső korlát: az amount_huf INTEGER (max ~2,1 milliárd), efölött a DB
+  // "value out of range" hibát dobna → 500. 100 millió bőven elég bármilyen
+  // valós fuvardíjhoz; efölött elgépelés (pl. túl sok nulla).
+  const MAX_BID = 100000000;
+  if (Number(bidAmount) > MAX_BID) {
+    return res.status(400).json({ error: 'A megadott összeg irreálisan magas (legfeljebb 100 000 000 Ft).' });
+  }
 
   const { rows: jobRows } = await db.query(
     'SELECT status, shipper_id, currency AS job_currency FROM jobs WHERE id = $1',
