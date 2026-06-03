@@ -153,7 +153,9 @@ export default function ChatBox({ entityKey, entityId }: Props) {
                   {m.sender_name}
                 </div>
               )}
-              {m.body}
+              <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                {m.body}
+              </div>
               <div
                 style={{
                   fontSize: 10,

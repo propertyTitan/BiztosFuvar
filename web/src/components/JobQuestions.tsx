@@ -171,8 +171,15 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
               ⚠️ {warning}
             </p>
           )}
-          <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            {newQuestion.length} / 500
+          <div
+            className="muted"
+            style={{
+              fontSize: 12,
+              marginTop: 4,
+              color: newQuestion.length > 0 && newQuestion.length < 5 ? 'var(--danger)' : undefined,
+            }}
+          >
+            {newQuestion.length} / 500 · legalább 5 karakter
           </div>
           <button
             type="submit"
