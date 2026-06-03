@@ -493,7 +493,7 @@ export default function FuvarReszletek() {
         jobId={id}
         jobStatus={job.status}
         shipperId={job.shipper_id}
-        currentUserId={me?.id}
+        currentUserId={user?.id}
       />
 
       {/* Chat — az elfogadott licittől kezdve a feladó és a sofőr
