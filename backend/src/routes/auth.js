@@ -28,7 +28,29 @@ function getWebBase() {
   return process.env.WEB_BASE_URL || 'http://localhost:3000';
 }
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+// A telefonos fotók (iPhone / nagy MP-s Android) gyakran 6-12 MB-osak, ezért
+// a limit 15 MB. Régen 5 MB volt, és a túllépés egy nyers MulterError-t dobott,
+// amiből a központi hibakezelő ijesztő 500 "Szerverhiba"-t csinált — emiatt a
+// tesztelők KYC-feltöltése elszállt.
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } });
+
+// Wrapper a multer köré: a feltöltési hibákat (pl. túl nagy fájl) itt, helyben
+// kezeljük le barátságos üzenettel, hogy ne a központi hibakezelőhöz jussanak
+// és ne 500-as "Szerverhiba" legyen belőlük.
+function uploadSingle(field) {
+  return (req, res, next) => {
+    upload.single(field)(req, res, (err) => {
+      if (!err) return next();
+      if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({
+          error: 'A kép túl nagy. Maximum 15 MB tölthető fel — készíts kisebb felbontású fotót, vagy tömörítsd a képet.',
+        });
+      }
+      return res.status(400).json({ error: 'Fájl feltöltési hiba', detail: err.message });
+    });
+  };
+}
 
 const router = express.Router();
 
@@ -468,7 +490,7 @@ router.post('/admin/grant-monthly-vouchers', authRequired, async (req, res) => {
 });
 
 // POST /auth/avatar — profilkép feltöltés (Cloudflare R2 / disk fallback)
-router.post('/avatar', authRequired, upload.single('file'), async (req, res) => {
+router.post('/avatar', authRequired, uploadSingle('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
   try {
     const url = await saveFile(
@@ -492,7 +514,7 @@ router.post('/avatar', authRequired, upload.single('file'), async (req, res) => 
 // Flow: feltöltés → Gemini megnézi → ha valid okmány → azonnal 'verified'
 // Ha nem valid (macska fotó, homályos, rossz típus) → 'rejected' + reason
 // Ha Gemini nem elérhető → fallback: 'verified' (admin utólag ellenőriz)
-router.post('/kyc-document', authRequired, upload.single('file'), async (req, res) => {
+router.post('/kyc-document', authRequired, uploadSingle('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
   const { doc_type } = req.body || {};
   const validTypes = ['id_card', 'drivers_license', 'insurance', 'vehicle_registration', 'company_document'];
