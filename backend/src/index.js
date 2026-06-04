@@ -110,11 +110,17 @@ app.use('/', driverStatsRoutes);
 app.use('/', adminRoutes);
 app.use('/', jobQuestionsRoutes);
 
-// Központi hibakezelő
+// Központi hibakezelő.
+// A `detail` (err.message) CSAK fejlesztésben kerül a válaszba — produkcióban
+// kiszivárogtatná a belső DB-/stack-üzeneteket (pl. "invalid input syntax for
+// type integer"). A frontend a felhasználói üzenethez a `error` mezőt használja,
+// nem a `detail`-t, így ez nem töri a UX-et.
 app.use((err, _req, res, _next) => {
   console.error('[error]', err);
   if (Sentry) Sentry.captureException(err);
-  res.status(500).json({ error: 'Szerverhiba', detail: err.message });
+  const body = { error: 'Szerverhiba' };
+  if (process.env.NODE_ENV !== 'production') body.detail = err.message;
+  res.status(500).json(body);
 });
 
 const server = http.createServer(app);

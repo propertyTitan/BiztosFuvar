@@ -56,6 +56,18 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     return res.status(403).json({ error: 'Csak a kijelölt sofőr tölthet fel pickup/dropoff fotót' });
   }
 
+  // Terminál-státusz védelem: ha a fuvar már lezárult vagy lemondva, ne
+  // fogadjunk el további felvételi/lerakodási fotót. Pénzügyi kárt a
+  // státusz-feltételes payout eddig is megakadályozott, de e nélkül a
+  // végpont 201-gyel elfogadta a felesleges fotót, ami szennyezte a
+  // bizonyíték-galériát és félrevezető volt.
+  const TERMINAL_STATUSES = ['delivered', 'completed', 'cancelled'];
+  if ((kind === 'pickup' || kind === 'dropoff') && TERMINAL_STATUSES.includes(job.status)) {
+    return res.status(409).json({
+      error: `Ez a fuvar már lezárult (státusz: ${job.status}). Nem tölthető fel további felvételi vagy lerakodási fotó.`,
+    });
+  }
+
   // DROPOFF → átvételi kód kötelező, a feladó által generált kóddal kell egyezzen.
   // Ha nem egyezik: 403, NEM mentünk fotót, NEM állítunk státuszt.
   if (kind === 'dropoff') {
