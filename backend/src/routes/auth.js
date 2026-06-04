@@ -329,6 +329,15 @@ router.patch('/me', authRequired, async (req, res) => {
     }
   }
 
+  // Ha bármelyik számlázási/cég mező változik, a cég-ellenőrzés visszaáll
+  // 'pending'-re — így valós formátumú, de hamis adószámmal sem lehet
+  // 'verified' céggé válni (a middleware a 'verified'-et követeli meg a
+  // céges/fordított-ÁFA kezeléshez). Admin újra jóváhagyja.
+  const COMPANY_FIELDS = ['company_name', 'tax_id', 'company_reg_number', 'eu_vat_number', 'billing_address'];
+  if (COMPANY_FIELDS.some((f) => req.body[f] !== undefined)) {
+    updates.push(`company_verification_status = 'pending'`);
+  }
+
   if (updates.length === 0) {
     return res.status(400).json({ error: 'Nincs módosítandó mező' });
   }
