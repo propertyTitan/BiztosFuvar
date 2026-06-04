@@ -6,8 +6,9 @@
 // - Hirdetési fotók (a feladó által feltöltött képek).
 // - Licit feladás: ár + opcionális érkezési idő + üzenet.
 // - Ha a sofőr már licitált, látja a licitjét és annak állapotát.
-// - Ha a fuvar már az övé (in_progress), figyelmezteti, hogy a lezárás
-//   CSAK a mobilalkalmazásban lehetséges (GPS + fotó miatt).
+// - Ha a fuvar már az övé (accepted/in_progress), a CarrierTripPanel
+//   intézi a végrehajtást a weben: felvétel-fotó → in_progress,
+//   kézbesítés-fotó + 6 jegyű kód → delivered.
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -20,6 +21,7 @@ import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
+import CarrierTripPanel from '@/components/CarrierTripPanel';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -474,25 +476,10 @@ export default function SoforFuvarReszletek() {
         </div>
       )}
 
-      {/* Ha a fuvar már a sofőré, figyelmeztetés, hogy a lezárás csak mobilon */}
+      {/* A fuvar végrehajtása a weben: felvétel-fotó → in_progress,
+          kézbesítés-fotó + 6 jegyű kód → delivered. */}
       {iAmTheCarrier && (job.status === 'accepted' || job.status === 'in_progress') && (
-        <div
-          className="card"
-          style={{
-            marginTop: 16,
-            background: '#fef3c7',
-            borderColor: '#f59e0b',
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>📱 Folytasd a mobilalkalmazásban</h2>
-          <p style={{ marginBottom: 0 }}>
-            A fuvart a <strong>GoFuvar mobilalkalmazásban</strong> kell elindítani és lezárni.
-            A felvételi és lerakodási fotókhoz, valamint az élő GPS követéshez a telefonod kamera
-            és helymeghatározás szolgáltatása szükséges, ami <strong>csak a mobilból érhető el</strong>.
-            <br />
-            Nyisd meg a GoFuvar appot a telefonodon, és lépj be a „Saját fuvaraim" menüpontba.
-          </p>
-        </div>
+        <CarrierTripPanel jobId={id} status={job.status} onDone={load} />
       )}
 
       {/* Chat */}
