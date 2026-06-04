@@ -156,7 +156,7 @@ export default function KycModal() {
         </button>
 
         {/* Title */}
-        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 20, fontWeight: 700 }}>
+        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 20, fontWeight: 700, color: '#1a1a1a' }}>
           {TYPE_TITLES[kycType]}
         </h2>
 
@@ -178,8 +178,8 @@ export default function KycModal() {
             }}
           >
             <div style={{ fontSize: 36, marginBottom: 8 }}>⚠️</div>
-            <strong>Adminisztrátori jóváhagyásra vár</strong>
-            <p style={{ margin: '8px 0 0' }}>
+            <strong style={{ color: '#92400e' }}>Adminisztrátori jóváhagyásra vár</strong>
+            <p style={{ margin: '8px 0 0', color: '#92400e' }}>
               A személyi igazolványodon szereplő születési dátum alapján
               a rendszer 18 év alatti felhasználót észlelt. Az adminisztrátorok
               értesítve lettek, és manuálisan ellenőrzik a dokumentumodat.
