@@ -732,10 +732,10 @@ export default function UjFuvar() {
             <input type="checkbox" checked={form.invoice_requested}
               onChange={(e) => set('invoice_requested', e.target.checked)}
               style={{ width: 18, height: 18 }} />
-            <span style={{ fontSize: 14 }}>Szamlat kerek errol a fuvarrol</span>
+            <span style={{ fontSize: 14 }}>Számlát kérek erről a fuvarról</span>
           </label>
           <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            Ha szamlat kersz, a sofor a fuvar lezarasakor szamlat allit ki a teljes fuvardijrol.
+            Ha számlát kérsz, a sofőr a fuvar lezárásakor számlát állít ki a teljes fuvardíjról.
           </p>
         </div>
 

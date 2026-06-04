@@ -37,6 +37,7 @@ export default function FuvarReszletek() {
   const [escrow, setEscrow] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
 
   async function startPayment() {
     setPaying(true);
@@ -116,12 +117,16 @@ export default function FuvarReszletek() {
   }, [user, id]);
 
   async function acceptBid(bidId: string) {
+    if (acceptingBidId) return;
+    setAcceptingBidId(bidId);
     try {
       await api.acceptBid(bidId);
       toast.success('Licit elfogadva', 'Most már kifizetheted a fuvart.');
       await loadAll();
     } catch (err: any) {
       toast.error('Hiba a licit elfogadásakor', err.message);
+    } finally {
+      setAcceptingBidId(null);
     }
   }
 
@@ -561,7 +566,13 @@ export default function FuvarReszletek() {
                 </div>
               </div>
               {b.message && <p className="muted" style={{ margin: '8px 0 0', fontSize: 13, paddingLeft: 52 }}>„{b.message}"</p>}
-              <button className="btn" onClick={() => acceptBid(b.id)}>Elfogadom</button>
+              <button
+                className="btn"
+                onClick={() => acceptBid(b.id)}
+                disabled={acceptingBidId !== null}
+              >
+                {acceptingBidId === b.id ? 'Elfogadás…' : 'Elfogadom'}
+              </button>
             </div>
           ))}
         </div>

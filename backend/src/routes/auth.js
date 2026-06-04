@@ -87,6 +87,9 @@ router.post('/register', registerRateLimit, async (req, res) => {
   // minden admin-végpont ezt ellenőrzi). Admin jogot csak DB-ből / meglévő
   // admin által védett úton lehet adni.
   const role = req.body?.role === 'carrier' ? 'carrier' : 'shipper';
+  // Email kanonikus formában (kisbetű + trim), hogy a login kis/nagybetűtől
+  // függetlenül megtalálja — a telefon-billentyűzet gyakran nagybetűsít.
+  const normEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
   if (!email || !password || !full_name) {
     return res.status(400).json({ error: 'Hiányzó mezők' });
   }
@@ -121,7 +124,7 @@ router.post('/register', registerRateLimit, async (req, res) => {
                           email_verification_token_hash, email_verification_sent_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
        RETURNING id, role, email, full_name, account_type, email_verified`,
-      [role, email, hashPassword(password), full_name, phone || null, vehicle_type || null, vehicle_plate || null,
+      [role, normEmail, hashPassword(password), full_name, phone || null, vehicle_type || null, vehicle_plate || null,
        accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null,
        verifyHash],
     );
@@ -129,7 +132,7 @@ router.post('/register', registerRateLimit, async (req, res) => {
 
     // Email küldés — best-effort, soha nem akasztjuk meg vele a registert
     sendEmailVerificationEmail({
-      to: email,
+      to: normEmail,
       fullName: full_name,
       verifyUrl: `${getWebBase()}/email-megerositese?token=${verifyToken}`,
     }).catch((e) => console.warn('[auth] verify mail küldés hiba:', e.message));
@@ -281,9 +284,12 @@ router.post('/resend-verification', authRequired, async (req, res) => {
 router.post('/login', loginRateLimit, async (req, res) => {
   const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Hiányzó mezők' });
+  // Email-egyezés kis/nagybetűtől függetlenül: a regisztráció normalizál, de a
+  // régi sorokban vegyes írásmód lehet, ezért itt is LOWER-rel hasonlítunk —
+  // különben a "Tester@…" fiók nem tudna "tester@…"-ként belépni.
   const { rows } = await db.query(
-    'SELECT id, role, email, full_name, password_hash FROM users WHERE email = $1',
-    [email],
+    'SELECT id, role, email, full_name, password_hash FROM users WHERE LOWER(email) = LOWER($1)',
+    [email.trim()],
   );
   const user = rows[0];
   if (!user || !verifyPassword(password, user.password_hash)) {
