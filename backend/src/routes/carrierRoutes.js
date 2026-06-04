@@ -82,6 +82,11 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   if (!Array.isArray(prices) || prices.length === 0) {
     return res.status(400).json({ error: 'Legalább egy méret-kategóriát be kell állítani (prices)' });
   }
+  // Létrehozáskor csak 'draft' vagy 'open' értelmes — különben tetszőleges
+  // string menne az enum oszlopba (a PATCH-eknél már van ilyen whitelist).
+  if (!['draft', 'open'].includes(status)) {
+    return res.status(400).json({ error: 'Érvénytelen útvonal státusz (csak draft vagy open)' });
+  }
   for (const p of prices) {
     if (!ALLOWED_SIZES.includes(p.size) || !(p.price_huf > 0)) {
       return res.status(400).json({ error: `Érvénytelen ár: ${JSON.stringify(p)}` });

@@ -42,6 +42,11 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
 router.patch('/admin/users/:id', ...adminOnly, async (req, res) => {
   const allowed = ['role', 'identity_kyc_status', 'driver_kyc_status',
     'company_verification_status', 'can_bid', 'trust_score', 'level'];
+  // A role mindig a 3 ismert érték egyike legyen (a JWT ezzel íródik alá),
+  // hogy egy elgépelés ne küldjön érvénytelen stringet az enum oszlopba.
+  if (req.body.role !== undefined && !['shipper', 'carrier', 'admin'].includes(req.body.role)) {
+    return res.status(400).json({ error: 'Érvénytelen szerepkör' });
+  }
   const sets = [];
   const params = [];
   let idx = 1;
