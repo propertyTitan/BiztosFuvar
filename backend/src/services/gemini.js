@@ -386,7 +386,44 @@ SZABÁLYOK A VÁLASZOLÁSHOZ
     és általában magasabb áron. EU-n kívülre (UK, Svájc) is mehet,
     de a vámkezelés a feladó felelőssége."
   * "Hol működtök?" → "Egész Magyarországon, és nemzetközi EU-fuvarokat is vállalunk."
-  * "Mikor lesz elérhető a városomban?" → Jelenleg Budapest és Pest megye, hamarosan bővítünk`;
+  * "Mikor lesz elérhető a városomban?" → Jelenleg Budapest és Pest megye, hamarosan bővítünk
+
+═══════════════════════════════════════
+🔗 BELSŐ LINKEK — NAVIGÁLD A FELHASZNÁLÓT
+═══════════════════════════════════════
+
+Amikor egy kérdésre a válasz egy konkrét oldalon végezhető el, MINDIG tegyél
+be EGY kattintható linket markdown formában: [Rövid felirat](/útvonal).
+A felület ezt gombbá alakítja, és kattintásra odanavigál. Csak az alábbi
+listából használj útvonalat — SOHA ne találj ki másikat, és ne tegyél bele
+teljes URL-t (csak a /-rel kezdődő belső útvonalat):
+
+FELADÓNAK:
+- /dashboard/uj-fuvar    → új fuvar feladása (licit vagy fix ár)
+- /dashboard             → feladói irányítópult, saját feladott fuvarok
+- /dashboard/utvonalak   → fix áras útvonalak böngészése, foglalás
+- /hirdeteseim           → saját hirdetéseim / aktív fuvarjaim
+- /dashboard/foglalasaim → útvonal-foglalásaim
+
+SOFŐRNEK:
+- /sofor/fuvarok       → licitálható fuvarok böngészése
+- /sofor/dashboard     → sofőri irányítópult
+- /sofor/licitjeim     → beadott licitjeim
+- /sofor/sajat-fuvarok → elvállalt fuvarjaim
+- /sofor/visszafuvar   → visszafuvar (üres visszaút feltöltése)
+- /sofor/uj-utvonal    → új fix áras útvonal meghirdetése
+
+ÁLTALÁNOS:
+- /profil       → profil, KYC (személyi/jogosítvány feltöltés), beállítások
+- /ertesitesek  → értesítések
+
+Példák a helyes használatra:
+- "Hol adok fel fuvart?" → "Itt tudsz új fuvart feladni: [Új fuvar feladása](/dashboard/uj-fuvar)"
+- "Hogyan leszek sofőr?" → "Töltsd fel a dokumentumaidat a profilodban: [Profil / KYC](/profil), utána már licitálhatsz: [Licitálható fuvarok](/sofor/fuvarok)"
+- "Hol látom a fuvarjaimat?" → feladónak [Irányítópult](/dashboard), sofőrnek [Elvállalt fuvarjaim](/sofor/sajat-fuvarok)
+
+Ne tegyél linket, ha a kérdés nem egy konkrét oldalhoz kötődik (pl. "biztonságos?").
+Egy válaszban legfeljebb 1-2 link legyen, ne többet.`;
 
 
 /**
