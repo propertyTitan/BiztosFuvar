@@ -66,6 +66,16 @@ router.patch('/admin/users/:id', ...adminOnly, async (req, res) => {
 // GET /admin/jobs — összes fuvar
 router.get('/admin/jobs', ...adminOnly, async (req, res) => {
   const { status, limit = 50 } = req.query;
+  // Whitelist: a job_status enumra nem létező értéket küldve a Postgres
+  // "invalid input value for enum" hibát dobna → 500. (Admin-only, de a
+  // tiszta 400 itt is jobb, mint az enum-hiba kiszivárgása.)
+  const VALID_JOB_STATUSES = [
+    'pending', 'bidding', 'accepted', 'in_progress',
+    'delivered', 'completed', 'disputed', 'cancelled',
+  ];
+  if (status && !VALID_JOB_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `Érvénytelen státusz: "${status}".` });
+  }
   let sql = `SELECT j.*, s.full_name AS shipper_name, c.full_name AS carrier_name
                FROM jobs j
                JOIN users s ON s.id = j.shipper_id
