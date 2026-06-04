@@ -16,6 +16,7 @@ const { generatePlatformFeeInvoice } = require('../services/invoicing');
 const { freezeExchangeRate } = require('../services/exchange');
 const barion = require('../services/barion');
 const realtime = require('../realtime');
+const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
 
@@ -286,6 +287,12 @@ router.get('/payments/admin/log', authRequired, async (req, res) => {
 // ============================================================
 
 router.get('/jobs/:jobId/escrow', authRequired, async (req, res) => {
+  // IDOR-védelem: csak a fuvar fele (feladó / sofőr / admin) láthatja az
+  // escrow + Barion fizetési adatokat (összegek, barion_payment_id, gateway URL).
+  const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
+  if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (!isParty) return res.status(403).json({ error: 'Nincs jogosultság ehhez a fuvarhoz.' });
+
   const { rows } = await db.query(
     `SELECT amount_huf, currency, status, barion_payment_id, barion_gateway_url,
             carrier_share_huf, platform_share_huf, exchange_rate,
@@ -297,6 +304,11 @@ router.get('/jobs/:jobId/escrow', authRequired, async (req, res) => {
 });
 
 router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {
+  // IDOR-védelem: csak a fuvar fele láthatja a kifizetési státuszt.
+  const access = await getJobParty(req.params.jobId, req.user);
+  if (access.notFound) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (!access.isParty) return res.status(403).json({ error: 'Nincs jogosultság ehhez a fuvarhoz.' });
+
   const { rows } = await db.query(
     `SELECT
         et.status AS escrow_status,
