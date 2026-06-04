@@ -367,8 +367,19 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
 //   ?min_price=...&max_price=...   — javasolt ár szűrés
 //   ?max_weight_kg=...             — max csomag súly
 //   ?max_size=S|M|L|XL            — max méret kategória (TODO)
+// A job_status enum összes érvényes értéke (db/schema.sql). Az enum oszlopra
+// nem létező értéket (pl. ?status=open) küldve a Postgres "invalid input value
+// for enum" hibát dob → 500 + Sentry-zaj. Ezért előbb whitelist-eljük.
+const VALID_JOB_STATUSES = [
+  'pending', 'bidding', 'accepted', 'in_progress',
+  'delivered', 'completed', 'disputed', 'cancelled',
+];
+
 router.get('/', authRequired, async (req, res) => {
   const { status = 'bidding', lat, lng, radius_km, min_price, max_price, max_weight_kg, instant } = req.query;
+  if (!VALID_JOB_STATUSES.includes(status)) {
+    return res.status(400).json({ error: `Érvénytelen státusz: "${status}".` });
+  }
   let sql = `SELECT j.*,
        u.account_type AS shipper_account_type,
        u.company_name AS shipper_company_name,
