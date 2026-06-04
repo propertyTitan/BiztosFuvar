@@ -84,12 +84,18 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
   // Backward compat: amount_huf VAGY az új amount + currency páros
   const bidAmount = amount || amount_huf;
   const bidCurrency = currency || 'HUF';
-  if (!bidAmount || bidAmount <= 0) return res.status(400).json({ error: 'Érvénytelen összeg' });
+  // Egész szám validáció: az amount_huf INTEGER oszlop. Tizedes ("100.99")
+  // vagy nem-numerikus ("5000; DROP") érték a DB-ig jutva integer-hibát
+  // dobna → 500 + a DB belső hibaüzenet kiszivárogna. Itt szűrjük előbb.
+  const numAmount = Number(bidAmount);
+  if (!Number.isInteger(numAmount) || numAmount <= 0) {
+    return res.status(400).json({ error: 'Az összeg csak pozitív egész szám lehet (forintban).' });
+  }
   // Felső korlát: az amount_huf INTEGER (max ~2,1 milliárd), efölött a DB
   // "value out of range" hibát dobna → 500. 100 millió bőven elég bármilyen
   // valós fuvardíjhoz; efölött elgépelés (pl. túl sok nulla).
   const MAX_BID = 100000000;
-  if (Number(bidAmount) > MAX_BID) {
+  if (numAmount > MAX_BID) {
     return res.status(400).json({ error: 'A megadott összeg irreálisan magas (legfeljebb 100 000 000 Ft).' });
   }
 
@@ -130,7 +136,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
     const { rows } = await db.query(
       `INSERT INTO bids (job_id, carrier_id, amount_huf, currency, exchange_rate, exchange_rate_frozen_at, message, eta_minutes)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [jobId, req.user.sub, bidAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null],
+      [jobId, req.user.sub, numAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null],
     );
     realtime.emitToJob(jobId, 'bids:new', rows[0]);
 
@@ -152,7 +158,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
           user_id: info.shipper_id,
           type: 'bid_received',
           title: 'Új licit érkezett 🎯',
-          body: `${info.carrier_name} ${bidAmount.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
+          body: `${info.carrier_name} ${numAmount.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
           link: `/dashboard/fuvar/${jobId}`,
         });
         // Email is, fire-and-forget (ne blokkolja a választ)
@@ -163,7 +169,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
             jobTitle: info.title,
             jobId,
             carrierName: info.carrier_name,
-            amountHuf: bidAmount,
+            amountHuf: numAmount,
           }).catch((e) => console.warn('[email] bid_received hiba:', e.message));
         });
       }
