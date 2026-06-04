@@ -4,8 +4,12 @@ const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { writeRateLimit } = require('../middleware/rateLimit');
+const { uuidParam } = require('../middleware/validateParams');
 
 const router = express.Router();
+
+// A :driverId uuid — nem-uuid érték a query előtt 400-zal elbukik.
+router.param('driverId', uuidParam);
 
 // POST /favorites/:driverId — kedvencnek jelölés
 router.post('/favorites/:driverId', authRequired, writeRateLimit, async (req, res) => {
