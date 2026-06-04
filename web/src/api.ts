@@ -382,10 +382,12 @@ export const api = {
     jobId: string,
     file: File,
     kind: 'listing' | 'pickup' | 'dropoff' | 'damage' | 'document',
+    opts?: { deliveryCode?: string },
   ) => {
     const form = new FormData();
     form.append('file', file);
     form.append('kind', kind);
+    if (opts?.deliveryCode) form.append('delivery_code', opts.deliveryCode);
 
     const token = getToken();
     const res = await fetch(`${BASE_URL}/jobs/${jobId}/photos`, {
