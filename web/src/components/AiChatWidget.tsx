@@ -152,23 +152,47 @@ export default function AiChatWidget() {
               <div style={{ fontWeight: 700 }}>GoFuvar Segéd 🤖</div>
               <div style={{ fontSize: 12, opacity: 0.85 }}>Kérdezz bármit!</div>
             </div>
-            {messages.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {messages.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearHistory}
+                  style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: 6,
+                    fontSize: 11,
+                    padding: '3px 8px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Törlés
+                </button>
+              )}
               <button
                 type="button"
-                onClick={clearHistory}
+                onClick={() => setOpen(false)}
+                aria-label="Bezárás"
                 style={{
                   background: 'rgba(255,255,255,0.15)',
                   color: '#fff',
                   border: '1px solid rgba(255,255,255,0.3)',
                   borderRadius: 6,
-                  fontSize: 11,
-                  padding: '3px 8px',
+                  width: 28,
+                  height: 28,
+                  fontSize: 18,
+                  lineHeight: 1,
                   cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
                 }}
               >
-                Törlés
+                ×
               </button>
-            )}
+            </div>
           </div>
 
           <div
