@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import AiMessageContent from './AiMessageContent';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -27,6 +28,9 @@ export default function AiChatWidget() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Csak a localStorage-ből való betöltés UTÁN mentünk — különben a kezdeti
+  // üres [] felülírná a korábbi beszélgetést (ezért "felejtett" a bot reload után).
+  const loadedRef = useRef(false);
 
   // History betöltés
   useEffect(() => {
@@ -34,10 +38,12 @@ export default function AiChatWidget() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setMessages(JSON.parse(raw));
     } catch {}
+    loadedRef.current = true;
   }, []);
 
-  // History mentés
+  // History mentés (csak betöltés után)
   useEffect(() => {
+    if (!loadedRef.current) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     } catch {}
@@ -219,7 +225,11 @@ export default function AiChatWidget() {
                   boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
                 }}
               >
-                {m.content}
+                {m.role === 'assistant' ? (
+                  <AiMessageContent content={m.content} onNavigate={() => setOpen(false)} />
+                ) : (
+                  m.content
+                )}
               </div>
             ))}
             {loading && (

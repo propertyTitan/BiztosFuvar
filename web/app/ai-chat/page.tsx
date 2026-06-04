@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import AiMessageContent from '@/components/AiMessageContent';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
@@ -28,6 +29,8 @@ export default function AiChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Csak betöltés után mentünk, nehogy a kezdeti üres [] kitörölje a historyt.
+  const loadedRef = useRef(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -37,10 +40,12 @@ export default function AiChatPage() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) setMessages(JSON.parse(raw));
     } catch {}
+    loadedRef.current = true;
   }, []);
 
-  // History mentés
+  // History mentés (csak betöltés után)
   useEffect(() => {
+    if (!loadedRef.current) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     } catch {}
@@ -162,7 +167,11 @@ export default function AiChatPage() {
                 whiteSpace: 'pre-wrap',
               }}
             >
-              {m.content}
+              {m.role === 'assistant' ? (
+                <AiMessageContent content={m.content} />
+              ) : (
+                m.content
+              )}
             </div>
           ))}
           {loading && (
