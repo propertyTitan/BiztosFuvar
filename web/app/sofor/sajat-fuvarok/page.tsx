@@ -96,7 +96,7 @@ export default function SoforSajatFuvarok() {
         <>
           <h2 style={{ marginTop: 24 }}>🚚 Aktív fuvarok ({active.length})</h2>
           <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
-            A felvételt és a lezárást a mobilalkalmazásban kell elvégezned (GPS + fotó).
+            A felvételt és a lezárást a fuvar megnyitása után itt, a böngészőben végzed el (fotó + átvételi kód).
           </p>
           {active.map((j) => (
             <JobCard key={j.id} j={j} />
