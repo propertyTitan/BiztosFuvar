@@ -312,6 +312,11 @@ router.get('/me', authRequired, async (req, res) => {
 // Engedélyezett mezők: full_name, phone, vehicle_type, vehicle_plate, bio, avatar_url
 router.patch('/me', authRequired, async (req, res) => {
   const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio', 'avatar_url', 'company_name', 'tax_id', 'company_reg_number', 'eu_vat_number', 'billing_address'];
+  // Adószám formátum-ellenőrzés (ugyanaz mint a regisztrációnál), hogy ne
+  // kerüljön szemét érték a számlázási mezőbe (a Barion VAT-számítás ezt olvassa).
+  if (req.body.tax_id !== undefined && req.body.tax_id && !/^\d{8}-\d{1,2}-\d{2}$/.test(req.body.tax_id)) {
+    return res.status(400).json({ error: 'Érvénytelen adószám formátum (pl. 12345678-1-42)' });
+  }
   const updates = [];
   const values = [];
   let idx = 1;
