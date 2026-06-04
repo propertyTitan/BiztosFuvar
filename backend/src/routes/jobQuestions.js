@@ -16,8 +16,13 @@ const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { detectContactLeak } = require('../utils/contactGuard');
+const { uuidParam } = require('../middleware/validateParams');
 
 const router = express.Router();
+
+// A :jobId és :id is uuid — nem-uuid érték a query előtt 400-zal elbukik.
+router.param('jobId', uuidParam);
+router.param('id', uuidParam);
 
 // Nyitott állapotok: ezekben még lehet kérdezni
 // (accepted / in_progress / delivered után már zárt — szerződéskötés megtörtént)

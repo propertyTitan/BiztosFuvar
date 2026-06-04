@@ -23,6 +23,11 @@ const {
 
 const router = express.Router();
 
+// Az :id uuid — nem-uuid érték a query előtt 400-zal elbukik (a PATCH/:id
+// saját catch-blokkja egyébként elnyelné a Postgres uuid-hibát 500-ként).
+const { uuidParam } = require('../middleware/validateParams');
+router.param('id', uuidParam);
+
 function generateDeliveryCode() {
   return String(100000 + crypto.randomInt(0, 900000));
 }
@@ -119,7 +124,7 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[carrier-routes] POST hiba:', err);
-    res.status(500).json({ error: 'Útvonal létrehozás sikertelen', detail: err.message });
+    res.status(500).json({ error: 'Útvonal létrehozás sikertelen' });
   } finally {
     client.release();
   }
@@ -295,7 +300,7 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[carrier-routes] PATCH hiba:', err);
-    res.status(500).json({ error: 'Útvonal frissítés sikertelen', detail: err.message });
+    res.status(500).json({ error: 'Útvonal frissítés sikertelen' });
   } finally {
     client.release();
   }

@@ -27,7 +27,7 @@ router.get('/backhaul/suggestions', authRequired, async (req, res) => {
     res.json({ groups });
   } catch (err) {
     console.error('[backhaul] suggestions hiba:', err);
-    res.status(500).json({ error: 'Visszafuvar-ajánlás sikertelen', detail: err.message });
+    res.status(500).json({ error: 'Visszafuvar-ajánlás sikertelen' });
   }
 });
 

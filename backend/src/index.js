@@ -116,6 +116,17 @@ app.use('/', jobQuestionsRoutes);
 // type integer"). A frontend a felhasználói üzenethez a `error` mezőt használja,
 // nem a `detail`-t, így ez nem töri a UX-et.
 app.use((err, _req, res, _next) => {
+  // Kliens-oldali input-hibák: a Postgres ezeket NEM szerverhibaként kezeli,
+  // hanem a kérés rossz adatként. Tipikus eset: nem-UUID azonosító az URL-ben
+  // (?status=open helyett /jobs/NEM-UUID), nem létező enum-érték, nem-szám egy
+  // numerikus oszlopnál, vagy túl nagy szám. Ezekre 400-at adunk, és NEM
+  // küldjük Sentry-be — különben minden bot/scanner/elgépelés zajt csinál és
+  // a valódi hibák elvesznek a zajban.
+  //   22P02 = invalid_text_representation (rossz uuid / szám / enum szöveg)
+  //   22003 = numeric_value_out_of_range (túl nagy szám az oszlophoz)
+  if (err && (err.code === '22P02' || err.code === '22003')) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító vagy formátum.' });
+  }
   console.error('[error]', err);
   if (Sentry) Sentry.captureException(err);
   const body = { error: 'Szerverhiba' };
