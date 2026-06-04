@@ -31,6 +31,11 @@ export default function AiChatWidget() {
   // Csak a localStorage-ből való betöltés UTÁN mentünk — különben a kezdeti
   // üres [] felülírná a korábbi beszélgetést (ezért "felejtett" a bot reload után).
   const loadedRef = useRef(false);
+  // Amíg a süti-banner (alul, teljes szélességben, z-index 9999) látszik, az
+  // ELTAKARJA a lebegő chat-gombot (z-index 1000) — a kattintás a bannerre
+  // megy, ezért tűnt úgy, hogy "a gomb nem reagál". Amíg nincs süti-döntés,
+  // a chatet elrejtjük; a döntés után (event vagy localStorage) megjelenik.
+  const [consentPending, setConsentPending] = useState(true);
 
   // History betöltés
   useEffect(() => {
@@ -39,6 +44,20 @@ export default function AiChatWidget() {
       if (raw) setMessages(JSON.parse(raw));
     } catch {}
     loadedRef.current = true;
+  }, []);
+
+  // Süti-döntés állapota — ha már döntött a user, a chat azonnal látszhat.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('gofuvar_cookie_consent')) setConsentPending(false);
+    } catch {
+      setConsentPending(false);
+    }
+    function onConsent() {
+      setConsentPending(false);
+    }
+    window.addEventListener('gofuvar:cookie-consent', onConsent);
+    return () => window.removeEventListener('gofuvar:cookie-consent', onConsent);
   }, []);
 
   // History mentés (csak betöltés után)
@@ -87,6 +106,9 @@ export default function AiChatWidget() {
   }
 
   if (!user) return null; // csak bejelentkezett usernek mutatjuk
+  // Amíg a süti-banner takarja az alsó sávot, ne mutassunk lebegő gombot —
+  // különben a banner alatt egy nem-kattintható "szellem" gomb látszana.
+  if (consentPending) return null;
 
   return (
     <>
