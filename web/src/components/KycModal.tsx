@@ -20,18 +20,18 @@ const TYPE_TO_DOC: Record<string, string> = {
 };
 
 const TYPE_TITLES: Record<string, string> = {
-  identity: 'Szemelyazonossag igazolasa',
-  driver: 'Sofori dokumentumok',
-  company: 'Ceges verifikacio',
+  identity: 'Személyazonosság igazolása',
+  driver: 'Sofőri dokumentumok',
+  company: 'Céges verifikáció',
 };
 
 const TYPE_DESCRIPTIONS: Record<string, string> = {
   identity:
-    'A platform biztonsaga erdekeben szuksegunk van a szemelyazonosito dokumentumod feltoltesere. Ez biztositja, hogy minden felhasznalo valos szemely legyen.',
+    'A platform biztonsága érdekében szükségünk van a személyazonosító dokumentumod feltöltésére. Ez biztosítja, hogy minden felhasználó valós személy legyen.',
   driver:
-    'Soforként szukseges a jogositvanyod feltoltese. Ez a felhasznalok biztonsagat szolgalja es igazolja, hogy ervenyes jogositvannyal rendelkezel.',
+    'Sofőrként szükséges a jogosítványod feltöltése. Ez a felhasználók biztonságát szolgálja és igazolja, hogy érvényes jogosítvánnyal rendelkezel.',
   company:
-    'Ceges fiok hasznalatahoz szukseges a ceg igazolo dokumentumainak feltoltese (pl. cegkivonat, adobejelentes). Ez biztositja a ceges tranzakciok hitelességet.',
+    'Céges fiók használatához szükséges a cég igazoló dokumentumainak feltöltése (pl. cégkivonat, adóbejelentés). Ez biztosítja a céges tranzakciók hitelességét.',
 };
 
 export default function KycModal() {
@@ -150,7 +150,7 @@ export default function KycModal() {
             lineHeight: 1,
             padding: 4,
           }}
-          aria-label="Bezaras"
+          aria-label="Bezárás"
         >
           x
         </button>
@@ -246,7 +246,7 @@ export default function KycModal() {
                   color: '#333',
                 }}
               >
-                Dokumentum feltoltese
+                Dokumentum feltöltése
               </label>
               <input
                 ref={inputRef}
@@ -267,7 +267,7 @@ export default function KycModal() {
               />
               {file && (
                 <p style={{ fontSize: 12, color: '#666', marginTop: 4, marginBottom: 0 }}>
-                  Kivalasztva: {file.name}
+                  Kiválasztva: {file.name}
                 </p>
               )}
             </div>
@@ -296,7 +296,7 @@ export default function KycModal() {
                 transition: 'background 0.15s',
               }}
             >
-              {uploading ? 'Feltoltes...' : 'Dokumentum feltoltese'}
+              {uploading ? 'Feltöltés…' : 'Dokumentum feltöltése'}
             </button>
           </>
         )}
