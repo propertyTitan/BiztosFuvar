@@ -8,6 +8,7 @@ const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendBidReceivedEmail, sendBidAcceptedEmail } = require('../services/email');
 const { convertEurToHuf, convertHufToEur, freezeExchangeRate } = require('../services/exchange');
+const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
 
@@ -185,7 +186,14 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
 });
 
 // GET /jobs/:jobId/bids
+// IDOR-védelem: a feladó és admin minden licitet lát; egy sofőr CSAK a saját
+// licitjét látja (más sofőr ajánlatát ne tudja kiolvasni). A frontend sofőr-
+// oldal Promise.all-ban kéri, ezért 403 helyett szűrt 200-at adunk vissza.
 router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
+  const { notFound, isShipper, isAdmin } = await getJobParty(req.params.jobId, req.user);
+  if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
+
+  const seeAll = isShipper || isAdmin;
   const { rows } = await db.query(
     `SELECT b.*, b.currency AS bid_currency, b.exchange_rate,
             u.full_name AS carrier_name, u.avatar_url AS carrier_avatar,
@@ -193,8 +201,9 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
             u.trust_score, u.is_verified_carrier,
             u.vehicle_type AS carrier_vehicle
        FROM bids b JOIN users u ON u.id = b.carrier_id
-      WHERE b.job_id = $1 ORDER BY b.amount_huf ASC`,
-    [req.params.jobId],
+      WHERE b.job_id = $1 ${seeAll ? '' : 'AND b.carrier_id = $2'}
+      ORDER BY b.amount_huf ASC`,
+    seeAll ? [req.params.jobId] : [req.params.jobId, req.user.sub],
   );
   // Adjuk hozzá a nettó kifizetés előnézetét minden licithez
   const enriched = rows.map((b) => {

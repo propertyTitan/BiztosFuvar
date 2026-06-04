@@ -7,6 +7,7 @@ const { authRequired } = require('../middleware/auth');
 const realtime = require('../realtime');
 const { distanceMeters } = require('../utils/geo');
 const { createNotification } = require('../services/notifications');
+const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
 
@@ -145,7 +146,14 @@ function extractCity(address) {
 }
 
 // GET /jobs/:jobId/location/last – legutolsó pozíció
+// IDOR-védelem: csak a fuvar fele (feladó / sofőr / admin) követheti a
+// sofőr élő pozícióját. (A címzett nyilvános követése külön, token-alapú
+// publicTracking route-on megy, ezt nem érinti.)
 router.get('/jobs/:jobId/location/last', authRequired, async (req, res) => {
+  const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
+  if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (!isParty) return res.status(403).json({ error: 'Nincs jogosultság ehhez a fuvarhoz.' });
+
   const { rows } = await db.query(
     `SELECT lat, lng, speed_kmh, recorded_at
        FROM location_pings WHERE job_id = $1

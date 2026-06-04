@@ -15,6 +15,7 @@ const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { sendEmail } = require('../services/email');
 const { saveFile } = require('../services/storage');
+const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
 // 10 MB kép-korlát: memóriából dolgozunk, mert a storage service
@@ -278,12 +279,21 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
 });
 
 // GET /jobs/:jobId/photos
+// A fuvar fele (feladó / kijelölt sofőr / admin) MINDEN fotót lát. Egy
+// kívülálló (pl. licitálni készülő sofőr) csak a 'listing' fotókat — ezek
+// a hirdetés részei, kellenek a licithez. A pickup/dropoff/damage/document
+// fotók (és a beágyazott GPS-koordináták) privát bizonyítékok, ezeket
+// idegen nem láthatja.
 router.get('/jobs/:jobId/photos', authRequired, async (req, res) => {
+  const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
+  if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
+
   const { rows } = await db.query(
     'SELECT * FROM photos WHERE job_id = $1 ORDER BY taken_at ASC',
     [req.params.jobId],
   );
-  res.json(rows);
+  const visible = isParty ? rows : rows.filter((p) => p.kind === 'listing');
+  res.json(visible);
 });
 
 module.exports = router;

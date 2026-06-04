@@ -82,7 +82,11 @@ router.post('/register', registerRateLimit, async (req, res) => {
   } = req.body || {};
   // A role mező már opcionális — minden user lehet egyszerre feladó és sofőr is.
   // A DB-ben még tároljuk a legacy role mezőt, de a logika nem használja.
-  const role = (req.body?.role === 'carrier' || req.body?.role === 'admin') ? req.body.role : 'shipper';
+  // SECURITY: az 'admin' szerepet SOHA nem fogadjuk el a body-ból — különben
+  // bárki adminná regisztrálhatná magát (a JWT a user.role-lal íródik alá, és
+  // minden admin-végpont ezt ellenőrzi). Admin jogot csak DB-ből / meglévő
+  // admin által védett úton lehet adni.
+  const role = req.body?.role === 'carrier' ? 'carrier' : 'shipper';
   if (!email || !password || !full_name) {
     return res.status(400).json({ error: 'Hiányzó mezők' });
   }
