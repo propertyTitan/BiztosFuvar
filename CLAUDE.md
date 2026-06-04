@@ -6,6 +6,10 @@
 > Tartalom: ki a user, mi a GoFuvar, hogyan dolgozunk, mi van készen,
 > mi van hátra, és minden olyan döntés, amit nem akarsz minden új
 > session-ben újra elmagyarázni.
+>
+> **Technikai térkép:** a "mi hol van a kódban, mi mire épül" kérdésre a
+> **`CODEMAP.md`** válaszol (route-ok, service-ek, web↔backend híd, hol kezdj
+> keresni). Új feature előtt érdemes átfutni.
 
 ---
 
