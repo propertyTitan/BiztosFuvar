@@ -255,3 +255,31 @@ Az `expo: ~54.0.0` pin SDK 52 deps-szel **szándékos** — ne piszkáld.
 
 > A STUB-ok kulcs nélkül nem dobnak hibát — fake/no-op választ adnak, így a
 > tesztelő minden funkciót végig tud vinni fizetés/SMS/email nélkül is.
+
+---
+
+## 6. Tesztek — `web/` (Vitest + React Testing Library)
+
+```bash
+cd web
+npm test          # egyszeri futás (vitest run)
+npm run test:watch  # figyelő mód fejlesztéshez
+```
+
+| Fájl | Mit fed le |
+|---|---|
+| `src/lib/packageSizes.test.ts` | csomag-besorolás tiszta logika (S/M/L/XL, túllépés, súly, null) |
+| `src/api.test.ts` | a híd `request()` wrapper: token-fejléc, 401→kijelentkezés+event, 403 KYC/coverage event-ek |
+| `src/components/ReviewBox.test.tsx` | értékelés: csillag-validáció + küldés |
+| `src/components/CarrierTripPanel.test.tsx` | sofőr felvétel/kézbesítés: fotó- és 6-jegyű-kód validáció |
+| `app/sofor/uj-utvonal/page.test.tsx` | útvonal-hirdetés form: "mi hiányzik" + publikálás |
+| `app/dashboard/utvonal/[id]/page.test.tsx` | feladó foglalás: méret-besorolás + cím-megerősítés validáció |
+
+**Konfiguráció:**
+- `web/vitest.config.mts` — **`.mts` kötelező** (a projekt nem ESM, a `.ts`
+  config CJS-ként töltődne és elbukna ESM-only plugineken). A `@/*` aliast
+  kézzel tükrözi (nincs ESM-only `vite-tsconfig-paths`).
+- `web/vitest.setup.ts` — jest-dom matcherek + DOM-cleanup minden teszt után.
+- A nehéz/külső gyerekeket (Google Maps-es `CityTagsInput`/`AddressAutocomplete`,
+  `next/navigation`, `@/api`, `useToast`) `vi.mock`-kal helyettesítjük.
+- A teszt-fájlok nem törik a `next build`-et (csak típus-ellenőrzött melléklet).
