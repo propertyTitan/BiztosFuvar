@@ -32,7 +32,11 @@ export default function CarrierTripPanel({ jobId, status, onDone }: Props) {
   const [busy, setBusy] = useState(false);
 
   async function submitPickup() {
-    if (!pickupFile || busy) return;
+    if (busy) return;
+    if (!pickupFile) {
+      toast.error('Hiányzó fotó', 'Előbb válassz vagy készíts egy fotót a csomagról.');
+      return;
+    }
     setBusy(true);
     try {
       await api.uploadJobPhoto(jobId, pickupFile, 'pickup');
@@ -48,7 +52,11 @@ export default function CarrierTripPanel({ jobId, status, onDone }: Props) {
   }
 
   async function submitDropoff() {
-    if (!dropoffFile || busy) return;
+    if (busy) return;
+    if (!dropoffFile) {
+      toast.error('Hiányzó fotó', 'Előbb válassz vagy készíts egy fotót az átadott csomagról.');
+      return;
+    }
     const code = deliveryCode.trim();
     if (code.length !== 6 || !/^\d{6}$/.test(code)) {
       toast.error('Hibás kód', 'Az átvételi kód pontosan 6 számjegy.');
@@ -107,7 +115,7 @@ export default function CarrierTripPanel({ jobId, status, onDone }: Props) {
             type="button"
             className="btn"
             onClick={submitPickup}
-            disabled={!pickupFile || busy}
+            disabled={busy}
             style={{ marginTop: 12 }}
           >
             {busy ? 'Feltöltés…' : 'Felvétel igazolása → fuvar indítása'}
@@ -170,7 +178,7 @@ export default function CarrierTripPanel({ jobId, status, onDone }: Props) {
             type="button"
             className="btn"
             onClick={submitDropoff}
-            disabled={!dropoffFile || deliveryCode.trim().length !== 6 || busy}
+            disabled={busy}
             style={{ marginTop: 12 }}
           >
             {busy ? 'Feltöltés…' : 'Kézbesítés igazolása → fuvar lezárása'}
