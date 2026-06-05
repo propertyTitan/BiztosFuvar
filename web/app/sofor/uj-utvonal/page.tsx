@@ -94,14 +94,22 @@ function UjUtvonalContent() {
     return `${waypoints[0].name} → ${waypoints[waypoints.length - 1].name}`;
   }
 
-  const canSubmit =
-    title.trim().length > 0 &&
-    waypoints.length >= 2 &&
-    departureLocal.length > 0 &&
-    Object.values(sizes).some((s) => s.enabled && Number(s.price) > 0);
+  // Mi hiányzik a publikáláshoz — ezt jelezzük a usernek, hogy ne maradjon
+  // néma a letiltott gomb (korábban: kattintásra semmi sem történt, se hiba).
+  const missingFields: string[] = [];
+  if (title.trim().length === 0) missingFields.push('Megnevezés');
+  if (waypoints.length < 2) missingFields.push('Legalább 2 város (indulás és cél)');
+  if (departureLocal.length === 0) missingFields.push('Indulás időpontja');
+  if (!Object.values(sizes).some((s) => s.enabled && Number(s.price) > 0)) {
+    missingFields.push('Legalább egy csomagméret bepipálva, megadott árral');
+  }
+  const canSubmit = missingFields.length === 0;
 
   async function submit(publishNow: boolean) {
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      setError('Hiányzó adatok: ' + missingFields.join(', ') + '.');
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -285,18 +293,24 @@ function UjUtvonalContent() {
         {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
 
         <div className="row" style={{ marginTop: 24, gap: 12 }}>
-          <button className="btn" type="submit" disabled={!canSubmit || submitting}>
+          <button className="btn" type="submit" disabled={submitting}>
             {submitting ? 'Mentés…' : 'Publikálás most'}
           </button>
           <button
             className="btn btn-secondary"
             type="button"
-            disabled={!canSubmit || submitting}
+            disabled={submitting}
             onClick={() => submit(false)}
           >
             Mentés piszkozatként
           </button>
         </div>
+
+        {!canSubmit && (
+          <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
+            A publikáláshoz még hiányzik: {missingFields.join(', ')}.
+          </p>
+        )}
       </form>
     </div>
   );
