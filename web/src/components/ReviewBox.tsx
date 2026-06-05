@@ -31,7 +31,11 @@ export default function ReviewBox({ entityKey, entityId, onDone }: Props) {
   );
 
   async function submit() {
-    if (!stars) return;
+    if (submitting) return;
+    if (!stars) {
+      toast.error('Hiányzó értékelés', 'Válassz legalább egy csillagot az elküldéshez.');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.submitReview({
@@ -143,9 +147,9 @@ export default function ReviewBox({ entityKey, entityId, onDone }: Props) {
             type="button"
             className="btn"
             onClick={submit}
-            disabled={!stars || submitting}
+            disabled={submitting}
             style={{
-              opacity: stars ? 1 : 0.5,
+              opacity: stars ? 1 : 0.6,
               background: '#f59e0b',
               border: 'none',
             }}

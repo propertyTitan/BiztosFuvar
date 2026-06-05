@@ -56,19 +56,25 @@ export default function FeladoUtvonalReszletek() {
   const priceForSelectedSize = route?.prices.find((p) => p.size === classification);
   const sofőrVisziE = classification && activeSizes.has(classification);
 
-  const canSubmit =
-    classification &&
-    sofőrVisziE &&
-    pickupConfirmed &&
-    dropoffConfirmed &&
-    Number(length) > 0 &&
-    Number(width) > 0 &&
-    Number(height) > 0 &&
-    Number(weight) > 0;
+  // Mi hiányzik a foglaláshoz — hogy ne legyen néma a letiltott gomb.
+  const missingFields: string[] = [];
+  if (!(Number(length) > 0 && Number(width) > 0 && Number(height) > 0 && Number(weight) > 0)) {
+    missingFields.push('Csomag méretei és súlya');
+  }
+  if (!pickupConfirmed) missingFields.push('Felvételi cím (válaszd a legördülőből)');
+  if (!dropoffConfirmed) missingFields.push('Célcím (válaszd a legördülőből)');
+  if (classification && !sofőrVisziE) {
+    missingFields.push('Ezt a csomagméretet a sofőr nem vállalja ezen az útvonalon');
+  }
+  const canSubmit = missingFields.length === 0;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit || !route) return;
+    if (!route) return;
+    if (!canSubmit) {
+      setError('Hiányzó adatok: ' + missingFields.join(', ') + '.');
+      return;
+    }
     setError(null);
     setSubmitting(true);
     try {
@@ -304,11 +310,16 @@ export default function FeladoUtvonalReszletek() {
         <button
           className="btn"
           type="submit"
-          disabled={!canSubmit || submitting}
-          style={{ marginTop: 24, opacity: canSubmit ? 1 : 0.5 }}
+          disabled={submitting}
+          style={{ marginTop: 24, opacity: canSubmit ? 1 : 0.6 }}
         >
           {submitting ? 'Foglalás…' : `Helyet foglalok${priceForSelectedSize ? ` (${priceForSelectedSize.price_huf.toLocaleString('hu-HU')} Ft)` : ''}`}
         </button>
+        {!canSubmit && (
+          <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            A foglaláshoz még hiányzik: {missingFields.join(', ')}.
+          </p>
+        )}
         <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
           A foglalást a sofőrnek meg kell erősítenie. A megerősítés után a
           Barion letétbe helyezi a fuvardíjat, és a fuvar a szokásos módon megy:
