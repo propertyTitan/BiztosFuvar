@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import QrCode from '@/components/QrCode';
+import { Loading, EmptyState } from '@/components/StateView';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -67,18 +68,15 @@ export default function PublicTrackingPage() {
     return () => clearInterval(interval);
   }, [token]);
 
-  if (loading) return (
-    <div style={{ textAlign: 'center', padding: 60 }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>📦</div>
-      <p>Betöltés…</p>
-    </div>
-  );
+  if (loading) return <Loading label="Csomag keresése…" />;
 
   if (error || !data) return (
-    <div style={{ textAlign: 'center', padding: 60 }}>
-      <div style={{ fontSize: 48, marginBottom: 16 }}>❌</div>
-      <h1>Fuvar nem található</h1>
-      <p className="muted">A link érvénytelen vagy a fuvar már törölve lett.</p>
+    <div style={{ maxWidth: 500, margin: '40px auto', padding: '0 16px' }}>
+      <EmptyState
+        icon="🔍"
+        title="Fuvar nem található"
+        description="A link érvénytelen, lejárt, vagy a fuvar már törölve lett. Ellenőrizd a kapott linket."
+      />
     </div>
   );
 
@@ -118,7 +116,7 @@ export default function PublicTrackingPage() {
       {/* Fuvar adatok */}
       <div style={{
         padding: 16, borderRadius: 10,
-        background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
+        background: 'var(--surface)', border: '1px solid var(--border)',
         marginBottom: 16,
       }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>{data.title}</div>
@@ -128,11 +126,7 @@ export default function PublicTrackingPage() {
 
       {/* Sofőr infó */}
       {data.carrier && (
-        <div style={{
-          padding: 16, borderRadius: 10,
-          background: 'rgba(46,125,50,0.08)', border: '1px solid rgba(46,125,50,0.3)',
-          marginBottom: 16,
-        }}>
+        <div className="callout callout-success" style={{ padding: 16 }}>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>🚗 Sofőr: {data.carrier.name}</div>
           {data.carrier.vehicle && (
             <div className="muted" style={{ fontSize: 13 }}>Jármű: {data.carrier.vehicle}</div>
@@ -156,7 +150,7 @@ export default function PublicTrackingPage() {
       {data.last_position && ['in_progress', 'accepted'].includes(data.status) && (
         <div style={{
           padding: 12, borderRadius: 10,
-          background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)',
+          background: 'var(--surface)', border: '1px solid var(--border)',
           marginBottom: 16, fontSize: 13,
         }}>
           📍 Utolsó pozíció: {new Date(data.last_position.recorded_at).toLocaleTimeString('hu-HU')}
@@ -185,16 +179,13 @@ export default function PublicTrackingPage() {
 
       {/* Kézbesítve */}
       {data.status === 'delivered' && (
-        <div style={{
-          padding: 20, borderRadius: 12,
-          background: '#dcfce7', textAlign: 'center',
-        }}>
+        <div className="callout callout-success" style={{ padding: 20, textAlign: 'center' }}>
           <div style={{ fontSize: 48 }}>🎉</div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: '#166534', marginTop: 8 }}>
+          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 8 }}>
             Csomag sikeresen átvéve!
           </div>
           {data.delivered_at && (
-            <div style={{ fontSize: 13, color: '#166534', marginTop: 4 }}>
+            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               {new Date(data.delivered_at).toLocaleString('hu-HU')}
             </div>
           )}
