@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, CarrierRoute } from '@/api';
 import { useToast } from '@/components/ToastProvider';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const STATUS_LABEL: Record<CarrierRoute['status'], string> = {
   draft: 'Piszkozat',
@@ -31,6 +32,7 @@ export default function UtvonalaimOldal() {
   const [routes, setRoutes] = useState<CarrierRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<CarrierRoute | null>(null);
 
   async function load() {
     setLoading(true);
@@ -128,7 +130,7 @@ export default function UtvonalaimOldal() {
                   <button
                     className="btn btn-secondary"
                     style={{ fontSize: 12, padding: '4px 10px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                    onClick={() => confirm('Biztosan törlöd?') && changeStatus(r, 'cancelled')}
+                    onClick={() => setCancelTarget(r)}
                   >
                     Törlés
                   </button>
@@ -197,6 +199,19 @@ export default function UtvonalaimOldal() {
           {byStatus.past.map((r) => <RouteCard key={r.id} r={r} />)}
         </>
       )}
+
+      <ConfirmDialog
+        open={!!cancelTarget}
+        title="Útvonal törlése"
+        message="Biztosan törlöd ezt a meghirdetett útvonalat? A már elfogadott foglalások lemondásra kerülnek."
+        confirmLabel="Törlöm"
+        danger
+        onConfirm={() => {
+          if (cancelTarget) changeStatus(cancelTarget, 'cancelled');
+          setCancelTarget(null);
+        }}
+        onClose={() => setCancelTarget(null)}
+      />
     </div>
   );
 }

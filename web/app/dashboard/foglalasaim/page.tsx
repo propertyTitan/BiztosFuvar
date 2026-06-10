@@ -12,6 +12,7 @@ import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { Loading, ErrorState } from '@/components/StateView';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Sofőri megerősítésre vár',
@@ -262,8 +263,8 @@ export default function FoglalasaimOldal() {
         </Link>
       </div>
 
-      {loading && <p>Betöltés…</p>}
-      {error && <div className="card" style={{ borderColor: 'var(--danger)' }}>Hiba: {error}</div>}
+      {loading && <Loading />}
+      {error && <ErrorState message={error} onRetry={load} />}
 
       {!loading && !error && rows.length === 0 && (
         <div className="card">

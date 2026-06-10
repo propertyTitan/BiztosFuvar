@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, CarrierRoute } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { Loading } from '@/components/StateView';
 import RouteBrowseMap from '@/components/RouteBrowseMap';
 
 type ViewMode = 'list' | 'map';
@@ -173,7 +174,7 @@ export default function FeladoiUtvonalBongeszo() {
         </div>
       </form>
 
-      {loading && <p style={{ marginTop: 16 }}>Betöltés…</p>}
+      {loading && <Loading />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)', marginTop: 16 }}>
           <strong>Hiba:</strong> {error}

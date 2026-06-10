@@ -22,6 +22,7 @@ import ChatBox from '@/components/ChatBox';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
 import CarrierTripPanel from '@/components/CarrierTripPanel';
+import { Loading, ErrorState } from '@/components/StateView';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -122,13 +123,8 @@ export default function SoforFuvarReszletek() {
     }
   }
 
-  if (error)
-    return (
-      <div className="card" style={{ borderColor: 'var(--danger)' }}>
-        Hiba: {error}
-      </div>
-    );
-  if (!job) return <p>Betöltés…</p>;
+  if (error) return <ErrorState message={error} onRetry={load} />;
+  if (!job) return <Loading />;
 
   const iAmTheCarrier = me?.id === job.carrier_id;
   const iAmTheShipper = me?.id === job.shipper_id;

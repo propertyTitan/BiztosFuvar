@@ -10,6 +10,7 @@ import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { Loading, ErrorState } from '@/components/StateView';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -117,16 +118,8 @@ export default function ProfilOldal() {
     }
   }
 
-  if (loadError) {
-    return (
-      <div className="card" style={{ marginTop: 16, borderColor: 'var(--danger)', textAlign: 'center', padding: 32 }}>
-        <p style={{ fontWeight: 700, margin: '0 0 8px' }}>Nem sikerült betölteni a profilt.</p>
-        <p className="muted" style={{ margin: '0 0 16px' }}>{loadError}</p>
-        <button className="btn" type="button" onClick={() => window.location.reload()}>Újrapróbálom</button>
-      </div>
-    );
-  }
-  if (!profile) return <p className="muted">Betöltés…</p>;
+  if (loadError) return <ErrorState message={loadError} onRetry={() => window.location.reload()} />;
+  if (!profile) return <Loading />;
 
   const memberSince = new Date(profile.created_at).toLocaleDateString('hu-HU', {
     year: 'numeric',

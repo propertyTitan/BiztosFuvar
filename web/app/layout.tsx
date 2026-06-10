@@ -4,6 +4,7 @@
 // böngészőjéből, így „app-érzettel" használhatja a natív app megjelenéséig.
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import AiChatWidget from '@/components/AiChatWidget';
@@ -13,7 +14,16 @@ import InstallPromptBanner from '@/components/InstallPromptBanner';
 import { ToastProvider } from '@/components/ToastProvider';
 import KycModalProvider from '@/components/KycModalProvider';
 import CoverageModal from '@/components/CoverageModal';
+import TestModeBanner from '@/components/TestModeBanner';
 import { I18nProvider } from '@/lib/i18n';
+
+// Inter önállóan, layout-shift nélkül (a globals.css @import helyett).
+const inter = Inter({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['400', '500', '600', '700', '800', '900'],
+  variable: '--font-inter',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'GoFuvar – Magyarország közösségi fuvartőzsdéje',
@@ -51,16 +61,14 @@ export const viewport: Viewport = {
   themeColor: '#1e40af',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // A pinch-zoom engedélyezve marad (akadálymentesség, WCAG 1.4.4) —
+  // korábban maximumScale:1 + userScalable:false tiltotta.
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hu">
+    <html lang="hu" className={inter.variable}>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* iOS Safari PWA-támogatás (a Next.js metadata API nem mindig
             generálja ezeket konzisztensen, ezért explicit kihúzzuk) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -77,7 +85,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteHeader />
           <EmailVerifyBanner />
           <InstallPromptBanner />
-          <main className="site-main">{children}</main>
+          <main className="site-main">
+            {/* Teszt-mód jelzés egy helyen, az egész appra — korábban a
+                LandingPage és a bejelentkezés is külön renderelte (duplikáció). */}
+            <TestModeBanner />
+            {children}
+          </main>
           <SiteFooter />
           <AiChatWidget />
           <CookieConsentBanner />

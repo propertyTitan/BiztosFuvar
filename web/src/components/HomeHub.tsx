@@ -431,7 +431,6 @@ export default function HomeHub() {
               { href: '/dashboard/foglalasaim', icon: '📦', label: t('nav.myBookings') },
               { href: '/ertesitesek', icon: '🔔', label: t('nav.notifications'), badge: unread },
               { href: '/profil', icon: '👤', label: t('nav.profile') },
-              { href: '/ai-chat', icon: '🤖', label: t('nav.aiAssistant') },
             ].map((l) => (
               <Link
                 key={l.href}

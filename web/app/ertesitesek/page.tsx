@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { api } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
+import { Loading } from '@/components/StateView';
 
 type Notification = {
   id: string;
@@ -87,7 +88,7 @@ export default function ErtesitesekOldal() {
         )}
       </div>
 
-      {loading && <p>Betöltés…</p>}
+      {loading && <Loading />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)' }}>
           Hiba: {error}

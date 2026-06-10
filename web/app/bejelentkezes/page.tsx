@@ -10,9 +10,9 @@
 //   /bejelentkezes?mode=register → alapból "register" (landing CTA-hoz)
 import { Suspense, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Eye, EyeOff } from 'lucide-react';
 import { api } from '@/api';
 import { setCurrentUser, homeForRole, Role } from '@/lib/auth';
-import TestModeBanner from '@/components/TestModeBanner';
 
 type Mode = 'login' | 'register';
 
@@ -24,6 +24,7 @@ function BejelentkezesContent() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
 
@@ -97,7 +98,6 @@ function BejelentkezesContent() {
 
   return (
     <div style={{ maxWidth: 440, margin: '0 auto' }}>
-      <TestModeBanner />
       {/* ── Tab-váltó ── */}
       <div
         style={{
@@ -295,18 +295,34 @@ function BejelentkezesContent() {
         />
 
         <label>Jelszó</label>
-        <input
-          className="input"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder={mode === 'register' ? 'Legalább 8 karakter' : ''}
-          minLength={mode === 'register' ? 8 : undefined}
-          required
-        />
+        <div style={{ position: 'relative' }}>
+          <input
+            className="input"
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={mode === 'register' ? 'Legalább 8 karakter' : ''}
+            minLength={mode === 'register' ? 8 : undefined}
+            autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+            required
+            style={{ paddingRight: 44 }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((s) => !s)}
+            aria-label={showPassword ? 'Jelszó elrejtése' : 'Jelszó megjelenítése'}
+            style={{
+              position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: 'var(--muted)', padding: 6, display: 'flex', marginTop: 2,
+            }}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
 
         {error && (
-          <p style={{ color: 'var(--danger)', marginTop: 8, fontSize: 14 }}>
+          <p role="alert" style={{ color: 'var(--danger)', marginTop: 8, fontSize: 14 }}>
             ⚠️ {error}
           </p>
         )}
