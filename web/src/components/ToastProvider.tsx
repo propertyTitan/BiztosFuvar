@@ -12,7 +12,7 @@
 // köré. A buborékok jobb oldalt fent jelennek meg, egymás alatt, és 4
 // másodperc után automatikusan eltűnnek (az `error`-ok egy kicsit
 // tovább, 6 mp-ig).
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 type ToastKind = 'success' | 'error' | 'info';
 
@@ -57,11 +57,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, timeout);
   }, []);
 
-  const api: ToastApi = {
+  // Stabil referencia kell: e provider a teljes app körül van, és több
+  // komponens effect-je függ a `toast`-tól — memo nélkül minden toast
+  // megjelenés/eltűnés újra-feliratkozást és újra-fetchelést indítana.
+  const api: ToastApi = useMemo(() => ({
     success: (title, body) => push('success', title, body),
     error: (title, body) => push('error', title, body),
     info: (title, body) => push('info', title, body),
-  };
+  }), [push]);
 
   return (
     <ToastContext.Provider value={api}>

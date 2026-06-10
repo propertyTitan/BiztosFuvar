@@ -64,7 +64,7 @@ export default function SoforLicitjeim() {
             </p>
             {r.message && (
               <p className="muted" style={{ margin: '6px 0 0', fontSize: 13, fontStyle: 'italic' }}>
-                „{r.message}"
+                „{r.message}”
               </p>
             )}
           </div>

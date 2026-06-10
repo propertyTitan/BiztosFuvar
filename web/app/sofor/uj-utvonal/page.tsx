@@ -178,7 +178,7 @@ function UjUtvonalContent() {
               onClick={() => setTitle(autoTitle())}
               style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
             >
-              → Automatikus név: „{autoTitle()}"
+              → Automatikus név: „{autoTitle()}”
             </button>
           )}
         </p>

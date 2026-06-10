@@ -21,6 +21,12 @@ export function getSocket(): Socket {
     socket = io(url, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
+      // A backend a handshake-tokenből azonosít — szobába (értesítések,
+      // fuvar-események, chat) csak hitelesített kapcsolat léphet be.
+      // Függvényként adjuk át, így reconnectkor mindig a friss token megy.
+      auth: (cb) => {
+        cb({ token: window.localStorage.getItem('gofuvar_token') || undefined });
+      },
     });
   }
   return socket;

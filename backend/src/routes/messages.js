@@ -74,12 +74,15 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
   );
   const senderName = senderRows[0]?.full_name || 'Valaki';
 
-  // Socket.IO: szórjuk mindkét félnek a szobájukba
-  const roomKey = job_id ? `chat:job:${job_id}` : `chat:booking:${booking_id}`;
-  realtime.emitGlobal(roomKey, {
-    ...msg,
-    sender_name: senderName,
-  });
+  // Socket.IO: CSAK a két félnek, a személyes szobájukba. (Korábban
+  // emitGlobal ment minden csatlakozott kliensnek — bárki lehallgathatta
+  // a platform összes privát üzenetét.)
+  const chatEvent = job_id ? `chat:job:${job_id}` : `chat:booking:${booking_id}`;
+  const chatPayload = { ...msg, sender_name: senderName };
+  realtime.emitToUser(req.user.sub, chatEvent, chatPayload);
+  if (access.otherUserId && access.otherUserId !== req.user.sub) {
+    realtime.emitToUser(access.otherUserId, chatEvent, chatPayload);
+  }
 
   // Értesítés a másik félnek (ha van)
   // A link a CÍMZETT szemszögéből kell legyen: ha ő a sofőr, a sofőri

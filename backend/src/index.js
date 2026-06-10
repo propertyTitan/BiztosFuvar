@@ -78,8 +78,6 @@ app.get('/coverage/zones', (_req, res) => {
   res.json(getAllZones());
 });
 const publicTrackingRoutes = require('./routes/publicTracking');
-app.use('/', calculatorRoutes);
-app.use('/', publicTrackingRoutes);
 
 // Statikus fájl-kiszolgálás a feltöltött fotókhoz
 const path = require('path');
@@ -89,7 +87,12 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 // vonal a per-endpoint limitek után — spike-ok, botok ellen védekezik.
 // A /health végpontra szándékosan nem alkalmazzuk, hogy a loadbalancer
 // health check-jeit ne korlátozza.
+// A publikus (auth nélküli) végpontok — kalkulátor, címzett-követés —
+// szándékosan a limiter UTÁN jönnek, hogy rájuk is vonatkozzon.
 app.use(globalRateLimit);
+
+app.use('/', calculatorRoutes);
+app.use('/', publicTrackingRoutes);
 
 app.use('/auth', authRoutes);
 app.use('/jobs', jobRoutes);

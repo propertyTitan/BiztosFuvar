@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -38,6 +39,9 @@ export default function ProfilOldal() {
   const [vehiclePlate, setVehiclePlate] = useState('');
   const [bio, setBio] = useState('');
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+
   useEffect(() => {
     if (!me) return;
     api.getMyProfile().then((p) => {
@@ -47,6 +51,9 @@ export default function ProfilOldal() {
       setVehicleType(p.vehicle_type || '');
       setVehiclePlate(p.vehicle_plate || '');
       setBio(p.bio || '');
+    }).catch((e: any) => {
+      // Hiba nélkül a "Betöltés…" örökre ott ragadna
+      setLoadError(e.message || 'Nem sikerült betölteni a profilt.');
     });
   }, [me]);
 
@@ -110,7 +117,16 @@ export default function ProfilOldal() {
     }
   }
 
-  if (!profile) return <p>Betöltés…</p>;
+  if (loadError) {
+    return (
+      <div className="card" style={{ marginTop: 16, borderColor: 'var(--danger)', textAlign: 'center', padding: 32 }}>
+        <p style={{ fontWeight: 700, margin: '0 0 8px' }}>Nem sikerült betölteni a profilt.</p>
+        <p className="muted" style={{ margin: '0 0 16px' }}>{loadError}</p>
+        <button className="btn" type="button" onClick={() => window.location.reload()}>Újrapróbálom</button>
+      </div>
+    );
+  }
+  if (!profile) return <p className="muted">Betöltés…</p>;
 
   const memberSince = new Date(profile.created_at).toLocaleDateString('hu-HU', {
     year: 'numeric',
@@ -293,24 +309,7 @@ export default function ProfilOldal() {
           {/* Fiók törlés */}
           <button
             type="button"
-            onClick={async () => {
-              if (!window.confirm('Biztosan törölni szeretnéd a fiókodat?\n\nEz a művelet VISSZAVONHATATLAN — minden adatod, fuvarod, értékelésed törlődik.')) return;
-              if (!window.confirm('UTOLSÓ FIGYELMEZTETÉS: A fiókod és minden adatod véglegesen törlődik. Folytatod?')) return;
-              try {
-                const token = localStorage.getItem('gofuvar_token');
-                const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/me`, {
-                  method: 'DELETE',
-                  headers: { Authorization: `Bearer ${token}` },
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error);
-                localStorage.removeItem('gofuvar_token');
-                localStorage.removeItem('gofuvar_user');
-                window.location.href = '/bejelentkezes';
-              } catch (err: any) {
-                toast.error('Törlés sikertelen', err.message);
-              }
-            }}
+            onClick={() => setShowDeleteDialog(true)}
             style={{
               marginTop: 32,
               padding: '10px 20px',
@@ -403,6 +402,43 @@ export default function ProfilOldal() {
           </div>
         </>
       )}
+
+      {/* Fióktörlés-megerősítő dialógus (a korábbi dupla window.confirm kiváltása) */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        title="🗑️ Fiók végleges törlése"
+        message={
+          <>
+            Ez a művelet <strong>visszavonhatatlan</strong> — minden adatod, fuvarod és értékelésed
+            véglegesen törlődik. Ha biztos vagy benne, írd be a mezőbe: <strong>TÖRLÉS</strong>
+          </>
+        }
+        confirmLabel="Fiók végleges törlése"
+        danger
+        fields={[{ key: 'confirm', label: 'Megerősítés', required: true, placeholder: 'TÖRLÉS' }]}
+        onConfirm={async (v) => {
+          if ((v.confirm || '').trim().toUpperCase() !== 'TÖRLÉS') {
+            toast.error('Megerősítés szükséges', 'A törléshez írd be: TÖRLÉS');
+            return;
+          }
+          setShowDeleteDialog(false);
+          try {
+            const token = localStorage.getItem('gofuvar_token');
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/me`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            localStorage.removeItem('gofuvar_token');
+            localStorage.removeItem('gofuvar_user');
+            window.location.href = '/bejelentkezes';
+          } catch (err: any) {
+            toast.error('Törlés sikertelen', err.message);
+          }
+        }}
+        onClose={() => setShowDeleteDialog(false)}
+      />
     </div>
   );
 }

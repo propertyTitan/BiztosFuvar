@@ -23,13 +23,15 @@ export default function FeladoiUtvonalBongeszo() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  async function load(filterCity?: string) {
+  // A `dates` felülbírálással a "Törlés" gomb azonnal üres szűrőkkel kérdez
+  // le — a state-ből olvasás ott stale closure miatt a régi dátumokkal menne.
+  async function load(filterCity?: string, dates?: { from: string; to: string }) {
     setLoading(true);
     try {
       const data = await api.listCarrierRoutes({
         city: filterCity || undefined,
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
+        from_date: (dates ? dates.from : fromDate) || undefined,
+        to_date: (dates ? dates.to : toDate) || undefined,
       });
       setRoutes(data);
     } catch (err: any) {
@@ -162,7 +164,7 @@ export default function FeladoiUtvonalBongeszo() {
                 setCity('');
                 setFromDate('');
                 setToDate('');
-                setTimeout(() => load(), 50);
+                load(undefined, { from: '', to: '' });
               }}
             >
               Törlés
@@ -231,7 +233,7 @@ export default function FeladoiUtvonalBongeszo() {
                   }}
                   title="Ezt te hirdetted — nem foglalhatsz rá helyet."
                 >
-                  SAJÁT POSZT
+                  SAJÁT HIRDETÉS
                 </span>
               )}
             </div>

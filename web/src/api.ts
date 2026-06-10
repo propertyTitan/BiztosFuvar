@@ -213,6 +213,10 @@ export type Bid = {
   message: string | null;
   eta_minutes: number | null;
   status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  // A backend a licit mellé adja a sofőr adatait is (bids.js JOIN)
+  carrier_name?: string | null;
+  rating_avg?: number | null;
+  rating_count?: number | null;
 };
 
 function getToken(): string | null {
@@ -229,8 +233,13 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
   if (!res.ok) {
-    // Token lejárt / érvénytelen → automatikus kijelentkezés + átirányítás
-    if (res.status === 401 && typeof window !== 'undefined') {
+    // Token lejárt / érvénytelen → automatikus kijelentkezés + átirányítás.
+    // KIVÉTEL az anonim auth-végpontok (login, regisztráció, jelszó-reset):
+    // ott a 401 azt jelenti, "rossz email/jelszó" — ha ide is átirányítanánk,
+    // az oldal újratöltődne és a felhasználó SOSEM látná a hibaüzenetet.
+    const anonAuthPaths = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
+    const isAnonAuth = anonAuthPaths.some((p) => path.startsWith(p));
+    if (res.status === 401 && !isAnonAuth && typeof window !== 'undefined') {
       window.localStorage.removeItem('gofuvar_token');
       window.localStorage.removeItem('gofuvar_user');
       window.dispatchEvent(new CustomEvent('gofuvar:session-expired'));
@@ -660,6 +669,9 @@ export const api = {
 
   myDisputes: () => request<any[]>('/disputes/mine'),
 
+  /** Admin: ÖSSZES vita (a /mine adminnak jellemzően üres volt) */
+  allDisputes: () => request<any[]>('/disputes'),
+
   getDispute: (id: string) => request<any>(`/disputes/${id}`),
 
   resolveDispute: (id: string, body: { status: string; resolution_note?: string; refund_huf?: number }) =>
@@ -751,7 +763,14 @@ export const api = {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || 'KYC dokumentum feltöltés sikertelen');
     }
-    return res.json() as Promise<{ ok: true; doc_type: string; status: string; file_url: string }>;
+    return res.json() as Promise<{
+      ok: boolean;
+      doc_type: string;
+      status: string;
+      file_url: string;
+      underage?: boolean;
+      ai_reason?: string | null;
+    }>;
   },
 
   getKycStatus: () =>

@@ -36,6 +36,12 @@ function generateDeliveryCode() {
  * A `delivery_code` CSAK a feladónak és az adminnak látható. Mindenki más
  * (köztük a kijelölt sofőr is) a `delivery_code: null` értéket kapja,
  * hogy ne tudja megkerülni az átadási kódot.
+ *
+ * A `tracking_token` szintén csak a feladóé/adminé: a publikus követőoldal
+ * (amit a címzett SMS-ben kap) kiírja az átvételi kódot, így ha a sofőr
+ * hozzájutna a tokenhez, a kódvédelmet teljesen megkerülhetné.
+ * A címzett elérhetőségei (PII) és a Barion-azonosítók csak a fuvar
+ * feleinek járnak — egy licitálgató kívülállónak nem.
  */
 function scrubJobForUser(job, user) {
   if (!job) return job;
@@ -47,9 +53,20 @@ function scrubJobForUser(job, user) {
     const { delivery_code, ...rest } = job;
     return rest;
   }
-  // Sofőr és mindenki más: sem a címzett, sem a feladó kódját nem látja
-  const { delivery_code, sender_delivery_code, ...rest } = job;
-  return rest;
+  const {
+    delivery_code, sender_delivery_code, tracking_token, ...rest
+  } = job;
+  if (user?.sub === job.carrier_id) {
+    // Kijelölt sofőr: kódok és token nélkül, de a címzett elérhetőségét
+    // látja (kézbesítéskor hívnia kell tudni)
+    return rest;
+  }
+  // Kívülálló (pl. licitálni készülő sofőr): címzett-PII és Barion-adatok sem
+  const {
+    recipient_name, recipient_phone, recipient_email,
+    barion_payment_id, barion_gateway_url, ...publicFields
+  } = rest;
+  return publicFields;
 }
 
 // POST /jobs – bárki feladhat fuvart (a szerepkör szeparálást eltöröltük;
@@ -652,7 +669,7 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
 //   - Ha a fuvar már `in_progress`/`delivered`/`completed`/`cancelled` →
 //     nem lehet lemondani (későn érkezett).
 //   - Ha még nincs kifizetve, egyszerűen `status='cancelled'` + notif.
-//   - Ha ki van fizetve és a FELADÓ mondja le → 10% díj (max 1000 Ft),
+//   - Ha ki van fizetve és a FELADÓ mondja le → 8 000 Ft-ig 400 Ft, felette 5%,
 //     a maradék refund Barion-on keresztül.
 //   - Ha a SOFŐR mondja le → 100% refund a feladónak.
 router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {

@@ -7,6 +7,7 @@
 //   automatikus minősítés alá.
 // - Sikeres validáció után az escrow letét felszabadul ('released').
 const express = require('express');
+const crypto = require('crypto');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
@@ -28,6 +29,17 @@ function encodeAsDataUrl(file) {
 }
 
 const ALLOWED_KINDS = ['listing', 'pickup', 'dropoff', 'damage', 'document'];
+
+// Konstans idejű kód-összehasonlítás: hash-elt formában vetjük össze, így a
+// hossz-eltérés sem szivárogtat, és a timingSafeEqual feltétele is teljesül.
+function codesMatch(input, expected) {
+  if (!expected) return false;
+  const a = crypto.createHash('sha256').update(String(input)).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
+const MAX_CODE_ATTEMPTS = 5;
 
 // POST /jobs/:jobId/photos
 //   multipart/form-data:
@@ -84,12 +96,40 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
         error: 'Ehhez a fuvarhoz nem tartozik átvételi kód – vedd fel a kapcsolatot az ügyfélszolgálattal',
       });
     }
-    const codeInput = String(delivery_code).trim();
-    const isRecipientCode = codeInput === job.delivery_code;
-    const isSenderCode = codeInput === job.sender_delivery_code;
-    if (!isRecipientCode && !isSenderCode) {
-      return res.status(403).json({ error: 'Érvénytelen átvételi kód' });
+    // Brute-force védelem: 5 hibás próba után 1 órás zárolás. A 6 jegyű kód
+    // az escrow-felszabadítás kulcsa, próbálgatással nem lehet kitalálni.
+    if (job.delivery_code_locked_until && new Date(job.delivery_code_locked_until) > new Date()) {
+      return res.status(429).json({
+        error: 'Túl sok hibás kódpróbálkozás — a kód-ellenőrzés átmenetileg zárolva. Próbáld újra később, vagy hívd az ügyfélszolgálatot.',
+      });
     }
+    const codeInput = String(delivery_code).trim();
+    const isRecipientCode = codesMatch(codeInput, job.delivery_code);
+    const isSenderCode = codesMatch(codeInput, job.sender_delivery_code);
+    if (!isRecipientCode && !isSenderCode) {
+      const { rows: attemptRows } = await db.query(
+        `UPDATE jobs
+            SET delivery_code_attempts = delivery_code_attempts + 1,
+                delivery_code_locked_until = CASE
+                  WHEN delivery_code_attempts + 1 >= $2 THEN NOW() + INTERVAL '1 hour'
+                  ELSE delivery_code_locked_until END
+          WHERE id = $1
+          RETURNING delivery_code_attempts`,
+        [jobId, MAX_CODE_ATTEMPTS],
+      );
+      const attempts = attemptRows[0]?.delivery_code_attempts || 0;
+      const remaining = Math.max(0, MAX_CODE_ATTEMPTS - attempts);
+      return res.status(403).json({
+        error: remaining > 0
+          ? `Érvénytelen átvételi kód (még ${remaining} próbálkozás)`
+          : 'Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.',
+      });
+    }
+    // Sikeres kód → számláló nullázása
+    await db.query(
+      `UPDATE jobs SET delivery_code_attempts = 0, delivery_code_locked_until = NULL WHERE id = $1`,
+      [jobId],
+    );
     // Logolás: melyik kóddal zárult le (vita rendezéshez)
     req._closedByCodeType = isSenderCode ? 'sender_emergency' : 'recipient';
   }
@@ -130,12 +170,18 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   }
 
   if (kind === 'dropoff' && job.status === 'in_progress') {
-    // A kód már validálva volt feljebb, ha eddig eljutottunk, OK-t mondunk.
-    await db.query(
+    // A kód már validálva volt feljebb. Atomi státusz-átmenet: két párhuzamos
+    // dropoff kérés közül csak az első nyerhet — a második itt kiesik, így
+    // nem indulhat dupla kifizetés.
+    const claim = await db.query(
       `UPDATE jobs SET status = 'delivered', delivered_at = NOW(), updated_at = NOW(),
-              closed_by_code_type = $2 WHERE id = $1`,
+              closed_by_code_type = $2
+        WHERE id = $1 AND status = 'in_progress'`,
       [jobId, req._closedByCodeType || 'recipient'],
     );
+    if (claim.rowCount === 0) {
+      return res.status(409).json({ error: 'Ezt a fuvart időközben már lezárták.' });
+    }
 
     // Jutalékmentes voucher ellenőrzés — ha a sofőrnek van, 0% jutalék
     const { useVoucherIfAvailable } = require('../services/gamification');
@@ -147,24 +193,31 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       }
     }
 
-    // Barion: foglalás véglegesítése — ha voucher, a sofőr 100%-ot kap
+    // Escrow felszabadítás atomi claim-mel: csak az a kérés indíthat Barion
+    // kifizetést, amelyik a 'held' sort ténylegesen 'released'-re billentette.
+    // Így ismételt/párhuzamos hívás nem okozhat dupla átutalást.
     let payout = null;
     try {
       const { rows: escrowRows } = await db.query(
-        `SELECT et.barion_payment_id, et.amount_huf, u.email AS carrier_email
-           FROM escrow_transactions et
-           JOIN jobs j  ON j.id = et.job_id
-           JOIN users u ON u.id = j.carrier_id
-          WHERE et.job_id = $1`,
+        `UPDATE escrow_transactions
+            SET status = 'released', released_at = NOW()
+          WHERE job_id = $1 AND status = 'held'
+          RETURNING barion_payment_id, amount_huf`,
         [jobId],
       );
       const esc = escrowRows[0];
       if (esc && esc.barion_payment_id) {
+        const { rows: carrierRows } = await db.query(
+          `SELECT u.email AS carrier_email
+             FROM jobs j JOIN users u ON u.id = j.carrier_id
+            WHERE j.id = $1`,
+          [jobId],
+        );
         payout = await barion.finishReservation({
           paymentId: esc.barion_payment_id,
           jobId,
           totalHuf: esc.amount_huf,
-          carrierPayee: esc.carrier_email,
+          carrierPayee: carrierRows[0]?.carrier_email,
         });
       }
       // Ha voucher → az escrow-ban is jelöljük hogy 0% volt a jutalék
@@ -179,14 +232,6 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     } catch (err) {
       console.error('[barion] finishReservation hiba:', err.message);
     }
-
-    // Escrow státusz frissítése (akkor is, ha Barion stub módban fut)
-    await db.query(
-      `UPDATE escrow_transactions
-          SET status = 'released', released_at = NOW()
-        WHERE job_id = $1`,
-      [jobId],
-    );
 
     validation.payout = payout;
     realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation, payout });

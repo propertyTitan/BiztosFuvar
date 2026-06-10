@@ -26,12 +26,25 @@ const router = express.Router();
 
 router.post('/payments/barion/callback', express.json(), async (req, res) => {
   const { PaymentId } = req.body || {};
-  const barionStatus = req.body.Status || 'Unknown';
+  let barionStatus = req.body.Status || 'Unknown';
 
   console.log(`[barion] webhook: PaymentId=${PaymentId}, Status=${barionStatus}`);
 
   if (!PaymentId) {
     return res.status(400).json({ error: 'Missing PaymentId' });
+  }
+
+  // A webhook body-jának NEM hiszünk: éles módban a tényleges státuszt a
+  // Bariontól olvassuk vissza, így egy hamisított 'Succeeded' POST hatástalan.
+  // (Stub módban nincs külső fél, marad a body — ott nincs valódi pénzmozgás.)
+  if (!barion.isStub()) {
+    try {
+      const state = await barion.getPaymentState(PaymentId);
+      barionStatus = state?.Status || 'Unknown';
+    } catch (err) {
+      console.error('[barion] GetPaymentState hiba a webhooknál:', err.message);
+      return res.status(502).json({ error: 'Barion állapot-ellenőrzés sikertelen' });
+    }
   }
 
   // === IDEMPOTENCY CHECK ===
@@ -112,9 +125,10 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
 
   // === SUCCEEDED — Sikeres fizetés ===
   if (barionStatus === 'Succeeded') {
-    // 1) Split kalkuláció
-    const platformFee = Math.round(totalAmount * barion.COMMISSION_PCT);
-    const carrierPayout = totalAmount - platformFee;
+    // 1) Split kalkuláció — ugyanazzal a képlettel (10% + 400 Ft fix), mint
+    // az escrow-felosztás, különben a számla és a tényleges utalás eltérne.
+    const { carrierShare: carrierPayout, platformShare: platformFee } =
+      barion.calculatePlatformFee(totalAmount);
 
     // 2) VAT kiszámítás a sofőr profilja alapján
     const vatResult = await computeVat({

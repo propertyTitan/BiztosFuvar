@@ -5,7 +5,7 @@
 // - Licitek listája (ha még bidding)
 // - Fotók (pickup / dropoff) — Proof of Delivery 2.0
 // - Escrow / Barion állapot
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
@@ -19,11 +19,18 @@ import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
 import QrCode from '@/components/QrCode';
 import Confetti from '@/components/Confetti';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik', bidding: 'Licitálható', accepted: 'Elfogadva',
   in_progress: 'Folyamatban', delivered: 'Lerakva', completed: 'Lezárva',
   disputed: 'Vitatott', cancelled: 'Lemondva',
+};
+
+const STATUS_PILL: Record<string, string> = {
+  pending: 'pill-bidding', bidding: 'pill-bidding', accepted: 'pill-accepted',
+  in_progress: 'pill-progress', delivered: 'pill-delivered', completed: 'pill-delivered',
+  disputed: 'pill-accepted', cancelled: 'pill-cancelled',
 };
 
 export default function FuvarReszletek() {
@@ -55,14 +62,15 @@ export default function FuvarReszletek() {
     }
   }
 
-  async function cancelJob() {
+  // Dialógus-állapotok (window.confirm/prompt kiváltva)
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [showDisputeDialog, setShowDisputeDialog] = useState(false);
+  // A konfetti csak akkor szóljon, ha a kézbesítés MOST történt — nem minden
+  // oldalbetöltésnél, ha a fuvar már korábban 'delivered' lett.
+  const initialStatusRef = useRef<string | null>(null);
+
+  async function cancelJob(reason: string) {
     if (!job) return;
-    const wasPaid = !!job.paid_at;
-    const warning = wasPaid
-      ? 'Biztosan lemondod a fuvart? 8.000 Ft alatt 400 Ft, felette 5% lemondási díjat vonunk le, a maradék visszakerül a kártyádra.'
-      : 'Biztosan lemondod a fuvart? Még nem történt fizetés, így díj sincs.';
-    if (!window.confirm(warning)) return;
-    const reason = window.prompt('Indok (opcionális):') || '';
     try {
       const res = await api.cancelJob(id, reason);
       const msg =
@@ -85,6 +93,7 @@ export default function FuvarReszletek() {
         api.jobEscrow(id),
       ]);
       setJob(j); setBids(b); setPhotos(p); setEscrow(e);
+      if (initialStatusRef.current === null) initialStatusRef.current = j.status;
     } catch (err: any) { setError(err.message); }
   }
 
@@ -140,7 +149,7 @@ export default function FuvarReszletek() {
           <h1 style={{ marginBottom: 4 }}>{job.title}</h1>
           <p className="muted" style={{ margin: 0 }}>📍 {job.pickup_address} → 🏁 {job.dropoff_address}</p>
         </div>
-        <span className="pill pill-progress">{STATUS_LABEL[job.status] || job.status}</span>
+        <span className={`pill ${STATUS_PILL[job.status] || 'pill-progress'}`}>{STATUS_LABEL[job.status] || job.status}</span>
       </div>
 
       {/* Élő követés */}
@@ -223,7 +232,7 @@ export default function FuvarReszletek() {
       )}
 
       {/* Confetti ha a fuvar éppen most lett lezárva */}
-      <Confetti active={job.status === 'delivered'} />
+      <Confetti active={job.status === 'delivered' && !['delivered', 'completed'].includes(initialStatusRef.current || '')} />
 
       {/* Hirdetési fotók (amit a feladó töltött fel) */}
       {photos.some((p) => p.kind === 'listing') && (
@@ -403,7 +412,7 @@ export default function FuvarReszletek() {
             <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
               <button
                 type="button"
-                onClick={cancelJob}
+                onClick={() => setShowCancelDialog(true)}
                 style={{
                   background: 'transparent',
                   border: '1px solid var(--danger)',
@@ -419,7 +428,7 @@ export default function FuvarReszletek() {
               </button>
               {job.paid_at && (
                 <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                  Lemondási díj: 8.000 Ft alatt 400 Ft, felette 5% — a maradék automatikusan visszajár.
+                  Lemondási díj: 8 000 Ft-ig 400 Ft, felette 5% — a maradék automatikusan visszajár.
                 </p>
               )}
             </div>
@@ -463,17 +472,7 @@ export default function FuvarReszletek() {
             type="button"
             className="btn"
             style={{ background: '#d97706', border: 'none' }}
-            onClick={async () => {
-              const desc = window.prompt('Írd le mi a probléma (kötelező):');
-              if (!desc || !desc.trim()) return;
-              try {
-                await api.openDispute({ job_id: id, description: desc });
-                toast.info('Vitás eset megnyitva', 'Az admin hamarosan felülvizsgálja.');
-                loadAll();
-              } catch (e: any) {
-                toast.error('Hiba', e.message);
-              }
-            }}
+            onClick={() => setShowDisputeDialog(true)}
           >
             ⚖️ Vitás esetet nyitok
           </button>
@@ -551,10 +550,10 @@ export default function FuvarReszletek() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{b.carrier_name || 'Sofőr'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span></div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      {b.rating_avg > 0 && (
+                      {(b.rating_avg ?? 0) > 0 && (
                         <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
                           ⭐ {Number(b.rating_avg).toFixed(1)}
-                          {b.rating_count > 0 && <span className="muted"> ({b.rating_count})</span>}
+                          {(b.rating_count ?? 0) > 0 && <span className="muted"> ({b.rating_count})</span>}
                         </span>
                       )}
                       {b.eta_minutes && <span className="muted" style={{ fontSize: 12 }}>~{b.eta_minutes} perc</span>}
@@ -565,7 +564,7 @@ export default function FuvarReszletek() {
                   <strong className="price" style={{ fontSize: 18 }}>{b.amount_huf.toLocaleString('hu-HU')} Ft</strong>
                 </div>
               </div>
-              {b.message && <p className="muted" style={{ margin: '8px 0 0', fontSize: 13, paddingLeft: 52 }}>„{b.message}"</p>}
+              {b.message && <p className="muted" style={{ margin: '8px 0 0', fontSize: 13, paddingLeft: 52 }}>„{b.message}”</p>}
               <button
                 className="btn"
                 onClick={() => acceptBid(b.id)}
@@ -577,6 +576,43 @@ export default function FuvarReszletek() {
           ))}
         </div>
       )}
+
+      {/* Lemondás-megerősítő dialógus */}
+      <ConfirmDialog
+        open={showCancelDialog}
+        title="Fuvar lemondása"
+        message={job.paid_at
+          ? 'Biztosan lemondod a fuvart? 8 000 Ft-ig 400 Ft, felette 5% lemondási díjat vonunk le, a maradék visszakerül a kártyádra.'
+          : 'Biztosan lemondod a fuvart? Még nem történt fizetés, így díj sincs.'}
+        confirmLabel="Lemondom"
+        danger
+        fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. Már nem aktuális' }]}
+        onConfirm={(v) => {
+          setShowCancelDialog(false);
+          cancelJob((v.reason || '').trim());
+        }}
+        onClose={() => setShowCancelDialog(false)}
+      />
+
+      {/* Vita-nyitó dialógus */}
+      <ConfirmDialog
+        open={showDisputeDialog}
+        title="⚖️ Vitás eset megnyitása"
+        message="Írd le röviden, mi a probléma a fuvarral — az admin ennek alapján vizsgálja ki az esetet, és értesítést kapsz a döntésről."
+        confirmLabel="Vita megnyitása"
+        fields={[{ key: 'desc', label: 'A probléma leírása', type: 'textarea', required: true, placeholder: 'pl. A csomag sérülten érkezett meg' }]}
+        onConfirm={async (v) => {
+          setShowDisputeDialog(false);
+          try {
+            await api.openDispute({ job_id: id, description: v.desc.trim() });
+            toast.info('Vitás eset megnyitva', 'Az admin hamarosan felülvizsgálja.');
+            loadAll();
+          } catch (e: any) {
+            toast.error('Hiba', e.message);
+          }
+        }}
+        onClose={() => setShowDisputeDialog(false)}
+      />
     </div>
   );
 }

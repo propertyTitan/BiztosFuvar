@@ -338,7 +338,7 @@ async function sendCancellationEmail({
     `;
     if (feeHuf > 0) {
       bodyHtml += `
-        <p class="muted">Lemondási díj: ${formatHuf(feeHuf)} Ft (10%, max 1000 Ft) – ez a szabályzatunk szerinti díj, amit levontunk a visszatérítésből.</p>
+        <p class="muted">Lemondási díj: ${formatHuf(feeHuf)} Ft (8 000 Ft-ig 400 Ft, felette a fuvardíj 5%-a) – ez a szabályzatunk szerinti díj, amit levontunk a visszatérítésből.</p>
       `;
     }
   }

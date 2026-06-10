@@ -600,6 +600,26 @@ router.post('/kyc-document', authRequired, uploadSingle('file'), async (req, res
     } catch (e) {
       console.warn('[kyc] admin notify hiba:', e.message);
     }
+  } else if (aiResult.pending) {
+    // AI nem elérhető → kézi ellenőrzés (fail-closed, nem auto-approve)
+    docStatus = 'pending';
+    kycStatus = 'pending';
+    rejectionReason = aiResult.reason;
+    console.log(`[kyc] AI nem elérhető, kézi ellenőrzésre vár: user=${req.user.sub} doc=${doc_type}`);
+    try {
+      const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+      for (const admin of admins) {
+        await createNotification({
+          user_id: admin.id,
+          type: 'kyc_manual_review',
+          title: '📋 KYC kézi ellenőrzés szükséges',
+          body: `${req.user.email} dokumentumát (${doc_type}) az AI nem tudta ellenőrizni — kézi jóváhagyás kell.`,
+          link: '/admin',
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[kyc] admin notify hiba:', e.message);
+    }
   } else if (aiResult.valid) {
     docStatus = 'approved';
     kycStatus = 'verified';
