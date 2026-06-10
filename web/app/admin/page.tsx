@@ -16,6 +16,7 @@ import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { Loading } from '@/components/StateView';
 
 export default function AdminPanel() {
   const me = useCurrentUser();
@@ -68,9 +69,9 @@ export default function AdminPanel() {
 
   // Első rendernél a `me` még null (localStorage-ből töltődik) — ilyenkor
   // betöltőt mutatunk, nem üres képernyőt. Nem-admin usert az effect átirányít.
-  if (!me) return <p className="muted">Betöltés…</p>;
+  if (!me) return <Loading />;
   if (me.role !== 'admin') return null;
-  if (loading) return <p className="muted">Betöltés…</p>;
+  if (loading) return <Loading />;
 
   return (
     <div>

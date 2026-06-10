@@ -41,11 +41,22 @@ export default function AiChatWidget() {
   // a chatet elrejtjük; a döntés után (event vagy localStorage) megjelenik.
   const [consentPending, setConsentPending] = useState(true);
 
-  // History betöltés — fiókváltáskor (user.id változás) újratöltünk
+  // History betöltés — fiókváltáskor (user.id változás) újratöltünk.
+  // Egyszeri migráció: a régi, közös kulcson tárolt beszélgetést átvisszük
+  // a user-specifikus kulcsra, hogy a frissítés után ne "tűnjön el".
   useEffect(() => {
     loadedRef.current = false;
     try {
-      const raw = localStorage.getItem(storageKey(user?.id));
+      const key = storageKey(user?.id);
+      let raw = localStorage.getItem(key);
+      if (!raw && user?.id) {
+        const legacy = localStorage.getItem(STORAGE_KEY_BASE);
+        if (legacy) {
+          localStorage.setItem(key, legacy);
+          localStorage.removeItem(STORAGE_KEY_BASE);
+          raw = legacy;
+        }
+      }
       setMessages(raw ? JSON.parse(raw) : []);
     } catch {
       setMessages([]);

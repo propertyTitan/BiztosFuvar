@@ -20,6 +20,7 @@ import DisputeButton from '@/components/DisputeButton';
 import QrCode from '@/components/QrCode';
 import Confetti from '@/components/Confetti';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { Loading, ErrorState } from '@/components/StateView';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik', bidding: 'Licitálható', accepted: 'Elfogadva',
@@ -139,8 +140,8 @@ export default function FuvarReszletek() {
     }
   }
 
-  if (error) return <div className="card" style={{ borderColor: 'var(--danger)' }}>Hiba: {error}</div>;
-  if (!job) return <p>Betöltés…</p>;
+  if (error) return <ErrorState message={error} onRetry={loadAll} />;
+  if (!job) return <Loading />;
 
   return (
     <div>

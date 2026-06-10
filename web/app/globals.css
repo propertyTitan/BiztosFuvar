@@ -3,8 +3,7 @@
    Inspiráció: Uber, Stripe, Airbnb, Revolut.
    ================================================================ */
 
-/* ── Betűtípus: Inter (Google Fonts) ── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+/* ── Betűtípus: Inter a next/font-on át (layout.tsx → --font-inter) ── */
 
 /* ── Színpaletta (CSS változók) ── */
 :root {
@@ -101,7 +100,7 @@ body {
   margin: 0; padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -300,6 +299,13 @@ a { color: var(--primary); }
   }
 }
 
+/* A profil-dropdownban a Fuvarok/Útvonalak linkek CSAK mobilon kellenek
+   (asztali nézetben a fejléc közepén úgyis ott a fő nav). */
+.only-mobile-menu { display: none; }
+@media (max-width: 768px) {
+  .only-mobile-menu { display: block; }
+}
+
 /* Még kisebb (< 400px): szűkebb padding, de a kompakt nyelvváltó marad
    (most már csak egy ~50px-es gomb, elfér iPhone SE-n is). */
 @media (max-width: 400px) {
@@ -383,6 +389,46 @@ a.card:hover, .home-hub-card:hover {
   background: var(--primary-subtle);
   transform: translateY(-1px);
 }
+/* Szemantikus gomb-variánsok — eddig minden színes gomb inline háttérrel
+   ment (background:#16a34a stb.), ami dark mode-ban nem alkalmazkodott. */
+.btn-danger  { background: var(--danger); }
+.btn-danger:hover  { background: var(--danger); filter: brightness(0.92); box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
+.btn-success { background: var(--success); }
+.btn-success:hover { background: var(--success); filter: brightness(0.94); box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
+.btn-warning { background: var(--warning); color: #4a2c05; }
+.btn-warning:hover { background: var(--warning); filter: brightness(0.96); box-shadow: 0 4px 12px rgba(245,158,11,0.3); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--surface-hover); transform: translateY(-1px); }
+/* Disabled gomb: ne emelkedjen/színeződjön hoverre */
+.btn:disabled, .btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn:disabled:hover, .btn[disabled]:hover {
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+
+/* ── Callout / banner kártyák ──
+   A korábbi inline pasztell-hátterek (és a [style*="#dcfce7"] dark-mode
+   hack) helyett tokenizált, dark-mode-biztos variánsok. */
+.callout {
+  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-hover);
+  margin-bottom: 16px;
+}
+.callout-info    { background: var(--primary-subtle); border-color: var(--primary-light); color: var(--text); }
+.callout-success { background: var(--success-light); border-color: var(--success); color: var(--text); }
+.callout-warning { background: var(--warning-light); border-color: var(--warning); color: var(--text); }
+.callout-danger  { background: var(--danger-light);  border-color: var(--danger);  color: var(--text); }
+.callout-info *, .callout-success *, .callout-warning *, .callout-danger * { color: var(--text); }
 
 /* ── Inputs ── */
 .input, input, select, textarea {

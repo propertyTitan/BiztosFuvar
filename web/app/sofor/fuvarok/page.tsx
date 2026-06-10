@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { Loading } from '@/components/StateView';
 import { getSocket } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
 import { useTranslation, formatPrice } from '@/lib/i18n';
@@ -273,7 +274,7 @@ export default function SoforFuvarokLista() {
         )}
       </div>
 
-      {loading && <p style={{ marginTop: 24 }}>Betöltés…</p>}
+      {loading && <Loading />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)', marginTop: 16 }}>
           <strong>Hiba:</strong> {error}

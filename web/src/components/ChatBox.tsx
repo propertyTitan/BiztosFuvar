@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from 'react';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { getSocket, joinUserRoom } from '@/lib/socket';
+import { useToast } from '@/components/ToastProvider';
 
 type Message = {
   id: string;
@@ -28,6 +29,7 @@ type Props = {
 
 export default function ChatBox({ entityKey, entityId }: Props) {
   const me = useCurrentUser();
+  const toast = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -81,7 +83,7 @@ export default function ChatBox({ entityKey, entityId }: Props) {
       );
       setInput('');
     } catch (e: any) {
-      alert('Hiba: ' + e.message);
+      toast.error('Üzenet nem ment el', e.message);
     } finally {
       setSending(false);
     }

@@ -8,6 +8,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { Loading, ErrorState } from '@/components/StateView';
 
 type Stats = {
   totals: {
@@ -29,18 +30,25 @@ export default function SoforDashboard() {
   const me = useCurrentUser();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  function load() {
+    setLoading(true);
+    setError(null);
+    api.driverStats()
+      .then(setStats)
+      .catch((e) => setError(e.message || 'Nem sikerült betölteni.'))
+      .finally(() => setLoading(false));
+  }
 
   useEffect(() => {
     if (!me) return;
-    api.driverStats()
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    load();
   }, [me?.id]);
 
-  if (!me) return <p>Bejelentkezés szükséges.</p>;
-  if (loading) return <p className="muted">Betöltés…</p>;
-  if (!stats) return <p>Nem sikerült betölteni.</p>;
+  if (!me) return <Loading />;
+  if (loading) return <Loading />;
+  if (error || !stats) return <ErrorState message={error || 'Nem sikerült betölteni a statisztikákat.'} onRetry={load} />;
 
   const { totals, monthly, top_routes, recent_jobs, profile } = stats;
   const maxMonthlyNet = Math.max(...monthly.map((m) => m.net), 1);

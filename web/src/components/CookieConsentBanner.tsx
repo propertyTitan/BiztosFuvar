@@ -38,7 +38,7 @@ export default function CookieConsentBanner() {
       role="dialog"
       aria-label="Süti nyilatkozat"
       style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999,
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100,
         background: 'var(--bg)', borderTop: '1px solid var(--border)',
         padding: 16, boxShadow: '0 -4px 20px rgba(0,0,0,0.12)',
       }}

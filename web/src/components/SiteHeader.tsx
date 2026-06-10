@@ -8,9 +8,13 @@
 // A profil dropdown tartalmazza a ritkábban használt oldalakat:
 //   Profil, Saját fuvarjaim, Foglalásaim, Hirdetéseim, Licitjeim,
 //   AI segéd, Admin (ha admin), Kijelentkezés.
-import { useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import {
+  Home, Target, Route, User, Truck, Package, ClipboardList, Tag, Shield,
+  Bell, LogOut, ChevronDown,
+} from 'lucide-react';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
 import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
@@ -165,13 +169,13 @@ export default function SiteHeader() {
       {user && (
         <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <Link href="/" style={navLinkStyle}>
-            🏠 {t('nav.home')}
+            <Home size={15} /> {t('nav.home')}
           </Link>
           <Link href="/sofor/fuvarok" style={navLinkStyle}>
-            🎯 {t('nav.biddableJobs')}
+            <Target size={15} /> {t('nav.biddableJobs')}
           </Link>
           <Link href="/dashboard/utvonalak" style={navLinkStyle}>
-            🛣️ {t('nav.fixedRoutes')}
+            <Route size={15} /> {t('nav.fixedRoutes')}
           </Link>
         </nav>
       )}
@@ -211,7 +215,7 @@ export default function SiteHeader() {
               }}
               title={t('nav.notifications')}
             >
-              <span style={{ fontSize: 20 }}>🔔</span>
+              <Bell size={20} color="#fff" style={{ display: 'block' }} />
               {unread > 0 && (
                 <span
                   style={{
@@ -270,7 +274,7 @@ export default function SiteHeader() {
                 <span style={{ fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user.full_name?.split(' ')[0] || user.email?.split('@')[0]}
                 </span>
-                <span style={{ fontSize: 10, opacity: 0.7 }}>{menuOpen ? '▲' : '▼'}</span>
+                <ChevronDown size={14} style={{ opacity: 0.8, transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition)' }} />
               </button>
 
               {/* Dropdown menü */}
@@ -299,15 +303,20 @@ export default function SiteHeader() {
 
                   {/* Menüpontok */}
                   <div style={{ padding: '6px 0' }}>
-                    <DropdownItem href="/" icon="🏠" label={t('nav.home')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/profil" icon="👤" label={t('nav.profile')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/sofor/sajat-fuvarok" icon="🚛" label={t('nav.myJobs')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/dashboard/foglalasaim" icon="📦" label={t('nav.myBookings')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/hirdeteseim" icon="📋" label={t('nav.myListings')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/sofor/licitjeim" icon="🏷️" label="Licitjeim" onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/ai-chat" icon="🤖" label={t('nav.aiAssistant')} onClick={() => setMenuOpen(false)} />
+                    <DropdownItem href="/" icon={<Home size={16} />} label={t('nav.home')} onClick={() => setMenuOpen(false)} />
+                    {/* Mobilon a fő nav (Fuvarok / Útvonalak) rejtve van — itt
+                        érhető el, hogy keskeny képernyőn se vesszen el. */}
+                    <div className="only-mobile-menu">
+                      <DropdownItem href="/sofor/fuvarok" icon={<Target size={16} />} label={t('nav.biddableJobs')} onClick={() => setMenuOpen(false)} />
+                      <DropdownItem href="/dashboard/utvonalak" icon={<Route size={16} />} label={t('nav.fixedRoutes')} onClick={() => setMenuOpen(false)} />
+                    </div>
+                    <DropdownItem href="/profil" icon={<User size={16} />} label={t('nav.profile')} onClick={() => setMenuOpen(false)} />
+                    <DropdownItem href="/sofor/sajat-fuvarok" icon={<Truck size={16} />} label={t('nav.myJobs')} onClick={() => setMenuOpen(false)} />
+                    <DropdownItem href="/dashboard/foglalasaim" icon={<Package size={16} />} label={t('nav.myBookings')} onClick={() => setMenuOpen(false)} />
+                    <DropdownItem href="/hirdeteseim" icon={<ClipboardList size={16} />} label={t('nav.myListings')} onClick={() => setMenuOpen(false)} />
+                    <DropdownItem href="/sofor/licitjeim" icon={<Tag size={16} />} label="Licitjeim" onClick={() => setMenuOpen(false)} />
                     {user.role === 'admin' && (
-                      <DropdownItem href="/admin" icon="🛡️" label="Admin" onClick={() => setMenuOpen(false)} />
+                      <DropdownItem href="/admin" icon={<Shield size={16} />} label="Admin" onClick={() => setMenuOpen(false)} />
                     )}
                   </div>
 
@@ -334,7 +343,7 @@ export default function SiteHeader() {
                       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--danger-light, #fee2e2)')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
-                      🚪 {t('auth.logout')}
+                      <LogOut size={16} /> {t('auth.logout')}
                     </button>
                   </div>
                 </div>
@@ -348,7 +357,7 @@ export default function SiteHeader() {
 }
 
 // Dropdown menüpont komponens
-function DropdownItem({ href, icon, label, onClick }: { href: string; icon: string; label: string; onClick: () => void }) {
+function DropdownItem({ href, icon, label, onClick }: { href: string; icon: ReactNode; label: string; onClick: () => void }) {
   return (
     <Link
       href={href}
@@ -367,7 +376,7 @@ function DropdownItem({ href, icon, label, onClick }: { href: string; icon: stri
       onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover, #f1f5f9)')}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
     >
-      <span style={{ fontSize: 16, width: 20, textAlign: 'center' }}>{icon}</span>
+      <span style={{ width: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>{icon}</span>
       {label}
     </Link>
   );
