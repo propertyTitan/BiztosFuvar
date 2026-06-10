@@ -503,7 +503,10 @@ async function supportChat(message, history = []) {
 async function verifyKycDocument(imageBuffer, mimeType, expectedDocType) {
   const model = getModel();
   if (!model) {
-    return { valid: true, confidence: 0, reason: 'Gemini API kulcs nincs beállítva – automatikus jóváhagyás.' };
+    // FAIL-CLOSED: AI nélkül nem hagyunk jóvá automatikusan — kézi (admin)
+    // ellenőrzésre kerül. Auto-approve itt a teljes KYC-t (és az "egy
+    // igazolvány = egy fiók" csalásvédelmet is) megkerülné.
+    return { valid: false, pending: true, confidence: 0, reason: 'AI ellenőrzés nem elérhető — adminisztrátori jóváhagyásra vár.' };
   }
 
   const docLabels = {
@@ -577,7 +580,8 @@ ${birthDateInstruction}
     };
   } catch (err) {
     console.warn('[gemini] KYC verify hiba:', err.message);
-    return { valid: true, confidence: 0, reason: 'AI ellenőrzés nem elérhető – automatikus jóváhagyás.' };
+    // FAIL-CLOSED: hibánál kézi ellenőrzés, nem automatikus jóváhagyás
+    return { valid: false, pending: true, confidence: 0, reason: 'AI ellenőrzés nem elérhető — adminisztrátori jóváhagyásra vár.' };
   }
 }
 

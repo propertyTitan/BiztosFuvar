@@ -83,23 +83,12 @@ function classifyPackage(L, W, H, kg) {
   return null;
 }
 
-/**
- * Lemondási díj számítása az új szabályok szerint:
- *  - shipper_cancelled: 10% (max 1000 Ft)
- *  - minden más: 0
- */
-const CANCELLATION_FEE_PCT = 0.10;
-const CANCELLATION_FEE_MAX_HUF = 1000;
-
-function cancellationFee(reason, amountHuf) {
-  if (reason !== 'shipper_cancelled') return 0;
-  return Math.min(Math.round(amountHuf * CANCELLATION_FEE_PCT), CANCELLATION_FEE_MAX_HUF);
-}
+// A lemondási díj ÉLES logikája a barion.computeCancellationSettlement-ben
+// van (8 000 Ft-ig 400 Ft, felette 5% — ügyvéd által jóváhagyott szabály).
+// A korábbi itteni 10%/max 1000 Ft-os duplikátum törölve: senki nem
+// használta, viszont félrevezető, elavult szabályt hirdetett.
 
 module.exports = {
   PACKAGE_SIZES,
   classifyPackage,
-  CANCELLATION_FEE_PCT,
-  CANCELLATION_FEE_MAX_HUF,
-  cancellationFee,
 };

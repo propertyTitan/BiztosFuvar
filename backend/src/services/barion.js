@@ -238,6 +238,27 @@ async function refundPayment({ paymentId, jobId, refundAmountHuf, reason }) {
  *       → 8.000 Ft alatt: 400 Ft fix díj
  *       → 8.000 Ft felett: 5%
  */
+/**
+ * Fizetés állapotának visszaolvasása közvetlenül a Bariontól.
+ * A webhook body-ja csak "értesítés" — a tényleges státuszt innen kell
+ * visszakérdezni, különben bárki hamis 'Succeeded' POST-tal fizetettnek
+ * jelölhetne fuvarokat. Stub módban null (nincs mit ellenőrizni).
+ */
+async function getPaymentState(paymentId) {
+  if (isStub()) return null;
+  const url = `${BARION_BASE_URL}/v2/Payment/GetPaymentState`
+    + `?POSKey=${encodeURIComponent(process.env.BARION_POS_KEY)}`
+    + `&PaymentId=${encodeURIComponent(paymentId)}`;
+  const res = await fetch(url);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok || (json.Errors && json.Errors.length)) {
+    const err = new Error(`Barion GetPaymentState hiba: ${res.status} ${JSON.stringify(json.Errors || json)}`);
+    err.barion = json;
+    throw err;
+  }
+  return json;
+}
+
 function computeCancellationSettlement({ totalHuf, paid, cancelledByRole }) {
   if (!paid || !totalHuf) return { fee: 0, refund: 0 };
   if (cancelledByRole === 'carrier') return { fee: 0, refund: totalHuf };
@@ -252,6 +273,7 @@ module.exports = {
   finishReservation,
   cancelReservation,
   refundPayment,
+  getPaymentState,
   computeCancellationSettlement,
   calculatePlatformFee,
   COMMISSION_PCT,

@@ -244,11 +244,18 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
       `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND id <> $2 AND status = 'pending'`,
       [bid.job_id, bid.id],
     );
-    await client.query(
+    // Státusz-guard: a fenti SELECT csak a licit sorát zárolja, a jobét nem —
+    // két párhuzamos accept (két különböző licitre) mindkettő 'bidding'-et
+    // olvasna. A WHERE-feltétel + rowCount dönti el, ki nyert.
+    const jobClaim = await client.query(
       `UPDATE jobs SET status = 'accepted', carrier_id = $1, accepted_price_huf = $2, updated_at = NOW()
-        WHERE id = $3`,
+        WHERE id = $3 AND status IN ('pending', 'bidding')`,
       [bid.carrier_id, bid.amount_huf, bid.job_id],
     );
+    if (jobClaim.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'A fuvar már nem elfogadható (időközben elfogadtak egy másik licitet).' });
+    }
     // Barion: foglalás indítása (Payment Reservation)
     let barionRes = { paymentId: null, gatewayUrl: null };
     try {

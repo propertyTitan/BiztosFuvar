@@ -1,6 +1,13 @@
 // Socket.IO real-time réteg.
-// Egyszerű room-alapú broadcast: a kliensek `job:<id>` szobába csatlakoznak.
+// Room-alapú broadcast: `job:<id>` a fuvar-eseményeknek, `user:<id>` a
+// személyes értesítéseknek.
+//
+// HITELESÍTÉS: a kliens a handshake `auth.token`-jében küldi a JWT-t.
+// Token nélkül a kapcsolat él, de szobába nem lehet belépni — így idegen
+// nem tud más user értesítéseire vagy más fuvar GPS-pingjeire feliratkozni.
 const { Server } = require('socket.io');
+const jwt = require('jsonwebtoken');
+const db = require('./db');
 
 let io = null;
 
@@ -15,22 +22,50 @@ function init(httpServer) {
     },
   });
 
+  io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    socket.data.user = null;
+    if (token) {
+      try {
+        socket.data.user = jwt.verify(token, process.env.JWT_SECRET);
+      } catch {
+        // Érvénytelen/lejárt token → vendégként kezelve, szoba-join nélkül
+      }
+    }
+    next();
+  });
+
   io.on('connection', (socket) => {
-    // Egy konkrét fuvar élő követési szobája
-    socket.on('job:join', (jobId) => {
-      if (typeof jobId === 'string') socket.join(`job:${jobId}`);
+    const me = () => socket.data.user?.sub || null;
+    const isAdmin = () => socket.data.user?.role === 'admin';
+
+    // Egy konkrét fuvar élő követési szobája — csak a fuvar felei vagy admin.
+    // (A címzett publikus követése nem socketen, hanem a token-alapú
+    // /tracking/:token REST végponton megy.)
+    socket.on('job:join', async (jobId) => {
+      if (typeof jobId !== 'string' || !me()) return;
+      if (isAdmin()) return void socket.join(`job:${jobId}`);
+      try {
+        const { rows } = await db.query(
+          'SELECT 1 FROM jobs WHERE id = $1 AND (shipper_id = $2 OR carrier_id = $2)',
+          [jobId, me()],
+        );
+        if (rows.length) socket.join(`job:${jobId}`);
+      } catch {
+        // hibás UUID vagy DB-hiba → egyszerűen nem csatlakozik
+      }
     });
     socket.on('job:leave', (jobId) => {
       if (typeof jobId === 'string') socket.leave(`job:${jobId}`);
     });
 
-    // Személyre szóló szoba – az értesítések ide érkeznek. A kliens a
-    // bejelentkezés után emit-eli a saját user id-ját.
-    socket.on('user:join', (userId) => {
-      if (typeof userId === 'string') socket.join(`user:${userId}`);
+    // Személyre szóló szoba — KIZÁRÓLAG a hitelesített saját azonosítóval.
+    // A kliens által küldött userId-t nem vesszük figyelembe.
+    socket.on('user:join', () => {
+      if (me()) socket.join(`user:${me()}`);
     });
-    socket.on('user:leave', (userId) => {
-      if (typeof userId === 'string') socket.leave(`user:${userId}`);
+    socket.on('user:leave', () => {
+      if (me()) socket.leave(`user:${me()}`);
     });
   });
 

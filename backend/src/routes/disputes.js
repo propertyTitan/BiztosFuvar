@@ -110,6 +110,31 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   res.status(201).json(dispute);
 });
 
+// GET /disputes — ÖSSZES vita (csak admin). Az admin felület vita-listája
+// ezt használja; a /disputes/mine csak a saját érintettségű vitákat adja,
+// ami adminnak jellemzően üres volt — emiatt nem látszottak a viták.
+router.get('/disputes', authRequired, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Csak admin' });
+  }
+  const { rows } = await db.query(
+    `SELECT d.*,
+            j.title AS job_title,
+            r.title AS route_title,
+            opener.full_name AS opened_by_name,
+            against.full_name AS against_name
+       FROM disputes d
+  LEFT JOIN jobs j ON j.id = d.job_id
+  LEFT JOIN route_bookings rb ON rb.id = d.booking_id
+  LEFT JOIN carrier_routes r ON r.id = rb.route_id
+  LEFT JOIN users opener ON opener.id = d.opened_by
+  LEFT JOIN users against ON against.id = d.against_user
+      ORDER BY (d.status = 'open') DESC, d.created_at DESC
+      LIMIT 200`,
+  );
+  res.json(rows);
+});
+
 // GET /disputes/mine — a saját nyitott viták
 router.get('/disputes/mine', authRequired, async (req, res) => {
   const { rows } = await db.query(

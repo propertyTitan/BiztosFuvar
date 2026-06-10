@@ -17,14 +17,14 @@
 // =====================================================================
 
 const SEEME_GATEWAY_URL = 'https://seeme.hu/gateway';
-const SEEME_API_KEY = 'zktq7fhqf0vji4hew2f66kcaovk9xh3ia163';
-
+// A kulcs KIZÁRÓLAG env-ből jöhet — korábban be volt égetve a forrásba,
+// emiatt a régi kulcsot a SeeMe felületén rotálni kellett/kell.
 function isStub() {
-  return !(process.env.SEEME_API_KEY || SEEME_API_KEY);
+  return !process.env.SEEME_API_KEY;
 }
 
 function getApiKey() {
-  return process.env.SEEME_API_KEY || SEEME_API_KEY;
+  return process.env.SEEME_API_KEY;
 }
 
 /**

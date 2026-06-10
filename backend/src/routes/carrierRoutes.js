@@ -869,7 +869,7 @@ router.post(
 // POST /route-bookings/:id/cancel
 //
 // Fix áras foglalás lemondása. Bárki hívhatja, aki érdekelt fél:
-//   - a feladó (shipper_id = me) → 10% lemondási díj ha már fizetett (max 1000 Ft)
+//   - a feladó (shipper_id = me) → lemondási díj ha már fizetett (8 000 Ft-ig 400 Ft, felette 5%)
 //   - a sofőr (route.carrier_id = me) → 100% refund a feladónak
 //
 // Tiltott állapotok: in_progress, delivered, cancelled, rejected.
