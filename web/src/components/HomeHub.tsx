@@ -261,7 +261,7 @@ export default function HomeHub() {
           {/* Várakozó licitek */}
           {d && d.pendingBidsCount > 0 && (
             <Link
-              href="/sofor/licitjeim"
+              href="/fuvarjaim?tab=licitjeim"
               className="card"
               style={{
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -282,8 +282,8 @@ export default function HomeHub() {
             {[
               { href: '/sofor/fuvarok', icon: '🎯', label: 'Fuvarok' },
               { href: '/sofor/dashboard', icon: '📊', label: 'Dashboard' },
-              { href: '/sofor/licitjeim', icon: '🏷️', label: 'Licitjeim' },
-              { href: '/sofor/sajat-fuvarok', icon: '🚛', label: t('nav.myJobs') },
+              { href: '/fuvarjaim?tab=licitjeim', icon: '🏷️', label: 'Licitjeim' },
+              { href: '/fuvarjaim?tab=vallalt', icon: '🚛', label: t('nav.myJobs') },
               { href: '/sofor/visszafuvar', icon: '🔄', label: 'Visszafuvar' },
               { href: '/sofor/uj-utvonal', icon: '➕', label: 'Új útvonal' },
               { href: '/sofor/utvonalaim', icon: '🛣️', label: 'Útvonalaim' },
@@ -427,8 +427,8 @@ export default function HomeHub() {
           {/* Feladó gyors linkek */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {[
-              { href: '/hirdeteseim', icon: '📋', label: t('nav.myListings') },
-              { href: '/dashboard/foglalasaim', icon: '📦', label: t('nav.myBookings') },
+              { href: '/fuvarjaim?tab=hirdeteseim', icon: '📋', label: t('nav.myListings') },
+              { href: '/fuvarjaim?tab=foglalasaim', icon: '📦', label: t('nav.myBookings') },
               { href: '/ertesitesek', icon: '🔔', label: t('nav.notifications'), badge: unread },
               { href: '/profil', icon: '👤', label: t('nav.profile') },
             ].map((l) => (

@@ -12,7 +12,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Home, Target, Route, User, Truck, Package, ClipboardList, Tag, Shield,
+  Home, Target, Route, User, Truck, Shield,
   Bell, BellRing, LogOut, ChevronDown,
 } from 'lucide-react';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
@@ -311,10 +311,7 @@ export default function SiteHeader() {
                       <DropdownItem href="/dashboard/utvonalak" icon={<Route size={16} />} label={t('nav.fixedRoutes')} onClick={() => setMenuOpen(false)} />
                     </div>
                     <DropdownItem href="/profil" icon={<User size={16} />} label={t('nav.profile')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/sofor/sajat-fuvarok" icon={<Truck size={16} />} label={t('nav.myJobs')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/dashboard/foglalasaim" icon={<Package size={16} />} label={t('nav.myBookings')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/hirdeteseim" icon={<ClipboardList size={16} />} label={t('nav.myListings')} onClick={() => setMenuOpen(false)} />
-                    <DropdownItem href="/sofor/licitjeim" icon={<Tag size={16} />} label="Licitjeim" onClick={() => setMenuOpen(false)} />
+                    <DropdownItem href="/fuvarjaim" icon={<Truck size={16} />} label="Fuvarjaim" onClick={() => setMenuOpen(false)} />
                     <DropdownItem href="/sofor/ertesitok" icon={<BellRing size={16} />} label="Útvonal-figyelők" onClick={() => setMenuOpen(false)} />
                     {user.role === 'admin' && (
                       <DropdownItem href="/admin" icon={<Shield size={16} />} label="Admin" onClick={() => setMenuOpen(false)} />
