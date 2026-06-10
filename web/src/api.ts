@@ -787,6 +787,7 @@ export const api = {
     pickup_lat: number; pickup_lng: number;
     dropoff_lat: number; dropoff_lng: number;
     weight_kg?: number;
+    volume_m3?: number;
     pickup_floor?: number; pickup_has_elevator?: boolean;
     dropoff_floor?: number; dropoff_has_elevator?: boolean;
   }) => {
@@ -796,6 +797,7 @@ export const api = {
     qs.set('dropoff_lat', String(params.dropoff_lat));
     qs.set('dropoff_lng', String(params.dropoff_lng));
     if (params.weight_kg != null) qs.set('weight_kg', String(params.weight_kg));
+    if (params.volume_m3 != null) qs.set('volume_m3', String(params.volume_m3));
     if (params.pickup_floor != null) qs.set('pickup_floor', String(params.pickup_floor));
     if (params.pickup_has_elevator != null) qs.set('pickup_has_elevator', String(params.pickup_has_elevator));
     if (params.dropoff_floor != null) qs.set('dropoff_floor', String(params.dropoff_floor));

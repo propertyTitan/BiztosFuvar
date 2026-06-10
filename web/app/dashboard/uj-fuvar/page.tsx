@@ -11,7 +11,7 @@
 //  - Kötelező csomag-méretek: hossz × szélesség × magasság (cm).
 //    A térfogatot NEM a user adja meg – a backend automatikusan számolja.
 // =====================================================================
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
@@ -171,6 +171,50 @@ export default function UjFuvar() {
     form.length_cm && form.width_cm && form.height_cm &&
     form.weight_kg &&
     form.suggested_price_huf;
+
+  // --- Okos ár-tartomány ---
+  // Amint a felvételi+lerakodási pont megvan és van súly+méret, lekérünk egy
+  // ajánlott ársávot (táv + súly + csomagméret alapján). Ez horgony a feladónak,
+  // hogy ne árazza alá → ne maradjon licit nélkül a fuvar. (Instant fuvarnál
+  // is hasznos.) Debounce: ne lőjünk a backendre minden billentyűleütésre.
+  const [estimate, setEstimate] = useState<{ low: number; high: number; mid: number } | null>(null);
+  const haveEstimateInputs = Boolean(
+    form.pickup_confirmed && form.dropoff_confirmed &&
+    form.pickup_lat != null && form.dropoff_lat != null &&
+    form.weight_kg && volumeM3,
+  );
+
+  useEffect(() => {
+    if (!haveEstimateInputs) { setEstimate(null); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const r = await api.priceEstimate({
+          pickup_lat: Number(form.pickup_lat), pickup_lng: Number(form.pickup_lng),
+          dropoff_lat: Number(form.dropoff_lat), dropoff_lng: Number(form.dropoff_lng),
+          weight_kg: Number(form.weight_kg),
+          volume_m3: volumeM3 || undefined,
+          pickup_floor: Number(form.pickup_floor) || undefined,
+          pickup_has_elevator: form.pickup_has_elevator,
+          dropoff_floor: Number(form.dropoff_floor) || undefined,
+          dropoff_has_elevator: form.dropoff_has_elevator,
+        });
+        if (!cancelled) setEstimate({ low: r.range_low_huf, high: r.range_high_huf, mid: r.estimate_huf });
+      } catch {
+        if (!cancelled) setEstimate(null);
+      }
+    }, 450);
+    return () => { cancelled = true; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    haveEstimateInputs, form.pickup_lat, form.pickup_lng, form.dropoff_lat, form.dropoff_lng,
+    form.weight_kg, volumeM3, form.pickup_floor, form.pickup_has_elevator,
+    form.dropoff_floor, form.dropoff_has_elevator,
+  ]);
+
+  // Alulárazás: a beírt ár jóval (>15%) a javasolt sáv alja alatt van
+  const priceNum = form.suggested_price_huf === '' ? null : Number(form.suggested_price_huf);
+  const underpriced = Boolean(estimate && priceNum != null && priceNum > 0 && priceNum < estimate.low * 0.85);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -700,6 +744,39 @@ export default function UjFuvar() {
           required
           style={missing(form.suggested_price_huf) ? redBorder : undefined}
         />
+
+        {/* Okos ár-tartomány — horgony a feladónak */}
+        {estimate && (
+          <div className="callout callout-info" style={{ marginTop: 10, padding: 14 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 18 }}>💡</span>
+              <span style={{ fontSize: 14 }}>
+                Ajánlott ársáv: <strong>{estimate.low.toLocaleString('hu-HU')} – {estimate.high.toLocaleString('hu-HU')} Ft</strong>
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: '4px 10px', marginLeft: 'auto' }}
+                onClick={() => set('suggested_price_huf', estimate.mid)}
+              >
+                Beírom a javasoltat
+              </button>
+            </div>
+            <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+              Becslés a táv, súly és csomagméret alapján. A végső árat a sofőrök licitjei alakítják.
+            </p>
+          </div>
+        )}
+
+        {/* Alulárazás-figyelmeztetés */}
+        {underpriced && (
+          <div className="callout callout-warning" style={{ marginTop: 8, padding: '10px 14px' }}>
+            <span style={{ fontSize: 14 }}>
+              ⚠️ Ez alacsonynak tűnik a javasolt sávhoz képest — könnyen lehet, hogy kevés vagy egy ajánlat sem érkezik rá.
+            </span>
+          </div>
+        )}
+
         {form.is_instant && (
           <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
             Azonnali fuvarnál NINCS alkudozás: ezt fogja látni minden közeli sofőr,
