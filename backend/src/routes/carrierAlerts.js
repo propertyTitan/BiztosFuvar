@@ -8,6 +8,7 @@ const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { writeRateLimit } = require('../middleware/rateLimit');
+const { geocodeAddress } = require('../services/geocode');
 
 const router = express.Router();
 
@@ -36,11 +37,38 @@ router.post('/carrier-alerts', authRequired, writeRateLimit, async (req, res) =>
     min_price_huf, max_weight_kg,
   } = req.body || {};
 
-  const fromLat = num(from_lat);
-  const fromLng = num(from_lng);
+  // Felvételi környék: elsődlegesen a klienstől kapott koordináta (cím-
+  // kiegészítőből). Kényelmi tartalék: ha csak szöveget írt be (from_label)
+  // koordináta nélkül, szerveroldalon geokódoljuk.
+  let fromLat = num(from_lat);
+  let fromLng = num(from_lng);
+  let fromLabelFinal = from_label || null;
   if (fromLat == null || fromLng == null) {
-    return res.status(400).json({ error: 'A felvételi környék megadása kötelező (válassz címet a listából).' });
+    if (!from_label || !String(from_label).trim()) {
+      return res.status(400).json({ error: 'A felvételi környék megadása kötelező (írj be egy várost vagy válassz a listából).' });
+    }
+    const g = await geocodeAddress(from_label);
+    if (!g) {
+      return res.status(400).json({ error: `Nem ismertük fel a felvételi helyet ("${from_label}"). Próbáld a listából kiválasztani.` });
+    }
+    fromLat = g.lat; fromLng = g.lng;
+    fromLabelFinal = from_label;
   }
+
+  // Célterület: opcionális. Ha csak szöveget kaptunk koordináta nélkül,
+  // azt is geokódoljuk; ha nem ismerjük fel, szólunk (nem dobjuk el némán).
+  let toLat = num(to_lat);
+  let toLng = num(to_lng);
+  let toLabelFinal = to_label || null;
+  if ((toLat == null || toLng == null) && to_label && String(to_label).trim()) {
+    const g = await geocodeAddress(to_label);
+    if (!g) {
+      return res.status(400).json({ error: `Nem ismertük fel a célterületet ("${to_label}"). Próbáld a listából kiválasztani, vagy hagyd üresen.` });
+    }
+    toLat = g.lat; toLng = g.lng;
+    toLabelFinal = to_label;
+  }
+
   const radius = Math.max(1, Math.min(300, num(radius_km) || 25));
 
   // Darabszám-korlát: ne lehessen vég nélkül figyelőt gyártani
@@ -59,8 +87,8 @@ router.post('/carrier-alerts', authRequired, writeRateLimit, async (req, res) =>
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [
-      req.user.sub, label || null, fromLat, fromLng, from_label || null,
-      num(to_lat), num(to_lng), to_label || null,
+      req.user.sub, label || null, fromLat, fromLng, fromLabelFinal,
+      toLat, toLng, toLabelFinal,
       radius, num(min_price_huf), num(max_weight_kg),
     ],
   );

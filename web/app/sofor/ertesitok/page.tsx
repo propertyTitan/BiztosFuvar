@@ -51,17 +51,21 @@ export default function ErtesitokOldal() {
   }
 
   async function createAlert() {
-    if (!from) {
-      toast.error('Hiányzó felvételi környék', 'Válassz egy felvételi helyet a listából.');
+    // Elsődlegesen a listából választott koordináta; ha csak beírta a várost,
+    // a szöveget küldjük, és a szerver geokódolja (kényelmi tartalék).
+    const fromName = (from?.label || fromText).trim();
+    const toName = (to?.label || toText).trim();
+    if (!fromName) {
+      toast.error('Hiányzó felvételi környék', 'Írj be egy várost, vagy válassz a listából.');
       return;
     }
     setSaving(true);
     try {
-      const label = to ? `${from.label} → ${to.label}` : `${from.label} (${radius} km)`;
+      const label = toName ? `${fromName} → ${toName}` : `${fromName} (${radius} km)`;
       await api.createCarrierAlert({
         label,
-        from_lat: from.lat, from_lng: from.lng, from_label: from.label,
-        to_lat: to?.lat ?? null, to_lng: to?.lng ?? null, to_label: to?.label ?? null,
+        from_lat: from?.lat ?? null, from_lng: from?.lng ?? null, from_label: fromName,
+        to_lat: to?.lat ?? null, to_lng: to?.lng ?? null, to_label: toName || null,
         radius_km: radius,
         min_price_huf: minPrice ? Number(minPrice) : null,
         max_weight_kg: maxWeight ? Number(maxWeight) : null,
@@ -134,6 +138,9 @@ export default function ErtesitokOldal() {
             onTextChange={(t) => { setToText(t); if (!t) setTo(null); }}
             placeholder="Hagyd üresen, ha bárhová mehet"
           />
+          <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+            💡 Elég csak a város nevét beírni (pl. <strong>Eger</strong>) — ha nem választasz a listából, automatikusan felismerjük.
+          </p>
 
           <label>Sugár a pont(ok) körül</label>
           <div className="row" style={{ gap: 8, marginTop: 4 }}>
@@ -167,7 +174,7 @@ export default function ErtesitokOldal() {
             <button className="btn btn-secondary" onClick={() => { resetForm(); setShowForm(false); }}>
               Mégse
             </button>
-            <button className="btn" onClick={createAlert} disabled={saving || !from}>
+            <button className="btn" onClick={createAlert} disabled={saving || !(from || fromText.trim())}>
               {saving ? 'Mentés…' : 'Figyelő létrehozása'}
             </button>
           </div>
