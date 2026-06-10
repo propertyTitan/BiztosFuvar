@@ -22,12 +22,13 @@ const router = express.Router();
 //
 // Az ársáv: -20% … +20% a számított ár körül, 500-asra kerekítve.
 //
-// KALIBRÁCIÓ: ezek a paraméterek egy helyen, könnyen hangolhatók. A jelenlegi
-// 45 Ft/km a "közösségi / amúgy is arra megy" esetet modellezi; dedikált
-// fuvarnál a reális önköltség magasabb. A valós medián a lezárt fuvarok
-// adatából később felülírja.
+// KALIBRÁCIÓ: ezek a paraméterek egy helyen, könnyen hangolhatók. A 90 Ft/km
+// tudatos középút (2026-06): reális annyira, hogy a sofőrök licitáljanak rá,
+// de még a profi költöztető díjak alatt. A "csak megy arra" közösségi esetnél
+// alacsonyabb (~45) is indokolt lehet, a dedikált önköltség (~130) magasabb.
+// A valós medián a lezárt fuvarok adatából később felülírja ezt a horgonyt.
 const BASE_HUF          = 1500;
-const PER_KM_HUF        = 45;
+const PER_KM_HUF        = 90;
 const PER_KG_HUF        = 30;
 const PER_FLOOR_NO_LIFT  = 500;
 const PER_FLOOR_WITH_LIFT = 200;
