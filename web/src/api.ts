@@ -852,4 +852,39 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ answer }),
     }),
+
+  // ---------- Sofőr útvonal-figyelők (lane alerts) ----------
+
+  listCarrierAlerts: () => request<CarrierAlert[]>('/carrier-alerts'),
+
+  createCarrierAlert: (data: Partial<CarrierAlert>) =>
+    request<CarrierAlert>('/carrier-alerts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  setCarrierAlertActive: (id: string, active: boolean) =>
+    request<CarrierAlert>(`/carrier-alerts/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ active }),
+    }),
+
+  deleteCarrierAlert: (id: string) =>
+    request<{ ok: true }>(`/carrier-alerts/${id}`, { method: 'DELETE' }),
+};
+
+export type CarrierAlert = {
+  id: string;
+  label: string | null;
+  from_lat: number;
+  from_lng: number;
+  from_label: string | null;
+  to_lat: number | null;
+  to_lng: number | null;
+  to_label: string | null;
+  radius_km: number;
+  min_price_huf: number | null;
+  max_weight_kg: number | null;
+  active: boolean;
+  created_at: string;
 };
