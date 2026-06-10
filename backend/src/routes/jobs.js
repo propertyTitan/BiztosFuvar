@@ -267,6 +267,13 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
   // A válaszban a kód látszik, mert a feladó most hozta létre a fuvart
   res.status(201).json(job);
 
+  // --- Sofőr útvonal-figyelők értesítése (email + in-app, SMS nincs) ---
+  // Fire-and-forget: a választ már elküldtük, ez nem foghatja meg a UI-t.
+  setImmediate(() => {
+    const { notifyMatchingAlerts } = require('../services/laneAlerts');
+    notifyMatchingAlerts(job).catch((e) => console.warn('[laneAlerts] hiba:', e.message));
+  });
+
   // --- Címzett értesítése (SMS + email) a tracking linkkel ---
   if (recipient_phone || recipient_email) {
     const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';

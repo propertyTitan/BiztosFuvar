@@ -131,6 +131,14 @@ export default function SoforFuvarokLista() {
         </div>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>
           <Link
+            href="/sofor/ertesitok"
+            className="btn btn-ghost"
+            style={{ fontSize: 13, padding: '8px 16px', textDecoration: 'none' }}
+            title="Értesítést kérek az ilyen fuvarokról"
+          >
+            🔔 Értesíts, ha van ilyen fuvar
+          </Link>
+          <Link
             href="/dashboard/uj-fuvar"
             className="btn"
             style={{

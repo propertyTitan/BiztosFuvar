@@ -173,6 +173,32 @@ async function sendBidReceivedEmail({ to, shipperName, jobTitle, jobId, carrierN
 }
 
 /**
+ * Útvonal-figyelő találat: új fuvar a sofőr által figyelt útvonalon.
+ */
+async function sendLaneAlertEmail({ to, carrierName, jobTitle, jobId, routeLabel, priceHuf }) {
+  const heading = '🎯 Új fuvar a figyelt útvonaladon!';
+  const bodyHtml = `
+    <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
+    <p>Új licitálható fuvar került ki, ami illeszkedik az egyik beállított útvonal-figyelődre:</p>
+    <p style="font-size:18px;font-weight:800;margin:16px 0 4px">${escapeHtml(jobTitle)}</p>
+    <p style="color:#475569;margin:0 0 12px">${escapeHtml(routeLabel)}</p>
+    ${priceHuf ? `<p style="font-size:22px;font-weight:800;color:#1e40af;margin:8px 0">~${formatHuf(priceHuf)} Ft</p>` : ''}
+    <p>Nézd meg, és adj be egy ajánlatot, mielőtt más viszi el!</p>
+    <p style="color:#64748b;font-size:13px;margin-top:16px">Az útvonal-figyelőidet a profilod alól bármikor módosíthatod vagy kikapcsolhatod.</p>
+  `;
+  return sendEmail({
+    to,
+    subject: `Új fuvar: ${jobTitle}`,
+    html: wrapHtml({
+      heading,
+      bodyHtml,
+      ctaText: 'Fuvar megnézése',
+      ctaHref: `${getWebBase()}/sofor/fuvar/${jobId}`,
+    }),
+  });
+}
+
+/**
  * A sofőr licitjét elfogadta a feladó.
  */
 async function sendBidAcceptedEmail({ to, carrierName, jobTitle, jobId, amountHuf }) {
@@ -430,6 +456,7 @@ async function sendPasswordResetEmail({ to, fullName, resetUrl }) {
 module.exports = {
   sendEmail,
   sendBidReceivedEmail,
+  sendLaneAlertEmail,
   sendBidAcceptedEmail,
   sendJobPaidEmail,
   sendBookingReceivedEmail,
