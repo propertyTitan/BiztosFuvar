@@ -16,15 +16,30 @@ const router = express.Router();
 //   alap = 1500 Ft
 //   + távolság × 45 Ft/km
 //   + súly × 30 Ft/kg
-//   + emelet × 500 Ft (ha nincs lift)
-//   + emelet × 200 Ft (ha van lift)
+//   szorozva a csomagméret (térfogat) szorzóval — egy szekrény több
+//   járműhelyet/kezelést igényel, mint egy boríték azonos súlynál
+//   + emelet × 500 Ft (ha nincs lift) / × 200 Ft (ha van lift)
 //
-// Az ársáv: -20% … +20% a számított ár körül.
+// Az ársáv: -20% … +20% a számított ár körül, 500-asra kerekítve.
+//
+// KALIBRÁCIÓ: ezek a paraméterek egy helyen, könnyen hangolhatók. A jelenlegi
+// 45 Ft/km a "közösségi / amúgy is arra megy" esetet modellezi; dedikált
+// fuvarnál a reális önköltség magasabb. A valós medián a lezárt fuvarok
+// adatából később felülírja.
 const BASE_HUF          = 1500;
 const PER_KM_HUF        = 45;
 const PER_KG_HUF        = 30;
 const PER_FLOOR_NO_LIFT  = 500;
 const PER_FLOOR_WITH_LIFT = 200;
+
+// Térfogat-alapú méretszorzó (m³). Tunable.
+function sizeMultiplier(volumeM3) {
+  if (!Number.isFinite(volumeM3) || volumeM3 <= 0) return 1.0;
+  if (volumeM3 >= 1.0)  return 1.6;  // nagy bútor
+  if (volumeM3 >= 0.25) return 1.3;
+  if (volumeM3 >= 0.05) return 1.15;
+  return 1.0;                        // kis csomag
+}
 
 // GET /calculator/estimate — publikus, nem kell auth
 router.get('/calculator/estimate', (req, res) => {
@@ -34,6 +49,7 @@ router.get('/calculator/estimate', (req, res) => {
     weight_kg,
     pickup_floor, pickup_has_elevator,
     dropoff_floor, dropoff_has_elevator,
+    volume_m3,
   } = req.query;
 
   const pLat = parseFloat(pickup_lat);
@@ -41,6 +57,7 @@ router.get('/calculator/estimate', (req, res) => {
   const dLat = parseFloat(dropoff_lat);
   const dLng = parseFloat(dropoff_lng);
   const kg   = parseFloat(weight_kg) || 5;
+  const volM3 = parseFloat(volume_m3);
 
   if (!Number.isFinite(pLat) || !Number.isFinite(pLng) ||
       !Number.isFinite(dLat) || !Number.isFinite(dLng)) {
@@ -49,7 +66,9 @@ router.get('/calculator/estimate', (req, res) => {
 
   const distKm = +(distanceMeters(pLat, pLng, dLat, dLng) / 1000).toFixed(2);
 
-  let estimate = BASE_HUF + distKm * PER_KM_HUF + kg * PER_KG_HUF;
+  // Méretszorzó a táv+alap+súly komponensre; a cipelés-felár külön jön.
+  const mult = sizeMultiplier(volM3);
+  let estimate = (BASE_HUF + distKm * PER_KM_HUF + kg * PER_KG_HUF) * mult;
 
   const pFloor = Math.max(0, Math.min(10, parseInt(pickup_floor) || 0));
   const dFloor = Math.max(0, Math.min(10, parseInt(dropoff_floor) || 0));
@@ -73,7 +92,7 @@ router.get('/calculator/estimate', (req, res) => {
     estimate_huf: roundTo500(estimate),
     range_low_huf: roundTo500(low),
     range_high_huf: roundTo500(high),
-    note: 'Becsült ár a távolság és súly alapján. A tényleges ár a sofőrök licitjeitől függ.',
+    note: 'Becsült ár a távolság, súly és csomagméret alapján. A tényleges ár a sofőrök licitjeitől függ.',
   });
 });
 
