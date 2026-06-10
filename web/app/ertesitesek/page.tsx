@@ -24,6 +24,10 @@ export default function ErtesitesekOldal() {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Első rendernél a user még null (localStorage-ből töltődik) — várjuk meg,
+  // különben bejelentkezett usernek is felvillan a "Lépj be" üzenet.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   async function load() {
     try {
@@ -67,6 +71,7 @@ export default function ErtesitesekOldal() {
     } catch {}
   }
 
+  if (!mounted) return <p className="muted">Betöltés…</p>;
   if (!user) return <p>Lépj be a <a href="/bejelentkezes">bejelentkezés</a> oldalon.</p>;
 
   const unreadCount = items.filter((n) => !n.read_at).length;
@@ -90,8 +95,13 @@ export default function ErtesitesekOldal() {
       )}
 
       {!loading && items.length === 0 && (
-        <div className="card">
-          <p className="muted">Még nincs értesítésed.</p>
+        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+          <div style={{ fontSize: 40 }}>🔔</div>
+          <p style={{ margin: '8px 0 4px', fontWeight: 700 }}>Még nincs értesítésed.</p>
+          <p className="muted" style={{ margin: '0 0 16px' }}>
+            Itt jelennek meg a liciteid, fuvarjaid és üzeneteid eseményei.
+          </p>
+          <Link className="btn" href="/dashboard/uj-fuvar">➕ Adj fel egy fuvart</Link>
         </div>
       )}
 

@@ -34,6 +34,12 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: 'Lemondva',
 };
 
+const STATUS_PILL: Record<string, string> = {
+  pending: 'pill-bidding', bidding: 'pill-bidding', accepted: 'pill-accepted',
+  in_progress: 'pill-progress', delivered: 'pill-delivered', completed: 'pill-delivered',
+  disputed: 'pill-accepted', cancelled: 'pill-cancelled',
+};
+
 export default function SoforFuvarReszletek() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -94,7 +100,7 @@ export default function SoforFuvarReszletek() {
     e.preventDefault();
     const amount = parseInt(bidAmount, 10);
     if (!amount || amount <= 0) {
-      alert('Érvényes összeget adj meg.');
+      toast.error('Érvénytelen összeg', 'Érvényes licit-összeget adj meg (Ft).');
       return;
     }
     setSubmitting(true);
@@ -158,7 +164,7 @@ export default function SoforFuvarReszletek() {
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-          <span className="pill pill-progress">{STATUS_LABEL[job.status] || job.status}</span>
+          <span className={`pill ${STATUS_PILL[job.status] || 'pill-progress'}`}>{STATUS_LABEL[job.status] || job.status}</span>
           {/* Fizetés állapot — csak accepted+ státuszoknál érdekes.
               A sofőr ebből látja, hogy a feladó már kifizette-e vagy sem. */}
           {['accepted', 'in_progress', 'delivered'].includes(job.status) && (
@@ -289,7 +295,7 @@ export default function SoforFuvarReszletek() {
             <div style={{ marginBottom: 6, fontSize: 14 }}>
               <strong>Felvételi hely:</strong> Bepakolás szükséges
               {' — '}
-              {(job as any).pickup_floor === 0 ? 'Földszint' : `${(job as any).pickup_floor}. emelet`}
+              {(job as any).pickup_floor == null ? 'emelet nincs megadva' : (job as any).pickup_floor === 0 ? 'Földszint' : `${(job as any).pickup_floor}. emelet`}
               {(job as any).pickup_floor > 0 && (
                 (job as any).pickup_has_elevator
                   ? <span style={{ color: '#2E7D32', fontWeight: 700 }}> (lift van ✓)</span>
@@ -301,7 +307,7 @@ export default function SoforFuvarReszletek() {
             <div style={{ fontSize: 14 }}>
               <strong>Lerakodási hely:</strong> Felvinni szükséges
               {' — '}
-              {(job as any).dropoff_floor === 0 ? 'Földszint' : `${(job as any).dropoff_floor}. emelet`}
+              {(job as any).dropoff_floor == null ? 'emelet nincs megadva' : (job as any).dropoff_floor === 0 ? 'Földszint' : `${(job as any).dropoff_floor}. emelet`}
               {(job as any).dropoff_floor > 0 && (
                 (job as any).dropoff_has_elevator
                   ? <span style={{ color: '#2E7D32', fontWeight: 700 }}> (lift van ✓)</span>
@@ -470,7 +476,7 @@ export default function SoforFuvarReszletek() {
           </span>
           {myBid.message && (
             <p className="muted" style={{ marginTop: 8 }}>
-              „{myBid.message}"
+              „{myBid.message}”
             </p>
           )}
         </div>

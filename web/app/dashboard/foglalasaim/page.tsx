@@ -11,6 +11,7 @@ import { api, RouteBooking } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Sofőri megerősítésre vár',
@@ -58,13 +59,10 @@ export default function FoglalasaimOldal() {
     }
   }
 
-  async function cancelBooking(b: RouteBooking) {
-    const wasPaid = !!b.paid_at;
-    const warning = wasPaid
-      ? 'Biztosan lemondod a foglalást? A 10% lemondási díjat (max 1000 Ft) levonjuk a visszatérítésből.'
-      : 'Biztosan lemondod a foglalást? Még nem történt fizetés, díj sincs.';
-    if (!window.confirm(warning)) return;
-    const reason = window.prompt('Indok (opcionális):') || '';
+  // Lemondás-megerősítő dialógus célpontja (window.confirm/prompt kiváltva)
+  const [cancelTarget, setCancelTarget] = useState<RouteBooking | null>(null);
+
+  async function cancelBooking(b: RouteBooking, reason: string) {
     try {
       const res = await api.cancelRouteBooking(b.id, reason);
       const msg =
@@ -153,7 +151,7 @@ export default function FoglalasaimOldal() {
             </div>
             {b.notes && (
               <p className="muted" style={{ fontSize: 13, fontStyle: 'italic', marginTop: 6 }}>
-                „{b.notes}"
+                „{b.notes}”
               </p>
             )}
           </div>
@@ -227,7 +225,7 @@ export default function FoglalasaimOldal() {
               <div style={{ marginTop: 8 }}>
                 <button
                   type="button"
-                  onClick={() => cancelBooking(b)}
+                  onClick={() => setCancelTarget(b)}
                   style={{
                     background: 'transparent',
                     border: '1px solid var(--danger)',
@@ -296,6 +294,22 @@ export default function FoglalasaimOldal() {
           {rejected.map((b) => <BookingCard key={b.id} b={b} />)}
         </>
       )}
+
+      <ConfirmDialog
+        open={!!cancelTarget}
+        title="Foglalás lemondása"
+        message={cancelTarget?.paid_at
+          ? 'Biztosan lemondod a foglalást? A lemondási díjat (8 000 Ft-ig 400 Ft, felette a fuvardíj 5%-a) levonjuk a visszatérítésből.'
+          : 'Biztosan lemondod a foglalást? Még nem történt fizetés, így díj sincs.'}
+        confirmLabel="Lemondom"
+        danger
+        fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. Másik megoldást találtam' }]}
+        onConfirm={(v) => {
+          if (cancelTarget) cancelBooking(cancelTarget, (v.reason || '').trim());
+          setCancelTarget(null);
+        }}
+        onClose={() => setCancelTarget(null)}
+      />
     </div>
   );
 }

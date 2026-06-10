@@ -13,7 +13,7 @@ export default function MentesDisabled() {
       <h1>Hamarosan elérhető</h1>
       <p className="muted">
         Az autómentés szolgáltatás jelenleg fejlesztés alatt áll.
-        Kérjük, nézz vissza később!
+        Nézz vissza később!
       </p>
       <Link
         href="/"

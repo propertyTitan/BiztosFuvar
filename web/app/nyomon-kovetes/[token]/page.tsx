@@ -22,6 +22,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string; icon: string
   delivered:   { label: 'Csomag megérkezett!',    color: '#16A34A', icon: '🎉' },
   completed:   { label: 'Fuvar lezárva',          color: '#6B7280', icon: '✅' },
   cancelled:   { label: 'Fuvar lemondva',         color: '#DC2626', icon: '❌' },
+  disputed:    { label: 'Ügyintézés folyamatban', color: '#D97706', icon: '⚖️' },
 };
 
 type TrackingData = {
@@ -48,6 +49,10 @@ export default function PublicTrackingPage() {
       const res = await fetch(`${BASE_URL}/tracking/${token}`);
       if (!res.ok) throw new Error('Fuvar nem található');
       setData(await res.json());
+      // Sikernél töröljük a hibát — különben egy átmeneti hálózati hiba
+      // után a 30 mp-es frissítés hiába hozna adatot, örökre a
+      // "Fuvar nem található" maradna a képernyőn.
+      setError('');
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -78,9 +83,6 @@ export default function PublicTrackingPage() {
   );
 
   const s = STATUS_LABELS[data.status] || STATUS_LABELS.pending;
-  const eta = data.last_position?.speed_kmh && data.last_position.speed_kmh > 5
-    ? '~számítás…'
-    : null;
 
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', padding: '20px 16px' }}>

@@ -12,7 +12,11 @@ import AiMessageContent from './AiMessageContent';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 
-const STORAGE_KEY = 'gofuvar_ai_history';
+// Felhasználónként külön kulcs: fiókváltásnál ne az előző user beszélgetése
+// jelenjen meg (és ne az menjen kontextusként a Geminihez).
+const STORAGE_KEY_BASE = 'gofuvar_ai_history';
+const storageKey = (userId?: string | null) =>
+  userId ? `${STORAGE_KEY_BASE}:${userId}` : STORAGE_KEY_BASE;
 
 const SUGGESTIONS = [
   'Hogyan adok fel új fuvart?',
@@ -37,14 +41,17 @@ export default function AiChatWidget() {
   // a chatet elrejtjük; a döntés után (event vagy localStorage) megjelenik.
   const [consentPending, setConsentPending] = useState(true);
 
-  // History betöltés
+  // History betöltés — fiókváltáskor (user.id változás) újratöltünk
   useEffect(() => {
+    loadedRef.current = false;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setMessages(JSON.parse(raw));
-    } catch {}
+      const raw = localStorage.getItem(storageKey(user?.id));
+      setMessages(raw ? JSON.parse(raw) : []);
+    } catch {
+      setMessages([]);
+    }
     loadedRef.current = true;
-  }, []);
+  }, [user?.id]);
 
   // Süti-döntés állapota — ha már döntött a user, a chat azonnal látszhat.
   useEffect(() => {
@@ -64,9 +71,9 @@ export default function AiChatWidget() {
   useEffect(() => {
     if (!loadedRef.current) return;
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+      localStorage.setItem(storageKey(user?.id), JSON.stringify(messages));
     } catch {}
-  }, [messages]);
+  }, [messages, user?.id]);
 
   // Scroll aljára
   useEffect(() => {
@@ -102,7 +109,7 @@ export default function AiChatWidget() {
 
   function clearHistory() {
     setMessages([]);
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(storageKey(user?.id));
   }
 
   if (!user) return null; // csak bejelentkezett usernek mutatjuk

@@ -94,10 +94,10 @@ export default function HomeHub() {
             <div>
               <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Sofőr'}! 👋</h1>
               <p className="muted" style={{ margin: '4px 0 0' }}>
-                {d ? `Level ${d.level} ${d.levelName}` : ''}
-                {d?.isVerified ? ' · ✅ Verified' : ''}
+                {d ? `${d.level}. szint — ${d.levelName}` : ''}
+                {d?.isVerified ? ' · ✅ Ellenőrzött' : ''}
                 {d?.ratingCount > 0 ? ` · ⭐ ${Number(d.ratingAvg).toFixed(1)}` : ''}
-                {d?.availableVouchers > 0 ? ` · 🎟️ ${d.availableVouchers} voucher` : ''}
+                {d?.availableVouchers > 0 ? ` · 🎟️ ${d.availableVouchers} jutalékmentes kupon` : ''}
               </p>
             </div>
             {d && (
@@ -270,7 +270,7 @@ export default function HomeHub() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>🏷️ {d.pendingBidsCount} licitedre válaszra vár</div>
+                <div style={{ fontWeight: 700 }}>🏷️ {d.pendingBidsCount} licited válaszra vár</div>
                 <div className="muted" style={{ fontSize: 13 }}>Koppints a részletekhez</div>
               </div>
               <span style={{ fontSize: 20 }}>→</span>

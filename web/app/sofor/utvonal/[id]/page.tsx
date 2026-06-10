@@ -11,6 +11,7 @@ import { api, CarrierRoute, RouteBooking } from '@/api';
 import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
 import { getSocket, joinUserRoom } from '@/lib/socket';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -73,8 +74,15 @@ export default function UtvonalReszletek() {
     }
   }
 
+  // Megerősítő dialógus (confirm/prompt/alert kiváltva)
+  const [dialog, setDialog] = useState<
+    | { type: 'reject'; bookingId: string }
+    | { type: 'cancel'; booking: RouteBooking }
+    | { type: 'close' }
+    | null
+  >(null);
+
   async function rejectBooking(bookingId: string) {
-    if (!confirm('Biztosan elutasítod?')) return;
     try {
       await api.rejectRouteBooking(bookingId);
       toast.info('Foglalás elutasítva');
@@ -84,13 +92,7 @@ export default function UtvonalReszletek() {
     }
   }
 
-  async function cancelBooking(b: RouteBooking) {
-    const wasPaid = !!b.paid_at;
-    const warning = wasPaid
-      ? 'Biztosan lemondod ezt a már elfogadott foglalást? A teljes fuvardíj visszajár a feladónak (sofőr lemondás → 100% refund).'
-      : 'Biztosan lemondod ezt a foglalást?';
-    if (!window.confirm(warning)) return;
-    const reason = window.prompt('Indok (opcionális):') || '';
+  async function cancelBooking(b: RouteBooking, reason: string) {
     try {
       await api.cancelRouteBooking(b.id, reason);
       toast.info('Foglalás lemondva', 'A feladó visszakapja a teljes fuvardíjat.');
@@ -105,17 +107,16 @@ export default function UtvonalReszletek() {
       await api.setCarrierRouteStatus(id, 'open');
       await load();
     } catch (err: any) {
-      alert('Hiba: ' + err.message);
+      toast.error('Hiba', err.message);
     }
   }
 
   async function closeRoute() {
-    if (!confirm('Lezárod az útvonalat (nem fogad további foglalást)?')) return;
     try {
       await api.setCarrierRouteStatus(id, 'full');
       await load();
     } catch (err: any) {
-      alert('Hiba: ' + err.message);
+      toast.error('Hiba', err.message);
     }
   }
 
@@ -138,7 +139,7 @@ export default function UtvonalReszletek() {
             <p style={{ margin: '6px 0' }}>📍 {b.pickup_address}</p>
             <p style={{ margin: '6px 0' }}>🏁 {b.dropoff_address}</p>
             {b.notes && (
-              <p className="muted" style={{ fontStyle: 'italic', marginTop: 6 }}>„{b.notes}"</p>
+              <p className="muted" style={{ fontStyle: 'italic', marginTop: 6 }}>„{b.notes}”</p>
             )}
           </div>
           <div style={{ textAlign: 'right' }}>
@@ -186,7 +187,7 @@ export default function UtvonalReszletek() {
                 <button
                   className="btn btn-secondary"
                   style={{ fontSize: 12, padding: '4px 10px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
-                  onClick={() => rejectBooking(b.id)}
+                  onClick={() => setDialog({ type: 'reject', bookingId: b.id })}
                 >
                   Elutasítom
                 </button>
@@ -197,7 +198,7 @@ export default function UtvonalReszletek() {
               <div style={{ marginTop: 8 }}>
                 <button
                   type="button"
-                  onClick={() => cancelBooking(b)}
+                  onClick={() => setDialog({ type: 'cancel', booking: b })}
                   style={{
                     background: 'transparent',
                     border: '1px solid var(--danger)',
@@ -275,7 +276,7 @@ export default function UtvonalReszletek() {
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={closeRoute}
+                onClick={() => setDialog({ type: 'close' })}
               >
                 Lezárás (betelt)
               </button>
@@ -374,6 +375,40 @@ export default function UtvonalReszletek() {
           <p className="muted">Még nincs foglalás erre az útvonalra.</p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!dialog}
+        title={
+          dialog?.type === 'reject' ? 'Foglalás elutasítása'
+          : dialog?.type === 'close' ? 'Útvonal lezárása'
+          : 'Foglalás lemondása'
+        }
+        message={
+          dialog?.type === 'reject' ? 'Biztosan elutasítod ezt a foglalást? A feladó értesítést kap.'
+          : dialog?.type === 'close' ? 'Lezárod az útvonalat? Ezután nem fogad további foglalást.'
+          : dialog?.type === 'cancel' && dialog.booking.paid_at
+            ? 'Biztosan lemondod ezt a már elfogadott foglalást? A teljes fuvardíj visszajár a feladónak (sofőr-lemondás → 100% visszatérítés).'
+            : 'Biztosan lemondod ezt a foglalást?'
+        }
+        confirmLabel={
+          dialog?.type === 'reject' ? 'Elutasítom'
+          : dialog?.type === 'close' ? 'Lezárom'
+          : 'Lemondom'
+        }
+        danger={dialog?.type !== 'close'}
+        fields={dialog?.type === 'cancel'
+          ? [{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. Műszaki probléma' }]
+          : []}
+        onConfirm={(v) => {
+          const d = dialog;
+          setDialog(null);
+          if (!d) return;
+          if (d.type === 'reject') rejectBooking(d.bookingId);
+          else if (d.type === 'close') closeRoute();
+          else cancelBooking(d.booking, (v.reason || '').trim());
+        }}
+        onClose={() => setDialog(null)}
+      />
     </div>
   );
 }

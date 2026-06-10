@@ -52,17 +52,23 @@ export default function SoforFuvarokLista() {
     }
   }
 
-  async function load(lat?: number, lng?: number) {
+  // A `filters` felülbírálással a "Szűrők törlése" azonnal üres szűrőkkel
+  // tud lekérdezni — a state-ből olvasás ott stale closure-t adna (a régi
+  // értékekkel kérdezne le, hiába nullázzuk előtte a state-et).
+  async function load(lat?: number, lng?: number, filters?: { min: string; max: string; weight: string }) {
     setLoading(true);
     try {
+      const min = filters ? filters.min : filterMinPrice;
+      const max = filters ? filters.max : filterMaxPrice;
+      const weight = filters ? filters.weight : filterMaxWeight;
       const data = await api.listJobs({
         status: 'bidding',
         lat,
         lng,
         radius_km: lat != null ? 500 : undefined,
-        min_price: filterMinPrice ? Number(filterMinPrice) : undefined,
-        max_price: filterMaxPrice ? Number(filterMaxPrice) : undefined,
-        max_weight_kg: filterMaxWeight ? Number(filterMaxWeight) : undefined,
+        min_price: min ? Number(min) : undefined,
+        max_price: max ? Number(max) : undefined,
+        max_weight_kg: weight ? Number(weight) : undefined,
       });
       setJobs(data);
     } catch (err: any) {
@@ -255,7 +261,7 @@ export default function SoforFuvarokLista() {
                     setFilterMinPrice('');
                     setFilterMaxPrice('');
                     setFilterMaxWeight('');
-                    setTimeout(() => load(here?.lat, here?.lng), 50);
+                    load(here?.lat, here?.lng, { min: '', max: '', weight: '' });
                   }}
                   style={{ fontSize: 12, padding: '6px 12px' }}
                 >
@@ -276,8 +282,13 @@ export default function SoforFuvarokLista() {
       )}
 
       {!loading && !error && jobs.length === 0 && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <p className="muted" style={{ margin: 0 }}>Jelenleg nincs licitálható fuvar a közelben.</p>
+        <div className="card" style={{ marginTop: 16, textAlign: 'center', padding: 32 }}>
+          <div style={{ fontSize: 40 }}>🚛</div>
+          <p style={{ margin: '8px 0 4px', fontWeight: 700 }}>Jelenleg nincs licitálható fuvar a közelben.</p>
+          <p className="muted" style={{ margin: '0 0 16px' }}>
+            Hirdess fix áras útvonalat — a feladók rád találnak, és üresjárat nélkül fuvarozhatsz.
+          </p>
+          <Link className="btn" href="/sofor/uj-utvonal">➕ Új útvonal meghirdetése</Link>
         </div>
       )}
 
@@ -359,14 +370,14 @@ export default function SoforFuvarokLista() {
                       }}
                       title="Ezt te adtad fel — nem licitálhatsz rá."
                     >
-                      SAJÁT POSZT
+                      SAJÁT HIRDETÉS
                     </span>
                   )}
                   {j.shipper_account_type === 'company' && j.shipper_company_verified === 'verified' && (
                     <span className="pill" style={{
                       background: '#dcfce7', color: '#166534', fontWeight: 800, fontSize: 11,
                     }}>
-                      Ellenorzott Ceg
+                      Ellenőrzött cég
                     </span>
                   )}
                 </div>

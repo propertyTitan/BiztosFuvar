@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, CarrierRoute } from '@/api';
+import { useToast } from '@/components/ToastProvider';
 
 const STATUS_LABEL: Record<CarrierRoute['status'], string> = {
   draft: 'Piszkozat',
@@ -26,6 +27,7 @@ const STATUS_PILL: Record<CarrierRoute['status'], string> = {
 };
 
 export default function UtvonalaimOldal() {
+  const toast = useToast();
   const [routes, setRoutes] = useState<CarrierRoute[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export default function UtvonalaimOldal() {
       await api.setCarrierRouteStatus(r.id, status);
       await load();
     } catch (err: any) {
-      alert('Hiba: ' + err.message);
+      toast.error('Hiba', err.message);
     }
   }
 

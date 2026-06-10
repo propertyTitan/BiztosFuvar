@@ -122,8 +122,8 @@ export default function UtbaEsoPage() {
 
               {j.pickup_needs_carrying && (
                 <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                  📦 Bepakolás szükséges ({j.pickup_floor === 0 ? 'földszint' : `${j.pickup_floor}. emelet`}
-                  {j.pickup_floor > 0 && (j.pickup_has_elevator ? ', lift van' : ', NINCS lift')})
+                  📦 Bepakolás szükséges ({j.pickup_floor == null ? 'emelet nincs megadva' : j.pickup_floor === 0 ? 'földszint' : `${j.pickup_floor}. emelet`}
+                  {j.pickup_floor != null && j.pickup_floor > 0 && (j.pickup_has_elevator ? ', lift van' : ', NINCS lift')})
                 </p>
               )}
             </div>

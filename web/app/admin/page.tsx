@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
+import ConfirmDialog from '@/components/ConfirmDialog';
 
 export default function AdminPanel() {
   const me = useCurrentUser();
@@ -25,6 +26,8 @@ export default function AdminPanel() {
   const [disputes, setDisputes] = useState<any[]>([]);
   const [paymentLog, setPaymentLog] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  // Vita-döntés dialógus: { id, mode: 'no_action' | 'refund' }
+  const [decision, setDecision] = useState<{ id: string; mode: 'no_action' | 'refund' } | null>(null);
 
   useEffect(() => {
     if (me && me.role !== 'admin') {
@@ -40,7 +43,7 @@ export default function AdminPanel() {
     try {
       const [s, d, pl] = await Promise.all([
         api.adminStats(),
-        api.myDisputes(),
+        api.allDisputes(),
         api.adminPaymentLog(30),
       ]);
       setStats(s);
@@ -53,9 +56,9 @@ export default function AdminPanel() {
     }
   }
 
-  async function resolveDispute(id: string, status: string, note: string) {
+  async function resolveDispute(id: string, status: string, note: string, refundHuf?: number) {
     try {
-      await api.resolveDispute(id, { status, resolution_note: note });
+      await api.resolveDispute(id, { status, resolution_note: note, refund_huf: refundHuf });
       toast.success('Vita lezárva');
       loadData();
     } catch (e: any) {
@@ -63,8 +66,11 @@ export default function AdminPanel() {
     }
   }
 
-  if (!me || me.role !== 'admin') return null;
-  if (loading) return <p>Betöltés…</p>;
+  // Első rendernél a `me` még null (localStorage-ből töltődik) — ilyenkor
+  // betöltőt mutatunk, nem üres képernyőt. Nem-admin usert az effect átirányít.
+  if (!me) return <p className="muted">Betöltés…</p>;
+  if (me.role !== 'admin') return null;
+  if (loading) return <p className="muted">Betöltés…</p>;
 
   return (
     <div>
@@ -138,23 +144,17 @@ export default function AdminPanel() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <button
                   className="btn"
-                  style={{ fontSize: 12, padding: '6px 12px', background: '#16a34a' }}
-                  onClick={() => {
-                    const note = window.prompt('Admin döntés indoklása:');
-                    if (note) resolveDispute(d.id, 'resolved_no_action', note);
-                  }}
+                  style={{ fontSize: 12, padding: '6px 12px', background: 'var(--success)' }}
+                  onClick={() => setDecision({ id: d.id, mode: 'no_action' })}
                 >
                   ✅ Nincs teendő
                 </button>
                 <button
                   className="btn"
-                  style={{ fontSize: 12, padding: '6px 12px', background: '#f59e0b' }}
-                  onClick={() => {
-                    const note = window.prompt('Indoklás + visszatérítendő összeg?');
-                    if (note) resolveDispute(d.id, 'resolved_refund', note);
-                  }}
+                  style={{ fontSize: 12, padding: '6px 12px', background: 'var(--warning)' }}
+                  onClick={() => setDecision({ id: d.id, mode: 'refund' })}
                 >
-                  💸 Refund
+                  💸 Visszatérítés
                 </button>
                 <button
                   className="btn btn-secondary"
@@ -234,6 +234,37 @@ export default function AdminPanel() {
           </div>
         ))}
       </div>
+
+      {/* Vita-döntés dialógus (a korábbi window.prompt kiváltása) */}
+      <ConfirmDialog
+        open={!!decision}
+        title={decision?.mode === 'refund' ? '💸 Visszatérítés a feladónak' : '✅ Vita lezárása — nincs teendő'}
+        message={decision?.mode === 'refund'
+          ? 'A döntésről mindkét fél értesítést kap. A visszatérítendő összeget forintban add meg.'
+          : 'A döntésről mindkét fél értesítést kap.'}
+        confirmLabel="Döntés rögzítése"
+        fields={decision?.mode === 'refund' ? [
+          { key: 'note', label: 'Indoklás', type: 'textarea', required: true, placeholder: 'Miért jár a visszatérítés?' },
+          { key: 'refund', label: 'Visszatérítendő összeg (Ft)', type: 'number', required: true, placeholder: 'pl. 5000' },
+        ] : [
+          { key: 'note', label: 'Indoklás', type: 'textarea', required: true, placeholder: 'Admin döntés indoklása' },
+        ]}
+        onConfirm={(v) => {
+          if (!decision) return;
+          if (decision.mode === 'refund') {
+            const amount = Math.round(Number(v.refund));
+            if (!Number.isFinite(amount) || amount <= 0) {
+              toast.error('Hibás összeg', 'A visszatérítendő összeg pozitív szám legyen.');
+              return;
+            }
+            resolveDispute(decision.id, 'resolved_refund', v.note.trim(), amount);
+          } else {
+            resolveDispute(decision.id, 'resolved_no_action', v.note.trim());
+          }
+          setDecision(null);
+        }}
+        onClose={() => setDecision(null)}
+      />
     </div>
   );
 }
