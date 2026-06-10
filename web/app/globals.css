@@ -182,6 +182,18 @@ a { color: var(--primary); }
   color: #0f172a !important;
 }
 
+/* ── Google Maps InfoWindow (marker-buborék) ──
+   A Google az info-ablakot MINDIG fehér háttérrel rendereli, a dark mode-os
+   `body * { color: var(--text) }` viszont fehérré tenné a szöveget → fehér a
+   fehéren, eltűnik (pl. a fuvar címe a térkép-nézetben). Itt rögzítjük a
+   sötét szöveget. Az inline `color:#fff` gomb/link erősebb (inline stílus),
+   így az olvasható marad. */
+.gm-style .gm-style-iw,
+.gm-style .gm-style-iw-d,
+.gm-style .gm-style-iw * {
+  color: #0f172a;
+}
+
 /* ── Google Places Autocomplete dropdown ──
    Google saját komponens, nem tudjuk inline style-lal javítani — itt
    rögzítjük a világos témát, hogy dark mode-ban is olvasható maradjon. */
