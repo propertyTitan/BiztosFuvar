@@ -396,7 +396,8 @@ export default function HomeHub() {
 
           {/* Fő CTA: hirdetés feladás */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 24,
+            display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 14, marginBottom: 24,
           }}>
             <Link
               href="/dashboard/uj-fuvar"
@@ -421,6 +422,18 @@ export default function HomeHub() {
               <div style={{ fontSize: 36, marginBottom: 8 }}>🛣️</div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>Fix áras útvonal</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Foglalj helyet egy sofőrnél</div>
+            </Link>
+            <Link
+              href="/hozasd-el"
+              className="card home-hub-card"
+              style={{
+                textDecoration: 'none', color: 'inherit', textAlign: 'center',
+                padding: 28, borderTop: '4px solid var(--warning)',
+              }}
+            >
+              <div style={{ fontSize: 36, marginBottom: 8 }}>🛍️</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Hozasd el</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Online vásárlás linkből</div>
             </Link>
           </div>
 

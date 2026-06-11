@@ -873,6 +873,21 @@ export const api = {
 
   deleteCarrierAlert: (id: string) =>
     request<{ ok: true }>(`/carrier-alerts/${id}`, { method: 'DELETE' }),
+
+  // ---------- "Hozasd el" — hirdetés-link előnézet ----------
+  linkPreview: async (url: string) => {
+    const res = await fetch(`${BASE_URL}/link-preview?url=${encodeURIComponent(url)}`);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Nem támogatott link');
+    return data as {
+      ok: boolean;
+      source: string;
+      url: string;
+      title?: string | null;
+      image?: string | null;
+      description?: string | null;
+    };
+  },
 };
 
 export type CarrierAlert = {
