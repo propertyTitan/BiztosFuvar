@@ -9,7 +9,7 @@
 import Link from 'next/link';
 import {
   Gavel, Route, MapPin, ShieldCheck, Camera, KeyRound,
-  Package, Truck, ArrowRight, Check, type LucideIcon,
+  Package, Truck, ArrowRight, Check, ShoppingBag, type LucideIcon,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 
@@ -109,6 +109,28 @@ export default function LandingPage() {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={15} color="var(--success)" /> Csak sikeres fuvar után fizetsz</span>
         </div>
       </section>
+
+      {/* ===== "Hozasd el" belépő sáv ===== */}
+      <Link href="/hozasd-el" style={{ textDecoration: 'none' }}>
+        <div className="card" style={{
+          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+          background: 'linear-gradient(135deg, var(--primary-subtle) 0%, var(--surface) 100%)',
+          border: '1px solid var(--primary-light)', marginBottom: 0,
+        }}>
+          <div style={{ display: 'inline-flex', padding: 12, borderRadius: 14, background: 'rgba(30,64,175,0.12)' }}>
+            <ShoppingBag size={26} color="var(--primary)" />
+          </div>
+          <div style={{ flex: '1 1 240px' }}>
+            <div style={{ fontWeight: 800, fontSize: 18 }}>Vettél valamit online? Hozasd el.</div>
+            <div className="muted" style={{ fontSize: 14 }}>
+              Jófogás, Vatera vagy Marketplace link → pár kattintás, és egy sofőr elhozza.
+            </div>
+          </div>
+          <span className="btn" style={{ pointerEvents: 'none' }}>
+            Kipróbálom <ArrowRight size={18} />
+          </span>
+        </div>
+      </Link>
 
       {/* ===== Hogyan működik? — 3 lépés ===== */}
       <section id="hogyan-mukodik" style={{ padding: '48px 0', scrollMarginTop: 80 }}>

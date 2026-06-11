@@ -134,6 +134,28 @@ export default function UjFuvar() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  // "Hozasd el" előtöltés: ha a /hozasd-el oldalról jött (sessionStorage),
+  // a cím és a forrás-link előtöltődik, majd a kulcsot töröljük.
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('gofuvar_prefill');
+      if (!raw) return;
+      sessionStorage.removeItem('gofuvar_prefill');
+      const p = JSON.parse(raw);
+      setForm((prev) => {
+        const next = { ...prev };
+        if (p.title && !prev.title) next.title = String(p.title).slice(0, 120);
+        // A forrás-linket és a hirdetés-leírást a fuvar leírásába tesszük
+        const parts: string[] = [];
+        if (prev.description) parts.push(prev.description);
+        if (p.description) parts.push(String(p.description).slice(0, 500));
+        if (p.sourceUrl) parts.push(`Forrás (${p.sourceName || 'hirdetés'}): ${p.sourceUrl}`);
+        if (parts.length) next.description = parts.join('\n\n');
+        return next;
+      });
+    } catch {}
+  }, []);
+
   function onPickPhotos(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     const valid: File[] = [];

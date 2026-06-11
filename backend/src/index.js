@@ -79,6 +79,7 @@ app.get('/coverage/zones', (_req, res) => {
   res.json(getAllZones());
 });
 const publicTrackingRoutes = require('./routes/publicTracking');
+const linkPreviewRoutes = require('./routes/linkPreview');
 
 // Statikus fájl-kiszolgálás a feltöltött fotókhoz
 const path = require('path');
@@ -94,6 +95,7 @@ app.use(globalRateLimit);
 
 app.use('/', calculatorRoutes);
 app.use('/', publicTrackingRoutes);
+app.use('/', linkPreviewRoutes);
 
 app.use('/auth', authRoutes);
 app.use('/jobs', jobRoutes);
