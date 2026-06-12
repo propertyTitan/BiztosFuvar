@@ -16,29 +16,25 @@ const express = require('express');
 const router = express.Router();
 
 // Csak ezek a hosztok engedélyezettek (SSRF ellen).
+// Kizárólag olyan oldalak, amik megbízható Open Graph előnézetet adnak
+// (cím + kép). A login-/bot-falas oldalakat (Facebook, Mömax, Möbelix)
+// szándékosan NEM tesszük be, mert ott úgyis csak a link maradna.
 const ALLOWED_HOSTS = new Set([
   // Apróhirdetés / marketplace
   'jofogas.hu', 'www.jofogas.hu',
   'vatera.hu', 'www.vatera.hu',
-  'marketplace.facebook.com', 'www.facebook.com', 'facebook.com', 'm.facebook.com',
-  // Bútor / barkács áruházak (IKEA/OBI/Praktiker teljes előnézetet ad;
-  // a Mömax/Möbelix bot-védett, ott a link megőrzésére esünk vissza)
+  // Bútor / barkács áruházak
   'ikea.com', 'www.ikea.com',
   'obi.hu', 'www.obi.hu',
   'praktiker.hu', 'www.praktiker.hu',
-  'moemax.hu', 'www.moemax.hu',
-  'mobelix.hu', 'www.mobelix.hu',
 ]);
 
 function sourceName(host) {
   if (host.includes('jofogas')) return 'Jófogás';
   if (host.includes('vatera')) return 'Vatera';
-  if (host.includes('facebook')) return 'Facebook Marketplace';
   if (host.includes('ikea')) return 'IKEA';
   if (host.includes('obi')) return 'OBI';
   if (host.includes('praktiker')) return 'Praktiker';
-  if (host.includes('moemax')) return 'Mömax';
-  if (host.includes('mobelix')) return 'Möbelix';
   return 'hirdetés';
 }
 
@@ -78,7 +74,7 @@ router.get('/link-preview', async (req, res) => {
   const u = isAllowed(req.query.url);
   if (!u) {
     return res.status(400).json({
-      error: 'Ezt a linket nem ismerjük fel. Támogatott: Jófogás, Vatera, Facebook Marketplace, IKEA, OBI, Praktiker, Mömax, Möbelix.',
+      error: 'Ezt a linket nem ismerjük fel. Támogatott: IKEA, OBI, Praktiker, Jófogás, Vatera.',
       code: 'UNSUPPORTED_LINK',
     });
   }

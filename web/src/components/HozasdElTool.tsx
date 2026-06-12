@@ -31,7 +31,7 @@ export default function HozasdElTool() {
       const p = await api.linkPreview(u);
       setPreview(p);
     } catch (e: any) {
-      toast.error('Nem támogatott link', e.message || 'IKEA, OBI, Praktiker, Mömax, Möbelix, Jófogás, Vatera vagy Marketplace linket tudunk feldolgozni.');
+      toast.error('Nem támogatott link', e.message || 'IKEA, OBI, Praktiker, Jófogás vagy Vatera linket tudunk feldolgozni.');
     } finally {
       setLoading(false);
     }
@@ -65,9 +65,8 @@ export default function HozasdElTool() {
           Vettél valamit online? <span style={{ color: 'var(--primary)' }}>Hozasd el.</span>
         </h1>
         <p style={{ fontSize: 'clamp(15px, 2vw, 18px)', color: 'var(--text-secondary)', maxWidth: 540, margin: '0 auto', lineHeight: 1.5 }}>
-          Bútort, gépet, nagyobb tárgyat vettél az IKEA-ban, OBI-ban, Praktikerben,
-          Mömaxban, Möbelixben — vagy a Jófogáson, Vaterán, Marketplace-en?
-          Másold be a termék linkjét — a többit elintézzük.
+          Bútort, gépet, nagyobb tárgyat vettél az IKEA-ban, OBI-ban, Praktikerben —
+          vagy a Jófogáson, Vaterán? Másold be a termék linkjét — a többit elintézzük.
         </p>
       </section>
 
@@ -92,7 +91,7 @@ export default function HozasdElTool() {
           </button>
         </div>
         <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
-          Támogatott: IKEA · OBI · Praktiker · Mömax · Möbelix · Jófogás · Vatera · Facebook Marketplace
+          Támogatott: IKEA · OBI · Praktiker · Jófogás · Vatera
         </p>
 
         {/* Előnézet */}
