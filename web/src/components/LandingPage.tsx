@@ -123,7 +123,7 @@ export default function LandingPage() {
           <div style={{ flex: '1 1 240px' }}>
             <div style={{ fontWeight: 800, fontSize: 18 }}>Vettél valamit online? Hozasd el.</div>
             <div className="muted" style={{ fontSize: 14 }}>
-              Jófogás, Vatera vagy Marketplace link → pár kattintás, és egy sofőr elhozza.
+              IKEA, OBI, Praktiker, Jófogás vagy Marketplace link → pár kattintás, és egy sofőr elhozza.
             </div>
           </div>
           <span className="btn" style={{ pointerEvents: 'none' }}>

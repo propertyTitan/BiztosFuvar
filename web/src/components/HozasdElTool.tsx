@@ -31,7 +31,7 @@ export default function HozasdElTool() {
       const p = await api.linkPreview(u);
       setPreview(p);
     } catch (e: any) {
-      toast.error('Nem támogatott link', e.message || 'Jófogás, Vatera vagy Facebook Marketplace linket tudunk feldolgozni.');
+      toast.error('Nem támogatott link', e.message || 'IKEA, OBI, Praktiker, Mömax, Möbelix, Jófogás, Vatera vagy Marketplace linket tudunk feldolgozni.');
     } finally {
       setLoading(false);
     }
@@ -64,9 +64,10 @@ export default function HozasdElTool() {
         <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 40px)', fontWeight: 900, letterSpacing: '-0.8px', margin: '0 auto 12px', maxWidth: 560 }}>
           Vettél valamit online? <span style={{ color: 'var(--primary)' }}>Hozasd el.</span>
         </h1>
-        <p style={{ fontSize: 'clamp(15px, 2vw, 18px)', color: 'var(--text-secondary)', maxWidth: 520, margin: '0 auto', lineHeight: 1.5 }}>
-          Jófogáson, Vaterán vagy Marketplace-en vásároltál egy bútort, gépet, nagyobb tárgyat?
-          Másold be a hirdetés linkjét — a többit elintézzük.
+        <p style={{ fontSize: 'clamp(15px, 2vw, 18px)', color: 'var(--text-secondary)', maxWidth: 540, margin: '0 auto', lineHeight: 1.5 }}>
+          Bútort, gépet, nagyobb tárgyat vettél az IKEA-ban, OBI-ban, Praktikerben,
+          Mömaxban, Möbelixben — vagy a Jófogáson, Vaterán, Marketplace-en?
+          Másold be a termék linkjét — a többit elintézzük.
         </p>
       </section>
 
@@ -81,7 +82,7 @@ export default function HozasdElTool() {
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') loadPreview(); }}
-              placeholder="https://www.jofogas.hu/..."
+              placeholder="https://www.ikea.com/hu/hu/p/..."
               style={{ paddingLeft: 36, marginTop: 0 }}
               inputMode="url"
             />
@@ -91,7 +92,7 @@ export default function HozasdElTool() {
           </button>
         </div>
         <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
-          Támogatott: Jófogás · Vatera · Facebook Marketplace
+          Támogatott: IKEA · OBI · Praktiker · Mömax · Möbelix · Jófogás · Vatera · Facebook Marketplace
         </p>
 
         {/* Előnézet */}
