@@ -408,7 +408,7 @@ export default function HomeHub() {
               }}
             >
               <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Licites hirdetés</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Fuvar feladása</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Sofőrök licitálnak rá</div>
             </Link>
             <Link
