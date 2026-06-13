@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
-const { loginRateLimit, registerRateLimit } = require('../middleware/rateLimit');
+const { loginRateLimit, registerRateLimit, writeRateLimit } = require('../middleware/rateLimit');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
 const { saveFile } = require('../services/storage');
 const {
@@ -185,7 +185,7 @@ router.post('/forgot-password', loginRateLimit, async (req, res) => {
 });
 
 // POST /auth/reset-password — új jelszó beállítása a tokennel
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', loginRateLimit, async (req, res) => {
   const { token, password } = req.body || {};
   if (!token || !password) return res.status(400).json({ error: 'Hiányzó adatok' });
   if (password.length < 8) return res.status(400).json({ error: 'A jelszó minimum 8 karakter legyen' });
@@ -516,6 +516,9 @@ router.post('/admin/grant-monthly-vouchers', authRequired, async (req, res) => {
 // POST /auth/avatar — profilkép feltöltés (Cloudflare R2 / disk fallback)
 router.post('/avatar', authRequired, uploadSingle('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
+  if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
+    return res.status(400).json({ error: 'Csak képfájl tölthető fel (JPG/PNG).' });
+  }
   try {
     const url = await saveFile(
       req.file.buffer,
@@ -538,8 +541,11 @@ router.post('/avatar', authRequired, uploadSingle('file'), async (req, res) => {
 // Flow: feltöltés → Gemini megnézi → ha valid okmány → azonnal 'verified'
 // Ha nem valid (macska fotó, homályos, rossz típus) → 'rejected' + reason
 // Ha Gemini nem elérhető → fallback: 'verified' (admin utólag ellenőriz)
-router.post('/kyc-document', authRequired, uploadSingle('file'), async (req, res) => {
+router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
+  if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
+    return res.status(400).json({ error: 'Csak képfájl tölthető fel (JPG/PNG).' });
+  }
   const { doc_type } = req.body || {};
   const validTypes = ['id_card', 'drivers_license', 'insurance', 'vehicle_registration', 'company_document'];
   if (!validTypes.includes(doc_type)) return res.status(400).json({ error: 'Érvénytelen dokumentum típus' });

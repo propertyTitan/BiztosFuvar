@@ -211,7 +211,7 @@ async function purgeOldKycFiles() {
       `SELECT id, file_url
          FROM kyc_documents
         WHERE file_url IS NOT NULL
-          AND status IN ('approved', 'rejected')
+          AND status IN ('approved', 'rejected', 'expired')
           AND COALESCE(reviewed_at, created_at) < NOW() - ($1 || ' days')::interval`,
       [KYC_FILE_RETENTION_DAYS],
     );

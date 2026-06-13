@@ -51,6 +51,9 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   const { jobId } = req.params;
   const { kind, gps_lat, gps_lng, gps_accuracy_m, delivery_code } = req.body;
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
+  if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
+    return res.status(400).json({ error: 'Csak képfájl tölthető fel (JPG/PNG).' });
+  }
   if (!ALLOWED_KINDS.includes(kind)) {
     return res.status(400).json({ error: 'Érvénytelen kind' });
   }

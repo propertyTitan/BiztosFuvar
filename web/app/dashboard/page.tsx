@@ -1,7 +1,7 @@
 // A régi /dashboard URL-t meghagyjuk a bookmark-kompatibilitás miatt,
-// de átirányít az új /hirdeteseim oldalra.
+// de közvetlenül a "Fuvarjaim" hub Hirdetéseim fülére irányít.
 import { redirect } from 'next/navigation';
 
 export default function DashboardRedirect() {
-  redirect('/hirdeteseim');
+  redirect('/fuvarjaim?tab=hirdeteseim');
 }

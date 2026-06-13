@@ -175,7 +175,7 @@ export default function HomeHub() {
           )}
 
           {/* ÁLLAPOT-ALAPÚ FŐ KÁRTYA */}
-          {d && d.activeJobs.length > 0 ? (
+          {d && d.activeJobs?.length > 0 ? (
             // Van aktív fuvar → ez a fő tartalom
             <div style={{ marginBottom: 24 }}>
               <h2 style={{ margin: '0 0 12px' }}>🟢 Aktív fuvarjaid</h2>

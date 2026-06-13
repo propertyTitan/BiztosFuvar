@@ -89,7 +89,7 @@ export default function SajatHirdeteseim() {
               <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
               <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>
               <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                {j.distance_km && `${j.distance_km} km`}
+                {j.distance_km != null && `${j.distance_km} km`}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>

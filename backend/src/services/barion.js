@@ -199,7 +199,7 @@ async function cancelReservation({ paymentId, jobId }) {
 
 /**
  * Részleges visszatérítés — a lemondási flow-hoz használjuk, amikor
- * a feladó a már kifizetett fuvart mondja le és 10% (max 1000 Ft)
+ * a feladó a már kifizetett fuvart mondja le (8.000 Ft-ig 400 Ft, felette 5%)
  * lemondási díjat levonunk a visszatérítésből. A refundAmount a
  * TÉNYLEGESEN visszautalandó összeg Ft-ban.
  *

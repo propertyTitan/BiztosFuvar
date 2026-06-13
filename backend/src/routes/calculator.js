@@ -14,7 +14,7 @@ const router = express.Router();
 
 // Fix árazási képlet (amíg nincs elég valós tranzakció az ML-hez):
 //   alap = 1500 Ft
-//   + távolság × 45 Ft/km
+//   + távolság × 90 Ft/km
 //   + súly × 30 Ft/kg
 //   szorozva a csomagméret (térfogat) szorzóval — egy szekrény több
 //   járműhelyet/kezelést igényel, mint egy boríték azonos súlynál

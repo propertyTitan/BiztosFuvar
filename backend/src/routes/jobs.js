@@ -304,12 +304,11 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
           console.warn('[recipient] email hiba:', e.message);
         }
       }
-      // SMS küldés (ha van telefonszám)
+      // SMS küldés (ha van telefonszám) — a SeeMe gateway élesben küld,
+      // SEEME_API_KEY hiányában stub módban csak naplóz (kód nélkül).
       if (recipient_phone) {
         const { sendSms } = require('../services/sms');
-            sendSms(recipient_phone, recipientMsg).catch(() => {});
-        // TODO: Twilio/Infobip SMS integráció élesítéskor.
-        // Egyelőre csak logolunk — a tracking link emailben megy.
+        sendSms(recipient_phone, recipientMsg).catch(() => {});
       }
     });
   }

@@ -1,9 +1,9 @@
 // =====================================================================
 //  Link-előnézet — "Hozasd el" funkcióhoz.
 //
-//  A feladó bemásol egy hirdetés-linket (Jófogás / Vatera / Facebook
-//  Marketplace), mi pedig a publikus Open Graph metaadatból (og:title,
-//  og:image) előnézetet adunk, hogy a fuvarfeladás előtöltődhessen.
+//  A feladó bemásol egy hirdetés-linket (IKEA / OBI / Praktiker / Jófogás),
+//  mi pedig a publikus Open Graph metaadatból (og:title, og:image)
+//  előnézetet adunk, hogy a fuvarfeladás előtöltődhessen.
 //
 //  NEM scrape-elünk strukturált adatot (ToS + törékeny). Csak az OG
 //  preview-t olvassuk — ugyanaz, amit minden chat-app csinál linknél.
@@ -13,7 +13,16 @@
 // =====================================================================
 
 const express = require('express');
+const { createRateLimit } = require('../middleware/rateLimit');
 const router = express.Router();
+
+// Dedikált, IP-alapú korlát: ez egy publikus végpont, ami kifelé is kérést
+// indít — ne lehessen kérés-amplifikátorként/szondaként használni.
+const linkPreviewLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 30,
+  message: 'Túl sok link-előnézet kérés. Kérlek várj egy percet.',
+});
 
 // Csak ezek a hosztok engedélyezettek (SSRF ellen).
 // Kizárólag olyan oldalak, amik megbízható Open Graph előnézetet adnak
@@ -68,7 +77,7 @@ function decodeEntities(s) {
 }
 
 // GET /link-preview?url=...
-router.get('/link-preview', async (req, res) => {
+router.get('/link-preview', linkPreviewLimit, async (req, res) => {
   const u = isAllowed(req.query.url);
   if (!u) {
     return res.status(400).json({
@@ -79,27 +88,38 @@ router.get('/link-preview', async (req, res) => {
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 6000);
+  const noPreview = () => res.json({ ok: false, source: sourceName(u.hostname), url: u.toString() });
   try {
-    const resp = await fetch(u.toString(), {
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        // Sok oldal csak "böngészős" UA-ra ad OG-t
-        'User-Agent': 'Mozilla/5.0 (compatible; GoFuvarBot/1.0; +https://gofuvar.hu)',
-        'Accept': 'text/html',
-      },
-    });
-
-    // Átirányítás-ellenőrzés: a végső hoszt is engedélyezett legyen
-    try {
-      const finalHost = new URL(resp.url).hostname.toLowerCase();
-      if (!ALLOWED_HOSTS.has(finalHost)) {
-        return res.json({ ok: false, source: sourceName(u.hostname), url: u.toString() });
+    // SSRF-védelem: KÉZI átirányítás-követés. Minden hopnál ELŐRE
+    // ellenőrizzük, hogy a cél hoszt engedélyezett-e — így a böngésző-stack
+    // SOHA nem indít kérést nem engedélyezett (pl. belső, 169.254.x) címre,
+    // még akkor sem, ha egy engedélyezett oldal oda irányítana át.
+    let currentUrl = u.toString();
+    let resp = null;
+    for (let hop = 0; hop < 4; hop++) {
+      resp = await fetch(currentUrl, {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; GoFuvarBot/1.0; +https://gofuvar.hu)',
+          'Accept': 'text/html',
+        },
+      });
+      if (resp.status >= 300 && resp.status < 400) {
+        const loc = resp.headers.get('location');
+        if (!loc) break;
+        let next;
+        try { next = new URL(loc, currentUrl); } catch { return noPreview(); }
+        if (next.protocol !== 'https:' && next.protocol !== 'http:') return noPreview();
+        if (!ALLOWED_HOSTS.has(next.hostname.toLowerCase())) return noPreview();
+        currentUrl = next.toString();
+        continue;
       }
-    } catch {}
+      break; // nem átirányítás → ezt a választ használjuk
+    }
 
-    if (!resp.ok) {
-      return res.json({ ok: false, source: sourceName(u.hostname), url: u.toString() });
+    if (!resp || !resp.ok) {
+      return noPreview();
     }
 
     // Csak az első ~256 KB-ot olvassuk (az OG tagek a <head>-ben vannak)

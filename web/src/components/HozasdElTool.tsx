@@ -1,7 +1,7 @@
 'use client';
 
 // "Hozasd el" — online vásárlásból induló fuvarfeladás.
-// A felhasználó bemásol egy Jófogás / Vatera / Facebook Marketplace linket,
+// A felhasználó bemásol egy IKEA / OBI / Praktiker / Jófogás terméklinket,
 // élő előnézetet kap (kép + cím), és egy kattintással a feladás-flow-ba lép,
 // ahol a cím és a forrás-link már elő van töltve.
 import { useState } from 'react';
