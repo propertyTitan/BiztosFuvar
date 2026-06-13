@@ -162,7 +162,7 @@ EXTRA FUNKCIÓK
 • Gamifikáció: 10 szintű rendszer, jelvények, voucher-ek (0% jutalék)
 • Ár-kalkulátor: regisztráció nélkül a főoldalon + GLS/MPL összehasonlítás
 • Bepakolás infó: emelet, lift, cipelés szükséges-e
-• Csomag értékmegadás: sofőr felelősségi alapja (50.000 Ft plafon)
+• Csomag értékmegadás: a felelősség alapja kár esetén (a platform nem szab plafont; a Felek a Ptk. szerint rendeznek – ÁSZF 5.2)
 • Számlakérés: céges feladóknak checkbox
 • Ellenőrzött Cég badge: verifikált céges feladók kiemelve
 • Confetti animáció: sikeres kézbesítésnél
