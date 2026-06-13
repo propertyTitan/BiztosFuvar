@@ -362,7 +362,83 @@ export default function AszfPage() {
         maradnak.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>9. Az ÁSZF Módosítása</h2>
+      <h2 style={{ marginTop: 32 }}>9. Felhasználói Tartalom</h2>
+      <p>
+        A Felhasználó által feltöltött vagy közzétett tartalom (fuvar-leírás, fotók, üzenetek,
+        értékelések, profil-adatok; továbbiakban: <strong>Felhasználói Tartalom</strong>) a feltöltő
+        Felhasználó <strong>kizárólagos felelőssége</strong>. A Szolgáltató a Felhasználói Tartalmat
+        nem ellenőrzi előzetesen, és annak valóságtartalmáért, jogszerűségéért nem felel.
+      </p>
+      <p>
+        A Felhasználó szavatolja, hogy a feltöltött tartalomhoz a szükséges jogokkal rendelkezik, és
+        az nem sért harmadik személyi vagy szerzői jogot, nem jogellenes, megtévesztő vagy sértő.
+      </p>
+      <p>
+        A feltöltéssel a Felhasználó a Szolgáltatónak <strong>nem kizárólagos, díjmentes, a szolgáltatás
+        nyújtásához szükséges felhasználási engedélyt</strong> ad a tartalom tárolására, megjelenítésére
+        és kezelésére (pl. a hirdetésben való megjelenítés, illetve a vita-eljárásban bizonyítékként
+        történő felhasználás). Az engedély terjedelme a szolgáltatás nyújtásához és a jogszabályi
+        megőrzési időkhöz igazodik.
+      </p>
+      <p>
+        <strong>Értékelések:</strong> a Felhasználó értékelése legyen valósághű és tárgyszerű, nem
+        lehet rágalmazó vagy sértő. A Szolgáltató jogosult a nyilvánvalóan jogsértő, valótlan vagy
+        sértő értékelést eltávolítani.
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>10. Tiltott Magatartás és a Platform Megkerülésének Tilalma</h2>
+      <p>A Platformon tilos különösen:</p>
+      <ul>
+        <li>hamis adatokkal vagy több párhuzamos fiók létrehozása, illetve más nevében jogosulatlan eljárás;</li>
+        <li>az értékelési / Trust Score rendszer manipulálása (pl. valótlan értékelések);</li>
+        <li>automatizált adatgyűjtés (scraping), a Platform biztonsági intézkedéseinek megkerülése, kártékony kód elhelyezése;</li>
+        <li>más Felhasználók zaklatása, fenyegetése, megtévesztése.</li>
+      </ul>
+      <p>
+        <strong>A Platform megkerülésének tilalma:</strong> a Felhasználók a Platformon megismert
+        fuvart, megbízást vagy másik Felhasználót <strong>nem vihetik a Platformon kívülre a
+        platformhasználati díj megkerülése céljából</strong>. Az ilyen magatartás a 11. pont szerinti
+        felfüggesztést vagy megszüntetést vonhatja maga után, és a Szolgáltató jogosult az elmaradt
+        díjat érvényesíteni.
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>11. Fiók Felfüggesztése és Megszüntetése</h2>
+      <p>
+        <strong>11.1.</strong> A Felhasználó a fiókját bármikor, indoklás nélkül megszüntetheti
+        (a folyamatban lévő fuvarok lezárását követően). A személyes adatok kezelésére a megszüntetést
+        követően az <a href="/adatkezeles">Adatkezelési Tájékoztatóban</a> rögzített megőrzési idők
+        irányadók.
+      </p>
+      <p>
+        <strong>11.2.</strong> A Szolgáltató jogosult a fiókot felfüggeszteni vagy megszüntetni, ha a
+        Felhasználó megsérti a jelen ÁSZF-et, jogszabályt sért, tiltott árut ad fel vagy tiltott
+        magatartást tanúsít (3.3., 10. pont), illetve ha a KYC-nyilatkozata valótlannak bizonyul.
+      </p>
+      <p>
+        <strong>11.3.</strong> Nyitott (folyamatban lévő) fuvar esetén a Szolgáltató törekszik a
+        tranzakció és az escrow-letét rendezett lezárására a vita-eljárás (7. pont), illetve a Felek
+        megegyezése szerint. Súlyos vagy ismételt jogsértés esetén azonnali felfüggesztés alkalmazható.
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>12. A Felhasználó Kártalanítási Kötelezettsége</h2>
+      <p>
+        A Felhasználó köteles a Szolgáltatót (valamint tisztségviselőit, munkavállalóit és
+        közreműködőit) <strong>mentesíteni és kártalanítani</strong> minden olyan, harmadik fél által
+        támasztott igény, követelés, bírság, kár és igazolt költség (ideértve az indokolt jogi
+        költségeket) alól, amely a Felhasználó következő magatartásából ered:
+      </p>
+      <ul>
+        <li>a jelen ÁSZF megszegése;</li>
+        <li>jogszabály vagy harmadik fél jogának megsértése;</li>
+        <li>tiltott vagy engedély nélküli áru feladása (3.3. pont);</li>
+        <li>a szolgáltatás visszaélésszerű vagy rendeltetésellenes használata.</li>
+      </ul>
+      <p>
+        E kötelezettség a fogyasztóvédelmi és egyéb kógens jogszabályi korlátok között érvényesül,
+        és nem terjed ki olyan kárra, amelyet a Szolgáltató saját felróható magatartása okozott.
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>13. Az ÁSZF Módosítása</h2>
       <p>
         A Szolgáltató fenntartja a jogot az ÁSZF egyoldalú módosítására. A lényeges módosításokról
         a Felhasználókat a hatálybalépés előtt legalább 15 nappal e-mailben, vagy a platformon belüli
@@ -373,6 +449,30 @@ export default function AszfPage() {
       <p>
         Az új ÁSZF a hatálybalépés napjától, illetve az új regisztrálók esetén a regisztráció
         pillanatától alkalmazandó.
+      </p>
+
+      <h2 style={{ marginTop: 32 }}>14. Vegyes Rendelkezések</h2>
+      <p>
+        <strong>14.1. Részleges érvénytelenség:</strong> ha a jelen ÁSZF bármely rendelkezése
+        érvénytelennek vagy végrehajthatatlannak bizonyul, az a többi rendelkezés érvényességét nem
+        érinti. Az érvénytelen rendelkezés helyébe — lehetőség szerint — a felek eredeti gazdasági
+        szándékához legközelebb álló, érvényes rendelkezés lép.
+      </p>
+      <p>
+        <strong>14.2. Teljes megállapodás:</strong> a jelen ÁSZF és az{' '}
+        <a href="/adatkezeles">Adatkezelési Tájékoztató</a> együttesen képezi a Szolgáltató és a
+        Felhasználó közötti teljes megállapodást a Platform használatára vonatkozóan.
+      </p>
+      <p>
+        <strong>14.3. Engedményezés:</strong> a Felhasználó a jelen szerződésből eredő jogait és
+        kötelezettségeit a Szolgáltató előzetes írásbeli hozzájárulása nélkül nem ruházhatja át.
+        A Szolgáltató jogosult a szerződést jogutódlás, cégátalakulás vagy üzletág-átruházás keretében
+        — a Felhasználó előzetes tájékoztatása mellett — átruházni; ez a Felhasználó jelen ÁSZF és a
+        jogszabályok szerinti jogait nem csorbítja.
+      </p>
+      <p>
+        <strong>14.4. Joglemondás kizárása:</strong> ha a Szolgáltató valamely jogát nem vagy
+        késedelmesen érvényesíti, az nem minősül az adott jogról való lemondásnak.
       </p>
 
       <hr style={{ margin: '48px 0 24px', opacity: 0.3 }} />
