@@ -118,7 +118,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 |---|---|
 | Platform díj | **10% + 400 Ft fix** (lawyer approved) |
 | Lemondási díj | 8.000 Ft alatt **400 Ft fix** / felett **5%** (lawyer approved) |
-| Default kárfelelősség plafon | bruttó **50.000 Ft** (ha nincs deklarált érték) |
+| Kárfelelősség | NINCS platform-szabta kárplafon — a platform nem felel, a Feladó és a Sofőr a Ptk. szerint rendezi egymás közt (ÁSZF 5.2) |
 | Coverage | **Európa-szintű** (lat 34-71, lng -10..32) — magyar fő piac, EU mellesleg |
 | Csomag tilalom | NINCS hardcoded lista — a Feladó felelős hogy ellenőrizze a sofőr engedélyét speciális áruhoz (élő állat, gyógyszer, stb.) |
 | Sofőri biztosítás | KGFB nyilatkozaton (kötelező magyar jog szerint); Casco/CMR NEM kötelező és NEM ellenőrizzük |
