@@ -292,7 +292,7 @@ export default function HomeHub() {
                 key={l.href}
                 href={l.href}
                 style={{
-                  flex: '1 1 calc(33% - 10px)', minWidth: 100,
+                  flex: '1 1 calc(50% - 10px)', minWidth: 130,
                   display: 'flex', gap: 8, alignItems: 'center',
                   padding: '12px 14px', borderRadius: 10,
                   background: 'var(--surface)', border: '1px solid var(--border)',
@@ -301,7 +301,8 @@ export default function HomeHub() {
                 }}
                 className="home-hub-card"
               >
-                <span style={{ fontSize: 18 }}>{l.icon}</span> {l.label}
+                <span style={{ fontSize: 18, flexShrink: 0 }}>{l.icon}</span>
+                <span style={{ minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.2 }}>{l.label}</span>
               </Link>
             ))}
           </div>
@@ -449,7 +450,7 @@ export default function HomeHub() {
                 key={l.href}
                 href={l.href}
                 style={{
-                  flex: '1 1 calc(33% - 10px)', minWidth: 100,
+                  flex: '1 1 calc(50% - 10px)', minWidth: 130,
                   display: 'flex', gap: 8, alignItems: 'center',
                   padding: '12px 14px', borderRadius: 10, position: 'relative',
                   background: 'var(--surface)', border: '1px solid var(--border)',
@@ -458,7 +459,8 @@ export default function HomeHub() {
                 }}
                 className="home-hub-card"
               >
-                <span style={{ fontSize: 18 }}>{l.icon}</span> {l.label}
+                <span style={{ fontSize: 18, flexShrink: 0 }}>{l.icon}</span>
+                <span style={{ minWidth: 0, overflowWrap: 'anywhere', lineHeight: 1.2 }}>{l.label}</span>
                 {l.badge ? (
                   <span style={{
                     position: 'absolute', top: 6, right: 8,
