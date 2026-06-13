@@ -11,6 +11,12 @@
 
 const db = require('../db');
 const { createNotification } = require('./notifications');
+const { deleteFile } = require('./storage');
+
+// Adatminimalizálás: a KYC-okmány NYERS fotóját a végleges döntés (approved/
+// rejected) után ennyi nappal töröljük a tárolóból. A metaadat (státusz,
+// dokumentumszám-hash a csalásvédelemhez) megmarad — csak a kép tűnik el.
+const KYC_FILE_RETENTION_DAYS = 30;
 
 /**
  * Jogosítvány feltöltés feldolgozása.
@@ -191,9 +197,44 @@ async function checkExpiredLicenses() {
   console.log(`[kyc] Napi check: ${warn30.length} 30d warn, ${warn7.length} 7d warn, ${expired.length} expired`);
 }
 
+/**
+ * KYC-okmányok nyers fotóinak törlése a végleges döntés után
+ * (adatminimalizálás). A pending okmányokat NEM érinti (azokat az admin még
+ * látja). A metaadatot (státusz, doc_number_hash) megtartjuk a csalásvédelemhez.
+ * Naponta fut (lásd index.js). Soha nem dob — csak naplóz.
+ * @returns {Promise<number>} a kiürített okmányok száma
+ */
+async function purgeOldKycFiles() {
+  let purged = 0;
+  try {
+    const { rows } = await db.query(
+      `SELECT id, file_url
+         FROM kyc_documents
+        WHERE file_url IS NOT NULL
+          AND status IN ('approved', 'rejected')
+          AND COALESCE(reviewed_at, created_at) < NOW() - ($1 || ' days')::interval`,
+      [KYC_FILE_RETENTION_DAYS],
+    );
+    for (const doc of rows) {
+      const ok = await deleteFile(doc.file_url);
+      // Akkor is nullázzuk a file_url-t, ha a tároló-törlés nem sikerült
+      // (data:URL vagy már hiányzó objektum), hogy ne próbálkozzunk újra végtelenül.
+      await db.query(`UPDATE kyc_documents SET file_url = NULL WHERE id = $1`, [doc.id]);
+      if (ok) purged += 1;
+    }
+    if (rows.length > 0) {
+      console.log(`[kyc-retention] ${rows.length} okmány nyers fotója kiürítve (>${KYC_FILE_RETENTION_DAYS} nap)`);
+    }
+  } catch (err) {
+    console.error('[kyc-retention] hiba:', err.message);
+  }
+  return purged;
+}
+
 module.exports = {
   submitLicenseDocument,
   approveDocument,
   rejectDocument,
   checkExpiredLicenses,
+  purgeOldKycFiles,
 };

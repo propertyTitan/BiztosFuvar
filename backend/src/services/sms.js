@@ -16,6 +16,8 @@
 //  Ha SEEME_API_KEY nincs beállítva → STUB mód (csak logol).
 // =====================================================================
 
+const { maskPhone } = require('../utils/mask');
+
 const SEEME_GATEWAY_URL = 'https://seeme.hu/gateway';
 // A kulcs KIZÁRÓLAG env-ből jöhet — korábban be volt égetve a forrásba,
 // emiatt a régi kulcsot a SeeMe felületén rotálni kellett/kell.
@@ -76,7 +78,8 @@ async function sendSms(to, message) {
   const smsCount = Math.ceil(cleanMessage.length / 160);
 
   if (isStub()) {
-    console.log(`[sms-stub] GoFuvar → ${phone}: (${cleanMessage.length} kar, ${smsCount} SMS) ${cleanMessage}`);
+    // FONTOS: a szöveget NEM logoljuk — tartalmazhatja az átvételi kódot.
+    console.log(`[sms-stub] GoFuvar → ${maskPhone(phone)} (${cleanMessage.length} kar, ${smsCount} SMS)`);
     return { ok: true, stub: true };
   }
 
@@ -94,11 +97,11 @@ async function sendSms(to, message) {
 
     // SeeMe válasz: "OK <id>" ha sikeres, "ERR <code>" ha hiba
     if (text.startsWith('OK')) {
-      console.log(`[sms] küldve: ${phone} (${cleanMessage.length} kar, ${smsCount} SMS) id=${text}`);
+      console.log(`[sms] küldve: ${maskPhone(phone)} (${cleanMessage.length} kar, ${smsCount} SMS) id=${text.trim()}`);
       return { ok: true, result: text.trim() };
     }
 
-    console.warn(`[sms] hiba: ${phone} → ${text}`);
+    console.warn(`[sms] hiba: ${maskPhone(phone)} → ${text}`);
     return { ok: false, error: text };
   } catch (err) {
     console.error('[sms] küldés sikertelen:', err.message);

@@ -13,6 +13,8 @@
 //   EMAIL_FROM="GoFuvar <noreply@gofuvar.hu>"   (default a seedhez)
 //   WEB_BASE_URL=https://app.gofuvar.hu          (a linkekhez)
 
+const { maskEmail } = require('../utils/mask');
+
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
 function isStub() {
@@ -55,12 +57,12 @@ function escapeHtml(value) {
  */
 async function sendEmail({ to, subject, html, text }) {
   if (!to || !subject || !html) {
-    console.warn('[email] hiányos adat:', { to, subject });
+    console.warn('[email] hiányos adat:', { to: maskEmail(to), subject });
     return null;
   }
   if (isStub()) {
-    console.log('[email STUB]', { to, subject });
-    console.log('[email STUB] — body preview:', html.replace(/<[^>]+>/g, '').slice(0, 200));
+    // A body-t NEM logoljuk: tartalmazhat átvételi kódot / tracking linket.
+    console.log('[email STUB]', { to: maskEmail(to), subject });
     return { stub: true, id: `stub-${Date.now()}` };
   }
   try {

@@ -176,4 +176,12 @@ if (process.env.DATABASE_URL) {
     });
   }, KEEPALIVE_MS).unref();
   console.log('[keepalive] Supabase ping aktív (5 perc)');
+
+  // KYC-okmányok nyers fotóinak napi törlése a végleges döntés után
+  // (adatminimalizálás). Boot után ~1 perccel egyszer, majd 24 óránként.
+  const { purgeOldKycFiles } = require('./services/kyc');
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  setTimeout(() => { purgeOldKycFiles().catch(() => {}); }, 60 * 1000).unref();
+  setInterval(() => { purgeOldKycFiles().catch(() => {}); }, DAY_MS).unref();
+  console.log('[kyc-retention] napi okmány-fotó törlés ütemezve');
 }

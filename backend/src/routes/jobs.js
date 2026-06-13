@@ -6,6 +6,7 @@ const db = require('../db');
 const { authRequired, requireIdentityKYC, requireDriverKYC } = require('../middleware/auth');
 const { reviewJobDescription } = require('../services/gemini');
 const { distanceMeters } = require('../utils/geo');
+const { maskEmail } = require('../utils/mask');
 const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
@@ -268,7 +269,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
   const { delivery_code: _omit, ...publicJob } = job;
   realtime.emitGlobal('jobs:new', publicJob);
 
-  console.log(`[delivery-code] job ${job.id} kódja: ${deliveryCode} (feladó: ${req.user.email})`);
+  console.log(`[delivery-code] job ${job.id}: átvételi kód generálva (feladó: ${maskEmail(req.user.email)})`);
 
   // A válaszban a kód látszik, mert a feladó most hozta létre a fuvart
   res.status(201).json(job);
@@ -298,7 +299,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
             trackingUrl,
             deliveryCode,
           });
-          console.log(`[recipient] email küldve: ${recipient_email}`);
+          console.log(`[recipient] értesítő email elküldve: ${maskEmail(recipient_email)}`);
         } catch (e) {
           console.warn('[recipient] email hiba:', e.message);
         }
@@ -484,7 +485,7 @@ router.get('/:id', authRequired, async (req, res) => {
       [newCode, job.id],
     );
     job.delivery_code = newCode;
-    console.log(`[delivery-code] lusta generálás: job ${job.id} → ${newCode}`);
+    console.log(`[delivery-code] lusta generálás: job ${job.id} (kód nem naplózva)`);
   }
 
   res.json(scrubJobForUser(job, req.user));

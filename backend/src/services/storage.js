@@ -142,4 +142,44 @@ function isPersistent() {
   return r2Client !== null;
 }
 
-module.exports = { saveFile, isPersistent };
+/**
+ * Fájl törlése a tárolóból (R2 vagy lokális disk). A `saveFile` által
+ * visszaadott URL-t várja. Idempotens, soha nem dob — a hívó (pl. a KYC
+ * retenció) csak naplózza, ha nem sikerül.
+ * @param {string} url
+ * @returns {Promise<boolean>} true, ha a törlés (vagy a "nincs mit törölni") rendben lezajlott
+ */
+async function deleteFile(url) {
+  if (!url) return false;
+
+  // R2 objektum: a publikus URL prefix után jön a kulcs (fájlnév)
+  if (r2Client && r2Config && url.startsWith(`${r2Config.publicUrl}/`)) {
+    const key = url.slice(r2Config.publicUrl.length + 1);
+    if (!key) return false;
+    try {
+      const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+      await r2Client.send(new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key }));
+      return true;
+    } catch (err) {
+      console.error('[storage] R2 törlés hiba:', err.message);
+      return false;
+    }
+  }
+
+  // Lokális disk: /uploads/<fájl>
+  if (url.startsWith('/uploads/')) {
+    try {
+      const filepath = path.join(UPLOADS_DIR, path.basename(url));
+      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+      return true;
+    } catch (err) {
+      console.error('[storage] disk törlés hiba:', err.message);
+      return false;
+    }
+  }
+
+  // data: URL vagy ismeretlen formátum — nincs külön objektum, amit törölni kell
+  return true;
+}
+
+module.exports = { saveFile, isPersistent, deleteFile };
