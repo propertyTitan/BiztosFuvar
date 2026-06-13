@@ -151,6 +151,8 @@ export type Job = {
   shipper_account_type?: 'individual' | 'company';
   shipper_company_name?: string | null;
   shipper_company_verified?: string | null;
+  /** "Hozasd el" forrás-bolt (IKEA/OBI/Praktiker/Jófogás) — bolti átvétel jelvény. */
+  source_store?: string | null;
 };
 
 export type NewJobInput = {
@@ -186,6 +188,8 @@ export type NewJobInput = {
   recipient_name?: string;
   recipient_phone?: string;
   recipient_email?: string;
+  /** "Hozasd el" forrás-bolt (IKEA/OBI/Praktiker/Jófogás) */
+  source_store?: string;
 };
 
 export type BackhaulCandidate = Job & {

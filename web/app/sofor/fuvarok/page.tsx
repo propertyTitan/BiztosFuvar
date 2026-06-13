@@ -389,6 +389,15 @@ export default function SoforFuvarokLista() {
                       Ellenőrzött cég
                     </span>
                   )}
+                  {(j as any).source_store && (
+                    <span
+                      className="pill"
+                      style={{ background: '#e0e7ff', color: '#3730a3', fontWeight: 800, fontSize: 11 }}
+                      title={`Bolti átvétel: ${(j as any).source_store} — tiszta, csomagolt áru, ismert átvételi pont.`}
+                    >
+                      🛍️ {(j as any).source_store}
+                    </span>
+                  )}
                 </div>
                 <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
                 <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>

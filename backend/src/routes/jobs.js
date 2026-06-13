@@ -100,7 +100,13 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
     recipient_name,
     recipient_phone,
     recipient_email,
+    // Forrás-bolt (Hozasd el): csak ismert boltnevet fogadunk el
+    source_store,
   } = req.body || {};
+
+  // Forrás-bolt engedélylista — bármi mást figyelmen kívül hagyunk
+  const ALLOWED_SOURCE_STORES = ['IKEA', 'OBI', 'Praktiker', 'Jófogás'];
+  const sourceStoreClean = ALLOWED_SOURCE_STORES.includes(source_store) ? source_store : null;
 
   // Alap kötelező mezők
   if (!title || !pickup_address || !dropoff_address ||
@@ -235,8 +241,8 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
        dropoff_needs_carrying, dropoff_floor, dropoff_has_elevator,
        declared_value_huf, invoice_requested,
        recipient_name, recipient_phone, recipient_email, tracking_token,
-       sender_delivery_code
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
+       sender_delivery_code, source_store
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -252,7 +258,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
       dCarry, dFloor, dLift,
       declaredValueClean, !!invoice_requested,
       recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
-      senderCode,
+      senderCode, sourceStoreClean,
     ],
   );
 
