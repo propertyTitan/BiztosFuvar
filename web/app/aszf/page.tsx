@@ -419,6 +419,23 @@ export default function AszfPage() {
         tranzakció és az escrow-letét rendezett lezárására a vita-eljárás (7. pont), illetve a Felek
         megegyezése szerint. Súlyos vagy ismételt jogsértés esetén azonnali felfüggesztés alkalmazható.
       </p>
+      <p>
+        <strong>11.4.</strong> A platform integritásának, a Felhasználók biztonságának és a
+        szolgáltatás zavartalan működésének védelme érdekében a Szolgáltató <strong>fenntartja a jogot,
+        hogy bármely fiókot saját mérlegelése alapján — indokolással vagy a nélkül — felfüggesszen vagy
+        megszüntessen</strong>. A Szolgáltató ezt a jogát rendeltetésszerűen, a jóhiszeműség és tisztesség
+        követelménye szerint gyakorolja, és alapesetben kizárólag visszaélés gyanúja esetén alkalmazza —
+        így különösen <strong>feltűnően gyakori vagy indokolatlan fuvarlemondás</strong>, tartósan alacsony
+        Trust Score, csalás vagy a Felhasználók megtévesztésének gyanúja esetén.
+      </p>
+      <p>
+        Ahol jogszabály kötelező előzetes értesítési időt vagy indokolási kötelezettséget ír elő —
+        így különösen az üzleti felhasználók vonatkozásában az online közvetítő szolgáltatásokról szóló{' '}
+        <strong>(EU) 2019/1150 rendelet (P2B)</strong> szerint — a Szolgáltató ezeket betartja. A fiók
+        megszüntetése nem érinti a Felhasználó már megszerzett, kifizetésre váró jogos követeléseit
+        (pl. egy már teljesített fuvar díja), és nem mentesíti egyik Felet sem a megszüntetés előtt
+        keletkezett kötelezettségei alól.
+      </p>
 
       <h2 style={{ marginTop: 32 }}>12. A Felhasználó Kártalanítási Kötelezettsége</h2>
       <p>
