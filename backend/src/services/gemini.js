@@ -296,9 +296,13 @@ CSOMAG ÉRTÉKE
 ═══════════════════════════════════════
 
 - A feladó megadhatja a csomag becsült értékét (opcionális)
-- Ha nem ad meg értéket: alapértelmezett kártérítési plafon 50.000 Ft
-- A sofőr a deklarált értékig felel a csomag épségéért
-- A PLATFORM nem felel a csomagokért — csak a sofőr
+- A GoFuvar FÜGGETLEN PIACTÉR, NEM fuvarozó — a csomagért a platform NEM felel
+- A küldemény épségéért a sofőr (fuvarozó) felel a feladóval szemben, a hatályos
+  jog (Ptk. fuvarozási szabályok) szerint
+- Káresemény esetén a feladó és a sofőr EGYMÁS KÖZÖTT rendezi a kárt a hatályos jog
+  alapján; nincs platform által megszabott felső kárhatár
+- A platform a rendezést segíti (felvételi/kézbesítési fotó, GPS-napló, letét,
+  vita-funkció), de kártérítést NEM fizet és a vitában jogerősen nem dönt
 
 ═══════════════════════════════════════
 ÁR-KALKULÁTOR

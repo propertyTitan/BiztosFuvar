@@ -19,7 +19,7 @@ export default function AszfPage() {
       <h1 style={{ marginBottom: 4 }}>Általános Szerződési Feltételek (ÁSZF)</h1>
       <p className="muted" style={{ margin: 0 }}>
         <strong>Platform:</strong> GoFuvar (gofuvar.hu és a mobilalkalmazások)<br />
-        <strong>Hatályos:</strong> 2026. május 12-től
+        <strong>Hatályos:</strong> 2026. június 13-tól
       </p>
 
       <h2 style={{ marginTop: 32 }}>1. A Szolgáltató adatai és Elérhetőségei</h2>
@@ -160,12 +160,28 @@ export default function AszfPage() {
         </li>
       </ul>
       <p>
-        <strong>5.2. A Sofőr kártérítési felelőssége:</strong> A küldemény épségéért és hiánytalan
-        átadásáért a fuvar átvételétől a sikeres kézbesítésig <strong>a Sofőr felel</strong>. A
-        kártérítési felelősség felső határa a Feladó által a fuvar feladásakor megadott deklarált
-        érték. Amennyiben a Feladó nem adott meg deklarált értéket, a Sofőr felelősségének alapértelmezett
-        felső határa egységesen <strong>bruttó 50.000 Ft</strong>. A Szolgáltató a csomagok sérüléséért,
-        elvesztéséért, késedelmes átadásáért nem felel.
+        <strong>5.2. A küldeményt érintő kár — a Felek közötti rendezés:</strong> A fuvarozási szerződés
+        kizárólag a Feladó és a Sofőr között jön létre (lásd 2. pont), ezért a küldemény átvételétől a
+        sikeres kézbesítésig a küldemény épségéért, hiánytalanságáért és határidőben történő átadásáért —
+        a fuvarozóra vonatkozó hatályos jogszabályok, különösen a Polgári Törvénykönyv fuvarozási
+        szerződésre vonatkozó rendelkezései (Ptk. 6:257.&nbsp;§ – 6:271.&nbsp;§) szerint — <strong>a Sofőr
+        (fuvarozó) felel a Feladóval szemben</strong>.
+      </p>
+      <p>
+        <strong>A Szolgáltató (Platform) a küldeményt érintő semmilyen kárért nem felel</strong> — sem a
+        sérülésért, elvesztésért vagy hiányért, sem a késedelmes átadásért —, mivel a Szolgáltató nem
+        fuvarozó és nem szerződő fél a fuvarozási jogviszonyban.
+      </p>
+      <p>
+        <strong>Bármilyen káresemény esetén a kárt a Feladó és a Sofőr egymás között, közvetlenül, a
+        hatályos jogszabályok alapján rendezi.</strong> A kártérítési igény jogalapját, mértékét és módját
+        a Felek között a vonatkozó jog határozza meg; a Szolgáltató <strong>nem szab meg felső kárhatárt</strong>,
+        és nem korlátozza a Feleket a jogszabályból eredő igényeik érvényesítésében. A Szolgáltató a
+        rendezést kizárólag technikai eszközökkel segíti (felvételi és kézbesítési fotó, GPS-napló, in-app
+        kommunikáció, a vita-funkció, valamint — a Felek megegyezése esetén — az escrow-letétből történő
+        kifizetés közvetítése), de <strong>kártérítést nem fizet</strong>, és a Felek közötti jogvitában
+        érdemben, jogerős hatállyal nem dönt. A Felek a vitájukat a hatályos jog szerint, szükség esetén
+        bírósági úton érvényesíthetik (lásd 8. pont).
       </p>
 
       <h3 style={{ marginTop: 24 }}>5.3. Kárrendezés folyamata</h3>
@@ -177,8 +193,9 @@ export default function AszfPage() {
         <li>
           <strong>Bejelentési határidő:</strong> a kárt a kézbesítést követő <strong>24 órán belül</strong>
           {' '}írásban (e-mailben a panasz@gofuvar.hu címre, vagy a Platform vita-megnyitás funkcióján
-          keresztül) jelezni kell. A 24 órás határidő után érkezett bejelentéseket a Szolgáltató jogosult
-          érdemi vizsgálat nélkül elutasítani.
+          keresztül) jelezni kell. A 24 órás határidő után érkezett bejelentéseket a Szolgáltató a Platform
+          belső vita-eljárásában érdemi vizsgálat nélkül elutasíthatja; ez nem érinti a Feladó és a Sofőr
+          egymással szemben, a hatályos jog szerint fennálló igényérvényesítését.
         </li>
         <li>
           <strong>Bizonyítékok:</strong> a Feladó köteles fotódokumentációval alátámasztani a kárt
