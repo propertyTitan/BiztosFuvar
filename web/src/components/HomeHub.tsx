@@ -292,7 +292,7 @@ export default function HomeHub() {
                 key={l.href}
                 href={l.href}
                 style={{
-                  flex: '1 1 calc(50% - 10px)', minWidth: 130,
+                  flex: '1 1 calc(33% - 10px)', minWidth: 130,
                   display: 'flex', gap: 8, alignItems: 'center',
                   padding: '12px 14px', borderRadius: 10,
                   background: 'var(--surface)', border: '1px solid var(--border)',
@@ -450,7 +450,7 @@ export default function HomeHub() {
                 key={l.href}
                 href={l.href}
                 style={{
-                  flex: '1 1 calc(50% - 10px)', minWidth: 130,
+                  flex: '1 1 calc(33% - 10px)', minWidth: 130,
                   display: 'flex', gap: 8, alignItems: 'center',
                   padding: '12px 14px', borderRadius: 10, position: 'relative',
                   background: 'var(--surface)', border: '1px solid var(--border)',
