@@ -107,6 +107,7 @@ export default function FuvarReszletek() {
       onPickedUp: () => loadAll(),
       onDelivered: () => loadAll(),
       onAccepted: () => loadAll(),
+      onCountered: () => loadAll(),
     });
     return unsub;
   }, [id]);

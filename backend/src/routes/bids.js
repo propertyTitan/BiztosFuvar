@@ -259,7 +259,11 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
        barion_gateway_url = EXCLUDED.barion_gateway_url,
        carrier_share_huf  = EXCLUDED.carrier_share_huf,
        platform_share_huf = EXCLUDED.platform_share_huf,
-       held_at            = NOW()`,
+       held_at            = NOW()
+       -- Védelem: már kifizetett/visszatérített letétet SOHA ne írjunk vissza
+       -- 'held'-re (normál folyamatban ez az ág nem fut, mert a job státusza
+       -- véd; ez biztonsági háló egy esetleges re-listázás ellen).
+       WHERE escrow_transactions.status = 'held'`,
     [bid.job_id, agreedPrice, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
   );
   return { ok: true, barionRes, carrierShare, platformShare };
@@ -337,6 +341,9 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     if (!['pending', 'bidding'].includes(bid.job_status)) {
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'A fuvar már nem elfogadható' });
     }
+    if (bid.status !== 'pending') {
+      await client.query('ROLLBACK'); return res.status(409).json({ error: 'Ez a licit már nem aktív.' });
+    }
     // Ha a feladó tett ellenajánlatot, ami még válaszra vár, ő nem fogadhat el —
     // a labda a sofőrnél van.
     if (bid.counter_by === 'shipper' && bid.counter_amount_huf != null) {
@@ -398,6 +405,9 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     if (!['pending', 'bidding'].includes(bid.job_status)) {
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'A fuvar már nem elfogadható' });
     }
+    if (bid.status !== 'pending') {
+      await client.query('ROLLBACK'); return res.status(409).json({ error: 'Ez a licit már nem aktív.' });
+    }
     if (bid.counter_by !== 'shipper' || bid.counter_amount_huf == null) {
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'Nincs elfogadható feladói ellenajánlat.' });
     }
@@ -453,10 +463,16 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
   }
 
   const role = isShipper ? 'shipper' : 'carrier';
-  await db.query(
-    `UPDATE bids SET counter_amount_huf = $1, counter_by = $2, counter_at = NOW() WHERE id = $3`,
+  // A WHERE status='pending' atomikusan védi az időközbeni elfogadás ellen:
+  // ha a licit közben accepted/rejected lett, az ellenajánlat nem íródik rá.
+  const upd = await db.query(
+    `UPDATE bids SET counter_amount_huf = $1, counter_by = $2, counter_at = NOW()
+      WHERE id = $3 AND status = 'pending'`,
     [amt, role, bid.id],
   );
+  if (upd.rowCount === 0) {
+    return res.status(409).json({ error: 'Erre a licitre már nem lehet ellenajánlatot tenni.' });
+  }
 
   const otherUserId = isShipper ? bid.carrier_id : bid.shipper_id;
   const link = isShipper ? `/sofor/fuvar/${bid.job_id}` : `/dashboard/fuvar/${bid.job_id}`;

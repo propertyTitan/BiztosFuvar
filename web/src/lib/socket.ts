@@ -88,6 +88,7 @@ export function subscribeJob(
     onPickedUp?: (data: any) => void;
     onDelivered?: (data: any) => void;
     onAccepted?: (data: any) => void;
+    onCountered?: (data: any) => void;
   },
 ): () => void {
   const s = getSocket();
@@ -97,11 +98,13 @@ export function subscribeJob(
   const picked   = (p: any) => handlers.onPickedUp?.(p);
   const delivd   = (p: any) => handlers.onDelivered?.(p);
   const accepted = (p: any) => handlers.onAccepted?.(p);
+  const countered = (p: any) => handlers.onCountered?.(p);
 
   s.on('tracking:ping',   ping);
   s.on('job:picked_up',   picked);
   s.on('job:delivered',   delivd);
   s.on('job:accepted',    accepted);
+  s.on('bid:countered',   countered);
 
   return () => {
     s.emit('job:leave', jobId);
@@ -109,5 +112,6 @@ export function subscribeJob(
     s.off('job:picked_up',   picked);
     s.off('job:delivered',   delivd);
     s.off('job:accepted',    accepted);
+    s.off('bid:countered',   countered);
   };
 }

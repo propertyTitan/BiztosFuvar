@@ -15,7 +15,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
-import { getSocket, joinUserRoom } from '@/lib/socket';
+import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
@@ -99,6 +99,17 @@ export default function SoforFuvarReszletek() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, id]);
+
+  // Fuvar-szoba események: ha a feladó ellenajánlatot küld vagy elfogadnak,
+  // azonnal frissítsünk (ne kelljen manuálisan újratölteni az alku közben).
+  useEffect(() => {
+    const unsub = subscribeJob(id, {
+      onCountered: () => load(),
+      onAccepted: () => load(),
+    });
+    return unsub;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   async function submitBid(e: React.FormEvent) {
     e.preventDefault();
