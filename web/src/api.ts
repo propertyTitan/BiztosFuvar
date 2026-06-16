@@ -221,6 +221,10 @@ export type Bid = {
   carrier_name?: string | null;
   rating_avg?: number | null;
   rating_count?: number | null;
+  // Ellenajánlat (Vinted-stílusú alku)
+  counter_amount_huf?: number | null;
+  counter_by?: 'shipper' | 'carrier' | null;
+  counter_at?: string | null;
 };
 
 function getToken(): string | null {
@@ -365,6 +369,20 @@ export const api = {
   acceptBid: (bidId: string) =>
     request<{ ok: true; barion?: { gateway_url: string | null } }>(
       `/bids/${bidId}/accept`,
+      { method: 'POST' },
+    ),
+
+  /** Ellenajánlat a licit összegére (feladó vagy sofőr is teheti). */
+  counterBid: (bidId: string, amount: number) =>
+    request<{ ok: true; counter_amount_huf: number; counter_by: string }>(
+      `/bids/${bidId}/counter`,
+      { method: 'POST', body: JSON.stringify({ amount }) },
+    ),
+
+  /** A sofőr elfogadja a feladó ellenajánlatát → megállapodás. */
+  acceptCounter: (bidId: string) =>
+    request<{ ok: true; job_id: string; amount_huf: number }>(
+      `/bids/${bidId}/accept-counter`,
       { method: 'POST' },
     ),
 

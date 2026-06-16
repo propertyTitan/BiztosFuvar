@@ -44,6 +44,7 @@ export default function FuvarReszletek() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [escrow, setEscrow] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [counterTarget, setCounterTarget] = useState<Bid | null>(null);
   const [paying, setPaying] = useState(false);
   const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
 
@@ -137,6 +138,20 @@ export default function FuvarReszletek() {
       toast.error('Hiba a licit elfogadásakor', err.message);
     } finally {
       setAcceptingBidId(null);
+    }
+  }
+
+  async function submitCounter(bidId: string, amount: number) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Hibás összeg', 'Adj meg egy pozitív összeget (Ft).');
+      return;
+    }
+    try {
+      await api.counterBid(bidId, Math.round(amount));
+      toast.success('Ellenajánlat elküldve', 'A sofőr értesítést kap róla.');
+      await loadAll();
+    } catch (err: any) {
+      toast.error('Hiba', err.message);
     }
   }
 
@@ -562,17 +577,47 @@ export default function FuvarReszletek() {
                   </div>
                 </Link>
                 <div style={{ textAlign: 'right' }}>
-                  <strong className="price" style={{ fontSize: 18 }}>{b.amount_huf.toLocaleString('hu-HU')} Ft</strong>
+                  {b.counter_amount_huf != null ? (
+                    <>
+                      <div className="muted" style={{ fontSize: 12, textDecoration: 'line-through' }}>
+                        {b.amount_huf.toLocaleString('hu-HU')} Ft
+                      </div>
+                      <strong className="price" style={{ fontSize: 18 }}>{b.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
+                      <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+                        {b.counter_by === 'shipper' ? 'ellenajánlatod' : '🔁 a sofőr ellenajánlata'}
+                      </div>
+                    </>
+                  ) : (
+                    <strong className="price" style={{ fontSize: 18 }}>{b.amount_huf.toLocaleString('hu-HU')} Ft</strong>
+                  )}
                 </div>
               </div>
               {b.message && <p className="muted" style={{ margin: '8px 0 0', fontSize: 13, paddingLeft: 52 }}>„{b.message}”</p>}
-              <button
-                className="btn"
-                onClick={() => acceptBid(b.id)}
-                disabled={acceptingBidId !== null}
-              >
-                {acceptingBidId === b.id ? 'Elfogadás…' : 'Elfogadom'}
-              </button>
+              {b.counter_by === 'shipper' && b.counter_amount_huf != null ? (
+                <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
+                  ⏳ Elküldted az ellenajánlatod ({b.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a sofőr válaszára vár.
+                </p>
+              ) : (
+                <div className="row" style={{ gap: 8, marginTop: 8 }}>
+                  <button
+                    className="btn"
+                    onClick={() => acceptBid(b.id)}
+                    disabled={acceptingBidId !== null}
+                  >
+                    {acceptingBidId === b.id
+                      ? 'Elfogadás…'
+                      : `Elfogadom${b.counter_by === 'carrier' && b.counter_amount_huf != null ? ` (${b.counter_amount_huf.toLocaleString('hu-HU')} Ft)` : ''}`}
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    type="button"
+                    onClick={() => setCounterTarget(b)}
+                    disabled={acceptingBidId !== null}
+                  >
+                    Ellenajánlat
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -613,6 +658,22 @@ export default function FuvarReszletek() {
           }
         }}
         onClose={() => setShowDisputeDialog(false)}
+      />
+
+      {/* Ellenajánlat a sofőr licitjére */}
+      <ConfirmDialog
+        open={!!counterTarget}
+        title="🔁 Ellenajánlat küldése"
+        message={counterTarget
+          ? `A sofőr ajánlata ${(counterTarget.counter_amount_huf ?? counterTarget.amount_huf).toLocaleString('hu-HU')} Ft. Add meg, mennyit ajánlasz — a sofőr elfogadhatja vagy visszadobhat.`
+          : ''}
+        confirmLabel="Ellenajánlat elküldése"
+        fields={[{ key: 'amount', label: 'Ellenajánlatod (Ft)', type: 'number', required: true, placeholder: 'pl. 15000' }]}
+        onConfirm={(v) => {
+          if (counterTarget) submitCounter(counterTarget.id, Number(v.amount));
+          setCounterTarget(null);
+        }}
+        onClose={() => setCounterTarget(null)}
       />
     </div>
   );

@@ -22,6 +22,7 @@ import ChatBox from '@/components/ChatBox';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
 import CarrierTripPanel from '@/components/CarrierTripPanel';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -60,6 +61,8 @@ export default function SoforFuvarReszletek() {
   const [bidEta, setBidEta] = useState('');
   const [bidMessage, setBidMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [acceptingCounter, setAcceptingCounter] = useState(false);
+  const [counterOpen, setCounterOpen] = useState(false);
 
   async function load() {
     try {
@@ -120,6 +123,33 @@ export default function SoforFuvarReszletek() {
       toast.error('Licit hiba', err.message);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function acceptShipperCounter(bidId: string) {
+    setAcceptingCounter(true);
+    try {
+      await api.acceptCounter(bidId);
+      toast.success('Megállapodás!', 'Elfogadtad a feladó ellenajánlatát. A feladó most fizet, utána indulhatsz.');
+      await load();
+    } catch (err: any) {
+      toast.error('Hiba', err.message);
+    } finally {
+      setAcceptingCounter(false);
+    }
+  }
+
+  async function submitCounterBack(bidId: string, amount: number) {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Hibás összeg', 'Adj meg egy pozitív összeget (Ft).');
+      return;
+    }
+    try {
+      await api.counterBid(bidId, Math.round(amount));
+      toast.success('Ellenajánlat elküldve', 'A feladó értesítést kap róla.');
+      await load();
+    } catch (err: any) {
+      toast.error('Hiba', err.message);
     }
   }
 
@@ -475,8 +505,52 @@ export default function SoforFuvarReszletek() {
               „{myBid.message}”
             </p>
           )}
+
+          {/* Ellenajánlat-állapot + alku-akciók (csak amíg a licit nyitott) */}
+          {myBid.status === 'pending' && myBid.counter_amount_huf != null && myBid.counter_by === 'shipper' && (
+            <div className="callout callout-info" style={{ marginTop: 12, padding: 14 }}>
+              <div style={{ fontSize: 14 }}>
+                🔁 A feladó ellenajánlata: <strong>{myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
+                {' '}(a te ajánlatod {myBid.amount_huf.toLocaleString('hu-HU')} Ft volt)
+              </div>
+              <div className="row" style={{ gap: 8, marginTop: 12 }}>
+                <button
+                  className="btn btn-success"
+                  type="button"
+                  disabled={acceptingCounter}
+                  onClick={() => acceptShipperCounter(myBid.id)}
+                >
+                  {acceptingCounter ? 'Elfogadás…' : `Elfogadom (${myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft)`}
+                </button>
+                <button className="btn btn-ghost" type="button" onClick={() => setCounterOpen(true)} disabled={acceptingCounter}>
+                  Ellenajánlat
+                </button>
+              </div>
+            </div>
+          )}
+          {myBid.status === 'pending' && myBid.counter_amount_huf != null && myBid.counter_by === 'carrier' && (
+            <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
+              ⏳ Elküldted az ellenajánlatod ({myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a feladó válaszára vár.
+            </p>
+          )}
         </div>
       )}
+
+      {/* Ellenajánlat visszaküldése a feladónak */}
+      <ConfirmDialog
+        open={counterOpen}
+        title="🔁 Ellenajánlat küldése"
+        message={myBid?.counter_amount_huf != null
+          ? `A feladó ${myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft-ot ajánlott. Add meg, mennyit kérsz — a feladó elfogadhatja vagy visszadobhat.`
+          : ''}
+        confirmLabel="Ellenajánlat elküldése"
+        fields={[{ key: 'amount', label: 'Ellenajánlatod (Ft)', type: 'number', required: true, placeholder: 'pl. 18000' }]}
+        onConfirm={(v) => {
+          if (myBid) submitCounterBack(myBid.id, Number(v.amount));
+          setCounterOpen(false);
+        }}
+        onClose={() => setCounterOpen(false)}
+      />
 
       {/* A fuvar végrehajtása a weben: felvétel-fotó → in_progress,
           kézbesítés-fotó + 6 jegyű kód → delivered. */}

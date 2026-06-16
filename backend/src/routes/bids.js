@@ -213,8 +213,107 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
   res.json(enriched);
 });
 
-// POST /bids/:id/accept – a fuvar feladója elfogadja a licitet → ESCROW lefoglalás
-// (Bárki elfogadhat, aki feladta a fuvart — a tulajdonos-ellenőrzés alább.)
+// Az alku/elfogadás közös magja: a megállapodott áron (agreedPrice) lezárja
+// a licitet — beállítja a job-ot, a többi licitet elutasítja, Barion-foglalást
+// indít, escrow-t ír. Tranzakción BELÜL fut (a hívó nyitja/zárja).
+// Visszaad: { ok:true, barionRes, carrierShare, platformShare } VAGY
+//           { ok:false, status, error, detail? } — ekkor a hívó ROLLBACK-el.
+async function finalizeAcceptedBid(client, bid, agreedPrice) {
+  await client.query(`UPDATE bids SET status = 'accepted' WHERE id = $1`, [bid.id]);
+  await client.query(
+    `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND id <> $2 AND status = 'pending'`,
+    [bid.job_id, bid.id],
+  );
+  // Státusz-guard: a job sorát nem zárolja a hívó SELECT-je, ezért a
+  // WHERE-feltétel + rowCount dönti el, ki nyert párhuzamos elfogadásnál.
+  const jobClaim = await client.query(
+    `UPDATE jobs SET status = 'accepted', carrier_id = $1, accepted_price_huf = $2, updated_at = NOW()
+      WHERE id = $3 AND status IN ('pending', 'bidding')`,
+    [bid.carrier_id, agreedPrice, bid.job_id],
+  );
+  if (jobClaim.rowCount === 0) {
+    return { ok: false, status: 409, error: 'A fuvar már nem elfogadható (időközben elfogadtak egy másik licitet).' };
+  }
+  let barionRes = { paymentId: null, gatewayUrl: null };
+  try {
+    barionRes = await barion.reservePayment({
+      jobId: bid.job_id,
+      totalHuf: agreedPrice,
+      shipperEmail: bid.shipper_email,
+      carrierEmail: bid.carrier_email,
+    });
+  } catch (err) {
+    console.error('[barion] reservePayment hiba:', err.message);
+    return { ok: false, status: 502, error: 'Barion foglalás sikertelen', detail: err.message };
+  }
+  const { carrierShare, platformShare } = barion.calculatePlatformFee(agreedPrice);
+  await client.query(
+    `INSERT INTO escrow_transactions
+       (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
+        carrier_share_huf, platform_share_huf)
+     VALUES ($1,$2,'held',$3,$4,$5,$6)
+     ON CONFLICT (job_id) DO UPDATE SET
+       amount_huf         = EXCLUDED.amount_huf,
+       status             = 'held',
+       barion_payment_id  = EXCLUDED.barion_payment_id,
+       barion_gateway_url = EXCLUDED.barion_gateway_url,
+       carrier_share_huf  = EXCLUDED.carrier_share_huf,
+       platform_share_huf = EXCLUDED.platform_share_huf,
+       held_at            = NOW()`,
+    [bid.job_id, agreedPrice, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
+  );
+  return { ok: true, barionRes, carrierShare, platformShare };
+}
+
+// Megállapodás-értesítések. acceptedBy: 'shipper' (a feladó fogadott el egy
+// licitet/sofőr-ellenajánlatot) vagy 'carrier' (a sofőr fogadta el a feladó
+// ellenajánlatát). Soha nem dob.
+async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
+  try {
+    const { rows } = await db.query(
+      `SELECT j.title, c.full_name AS carrier_name, c.email AS carrier_email
+         FROM jobs j JOIN users c ON c.id = $2 WHERE j.id = $1`,
+      [bid.job_id, bid.carrier_id],
+    );
+    const info = rows[0] || {};
+    const priceTxt = Number(agreedPrice).toLocaleString('hu-HU');
+    await createNotification({
+      user_id: bid.carrier_id,
+      type: 'bid_accepted',
+      title: '🎉 Megállapodás!',
+      body: acceptedBy === 'carrier'
+        ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért. A feladó most fizet, utána indulhatsz.`
+        : `A(z) "${info.title || 'fuvar'}" licitedet elfogadták ${priceTxt} Ft-ért. Nyisd meg a mobilappot a fuvar indításához.`,
+      link: `/sofor/fuvar/${bid.job_id}`,
+    });
+    if (info.carrier_email) {
+      setImmediate(() => {
+        sendBidAcceptedEmail({
+          to: info.carrier_email,
+          carrierName: info.carrier_name,
+          jobTitle: info.title,
+          jobId: bid.job_id,
+          amountHuf: agreedPrice,
+        }).catch((e) => console.warn('[email] bid_accepted hiba:', e.message));
+      });
+    }
+    // Ha a sofőr fogadta el a feladó ellenajánlatát, a feladót kell fizetésre szólítani
+    if (acceptedBy === 'carrier') {
+      await createNotification({
+        user_id: bid.shipper_id,
+        type: 'counter_accepted',
+        title: '✅ Elfogadták az ellenajánlatodat',
+        body: `A sofőr elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd ki a fuvart a folytatáshoz.`,
+        link: `/dashboard/fuvar/${bid.job_id}`,
+      });
+    }
+  } catch (e) {
+    console.warn('[notifications] deal_closed hiba:', e.message);
+  }
+}
+
+// POST /bids/:id/accept – a fuvar FELADÓJA elfogadja a licitet (vagy a sofőr
+// legutóbbi ellenajánlatát) → ESCROW lefoglalás a megállapodott áron.
 router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) => {
   const client = await db.pool.connect();
   try {
@@ -238,107 +337,34 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     if (!['pending', 'bidding'].includes(bid.job_status)) {
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'A fuvar már nem elfogadható' });
     }
-
-    await client.query(`UPDATE bids SET status = 'accepted' WHERE id = $1`, [bid.id]);
-    await client.query(
-      `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND id <> $2 AND status = 'pending'`,
-      [bid.job_id, bid.id],
-    );
-    // Státusz-guard: a fenti SELECT csak a licit sorát zárolja, a jobét nem —
-    // két párhuzamos accept (két különböző licitre) mindkettő 'bidding'-et
-    // olvasna. A WHERE-feltétel + rowCount dönti el, ki nyert.
-    const jobClaim = await client.query(
-      `UPDATE jobs SET status = 'accepted', carrier_id = $1, accepted_price_huf = $2, updated_at = NOW()
-        WHERE id = $3 AND status IN ('pending', 'bidding')`,
-      [bid.carrier_id, bid.amount_huf, bid.job_id],
-    );
-    if (jobClaim.rowCount === 0) {
+    // Ha a feladó tett ellenajánlatot, ami még válaszra vár, ő nem fogadhat el —
+    // a labda a sofőrnél van.
+    if (bid.counter_by === 'shipper' && bid.counter_amount_huf != null) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ error: 'A fuvar már nem elfogadható (időközben elfogadtak egy másik licitet).' });
+      return res.status(409).json({ error: 'A sofőr még nem reagált az ellenajánlatodra.' });
     }
-    // Barion: foglalás indítása (Payment Reservation)
-    let barionRes = { paymentId: null, gatewayUrl: null };
-    try {
-      barionRes = await barion.reservePayment({
-        jobId: bid.job_id,
-        totalHuf: bid.amount_huf,
-        shipperEmail: bid.shipper_email,
-        carrierEmail: bid.carrier_email,
-      });
-    } catch (err) {
-      console.error('[barion] reservePayment hiba:', err.message);
+    // Megállapodott ár: ha a sofőr tett ellenajánlatot, azt fogadjuk el; különben az eredeti licit.
+    const agreedPrice = (bid.counter_by === 'carrier' && bid.counter_amount_huf != null)
+      ? bid.counter_amount_huf : bid.amount_huf;
+
+    const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
+    if (!fin.ok) {
       await client.query('ROLLBACK');
-      return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+      return res.status(fin.status).json({ error: fin.error, ...(fin.detail ? { detail: fin.detail } : {}) });
     }
-
-    const { carrierShare, platformShare } = barion.calculatePlatformFee(bid.amount_huf);
-
-    await client.query(
-      `INSERT INTO escrow_transactions
-         (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
-          carrier_share_huf, platform_share_huf)
-       VALUES ($1,$2,'held',$3,$4,$5,$6)
-       ON CONFLICT (job_id) DO UPDATE SET
-         amount_huf         = EXCLUDED.amount_huf,
-         status             = 'held',
-         barion_payment_id  = EXCLUDED.barion_payment_id,
-         barion_gateway_url = EXCLUDED.barion_gateway_url,
-         carrier_share_huf  = EXCLUDED.carrier_share_huf,
-         platform_share_huf = EXCLUDED.platform_share_huf,
-         held_at            = NOW()`,
-      [bid.job_id, bid.amount_huf, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
-    );
-
     await client.query('COMMIT');
-    realtime.emitToJob(bid.job_id, 'job:accepted', {
-      job_id: bid.job_id,
-      carrier_id: bid.carrier_id,
-      amount_huf: bid.amount_huf,
-      barion_gateway_url: barionRes.gatewayUrl,
-    });
 
-    // Értesítés a nyertes sofőrnek (in-app + email)
-    try {
-      const { rows: jobInfo } = await db.query(
-        `SELECT j.title, u.full_name AS carrier_name, u.email AS carrier_email
-           FROM jobs j
-           JOIN users u ON u.id = $2
-          WHERE j.id = $1`,
-        [bid.job_id, bid.carrier_id],
-      );
-      const info = jobInfo[0] || {};
-      await createNotification({
-        user_id: bid.carrier_id,
-        type: 'bid_accepted',
-        title: '🎉 Elfogadták a licitedet!',
-        body: `A(z) "${info.title || 'fuvar'}" licitedet elfogadták ${bid.amount_huf.toLocaleString('hu-HU')} Ft-ért. Nyisd meg a mobilappot a fuvar indításához.`,
-        link: `/sofor/fuvar/${bid.job_id}`,
-      });
-      if (info.carrier_email) {
-        setImmediate(() => {
-          sendBidAcceptedEmail({
-            to: info.carrier_email,
-            carrierName: info.carrier_name,
-            jobTitle: info.title,
-            jobId: bid.job_id,
-            amountHuf: bid.amount_huf,
-          }).catch((e) => console.warn('[email] bid_accepted hiba:', e.message));
-        });
-      }
-    } catch (e) {
-      console.warn('[notifications] bid_accepted hiba:', e.message);
-    }
+    realtime.emitToJob(bid.job_id, 'job:accepted', {
+      job_id: bid.job_id, carrier_id: bid.carrier_id,
+      amount_huf: agreedPrice, barion_gateway_url: fin.barionRes.gatewayUrl,
+    });
+    notifyDealClosed(bid, agreedPrice, 'shipper');
 
     res.json({
-      ok: true,
-      job_id: bid.job_id,
-      carrier_id: bid.carrier_id,
-      amount_huf: bid.amount_huf,
+      ok: true, job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: agreedPrice,
       barion: {
-        payment_id: barionRes.paymentId,
-        gateway_url: barionRes.gatewayUrl,
-        carrier_share_huf: carrierShare,
-        platform_share_huf: platformShare,
+        payment_id: fin.barionRes.paymentId, gateway_url: fin.barionRes.gatewayUrl,
+        carrier_share_huf: fin.carrierShare, platform_share_huf: fin.platformShare,
       },
     });
   } catch (err) {
@@ -347,6 +373,103 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
   } finally {
     client.release();
   }
+});
+
+// POST /bids/:id/accept-counter – a SOFŐR elfogadja a feladó ellenajánlatát.
+router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req, res) => {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: bidRows } = await client.query(
+      `SELECT b.*, j.shipper_id, j.status AS job_status,
+              s.email AS shipper_email, c.email AS carrier_email
+         FROM bids b
+         JOIN jobs j  ON j.id = b.job_id
+         JOIN users s ON s.id = j.shipper_id
+         JOIN users c ON c.id = b.carrier_id
+        WHERE b.id = $1 FOR UPDATE`,
+      [req.params.id],
+    );
+    const bid = bidRows[0];
+    if (!bid) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Licit nem található' }); }
+    if (bid.carrier_id !== req.user.sub) {
+      await client.query('ROLLBACK'); return res.status(403).json({ error: 'Nincs jogosultság' });
+    }
+    if (!['pending', 'bidding'].includes(bid.job_status)) {
+      await client.query('ROLLBACK'); return res.status(409).json({ error: 'A fuvar már nem elfogadható' });
+    }
+    if (bid.counter_by !== 'shipper' || bid.counter_amount_huf == null) {
+      await client.query('ROLLBACK'); return res.status(409).json({ error: 'Nincs elfogadható feladói ellenajánlat.' });
+    }
+    const agreedPrice = bid.counter_amount_huf;
+
+    const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
+    if (!fin.ok) {
+      await client.query('ROLLBACK');
+      return res.status(fin.status).json({ error: fin.error, ...(fin.detail ? { detail: fin.detail } : {}) });
+    }
+    await client.query('COMMIT');
+
+    realtime.emitToJob(bid.job_id, 'job:accepted', {
+      job_id: bid.job_id, carrier_id: bid.carrier_id,
+      amount_huf: agreedPrice, barion_gateway_url: fin.barionRes.gatewayUrl,
+    });
+    notifyDealClosed(bid, agreedPrice, 'carrier');
+
+    res.json({ ok: true, job_id: bid.job_id, amount_huf: agreedPrice });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+// POST /bids/:id/counter – ellenajánlat a licit összegére. Mindkét fél teheti
+// (feladó vagy az adott licit sofőrje). A legutóbbi ellenajánlat felülírja az
+// előzőt; a másik fél elfogadhatja (accept / accept-counter) vagy visszadobhat.
+router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) => {
+  const amt = Number(req.body?.amount);
+  if (!Number.isInteger(amt) || amt <= 0 || amt > 100000000) {
+    return res.status(400).json({ error: 'Érvénytelen összeg.' });
+  }
+  const { rows } = await db.query(
+    `SELECT b.id, b.carrier_id, b.status AS bid_status, b.job_id,
+            j.shipper_id, j.status AS job_status, j.title
+       FROM bids b JOIN jobs j ON j.id = b.job_id
+      WHERE b.id = $1`,
+    [req.params.id],
+  );
+  const bid = rows[0];
+  if (!bid) return res.status(404).json({ error: 'Licit nem található' });
+  const isShipper = bid.shipper_id === req.user.sub;
+  const isCarrier = bid.carrier_id === req.user.sub;
+  if (!isShipper && !isCarrier) return res.status(403).json({ error: 'Nincs jogosultság' });
+  if (!['pending', 'bidding'].includes(bid.job_status)) {
+    return res.status(409).json({ error: 'A fuvar már nem alkudható.' });
+  }
+  if (bid.bid_status !== 'pending') {
+    return res.status(409).json({ error: 'Erre a licitre már nem lehet ellenajánlatot tenni.' });
+  }
+
+  const role = isShipper ? 'shipper' : 'carrier';
+  await db.query(
+    `UPDATE bids SET counter_amount_huf = $1, counter_by = $2, counter_at = NOW() WHERE id = $3`,
+    [amt, role, bid.id],
+  );
+
+  const otherUserId = isShipper ? bid.carrier_id : bid.shipper_id;
+  const link = isShipper ? `/sofor/fuvar/${bid.job_id}` : `/dashboard/fuvar/${bid.job_id}`;
+  await createNotification({
+    user_id: otherUserId,
+    type: 'counter_offer',
+    title: '🔁 Ellenajánlat érkezett',
+    body: `Ellenajánlat a(z) "${bid.title || 'fuvar'}" fuvarra: ${amt.toLocaleString('hu-HU')} Ft.`,
+    link,
+  });
+  realtime.emitToJob(bid.job_id, 'bid:countered', { bid_id: bid.id, counter_amount_huf: amt, counter_by: role });
+
+  res.json({ ok: true, counter_amount_huf: amt, counter_by: role });
 });
 
 module.exports = router;
