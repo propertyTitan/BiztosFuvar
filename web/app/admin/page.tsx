@@ -29,6 +29,8 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   // Vita-döntés dialógus: { id, mode: 'no_action' | 'refund' }
   const [decision, setDecision] = useState<{ id: string; mode: 'no_action' | 'refund' } | null>(null);
+  // Élő jelenlét — kik vannak éppen az oldalon (5 mp-enként frissül)
+  const [live, setLive] = useState<Awaited<ReturnType<typeof api.adminLive>> | null>(null);
 
   useEffect(() => {
     if (me && me.role !== 'admin') {
@@ -37,6 +39,21 @@ export default function AdminPanel() {
     }
     if (!me) return;
     loadData();
+  }, [me]);
+
+  // Élő jelenlét pollozása amíg admin néz minket
+  useEffect(() => {
+    if (!me || me.role !== 'admin') return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const p = await api.adminLive();
+        if (alive) setLive(p);
+      } catch { /* átmeneti hiba → következő tick újrapróbálja */ }
+    };
+    tick();
+    const iv = setInterval(tick, 5000);
+    return () => { alive = false; clearInterval(iv); };
   }, [me]);
 
   async function loadData() {
@@ -79,6 +96,55 @@ export default function AdminPanel() {
       <p className="muted" style={{ marginTop: 0 }}>
         Üzemeltetési áttekintő — fuvarok, viták, felhasználók.
       </p>
+
+      {/* Élő jelenlét — kik vannak ÉPPEN az oldalon */}
+      <div
+        className="card"
+        style={{
+          marginTop: 20,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+          flexWrap: 'wrap',
+          borderColor: '#22c55e',
+          background: 'linear-gradient(135deg, rgba(34,197,94,0.08), transparent)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 12, height: 12, borderRadius: '50%', background: '#22c55e',
+              boxShadow: '0 0 0 0 rgba(34,197,94,0.6)', animation: 'gf-pulse 1.6s infinite',
+              display: 'inline-block', flexShrink: 0,
+            }}
+          />
+          <div>
+            <div style={{ fontSize: 44, fontWeight: 900, lineHeight: 1 }}>
+              {live ? live.online_users : '—'}
+            </div>
+            <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+              bejelentkezett felhasználó van most az oldalon
+            </div>
+          </div>
+        </div>
+        <div className="row" style={{ gap: 20, flexWrap: 'wrap', fontSize: 14 }}>
+          <span title="Feladók">📦 {live?.by_role?.shipper ?? 0} feladó</span>
+          <span title="Sofőrök">🚚 {live?.by_role?.carrier ?? 0} sofőr</span>
+          <span title="Adminok">🛡️ {live?.by_role?.admin ?? 0} admin</span>
+          <span className="muted" title="Token nélküli (vendég) kapcsolatok">
+            👤 {live?.anonymous ?? 0} vendég
+          </span>
+          <span className="muted" title="Összes élő kapcsolat (egy user több füllel is lehet)">
+            🔌 {live?.total_connections ?? 0} kapcsolat
+          </span>
+        </div>
+        <style>{`@keyframes gf-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.6); }
+          70% { box-shadow: 0 0 0 10px rgba(34,197,94,0); }
+          100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+        }`}</style>
+      </div>
 
       {/* Statisztikák */}
       {stats && (
