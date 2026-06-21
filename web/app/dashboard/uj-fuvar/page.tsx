@@ -138,6 +138,8 @@ export default function UjFuvar() {
   // a cím és a forrás-link előtöltődik, majd a kulcsot töröljük. A forrás-
   // boltot külön eltároljuk, hogy a fuvarra "Bolti átvétel" jelvény kerüljön.
   const [sourceStore, setSourceStore] = useState<string | null>(null);
+  // "Hozasd el" termékkép — a hirdetés OG-előnézeti képe, a sofőr ezt látja
+  const [sourceImage, setSourceImage] = useState<string | null>(null);
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('gofuvar_prefill');
@@ -146,6 +148,7 @@ export default function UjFuvar() {
       const p = JSON.parse(raw);
       const KNOWN = ['IKEA', 'OBI', 'Praktiker', 'Jófogás'];
       if (KNOWN.includes(p.sourceName)) setSourceStore(p.sourceName);
+      if (typeof p.image === 'string' && /^https:\/\//i.test(p.image)) setSourceImage(p.image);
       setForm((prev) => {
         const next = { ...prev };
         if (p.title && !prev.title) next.title = String(p.title).slice(0, 120);
@@ -291,6 +294,7 @@ export default function UjFuvar() {
         ...(form.recipient_phone ? { recipient_phone: form.recipient_phone } : {}),
         ...(form.recipient_email ? { recipient_email: form.recipient_email } : {}),
         ...(sourceStore ? { source_store: sourceStore } : {}),
+        ...(sourceImage ? { source_image_url: sourceImage } : {}),
       });
 
       // 2) Kép-feltöltés sorban (így látjuk a progress-t és nem önmagával versenyez

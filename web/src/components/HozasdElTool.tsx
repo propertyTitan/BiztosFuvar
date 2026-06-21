@@ -44,6 +44,7 @@ export default function HozasdElTool() {
       sourceUrl: preview?.url || url.trim(),
       sourceName: preview?.source || 'hirdetés',
       description: preview?.description || '',
+      image: preview?.image || '',
     };
     try { sessionStorage.setItem('gofuvar_prefill', JSON.stringify(payload)); } catch {}
     router.push('/dashboard/uj-fuvar');

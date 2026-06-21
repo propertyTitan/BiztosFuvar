@@ -399,6 +399,23 @@ export default function SoforFuvarokLista() {
                     </span>
                   )}
                 </div>
+                {(j as any).source_image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={(j as any).source_image_url}
+                    alt="A hozandó termék"
+                    style={{
+                      width: 64,
+                      height: 64,
+                      objectFit: 'cover',
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                      margin: '6px 0',
+                      background: 'var(--bg)',
+                    }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+                  />
+                )}
                 <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
                 <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>
                 <div className="row" style={{ marginTop: 6, gap: 16, fontSize: 13 }}>
