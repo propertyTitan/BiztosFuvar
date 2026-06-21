@@ -28,6 +28,30 @@ const STATUS_LABEL: Record<string, string> = {
   disputed: 'Vitatott', cancelled: 'Lemondva',
 };
 
+// Sikertelen kézbesítés esetén történő visszaszállítás — jelvény a licit-soron.
+// Így a feladó összehasonlíthatja a sofőröket a visszaszállítási hajlandóság szerint.
+function ReturnPolicyBadge({ bid }: { bid: Bid }) {
+  if (!bid.return_policy) return null;
+  const map = {
+    included: { text: '↩️ Visszaszállítás: benne', bg: '#dcfce7', color: '#166534' },
+    extra_fee: {
+      text: `↩️ Visszaszállítás: +${(bid.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft`,
+      bg: '#fef3c7', color: '#92400e',
+    },
+    no: { text: '⚠️ Nincs visszaszállítás', bg: '#fee2e2', color: '#991b1b' },
+  } as const;
+  const s = map[bid.return_policy];
+  return (
+    <span
+      className="pill"
+      style={{ background: s.bg, color: s.color, fontWeight: 700, fontSize: 11 }}
+      title="A sofőr nyilatkozata: sikertelen kézbesítés esetén 5 munkanapon belül visszajuttatja-e a csomagot a feladóhoz."
+    >
+      {s.text}
+    </span>
+  );
+}
+
 const STATUS_PILL: Record<string, string> = {
   pending: 'pill-bidding', bidding: 'pill-bidding', accepted: 'pill-accepted',
   in_progress: 'pill-progress', delivered: 'pill-delivered', completed: 'pill-delivered',
@@ -594,6 +618,9 @@ export default function FuvarReszletek() {
                 </div>
               </div>
               {b.message && <p className="muted" style={{ margin: '8px 0 0', fontSize: 13, paddingLeft: 52 }}>„{b.message}”</p>}
+              <div style={{ paddingLeft: 52, marginTop: 8 }}>
+                <ReturnPolicyBadge bid={b} />
+              </div>
               {b.counter_by === 'shipper' && b.counter_amount_huf != null ? (
                 <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
                   ⏳ Elküldted az ellenajánlatod ({b.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a sofőr válaszára vár.

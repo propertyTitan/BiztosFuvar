@@ -60,6 +60,9 @@ export default function SoforFuvarReszletek() {
   });
   const [bidEta, setBidEta] = useState('');
   const [bidMessage, setBidMessage] = useState('');
+  // Sikertelen kézbesítés: visszaszállítási nyilatkozat (kötelező)
+  const [returnPolicy, setReturnPolicy] = useState<'included' | 'extra_fee' | 'no' | ''>('');
+  const [returnFee, setReturnFee] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [acceptingCounter, setAcceptingCounter] = useState(false);
   const [counterOpen, setCounterOpen] = useState(false);
@@ -118,17 +121,33 @@ export default function SoforFuvarReszletek() {
       toast.error('Érvénytelen összeg', 'Érvényes licit-összeget adj meg (Ft).');
       return;
     }
+    if (!returnPolicy) {
+      toast.error('Hiányzó nyilatkozat', 'Nyilatkozz a sikertelen kézbesítés esetén történő visszaszállításról.');
+      return;
+    }
+    let returnFeeNum: number | undefined;
+    if (returnPolicy === 'extra_fee') {
+      returnFeeNum = parseInt(returnFee, 10);
+      if (!returnFeeNum || returnFeeNum <= 0) {
+        toast.error('Hiányzó visszaszállítási díj', 'Add meg a visszaszállítás külön díját (Ft).');
+        return;
+      }
+    }
     setSubmitting(true);
     try {
       await api.placeBid(id, {
         amount_huf: amount,
         eta_minutes: bidEta ? parseInt(bidEta, 10) : undefined,
         message: bidMessage || undefined,
+        return_policy: returnPolicy,
+        return_fee_huf: returnFeeNum,
       });
       toast.success('Licit elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
       setBidAmount('');
       setBidEta('');
       setBidMessage('');
+      setReturnPolicy('');
+      setReturnFee('');
       await load();
     } catch (err: any) {
       toast.error('Licit hiba', err.message);
@@ -522,6 +541,61 @@ export default function SoforFuvarReszletek() {
               onChange={(e) => setBidMessage(e.target.value)}
               placeholder="pl. Van rakodómunkás is"
             />
+
+            {/* Sikertelen kézbesítés — visszaszállítási nyilatkozat (kötelező) */}
+            <div
+              style={{
+                marginTop: 16,
+                padding: 14,
+                borderRadius: 8,
+                background: 'rgba(59,130,246,0.07)',
+                border: '1px solid rgba(59,130,246,0.35)',
+              }}
+            >
+              <strong style={{ fontSize: 14 }}>↩️ Sikertelen kézbesítés esetén</strong>
+              <p style={{ fontSize: 13, margin: '6px 0 12px', lineHeight: 1.5, color: 'var(--muted)' }}>
+                Ha a címzett <strong>nem veszi át</strong> a csomagot, vállalod-e, hogy
+                <strong> 5 munkanapon belül visszajuttatod a feladóhoz?</strong>
+              </p>
+              {([
+                { v: 'included', label: 'Igen, benne van az ajánlatomban' },
+                { v: 'extra_fee', label: 'Igen, külön díj ellenében' },
+                { v: 'no', label: 'Nem' },
+              ] as const).map((opt) => (
+                <label
+                  key={opt.v}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                    padding: '8px 10px', borderRadius: 6, marginBottom: 6, fontSize: 14,
+                    border: '1px solid ' + (returnPolicy === opt.v ? 'var(--accent, #3b82f6)' : 'var(--border)'),
+                    background: returnPolicy === opt.v ? 'rgba(59,130,246,0.10)' : 'transparent',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name="return_policy"
+                    checked={returnPolicy === opt.v}
+                    onChange={() => setReturnPolicy(opt.v)}
+                    style={{ width: 16, height: 16, flexShrink: 0 }}
+                  />
+                  {opt.label}
+                </label>
+              ))}
+              {returnPolicy === 'extra_fee' && (
+                <div style={{ marginTop: 8 }}>
+                  <label>Visszaszállítás külön díja (Ft)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    min={1}
+                    value={returnFee}
+                    onChange={(e) => setReturnFee(e.target.value)}
+                    placeholder="pl. 3000"
+                  />
+                </div>
+              )}
+            </div>
+
             <button className="btn" type="submit" disabled={submitting} style={{ marginTop: 16 }}>
               {submitting ? 'Küldés…' : 'Licit elküldése'}
             </button>
@@ -545,6 +619,16 @@ export default function SoforFuvarReszletek() {
           {myBid.message && (
             <p className="muted" style={{ marginTop: 8 }}>
               „{myBid.message}”
+            </p>
+          )}
+          {myBid.return_policy && (
+            <p style={{ marginTop: 8, fontSize: 13 }}>
+              ↩️ Sikertelen kézbesítés esetén:{' '}
+              <strong>
+                {myBid.return_policy === 'included' && 'visszaszállítás benne van az ajánlatban'}
+                {myBid.return_policy === 'extra_fee' && `visszaszállítás külön díjért (${(myBid.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}
+                {myBid.return_policy === 'no' && 'nem vállaltad a visszaszállítást'}
+              </strong>
             </p>
           )}
 
