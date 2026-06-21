@@ -64,8 +64,8 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
                        ↓
    ┌───────────────────┼────────────────────┐
    ↓                   ↓                    ↓
- Supabase           Cloudflare R2        Külső:
- (Postgres EU)      (privát bucket)       Barion (fizetés, STUB)
+ Neon (Postgres)    Cloudflare R2        Külső:
+ (eu-central-1)     (privát bucket)       Barion (fizetés, STUB)
                                           SeeMe.hu (SMS, STUB)
                                           Resend (email, STUB)
                                           Sentry (hibafigyelés, STUB)
@@ -81,10 +81,16 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
 - Munkavégzés: feature-branch → PR → merge to main → auto-deploy
 
 ### Adatbázis
-- Supabase project: `biztosfuvar` (ref: `frlxrbdfcuojzhafelyn`, eu-central-1)
-- 34 migráció lefuttatva
-- RLS minden táblán **KI** van kapcsolva (a backend service-role-on csatlakozik) —
-  a Supabase anon-key SOHASEM kerüljön frontendre
+- **Az ÉLES adatbázis Neon** (Postgres, eu-central-1), nem Supabase!
+  Host: `ep-lively-violet-al932ok8-pooler.c-3.eu-central-1.aws.neon.tech/neondb`
+- A backend a `DATABASE_URL` env-ből csatlakozik (`backend/src/db.js`), Railway-en
+  beállítva; a prod connstring lokálisan is megvan `backend/.env`-ben
+- Migrációk lokálisan futnak a prod ellen: `npm run db:migrate`
+- RLS nincs használatban (a backend egyetlen DB-userrel csatlakozik) — DB-credet
+  SOHA ne tegyünk a frontendre
+- ⚠️ A régi Supabase projekt (`frlxrbdfcuojzhafelyn`) **üres és nem használt**
+  (csak `auth`+`vault` séma). Ha DB-eredetű "Szerverhiba" (500) jön, a **Neont**
+  kell nézni/upgradelni — NEM a Supabase-t (kvóta: console.neon.tech)
 
 ### R2 bucket
 - `gofuvar-uploads` a Cloudflare account `4ffc8483390d0d1da83fab3ba05a4172`-en
@@ -230,7 +236,9 @@ git log --oneline -20
 - **Railway nem deployol** → ellenőrizni Settings → Source → Branch (= `main`?)
   + Auto deploys = enabled
 - **Vercel "Preview only"** → Settings → Git → Production Branch = `main`
-- **Supabase project paused** → MCP-vel restore_project
+- **DB-eredetű "Szerverhiba" (500)** → a prod DB a **Neon** (nem Supabase!).
+  Nézd a Neon compute-kvótát/csomagot a console.neon.tech-en. Teszt: a
+  `/tracking/:token` végpont 500-at ad ha a DB döglött, 404-et ha él.
 - **PG SSL warning a Railway logokban** → nem hiba, csak figyelmeztetés
 - **Robotok / noindex** → src `web/public/robots.txt` jelenleg `Disallow: /` — élesedéskor `Allow: /`-ra
 
