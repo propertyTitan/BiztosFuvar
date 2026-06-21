@@ -647,6 +647,16 @@ export const api = {
 
   adminStats: () => request<any>('/auth/admin/stats'),
 
+  /** Élő jelenlét — kik vannak éppen az oldalon (aktív socket-kapcsolatok). */
+  adminLive: () =>
+    request<{
+      online_users: number;
+      total_connections: number;
+      anonymous: number;
+      by_role: Record<string, number>;
+      users: Array<{ id: string; role: string; email: string | null; connections: number }>;
+    }>('/admin/live'),
+
   adminPaymentLog: (limit = 50) =>
     request<any[]>(`/payments/admin/log?limit=${limit}`),
 

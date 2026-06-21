@@ -87,4 +87,33 @@ function emitGlobal(event, payload) {
   io.emit(event, payload);
 }
 
-module.exports = { init, emitToJob, emitToUser, emitGlobal };
+// Élő jelenlét — ki van ÉPPEN az oldalon. A forrás az aktív Socket.IO
+// kapcsolatok halmaza (a web akkor nyit socketet, amikor az oldalt
+// használják), így ez valós idejű, nem becsült érték. Nem tárolunk külön
+// állapotot: minden hívásnál az `io` aktuális socketjeiből számolunk.
+//   - online_users: különböző BEJELENTKEZETT userök száma
+//   - total_connections: összes élő socket (több fül = több kapcsolat)
+//   - anonymous: token nélküli (vendég) kapcsolatok
+//   - by_role: bejelentkezett userök szerepkör szerint
+//   - users: dedup-olt lista (admin-only végponton megy ki)
+function getPresence() {
+  if (!io) {
+    return { online_users: 0, total_connections: 0, anonymous: 0, by_role: {}, users: [] };
+  }
+  const byUser = new Map();
+  let anonymous = 0;
+  let total = 0;
+  for (const [, socket] of io.sockets.sockets) {
+    total += 1;
+    const u = socket.data.user;
+    if (!u || !u.sub) { anonymous += 1; continue; }
+    const cur = byUser.get(u.sub) || { id: u.sub, role: u.role || 'ismeretlen', email: u.email || null, connections: 0 };
+    cur.connections += 1;
+    byUser.set(u.sub, cur);
+  }
+  const users = [...byUser.values()];
+  const by_role = users.reduce((acc, u) => { acc[u.role] = (acc[u.role] || 0) + 1; return acc; }, {});
+  return { online_users: users.length, total_connections: total, anonymous, by_role, users };
+}
+
+module.exports = { init, emitToJob, emitToUser, emitGlobal, getPresence };

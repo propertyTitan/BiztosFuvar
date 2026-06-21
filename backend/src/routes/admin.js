@@ -7,10 +7,19 @@
 
 const express = require('express');
 const db = require('../db');
+const realtime = require('../realtime');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 const adminOnly = [authRequired, requireRole('admin')];
+
+// ===================== ÉLŐ JELENLÉT =====================
+
+// GET /admin/live — kik vannak ÉPPEN az oldalon (élő socket-kapcsolatok).
+// Olcsó, DB-t nem érint; a frontend pár másodpercenként pollozza.
+router.get('/admin/live', ...adminOnly, (req, res) => {
+  res.json(realtime.getPresence());
+});
 
 // ===================== FELHASZNÁLÓK =====================
 
