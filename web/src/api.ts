@@ -221,6 +221,9 @@ export type Bid = {
   message: string | null;
   eta_minutes: number | null;
   status: 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+  // Sikertelen kézbesítés esetén történő visszaszállítás nyilatkozata
+  return_policy?: 'included' | 'extra_fee' | 'no' | null;
+  return_fee_huf?: number | null;
   // A backend a licit mellé adja a sofőr adatait is (bids.js JOIN)
   carrier_name?: string | null;
   rating_avg?: number | null;
@@ -342,7 +345,16 @@ export const api = {
     request<Job[]>(`/jobs/mine/list?as=${as}`),
 
   /** Sofőr licitet ad egy fuvarra. */
-  placeBid: (jobId: string, body: { amount_huf: number; eta_minutes?: number; message?: string }) =>
+  placeBid: (
+    jobId: string,
+    body: {
+      amount_huf: number;
+      eta_minutes?: number;
+      message?: string;
+      return_policy: 'included' | 'extra_fee' | 'no';
+      return_fee_huf?: number;
+    },
+  ) =>
     request<Bid>(`/jobs/${jobId}/bids`, { method: 'POST', body: JSON.stringify(body) }),
 
   /**

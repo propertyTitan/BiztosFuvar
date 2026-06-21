@@ -81,10 +81,32 @@ router.get('/bids/mine', authRequired, async (req, res) => {
 // Támogatja a multi-currency-t: a sofőr a fuvar valutájában VAGY a sajátjában licitálhat
 router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const { jobId } = req.params;
-  const { amount_huf, amount, currency, message, eta_minutes } = req.body || {};
+  const { amount_huf, amount, currency, message, eta_minutes, return_policy, return_fee_huf } = req.body || {};
   // Backward compat: amount_huf VAGY az új amount + currency páros
   const bidAmount = amount || amount_huf;
   const bidCurrency = currency || 'HUF';
+
+  // Visszaszállítási nyilatkozat (sikertelen kézbesítés esetén): kötelező.
+  // 'included' = benne van az ajánlatban, 'extra_fee' = külön díjért
+  // (return_fee_huf), 'no' = nem vállalja.
+  const RETURN_POLICIES = ['included', 'extra_fee', 'no'];
+  if (!RETURN_POLICIES.includes(return_policy)) {
+    return res.status(400).json({
+      error: 'Nyilatkozz a sikertelen kézbesítés esetén történő visszaszállításról.',
+      code: 'RETURN_POLICY_REQUIRED',
+    });
+  }
+  let returnFeeClean = null;
+  if (return_policy === 'extra_fee') {
+    const fee = Number(return_fee_huf);
+    if (!Number.isInteger(fee) || fee <= 0 || fee > 100000000) {
+      return res.status(400).json({
+        error: 'A visszaszállítás külön díját pozitív egész számként add meg (forintban).',
+        code: 'RETURN_FEE_INVALID',
+      });
+    }
+    returnFeeClean = fee;
+  }
   // Egész szám validáció: az amount_huf INTEGER oszlop. Tizedes ("100.99")
   // vagy nem-numerikus ("5000; DROP") érték a DB-ig jutva integer-hibát
   // dobna → 500 + a DB belső hibaüzenet kiszivárogna. Itt szűrjük előbb.
@@ -135,9 +157,9 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
     }
 
     const { rows } = await db.query(
-      `INSERT INTO bids (job_id, carrier_id, amount_huf, currency, exchange_rate, exchange_rate_frozen_at, message, eta_minutes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [jobId, req.user.sub, numAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null],
+      `INSERT INTO bids (job_id, carrier_id, amount_huf, currency, exchange_rate, exchange_rate_frozen_at, message, eta_minutes, return_policy, return_fee_huf)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [jobId, req.user.sub, numAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null, return_policy, returnFeeClean],
     );
     realtime.emitToJob(jobId, 'bids:new', rows[0]);
 
