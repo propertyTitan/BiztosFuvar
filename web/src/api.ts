@@ -153,6 +153,8 @@ export type Job = {
   shipper_company_verified?: string | null;
   /** "Hozasd el" forrás-bolt (IKEA/OBI/Praktiker/Jófogás) — bolti átvétel jelvény. */
   source_store?: string | null;
+  /** "Hozasd el" termékkép URL-je (a hirdetés OG-előnézete) — a sofőr látja. */
+  source_image_url?: string | null;
 };
 
 export type NewJobInput = {
@@ -190,6 +192,8 @@ export type NewJobInput = {
   recipient_email?: string;
   /** "Hozasd el" forrás-bolt (IKEA/OBI/Praktiker/Jófogás) */
   source_store?: string;
+  /** "Hozasd el" termékkép URL-je (a hirdetés OG-előnézete) */
+  source_image_url?: string;
 };
 
 export type BackhaulCandidate = Job & {

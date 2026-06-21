@@ -275,6 +275,37 @@ export default function SoforFuvarReszletek() {
         </div>
       )}
 
+      {/* "Hozasd el" termékkép — a hirdetés előnézete, hogy a sofőr lássa
+          MIT kell elhoznia. Hotlink a bolt CDN-jéről → törött kép esetén
+          az egész kártyát elrejtjük. */}
+      {job.source_image_url && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h2 style={{ marginTop: 0 }}>
+            🛍️ A termék{job.source_store ? ` (${job.source_store})` : ''}
+          </h2>
+          <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
+            A feladó hirdetés-linkjének előnézeti képe — tájékoztató jellegű.
+          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={job.source_image_url}
+            alt="A hozandó termék előnézete"
+            style={{
+              maxWidth: '100%',
+              maxHeight: 320,
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              objectFit: 'contain',
+              background: 'var(--bg)',
+            }}
+            onError={(e) => {
+              const card = (e.currentTarget as HTMLImageElement).closest('.card') as HTMLElement | null;
+              if (card) card.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+
       {/* Csomag adatai */}
       <div className="card" style={{ marginTop: 16 }}>
         <h2 style={{ marginTop: 0 }}>Csomag adatai</h2>

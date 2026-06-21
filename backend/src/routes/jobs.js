@@ -103,11 +103,29 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
     recipient_email,
     // Forrás-bolt (Hozasd el): csak ismert boltnevet fogadunk el
     source_store,
+    // Forrás termékkép (Hozasd el): a hirdetés OG-előnézeti képe
+    source_image_url,
   } = req.body || {};
 
   // Forrás-bolt engedélylista — bármi mást figyelmen kívül hagyunk
   const ALLOWED_SOURCE_STORES = ['IKEA', 'OBI', 'Praktiker', 'Jófogás'];
   const sourceStoreClean = ALLOWED_SOURCE_STORES.includes(source_store) ? source_store : null;
+
+  // Forrás termékkép: CSAK ismert bolti kép-CDN-ek https-URL-jét fogadjuk el.
+  // Így nem lehet a mezőn keresztül tetszőleges / tracking / kártékony képet
+  // beinjektálni, ami a sofőr böngészőjében töltődne be.
+  const ALLOWED_IMAGE_HOST_SUFFIXES = ['ikea.com', 'obi.hu', 'praktiker.hu', 'jofogas.hu'];
+  let sourceImageClean = null;
+  if (typeof source_image_url === 'string' && source_image_url.length <= 2000) {
+    try {
+      const iu = new URL(source_image_url);
+      const host = iu.hostname.toLowerCase();
+      const allowed = ALLOWED_IMAGE_HOST_SUFFIXES.some(
+        (s) => host === s || host.endsWith('.' + s),
+      );
+      if (iu.protocol === 'https:' && allowed) sourceImageClean = iu.toString();
+    } catch { /* érvénytelen URL → null marad */ }
+  }
 
   // Alap kötelező mezők
   if (!title || !pickup_address || !dropoff_address ||
@@ -242,8 +260,8 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
        dropoff_needs_carrying, dropoff_floor, dropoff_has_elevator,
        declared_value_huf, invoice_requested,
        recipient_name, recipient_phone, recipient_email, tracking_token,
-       sender_delivery_code, source_store
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36)
+       sender_delivery_code, source_store, source_image_url
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
      RETURNING *`,
     [
       req.user.sub, title, description || null,
@@ -259,7 +277,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
       dCarry, dFloor, dLift,
       declaredValueClean, !!invoice_requested,
       recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
-      senderCode, sourceStoreClean,
+      senderCode, sourceStoreClean, sourceImageClean,
     ],
   );
 
