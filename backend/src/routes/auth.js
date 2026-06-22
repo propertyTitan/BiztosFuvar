@@ -607,7 +607,7 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
           type: 'kyc_underage_alert',
           title: '⚠️ 18 év alatti KYC!',
           body: `${who} (${req.user.email}) személyi igazolványa alapján 18 év alatti (szül.: ${aiResult.birthDate || '?'}). Kézi jóváhagyás szükséges.`,
-          link: '/admin',
+          link: '/admin#kyc',
         }).catch(() => {});
       }
     } catch (e) {
@@ -627,7 +627,7 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
           type: 'kyc_manual_review',
           title: '📋 KYC kézi ellenőrzés szükséges',
           body: `${req.user.email} dokumentumát (${doc_type}) az AI nem tudta ellenőrizni — kézi jóváhagyás kell.`,
-          link: '/admin',
+          link: '/admin#kyc',
         }).catch(() => {});
       }
     } catch (e) {

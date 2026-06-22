@@ -12,7 +12,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { api } from '@/api';
+import { api, photoUrl } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -34,6 +34,10 @@ export default function AdminPanel() {
   // Felhasználók aktivitás-listája (utolsó belépés, aktív idő)
   const [users, setUsers] = useState<Awaited<ReturnType<typeof api.adminUsers>>>([]);
   const [userSearch, setUserSearch] = useState('');
+  // KYC kézi jóváhagyás — függőben lévő dokumentumok + elutasítás-dialógus
+  const [kycDocs, setKycDocs] = useState<Awaited<ReturnType<typeof api.adminKycDocuments>>>([]);
+  const [kycReject, setKycReject] = useState<{ id: string; name: string } | null>(null);
+  const [kycBusy, setKycBusy] = useState<string | null>(null);
 
   useEffect(() => {
     if (me && me.role !== 'admin') {
@@ -62,16 +66,18 @@ export default function AdminPanel() {
   async function loadData() {
     setLoading(true);
     try {
-      const [s, d, pl, u] = await Promise.all([
+      const [s, d, pl, u, k] = await Promise.all([
         api.adminStats(),
         api.allDisputes(),
         api.adminPaymentLog(30),
         api.adminUsers(),
+        api.adminKycDocuments('pending'),
       ]);
       setStats(s);
       setDisputes(d);
       setPaymentLog(pl);
       setUsers(u);
+      setKycDocs(k);
     } catch (e: any) {
       toast.error('Hiba', e.message);
     } finally {
@@ -96,6 +102,43 @@ export default function AdminPanel() {
       toast.error('Hiba', e.message);
     }
   }
+
+  async function approveKyc(id: string) {
+    setKycBusy(id);
+    try {
+      await api.reviewKyc(id, 'approve');
+      toast.success('Jóváhagyva', 'A felhasználó értesítést kapott.');
+      setKycDocs((prev) => prev.filter((d) => d.id !== id));
+    } catch (e: any) {
+      toast.error('Hiba', e.message);
+    } finally {
+      setKycBusy(null);
+    }
+  }
+
+  async function confirmRejectKyc(reason: string) {
+    if (!kycReject) return;
+    const id = kycReject.id;
+    setKycBusy(id);
+    try {
+      await api.reviewKyc(id, 'reject', reason.trim());
+      toast.success('Elutasítva', 'A felhasználó értesítést kapott az indokkal.');
+      setKycDocs((prev) => prev.filter((d) => d.id !== id));
+      setKycReject(null);
+    } catch (e: any) {
+      toast.error('Hiba', e.message);
+    } finally {
+      setKycBusy(null);
+    }
+  }
+
+  const KYC_DOC_LABEL: Record<string, string> = {
+    id_card: 'Személyi igazolvány',
+    drivers_license: 'Jogosítvány',
+    company_document: 'Céges dokumentum',
+    insurance: 'Biztosítás',
+    vehicle_registration: 'Forgalmi',
+  };
 
   // Aktív idő formázása: másodperc → emberi olvasható (perc / óra)
   function fmtActive(sec: number): string {
@@ -135,6 +178,69 @@ export default function AdminPanel() {
       <p className="muted" style={{ marginTop: 0 }}>
         Üzemeltetési áttekintő — fuvarok, viták, felhasználók.
       </p>
+
+      {/* KYC kézi jóváhagyás — sürgős, ezért legfelül. Az értesítések ide
+          (#kyc) mutatnak. */}
+      <h2 id="kyc" style={{ marginTop: 24, scrollMarginTop: 80 }}>
+        🪪 KYC jóváhagyásra vár ({kycDocs.length})
+      </h2>
+      {kycDocs.length === 0 ? (
+        <div className="card"><p className="muted" style={{ margin: 0 }}>Nincs függőben lévő dokumentum. ✅</p></div>
+      ) : (
+        kycDocs.map((doc) => (
+          <div key={doc.id} className="card" style={{ marginTop: 12, borderColor: '#f59e0b' }}>
+            <div className="row" style={{ gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <a
+                href={photoUrl(doc.file_url)}
+                target="_blank"
+                rel="noreferrer"
+                style={{ flexShrink: 0, display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}
+                title="Megnyitás teljes méretben"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={photoUrl(doc.file_url)}
+                  alt="KYC dokumentum"
+                  style={{ width: 200, height: 140, objectFit: 'cover', background: 'var(--bg)', display: 'block' }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3'; }}
+                />
+              </a>
+              <div style={{ flex: 1, minWidth: 220 }}>
+                <div style={{ fontWeight: 700 }}>{doc.full_name || '—'}</div>
+                <div className="muted" style={{ fontSize: 12 }}>{doc.email}</div>
+                <div style={{ marginTop: 8, fontSize: 14 }}>
+                  <span className="pill" style={{ background: '#e0e7ff', color: '#3730a3', fontWeight: 700, fontSize: 11 }}>
+                    {KYC_DOC_LABEL[doc.doc_type] || doc.doc_type}
+                  </span>
+                </div>
+                {doc.full_name_on_doc && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Okmányon: {doc.full_name_on_doc}</div>}
+                {doc.expiry_date && <div className="muted" style={{ fontSize: 12 }}>Lejárat: {new Date(doc.expiry_date).toLocaleDateString('hu-HU')}</div>}
+                {doc.rejection_reason && (
+                  <div style={{ fontSize: 12, marginTop: 6, color: '#b45309' }}>
+                    AI/korábbi megjegyzés: {doc.rejection_reason}
+                  </div>
+                )}
+                <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                  <button
+                    className="btn btn-success"
+                    disabled={kycBusy === doc.id}
+                    onClick={() => approveKyc(doc.id)}
+                  >
+                    {kycBusy === doc.id ? '…' : '✅ Jóváhagyom'}
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    disabled={kycBusy === doc.id}
+                    onClick={() => setKycReject({ id: doc.id, name: doc.full_name || doc.email })}
+                  >
+                    ❌ Elutasítom
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
 
       {/* Élő jelenlét — kik vannak ÉPPEN az oldalon */}
       <div
@@ -442,6 +548,19 @@ export default function AdminPanel() {
           setDecision(null);
         }}
         onClose={() => setDecision(null)}
+      />
+
+      {/* KYC elutasítás — indoklás kötelező (a user ezt megkapja) */}
+      <ConfirmDialog
+        open={!!kycReject}
+        title={`❌ KYC elutasítása — ${kycReject?.name || ''}`}
+        message="Az elutasításról a felhasználó értesítést kap az alábbi indokkal."
+        confirmLabel="Elutasítás"
+        fields={[
+          { key: 'reason', label: 'Indok', type: 'textarea', required: true, placeholder: 'pl. A kép olvashatatlan / nem érvényes okmány' },
+        ]}
+        onConfirm={(v) => confirmRejectKyc(v.reason || '')}
+        onClose={() => setKycReject(null)}
       />
     </div>
   );
