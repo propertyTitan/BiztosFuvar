@@ -8,6 +8,7 @@
 const express = require('express');
 const db = require('../db');
 const realtime = require('../realtime');
+const { createNotification } = require('../services/notifications');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -195,6 +196,62 @@ router.get('/admin/kyc-documents', ...adminOnly, async (req, res) => {
     [status],
   );
   res.json(rows);
+});
+
+// PATCH /admin/kyc-documents/:id — KYC dokumentum kézi jóváhagyása/elutasítása.
+// Frissíti a dokumentum státuszát ÉS a felhasználó megfelelő KYC-mezőjét a
+// doc_type alapján, majd értesíti a felhasználót a döntésről.
+const KYC_DOC_FIELD = {
+  id_card: 'identity_kyc_status',
+  drivers_license: 'driver_kyc_status',
+  company_document: 'company_verification_status',
+};
+router.patch('/admin/kyc-documents/:id', ...adminOnly, async (req, res) => {
+  const { action, reason } = req.body || {};
+  if (!['approve', 'reject'].includes(action)) {
+    return res.status(400).json({ error: 'Érvénytelen művelet (approve / reject).' });
+  }
+  if (action === 'reject' && (!reason || !String(reason).trim())) {
+    return res.status(400).json({ error: 'Elutasításhoz indoklás szükséges.' });
+  }
+
+  const { rows } = await db.query(
+    'SELECT user_id, doc_type, status FROM kyc_documents WHERE id = $1',
+    [req.params.id],
+  );
+  const doc = rows[0];
+  if (!doc) return res.status(404).json({ error: 'KYC dokumentum nem található.' });
+
+  const docStatus = action === 'approve' ? 'approved' : 'rejected';
+  const userStatus = action === 'approve' ? 'verified' : 'rejected';
+  const rejectionReason = action === 'reject' ? String(reason).trim() : null;
+
+  await db.query(
+    `UPDATE kyc_documents
+        SET status = $1, reviewed_by = $2, reviewed_at = NOW(), rejection_reason = $3
+      WHERE id = $4`,
+    [docStatus, req.user.sub, rejectionReason, req.params.id],
+  );
+
+  // A felhasználó megfelelő KYC-mezője a doc_type alapján (fix whitelist —
+  // a mezőnév sosem a kérésből jön, így nincs SQL-injekció).
+  const field = KYC_DOC_FIELD[doc.doc_type];
+  if (field) {
+    await db.query(`UPDATE users SET ${field} = $1 WHERE id = $2`, [userStatus, doc.user_id]);
+  }
+
+  // Értesítés a felhasználónak a döntésről
+  await createNotification({
+    user_id: doc.user_id,
+    type: action === 'approve' ? 'kyc_approved' : 'kyc_rejected',
+    title: action === 'approve' ? '✅ Azonosítás jóváhagyva' : '❌ Azonosítás elutasítva',
+    body: action === 'approve'
+      ? 'Az adminisztrátor jóváhagyta a dokumentumodat. Mostantól használhatod a platformot.'
+      : `Az adminisztrátor elutasította a dokumentumodat. Indok: ${rejectionReason}`,
+    link: '/profil',
+  }).catch(() => {});
+
+  res.json({ ok: true, status: docStatus });
 });
 
 // ===================== COVERAGE ZÓNÁK =====================

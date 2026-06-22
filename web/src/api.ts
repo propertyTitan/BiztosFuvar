@@ -673,6 +673,30 @@ export const api = {
       total_active_seconds: number;
     }>>(`/admin/users?limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
 
+  /** KYC dokumentumok listája státusz szerint (alapból a függőben lévők). */
+  adminKycDocuments: (status: 'pending' | 'approved' | 'rejected' = 'pending') =>
+    request<Array<{
+      id: string;
+      user_id: string;
+      doc_type: string;
+      file_url: string;
+      doc_number: string | null;
+      full_name_on_doc: string | null;
+      expiry_date: string | null;
+      status: string;
+      rejection_reason: string | null;
+      created_at: string;
+      full_name: string | null;
+      email: string;
+    }>>(`/admin/kyc-documents?status=${status}`),
+
+  /** KYC dokumentum jóváhagyása / elutasítása (elutasításhoz indok kell). */
+  reviewKyc: (id: string, action: 'approve' | 'reject', reason?: string) =>
+    request<{ ok: boolean; status: string }>(`/admin/kyc-documents/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ action, reason }),
+    }),
+
   /** Élő jelenlét — kik vannak éppen az oldalon (aktív socket-kapcsolatok). */
   adminLive: () =>
     request<{
