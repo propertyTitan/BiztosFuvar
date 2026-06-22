@@ -39,6 +39,29 @@ function init(httpServer) {
     const me = () => socket.data.user?.sub || null;
     const isAdmin = () => socket.data.user?.role === 'admin';
 
+    // Aktivitás-mérés: a bejelentkezett kapcsolat kezdete. A socket
+    // élettartama a proxy az "oldal használata"-ra. Disconnectkor a két
+    // időpont különbségét hozzáadjuk a felhasználó összes aktív idejéhez.
+    if (me()) {
+      socket.data.connectedAt = Date.now();
+      db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [me()]).catch(() => {});
+    }
+    socket.on('disconnect', () => {
+      const uid = me();
+      if (!uid || !socket.data.connectedAt) return;
+      const seconds = Math.round((Date.now() - socket.data.connectedAt) / 1000);
+      // Anomália-szűrés: 0 alatt (óra-ugrás) vagy 24h felett (ott-felejtett
+      // tab / szerver-anomália) nem számoljuk az időt, csak a last_seen-t.
+      if (seconds <= 0 || seconds > 86400) {
+        db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [uid]).catch(() => {});
+        return;
+      }
+      db.query(
+        'UPDATE users SET total_active_seconds = total_active_seconds + $1, last_seen_at = NOW() WHERE id = $2',
+        [seconds, uid],
+      ).catch(() => {});
+    });
+
     // Egy konkrét fuvar élő követési szobája — csak a fuvar felei vagy admin.
     // (A címzett publikus követése nem socketen, hanem a token-alapú
     // /tracking/:token REST végponton megy.)

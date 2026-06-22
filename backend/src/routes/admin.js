@@ -29,7 +29,8 @@ router.get('/admin/users', ...adminOnly, async (req, res) => {
   let sql = `SELECT id, email, full_name, phone, role, account_type,
                     identity_kyc_status, driver_kyc_status, company_verification_status,
                     rating_avg, rating_count, trust_score, level, created_at,
-                    is_tow_driver, company_name
+                    is_tow_driver, company_name,
+                    last_login_at, login_count, last_seen_at, total_active_seconds
                FROM users`;
   const params = [];
   if (search) {
