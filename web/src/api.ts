@@ -659,6 +659,20 @@ export const api = {
 
   adminStats: () => request<any>('/auth/admin/stats'),
 
+  /** Felhasználók listája aktivitás-adatokkal (utolsó belépés, aktív idő). */
+  adminUsers: (search?: string, limit = 200) =>
+    request<Array<{
+      id: string;
+      email: string;
+      full_name: string | null;
+      role: string;
+      created_at: string;
+      last_login_at: string | null;
+      login_count: number;
+      last_seen_at: string | null;
+      total_active_seconds: number;
+    }>>(`/admin/users?limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
+
   /** Élő jelenlét — kik vannak éppen az oldalon (aktív socket-kapcsolatok). */
   adminLive: () =>
     request<{

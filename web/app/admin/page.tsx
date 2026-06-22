@@ -31,6 +31,9 @@ export default function AdminPanel() {
   const [decision, setDecision] = useState<{ id: string; mode: 'no_action' | 'refund' } | null>(null);
   // Élő jelenlét — kik vannak éppen az oldalon (5 mp-enként frissül)
   const [live, setLive] = useState<Awaited<ReturnType<typeof api.adminLive>> | null>(null);
+  // Felhasználók aktivitás-listája (utolsó belépés, aktív idő)
+  const [users, setUsers] = useState<Awaited<ReturnType<typeof api.adminUsers>>>([]);
+  const [userSearch, setUserSearch] = useState('');
 
   useEffect(() => {
     if (me && me.role !== 'admin') {
@@ -59,14 +62,16 @@ export default function AdminPanel() {
   async function loadData() {
     setLoading(true);
     try {
-      const [s, d, pl] = await Promise.all([
+      const [s, d, pl, u] = await Promise.all([
         api.adminStats(),
         api.allDisputes(),
         api.adminPaymentLog(30),
+        api.adminUsers(),
       ]);
       setStats(s);
       setDisputes(d);
       setPaymentLog(pl);
+      setUsers(u);
     } catch (e: any) {
       toast.error('Hiba', e.message);
     } finally {
@@ -83,6 +88,40 @@ export default function AdminPanel() {
       toast.error('Hiba', e.message);
     }
   }
+
+  async function searchUsers(q: string) {
+    try {
+      setUsers(await api.adminUsers(q.trim() || undefined));
+    } catch (e: any) {
+      toast.error('Hiba', e.message);
+    }
+  }
+
+  // Aktív idő formázása: másodperc → emberi olvasható (perc / óra)
+  function fmtActive(sec: number): string {
+    if (!sec || sec <= 0) return '—';
+    const min = Math.round(sec / 60);
+    if (min < 60) return `${min} perc`;
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    return m ? `${h} ó ${m} p` : `${h} óra`;
+  }
+  // Időpont formázása: relatív + abszolút tooltipre
+  function fmtWhen(iso: string | null): string {
+    if (!iso) return 'soha';
+    const d = new Date(iso);
+    const diffMs = Date.now() - d.getTime();
+    const min = Math.floor(diffMs / 60000);
+    if (min < 1) return 'most';
+    if (min < 60) return `${min} perce`;
+    const h = Math.floor(min / 60);
+    if (h < 24) return `${h} órája`;
+    const days = Math.floor(h / 24);
+    if (days < 30) return `${days} napja`;
+    return d.toLocaleDateString('hu-HU');
+  }
+  // Ki van ÉPPEN online (az élő jelenlét-listából)
+  const onlineIds = new Set((live?.users || []).map((u) => u.id));
 
   // Első rendernél a `me` még null (localStorage-ből töltődik) — ilyenkor
   // betöltőt mutatunk, nem üres képernyőt. Nem-admin usert az effect átirányít.
@@ -179,6 +218,78 @@ export default function AdminPanel() {
           ))}
         </div>
       )}
+
+      {/* Felhasználók — utolsó belépés és aktivitás */}
+      <h2 style={{ marginTop: 32 }}>👥 Felhasználók aktivitása ({users.length})</h2>
+      <div className="card">
+        <div className="row" style={{ gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+          <input
+            className="input"
+            style={{ flex: 1, minWidth: 200 }}
+            placeholder="Keresés név / email / telefon…"
+            value={userSearch}
+            onChange={(e) => setUserSearch(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') searchUsers(userSearch); }}
+          />
+          <button className="btn btn-ghost" onClick={() => searchUsers(userSearch)}>Keresés</button>
+          {userSearch && (
+            <button className="btn btn-ghost" onClick={() => { setUserSearch(''); searchUsers(''); }}>Törlés</button>
+          )}
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 640 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ padding: '8px 10px' }}>Felhasználó</th>
+                <th style={{ padding: '8px 10px' }}>Szerep</th>
+                <th style={{ padding: '8px 10px' }}>Utolsó belépés</th>
+                <th style={{ padding: '8px 10px', textAlign: 'center' }}>Belépések</th>
+                <th style={{ padding: '8px 10px' }}>Utoljára aktív</th>
+                <th style={{ padding: '8px 10px', textAlign: 'right' }}>Összes aktív idő</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => {
+                const online = onlineIds.has(u.id);
+                return (
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '8px 10px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span
+                          title={online ? 'Éppen online' : 'Offline'}
+                          style={{
+                            width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                            background: online ? '#22c55e' : 'var(--border)',
+                          }}
+                        />
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{u.full_name || '—'}</div>
+                          <div className="muted" style={{ fontSize: 11 }}>{u.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px 10px' }}>{u.role}</td>
+                    <td style={{ padding: '8px 10px' }} title={u.last_login_at ? new Date(u.last_login_at).toLocaleString('hu-HU') : 'soha'}>
+                      {fmtWhen(u.last_login_at)}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>{u.login_count ?? 0}</td>
+                    <td style={{ padding: '8px 10px' }} title={u.last_seen_at ? new Date(u.last_seen_at).toLocaleString('hu-HU') : 'soha'}>
+                      {fmtWhen(u.last_seen_at)}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 600 }}>
+                      {fmtActive(u.total_active_seconds)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="muted" style={{ fontSize: 11, marginTop: 10, marginBottom: 0 }}>
+          Az „összes aktív idő" becsült érték: az oldalon nyitott munkamenetek hosszából gyűjtjük.
+          A zöld pont azt jelzi, ki van éppen online.
+        </p>
+      </div>
 
       {/* Nyitott viták */}
       <h2 style={{ marginTop: 32 }}>⚖️ Nyitott viták ({disputes.filter((d) => d.status === 'open' || d.status === 'under_review').length})</h2>

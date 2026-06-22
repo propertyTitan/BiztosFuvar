@@ -296,6 +296,13 @@ router.post('/login', loginRateLimit, async (req, res) => {
     return res.status(401).json({ error: 'Hibás email vagy jelszó' });
   }
   delete user.password_hash;
+  // Aktivitás-napló: utolsó belépés + belépés-számláló. Fire-and-forget,
+  // hogy egy esetleges DB-hiba ne blokkolja a bejelentkezést.
+  db.query(
+    `UPDATE users SET last_login_at = NOW(), last_seen_at = NOW(),
+            login_count = login_count + 1 WHERE id = $1`,
+    [user.id],
+  ).catch((e) => console.warn('[login] aktivitás-frissítés hiba:', e.message));
   res.json({ user, token: signToken(user) });
 });
 
