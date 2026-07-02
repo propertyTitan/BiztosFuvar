@@ -3,7 +3,9 @@
 // és determinisztikus IKEA-választ adunk — a teszt így nem függ külső
 // weboldal elérhetőségétől, de a teljes web-oldali flow-t végigjárja.
 import { test, expect } from '@playwright/test';
-import { createUser, createJob, getJobRow, loginAs, selectAddress, setJobAccepted } from './helpers';
+import {
+  createUser, createJob, getJobRow, loginAs, selectAddress, setJobAccepted, TINY_PNG,
+} from './helpers';
 
 const PRODUCT_URL = 'https://www.ikea.com/hu/hu/p/billy-konyvespolc-feher-00263850/';
 const PRODUCT_IMAGE = 'https://www.ikea.com/hu/hu/images/products/billy-konyvespolc-feher.jpg';
@@ -69,6 +71,11 @@ test('terméklink előnézete előtölti a feladást, a kép a sofőrig jut', as
   await setJobAccepted(createdJob.id, carrier.id, { paid: true, priceHuf: 12000 });
 
   const carrierPage = await page.context().browser()!.newPage();
+  // A kamu IKEA kép-URL-t valódi PNG-vel szolgáljuk ki — a 404-re az <img>
+  // onError-je elrejtené a képet, és a teszt a külső hoszttól függene
+  await carrierPage.route(PRODUCT_IMAGE, (route) =>
+    route.fulfill({ contentType: 'image/png', body: TINY_PNG }),
+  );
   await loginAs(carrierPage, carrier);
   await carrierPage.goto(`/sofor/fuvar/${createdJob.id}`);
   await expect(carrierPage.getByAltText(/hozandó termék/i)).toBeVisible();
