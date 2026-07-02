@@ -208,9 +208,12 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
 8. Vercel + Railway automatikusan deployol; **a tesztek CI-ben minden PR-en
    és main-pushon lefutnak**: web (Vitest, `web-tests.yml`) + backend üzleti
-   szabály tesztek (Vitest + supertest + embedded-postgres, `backend-tests.yml`).
-   Lokálisan: `cd web && npm test` ill. `cd backend && npm test` (utóbbi saját
-   eldobható Postgrest indít az 54331-es porton — a prod Neont SOHA nem éri el)
+   szabály tesztek (Vitest + supertest + embedded-postgres, `backend-tests.yml`)
+   + böngészős E2E (Playwright, `e2e-tests.yml` — teljes stack: beágyazott
+   PG ← backend:4100 ← Next:3100, valódi Google Places; a Maps-kulcs repo-
+   secret). Lokálisan: `cd web && npm test` / `npm run test:e2e` ill.
+   `cd backend && npm test` (a teszt-Postgresek az 54331/54332-es porton
+   futnak — a prod Neont teszt SOHA nem éri el)
 9. User böngészőből ellenőrzi (élesben verifikálás gyakran: DB-teszt a
    `backend/.env` connstringgel + headless screenshot request-interceptionnel,
    Vercel bot-védelem miatt lokális prod-build a `https://api.gofuvar.hu`-ra)
