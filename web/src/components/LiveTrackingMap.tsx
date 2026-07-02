@@ -92,7 +92,7 @@ export default function LiveTrackingMap({ job }: Props) {
         <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
         <p className="muted" style={{ margin: '8px 0 0' }}>
           Állítsd be a <code>NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> környezeti változót,
-          hogy lásd a térképet és az élő követést.
+          hogy lásd a térképet.
         </p>
       </div>
     );
@@ -196,7 +196,7 @@ export default function LiveTrackingMap({ job }: Props) {
       >
         <div>
           <span className="pill pill-progress" style={{ marginRight: 8 }}>
-            {driver ? '🔴 Élő követés aktív' : '⏳ Várakozás a sofőr pozíciójára'}
+            {driver ? '🔴 Élő követés aktív' : 'Élő GPS-követés hamarosan — a GoFuvar mobilapp érkezésével'}
           </span>
           {updatedAt && (
             <span className="muted" style={{ fontSize: 12 }}>

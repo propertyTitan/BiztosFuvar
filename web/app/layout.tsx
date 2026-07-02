@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     template: '%s | GoFuvar',
   },
   description:
-    'Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. Biztonságos Barion letét, élő GPS követés, fotó bizonyíték, 6 jegyű átvételi kód. Ingyenes regisztráció.',
+    'Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. Biztonságos Barion letét, fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
   keywords: [
     'fuvar', 'szállítás', 'csomag', 'költöztetés', 'sofőr', 'fuvartőzsde',
     'GoFuvar', 'közösségi szállítás', 'licit', 'fix áras fuvar',
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://gofuvar.hu'),
   openGraph: {
     title: 'GoFuvar – Közösségi fuvartőzsde',
-    description: 'Csomagod van? Sofőröd is lesz. Biztonságos fizetés, élő követés, fotó bizonyíték.',
+    description: 'Csomagod van? Sofőröd is lesz. Biztonságos fizetés, fotó bizonyíték, 6 jegyű átvételi kód.',
     type: 'website',
     locale: 'hu_HU',
     siteName: 'GoFuvar',
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'GoFuvar – Közösségi fuvartőzsde',
-    description: 'Csomagod van? Sofőröd is lesz. Biztonságos letéti fizetés, élő GPS-követés.',
+    description: 'Csomagod van? Sofőröd is lesz. Biztonságos letéti fizetés, 6 jegyű átvételi kód.',
     images: ['/og-image.png'],
   },
   manifest: '/manifest.webmanifest',
