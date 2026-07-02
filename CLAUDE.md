@@ -176,6 +176,12 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   (részletek: 7. szakasz 8. pont). Közben javítva: fizetetlen fuvaron nem
   indítható munka (paid_at guard) + lemondáskor az escrow-sor refunded-re
   vált (eddig held-ben ragadt)
+- **Polír-csomag (2026-07-02, PR #44)** — 187 hex → design-token (dark
+  mode konzisztens), 17 oldalankénti title + favicon-készlet + sitemap,
+  a11y-kör (toast aria-live, htmlFor/autocomplete a fő űrlapokon),
+  HomeHub emoji → lucide SVG. **Nyelvváltó ELREJTVE** a fejlécből (a
+  fordítás ~3/31 oldal volt) — az i18n-infra él, külföldi launchnál
+  kész fordítással tér vissza
 
 ### 🟡 Várakozóban
 - **Barion Bridge szerződés** — kérelem elküldve, partners@barion.com várjuk
