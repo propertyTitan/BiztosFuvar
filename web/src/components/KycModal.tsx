@@ -273,7 +273,7 @@ export default function KycModal() {
             </div>
 
             {error && (
-              <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>
+              <p style={{ color: 'var(--danger-text)', fontSize: 13, marginBottom: 12 }}>
                 {error}
               </p>
             )}

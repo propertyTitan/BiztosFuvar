@@ -65,7 +65,7 @@ export default function LandingPage() {
         }} />
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 8,
-          background: 'var(--primary-subtle)', color: 'var(--primary)',
+          background: 'var(--primary-subtle)', color: 'var(--primary-text)',
           padding: '6px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700,
           marginBottom: 24, letterSpacing: 0.3, border: '1px solid var(--primary-light)',
         }}>
@@ -195,7 +195,7 @@ export default function LandingPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
           {TRUST.map((t) => (
             <div key={t.label} className="card" style={{ textAlign: 'center', marginBottom: 0 }}>
-              <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--primary)', lineHeight: 1, marginBottom: 8 }}>
+              <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--primary-text)', lineHeight: 1, marginBottom: 8 }}>
                 {t.stat}
               </div>
               <div className="muted" style={{ fontSize: 14 }}>{t.label}</div>

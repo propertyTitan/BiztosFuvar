@@ -130,7 +130,7 @@ export default function PriceCalculator() {
         </div>
 
         {error && (
-          <p style={{ color: 'var(--danger)', marginTop: 12, textAlign: 'center' }}>
+          <p style={{ color: 'var(--danger-text)', marginTop: 12, textAlign: 'center' }}>
             {error}
           </p>
         )}
@@ -166,7 +166,7 @@ export default function PriceCalculator() {
                 marginTop: 16,
                 display: 'inline-block',
                 textDecoration: 'none',
-                background: 'var(--success)',
+                background: 'var(--success-strong)',
                 fontSize: 14,
                 padding: '10px 24px',
               }}

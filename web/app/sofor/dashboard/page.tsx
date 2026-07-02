@@ -143,7 +143,7 @@ export default function SoforDashboard() {
                   {j.distance_km} km · {new Date(j.delivered_at).toLocaleDateString('hu-HU')}
                 </div>
               </div>
-              <strong style={{ color: 'var(--success)' }}>{fmt(j.accepted_price_huf)} Ft</strong>
+              <strong style={{ color: 'var(--success-text)' }}>{fmt(j.accepted_price_huf)} Ft</strong>
             </div>
           ))}
         </div>

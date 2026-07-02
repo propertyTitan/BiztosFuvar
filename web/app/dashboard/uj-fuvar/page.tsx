@@ -103,7 +103,7 @@ const initialForm: FormState = {
   recipient_email: '',
 };
 
-const REQ = { color: 'var(--danger)', fontWeight: 700 } as const;
+const REQ = { color: 'var(--danger-text)', fontWeight: 700 } as const;
 const redBorder = { border: '2px solid var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.15)' } as const;
 
 export default function UjFuvar() {
@@ -894,7 +894,7 @@ export default function UjFuvar() {
           </p>
         </div>
 
-        {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--danger-text)', marginTop: 16 }}>{error}</p>}
         {uploadProgress && (
           <p className="muted" style={{ marginTop: 16 }}>{uploadProgress}</p>
         )}

@@ -167,7 +167,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
             }}
           />
           {warning && (
-            <p style={{ color: 'var(--danger)', fontSize: 13, margin: '6px 0 0' }}>
+            <p style={{ color: 'var(--danger-text)', fontSize: 13, margin: '6px 0 0' }}>
               ⚠️ {warning}
             </p>
           )}
@@ -212,7 +212,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
               {q.answer ? (
                 <div style={{ background: 'var(--surface)', padding: 10, borderRadius: 8, marginTop: 8 }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 4 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--success)' }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--success-text)' }}>
                       ✅ {q.answerer_name || 'Feladó'} válaszolt
                     </span>
                     <span className="muted" style={{ fontSize: 12 }}>
@@ -245,7 +245,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
                         }}
                       />
                       {answerWarnings[q.id] && (
-                        <p style={{ color: 'var(--danger)', fontSize: 12, margin: '4px 0 0' }}>
+                        <p style={{ color: 'var(--danger-text)', fontSize: 12, margin: '4px 0 0' }}>
                           ⚠️ {answerWarnings[q.id]}
                         </p>
                       )}

@@ -170,7 +170,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
               style={{
                 fontSize: 15,
                 fontWeight: 700,
-                color: 'var(--primary)',
+                color: 'var(--primary-text)',
                 margin: '6px 0',
               }}
             >

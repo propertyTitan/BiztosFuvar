@@ -241,7 +241,7 @@ function BejelentkezesContent() {
                 borderRadius: 10,
                 marginBottom: 8,
               }}>
-                <label>Cégnév <span style={{ color: 'var(--danger)', fontWeight: 700 }}>*</span></label>
+                <label>Cégnév <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>*</span></label>
                 <input
                   className="input"
                   type="text"
@@ -250,7 +250,7 @@ function BejelentkezesContent() {
                   placeholder="Pl. GoFuvar Kft."
                   required
                 />
-                <label>Adószám <span style={{ color: 'var(--danger)', fontWeight: 700 }}>*</span></label>
+                <label>Adószám <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>*</span></label>
                 <input
                   className="input"
                   type="text"
@@ -329,7 +329,7 @@ function BejelentkezesContent() {
         </div>
 
         {error && (
-          <p role="alert" style={{ color: 'var(--danger)', marginTop: 8, fontSize: 14 }}>
+          <p role="alert" style={{ color: 'var(--danger-text)', marginTop: 8, fontSize: 14 }}>
             ⚠️ {error}
           </p>
         )}
@@ -351,7 +351,7 @@ function BejelentkezesContent() {
 
         {mode === 'login' && (
           <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13 }}>
-            <a href="/elfelejtett-jelszo" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 600 }}>
+            <a href="/elfelejtett-jelszo" style={{ color: 'var(--primary-text)', textDecoration: 'none', fontWeight: 600 }}>
               Elfelejtetted a jelszót?
             </a>
           </p>

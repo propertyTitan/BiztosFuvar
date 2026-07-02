@@ -53,7 +53,7 @@ function HubContent() {
                 display: 'inline-flex', alignItems: 'center', gap: 8,
                 padding: '10px 16px', whiteSpace: 'nowrap', textDecoration: 'none',
                 fontSize: 14, fontWeight: active ? 700 : 500,
-                color: active ? 'var(--primary)' : 'var(--text-secondary)',
+                color: active ? 'var(--primary-text)' : 'var(--text-secondary)',
                 borderBottom: `2px solid ${active ? 'var(--primary)' : 'transparent'}`,
                 marginBottom: -1, transition: 'all var(--transition)',
               }}

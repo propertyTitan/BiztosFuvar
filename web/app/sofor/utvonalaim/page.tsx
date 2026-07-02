@@ -129,7 +129,7 @@ export default function UtvonalaimOldal() {
                   </button>
                   <button
                     className="btn btn-secondary"
-                    style={{ fontSize: 12, padding: '4px 10px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                    style={{ fontSize: 12, padding: '4px 10px', borderColor: 'var(--danger)', color: 'var(--danger-text)' }}
                     onClick={() => setCancelTarget(r)}
                   >
                     Törlés

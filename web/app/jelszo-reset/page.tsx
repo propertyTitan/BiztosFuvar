@@ -107,7 +107,7 @@ function JelszoResetInner() {
         />
 
         {error && (
-          <p style={{ color: 'var(--danger)', marginTop: 12, fontSize: 14 }}>⚠️ {error}</p>
+          <p style={{ color: 'var(--danger-text)', marginTop: 12, fontSize: 14 }}>⚠️ {error}</p>
         )}
 
         <button
@@ -120,7 +120,7 @@ function JelszoResetInner() {
         </button>
 
         <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13 }}>
-          <Link href="/bejelentkezes" style={{ color: 'var(--primary)' }}>
+          <Link href="/bejelentkezes" style={{ color: 'var(--primary-text)' }}>
             ← Vissza a bejelentkezéshez
           </Link>
         </p>

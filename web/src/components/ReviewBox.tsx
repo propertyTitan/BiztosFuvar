@@ -92,7 +92,7 @@ export default function ReviewBox({ entityKey, entityId, onDone }: Props) {
       )}
 
       {submitted && (
-        <p style={{ color: 'var(--success)', fontWeight: 600, fontSize: 14 }}>
+        <p style={{ color: 'var(--success-text)', fontWeight: 600, fontSize: 14 }}>
           Köszönjük az értékelésed!
         </p>
       )}

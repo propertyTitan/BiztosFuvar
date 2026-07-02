@@ -385,8 +385,8 @@ export default function SoforFuvarReszletek() {
               {(job as any).pickup_floor == null ? 'emelet nincs megadva' : (job as any).pickup_floor === 0 ? 'Földszint' : `${(job as any).pickup_floor}. emelet`}
               {(job as any).pickup_floor > 0 && (
                 (job as any).pickup_has_elevator
-                  ? <span style={{ color: 'var(--success)', fontWeight: 700 }}> (lift van ✓)</span>
-                  : <span style={{ color: 'var(--danger)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van ✓)</span>
+                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
               )}
             </div>
           )}
@@ -397,8 +397,8 @@ export default function SoforFuvarReszletek() {
               {(job as any).dropoff_floor == null ? 'emelet nincs megadva' : (job as any).dropoff_floor === 0 ? 'Földszint' : `${(job as any).dropoff_floor}. emelet`}
               {(job as any).dropoff_floor > 0 && (
                 (job as any).dropoff_has_elevator
-                  ? <span style={{ color: 'var(--success)', fontWeight: 700 }}> (lift van ✓)</span>
-                  : <span style={{ color: 'var(--danger)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van ✓)</span>
+                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
               )}
             </div>
           )}
@@ -528,7 +528,7 @@ export default function SoforFuvarReszletek() {
                   }}
                 >
                   Platform díj: <strong>{fee.toLocaleString('hu-HU')} Ft</strong> (10% + 400 Ft)
-                  {' · '}Te kapsz: <strong style={{ color: 'var(--success)', fontSize: 15 }}>{net.toLocaleString('hu-HU')} Ft</strong>
+                  {' · '}Te kapsz: <strong style={{ color: 'var(--success-text)', fontSize: 15 }}>{net.toLocaleString('hu-HU')} Ft</strong>
                 </div>
               );
             })()}

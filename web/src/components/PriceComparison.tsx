@@ -47,7 +47,7 @@ export default function PriceComparison({ goFuvarEstimate, weightKg }: Props) {
   const foxpost = foxpostPrice(weightKg);
 
   const competitors = [
-    { name: 'GoFuvar', price: goFuvarEstimate, color: 'var(--success)', bold: true, note: 'Aznapi, rugalmas' },
+    { name: 'GoFuvar', price: goFuvarEstimate, color: 'var(--success-text)', bold: true, note: 'Aznapi, rugalmas' },
     { name: 'GLS', price: gls, color: '#1565C0', bold: false, note: '1-2 munkanap' },
     { name: 'MPL (Posta)', price: mpl, color: '#C62828', bold: false, note: '2-3 munkanap' },
     ...(foxpost > 0 ? [{ name: 'Foxpost', price: foxpost, color: '#FF6F00', bold: false, note: 'Automata, max 25 kg' }] : []),

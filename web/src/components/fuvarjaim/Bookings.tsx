@@ -210,7 +210,7 @@ export default function FoglalasaimOldal() {
                 style={{
                   marginTop: 10,
                   display: 'inline-block',
-                  background: 'var(--success)',
+                  background: 'var(--success-strong)',
                   fontSize: 14,
                   border: 'none',
                   cursor: payingId === b.id ? 'wait' : 'pointer',
@@ -230,7 +230,7 @@ export default function FoglalasaimOldal() {
                   style={{
                     background: 'transparent',
                     border: '1px solid var(--danger)',
-                    color: 'var(--danger)',
+                    color: 'var(--danger-text)',
                     padding: '4px 10px',
                     borderRadius: 6,
                     cursor: 'pointer',

@@ -176,7 +176,7 @@ function UjUtvonalContent() {
             <button
               type="button"
               onClick={() => setTitle(autoTitle())}
-              style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', padding: 0 }}
+              style={{ background: 'none', border: 'none', color: 'var(--primary-text)', cursor: 'pointer', padding: 0 }}
             >
               → Automatikus név: „{autoTitle()}”
             </button>
@@ -256,7 +256,7 @@ function UjUtvonalContent() {
                 style={{
                   margin: 0,
                   padding: 12,
-                  background: row.enabled ? '#eff6ff' : 'var(--bg)',
+                  background: row.enabled ? 'var(--primary-subtle)' : 'var(--bg)',
                   opacity: row.enabled ? 1 : 0.65,
                   display: 'flex',
                   alignItems: 'center',
@@ -290,7 +290,7 @@ function UjUtvonalContent() {
           })}
         </div>
 
-        {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--danger-text)', marginTop: 16 }}>{error}</p>}
 
         <div className="row" style={{ marginTop: 24, gap: 12 }}>
           <button className="btn" type="submit" disabled={submitting}>

@@ -50,7 +50,7 @@ export default function EmailVerifyBanner() {
       style={{
         background: 'var(--warning-light)',
         border: '1px solid var(--warning)',
-        color: '#78350f',
+        color: 'var(--text)',
         padding: '10px 16px',
         fontSize: 14,
         display: 'flex',
@@ -70,7 +70,7 @@ export default function EmailVerifyBanner() {
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#78350f',
+                color: 'var(--text)',
                 fontWeight: 700,
                 textDecoration: 'underline',
                 cursor: 'pointer',
@@ -81,13 +81,13 @@ export default function EmailVerifyBanner() {
               {resending ? 'Küldés…' : 'Küldj egy új linket'}
             </button>
         }
-        {error && <span style={{ marginLeft: 8, color: '#991b1b' }}> ⚠ {error}</span>}
+        {error && <span style={{ marginLeft: 8, color: 'var(--text)' }}> ⚠ {error}</span>}
       </span>
       <button
         onClick={() => setShow(false)}
         style={{
           background: 'transparent', border: 'none', cursor: 'pointer',
-          color: '#78350f', fontSize: 18, padding: 4,
+          color: 'var(--text)', fontSize: 18, padding: 4,
         }}
         title="Bezár"
       >
