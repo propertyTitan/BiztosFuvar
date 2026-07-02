@@ -148,7 +148,7 @@ export default function SoforFuvarokLista() {
               textDecoration: 'none',
             }}
           >
-            ➕ Új hirdetés feladása
+            Új hirdetés feladása
           </Link>
           {/* Nézet váltó: lista ↔ térkép */}
           <div
@@ -297,7 +297,7 @@ export default function SoforFuvarokLista() {
           <p className="muted" style={{ margin: '0 0 16px' }}>
             Hirdess fix áras útvonalat — a feladók rád találnak, és üresjárat nélkül fuvarozhatsz.
           </p>
-          <Link className="btn" href="/sofor/uj-utvonal">➕ Új útvonal meghirdetése</Link>
+          <Link className="btn" href="/sofor/uj-utvonal">Új útvonal meghirdetése</Link>
         </div>
       )}
 

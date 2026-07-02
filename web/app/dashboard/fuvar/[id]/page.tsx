@@ -442,7 +442,7 @@ export default function FuvarReszletek() {
                     opacity: paying ? 0.7 : 1,
                   }}
                 >
-                  {paying ? 'Fizetés indítása…' : '💳 Fizetés Barionnal'}
+                  {paying ? 'Fizetés indítása…' : 'Fizetés Barionnal'}
                 </button>
               ) : null}
             </>
@@ -465,7 +465,7 @@ export default function FuvarReszletek() {
                   fontWeight: 600,
                 }}
               >
-                ❌ Fuvar lemondása
+                Fuvar lemondása
               </button>
               {job.paid_at && (
                 <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>

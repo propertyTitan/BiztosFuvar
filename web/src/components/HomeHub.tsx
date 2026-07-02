@@ -156,7 +156,7 @@ export default function HomeHub() {
                         fontSize: 14, cursor: 'pointer',
                       }}
                     >
-                      🛡️ Megcsinálom most!
+                      Megcsinálom most!
                     </button>
                     <button
                       type="button"
@@ -256,7 +256,7 @@ export default function HomeHub() {
                   🎯 Fuvarok böngészése
                 </Link>
                 <Link href="/sofor/uj-utvonal" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-                  ➕ Útvonal hirdetése
+                  Útvonal hirdetése
                 </Link>
               </div>
             </div>
@@ -372,7 +372,7 @@ export default function HomeHub() {
                         cursor: 'pointer',
                       }}
                     >
-                      🛡️ Megcsinálom most!
+                      Megcsinálom most!
                     </button>
                     <button
                       type="button"

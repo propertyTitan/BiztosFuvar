@@ -102,7 +102,7 @@ export default function ErtesitesekOldal() {
           <p className="muted" style={{ margin: '0 0 16px' }}>
             Itt jelennek meg a liciteid, fuvarjaid és üzeneteid eseményei.
           </p>
-          <Link className="btn" href="/dashboard/uj-fuvar">➕ Adj fel egy fuvart</Link>
+          <Link className="btn" href="/dashboard/uj-fuvar">Adj fel egy fuvart</Link>
         </div>
       )}
 

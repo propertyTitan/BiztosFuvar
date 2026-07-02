@@ -72,7 +72,7 @@ export default function FeladoiUtvonalBongeszo() {
               textDecoration: 'none',
             }}
           >
-            ➕ Új útvonal hirdetése
+            Új útvonal hirdetése
           </Link>
         </div>
       </div>

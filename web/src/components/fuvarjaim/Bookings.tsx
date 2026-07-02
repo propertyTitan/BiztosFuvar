@@ -217,7 +217,7 @@ export default function FoglalasaimOldal() {
                   opacity: payingId === b.id ? 0.7 : 1,
                 }}
               >
-                {payingId === b.id ? 'Fizetés indítása…' : '💳 Fizetés Barionnal'}
+                {payingId === b.id ? 'Fizetés indítása…' : 'Fizetés Barionnal'}
               </button>
             )}
 
