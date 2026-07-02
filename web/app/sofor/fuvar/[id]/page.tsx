@@ -681,7 +681,7 @@ export default function SoforFuvarReszletek() {
       {/* A fuvar végrehajtása a weben: felvétel-fotó → in_progress,
           kézbesítés-fotó + 6 jegyű kód → delivered. */}
       {iAmTheCarrier && (job.status === 'accepted' || job.status === 'in_progress') && (
-        <CarrierTripPanel jobId={id} status={job.status} onDone={load} />
+        <CarrierTripPanel jobId={id} status={job.status} paid={!!job.paid_at} onDone={load} />
       )}
 
       {/* Chat */}

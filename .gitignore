@@ -14,3 +14,6 @@ package-lock.json
 
 # Claude Code személyes beállítások
 .claude/settings.local.json
+
+# Beágyazott teszt-Postgres adatkönyvtára
+backend/tests/.pg-data/

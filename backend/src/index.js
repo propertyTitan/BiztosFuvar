@@ -158,10 +158,16 @@ process.on('uncaughtException', (err) => {
   if (Sentry) Sentry.captureException(err);
 });
 
+// Teszt alatt (vitest/supertest) az app-ot importáljuk, de a szerver nem
+// figyel porton — csak közvetlen indításnál (node src/index.js) listen-elünk.
 const port = parseInt(process.env.PORT || '4000', 10);
-server.listen(port, () => {
-  console.log(`[gofuvar] backend fut: http://localhost:${port}`);
-});
+if (require.main === module) {
+  server.listen(port, () => {
+    console.log(`[gofuvar] backend fut: http://localhost:${port}`);
+  });
+}
+
+module.exports = { app, server };
 
 // Supabase free-tier keep-alive: a project 7 nap inaktivitás után auto-pause-ol.
 // 5 percenként egy könnyű SELECT 1-et küldünk a DB-nek, hogy a "last activity"
