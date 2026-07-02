@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
 import { api } from './api';
 
 // A request() wrapper a lelke a web↔backend hídnak: ő rakja rá a tokent,
@@ -17,7 +17,7 @@ function mockResponse(status: number, body: unknown): Response {
   } as unknown as Response;
 }
 
-let dispatchSpy: ReturnType<typeof vi.spyOn>;
+let dispatchSpy: MockInstance<(event: Event) => boolean>;
 let originalLocation: Location;
 
 beforeEach(() => {
@@ -27,7 +27,6 @@ beforeEach(() => {
   // 401-nél a wrapper window.location.href-et állít → jsdom-ban navigáció,
   // ezt egy sima objektummal helyettesítjük, hogy ne dobjon.
   originalLocation = window.location;
-  // @ts-expect-error – teszt-célú felülírás
   delete (window as any).location;
   (window as any).location = { href: '' };
 });
