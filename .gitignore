@@ -17,3 +17,8 @@ package-lock.json
 
 # Beágyazott teszt-Postgres adatkönyvtára
 backend/tests/.pg-data/
+
+# Playwright E2E
+web/e2e/.pg-data/
+web/playwright-report/
+web/test-results/

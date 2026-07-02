@@ -1,0 +1,55 @@
+name: E2E tesztek (Playwright)
+
+# Teljes-stack böngészős tesztek: beágyazott Postgres ← backend ← Next.js web.
+# A Google Maps kulcs repo-secret (kliens-oldali, NEXT_PUBLIC_ kulcs — a prod
+# bundle-ben amúgy is látható), a cím-keresés teszt valódi Places-szel megy.
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'backend/**'
+      - '.github/workflows/e2e-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'backend/**'
+      - '.github/workflows/e2e-tests.yml'
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A package-lock.json nincs verziókövetve, ezért npm install (nem npm ci).
+      - name: Backend függőségek
+        working-directory: backend
+        run: npm install
+
+      - name: Web függőségek
+        working-directory: web
+        run: npm install
+
+      - name: Playwright Chromium telepítése
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tesztek futtatása
+        working-directory: web
+        run: npx playwright test
+
+      - name: Playwright riport feltöltése hibánál
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
