@@ -155,6 +155,22 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - Coverage Európa
 - AI chatbot frissített tudás (PWA-magyarázat + anti-hallucinációs tiltás)
 - Auto-logout, dual delivery code, recipient SMS, és sok más
+- **Ellenajánlat (Vinted-stílusú alku)** — a feladó és a sofőr oda-vissza
+  ellenajánlatot küldhet a liciten (realtime + escrow-versenyvédelem)
+- **"Hozasd el"** — IKEA/OBI/Praktiker/Jófogás terméklink → OG-előnézet
+  (cím + kép) → fuvar-előtöltés; a **termékkép a sofőrig is eljut** (host-
+  engedélylistával validált kép-URL)
+- **Sikertelen kézbesítés: visszaszállítási nyilatkozat** — a sofőr a licitnél
+  kötelezően nyilatkozik (benne van / +díj / nem), a feladó jelvényként látja
+- **Admin: élő jelenlét dashboard** — kik vannak ÉPPEN az oldalon (aktív
+  Socket.IO kapcsolatokból, 5 mp-enként frissül)
+- **Admin: felhasználói aktivitás-napló** — utolsó belépés, belépés-szám,
+  utoljára aktív, becsült összes aktív idő (socket-élettartamból); kereshető
+- **Admin: KYC kézi jóváhagyási felület** — függő dokumentumok kép-előnézettel,
+  ✅ jóváhagyás / ❌ elutasítás (indokkal, amit a user értesítésben megkap);
+  a KYC-értesítések a `/admin#kyc` szekcióra visznek
+- **Okos árazás** a feladásban (ajánlott ársáv, ~90 Ft/km kalibráció)
+- **Sofőr lane-alert** (email + in-app értesítés, NEM SMS — spórolás)
 
 ### 🟡 Várakozóban
 - **Barion Bridge szerződés** — kérelem elküldve, partners@barion.com várjuk
@@ -185,10 +201,16 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 3. **Új feature-branch** main-ről (pl. `claude/<rövid-leírás>`)
 4. Implementálás, lokális `next build` ellenőrzés
 5. Commit (HU-szöveg, részletes), push
-6. **GitHub PR létrehozás** (mcp__github__create_pull_request)
-7. **PR merge** (mcp__github__merge_pull_request)
+6. **PR ha elérhető** (mcp__github__create_pull_request / merge). ⚠️ Ha nincs
+   `gh` CLI ÉS nincs GitHub MCP (mint a 2026-06/07 sessionökben), akkor
+   **közvetlen `git merge --no-ff` main-re + push** a bevált fallback — a
+   Vercel/Railway így is auto-deployol. (`gh` telepítés: `brew install gh` +
+   `gh auth login`, ha PR-workflow-t akarsz.)
+7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
 8. Vercel + Railway automatikusan deployol
-9. User böngészőből ellenőrzi
+9. User böngészőből ellenőrzi (élesben verifikálás gyakran: DB-teszt a
+   `backend/.env` connstringgel + headless screenshot request-interceptionnel,
+   Vercel bot-védelem miatt lokális prod-build a `https://api.gofuvar.hu`-ra)
 
 ### Kommunikációs stílus
 - Magyar nyelven, közvetlen, **őszintén** (nem corporate-speak)
