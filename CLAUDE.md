@@ -171,6 +171,11 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   a KYC-értesítések a `/admin#kyc` szekcióra visznek
 - **Okos árazás** a feladásban (ajánlott ársáv, ~90 Ft/km kalibráció)
 - **Sofőr lane-alert** (email + in-app értesítés, NEM SMS — spórolás)
+- **Teljes automata tesztvédelem (58 teszt, 2026-07-02)** — 27 web unit +
+  23 backend üzleti szabály + 8 Playwright E2E, mind CI-ben minden PR-en
+  (részletek: 7. szakasz 8. pont). Közben javítva: fizetetlen fuvaron nem
+  indítható munka (paid_at guard) + lemondáskor az escrow-sor refunded-re
+  vált (eddig held-ben ragadt)
 
 ### 🟡 Várakozóban
 - **Barion Bridge szerződés** — kérelem elküldve, partners@barion.com várjuk
@@ -206,14 +211,27 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **a tesztek CI-ben minden PR-en
-   és main-pushon lefutnak**: web (Vitest, `web-tests.yml`) + backend üzleti
-   szabály tesztek (Vitest + supertest + embedded-postgres, `backend-tests.yml`)
-   + böngészős E2E (Playwright, `e2e-tests.yml` — teljes stack: beágyazott
-   PG ← backend:4100 ← Next:3100, valódi Google Places; a Maps-kulcs repo-
-   secret). Lokálisan: `cd web && npm test` / `npm run test:e2e` ill.
+8. Vercel + Railway automatikusan deployol; **58 teszt fut CI-ben minden
+   PR-en és main-pushon** (~2,5 perc összesen):
+   - **27 web unit** (Vitest, `web-tests.yml`)
+   - **23 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+     `backend-tests.yml`): fizetési guard, kód brute-force lockout, egyszeri
+     escrow-felszabadítás, lemondási escrow-refund, adat-scrub/IDOR,
+     licit-láthatóság, admin-eszkaláció tiltás, ÁSZF-díjszabás
+   - **8 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+     beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
+     Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
+     teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"
+     guard → stub-fizetés → pickup → kód-lezárás); vita; ellenajánlat-alku;
+     Hozasd el (mockolt link-preview + termékkép a sofőrnél); admin KYC
+     jóváhagyás; lemondás+refund
+   Lokálisan: `cd web && npm test` / `npm run test:e2e` ill.
    `cd backend && npm test` (a teszt-Postgresek az 54331/54332-es porton
-   futnak — a prod Neont teszt SOHA nem éri el)
+   futnak — a prod Neont teszt SOHA nem éri el).
+   E2E-tanulságok: Google Places legördülőt billentyűvel választani
+   (ArrowDown+Enter, kattintás instabil); teszt-user token lokális HS256
+   aláírással (login/register rate-limit miatt); külső kép-URL-eket
+   page.route-tal mockolni (404-re az onError elrejti az img-et).
 9. User böngészőből ellenőrzi (élesben verifikálás gyakran: DB-teszt a
    `backend/.env` connstringgel + headless screenshot request-interceptionnel,
    Vercel bot-védelem miatt lokális prod-build a `https://api.gofuvar.hu`-ra)
