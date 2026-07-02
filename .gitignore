@@ -11,3 +11,6 @@ coverage/
 uploads/
 tsconfig.tsbuildinfo
 package-lock.json
+
+# Claude Code személyes beállítások
+.claude/settings.local.json
