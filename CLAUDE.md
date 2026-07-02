@@ -206,8 +206,11 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **a web-tesztek (Vitest, CI)
-   minden PR-en és main-pushon lefutnak** (`.github/workflows/web-tests.yml`)
+8. Vercel + Railway automatikusan deployol; **a tesztek CI-ben minden PR-en
+   és main-pushon lefutnak**: web (Vitest, `web-tests.yml`) + backend üzleti
+   szabály tesztek (Vitest + supertest + embedded-postgres, `backend-tests.yml`).
+   Lokálisan: `cd web && npm test` ill. `cd backend && npm test` (utóbbi saját
+   eldobható Postgrest indít az 54331-es porton — a prod Neont SOHA nem éri el)
 9. User böngészőből ellenőrzi (élesben verifikálás gyakran: DB-teszt a
    `backend/.env` connstringgel + headless screenshot request-interceptionnel,
    Vercel bot-védelem miatt lokális prod-build a `https://api.gofuvar.hu`-ra)
