@@ -201,13 +201,13 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 3. **Új feature-branch** main-ről (pl. `claude/<rövid-leírás>`)
 4. Implementálás, lokális `next build` ellenőrzés
 5. Commit (HU-szöveg, részletes), push
-6. **PR ha elérhető** (mcp__github__create_pull_request / merge). ⚠️ Ha nincs
-   `gh` CLI ÉS nincs GitHub MCP (mint a 2026-06/07 sessionökben), akkor
-   **közvetlen `git merge --no-ff` main-re + push** a bevált fallback — a
-   Vercel/Railway így is auto-deployol. (`gh` telepítés: `brew install gh` +
-   `gh auth login`, ha PR-workflow-t akarsz.)
+6. **PR a `gh` CLI-vel** (2026-07-02 óta telepítve, `propertyTitan` fiókkal
+   bejelentkezve, `repo`+`workflow` scope-pal — workflow-fájlt is tud pusholni).
+   Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
+   main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol
+8. Vercel + Railway automatikusan deployol; **a web-tesztek (Vitest, CI)
+   minden PR-en és main-pushon lefutnak** (`.github/workflows/web-tests.yml`)
 9. User böngészőből ellenőrzi (élesben verifikálás gyakran: DB-teszt a
    `backend/.env` connstringgel + headless screenshot request-interceptionnel,
    Vercel bot-védelem miatt lokális prod-build a `https://api.gofuvar.hu`-ra)
