@@ -220,7 +220,7 @@ function FizetesStubContent() {
                 fontWeight: 700,
               }}
             >
-              💳 Fizetek most (STUB)
+              Fizetek most (STUB)
             </button>
             <button
               type="button"

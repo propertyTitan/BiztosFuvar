@@ -65,7 +65,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
           cursor: 'pointer',
         }}
       >
-        🚨 Problémám van ezzel a fuvarral
+        Problémám van ezzel a fuvarral
       </button>
 
       {open ? (
@@ -138,7 +138,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
                   opacity: submitting ? 0.6 : 1,
                 }}
               >
-                {submitting ? 'Küldés…' : '🚨 Vita megnyitása'}
+                {submitting ? 'Küldés…' : 'Vita megnyitása'}
               </button>
               <button
                 type="button"

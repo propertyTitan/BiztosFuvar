@@ -109,7 +109,7 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone }: Props)
           className="btn btn-secondary"
           style={{ display: 'inline-block', cursor: 'pointer', marginTop: 4 }}
         >
-          📸 Fotó kiválasztása / készítése
+          Fotó kiválasztása / készítése
         </label>
         <input
           id="pickup-photo"
@@ -158,7 +158,7 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone }: Props)
           className="btn btn-secondary"
           style={{ display: 'inline-block', cursor: 'pointer', marginTop: 4 }}
         >
-          📸 Fotó kiválasztása / készítése
+          Fotó kiválasztása / készítése
         </label>
         <input
           id="dropoff-photo"

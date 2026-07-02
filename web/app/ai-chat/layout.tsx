@@ -1,9 +1,12 @@
-// Szegmens-szintű metadata: a böngészőfül / kereső / megosztás címe.
+// Szegmens-szintű metadata: a böngészőfül / kereső / megosztás címe + leírása.
 // A "| GoFuvar" utótagot a root layout title.template-je adja hozzá.
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
-export const metadata: Metadata = { title: 'AI segéd' };
+export const metadata: Metadata = {
+  title: 'AI segéd',
+  description: 'Kérdezz a GoFuvar működéséről — az AI segéd azonnal válaszol.',
+};
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {
   return children;

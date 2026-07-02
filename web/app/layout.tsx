@@ -39,11 +39,22 @@ export const metadata: Metadata = {
     'GoFuvar', 'közösségi szállítás', 'licit', 'fix áras fuvar',
     'Barion', 'escrow', 'Magyarország',
   ],
+  metadataBase: new URL('https://gofuvar.hu'),
   openGraph: {
     title: 'GoFuvar – Közösségi fuvartőzsde',
     description: 'Csomagod van? Sofőröd is lesz. Biztonságos fizetés, élő követés, fotó bizonyíték.',
     type: 'website',
     locale: 'hu_HU',
+    siteName: 'GoFuvar',
+    // Megosztáskor (Facebook/Messenger — a fő marketing-csatorna!) ez a
+    // kép jelenik meg a link mellett. 1200×630, Playwrighttal renderelve.
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'GoFuvar – Csomagod van? Sofőröd is lesz.' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'GoFuvar – Közösségi fuvartőzsde',
+    description: 'Csomagod van? Sofőröd is lesz. Biztonságos letéti fizetés, élő GPS-követés.',
+    images: ['/og-image.png'],
   },
   manifest: '/manifest.webmanifest',
   appleWebApp: {
@@ -77,6 +88,43 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-title" content="GoFuvar" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="application-name" content="GoFuvar" />
+        {/* Structured data (JSON-LD) a keresőknek: ki üzemelteti az oldalt
+            és mi ez a szolgáltatás. A cégadatok az ÁSZF-fel egyeznek. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@graph': [
+                {
+                  '@type': 'Organization',
+                  '@id': 'https://gofuvar.hu/#org',
+                  name: 'GoFuvar',
+                  legalName: 'Tiszta Hód Korlátolt Felelősségű Társaság',
+                  url: 'https://gofuvar.hu',
+                  logo: 'https://gofuvar.hu/og-image.png',
+                  email: 'info@gofuvar.hu',
+                  telephone: '+36203979223',
+                  address: {
+                    '@type': 'PostalAddress',
+                    streetAddress: 'Szántó Kovács János utca 144.',
+                    postalCode: '6800',
+                    addressLocality: 'Hódmezővásárhely',
+                    addressCountry: 'HU',
+                  },
+                },
+                {
+                  '@type': 'WebSite',
+                  '@id': 'https://gofuvar.hu/#website',
+                  url: 'https://gofuvar.hu',
+                  name: 'GoFuvar – Magyarország közösségi fuvartőzsdéje',
+                  publisher: { '@id': 'https://gofuvar.hu/#org' },
+                  inLanguage: 'hu-HU',
+                },
+              ],
+            }),
+          }}
+        />
       </head>
       <body>
         <I18nProvider>

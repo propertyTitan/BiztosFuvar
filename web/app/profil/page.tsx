@@ -296,7 +296,7 @@ export default function ProfilOldal() {
             onClick={() => setEditing(true)}
             style={{ marginTop: 24 }}
           >
-            ✏️ Profil szerkesztése
+            Profil szerkesztése
           </button>
 
           {/* Fiók törlés */}

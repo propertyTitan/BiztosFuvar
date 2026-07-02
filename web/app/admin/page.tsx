@@ -226,14 +226,14 @@ export default function AdminPanel() {
                     disabled={kycBusy === doc.id}
                     onClick={() => approveKyc(doc.id)}
                   >
-                    {kycBusy === doc.id ? '…' : '✅ Jóváhagyom'}
+                    {kycBusy === doc.id ? '…' : 'Jóváhagyom'}
                   </button>
                   <button
                     className="btn btn-danger"
                     disabled={kycBusy === doc.id}
                     onClick={() => setKycReject({ id: doc.id, name: doc.full_name || doc.email })}
                   >
-                    ❌ Elutasítom
+                    Elutasítom
                   </button>
                 </div>
               </div>
@@ -462,7 +462,7 @@ export default function AdminPanel() {
             <div className="row" style={{ gap: 12 }}>
               <span className="pill" style={{ background: 'var(--success-light)', fontWeight: 700 }}>
                 {d.status === 'resolved_refund' ? '💸 Refund' :
-                 d.status === 'resolved_no_action' ? '✅ Nincs teendő' :
+                 d.status === 'resolved_no_action' ? 'Nincs teendő' :
                  d.status === 'closed' ? 'Lezárva' : d.status}
               </span>
               <span>{d.job_title || d.route_title || 'Vita'}</span>
@@ -522,7 +522,7 @@ export default function AdminPanel() {
       {/* Vita-döntés dialógus (a korábbi window.prompt kiváltása) */}
       <ConfirmDialog
         open={!!decision}
-        title={decision?.mode === 'refund' ? '💸 Visszatérítés a feladónak' : '✅ Vita lezárása — nincs teendő'}
+        title={decision?.mode === 'refund' ? 'Visszatérítés a feladónak' : 'Vita lezárása — nincs teendő'}
         message={decision?.mode === 'refund'
           ? 'A döntésről mindkét fél értesítést kap. A visszatérítendő összeget forintban add meg.'
           : 'A döntésről mindkét fél értesítést kap.'}
