@@ -9,6 +9,10 @@ import Link from 'next/link';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useTranslation, formatPrice } from '@/lib/i18n';
+import {
+  FileText, Route as RouteIcon, ShoppingBag, Target, BarChart3, Tag,
+  Truck, RefreshCw, Plus, ClipboardList, Package, Bell, User as UserIcon,
+} from 'lucide-react';
 
 type Mode = 'driver' | 'shipper';
 
@@ -280,13 +284,13 @@ export default function HomeHub() {
           {/* Gyors sofőr linkek */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
             {[
-              { href: '/sofor/fuvarok', icon: '🎯', label: 'Fuvarok' },
-              { href: '/sofor/dashboard', icon: '📊', label: 'Dashboard' },
-              { href: '/fuvarjaim?tab=licitjeim', icon: '🏷️', label: 'Licitjeim' },
-              { href: '/fuvarjaim?tab=vallalt', icon: '🚛', label: t('nav.myJobs') },
-              { href: '/sofor/visszafuvar', icon: '🔄', label: 'Visszafuvar' },
-              { href: '/sofor/uj-utvonal', icon: '➕', label: 'Új útvonal' },
-              { href: '/sofor/utvonalaim', icon: '🛣️', label: 'Útvonalaim' },
+              { href: '/sofor/fuvarok', icon: <Target size={18} />, label: 'Fuvarok' },
+              { href: '/sofor/dashboard', icon: <BarChart3 size={18} />, label: 'Dashboard' },
+              { href: '/fuvarjaim?tab=licitjeim', icon: <Tag size={18} />, label: 'Licitjeim' },
+              { href: '/fuvarjaim?tab=vallalt', icon: <Truck size={18} />, label: t('nav.myJobs') },
+              { href: '/sofor/visszafuvar', icon: <RefreshCw size={18} />, label: 'Visszafuvar' },
+              { href: '/sofor/uj-utvonal', icon: <Plus size={18} />, label: 'Új útvonal' },
+              { href: '/sofor/utvonalaim', icon: <RouteIcon size={18} />, label: 'Útvonalaim' },
             ].map((l) => (
               <Link
                 key={l.href}
@@ -408,7 +412,7 @@ export default function HomeHub() {
                 padding: 28, borderTop: '4px solid var(--primary)',
               }}
             >
-              <div style={{ fontSize: 36, marginBottom: 8 }}>📝</div>
+              <div style={{ marginBottom: 8 }}><FileText size={36} color="var(--primary)" /></div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>Fuvar feladása</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Sofőrök licitálnak rá</div>
             </Link>
@@ -420,7 +424,7 @@ export default function HomeHub() {
                 padding: 28, borderTop: '4px solid var(--success)',
               }}
             >
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🛣️</div>
+              <div style={{ marginBottom: 8 }}><RouteIcon size={36} color="var(--success)" /></div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>Fix áras útvonal</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Foglalj helyet egy sofőrnél</div>
             </Link>
@@ -432,7 +436,7 @@ export default function HomeHub() {
                 padding: 28, borderTop: '4px solid var(--warning)',
               }}
             >
-              <div style={{ fontSize: 36, marginBottom: 8 }}>🛍️</div>
+              <div style={{ marginBottom: 8 }}><ShoppingBag size={36} color="var(--warning)" /></div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>Hozasd el</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Online vásárlás linkből</div>
             </Link>
@@ -441,10 +445,10 @@ export default function HomeHub() {
           {/* Feladó gyors linkek */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {[
-              { href: '/fuvarjaim?tab=hirdeteseim', icon: '📋', label: t('nav.myListings') },
-              { href: '/fuvarjaim?tab=foglalasaim', icon: '📦', label: t('nav.myBookings') },
-              { href: '/ertesitesek', icon: '🔔', label: t('nav.notifications'), badge: unread },
-              { href: '/profil', icon: '👤', label: t('nav.profile') },
+              { href: '/fuvarjaim?tab=hirdeteseim', icon: <ClipboardList size={18} />, label: t('nav.myListings') },
+              { href: '/fuvarjaim?tab=foglalasaim', icon: <Package size={18} />, label: t('nav.myBookings') },
+              { href: '/ertesitesek', icon: <Bell size={18} />, label: t('nav.notifications'), badge: unread },
+              { href: '/profil', icon: <UserIcon size={18} />, label: t('nav.profile') },
             ].map((l) => (
               <Link
                 key={l.href}

@@ -333,8 +333,9 @@ export default function UjFuvar() {
       </p>
 
       <form className="card" onSubmit={onSubmit}>
-        <label>Megnevezés <span style={REQ}>*</span></label>
+        <label htmlFor="uj-cim">Megnevezés <span style={REQ}>*</span></label>
         <input
+          id="uj-cim"
           className="input"
           value={form.title}
           onChange={(e) => set('title', e.target.value)}
@@ -617,8 +618,9 @@ export default function UjFuvar() {
         </p>
         <div className="grid-2">
           <div>
-            <label>Hosszúság (cm) <span style={REQ}>*</span></label>
+            <label htmlFor="uj-hossz">Hosszúság (cm) <span style={REQ}>*</span></label>
             <input
+              id="uj-hossz"
               className="input"
               type="number"
               min={1}
@@ -632,8 +634,9 @@ export default function UjFuvar() {
             />
           </div>
           <div>
-            <label>Szélesség (cm) <span style={REQ}>*</span></label>
+            <label htmlFor="uj-szelesseg">Szélesség (cm) <span style={REQ}>*</span></label>
             <input
+              id="uj-szelesseg"
               className="input"
               type="number"
               min={1}
@@ -647,8 +650,9 @@ export default function UjFuvar() {
             />
           </div>
           <div>
-            <label>Magasság (cm) <span style={REQ}>*</span></label>
+            <label htmlFor="uj-magassag">Magasság (cm) <span style={REQ}>*</span></label>
             <input
+              id="uj-magassag"
               className="input"
               type="number"
               min={1}
@@ -662,8 +666,9 @@ export default function UjFuvar() {
             />
           </div>
           <div>
-            <label>Súly (kg) <span style={REQ}>*</span></label>
+            <label htmlFor="uj-suly">Súly (kg) <span style={REQ}>*</span></label>
             <input
+              id="uj-suly"
               className="input"
               type="number"
               min={1}
@@ -762,8 +767,9 @@ export default function UjFuvar() {
         <h2 style={{ marginTop: 24 }}>
           {form.is_instant ? 'Fix fuvardíj (végleges)' : 'Javasolt fuvardíj'}
         </h2>
-        <label>Összeg (Ft) <span style={REQ}>*</span></label>
+        <label htmlFor="uj-ar">Összeg (Ft) <span style={REQ}>*</span></label>
         <input
+          id="uj-ar"
           className="input"
           type="number"
           min={1}
