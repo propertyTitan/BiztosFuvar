@@ -13,13 +13,15 @@ import {
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 
-const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string }[] = [
+const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; soon?: boolean }[] = [
   { icon: Gavel, tint: 'var(--primary)', title: 'Licitálható fuvarok',
     desc: 'Hirdesd meg a csomagodat, és a sofőrök licitálnak rá. Te döntöd el, melyik ajánlatot fogadod el.' },
   { icon: Route, tint: '#7c3aed', title: 'Fix áras útvonalak',
     desc: 'A sofőrök meghirdetik az útjukat fix áron. Foglalj helyet a csomagodnak egyetlen kattintással.' },
-  { icon: MapPin, tint: '#db2777', title: 'Élő GPS követés',
-    desc: 'A fuvar elindulása után valós időben követed a sofőröd pozícióját a térképen.' },
+  // Az élő GPS a mobilapppal érkezik — a launchkor még nincs, ezért
+  // ŐSZINTÉN jelöljük: "Hamarosan" badge, jövő időben fogalmazva.
+  { icon: MapPin, tint: '#db2777', title: 'Élő GPS követés', soon: true,
+    desc: 'A GoFuvar mobilalkalmazással érkezik: valós időben követheted majd a sofőröd pozícióját a térképen.' },
   { icon: ShieldCheck, tint: 'var(--success)', title: 'Barion letét (Escrow)',
     desc: 'A fuvardíj a Barion letétben pihen, amíg a csomag bizonyítottan megérkezik. Biztonságos mindkét félnek.' },
   { icon: Camera, tint: '#0891b2', title: 'Fotó bizonyíték',
@@ -36,8 +38,8 @@ const STEPS = [
     desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.' },
   { num: '2', title: 'Válassz sofőrt', dot: 'var(--primary)',
     desc: 'Fogadd el a legjobb licitet, vagy foglalj fix áras útvonalon. Fizesd ki biztonságosan a Barion letétbe.' },
-  { num: '3', title: 'Kövesd és vedd át', dot: 'var(--success)',
-    desc: 'Kövesd a sofőröd élőben. Az átvételkor add át a 6 jegyű kódot — a sofőr kifizetése automatikus.' },
+  { num: '3', title: 'Vedd át a kóddal', dot: 'var(--success)',
+    desc: 'A címzett SMS-ben kapja a követési linket és a kódot. Az átvételkor add át a 6 jegyű kódot — a sofőr kifizetése automatikus.' },
 ];
 
 const TRUST = [
@@ -104,7 +106,7 @@ export default function LandingPage() {
         }}>
           Hirdess meg egy fuvart és a sofőrök licitálnak rá — vagy foglalj
           helyet egy útba eső sofőr fix áras útvonalán. Biztonságos fizetés,
-          élő követés, fotó bizonyíték.
+          fotó bizonyíték, 6 jegyű átvételi kód.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link href="/bejelentkezes?mode=register" className="btn"
@@ -211,7 +213,17 @@ export default function LandingPage() {
                   <Icon size={22} color={f.tint} strokeWidth={2.2} />
                 </div>
                 <div>
-                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px' }}>{f.title}</h3>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                    {f.title}
+                    {f.soon && (
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+                        background: 'var(--warning-light)', color: 'var(--text)',
+                        border: '1px solid var(--warning)',
+                        borderRadius: 999, padding: '2px 10px',
+                      }}>Hamarosan</span>
+                    )}
+                  </h3>
                   <p className="muted" style={{ fontSize: 13, lineHeight: 1.5, margin: 0 }}>{f.desc}</p>
                 </div>
               </div>
@@ -257,7 +269,7 @@ export default function LandingPage() {
               <li>Hirdesd meg a fuvart — a sofőrök licitálnak rá</li>
               <li>Vagy foglalj helyet egy fix áras útvonalon</li>
               <li>Fizess biztonságosan a Barion letétbe</li>
-              <li>Kövesd élőben a sofőröd a térképen</li>
+              <li>A címzett SMS-ben kapja a követési linket</li>
               <li>Add át a 6 jegyű kódot az átvételkor</li>
             </ul>
           </div>

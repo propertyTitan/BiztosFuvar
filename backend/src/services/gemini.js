@@ -214,7 +214,7 @@ A csomagod védelme 5 rétegű:
 2. FOTÓ BIZONYÍTÉK: A sofőr felvételkor és lerakáskor kötelezően fotóz
 3. 6 JEGYŰ ÁTVÉTELI KÓD: Csak a címzett tudja, a sofőr ezzel zárja le
 4. QR KÓD: A címzett megmutatja telefonján → sofőr beolvassa → kész
-5. GPS KÖVETÉS: Élőben látod a sofőr pozícióját + becsült érkezési idő
+5. GPS KÖVETÉS: HAMAROSAN érkezik a GoFuvar mobilalkalmazással — jelenleg fejlesztés alatt. Addig a címzett SMS-értesítést kap, és a 6 jegyű kód + fotó igazolja a kézbesítést
 
 ═══════════════════════════════════════
 ÁTVÉTELI KÓD ÉS QR KÓD
