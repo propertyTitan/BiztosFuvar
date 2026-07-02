@@ -133,7 +133,7 @@ export default function HozasdElTool() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 16 }}>
         {[
           { icon: ShieldCheck, tint: 'var(--success)', title: 'Biztonságos', desc: 'A fuvardíj letétben, fotó + 6 jegyű kód az átvételhez.' },
-          { icon: Leaf, tint: '#16a34a', title: 'Zöld és olcsóbb', desc: 'Gyakran olyan sofőr viszi, aki amúgy is arra megy.' },
+          { icon: Leaf, tint: 'var(--success)', title: 'Zöld és olcsóbb', desc: 'Gyakran olyan sofőr viszi, aki amúgy is arra megy.' },
           { icon: Check, tint: 'var(--primary)', title: 'Pár perc', desc: 'A link beillesztése után pár kattintás az egész.' },
         ].map((f) => {
           const Icon = f.icon;

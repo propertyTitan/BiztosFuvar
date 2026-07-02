@@ -33,7 +33,7 @@ export default function RootLoading() {
             left: 0,
             right: 0,
             height: 3,
-            background: 'linear-gradient(90deg, transparent 0%, var(--border, #e2e8f0) 15%, var(--border, #e2e8f0) 85%, transparent 100%)',
+            background: 'linear-gradient(90deg, transparent 0%, var(--border, var(--border)) 15%, var(--border, var(--border)) 85%, transparent 100%)',
             borderRadius: 999,
           }}
         />
@@ -83,7 +83,7 @@ export default function RootLoading() {
         style={{
           margin: 0,
           fontSize: 14,
-          color: 'var(--muted, #64748b)',
+          color: 'var(--muted, var(--muted))',
           fontWeight: 500,
           letterSpacing: 0.3,
         }}

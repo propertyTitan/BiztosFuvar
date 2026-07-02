@@ -19,18 +19,16 @@ import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
 import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
-import { useTranslation, SUPPORTED_LOCALES } from '@/lib/i18n';
+import { useTranslation } from '@/lib/i18n';
 
 export default function SiteHeader() {
   const user = useCurrentUser();
   const router = useRouter();
   const toast = useToast();
-  const { t, locale, setLocale } = useTranslation();
+  const { t } = useTranslation();
   const [unread, setUnread] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [langOpen, setLangOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const langRef = useRef<HTMLDivElement>(null);
 
   // Értesítés számláló + toast
   useEffect(() => {
@@ -49,14 +47,11 @@ export default function SiteHeader() {
     return () => { socket.off('notification:new', onNew); };
   }, [user?.id, toast]);
 
-  // Kívülre kattintás → dropdown bezárás (user menü ÉS nyelvváltó külön)
+  // Kívülre kattintás → user-menü dropdown bezárás
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
-      }
-      if (langRef.current && !langRef.current.contains(e.target as Node)) {
-        setLangOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClick);
@@ -79,90 +74,11 @@ export default function SiteHeader() {
         <Link href="/" className="brand" aria-label="GoFuvar">
           <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 36, width: 'auto', display: 'block' }} />
         </Link>
-        {/* ── Nyelvváltó (egy gomb + dropdown) ──
-            Emoji zászlók minden böngészőben nem egyformán jelennek meg
-            (Samsung Internet régebbi verzió pl. "HU"/"GB" betűt rajzol),
-            ezért egy kompakt gombot mutatunk a jelenlegi nyelv kódjával
-            és egy kis nyílhegy. Kattintásra nyílik egy mini dropdown a
-            többi nyelvvel. Ez minden képernyőméreten és témában működik. */}
-        <div className="lang-switcher" ref={langRef} style={{ position: 'relative' }}>
-          <button
-            type="button"
-            onClick={() => setLangOpen((o) => !o)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              background: 'rgba(255,255,255,0.12)',
-              border: '1px solid rgba(255,255,255,0.25)',
-              borderRadius: 8,
-              padding: '5px 10px',
-              cursor: 'pointer',
-              fontSize: 13,
-              fontWeight: 700,
-              color: '#fff',
-              transition: 'all 0.15s',
-            }}
-            aria-label="Nyelvváltó"
-            aria-expanded={langOpen}
-          >
-            <span style={{ fontSize: 14 }}>
-              {SUPPORTED_LOCALES.find((l) => l.code === locale)?.flag || '🌐'}
-            </span>
-            <span>{locale.toUpperCase()}</span>
-            <span style={{ fontSize: 9, opacity: 0.8 }}>{langOpen ? '▲' : '▼'}</span>
-          </button>
-
-          {langOpen && (
-            <div
-              className="lang-switcher-menu"
-              style={{
-                position: 'absolute',
-                top: 'calc(100% + 6px)',
-                left: 0,
-                minWidth: 160,
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 10,
-                boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
-                zIndex: 210,
-                overflow: 'hidden',
-              }}
-            >
-              {SUPPORTED_LOCALES.map((l) => {
-                const active = l.code === locale;
-                return (
-                  <button
-                    key={l.code}
-                    type="button"
-                    onClick={() => {
-                      setLocale(l.code);
-                      setLangOpen(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '10px 14px',
-                      background: active ? 'var(--surface-hover)' : 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: 14,
-                      fontWeight: active ? 700 : 500,
-                      color: 'var(--text)',
-                      textAlign: 'left',
-                    }}
-                  >
-                    <span style={{ fontSize: 18 }}>{l.flag}</span>
-                    <span style={{ flex: 1 }}>{l.label}</span>
-                    {active && <span style={{ color: 'var(--primary)' }}>✓</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {/* Nyelvváltó ELREJTVE (2026-07-02): a fordítás csak ~3 komponensre
+            készült el, EN-re váltva a 31 oldal magyar maradt — becsapós.
+            Az i18n-infrastruktúra (LocaleContext, hu/en szótárak) érintetlen;
+            a külföldi terjeszkedésnél (SK→RO→PL) a kész fordítással együtt
+            kerül vissza a gomb. */}
       </div>
 
       {/* ── Közép: 3 fő navigáció (csak bejelentkezve) ── */}
@@ -222,7 +138,7 @@ export default function SiteHeader() {
                     position: 'absolute',
                     top: 2,
                     right: 2,
-                    background: '#ef4444',
+                    background: 'var(--danger)',
                     color: '#fff',
                     fontSize: 10,
                     fontWeight: 800,
@@ -340,7 +256,7 @@ export default function SiteHeader() {
                         transition: 'background 0.1s',
                         textAlign: 'left',
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--danger-light, #fee2e2)')}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--danger-light, var(--danger-light))')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                     >
                       <LogOut size={16} /> {t('auth.logout')}
@@ -373,7 +289,7 @@ function DropdownItem({ href, icon, label, onClick }: { href: string; icon: Reac
         fontWeight: 500,
         transition: 'background 0.1s',
       }}
-      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover, #f1f5f9)')}
+      onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover, var(--surface-hover))')}
       onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
     >
       <span style={{ width: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>{icon}</span>

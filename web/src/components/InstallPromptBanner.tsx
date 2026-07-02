@@ -93,7 +93,7 @@ export default function InstallPromptBanner() {
   return (
     <div
       style={{
-        background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+        background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
         color: '#fff',
         padding: '12px 16px',
         fontSize: 14,
@@ -133,7 +133,7 @@ export default function InstallPromptBanner() {
             style={{
               padding: '8px 14px',
               background: '#fff',
-              color: '#1e40af',
+              color: 'var(--primary)',
               border: 'none',
               borderRadius: 6,
               fontWeight: 700,

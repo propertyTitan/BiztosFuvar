@@ -77,7 +77,7 @@ export default function ReviewBox({ entityKey, entityId, onDone }: Props) {
                 alignItems: 'center',
               }}
             >
-              <span style={{ fontSize: 14, color: '#f59e0b' }}>
+              <span style={{ fontSize: 14, color: 'var(--warning)' }}>
                 {renderStars(r.stars || r.rating, 5)}
               </span>
               <strong style={{ fontSize: 13 }}>{r.reviewer_name}</strong>
@@ -92,7 +92,7 @@ export default function ReviewBox({ entityKey, entityId, onDone }: Props) {
       )}
 
       {submitted && (
-        <p style={{ color: '#16a34a', fontWeight: 600, fontSize: 14 }}>
+        <p style={{ color: 'var(--success)', fontWeight: 600, fontSize: 14 }}>
           Köszönjük az értékelésed!
         </p>
       )}
@@ -119,7 +119,7 @@ export default function ReviewBox({ entityKey, entityId, onDone }: Props) {
                   cursor: 'pointer',
                   fontSize: 32,
                   padding: 0,
-                  color: n <= (hover || stars) ? '#f59e0b' : '#d1d5db',
+                  color: n <= (hover || stars) ? 'var(--warning)' : '#d1d5db',
                   transition: 'transform 0.1s ease',
                   transform: n <= (hover || stars) ? 'scale(1.15)' : 'scale(1)',
                 }}
@@ -150,7 +150,7 @@ export default function ReviewBox({ entityKey, entityId, onDone }: Props) {
             disabled={submitting}
             style={{
               opacity: stars ? 1 : 0.6,
-              background: '#f59e0b',
+              background: 'var(--warning)',
               border: 'none',
             }}
           >

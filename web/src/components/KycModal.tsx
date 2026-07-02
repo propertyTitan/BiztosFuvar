@@ -168,7 +168,7 @@ export default function KycModal() {
         {uploadResult === 'underage' ? (
           <div
             style={{
-              background: '#fef3c7',
+              background: 'var(--warning-light)',
               color: '#92400e',
               borderRadius: 8,
               padding: '16px 16px',
@@ -189,7 +189,7 @@ export default function KycModal() {
         ) : uploadResult === 'verified' ? (
           <div
             style={{
-              background: '#dcfce7',
+              background: 'var(--success-light)',
               color: '#166534',
               borderRadius: 8,
               padding: '16px 16px',
@@ -273,7 +273,7 @@ export default function KycModal() {
             </div>
 
             {error && (
-              <p style={{ color: '#dc2626', fontSize: 13, marginBottom: 12 }}>
+              <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 12 }}>
                 {error}
               </p>
             )}

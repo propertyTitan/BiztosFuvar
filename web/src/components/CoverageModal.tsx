@@ -97,7 +97,7 @@ export default function CoverageModal() {
           <div
             style={{
               marginTop: 16, padding: 14, borderRadius: 10,
-              background: '#dcfce7', color: '#166534', fontWeight: 700,
+              background: 'var(--success-light)', color: '#166534', fontWeight: 700,
             }}
           >
             ✅ Feliratkozva! Értesítünk ha elérhető a te városodban.
@@ -128,7 +128,7 @@ export default function CoverageModal() {
                 }}
                 style={{
                   padding: '10px 20px', borderRadius: 8, border: 'none',
-                  background: '#2E7D32', color: '#fff', fontWeight: 700,
+                  background: 'var(--success)', color: '#fff', fontWeight: 700,
                   fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap',
                 }}
               >

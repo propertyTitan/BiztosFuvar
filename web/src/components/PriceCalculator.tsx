@@ -142,7 +142,7 @@ export default function PriceCalculator() {
               padding: 20,
               borderRadius: 12,
               background: 'rgba(46,125,50,0.1)',
-              border: '2px solid #2E7D32',
+              border: '2px solid var(--success)',
               textAlign: 'center',
             }}
           >
@@ -166,7 +166,7 @@ export default function PriceCalculator() {
                 marginTop: 16,
                 display: 'inline-block',
                 textDecoration: 'none',
-                background: '#2E7D32',
+                background: 'var(--success)',
                 fontSize: 14,
                 padding: '10px 24px',
               }}

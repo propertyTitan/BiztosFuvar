@@ -1,7 +1,7 @@
 // IDEIGLENES teszt-mód banner. Eltávolításhoz: töröld ezt a fájlt és a
 // <TestModeBanner /> hivatkozásokat (LandingPage.tsx, app/bejelentkezes/page.tsx).
 //
-// A háttér szándékosan #fef3c7 (a globals.css ismert pasztell-listájában
+// A háttér szándékosan var(--warning-light) (a globals.css ismert pasztell-listájában
 // szerepel), az .on-light osztállyal együtt így a szöveg dark mode-ban is
 // sötét és olvasható marad.
 export default function TestModeBanner() {
@@ -15,7 +15,7 @@ export default function TestModeBanner() {
         gap: 10,
         margin: '16px 0',
         padding: '12px 16px',
-        background: '#fef3c7',
+        background: 'var(--warning-light)',
         border: '1px solid #f0c200',
         borderRadius: 12,
         fontSize: 14,

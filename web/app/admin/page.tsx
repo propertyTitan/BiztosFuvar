@@ -188,7 +188,7 @@ export default function AdminPanel() {
         <div className="card"><p className="muted" style={{ margin: 0 }}>Nincs függőben lévő dokumentum. ✅</p></div>
       ) : (
         kycDocs.map((doc) => (
-          <div key={doc.id} className="card" style={{ marginTop: 12, borderColor: '#f59e0b' }}>
+          <div key={doc.id} className="card" style={{ marginTop: 12, borderColor: 'var(--warning)' }}>
             <div className="row" style={{ gap: 16, alignItems: 'flex-start', flexWrap: 'wrap' }}>
               <a
                 href={photoUrl(doc.file_url)}
@@ -302,12 +302,12 @@ export default function AdminPanel() {
           }}
         >
           {[
-            { label: 'Összes fuvar', value: stats.total_jobs, color: '#dbeafe' },
-            { label: 'Aktív fuvar', value: stats.active_jobs, color: '#dcfce7' },
-            { label: 'Felhasználók', value: stats.total_users, color: '#fef3c7' },
+            { label: 'Összes fuvar', value: stats.total_jobs, color: 'var(--primary-subtle)' },
+            { label: 'Aktív fuvar', value: stats.active_jobs, color: 'var(--success-light)' },
+            { label: 'Felhasználók', value: stats.total_users, color: 'var(--warning-light)' },
             { label: 'Fix áras útvonalak', value: stats.total_routes, color: '#e0e7ff' },
             { label: 'Foglalások', value: stats.total_bookings, color: '#fce7f3' },
-            { label: 'Nyitott viták', value: stats.open_disputes, color: '#fee2e2' },
+            { label: 'Nyitott viták', value: stats.open_disputes, color: 'var(--danger-light)' },
           ].map((s) => (
             <div
               key={s.label}
@@ -418,7 +418,7 @@ export default function AdminPanel() {
                 <span
                   className="pill"
                   style={{
-                    background: d.status === 'open' ? '#fee2e2' : '#fef3c7',
+                    background: d.status === 'open' ? 'var(--danger-light)' : 'var(--warning-light)',
                     fontWeight: 700,
                   }}
                 >
@@ -460,7 +460,7 @@ export default function AdminPanel() {
         .map((d) => (
           <div key={d.id} className="card" style={{ marginTop: 8, opacity: 0.7 }}>
             <div className="row" style={{ gap: 12 }}>
-              <span className="pill" style={{ background: '#dcfce7', fontWeight: 700 }}>
+              <span className="pill" style={{ background: 'var(--success-light)', fontWeight: 700 }}>
                 {d.status === 'resolved_refund' ? '💸 Refund' :
                  d.status === 'resolved_no_action' ? '✅ Nincs teendő' :
                  d.status === 'closed' ? 'Lezárva' : d.status}

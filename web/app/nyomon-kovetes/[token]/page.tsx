@@ -19,10 +19,10 @@ const STATUS_LABELS: Record<string, { label: string; color: string; icon: string
   pending:     { label: 'Sofőrt keresünk',        color: '#6B7280', icon: '🔍' },
   bidding:     { label: 'Sofőrt keresünk',        color: '#6B7280', icon: '🔍' },
   accepted:    { label: 'Sofőr elfogadta',        color: '#2563EB', icon: '✅' },
-  in_progress: { label: 'Csomag úton van!',       color: '#16A34A', icon: '🚛' },
-  delivered:   { label: 'Csomag megérkezett!',    color: '#16A34A', icon: '🎉' },
+  in_progress: { label: 'Csomag úton van!',       color: 'var(--success)', icon: '🚛' },
+  delivered:   { label: 'Csomag megérkezett!',    color: 'var(--success)', icon: '🎉' },
   completed:   { label: 'Fuvar lezárva',          color: '#6B7280', icon: '✅' },
-  cancelled:   { label: 'Fuvar lemondva',         color: '#DC2626', icon: '❌' },
+  cancelled:   { label: 'Fuvar lemondva',         color: 'var(--danger)', icon: '❌' },
   disputed:    { label: 'Ügyintézés folyamatban', color: '#D97706', icon: '⚖️' },
 };
 
@@ -164,7 +164,7 @@ export default function PublicTrackingPage() {
           style={{
             padding: 24,
             borderRadius: 12,
-            background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+            background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
             color: '#fff',
             textAlign: 'center',
             marginBottom: 16,

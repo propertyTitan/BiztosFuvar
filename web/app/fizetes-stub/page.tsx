@@ -111,7 +111,7 @@ function FizetesStubContent() {
       {/* Barion-stílusú header */}
       <div
         style={{
-          background: 'linear-gradient(135deg, #0066ff 0%, #1e40af 100%)',
+          background: 'linear-gradient(135deg, #0066ff 0%, var(--primary) 100%)',
           color: '#fff',
           padding: '20px 24px',
           borderRadius: '16px 16px 0 0',
@@ -196,7 +196,7 @@ function FizetesStubContent() {
               style={{
                 fontSize: 12,
                 color: 'var(--muted)',
-                background: '#fef3c7',
+                background: 'var(--warning-light)',
                 padding: 12,
                 borderRadius: 8,
                 marginBottom: 16,
@@ -214,7 +214,7 @@ function FizetesStubContent() {
               onClick={pay}
               style={{
                 width: '100%',
-                background: '#16a34a',
+                background: 'var(--success)',
                 padding: '14px 24px',
                 fontSize: 16,
                 fontWeight: 700,

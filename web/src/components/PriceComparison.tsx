@@ -47,7 +47,7 @@ export default function PriceComparison({ goFuvarEstimate, weightKg }: Props) {
   const foxpost = foxpostPrice(weightKg);
 
   const competitors = [
-    { name: 'GoFuvar', price: goFuvarEstimate, color: '#2E7D32', bold: true, note: 'Aznapi, rugalmas' },
+    { name: 'GoFuvar', price: goFuvarEstimate, color: 'var(--success)', bold: true, note: 'Aznapi, rugalmas' },
     { name: 'GLS', price: gls, color: '#1565C0', bold: false, note: '1-2 munkanap' },
     { name: 'MPL (Posta)', price: mpl, color: '#C62828', bold: false, note: '2-3 munkanap' },
     ...(foxpost > 0 ? [{ name: 'Foxpost', price: foxpost, color: '#FF6F00', bold: false, note: 'Automata, max 25 kg' }] : []),
@@ -77,9 +77,9 @@ export default function PriceComparison({ goFuvarEstimate, weightKg }: Props) {
                     height: 28,
                     borderRadius: 6,
                     background: c.bold
-                      ? 'linear-gradient(90deg, #2E7D32, #4CAF50)'
+                      ? 'linear-gradient(90deg, var(--success), #4CAF50)'
                       : `${c.color}33`,
-                    border: c.bold ? '2px solid #2E7D32' : `1px solid ${c.color}44`,
+                    border: c.bold ? '2px solid var(--success)' : `1px solid ${c.color}44`,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -94,7 +94,7 @@ export default function PriceComparison({ goFuvarEstimate, weightKg }: Props) {
                     {c.price.toLocaleString('hu-HU')} Ft
                   </span>
                   {isCheapest && (
-                    <span style={{ fontSize: 10, fontWeight: 800, color: c.bold ? '#FFD700' : '#2E7D32' }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, color: c.bold ? '#FFD700' : 'var(--success)' }}>
                       LEGJOBB
                     </span>
                   )}

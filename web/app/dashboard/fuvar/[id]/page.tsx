@@ -33,12 +33,12 @@ const STATUS_LABEL: Record<string, string> = {
 function ReturnPolicyBadge({ bid }: { bid: Bid }) {
   if (!bid.return_policy) return null;
   const map = {
-    included: { text: '↩️ Visszaszállítás: benne', bg: '#dcfce7', color: '#166534' },
+    included: { text: '↩️ Visszaszállítás: benne', bg: 'var(--success-light)', color: '#166534' },
     extra_fee: {
       text: `↩️ Visszaszállítás: +${(bid.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft`,
-      bg: '#fef3c7', color: '#92400e',
+      bg: 'var(--warning-light)', color: '#92400e',
     },
-    no: { text: '⚠️ Nincs visszaszállítás', bg: '#fee2e2', color: '#991b1b' },
+    no: { text: '⚠️ Nincs visszaszállítás', bg: 'var(--danger-light)', color: '#991b1b' },
   } as const;
   const s = map[bid.return_policy];
   return (
@@ -245,7 +245,7 @@ export default function FuvarReszletek() {
           className="card"
           style={{
             marginTop: 16,
-            background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+            background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
             color: '#fff',
             border: 'none',
             textAlign: 'center',
@@ -264,8 +264,8 @@ export default function FuvarReszletek() {
       {/* Figyelmeztetés ha vészhelyzeti kóddal zárult */}
       {job.status === 'delivered' && (job as any).closed_by_code_type === 'sender_emergency' && (
         <div className="card" style={{
-          marginTop: 16, background: '#fef3c7', borderColor: '#f59e0b',
-          color: '#92400e', borderLeft: '4px solid #f59e0b',
+          marginTop: 16, background: 'var(--warning-light)', borderColor: 'var(--warning)',
+          color: '#92400e', borderLeft: '4px solid var(--warning)',
         }}>
           ⚠️ <strong>Ez a fuvar a feladó vészhelyzeti kódjával zárult le</strong> — a címzett
           nem volt elérhető. Vita esetén ez az információ rendelkezésre áll.
@@ -416,7 +416,7 @@ export default function FuvarReszletek() {
                   style={{
                     marginTop: 12,
                     display: 'inline-block',
-                    background: '#dcfce7',
+                    background: 'var(--success-light)',
                     color: '#166534',
                     padding: '10px 18px',
                     borderRadius: 8,
@@ -436,7 +436,7 @@ export default function FuvarReszletek() {
                   className="btn"
                   style={{
                     marginTop: 12,
-                    background: '#16a34a',
+                    background: 'var(--success)',
                     border: 'none',
                     cursor: paying ? 'wait' : 'pointer',
                     opacity: paying ? 0.7 : 1,
@@ -481,7 +481,7 @@ export default function FuvarReszletek() {
               style={{
                 marginTop: 16,
                 padding: 12,
-                background: '#fee2e2',
+                background: 'var(--danger-light)',
                 borderRadius: 8,
                 border: '1px solid #fca5a5',
                 fontSize: 13,
@@ -503,7 +503,7 @@ export default function FuvarReszletek() {
       {/* Vita indítása — in_progress vagy delivered státuszban,
           ha valami baj van a csomaggal / szállítással / sofőrrel. */}
       {['in_progress', 'delivered'].includes(job.status) && (
-        <div className="card" style={{ marginTop: 16, background: '#fefce8', borderColor: '#f59e0b' }}>
+        <div className="card" style={{ marginTop: 16, background: '#fefce8', borderColor: 'var(--warning)' }}>
           <h2 style={{ marginTop: 0 }}>Probléma van a fuvarral?</h2>
           <p className="muted" style={{ marginBottom: 12 }}>
             Ha a csomagod sérült, nem érkezett meg, vagy egyéb gond van — indíts egy vitás esetet,
@@ -521,7 +521,7 @@ export default function FuvarReszletek() {
       )}
 
       {job.status === 'disputed' && (
-        <div className="card" style={{ marginTop: 16, background: '#fef3c7', borderColor: '#f59e0b' }}>
+        <div className="card" style={{ marginTop: 16, background: 'var(--warning-light)', borderColor: 'var(--warning)' }}>
           <h2 style={{ marginTop: 0 }}>⚖️ Vitás eset folyamatban</h2>
           <p className="muted">
             Erre a fuvarra vita van nyitva. Az admin felülvizsgálja a helyzetet, és döntést hoz.
@@ -575,7 +575,7 @@ export default function FuvarReszletek() {
                       width: 40,
                       height: 40,
                       borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
+                      background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -592,7 +592,7 @@ export default function FuvarReszletek() {
                     <div style={{ fontWeight: 700, fontSize: 14 }}>{b.carrier_name || 'Sofőr'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span></div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {(b.rating_avg ?? 0) > 0 && (
-                        <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, color: 'var(--warning)', fontWeight: 600 }}>
                           ⭐ {Number(b.rating_avg).toFixed(1)}
                           {(b.rating_count ?? 0) > 0 && <span className="muted"> ({b.rating_count})</span>}
                         </span>

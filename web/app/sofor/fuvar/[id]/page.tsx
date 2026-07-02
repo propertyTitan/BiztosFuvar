@@ -228,7 +228,7 @@ export default function SoforFuvarReszletek() {
               <span
                 className="pill"
                 style={{
-                  background: '#dcfce7',
+                  background: 'var(--success-light)',
                   color: '#166534',
                   border: '1px solid #86efac',
                   fontWeight: 700,
@@ -241,7 +241,7 @@ export default function SoforFuvarReszletek() {
               <span
                 className="pill"
                 style={{
-                  background: '#fef3c7',
+                  background: 'var(--warning-light)',
                   color: '#92400e',
                   border: '1px solid #fde68a',
                 }}
@@ -385,8 +385,8 @@ export default function SoforFuvarReszletek() {
               {(job as any).pickup_floor == null ? 'emelet nincs megadva' : (job as any).pickup_floor === 0 ? 'Földszint' : `${(job as any).pickup_floor}. emelet`}
               {(job as any).pickup_floor > 0 && (
                 (job as any).pickup_has_elevator
-                  ? <span style={{ color: '#2E7D32', fontWeight: 700 }}> (lift van ✓)</span>
-                  : <span style={{ color: '#DC2626', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+                  ? <span style={{ color: 'var(--success)', fontWeight: 700 }}> (lift van ✓)</span>
+                  : <span style={{ color: 'var(--danger)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
               )}
             </div>
           )}
@@ -397,8 +397,8 @@ export default function SoforFuvarReszletek() {
               {(job as any).dropoff_floor == null ? 'emelet nincs megadva' : (job as any).dropoff_floor === 0 ? 'Földszint' : `${(job as any).dropoff_floor}. emelet`}
               {(job as any).dropoff_floor > 0 && (
                 (job as any).dropoff_has_elevator
-                  ? <span style={{ color: '#2E7D32', fontWeight: 700 }}> (lift van ✓)</span>
-                  : <span style={{ color: '#DC2626', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+                  ? <span style={{ color: 'var(--success)', fontWeight: 700 }}> (lift van ✓)</span>
+                  : <span style={{ color: 'var(--danger)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
               )}
             </div>
           )}
@@ -528,7 +528,7 @@ export default function SoforFuvarReszletek() {
                   }}
                 >
                   Platform díj: <strong>{fee.toLocaleString('hu-HU')} Ft</strong> (10% + 400 Ft)
-                  {' · '}Te kapsz: <strong style={{ color: '#2E7D32', fontSize: 15 }}>{net.toLocaleString('hu-HU')} Ft</strong>
+                  {' · '}Te kapsz: <strong style={{ color: 'var(--success)', fontSize: 15 }}>{net.toLocaleString('hu-HU')} Ft</strong>
                 </div>
               );
             })()}
@@ -567,7 +567,7 @@ export default function SoforFuvarReszletek() {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
                     padding: '8px 10px', borderRadius: 6, marginBottom: 6, fontSize: 14,
-                    border: '1px solid ' + (returnPolicy === opt.v ? 'var(--accent, #3b82f6)' : 'var(--border)'),
+                    border: '1px solid ' + (returnPolicy === opt.v ? 'var(--accent, var(--primary-light))' : 'var(--border)'),
                     background: returnPolicy === opt.v ? 'rgba(59,130,246,0.10)' : 'transparent',
                   }}
                 >

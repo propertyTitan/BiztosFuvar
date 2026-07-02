@@ -167,7 +167,7 @@ export default function FoglalasaimOldal() {
               <div
                 style={{
                   marginTop: 8,
-                  background: '#1e40af',
+                  background: 'var(--primary)',
                   color: '#fff',
                   padding: '6px 12px',
                   borderRadius: 8,
@@ -188,7 +188,7 @@ export default function FoglalasaimOldal() {
                 style={{
                   marginTop: 10,
                   display: 'inline-block',
-                  background: '#dcfce7',
+                  background: 'var(--success-light)',
                   color: '#166534',
                   padding: '10px 18px',
                   borderRadius: 8,
@@ -210,7 +210,7 @@ export default function FoglalasaimOldal() {
                 style={{
                   marginTop: 10,
                   display: 'inline-block',
-                  background: '#16a34a',
+                  background: 'var(--success)',
                   fontSize: 14,
                   border: 'none',
                   cursor: payingId === b.id ? 'wait' : 'pointer',

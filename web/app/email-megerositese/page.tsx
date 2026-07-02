@@ -34,8 +34,8 @@ function EmailMegerositeseInner() {
         className="card"
         style={{
           padding: 32, textAlign: 'center',
-          background: state === 'ok' ? '#dcfce7' : state === 'error' ? '#fee2e2' : 'var(--surface)',
-          border: `1px solid ${state === 'ok' ? '#16a34a' : state === 'error' ? '#dc2626' : 'var(--border)'}`,
+          background: state === 'ok' ? 'var(--success-light)' : state === 'error' ? 'var(--danger-light)' : 'var(--surface)',
+          border: `1px solid ${state === 'ok' ? 'var(--success)' : state === 'error' ? 'var(--danger)' : 'var(--border)'}`,
         }}
       >
         {state === 'pending' && (

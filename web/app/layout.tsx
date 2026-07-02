@@ -26,7 +26,12 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'GoFuvar – Magyarország közösségi fuvartőzsdéje',
+  // template: az al-oldalak layout.tsx-ei csak a saját címüket adják meg,
+  // a "| GoFuvar" utótag innen jön
+  title: {
+    default: 'GoFuvar – Magyarország közösségi fuvartőzsdéje',
+    template: '%s | GoFuvar',
+  },
   description:
     'Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. Biztonságos Barion letét, élő GPS követés, fotó bizonyíték, 6 jegyű átvételi kód. Ingyenes regisztráció.',
   keywords: [
@@ -46,19 +51,15 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'GoFuvar',
   },
-  icons: {
-    icon: [
-      { url: '/logo-icon.svg?v=3', type: 'image/svg+xml' },
-    ],
-    apple: [
-      { url: '/logo-icon.svg?v=3', type: 'image/svg+xml' },
-    ],
-  },
+  // Az icons mező elhagyva: a Next.js az app/favicon.ico, app/icon.png és
+  // app/apple-icon.png fájlokból automatikusan generálja a linkeket
+  // (ICO fallback régi böngészőknek + PNG apple-touch-icon — az SVG-t
+  // az iOS főképernyő nem tudta megjeleníteni).
 };
 
 export const viewport: Viewport = {
   // theme-color = a böngésző / iOS status-bar színe ha standalone módban indítják
-  themeColor: '#1e40af',
+  themeColor: 'var(--primary)',
   width: 'device-width',
   initialScale: 1,
   // A pinch-zoom engedélyezve marad (akadálymentesség, WCAG 1.4.4) —

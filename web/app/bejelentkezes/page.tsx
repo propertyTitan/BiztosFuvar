@@ -160,19 +160,23 @@ function BejelentkezesContent() {
       <form onSubmit={onSubmit} className="card">
         {mode === 'register' && (
           <>
-            <label>Teljes név</label>
+            <label htmlFor="reg-name">Teljes név</label>
             <input
+              id="reg-name"
               className="input"
               type="text"
+              autoComplete="name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Pl. Kovács Péter"
               required
             />
-            <label>Telefon (opcionális)</label>
+            <label htmlFor="reg-phone">Telefon (opcionális)</label>
             <input
+              id="reg-phone"
               className="input"
               type="tel"
+              autoComplete="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+36 30 123 4567"
@@ -237,7 +241,7 @@ function BejelentkezesContent() {
                 borderRadius: 10,
                 marginBottom: 8,
               }}>
-                <label>Cégnév <span style={{ color: '#EF4444', fontWeight: 700 }}>*</span></label>
+                <label>Cégnév <span style={{ color: 'var(--danger)', fontWeight: 700 }}>*</span></label>
                 <input
                   className="input"
                   type="text"
@@ -246,7 +250,7 @@ function BejelentkezesContent() {
                   placeholder="Pl. GoFuvar Kft."
                   required
                 />
-                <label>Adószám <span style={{ color: '#EF4444', fontWeight: 700 }}>*</span></label>
+                <label>Adószám <span style={{ color: 'var(--danger)', fontWeight: 700 }}>*</span></label>
                 <input
                   className="input"
                   type="text"
@@ -284,19 +288,22 @@ function BejelentkezesContent() {
           </>
         )}
 
-        <label>Email</label>
+        <label htmlFor="auth-email">Email</label>
         <input
+          id="auth-email"
           className="input"
           type="email"
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="pelda@email.hu"
           required
         />
 
-        <label>Jelszó</label>
+        <label htmlFor="auth-password">Jelszó</label>
         <div style={{ position: 'relative' }}>
           <input
+            id="auth-password"
             className="input"
             type={showPassword ? 'text' : 'password'}
             value={password}

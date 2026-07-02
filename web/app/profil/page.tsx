@@ -169,7 +169,7 @@ export default function ProfilOldal() {
                 width: 88,
                 height: 88,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+                background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -208,7 +208,7 @@ export default function ProfilOldal() {
             {profile.rating_count > 0 ? (
               <span
                 style={{
-                  background: '#fef3c7',
+                  background: 'var(--warning-light)',
                   padding: '4px 12px',
                   borderRadius: 999,
                   fontSize: 14,
@@ -307,9 +307,9 @@ export default function ProfilOldal() {
               marginTop: 32,
               padding: '10px 20px',
               borderRadius: 8,
-              border: '1px solid #EF4444',
+              border: '1px solid var(--danger)',
               background: 'transparent',
-              color: '#EF4444',
+              color: 'var(--danger)',
               fontWeight: 600,
               fontSize: 13,
               cursor: 'pointer',
@@ -455,12 +455,12 @@ function KycStatusRow({ label, status, docType }: { label: string; status?: stri
           : isRejected
             ? 'rgba(239,68,68,0.1)'
             : 'rgba(255,255,255,0.05)',
-        border: `1px solid ${isVerified ? '#2E7D32' : isRejected ? '#EF4444' : 'var(--border)'}`,
+        border: `1px solid ${isVerified ? 'var(--success)' : isRejected ? 'var(--danger)' : 'var(--border)'}`,
       }}
     >
       <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
       {isVerified && (
-        <span style={{ color: '#2E7D32', fontWeight: 700, fontSize: 13 }}>✅ Elfogadva</span>
+        <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: 13 }}>✅ Elfogadva</span>
       )}
       {isPending && (
         <span style={{ color: '#D97706', fontWeight: 700, fontSize: 13 }}>⏳ Ellenőrzés alatt</span>
@@ -474,7 +474,7 @@ function KycStatusRow({ label, status, docType }: { label: string; status?: stri
             }));
           }}
           style={{
-            background: '#EF4444',
+            background: 'var(--danger)',
             color: '#fff',
             border: 'none',
             borderRadius: 6,

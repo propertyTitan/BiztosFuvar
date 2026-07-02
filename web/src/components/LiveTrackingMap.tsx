@@ -88,7 +88,7 @@ export default function LiveTrackingMap({ job }: Props) {
 
   if (!apiKey) {
     return (
-      <div className="card" style={{ background: '#fef3c7' }}>
+      <div className="card" style={{ background: 'var(--warning-light)' }}>
         <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
         <p className="muted" style={{ margin: '8px 0 0' }}>
           Állítsd be a <code>NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> környezeti változót,
@@ -120,7 +120,7 @@ export default function LiveTrackingMap({ job }: Props) {
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
             scale: 14,
-            fillColor: '#16a34a',
+            fillColor: 'var(--success)',
             fillOpacity: 1,
             strokeColor: '#fff',
             strokeWeight: 2,
@@ -134,7 +134,7 @@ export default function LiveTrackingMap({ job }: Props) {
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
             scale: 14,
-            fillColor: '#dc2626',
+            fillColor: 'var(--danger)',
             fillOpacity: 1,
             strokeColor: '#fff',
             strokeWeight: 2,
@@ -149,7 +149,7 @@ export default function LiveTrackingMap({ job }: Props) {
             icon={{
               path: google.maps.SymbolPath.CIRCLE,
               scale: 10,
-              fillColor: '#ef4444',
+              fillColor: 'var(--danger)',
               fillOpacity: 1,
               strokeColor: '#fff',
               strokeWeight: 3,
@@ -160,7 +160,7 @@ export default function LiveTrackingMap({ job }: Props) {
         <Polyline
           path={path}
           options={{
-            strokeColor: '#1e40af',
+            strokeColor: 'var(--primary)',
             strokeWeight: 4,
             strokeOpacity: 0.7,
             geodesic: true,
@@ -171,7 +171,7 @@ export default function LiveTrackingMap({ job }: Props) {
           <Polyline
             path={trail}
             options={{
-              strokeColor: '#ef4444',
+              strokeColor: 'var(--danger)',
               strokeWeight: 5,
               strokeOpacity: 0.9,
             }}
@@ -186,7 +186,7 @@ export default function LiveTrackingMap({ job }: Props) {
           padding: '12px 16px',
           borderRadius: 10,
           background: driver ? 'rgba(46,125,50,0.1)' : 'rgba(255,255,255,0.05)',
-          border: `1px solid ${driver ? '#2E7D32' : 'var(--border)'}`,
+          border: `1px solid ${driver ? 'var(--success)' : 'var(--border)'}`,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
@@ -215,7 +215,7 @@ export default function LiveTrackingMap({ job }: Props) {
           return (
             <div style={{
               padding: '6px 16px', borderRadius: 20,
-              background: '#2E7D32', color: '#fff',
+              background: 'var(--success)', color: '#fff',
               fontWeight: 800, fontSize: 16,
             }}>
               {etaText}

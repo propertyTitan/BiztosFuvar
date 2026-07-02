@@ -70,6 +70,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={api}>
       {children}
       <div
+        // Képernyőolvasó: az új toastokat felolvassa a fókusz elvétele
+        // nélkül (polite); a hibák role="alert"-et kapnak lentebb
+        role="status"
+        aria-live="polite"
         style={{
           position: 'fixed',
           top: 16,
@@ -85,14 +89,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {items.map((t) => (
           <div
             key={t.id}
+            role={t.kind === 'error' ? 'alert' : undefined}
             onClick={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
             style={{
               background:
                 t.kind === 'success'
-                  ? '#16a34a'
+                  ? 'var(--success)'
                   : t.kind === 'error'
-                  ? '#dc2626'
-                  : '#1e40af',
+                  ? 'var(--danger)'
+                  : 'var(--primary)',
               color: '#fff',
               padding: '12px 16px',
               borderRadius: 10,

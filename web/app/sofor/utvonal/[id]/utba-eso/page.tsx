@@ -151,7 +151,7 @@ export default function UtbaEsoPage() {
 }
 
 function detourColor(km: number): string {
-  if (km <= 5) return '#2E7D32';
+  if (km <= 5) return 'var(--success)';
   if (km <= 15) return '#F9A825';
   return '#E65100';
 }
