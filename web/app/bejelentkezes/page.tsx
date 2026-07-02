@@ -237,7 +237,7 @@ function BejelentkezesContent() {
                 borderRadius: 10,
                 marginBottom: 8,
               }}>
-                <label>Cégnév <span style={{ color: '#EF4444', fontWeight: 700 }}>*</span></label>
+                <label>Cégnév <span style={{ color: 'var(--danger)', fontWeight: 700 }}>*</span></label>
                 <input
                   className="input"
                   type="text"
@@ -246,7 +246,7 @@ function BejelentkezesContent() {
                   placeholder="Pl. GoFuvar Kft."
                   required
                 />
-                <label>Adószám <span style={{ color: '#EF4444', fontWeight: 700 }}>*</span></label>
+                <label>Adószám <span style={{ color: 'var(--danger)', fontWeight: 700 }}>*</span></label>
                 <input
                   className="input"
                   type="text"

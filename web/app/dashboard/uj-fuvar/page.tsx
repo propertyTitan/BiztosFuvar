@@ -103,8 +103,8 @@ const initialForm: FormState = {
   recipient_email: '',
 };
 
-const REQ = { color: '#EF4444', fontWeight: 700 } as const;
-const redBorder = { border: '2px solid #EF4444', boxShadow: '0 0 0 3px rgba(239,68,68,0.15)' } as const;
+const REQ = { color: 'var(--danger)', fontWeight: 700 } as const;
+const redBorder = { border: '2px solid var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.15)' } as const;
 
 export default function UjFuvar() {
   const router = useRouter();

@@ -49,7 +49,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
 
   if (!apiKey) {
     return (
-      <div className="card" style={{ background: '#fef3c7' }}>
+      <div className="card" style={{ background: 'var(--warning-light)' }}>
         <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
       </div>
     );
@@ -85,7 +85,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
               path={r.waypoints.map((w) => ({ lat: w.lat, lng: w.lng }))}
               onClick={() => setActiveRouteId(r.id)}
               options={{
-                strokeColor: isMine ? '#facc15' : '#1e40af',
+                strokeColor: isMine ? '#facc15' : 'var(--primary)',
                 strokeOpacity: 0,
                 strokeWeight: 3,
                 icons: [
@@ -108,7 +108,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
               icon={{
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 10,
-                fillColor: isMine ? '#facc15' : '#16a34a',
+                fillColor: isMine ? '#facc15' : 'var(--success)',
                 fillOpacity: 1,
                 strokeColor: '#fff',
                 strokeWeight: 2,
@@ -122,7 +122,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
               icon={{
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 7,
-                fillColor: '#dc2626',
+                fillColor: 'var(--danger)',
                 fillOpacity: 0.85,
                 strokeColor: '#fff',
                 strokeWeight: 1.5,
@@ -159,10 +159,10 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 12, color: '#475569', margin: '2px 0' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0' }}>
               📍 {activeRoute.waypoints.map((w) => w.name).join(' → ')}
             </div>
-            <div style={{ fontSize: 12, color: '#475569', margin: '2px 0' }}>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0' }}>
               🗓 {new Date(activeRoute.departure_at).toLocaleString('hu-HU')}
             </div>
             <div
@@ -195,7 +195,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
               }
               style={{
                 display: 'inline-block',
-                background: '#1e40af',
+                background: 'var(--primary)',
                 color: '#fff',
                 padding: '6px 12px',
                 borderRadius: 6,

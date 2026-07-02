@@ -58,7 +58,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   // theme-color = a böngésző / iOS status-bar színe ha standalone módban indítják
-  themeColor: '#1e40af',
+  themeColor: 'var(--primary)',
   width: 'device-width',
   initialScale: 1,
   // A pinch-zoom engedélyezve marad (akadálymentesség, WCAG 1.4.4) —

@@ -123,9 +123,9 @@ export default function FeladoUtvonalReszletek() {
       {isMine && (
         <div
           className="card on-light"
-          style={{ background: '#fefce8', borderColor: '#facc15', marginTop: 16, color: '#0f172a' }}
+          style={{ background: '#fefce8', borderColor: '#facc15', marginTop: 16, color: 'var(--text)' }}
         >
-          <h2 style={{ marginTop: 0, color: '#0f172a' }}>📣 Ez a te saját útvonalad</h2>
+          <h2 style={{ marginTop: 0, color: 'var(--text)' }}>📣 Ez a te saját útvonalad</h2>
           <p style={{ marginBottom: 8, color: '#334155' }}>
             A saját hirdetésedre nem foglalhatsz helyet. A foglalások
             kezeléséhez és szerkesztéshez nyisd meg a sofőri nézetet.
@@ -145,17 +145,17 @@ export default function FeladoUtvonalReszletek() {
               key={i}
               className="on-light"
               style={{
-                background: i === 0 ? '#dcfce7' : i === route.waypoints.length - 1 ? '#fee2e2' : '#dbeafe',
+                background: i === 0 ? 'var(--success-light)' : i === route.waypoints.length - 1 ? 'var(--danger-light)' : 'var(--primary-subtle)',
                 padding: '8px 14px',
                 borderRadius: 999,
                 fontSize: 14,
                 border: `1px solid ${i === 0 ? '#86efac' : i === route.waypoints.length - 1 ? '#fca5a5' : '#93c5fd'}`,
               }}
             >
-              <span style={{ fontSize: 11, opacity: 0.7, color: '#475569' }}>
+              <span style={{ fontSize: 11, opacity: 0.7, color: 'var(--text-secondary)' }}>
                 {i === 0 ? 'INDULÁS · ' : i === route.waypoints.length - 1 ? 'CÉL · ' : `${i}. · `}
               </span>
-              <strong style={{ color: '#0f172a' }}>{w.name}</strong>
+              <strong style={{ color: 'var(--text)' }}>{w.name}</strong>
             </div>
           ))}
         </div>
@@ -189,13 +189,13 @@ export default function FeladoUtvonalReszletek() {
                   minWidth: 130,
                 }}
               >
-                <div style={{ fontWeight: 700, color: active ? '#0f172a' : 'var(--text)' }}>
+                <div style={{ fontWeight: 700, color: active ? 'var(--text)' : 'var(--text)' }}>
                   {ps.id} — {ps.label_hu}
                 </div>
-                <div style={{ fontSize: 11, marginTop: 4, color: active ? '#475569' : 'var(--muted)' }}>
+                <div style={{ fontSize: 11, marginTop: 4, color: active ? 'var(--text-secondary)' : 'var(--muted)' }}>
                   {ps.description_hu}
                 </div>
-                <div style={{ marginTop: 6, fontWeight: 800, fontSize: 15, color: active ? '#1e40af' : 'var(--muted)' }}>
+                <div style={{ marginTop: 6, fontWeight: 800, fontSize: 15, color: active ? 'var(--primary)' : 'var(--muted)' }}>
                   {active ? `${price.price_huf.toLocaleString('hu-HU')} Ft` : 'nem vállalja'}
                 </div>
               </div>
@@ -237,9 +237,9 @@ export default function FeladoUtvonalReszletek() {
             style={{
               marginTop: 12,
               padding: 12,
-              background: sofőrVisziE ? '#dcfce7' : '#fee2e2',
+              background: sofőrVisziE ? 'var(--success-light)' : 'var(--danger-light)',
               borderColor: sofőrVisziE ? '#86efac' : '#fca5a5',
-              color: '#0f172a',
+              color: 'var(--text)',
             }}
           >
             <strong>Besorolás: {classification}</strong>
@@ -251,7 +251,7 @@ export default function FeladoUtvonalReszletek() {
           </div>
         )}
         {!classification && length && width && height && weight && (
-          <div className="card" style={{ marginTop: 12, padding: 12, background: '#fee2e2', borderColor: 'var(--danger)' }}>
+          <div className="card" style={{ marginTop: 12, padding: 12, background: 'var(--danger-light)', borderColor: 'var(--danger)' }}>
             A csomagod meghaladja az XL méretet — ez az útvonal nem alkalmas.
           </div>
         )}

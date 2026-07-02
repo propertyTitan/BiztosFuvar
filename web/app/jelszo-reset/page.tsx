@@ -51,7 +51,7 @@ function JelszoResetInner() {
         <div
           className="card"
           style={{
-            padding: 24, background: '#dcfce7', border: '1px solid #16a34a', color: '#14532d',
+            padding: 24, background: 'var(--success-light)', border: '1px solid var(--success)', color: '#14532d',
           }}
         >
           <h2 style={{ margin: 0 }}>✅ Új jelszó beállítva</h2>

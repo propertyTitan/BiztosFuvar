@@ -44,8 +44,8 @@ export default function ElfelejtettJelszo() {
           style={{
             marginTop: 24,
             padding: 24,
-            background: '#dcfce7',
-            border: '1px solid #16a34a',
+            background: 'var(--success-light)',
+            border: '1px solid var(--success)',
             color: '#14532d',
           }}
         >

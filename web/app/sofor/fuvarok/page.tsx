@@ -384,7 +384,7 @@ export default function SoforFuvarokLista() {
                   )}
                   {j.shipper_account_type === 'company' && j.shipper_company_verified === 'verified' && (
                     <span className="pill" style={{
-                      background: '#dcfce7', color: '#166534', fontWeight: 800, fontSize: 11,
+                      background: 'var(--success-light)', color: '#166534', fontWeight: 800, fontSize: 11,
                     }}>
                       Ellenőrzött cég
                     </span>

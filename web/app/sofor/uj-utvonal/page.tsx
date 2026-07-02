@@ -215,7 +215,7 @@ function UjUtvonalContent() {
             marginTop: 24,
             padding: 16,
             background: isRideAlong ? 'rgba(46,125,50,0.1)' : 'transparent',
-            border: `2px solid ${isRideAlong ? '#2E7D32' : 'var(--border)'}`,
+            border: `2px solid ${isRideAlong ? 'var(--success)' : 'var(--border)'}`,
             borderRadius: 8,
           }}
         >
@@ -256,7 +256,7 @@ function UjUtvonalContent() {
                 style={{
                   margin: 0,
                   padding: 12,
-                  background: row.enabled ? '#eff6ff' : '#f8fafc',
+                  background: row.enabled ? '#eff6ff' : 'var(--bg)',
                   opacity: row.enabled ? 1 : 0.65,
                   display: 'flex',
                   alignItems: 'center',

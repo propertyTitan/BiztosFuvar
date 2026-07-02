@@ -52,7 +52,7 @@ export default function PublikusProfil() {
           <div
             style={{
               width: 88, height: 88, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #1e40af, #3b82f6)',
+              background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 36, color: '#fff', fontWeight: 800,
             }}
@@ -114,7 +114,7 @@ export default function PublikusProfil() {
           profile.recent_reviews.map((r: any, i: number) => (
             <div key={i} style={{ borderBottom: '1px solid var(--border)', padding: '10px 0' }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ color: '#f59e0b', fontSize: 14 }}>
+                <span style={{ color: 'var(--warning)', fontSize: 14 }}>
                   {'★'.repeat(r.stars || 0)}{'☆'.repeat(5 - (r.stars || 0))}
                 </span>
                 <strong style={{ fontSize: 13 }}>{r.reviewer_name}</strong>
@@ -139,7 +139,7 @@ export default function PublikusProfil() {
           <div className="muted" style={{ fontSize: 12 }}>Fix áras kézbesítés</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-          <div style={{ fontSize: 28, fontWeight: 900, color: '#f59e0b' }}>
+          <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--warning)' }}>
             {profile.rating_count > 0 ? Number(profile.rating_avg).toFixed(1) : '—'}
           </div>
           <div className="muted" style={{ fontSize: 12 }}>Átlag értékelés</div>

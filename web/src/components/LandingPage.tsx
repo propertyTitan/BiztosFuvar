@@ -31,13 +31,13 @@ const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string }[
 const STEPS = [
   { num: '1', title: 'Hirdesd meg a fuvart',
     desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.',
-    color: '#dbeafe' },
+    color: 'var(--primary-subtle)' },
   { num: '2', title: 'Válassz sofőrt',
     desc: 'Fogadd el a legjobb licitet, vagy foglalj fix áras útvonalon. Fizesd ki biztonságosan a Barion letétbe.',
-    color: '#dcfce7' },
+    color: 'var(--success-light)' },
   { num: '3', title: 'Kövesd és vedd át',
     desc: 'Kövesd a sofőröd élőben. Az átvételkor add át a 6 jegyű kódot — a sofőr kifizetése automatikus.',
-    color: '#fef3c7' },
+    color: 'var(--warning-light)' },
 ];
 
 const TRUST = [
@@ -149,9 +149,9 @@ export default function LandingPage() {
               <div style={{
                 width: 44, height: 44, borderRadius: 12, background: 'rgba(0,0,0,0.08)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, fontWeight: 900, marginBottom: 16, color: '#0f172a',
+                fontSize: 20, fontWeight: 900, marginBottom: 16, color: 'var(--text)',
               }}>{s.num}</div>
-              <h3 style={{ fontSize: 21, fontWeight: 800, marginBottom: 8, color: '#0f172a' }}>{s.title}</h3>
+              <h3 style={{ fontSize: 21, fontWeight: 800, marginBottom: 8, color: 'var(--text)' }}>{s.title}</h3>
               <p style={{ fontSize: 15, lineHeight: 1.6, color: '#334155', margin: 0 }}>{s.desc}</p>
             </div>
           ))}
@@ -211,13 +211,13 @@ export default function LandingPage() {
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
           <div className="on-light" style={{
-            background: 'linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%)',
+            background: 'linear-gradient(135deg, var(--primary-subtle) 0%, #eff6ff 100%)',
             borderRadius: 'var(--radius-xl)', padding: 32, border: '1px solid #93c5fd',
           }}>
             <div style={{ display: 'inline-flex', padding: 12, borderRadius: 14, background: 'rgba(30,64,175,0.12)', marginBottom: 16 }}>
-              <Package size={26} color="#1e40af" />
+              <Package size={26} color="var(--primary)" />
             </div>
-            <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: '#0f172a' }}>Feladó vagyok</h3>
+            <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Feladó vagyok</h3>
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: '#1e293b', fontSize: 15 }}>
               <li>Hirdesd meg a fuvart — a sofőrök licitálnak rá</li>
               <li>Vagy foglalj helyet egy fix áras útvonalon</li>
@@ -227,13 +227,13 @@ export default function LandingPage() {
             </ul>
           </div>
           <div className="on-light" style={{
-            background: 'linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%)',
+            background: 'linear-gradient(135deg, var(--success-light) 0%, #f0fdf4 100%)',
             borderRadius: 'var(--radius-xl)', padding: 32, border: '1px solid #86efac',
           }}>
             <div style={{ display: 'inline-flex', padding: 12, borderRadius: 14, background: 'rgba(22,163,74,0.12)', marginBottom: 16 }}>
               <Truck size={26} color="#15803d" />
             </div>
-            <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: '#0f172a' }}>Sofőr vagyok</h3>
+            <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Sofőr vagyok</h3>
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: '#1e293b', fontSize: 15 }}>
               <li>Licitálj nyitott fuvarokra — a legjobb nyer</li>
               <li>Vagy hirdesd meg az utadat fix árakkal</li>

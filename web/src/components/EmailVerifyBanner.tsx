@@ -48,8 +48,8 @@ export default function EmailVerifyBanner() {
   return (
     <div
       style={{
-        background: '#fef3c7',
-        border: '1px solid #f59e0b',
+        background: 'var(--warning-light)',
+        border: '1px solid var(--warning)',
         color: '#78350f',
         padding: '10px 16px',
         fontSize: 14,

@@ -142,7 +142,7 @@ export default function AiChatWidget() {
           width: 60,
           height: 60,
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+          background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
           color: '#fff',
           border: 'none',
           cursor: 'pointer',
@@ -181,7 +181,7 @@ export default function AiChatWidget() {
           <div
             style={{
               padding: 16,
-              background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+              background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
               color: '#fff',
               display: 'flex',
               justifyContent: 'space-between',

@@ -15,7 +15,7 @@ const LINK_RE = /\[([^\]]+)\]\((\/[^)\s]*|https?:\/\/[^)\s]+)\)/g;
 const linkStyle: React.CSSProperties = {
   display: 'inline-block',
   color: '#fff',
-  background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+  background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
   padding: '4px 12px',
   borderRadius: 8,
   fontWeight: 600,

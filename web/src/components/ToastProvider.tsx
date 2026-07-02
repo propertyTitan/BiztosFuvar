@@ -89,10 +89,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             style={{
               background:
                 t.kind === 'success'
-                  ? '#16a34a'
+                  ? 'var(--success)'
                   : t.kind === 'error'
-                  ? '#dc2626'
-                  : '#1e40af',
+                  ? 'var(--danger)'
+                  : 'var(--primary)',
               color: '#fff',
               padding: '12px 16px',
               borderRadius: 10,

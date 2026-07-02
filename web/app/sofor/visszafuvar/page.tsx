@@ -156,7 +156,7 @@ export default function VisszafuvarPage() {
 
 // Vizuális visszajelzés a score-hoz: 80+ zöld, 50+ sárga, alatta narancs.
 function matchColor(score: number): string {
-  if (score >= 80) return '#2E7D32';
+  if (score >= 80) return 'var(--success)';
   if (score >= 50) return '#F9A825';
   return '#E65100';
 }

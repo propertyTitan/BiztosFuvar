@@ -86,7 +86,7 @@ export default function SoforDashboard() {
                   <div
                     style={{
                       height,
-                      background: 'linear-gradient(180deg, #4ECDC4, #2E7D32)',
+                      background: 'linear-gradient(180deg, var(--primary-light), var(--primary))',
                       borderRadius: '4px 4px 0 0',
                       transition: 'height 0.5s ease',
                     }}
@@ -143,7 +143,7 @@ export default function SoforDashboard() {
                   {j.distance_km} km · {new Date(j.delivered_at).toLocaleDateString('hu-HU')}
                 </div>
               </div>
-              <strong style={{ color: '#2E7D32' }}>{fmt(j.accepted_price_huf)} Ft</strong>
+              <strong style={{ color: 'var(--success)' }}>{fmt(j.accepted_price_huf)} Ft</strong>
             </div>
           ))}
         </div>

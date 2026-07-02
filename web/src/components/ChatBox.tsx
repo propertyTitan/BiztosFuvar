@@ -106,7 +106,7 @@ export default function ChatBox({ entityKey, entityId }: Props) {
       <div
         style={{
           padding: '10px 16px',
-          background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+          background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
           color: '#fff',
           fontWeight: 700,
           fontSize: 14,

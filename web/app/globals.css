@@ -182,6 +182,25 @@ a { color: var(--primary); }
   color: #0f172a !important;
 }
 
+/* ── Ugyanez a TOKENIZÁLT pasztell hátterekre ──
+   A 2026-07-02-es szín-sweep óta a szemantikus tint-hátterek inline
+   var(--success-light) stb. formában mennek — ezek dark mode-ban sötét
+   tint-re váltanak, ezért a szöveg nem fixen sötét, hanem var(--text)
+   (light: sötét, dark: fehér). A !important felülüti a helyenként még
+   hardcodeolt sötét tint-szövegeket (#166534, #92400e, #991b1b). */
+[style*="--success-light"],
+[style*="--warning-light"],
+[style*="--danger-light"],
+[style*="--primary-subtle"] {
+  color: var(--text) !important;
+}
+[style*="--success-light"] *:not(.btn):not(button),
+[style*="--warning-light"] *:not(.btn):not(button),
+[style*="--danger-light"] *:not(.btn):not(button),
+[style*="--primary-subtle"] *:not(.btn):not(button) {
+  color: var(--text) !important;
+}
+
 /* ── Google Maps InfoWindow (marker-buborék) ──
    A Google az info-ablakot MINDIG fehér háttérrel rendereli, a dark mode-os
    `body * { color: var(--text) }` viszont fehérré tenné a szöveget → fehér a

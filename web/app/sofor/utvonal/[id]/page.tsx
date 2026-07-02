@@ -156,7 +156,7 @@ export default function UtvonalReszletek() {
                   <span
                     className="pill"
                     style={{
-                      background: '#dcfce7',
+                      background: 'var(--success-light)',
                       color: '#166534',
                       border: '1px solid #86efac',
                       fontWeight: 700,
@@ -169,7 +169,7 @@ export default function UtvonalReszletek() {
                   <span
                     className="pill"
                     style={{
-                      background: '#fef3c7',
+                      background: 'var(--warning-light)',
                       color: '#92400e',
                       border: '1px solid #fde68a',
                     }}
@@ -267,7 +267,7 @@ export default function UtvonalReszletek() {
                 type="button"
                 className="btn"
                 onClick={publishRoute}
-                style={{ background: '#16a34a' }}
+                style={{ background: 'var(--success)' }}
               >
                 🚀 Publikálás most
               </button>
@@ -287,7 +287,7 @@ export default function UtvonalReszletek() {
               style={{
                 textDecoration: 'none',
                 textAlign: 'center',
-                background: '#2E7D32',
+                background: 'var(--success)',
               }}
             >
               🚗 Útba eső fuvarok
@@ -305,17 +305,17 @@ export default function UtvonalReszletek() {
               key={i}
               className="on-light"
               style={{
-                background: i === 0 ? '#dcfce7' : i === route.waypoints.length - 1 ? '#fee2e2' : '#dbeafe',
+                background: i === 0 ? 'var(--success-light)' : i === route.waypoints.length - 1 ? 'var(--danger-light)' : 'var(--primary-subtle)',
                 padding: '8px 14px',
                 borderRadius: 999,
                 fontSize: 14,
                 border: `1px solid ${i === 0 ? '#86efac' : i === route.waypoints.length - 1 ? '#fca5a5' : '#93c5fd'}`,
               }}
             >
-              <span style={{ fontSize: 11, opacity: 0.7, color: '#475569' }}>
+              <span style={{ fontSize: 11, opacity: 0.7, color: 'var(--text-secondary)' }}>
                 {i === 0 ? 'INDULÁS · ' : i === route.waypoints.length - 1 ? 'CÉL · ' : `${i}. · `}
               </span>
-              <strong style={{ color: '#0f172a' }}>{w.name}</strong>
+              <strong style={{ color: 'var(--text)' }}>{w.name}</strong>
             </div>
           ))}
         </div>
