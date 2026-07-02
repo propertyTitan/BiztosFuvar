@@ -1,0 +1,33 @@
+name: Web tesztek
+
+# Minden PR-en és main-re pusholáskor lefuttatja a web app tesztkészletét.
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - '.github/workflows/web-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # A package-lock.json nincs verziókövetve, ezért npm install (nem npm ci).
+      - name: Függőségek telepítése
+        run: npm install
+
+      - name: Tesztek futtatása
+        run: npm test
