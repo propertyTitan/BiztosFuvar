@@ -1,30 +1,8 @@
 // Regisztráció a valódi űrlapon + fuvar feladása a valódi Google Places
 // cím-keresővel. Ez a két flow a platform "bejárata" — ha ezek törnek,
 // senki nem jut el a licitig.
-import { test, expect, Page, Locator } from '@playwright/test';
-import { createUser, loginAs } from './helpers';
-
-// Cím kiválasztása a Google Places legördülőből, retry-jal. A kiválasztás
-// sikerét a formázott cím megjelenése igazolja (a Google a irányítószámot +
-// országot is beírja — gépelt szövegben ilyen nincs), mert csak ekkor
-// kapott koordinátát az űrlap (pickup/dropoff_confirmed).
-async function selectAddress(page: Page, input: Locator, query: string) {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await input.click();
-    await input.fill('');
-    await input.pressSequentially(query, { delay: 80 });
-    try {
-      await expect(page.locator('.pac-item:visible').first()).toBeVisible({ timeout: 7_000 });
-      await input.press('ArrowDown');
-      await input.press('Enter');
-      await expect(input).toHaveValue(/(\d{4}|Magyarország|Hungary)/, { timeout: 7_000 });
-      return;
-    } catch {
-      // újrapróbáljuk — hideg dev-szervernél az első próbán még akadozhat
-    }
-  }
-  throw new Error(`Cím-kiválasztás sikertelen 3 próbából: ${query}`);
-}
+import { test, expect } from '@playwright/test';
+import { createUser, loginAs, selectAddress } from './helpers';
 
 test('regisztráció az űrlapon át — bejelentkezve landol', async ({ page }) => {
   await page.goto('/bejelentkezes?mode=register');

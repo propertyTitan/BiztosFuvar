@@ -161,6 +161,29 @@ describe('Kézbesítési kód — brute force védelem', () => {
     expect(rows[0].closed_by_code_type).toBe('sender_emergency');
   });
 
+  it('fizetett fuvar lemondásakor a letét refunded lesz (nem ragad held-ben)', async () => {
+    const shipper = await createUser();
+    const carrier = await createUser({ role: 'carrier' });
+    const job = await createJob({
+      shipperId: shipper.id, carrierId: carrier.id, status: 'accepted', paid: true, priceHuf: 20000,
+    });
+
+    const res = await request(app)
+      .post(`/jobs/${job.id}/cancel`)
+      .set('Authorization', `Bearer ${shipper.token}`)
+      .send({ reason: 'teszt lemondás' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.cancellation_fee_huf).toBe(1000); // 20 000 Ft 5%-a
+    expect(res.body.refund_huf).toBe(19000);
+
+    const { rows } = await db.query(
+      'SELECT status, refunded_at FROM escrow_transactions WHERE job_id = $1', [job.id],
+    );
+    expect(rows[0].status).toBe('refunded');
+    expect(rows[0].refunded_at).toBeTruthy();
+  });
+
   it('idegen (nem kijelölt) sofőr fotót sem tölthet fel — 403', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
