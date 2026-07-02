@@ -1,0 +1,35 @@
+name: Backend tesztek
+
+# Az üzleti szabály tesztek (Vitest + supertest + embedded-postgres) minden
+# PR-en és main-re pusholáskor lefutnak. Az embedded-postgres a CI-ban is
+# maga tölti le a Postgres binárist — nincs szükség Docker service-re.
+on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A package-lock.json nincs verziókövetve, ezért npm install (nem npm ci).
+      - name: Függőségek telepítése
+        run: npm install
+
+      - name: Tesztek futtatása
+        run: npm test
