@@ -774,6 +774,16 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
     [req.user.sub, reason || null, fee, refund, j.id],
   );
 
+  // A letét-könyvelés kövesse a valóságot: a Barion-visszatérítés elindult,
+  // a 'held' sor legyen 'refunded' (eddig örökre held maradt — a kifizetést
+  // a cancelled státusz-guard amúgy is blokkolta, de a főkönyv hazudott).
+  await db.query(
+    `UPDATE escrow_transactions
+        SET status = 'refunded', refunded_at = NOW()
+      WHERE job_id = $1 AND status = 'held'`,
+    [j.id],
+  );
+
   // Notifikáció a másik félnek (in-app + email)
   const otherUserId = iAmShipper ? j.carrier_id : j.shipper_id;
   const otherEmail = iAmShipper ? j.carrier_email : j.shipper_email;

@@ -1,7 +1,7 @@
 // Közös E2E helperek: user/fuvar gyártás a backend API-n + közvetlen DB-n
 // keresztül, és bejelentkeztetés a böngészőbe localStorage-injektálással.
 import crypto from 'crypto';
-import { Page } from '@playwright/test';
+import { expect, Locator, Page } from '@playwright/test';
 import { Client } from 'pg';
 
 export const API_URL = 'http://localhost:4100';
@@ -17,7 +17,7 @@ export type E2EUser = {
   token: string;
 };
 
-async function dbQuery(sql: string, params: unknown[] = []) {
+export async function dbQuery(sql: string, params: unknown[] = []) {
   const client = new Client({ connectionString: DB_URL });
   await client.connect();
   try {
@@ -33,8 +33,9 @@ async function dbQuery(sql: string, params: unknown[] = []) {
  *  így a login űrlap is működik vele; a token a backend /auth/login-jából
  *  jön — valódi, aláírt JWT. */
 export async function createUser(
-  role: 'shipper' | 'carrier' = 'shipper',
+  role: 'shipper' | 'carrier' | 'admin' = 'shipper',
   name = 'Teszt Elek',
+  kyc: 'verified' | 'pending' | 'none' = 'verified',
 ): Promise<E2EUser> {
   seq += 1;
   const email = `e2e-${Date.now()}-${seq}@teszt.gofuvar.hu`;
@@ -45,20 +46,31 @@ export async function createUser(
   const { rows } = await dbQuery(
     `INSERT INTO users (role, email, password_hash, full_name, phone,
                         identity_kyc_status, driver_kyc_status)
-     VALUES ($1, $2, $3, $4, '+36201234567', 'verified', 'verified')
+     VALUES ($1, $2, $3, $4, '+36201234567', $5, $5)
      RETURNING id, role`,
-    [role, email, passwordHash, name],
+    [role, email, passwordHash, name, kyc],
   );
 
-  const res = await fetch(`${API_URL}/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) throw new Error(`login hiba: ${res.status} ${await res.text()}`);
-  const body = await res.json();
+  // A tokent helyben írjuk alá (HS256) a playwright.config.ts-ben rögzített
+  // teszt-JWT_SECRET-tel — a /auth/login hívogatása a perc/IP login-limitbe
+  // ütközne, amikor a suite tucatnyi usert gyárt.
+  const token = signTestJwt({ sub: rows[0].id, role: rows[0].role, email });
 
-  return { id: rows[0].id, email, role: rows[0].role, full_name: name, token: body.token };
+  return { id: rows[0].id, email, role: rows[0].role, full_name: name, token };
+}
+
+const E2E_JWT_SECRET = 'e2e-jwt-titok-nem-eles';
+
+function signTestJwt(payload: Record<string, unknown>) {
+  const b64url = (buf: Buffer) => buf.toString('base64url');
+  const header = b64url(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+  const body = b64url(
+    Buffer.from(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + 3600 })),
+  );
+  const signature = b64url(
+    crypto.createHmac('sha256', E2E_JWT_SECRET).update(`${header}.${body}`).digest(),
+  );
+  return `${header}.${body}.${signature}`;
 }
 
 /** Bejelentkeztetés böngészőbe: ugyanaz a localStorage-állapot, amit a
@@ -107,6 +119,61 @@ export async function createJob(shipper: E2EUser, overrides: Record<string, unkn
   });
   if (!res.ok) throw new Error(`job létrehozás hiba: ${res.status} ${await res.text()}`);
   return res.json();
+}
+
+/** Fuvar "elfogadva" állapotba állítása közvetlen DB-vel — az elfogadás /
+ *  fizetés flow-t a 02-es teszt fedi, a többi teszt kész állapotból indul. */
+export async function setJobAccepted(
+  jobId: string,
+  carrierId: string,
+  { paid = true, priceHuf = 20000, status = 'accepted' as string } = {},
+) {
+  await dbQuery(
+    `UPDATE jobs SET carrier_id = $2, status = $3, accepted_price_huf = $4,
+            paid_at = CASE WHEN $5 THEN NOW() ELSE NULL END
+      WHERE id = $1`,
+    [jobId, carrierId, status, priceHuf, paid],
+  );
+  if (paid) {
+    await dbQuery(
+      `INSERT INTO escrow_transactions (job_id, amount_huf, status, barion_payment_id)
+       VALUES ($1, $2, 'held', $3)
+       ON CONFLICT (job_id) DO NOTHING`,
+      [jobId, priceHuf, `stub-${jobId}`],
+    );
+  }
+}
+
+/** Sofőr-licit közvetlenül az API-n (a licit-űrlapot a 02-es teszt fedi). */
+export async function placeBid(carrier: E2EUser, jobId: string, amountHuf: number) {
+  const res = await fetch(`${API_URL}/jobs/${jobId}/bids`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${carrier.token}` },
+    body: JSON.stringify({ amount_huf: amountHuf, return_policy: 'included' }),
+  });
+  if (!res.ok) throw new Error(`licit hiba: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
+/** Cím kiválasztása a Google Places legördülőből, retry-jal. A sikerét a
+ *  formázott cím megjelenése igazolja (irányítószám/ország a gépelt
+ *  szövegben nincs) — csak ekkor kapott koordinátát az űrlap. */
+export async function selectAddress(page: Page, input: Locator, query: string) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await input.click();
+    await input.fill('');
+    await input.pressSequentially(query, { delay: 80 });
+    try {
+      await expect(page.locator('.pac-item:visible').first()).toBeVisible({ timeout: 7_000 });
+      await input.press('ArrowDown');
+      await input.press('Enter');
+      await expect(input).toHaveValue(/(\d{4}|Magyarország|Hungary)/, { timeout: 7_000 });
+      return;
+    } catch {
+      // újrapróbáljuk — hideg dev-szervernél az első próbán még akadozhat
+    }
+  }
+  throw new Error(`Cím-kiválasztás sikertelen 3 próbából: ${query}`);
 }
 
 /** A címzett 6 jegyű átvételi kódja — amit élesben SMS-ben kapna. */
