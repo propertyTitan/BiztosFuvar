@@ -217,14 +217,14 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **58 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **59 teszt fut CI-ben minden
    PR-en és main-pushon** (~2,5 perc összesen):
    - **27 web unit** (Vitest, `web-tests.yml`)
    - **23 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): fizetési guard, kód brute-force lockout, egyszeri
      escrow-felszabadítás, lemondási escrow-refund, adat-scrub/IDOR,
      licit-láthatóság, admin-eszkaláció tiltás, ÁSZF-díjszabás
-   - **8 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+   - **9 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"
