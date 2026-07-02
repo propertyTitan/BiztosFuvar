@@ -28,23 +28,23 @@ const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string }[
     desc: 'A lezáráshoz a sofőrnek be kell írnia a feladó 6 jegyű kódját. Nincs kód — nincs kifizetés.' },
 ];
 
+// A fuvar útjának három állomása — a lépések az útvonal-fonálra fűződnek:
+// kék pont = feladás, köztes pont = úton, zöld végpont = kézbesítve
+// (ugyanaz a színszemantika, mint a termék státuszaiban).
 const STEPS = [
-  { num: '1', title: 'Hirdesd meg a fuvart',
-    desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.',
-    color: 'var(--primary-subtle)' },
-  { num: '2', title: 'Válassz sofőrt',
-    desc: 'Fogadd el a legjobb licitet, vagy foglalj fix áras útvonalon. Fizesd ki biztonságosan a Barion letétbe.',
-    color: 'var(--success-light)' },
-  { num: '3', title: 'Kövesd és vedd át',
-    desc: 'Kövesd a sofőröd élőben. Az átvételkor add át a 6 jegyű kódot — a sofőr kifizetése automatikus.',
-    color: 'var(--warning-light)' },
+  { num: '1', title: 'Hirdesd meg a fuvart', dot: 'var(--primary)',
+    desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.' },
+  { num: '2', title: 'Válassz sofőrt', dot: 'var(--primary)',
+    desc: 'Fogadd el a legjobb licitet, vagy foglalj fix áras útvonalon. Fizesd ki biztonságosan a Barion letétbe.' },
+  { num: '3', title: 'Kövesd és vedd át', dot: 'var(--success)',
+    desc: 'Kövesd a sofőröd élőben. Az átvételkor add át a 6 jegyű kódot — a sofőr kifizetése automatikus.' },
 ];
 
 const TRUST = [
-  { stat: '10%', label: 'platform jutalék — a sofőr 90%-ot kap' },
+  { stat: '10%', label: 'platform jutalék — a sofőré a 90%' },
   { stat: '100%', label: 'visszatérítés, ha a sofőr mondja le' },
-  { stat: '6 jegyű', label: 'átvételi kód biztosítja a lezárást' },
-  { stat: '24/7', label: 'AI segéd válaszol a kérdéseidre' },
+  { stat: '6 jegyű', label: 'kód zárja le az átadást' },
+  { stat: '24/7', label: 'AI segéd válaszol' },
 ];
 
 export default function LandingPage() {
@@ -72,8 +72,8 @@ export default function LandingPage() {
           <Truck size={15} /> Magyarország közösségi fuvartőzsdéje
         </div>
         <h1 style={{
-          fontSize: 'clamp(34px, 5.5vw, 58px)', fontWeight: 900, lineHeight: 1.08,
-          margin: '0 auto 20px', maxWidth: 720, letterSpacing: '-1.2px',
+          fontSize: 'clamp(34px, 5.5vw, 58px)', fontWeight: 800, lineHeight: 1.08,
+          margin: '0 auto 6px', maxWidth: 720, letterSpacing: '-1.2px',
         }}>
           Csomagod van?{' '}
           <span style={{
@@ -81,6 +81,23 @@ export default function LandingPage() {
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
           }}>Sofőröd is lesz.</span>
         </h1>
+        {/* A márka aláírása: A→B útvonal-vonal, betöltéskor megrajzolja
+            magát (reduced-motion esetén azonnal kész). Kék pont = feladás,
+            zöld = megérkezett. */}
+        <svg
+          className="route-draw"
+          aria-hidden
+          width="340" height="34" viewBox="0 0 340 34" fill="none"
+          style={{ display: 'block', margin: '0 auto 18px', maxWidth: '70vw' }}
+        >
+          <path
+            d="M12 26 C 100 4, 240 4, 328 20"
+            stroke="var(--primary-light)" strokeWidth="3"
+            strokeDasharray="1 10" strokeLinecap="round"
+          />
+          <circle cx="12" cy="26" r="6" fill="var(--primary)" />
+          <circle cx="328" cy="20" r="6" fill="var(--success)" />
+        </svg>
         <p style={{
           fontSize: 'clamp(16px, 2vw, 20px)', color: 'var(--text-secondary)',
           maxWidth: 580, margin: '0 auto 32px', lineHeight: 1.5,
@@ -92,7 +109,7 @@ export default function LandingPage() {
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link href="/bejelentkezes?mode=register" className="btn"
             style={{ fontSize: 16, padding: '14px 30px', borderRadius: 12, fontWeight: 800 }}>
-            Kezdjük el <ArrowRight size={18} />
+            Adj fel egy fuvart <ArrowRight size={18} />
           </Link>
           <a href="#hogyan-mukodik" className="btn btn-ghost"
             style={{ fontSize: 16, padding: '14px 28px', borderRadius: 12, fontWeight: 700 }}>
@@ -137,24 +154,37 @@ export default function LandingPage() {
         <h2 style={{ textAlign: 'center', fontSize: 'clamp(24px, 3vw, 30px)', fontWeight: 800, marginBottom: 40 }}>
           Hogyan működik?
         </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24 }}>
-          {STEPS.map((s) => (
-            <div key={s.num} className="on-light" style={{
-              background: s.color, borderRadius: 'var(--radius-xl)', padding: 32,
-              position: 'relative', overflow: 'hidden',
-            }}>
-              <div style={{ position: 'absolute', top: -10, right: 4, fontSize: 100, fontWeight: 900, opacity: 0.1, lineHeight: 1 }}>
-                {s.num}
+        {/* A három lépés az útvonal-fonálra fűzve: a pontozott vonal a
+            csomópontok mögött fut végig (csak asztali nézetben — egy
+            oszlopban a fonál nem értelmezhető, ott elrejtjük). */}
+        <div style={{ position: 'relative' }}>
+          <div
+            aria-hidden
+            className="steps-thread"
+            style={{
+              position: 'absolute', top: 21, left: '12%', right: '12%', height: 3,
+              backgroundImage: 'radial-gradient(circle, var(--primary-light) 1.6px, transparent 1.8px)',
+              backgroundSize: '12px 3px', backgroundRepeat: 'repeat-x',
+              opacity: 0.65,
+            }}
+          />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 24 }}>
+            {STEPS.map((s) => (
+              <div key={s.num} style={{ position: 'relative', textAlign: 'center' }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: '50%', margin: '0 auto 16px',
+                  background: s.dot, color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 18, fontWeight: 800, position: 'relative', zIndex: 1,
+                  boxShadow: '0 0 0 6px var(--bg)',
+                }}>{s.num}</div>
+                <div className="card" style={{ marginBottom: 0, textAlign: 'left' }}>
+                  <h3 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 8px' }}>{s.title}</h3>
+                  <p className="muted" style={{ fontSize: 14.5, lineHeight: 1.6, margin: 0 }}>{s.desc}</p>
+                </div>
               </div>
-              <div style={{
-                width: 44, height: 44, borderRadius: 12, background: 'rgba(0,0,0,0.08)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 20, fontWeight: 900, marginBottom: 16, color: 'var(--text)',
-              }}>{s.num}</div>
-              <h3 style={{ fontSize: 21, fontWeight: 800, marginBottom: 8, color: 'var(--text)' }}>{s.title}</h3>
-              <p style={{ fontSize: 15, lineHeight: 1.6, color: '#334155', margin: 0 }}>{s.desc}</p>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </section>
 
@@ -190,15 +220,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ===== Trust / számok ===== */}
-      <section style={{ padding: '48px 0', borderTop: '1px solid var(--border)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+      {/* ===== Bizalom-csík — csendes, egysoros; a szám a mondat része,
+           nem plakát (a "óriás szám + mini felirat" kártyarács helyett) ===== */}
+      <section style={{ padding: '32px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', justifyContent: 'center',
+          gap: 'clamp(16px, 4vw, 48px)', alignItems: 'baseline',
+        }}>
           {TRUST.map((t) => (
-            <div key={t.label} className="card" style={{ textAlign: 'center', marginBottom: 0 }}>
-              <div style={{ fontSize: 36, fontWeight: 900, color: 'var(--primary-text)', lineHeight: 1, marginBottom: 8 }}>
-                {t.stat}
-              </div>
-              <div className="muted" style={{ fontSize: 14 }}>{t.label}</div>
+            <div key={t.label} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{
+                fontFamily: 'var(--font-display), var(--font-inter), sans-serif',
+                fontSize: 22, fontWeight: 800, color: 'var(--primary-text)',
+              }}>{t.stat}</span>
+              <span className="muted" style={{ fontSize: 14 }}>{t.label}</span>
             </div>
           ))}
         </div>
