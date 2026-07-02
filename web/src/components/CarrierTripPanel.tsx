@@ -19,10 +19,13 @@ import { useToast } from './ToastProvider';
 type Props = {
   jobId: string;
   status: string;
+  /** Kifizette-e már a feladó (paid_at). Fizetetlen fuvaron a backend
+   *  úgysem enged pickup/dropoff fotót — itt előre jelezzük a sofőrnek. */
+  paid: boolean;
   onDone: () => void; // a szülő újratölti a fuvart a státuszváltás után
 };
 
-export default function CarrierTripPanel({ jobId, status, onDone }: Props) {
+export default function CarrierTripPanel({ jobId, status, paid, onDone }: Props) {
   const toast = useToast();
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const dropoffInputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +78,20 @@ export default function CarrierTripPanel({ jobId, status, onDone }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  // ---- fizetetlen fuvar: a munka még nem indulhat ----
+  if ((status === 'accepted' || status === 'in_progress') && !paid) {
+    return (
+      <div className="card" style={{ marginTop: 16, borderColor: 'var(--warning, #d97706)' }}>
+        <h2 style={{ marginTop: 0 }}>⏳ Fizetésre vár</h2>
+        <p className="muted" style={{ marginTop: 0, fontSize: 14, lineHeight: 1.5 }}>
+          A feladó még nem fizette ki a fuvart. A csomagot csak a fizetés
+          beérkezése után vedd át — addig a felvétel igazolása nem elérhető.
+          Amint a fizetés megtörténik, ez az oldal automatikusan frissül.
+        </p>
+      </div>
+    );
   }
 
   // ---- accepted: felvétel ----

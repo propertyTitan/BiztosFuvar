@@ -84,6 +84,17 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     });
   }
 
+  // Fizetési guard: a munka (felvétel/kézbesítés) CSAK kifizetett fuvaron
+  // indulhat. Enélkül a sofőr fizetetlen fuvart is elkezdhetne/lezárhatna —
+  // a letéti modell lényege, hogy a pénz már a platformnál van, mielőtt a
+  // csomag mozogna. A feladó utólag is fizethet (confirm-payment), utána a
+  // fotó-feltöltés újra megengedett.
+  if ((kind === 'pickup' || kind === 'dropoff') && !job.paid_at) {
+    return res.status(409).json({
+      error: 'Ez a fuvar még nincs kifizetve — a munka csak a feladó fizetése után kezdhető el.',
+    });
+  }
+
   // DROPOFF → átvételi kód kötelező, a feladó által generált kóddal kell egyezzen.
   // Ha nem egyezik: 403, NEM mentünk fotót, NEM állítunk státuszt.
   if (kind === 'dropoff') {
