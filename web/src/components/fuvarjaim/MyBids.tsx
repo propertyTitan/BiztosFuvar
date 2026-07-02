@@ -81,7 +81,7 @@ export default function SoforLicitjeim() {
               </div>
             )}
             {iAmCarrier && (
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--success)', fontWeight: 700 }}>
+              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--success-text)', fontWeight: 700 }}>
                 🎉 Tiéd a fuvar
               </div>
             )}

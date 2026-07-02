@@ -128,7 +128,7 @@ export default function CoverageModal() {
                 }}
                 style={{
                   padding: '10px 20px', borderRadius: 8, border: 'none',
-                  background: 'var(--success)', color: '#fff', fontWeight: 700,
+                  background: 'var(--success-strong)', color: '#fff', fontWeight: 700,
                   fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap',
                 }}
               >

@@ -142,7 +142,7 @@ export default function SoforFuvarokLista() {
             href="/dashboard/uj-fuvar"
             className="btn"
             style={{
-              background: 'var(--success)',
+              background: 'var(--success-strong)',
               fontSize: 13,
               padding: '8px 16px',
               textDecoration: 'none',
@@ -209,7 +209,7 @@ export default function SoforFuvarokLista() {
           style={{
             background: 'none',
             border: 'none',
-            color: 'var(--primary)',
+            color: 'var(--primary-text)',
             cursor: 'pointer',
             fontSize: 13,
             fontWeight: 600,

@@ -305,7 +305,7 @@ export default function FeladoUtvonalReszletek() {
           placeholder="pl. törékeny, hívj felvételkor"
         />
 
-        {error && <p style={{ color: 'var(--danger)', marginTop: 16 }}>{error}</p>}
+        {error && <p style={{ color: 'var(--danger-text)', marginTop: 16 }}>{error}</p>}
 
         <button
           className="btn"

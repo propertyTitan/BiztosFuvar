@@ -58,7 +58,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
           padding: '8px 14px',
           background: 'transparent',
           border: '1px solid var(--danger)',
-          color: 'var(--danger)',
+          color: 'var(--danger-text)',
           borderRadius: 8,
           fontWeight: 600,
           fontSize: 13,
@@ -129,7 +129,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
                 style={{
                   flex: 1,
                   padding: '10px 16px',
-                  background: 'var(--danger)',
+                  background: 'var(--danger-strong)',
                   color: '#fff',
                   fontWeight: 700,
                   border: 'none',

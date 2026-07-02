@@ -53,7 +53,7 @@ export default function CookieConsentBanner() {
           🍪 A GoFuvar a működéshez szükséges sütiket használ (bejelentkezés,
           szolgáltatás-elérés). Az „Elfogadom" gombbal hozzájárulsz a használatukhoz.
           Részletek az{' '}
-          <Link href="/adatvedelem" style={{ color: 'var(--primary)' }}>
+          <Link href="/adatvedelem" style={{ color: 'var(--primary-text)' }}>
             Adatkezelési tájékoztatóban
           </Link>.
         </div>

@@ -152,7 +152,7 @@ export default function HomeHub() {
                       }}
                       style={{
                         padding: '10px 22px', borderRadius: 8, border: 'none',
-                        background: 'var(--success)', color: '#fff', fontWeight: 700,
+                        background: 'var(--success-strong)', color: '#fff', fontWeight: 700,
                         fontSize: 14, cursor: 'pointer',
                       }}
                     >
@@ -214,7 +214,7 @@ export default function HomeHub() {
                       </div>
                       {j.status === 'accepted' && (
                         <div style={{
-                          marginTop: 8, background: 'var(--success)', color: '#fff',
+                          marginTop: 8, background: 'var(--success-strong)', color: '#fff',
                           padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
                         }}>
                           📸 INDÍTÁS →
@@ -222,7 +222,7 @@ export default function HomeHub() {
                       )}
                       {j.status === 'in_progress' && (
                         <div style={{
-                          marginTop: 8, background: 'var(--danger)', color: '#fff',
+                          marginTop: 8, background: 'var(--danger-strong)', color: '#fff',
                           padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
                         }}>
                           📸 LEZÁRÁS →
@@ -365,7 +365,7 @@ export default function HomeHub() {
                         padding: '10px 22px',
                         borderRadius: 8,
                         border: 'none',
-                        background: 'var(--success)',
+                        background: 'var(--success-strong)',
                         color: '#fff',
                         fontWeight: 700,
                         fontSize: 14,
@@ -468,7 +468,7 @@ export default function HomeHub() {
                 {l.badge ? (
                   <span style={{
                     position: 'absolute', top: 6, right: 8,
-                    background: 'var(--danger)', color: '#fff', fontSize: 10,
+                    background: 'var(--danger-strong)', color: '#fff', fontSize: 10,
                     fontWeight: 800, borderRadius: 999, padding: '1px 6px',
                   }}>{l.badge}</span>
                 ) : null}

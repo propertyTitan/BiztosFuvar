@@ -55,7 +55,7 @@ export default function VisszafuvarPage() {
       </p>
 
       {loading && <p className="muted">Betöltés…</p>}
-      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger-text)' }}>{error}</p>}
 
       {!loading && !error && groups.length === 0 && (
         <div className="card" style={{ marginTop: 16 }}>

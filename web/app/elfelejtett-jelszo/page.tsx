@@ -52,7 +52,7 @@ export default function ElfelejtettJelszo() {
           <p style={{ margin: 0, fontWeight: 600 }}>📧 Ellenőrizd a postaládád!</p>
           <p style={{ marginTop: 8, marginBottom: 0, fontSize: 14 }}>{message}</p>
           <p style={{ marginTop: 16, marginBottom: 0, fontSize: 13 }}>
-            <Link href="/bejelentkezes" style={{ color: 'var(--primary)' }}>
+            <Link href="/bejelentkezes" style={{ color: 'var(--primary-text)' }}>
               ← Vissza a bejelentkezéshez
             </Link>
           </p>
@@ -77,7 +77,7 @@ export default function ElfelejtettJelszo() {
           />
 
           {error && (
-            <p style={{ color: 'var(--danger)', marginTop: 12, fontSize: 14 }}>⚠️ {error}</p>
+            <p style={{ color: 'var(--danger-text)', marginTop: 12, fontSize: 14 }}>⚠️ {error}</p>
           )}
 
           <button
@@ -90,7 +90,7 @@ export default function ElfelejtettJelszo() {
           </button>
 
           <p style={{ textAlign: 'center', marginTop: 12, fontSize: 13 }}>
-            <Link href="/bejelentkezes" style={{ color: 'var(--primary)' }}>
+            <Link href="/bejelentkezes" style={{ color: 'var(--primary-text)' }}>
               ← Vissza a bejelentkezéshez
             </Link>
           </p>

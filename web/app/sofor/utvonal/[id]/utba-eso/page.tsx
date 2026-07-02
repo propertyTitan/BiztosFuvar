@@ -60,7 +60,7 @@ export default function UtbaEsoPage() {
       </Link>
 
       {loading && <p className="muted">Keresés…</p>}
-      {error && <p style={{ color: 'var(--danger)' }}>{error}</p>}
+      {error && <p style={{ color: 'var(--danger-text)' }}>{error}</p>}
 
       {!loading && !error && jobs.length === 0 && (
         <div className="card" style={{ marginTop: 16 }}>

@@ -215,7 +215,7 @@ export default function LiveTrackingMap({ job }: Props) {
           return (
             <div style={{
               padding: '6px 16px', borderRadius: 20,
-              background: 'var(--success)', color: '#fff',
+              background: 'var(--success-strong)', color: '#fff',
               fontWeight: 800, fontSize: 16,
             }}>
               {etaText}

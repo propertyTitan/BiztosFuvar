@@ -305,8 +305,8 @@ export default function AdminPanel() {
             { label: 'Összes fuvar', value: stats.total_jobs, color: 'var(--primary-subtle)' },
             { label: 'Aktív fuvar', value: stats.active_jobs, color: 'var(--success-light)' },
             { label: 'Felhasználók', value: stats.total_users, color: 'var(--warning-light)' },
-            { label: 'Fix áras útvonalak', value: stats.total_routes, color: '#e0e7ff' },
-            { label: 'Foglalások', value: stats.total_bookings, color: '#fce7f3' },
+            { label: 'Fix áras útvonalak', value: stats.total_routes, color: 'var(--primary-subtle)' },
+            { label: 'Foglalások', value: stats.total_bookings, color: 'var(--warning-light)' },
             { label: 'Nyitott viták', value: stats.open_disputes, color: 'var(--danger-light)' },
           ].map((s) => (
             <div
@@ -428,7 +428,7 @@ export default function AdminPanel() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <button
                   className="btn"
-                  style={{ fontSize: 12, padding: '6px 12px', background: 'var(--success)' }}
+                  style={{ fontSize: 12, padding: '6px 12px', background: 'var(--success-strong)' }}
                   onClick={() => setDecision({ id: d.id, mode: 'no_action' })}
                 >
                   ✅ Nincs teendő
@@ -501,7 +501,7 @@ export default function AdminPanel() {
               </div>
               <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 {pe.platform_fee != null && (
-                  <div style={{ fontWeight: 700, color: 'var(--success)', fontSize: 14 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--success-text)', fontSize: 14 }}>
                     +{pe.platform_fee} {pe.currency}
                   </div>
                 )}

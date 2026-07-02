@@ -225,7 +225,7 @@ export default function ErtesitokOldal() {
                     type="button"
                     onClick={() => setDeleteTarget(a)}
                     aria-label="Törlés"
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger)', padding: 6, display: 'flex' }}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--danger-text)', padding: 6, display: 'flex' }}
                   >
                     <Trash2 size={18} />
                   </button>

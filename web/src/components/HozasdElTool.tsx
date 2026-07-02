@@ -56,14 +56,14 @@ export default function HozasdElTool() {
       <section style={{ textAlign: 'center', padding: '40px 0 24px' }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 16,
-          background: 'var(--primary-subtle)', color: 'var(--primary)',
+          background: 'var(--primary-subtle)', color: 'var(--primary-text)',
           padding: '6px 14px', borderRadius: 999, fontSize: 13, fontWeight: 700,
           border: '1px solid var(--primary-light)',
         }}>
           <ShoppingBag size={15} /> Online vásárlásból
         </div>
         <h1 style={{ fontSize: 'clamp(28px, 4.5vw, 40px)', fontWeight: 900, letterSpacing: '-0.8px', margin: '0 auto 12px', maxWidth: 560 }}>
-          Vettél valamit online? <span style={{ color: 'var(--primary)' }}>Hozasd el.</span>
+          Vettél valamit online? <span style={{ color: 'var(--primary-text)' }}>Hozasd el.</span>
         </h1>
         <p style={{ fontSize: 'clamp(15px, 2vw, 18px)', color: 'var(--text-secondary)', maxWidth: 540, margin: '0 auto', lineHeight: 1.5 }}>
           Bútort, gépet, nagyobb tárgyat vettél az IKEA-ban, OBI-ban, Praktikerben

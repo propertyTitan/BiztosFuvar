@@ -309,7 +309,7 @@ export default function ProfilOldal() {
               borderRadius: 8,
               border: '1px solid var(--danger)',
               background: 'transparent',
-              color: 'var(--danger)',
+              color: 'var(--danger-text)',
               fontWeight: 600,
               fontSize: 13,
               cursor: 'pointer',
@@ -460,7 +460,7 @@ function KycStatusRow({ label, status, docType }: { label: string; status?: stri
     >
       <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
       {isVerified && (
-        <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: 13 }}>✅ Elfogadva</span>
+        <span style={{ color: 'var(--success-text)', fontWeight: 700, fontSize: 13 }}>✅ Elfogadva</span>
       )}
       {isPending && (
         <span style={{ color: '#D97706', fontWeight: 700, fontSize: 13 }}>⏳ Ellenőrzés alatt</span>
@@ -474,7 +474,7 @@ function KycStatusRow({ label, status, docType }: { label: string; status?: stri
             }));
           }}
           style={{
-            background: 'var(--danger)',
+            background: 'var(--danger-strong)',
             color: '#fff',
             border: 'none',
             borderRadius: 6,

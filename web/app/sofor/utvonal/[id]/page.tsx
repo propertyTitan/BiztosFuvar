@@ -186,7 +186,7 @@ export default function UtvonalReszletek() {
                 </button>
                 <button
                   className="btn btn-secondary"
-                  style={{ fontSize: 12, padding: '4px 10px', borderColor: 'var(--danger)', color: 'var(--danger)' }}
+                  style={{ fontSize: 12, padding: '4px 10px', borderColor: 'var(--danger)', color: 'var(--danger-text)' }}
                   onClick={() => setDialog({ type: 'reject', bookingId: b.id })}
                 >
                   Elutasítom
@@ -202,7 +202,7 @@ export default function UtvonalReszletek() {
                   style={{
                     background: 'transparent',
                     border: '1px solid var(--danger)',
-                    color: 'var(--danger)',
+                    color: 'var(--danger-text)',
                     padding: '4px 10px',
                     borderRadius: 6,
                     cursor: 'pointer',
@@ -267,7 +267,7 @@ export default function UtvonalReszletek() {
                 type="button"
                 className="btn"
                 onClick={publishRoute}
-                style={{ background: 'var(--success)' }}
+                style={{ background: 'var(--success-strong)' }}
               >
                 🚀 Publikálás most
               </button>
@@ -287,7 +287,7 @@ export default function UtvonalReszletek() {
               style={{
                 textDecoration: 'none',
                 textAlign: 'center',
-                background: 'var(--success)',
+                background: 'var(--success-strong)',
               }}
             >
               🚗 Útba eső fuvarok
@@ -351,7 +351,7 @@ export default function UtvonalReszletek() {
 
       {pending.length > 0 && (
         <>
-          <h3 style={{ color: 'var(--primary)' }}>⏳ Válaszra vár ({pending.length})</h3>
+          <h3 style={{ color: 'var(--primary-text)' }}>⏳ Válaszra vár ({pending.length})</h3>
           {pending.map((b) => <BookingCard key={b.id} b={b} />)}
         </>
       )}

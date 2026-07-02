@@ -436,7 +436,7 @@ export default function FuvarReszletek() {
                   className="btn"
                   style={{
                     marginTop: 12,
-                    background: 'var(--success)',
+                    background: 'var(--success-strong)',
                     border: 'none',
                     cursor: paying ? 'wait' : 'pointer',
                     opacity: paying ? 0.7 : 1,
@@ -457,7 +457,7 @@ export default function FuvarReszletek() {
                 style={{
                   background: 'transparent',
                   border: '1px solid var(--danger)',
-                  color: 'var(--danger)',
+                  color: 'var(--danger-text)',
                   padding: '6px 14px',
                   borderRadius: 6,
                   cursor: 'pointer',

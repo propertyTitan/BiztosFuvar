@@ -25,6 +25,17 @@
   --danger-light: #fee2e2;
   --warning: #f59e0b;
   --warning-light: #fef3c7;
+  /* Szöveg-, ill. tömör gomb-háttér változatok: a --primary/--success
+     kettős szerepben volt (link-szín ÉS gomb-háttér), ami dark mode-ban
+     nem tudott egyszerre olvasható lenni. Szétválasztva:
+     - --primary-text: linkek/kiemelt szöveg színe (dark: világosabb kék)
+     - --success-strong: zöld gomb/badge háttér fehér szöveg alatt
+       (dark: mélyebb zöld, hogy a fehér 4.5:1 felett maradjon) */
+  --primary-text: #1e40af;
+  --success-strong: #15803d;
+  --success-text: #166534;
+  --danger-text: #dc2626;
+  --danger-strong: #dc2626;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -38,10 +49,17 @@
 /* ── Dark mode ── */
 @media (prefers-color-scheme: dark) {
   :root {
-    --primary: #3b82f6;
-    --primary-hover: #2563eb;
+    /* #3b82f6 helyett #2563eb: a fehér gomb-/pill-szöveg kontrasztja így
+       4.55:1 (AA), a régin csak 3.7 volt */
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
     --primary-light: #60a5fa;
     --primary-subtle: #1e3a5f;
+    --primary-text: #60a5fa;
+    --success-strong: #166534;
+    --success-text: #4ade80;
+    --danger-text: #f87171;
+    --danger-strong: #b91c1c;
     --bg: #0c1222;
     --surface: #162032;
     --surface-hover: #1e293b;
@@ -81,10 +99,12 @@
   }
   /* Pills dark mode-ban: élénk, telített háttér + tiszta fehér szöveg,
      hogy messziről is olvasható legyen. !important a base szabály felülírásához. */
+  /* Hátterek úgy megválasztva, hogy a fehér szöveg 4.5:1 felett legyen
+     (a korábbi amber #f59e0b fehérrel csak 2.1:1 volt) */
   .pill-bidding   { background: #2563eb !important; color: #ffffff !important; }
-  .pill-accepted  { background: #f59e0b !important; color: #ffffff !important; }
-  .pill-progress  { background: #3b82f6 !important; color: #ffffff !important; }
-  .pill-delivered { background: #16a34a !important; color: #ffffff !important; }
+  .pill-accepted  { background: #b45309 !important; color: #ffffff !important; }
+  .pill-progress  { background: #2563eb !important; color: #ffffff !important; }
+  .pill-delivered { background: #166534 !important; color: #ffffff !important; }
   .pill-cancelled { background: #dc2626 !important; color: #ffffff !important; }
   .own-post-card { background: #422006 !important; border-color: #a16207 !important; }
   .own-post-card, .own-post-card * { color: #fef3c7 !important; }
@@ -125,7 +145,7 @@ h1 { font-size: 32px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.5px;
 h2 { font-size: 24px; font-weight: 700; margin: 24px 0 8px; letter-spacing: -0.3px; }
 h3 { font-size: 18px; font-weight: 700; margin: 16px 0 4px; }
 p { margin: 0 0 8px; }
-a { color: var(--primary); }
+a { color: var(--primary-text); }
 
 /* ── Utility: force dark text on pastel/light backgrounds ── */
 /* Use for cards with hardcoded light backgrounds (#dbeafe, #dcfce7 stb.)
@@ -422,10 +442,10 @@ a.card:hover, .home-hub-card:hover {
 }
 /* Szemantikus gomb-variánsok — eddig minden színes gomb inline háttérrel
    ment (background:#16a34a stb.), ami dark mode-ban nem alkalmazkodott. */
-.btn-danger  { background: var(--danger); }
-.btn-danger:hover  { background: var(--danger); filter: brightness(0.92); box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
-.btn-success { background: var(--success); }
-.btn-success:hover { background: var(--success); filter: brightness(0.94); box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
+.btn-danger  { background: var(--danger-strong); }
+.btn-danger:hover  { background: var(--danger-strong); filter: brightness(0.92); box-shadow: 0 4px 12px rgba(220,38,38,0.3); }
+.btn-success { background: var(--success-strong); }
+.btn-success:hover { background: var(--success-strong); filter: brightness(0.94); box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
 .btn-warning { background: var(--warning); color: #4a2c05; }
 .btn-warning:hover { background: var(--warning); filter: brightness(0.96); box-shadow: 0 4px 12px rgba(245,158,11,0.3); }
 .btn-ghost {

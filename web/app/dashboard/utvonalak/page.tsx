@@ -66,7 +66,7 @@ export default function FeladoiUtvonalBongeszo() {
             href="/sofor/uj-utvonal"
             className="btn"
             style={{
-              background: 'var(--success)',
+              background: 'var(--success-strong)',
               fontSize: 13,
               padding: '8px 16px',
               textDecoration: 'none',

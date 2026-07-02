@@ -150,7 +150,7 @@ function FizetesStubContent() {
         }}
       >
         {error && (
-          <div style={{ color: 'var(--danger)', marginBottom: 16 }}>
+          <div style={{ color: 'var(--danger-text)', marginBottom: 16 }}>
             Hiba: {error}
           </div>
         )}
@@ -184,7 +184,7 @@ function FizetesStubContent() {
                 style={{
                   fontSize: 32,
                   fontWeight: 800,
-                  color: 'var(--primary)',
+                  color: 'var(--primary-text)',
                   marginTop: 4,
                 }}
               >
@@ -214,7 +214,7 @@ function FizetesStubContent() {
               onClick={pay}
               style={{
                 width: '100%',
-                background: 'var(--success)',
+                background: 'var(--success-strong)',
                 padding: '14px 24px',
                 fontSize: 16,
                 fontWeight: 700,
