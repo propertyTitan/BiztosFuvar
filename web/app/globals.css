@@ -140,7 +140,12 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
-/* ── Typography ── */
+/* ── Typography ──
+   Címsorok: Bricolage Grotesque (display) — a márka karaktere.
+   Szövegtörzs és UI: Inter — az olvashatóság érinthetetlen. */
+h1, h2 {
+  font-family: var(--font-display), var(--font-inter), 'Inter', sans-serif;
+}
 h1 { font-size: 32px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.5px; line-height: 1.2; }
 h2 { font-size: 24px; font-weight: 700; margin: 24px 0 8px; letter-spacing: -0.3px; }
 h3 { font-size: 18px; font-weight: 700; margin: 16px 0 4px; }
@@ -551,4 +556,25 @@ label {
 @keyframes gofuvar-spin {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
+}
+
+/* ── Útvonal-motívum (a márka aláírása) ──
+   A→B pontozott vonal: a hero-ban egyszer megrajzolja magát betöltéskor,
+   a "Hogyan működik?" lépéseit pedig fonálként köti össze. A kék pont a
+   feladás, a zöld végpont a kézbesítés — ugyanaz a jelentés, mint a
+   termék státusz-színeiben. */
+@keyframes gofuvar-route-reveal {
+  from { clip-path: inset(0 100% 0 0); }
+  to   { clip-path: inset(0 0 0 0); }
+}
+.route-draw {
+  animation: gofuvar-route-reveal 1.1s ease-out 0.2s both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .route-draw { animation: none; }
+  .card, .site-main > * { animation: none; }
+}
+/* Egy oszlopba törve (mobil) a vízszintes fonál értelmét veszti */
+@media (max-width: 859px) {
+  .steps-thread { display: none; }
 }

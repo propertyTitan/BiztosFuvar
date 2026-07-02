@@ -4,7 +4,7 @@
 // böngészőjéből, így „app-érzettel" használhatja a natív app megjelenéséig.
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Bricolage_Grotesque } from 'next/font/google';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import AiChatWidget from '@/components/AiChatWidget';
@@ -22,6 +22,15 @@ const inter = Inter({
   subsets: ['latin', 'latin-ext'],
   weight: ['400', '500', '600', '700', '800', '900'],
   variable: '--font-inter',
+  display: 'swap',
+});
+
+// Display-betű a címsorokra: karaktert ad a márkának, míg a szövegtörzs
+// és a UI Inter marad (olvashatóság!). latin-ext a magyar ő/ű miatt.
+const bricolage = Bricolage_Grotesque({
+  subsets: ['latin', 'latin-ext'],
+  weight: ['700', '800'],
+  variable: '--font-display',
   display: 'swap',
 });
 
@@ -79,7 +88,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hu" className={inter.variable}>
+    <html lang="hu" className={`${inter.variable} ${bricolage.variable}`}>
       <head>
         {/* iOS Safari PWA-támogatás (a Next.js metadata API nem mindig
             generálja ezeket konzisztensen, ezért explicit kihúzzuk) */}
