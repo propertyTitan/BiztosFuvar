@@ -176,6 +176,11 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   (részletek: 7. szakasz 8. pont). Közben javítva: fizetetlen fuvaron nem
   indítható munka (paid_at guard) + lemondáskor az escrow-sor refunded-re
   vált (eddig held-ben ragadt)
+- **SEO-alapok + design-identitás (2026-07-03, PR #46-47)** — og:image
+  (FB-megosztáshoz), JSON-LD, meta descriptionök; gomb-emoji purge;
+  márka-aláírás: A→B útvonal-motívum (hero + "Hogyan működik" fonál +
+  OG-kép) + Bricolage Grotesque display-tipográfia a címsorokon
+  (törzsszöveg marad Inter)
 - **Polír-csomag (2026-07-02, PR #44)** — 187 hex → design-token (dark
   mode konzisztens), 17 oldalankénti title + favicon-készlet + sitemap,
   a11y-kör (toast aria-live, htmlFor/autocomplete a fő űrlapokon),
