@@ -132,7 +132,8 @@ export default function AszfPage() {
       <p>
         <strong>4.1. Kapcsolatfelvételi (közvetítési) díj:</strong> A Szolgáltató egyetlen díja a
         kapcsolatfelvételi díj, amelyet a <strong>Feladó</strong> fizet meg bankkártyával (a Barion
-        Payment Zrt. fizetési rendszerén keresztül) az ajánlat (licit vagy foglalás) elfogadásakor.
+        Payment Zrt. fizetési rendszerén keresztül) a megállapodás létrejöttekor (licit elfogadása,
+        fix áras foglalás sofőri megerősítése, illetve azonnali fuvar sofőri elvállalása után).
         A díj ellenében a Szolgáltató <strong>azonnal átadja a Feladónak a Sofőr kapcsolatfelvételi
         adatait</strong> (név, telefonszám, e-mail cím), a Sofőrnek a Feladóét, és elindítja a
         fuvar-folyamatot támogató szolgáltatásokat (címzetti SMS-értesítések, átvételi kód,
@@ -293,9 +294,11 @@ export default function AszfPage() {
       <p>
         A Szolgáltató az adózás rendjéről szóló jogszabályok és a 2011/16/EU Tanácsi irányelv (DAC7)
         szerint <strong>adatot szolgáltat a Nemzeti Adó- és Vámhivatal (NAV) felé</strong> a Sofőrök
-        platformon keresztül elért bevételeiről. Az adatszolgáltatás éves rendszerességgel történik,
-        és a NAV-tól elvárt formátumban tartalmazza a Sofőr azonosító adatait, a tranzakciók számát
-        és összegét.
+        platformon keresztül elért bevételeiről. Mivel a fuvardíj a Felek között készpénzben mozog
+        (4.2. pont), az adatszolgáltatás a <strong>Platformon rögzített, megállapodott fuvardíjakon</strong>{' '}
+        (a Szolgáltató számára ismert ellenértéken) alapul. Az adatszolgáltatás éves rendszerességgel
+        történik, és a NAV-tól elvárt formátumban tartalmazza a Sofőr azonosító adatait, a tranzakciók
+        számát és összegét.
       </p>
 
       <h2 style={{ marginTop: 32 }}>6. Fogyasztói Jogok: Elállás és Panaszkezelés</h2>
@@ -359,7 +362,7 @@ export default function AszfPage() {
         kézbesítés érdekében összesen 5 db automatizált SMS-értesítést küld ki a folyamat során:
       </p>
       <ol>
-        <li><strong>Címzettnek:</strong> Értesítés a csomag felvételéről (sofőr adatai + átvételi kód).</li>
+        <li><strong>Címzettnek:</strong> Értesítés az induló fuvarról (követési link + átvételi kód).</li>
         <li><strong>Címzettnek:</strong> Értesítés, amikor a sofőr 5 km-es körzeten belülre ér.</li>
         <li><strong>Címzettnek:</strong> Értesítés, amikor a sofőr 300 méteres körzeten belülre ér (&quot;A saroknál van&quot;).</li>
         <li><strong>Címzettnek:</strong> Visszaigazolás a sikeres kézbesítésről (a fuvar lezárásakor).</li>
@@ -492,9 +495,9 @@ export default function AszfPage() {
         Ahol jogszabály kötelező előzetes értesítési időt vagy indokolási kötelezettséget ír elő —
         így különösen az üzleti felhasználók vonatkozásában az online közvetítő szolgáltatásokról szóló{' '}
         <strong>(EU) 2019/1150 rendelet (P2B)</strong> szerint — a Szolgáltató ezeket betartja. A fiók
-        megszüntetése nem érinti a Felhasználó már megszerzett, kifizetésre váró jogos követeléseit
-        (pl. egy már teljesített fuvar díja), és nem mentesíti egyik Felet sem a megszüntetés előtt
-        keletkezett kötelezettségei alól.
+        megszüntetése nem érinti a Felhasználó már megszerzett jogos követeléseit (pl. a Sofőrnek egy
+        már teljesített fuvar után a Feladótól készpénzben járó fuvardíjat), és nem mentesíti egyik
+        Felet sem a megszüntetés előtt keletkezett kötelezettségei alól.
       </p>
 
       <h2 style={{ marginTop: 32 }}>12. A Felhasználó Kártalanítási Kötelezettsége</h2>

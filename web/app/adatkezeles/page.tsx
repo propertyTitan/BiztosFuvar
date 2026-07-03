@@ -18,7 +18,7 @@ export default function AdatkezelesPage() {
     >
       <h1 style={{ marginBottom: 4 }}>Adatkezelési Tájékoztató (GDPR)</h1>
       <p className="muted" style={{ margin: 0 }}>
-        <strong>Hatályos:</strong> 2026. május 12-től
+        <strong>Hatályos:</strong> 2026. július 4-től
       </p>
 
       <h2 style={{ marginTop: 32 }}>1. Az Adatkezelő</h2>
@@ -47,7 +47,18 @@ export default function AdatkezelesPage() {
           ideje alatt kerül tárolásra.
         </li>
         <li>
-          <strong>Tranzakciós adatok:</strong> Számlázási adatok, Barion azonosító (DAC7).
+          <strong>Tranzakciós adatok:</strong> Számlázási adatok, Barion fizetési azonosító
+          (kapcsolatfelvételi díj), a megállapodott fuvardíj összege (DAC7), valamint az
+          elállási jogról szóló fogyasztói nyilatkozat (45/2014. Korm. r. 29. § (1) a) szerinti
+          beleegyezés) időbélyege — a nyilatkozat megtételének bizonyítására.
+        </li>
+        <li>
+          <strong>Kapcsolatfelvételi adatok átadása a Felek között:</strong> a kapcsolatfelvételi
+          díj megfizetése után a Szolgáltató a Feladó és a Sofőr <strong>nevét, telefonszámát és
+          e-mail címét egymás részére átadja</strong> — ez a közvetítési szolgáltatás lényegi
+          tartalma, célja a fuvarozási szerződés Felek közötti teljesítésének lehetővé tétele.
+          A díj megfizetése előtt a Felhasználók elérhetőségi adatai a másik fél számára nem
+          hozzáférhetők.
         </li>
         <li>
           <strong>Rendszer és Fuvarspecifikus adatok:</strong> Címek, GPS koordináták (élő követés),
@@ -66,8 +77,11 @@ export default function AdatkezelesPage() {
 
       <h2 style={{ marginTop: 32 }}>3. Az adatkezelés jogalapja</h2>
       <p>
-        <strong>Szerződés teljesítése</strong> [GDPR 6. cikk (1) b)];{' '}
-        <strong>Jogi kötelezettség</strong> (Számvitel, DAC7) [GDPR 6. cikk (1) c)];{' '}
+        <strong>Szerződés teljesítése</strong> (ide értve a Felek kapcsolatfelvételi adatainak
+        egymás részére történő átadását a díj megfizetése után — ez a megrendelt közvetítési
+        szolgáltatás teljesítése) [GDPR 6. cikk (1) b)];{' '}
+        <strong>Jogi kötelezettség</strong> (Számvitel, DAC7, a fogyasztói elállási nyilatkozat
+        rögzítése és bizonyíthatósága) [GDPR 6. cikk (1) c)];{' '}
         <strong>Jogos érdek</strong> (KYC, csalásmegelőzés, vitarendezés, a Címzett telefonszámának
         kezelése a fuvarozási szerződés hatékony teljesítéséhez és a biztonságos kódátadáshoz,
         a Feladó tájékoztatása a sikeres kézbesítésről) [GDPR 6. cikk (1) f)].
@@ -93,7 +107,7 @@ export default function AdatkezelesPage() {
         <li><strong>Barion Payment Zrt.</strong> (1117 Budapest) — bankkártyás fizetés (kapcsolatfelvételi díj)</li>
         <li><strong>Vercel Inc.</strong> (Frankfurt régió) — webes alkalmazás-hosting</li>
         <li><strong>Railway Corp.</strong> (EU régió) — backend-hosting</li>
-        <li><strong>Supabase Inc.</strong> (eu-central-1, Frankfurt) — PostgreSQL adatbázis</li>
+        <li><strong>Neon Inc.</strong> (eu-central-1, Frankfurt — AWS) — PostgreSQL adatbázis</li>
         <li><strong>Cloudflare R2</strong> (EU régió) — fájlok és fotók object storage</li>
         <li><strong>Resend Inc.</strong> (EU régió) — tranzakciós e-mail küldés</li>
         <li>
@@ -161,9 +175,9 @@ export default function AdatkezelesPage() {
       <ul>
         <li>Minden adatkommunikáció HTTPS/TLS-titkosítással zajlik</li>
         <li>A jelszavak <strong>scrypt</strong> algoritmussal hash-elve, sózva tárolódnak</li>
-        <li>Privát object storage (Cloudflare R2) a fájlok tárolására</li>
+        <li>Dedikált object storage (Cloudflare R2) a fájlok tárolására</li>
         <li>JWT-alapú session-kezelés, IP-szintű rate-limittel</li>
-        <li>Adatbázis automatikus napi mentései 7 napig megőrzésre kerülnek (Supabase)</li>
+        <li>Adatbázis automatikus napi mentései 7 napig megőrzésre kerülnek (Neon)</li>
       </ul>
 
       <h2 style={{ marginTop: 32 }}>6. Automatizált Döntéshozatal és Profilalkotás</h2>
