@@ -41,7 +41,11 @@ szerződés kizárólag a Feladó és a Sofőr között jön létre.
 ### Fő feature-ek (mind élesedett)
 - Licites fuvar + fix áras útvonal-foglalás + visszafuvar matching + instant ("UberFuvar")
 - KYC AI-val (Gemini olvas ID-t, kor-ellenőrzés, admin jóváhagyás)
-- Escrow + split payment (Barion)
+- **Készpénzes modell (2026-07-03)**: a fuvardíj KÁPÉBAN megy a sofőrnek
+  (100%, levonás nélkül); a platform sávos KAPCSOLATFELVÉTELI DÍJAT szed a
+  feladótól elfogadáskor (Barion, sima webshop-fizetés — NEM kell escrow!);
+  kontakt-felfedés csak a díj után; az escrow-kód dormant (később
+  "Védett fizetés" opció lehet)
 - 6 jegyű átvételi kód + QR kód
 - 5 db SMS a címzettnek (felvétel, 5km, 300m, kézbesítés, feladónak is visszaigazolás)
 - Élő GPS-tracking (background, dinamikus 60s→15s frekvencia) — ⚠️ a
@@ -125,8 +129,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 
 | | Mit |
 |---|---|
-| Platform díj | **10% + 400 Ft fix** (lawyer approved) |
-| Lemondási díj | 8.000 Ft alatt **400 Ft fix** / felett **5%** (lawyer approved) |
+| Üzleti modell | **KÉSZPÉNZES (2026-07-03, user döntése, felelősséget vállalta)**: a fuvardíj kápéban megy a sofőrnek (100%); a platform bevétele a kapcsolatfelvételi díj. A korábbi 10%+400 escrow-modell hatályon kívül — a kód dormant, később "Védett fizetés" opció lehet |
+| Kapcsolatfelvételi díj | **Sávos, bruttó, BEVEZETŐ ár** (mindenhol így kommunikálva!): ≤20e → **500 Ft** / ≤50e → **1.490 Ft** / ≤100e → **2.490 Ft** / felette → **3.990 Ft**. NEM visszatérítendő (45/2014. 29.§(1)a consent-checkbox a fizetésnél); a fuvarra szól: sofőr-meghiúsulásnál díjmentes újraválasztás, másik fuvarra NEM vihető át. Emelési trigger: stabil ~300+ fuvar/hó |
+| Kontakt-kapuzás | Telefonszám/email CSAK a díj megfizetése után látszik (ez a kikerülés-védelem lényege; chat contactGuard fizetés előtt szűr) |
+| Lemondási díj | **NINCS** — lemondás ingyenes, de a befizetett díj nem jár vissza |
 | Kárfelelősség | NINCS platform-szabta kárplafon — a platform nem felel, a Feladó és a Sofőr a Ptk. szerint rendezi egymás közt (ÁSZF 5.2) |
 | Coverage | **Európa-szintű** (lat 34-71, lng -10..32) — magyar fő piac, EU mellesleg |
 | Csomag tilalom | NINCS hardcoded lista — a Feladó felelős hogy ellenőrizze a sofőr engedélyét speciális áruhoz (élő állat, gyógyszer, stb.) |
@@ -152,7 +158,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - Cookie consent, EmailVerifyBanner, DisputeButton, ReviewBox, ChatBox
 - KYC AI (Gemini)
 - 5 SMS flow (kód, STUB)
-- Tracking, fotó, escrow logic (Barion STUB)
+- Tracking, fotó, díj-fizetési logic (Barion STUB)
+- **Készpénz + kapcsolatfelvételi díj modell (2026-07-03/04)** — teljes
+  átállás: backend (connectionFee service, 044-es migráció:
+  `connection_fee_huf`+`fee_consent_at`+`reopened_count`, díj-fizetés
+  escrow helyett, kontakt-felfedés a `GET /jobs/:id` `contact` mezőjében,
+  sofőr-lemondásnál auto-reopen + `POST /jobs/:id/reopen` sofőr-csere,
+  webhook+számla a feladónak), web (consent-checkbox a fizetésnél,
+  kontakt-kártyák, sávos díj-UI, landing/chatbot/email szövegek), ÁSZF
+  teljes pénzügyi átírás (4., 5.1, 6.2, 7. szakasz)
 - Admin CRUD panel
 - PWA telepíthető
 - Coverage Európa
@@ -197,8 +211,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   kész fordítással tér vissza
 
 ### 🟡 Várakozóban
-- **Barion Bridge szerződés** — kérelem elküldve, partners@barion.com várjuk
-  (2-4 hét tipikus átfutás, ez a fő launch-blokker)
+- **Barion szerződés** — ⚠️ a készpénzes modellel (2026-07-03) a Bridge/escrow
+  **már NEM launch-blokker**: a kapcsolatfelvételi díjhoz SIMA Barion
+  webshop-szerződés elég (napok, nem hetek). A Bridge-kérelem futhat tovább a
+  háttérben a későbbi "Védett fizetés" opcióhoz
 - **D-U-N-S szám** — Apple-enrollment-flow indítása apukán át (Apple Developer fiók)
 - **Resend.com** — fiók + DNS verify + API key Railway env-be
 - **SeeMe.hu** — API kulcs Railway env-be
@@ -230,20 +246,22 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **59 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **62 teszt fut CI-ben minden
    PR-en és main-pushon** (~2,5 perc összesen):
    - **27 web unit** (Vitest, `web-tests.yml`)
-   - **23 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
-     `backend-tests.yml`): fizetési guard, kód brute-force lockout, egyszeri
-     escrow-felszabadítás, lemondási escrow-refund, adat-scrub/IDOR,
-     licit-láthatóság, admin-eszkaláció tiltás, ÁSZF-díjszabás
-   - **9 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+   - **25 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+     `backend-tests.yml`): díj-fizetési guard + consent, kód brute-force
+     lockout, lemondás pénzmozgás nélkül, sofőr-lemondás → díjmentes reopen,
+     licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR, licit-láthatóság,
+     admin-eszkaláció tiltás, kapcsolatfelvételi díjsávok (ÁSZF 4.1)
+   - **10 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"
-     guard → stub-fizetés → pickup → kód-lezárás); vita; ellenajánlat-alku;
-     Hozasd el (mockolt link-preview + termékkép a sofőrnél); admin KYC
-     jóváhagyás; lemondás+refund
+     guard → díj-fizetés consent-checkboxszal → kontakt-felfedés → pickup →
+     kód-lezárás); vita; ellenajánlat-alku; Hozasd el (mockolt link-preview +
+     termékkép a sofőrnél); admin KYC jóváhagyás; feladói lemondás (díj nem
+     jár vissza) + sofőr-csere (díjmentes újraválasztás)
    Lokálisan: `cd web && npm test` / `npm run test:e2e` ill.
    `cd backend && npm test` (a teszt-Postgresek az 54331/54332-es porton
    futnak — a prod Neont teszt SOHA nem éri el).

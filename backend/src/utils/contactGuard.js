@@ -39,18 +39,18 @@ function detectContactLeak(text) {
 
   // Hosszú számjegy-sorozat detektálása
   if (/\d{9,}/.test(stripped)) {
-    return 'Telefonszám nem írható le. A platform-on belül a fuvar elfogadása után már tudtok egymással üzenetet váltani.';
+    return 'Telefonszám nem írható le. A kapcsolatfelvételi díj megfizetése után automatikusan megkapjátok egymás elérhetőségét.';
   }
 
   // 06 / +36 / 0036 prefix
   if (/(\+36|0036|06)\d{6,}/i.test(stripped)) {
-    return 'Telefonszám nem írható le. A platform-on belül a fuvar elfogadása után már tudtok egymással üzenetet váltani.';
+    return 'Telefonszám nem írható le. A kapcsolatfelvételi díj megfizetése után automatikusan megkapjátok egymás elérhetőségét.';
   }
 
   // Eredeti formátumokra is teszteljük (a stripp néha hamis-negatívot ad)
   for (const re of PHONE_PATTERNS) {
     if (re.test(text)) {
-      return 'Telefonszám nem írható le. A platform-on belül a fuvar elfogadása után már tudtok egymással üzenetet váltani.';
+      return 'Telefonszám nem írható le. A kapcsolatfelvételi díj megfizetése után automatikusan megkapjátok egymás elérhetőségét.';
     }
   }
 

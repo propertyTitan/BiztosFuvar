@@ -9,25 +9,26 @@ const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendBidReceivedEmail, sendBidAcceptedEmail } = require('../services/email');
 const { convertEurToHuf, convertHufToEur, freezeExchangeRate } = require('../services/exchange');
 const { getJobParty } = require('../utils/jobAccess');
+const { calculateConnectionFee } = require('../services/connectionFee');
 
 const router = express.Router();
 
-// GET /bids/preview — licit előnézet: mennyit kap kézhez a sofőr
-// ?amount=500&currency=EUR → { netPayout: 450, platformFee: 50, ... }
+// GET /bids/preview — licit előnézet.
+// Készpénzes modell: a sofőr a TELJES összeget kézhez kapja (készpénzben,
+// levonás nélkül); a platformFee a feladó által fizetendő kapcsolatfelvételi
+// díj (tájékoztató jelleggel adjuk vissza).
 router.get('/bids/preview', authRequired, async (req, res) => {
   const { amount, currency = 'HUF', job_currency } = req.query;
   const amt = Number(amount);
   if (!amt || amt <= 0) {
     return res.status(400).json({ error: 'Érvénytelen összeg' });
   }
-  const { carrierShare, platformShare } = barion.calculatePlatformFee(amt);
   const result = {
     amount: amt,
     currency,
-    platformFee: platformShare,
-    platformFeePct: Math.round(barion.COMMISSION_PCT * 100),
-    platformFeeFixed: barion.COMMISSION_FIXED_HUF,
-    netPayout: carrierShare,
+    platformFee: calculateConnectionFee(amt),
+    netPayout: amt,
+    cashPayment: true,
   };
 
   // Ha a fuvar EUR-ban van de a sofőr HUF-ban akar licitálni (vagy fordítva)
@@ -227,18 +228,28 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
       ORDER BY b.amount_huf ASC`,
     seeAll ? [req.params.jobId] : [req.params.jobId, req.user.sub],
   );
-  // Adjuk hozzá a nettó kifizetés előnézetét minden licithez
-  const enriched = rows.map((b) => {
-    const { carrierShare, platformShare } = barion.calculatePlatformFee(b.amount_huf || 0);
-    return { ...b, platform_fee: platformShare, net_payout: carrierShare };
-  });
+  // Készpénzes modell: a sofőr a teljes összeget kapja (kápé, levonás
+  // nélkül); a platform_fee a feladó kapcsolatfelvételi díja ehhez a
+  // licit-összeghez.
+  const enriched = rows.map((b) => ({
+    ...b,
+    platform_fee: calculateConnectionFee(b.amount_huf || 0),
+    net_payout: b.amount_huf,
+  }));
   res.json(enriched);
 });
 
 // Az alku/elfogadás közös magja: a megállapodott áron (agreedPrice) lezárja
-// a licitet — beállítja a job-ot, a többi licitet elutasítja, Barion-foglalást
-// indít, escrow-t ír. Tranzakción BELÜL fut (a hívó nyitja/zárja).
-// Visszaad: { ok:true, barionRes, carrierShare, platformShare } VAGY
+// a licitet — beállítja a job-ot, a többi licitet elutasítja, és elindítja a
+// KAPCSOLATFELVÉTELI DÍJ fizetését (készpénzes modell: a fuvardíj kápéban
+// megy a sofőrnek, a platform csak a saját díját szedi be a feladótól).
+// Tranzakción BELÜL fut (a hívó nyitja/zárja).
+//
+// Díjmentes újraválasztás: ha a fuvaron a díj MÁR ki van fizetve (paid_at —
+// egy korábbi sofőrrel meghiúsult a fuvar és a feladó újat választ), nem
+// indítunk új fizetést: a díj a fuvarra szól, egyszeri.
+//
+// Visszaad: { ok:true, barionRes, feeHuf, feeAlreadyPaid } VAGY
 //           { ok:false, status, error, detail? } — ekkor a hívó ROLLBACK-el.
 async function finalizeAcceptedBid(client, bid, agreedPrice) {
   await client.query(`UPDATE bids SET status = 'accepted' WHERE id = $1`, [bid.id]);
@@ -246,49 +257,63 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
     `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND id <> $2 AND status = 'pending'`,
     [bid.job_id, bid.id],
   );
+  const feeAlreadyPaid = !!bid.paid_at;
+  // A díj a fuvarra egyszer rögzül: újraválasztásnál a korábban kifizetett
+  // díj marad érvényben, akkor is ha az új megállapodott ár más sávba esne.
+  const feeHuf = feeAlreadyPaid && bid.connection_fee_huf
+    ? bid.connection_fee_huf
+    : calculateConnectionFee(agreedPrice);
   // Státusz-guard: a job sorát nem zárolja a hívó SELECT-je, ezért a
   // WHERE-feltétel + rowCount dönti el, ki nyert párhuzamos elfogadásnál.
   const jobClaim = await client.query(
-    `UPDATE jobs SET status = 'accepted', carrier_id = $1, accepted_price_huf = $2, updated_at = NOW()
-      WHERE id = $3 AND status IN ('pending', 'bidding')`,
-    [bid.carrier_id, agreedPrice, bid.job_id],
+    `UPDATE jobs SET status = 'accepted', carrier_id = $1, accepted_price_huf = $2,
+            connection_fee_huf = $3, updated_at = NOW()
+      WHERE id = $4 AND status IN ('pending', 'bidding')`,
+    [bid.carrier_id, agreedPrice, feeHuf, bid.job_id],
   );
   if (jobClaim.rowCount === 0) {
     return { ok: false, status: 409, error: 'A fuvar már nem elfogadható (időközben elfogadtak egy másik licitet).' };
   }
+
+  if (feeAlreadyPaid) {
+    return { ok: true, barionRes: { paymentId: null, gatewayUrl: null }, feeHuf, feeAlreadyPaid: true };
+  }
+
   let barionRes = { paymentId: null, gatewayUrl: null };
   try {
-    barionRes = await barion.reservePayment({
+    barionRes = await barion.startFeePayment({
       jobId: bid.job_id,
-      totalHuf: agreedPrice,
+      feeHuf,
       shipperEmail: bid.shipper_email,
-      carrierEmail: bid.carrier_email,
     });
   } catch (err) {
-    console.error('[barion] reservePayment hiba:', err.message);
-    return { ok: false, status: 502, error: 'Barion foglalás sikertelen', detail: err.message };
+    console.error('[barion] startFeePayment hiba:', err.message);
+    return { ok: false, status: 502, error: 'A díjfizetés indítása sikertelen', detail: err.message };
   }
-  const { carrierShare, platformShare } = barion.calculatePlatformFee(agreedPrice);
+  // A fizetés-nyilvántartás az escrow_transactions táblában marad, de a sor
+  // mostantól a kapcsolatfelvételi díjat könyveli: amount = díj,
+  // carrier_share = 0 (a sofőr kápéban kap, nem rajtunk keresztül),
+  // platform_share = a teljes díj.
   await client.query(
     `INSERT INTO escrow_transactions
        (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
         carrier_share_huf, platform_share_huf)
-     VALUES ($1,$2,'held',$3,$4,$5,$6)
+     VALUES ($1,$2,'held',$3,$4,0,$2)
      ON CONFLICT (job_id) DO UPDATE SET
        amount_huf         = EXCLUDED.amount_huf,
        status             = 'held',
        barion_payment_id  = EXCLUDED.barion_payment_id,
        barion_gateway_url = EXCLUDED.barion_gateway_url,
-       carrier_share_huf  = EXCLUDED.carrier_share_huf,
+       carrier_share_huf  = 0,
        platform_share_huf = EXCLUDED.platform_share_huf,
        held_at            = NOW()
-       -- Védelem: már kifizetett/visszatérített letétet SOHA ne írjunk vissza
-       -- 'held'-re (normál folyamatban ez az ág nem fut, mert a job státusza
-       -- véd; ez biztonsági háló egy esetleges re-listázás ellen).
+       -- Védelem: már kifizetett díjat SOHA ne írjunk vissza 'held'-re
+       -- (normál folyamatban ez az ág nem fut, mert a paid_at guard véd;
+       -- ez biztonsági háló egy esetleges re-listázás ellen).
        WHERE escrow_transactions.status = 'held'`,
-    [bid.job_id, agreedPrice, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
+    [bid.job_id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
   );
-  return { ok: true, barionRes, carrierShare, platformShare };
+  return { ok: true, barionRes, feeHuf, feeAlreadyPaid: false };
 }
 
 // Megállapodás-értesítések. acceptedBy: 'shipper' (a feladó fogadott el egy
@@ -308,8 +333,8 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
       type: 'bid_accepted',
       title: '🎉 Megállapodás!',
       body: acceptedBy === 'carrier'
-        ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért. A feladó most fizet, utána indulhatsz.`
-        : `A(z) "${info.title || 'fuvar'}" licitedet elfogadták ${priceTxt} Ft-ért. Nyisd meg a mobilappot a fuvar indításához.`,
+        ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, KÉSZPÉNZBEN kapod. A feladó most fizeti a kapcsolatfelvételi díjat, utána megkapjátok egymás elérhetőségét és indulhatsz.`
+        : `A(z) "${info.title || 'fuvar'}" licitedet elfogadták ${priceTxt} Ft-ért — a teljes összeget KÉSZPÉNZBEN kapod. Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
       link: `/sofor/fuvar/${bid.job_id}`,
     });
     if (info.carrier_email) {
@@ -329,7 +354,7 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
         user_id: bid.shipper_id,
         type: 'counter_accepted',
         title: '✅ Elfogadták az ellenajánlatodat',
-        body: `A sofőr elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd ki a fuvart a folytatáshoz.`,
+        body: `A sofőr elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd meg a kapcsolatfelvételi díjat a folytatáshoz — a fuvardíjat készpénzben adod majd a sofőrnek.`,
         link: `/dashboard/fuvar/${bid.job_id}`,
       });
     }
@@ -346,6 +371,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     await client.query('BEGIN');
     const { rows: bidRows } = await client.query(
       `SELECT b.*, j.shipper_id, j.status AS job_status,
+              j.paid_at, j.connection_fee_huf,
               s.email AS shipper_email,
               c.email AS carrier_email
          FROM bids b
@@ -391,9 +417,10 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
 
     res.json({
       ok: true, job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: agreedPrice,
+      connection_fee_huf: fin.feeHuf,
+      fee_already_paid: !!fin.feeAlreadyPaid,
       barion: {
         payment_id: fin.barionRes.paymentId, gateway_url: fin.barionRes.gatewayUrl,
-        carrier_share_huf: fin.carrierShare, platform_share_huf: fin.platformShare,
       },
     });
   } catch (err) {
@@ -411,6 +438,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     await client.query('BEGIN');
     const { rows: bidRows } = await client.query(
       `SELECT b.*, j.shipper_id, j.status AS job_status,
+              j.paid_at, j.connection_fee_huf,
               s.email AS shipper_email, c.email AS carrier_email
          FROM bids b
          JOIN jobs j  ON j.id = b.job_id

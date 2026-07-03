@@ -233,9 +233,9 @@ export default function SoforFuvarReszletek() {
                   border: '1px solid #86efac',
                   fontWeight: 700,
                 }}
-                title={`Fizetve: ${new Date(job.paid_at).toLocaleString('hu-HU')}`}
+                title={`Díj fizetve: ${new Date(job.paid_at).toLocaleString('hu-HU')}`}
               >
-                ✅ FIZETVE
+                ✅ DÍJ FIZETVE — 💵 fuvardíj kápéban
               </span>
             ) : (
               <span
@@ -245,6 +245,7 @@ export default function SoforFuvarReszletek() {
                   color: '#92400e',
                   border: '1px solid #fde68a',
                 }}
+                title="A feladó még nem fizette meg a kapcsolatfelvételi díjat — addig a munka nem kezdhető el."
               >
                 ⏳ Fizetésre vár
               </span>
@@ -252,6 +253,37 @@ export default function SoforFuvarReszletek() {
           )}
         </div>
       </div>
+
+      {/* A FELADÓ ELÉRHETŐSÉGE — a kapcsolatfelvételi díj megfizetése után */}
+      {job.paid_at && job.contact && (
+        <div
+          className="card"
+          style={{
+            marginTop: 16,
+            background: 'var(--success-light)',
+            border: '1px solid #86efac',
+          }}
+        >
+          <div style={{ fontSize: 12, color: '#166534', fontWeight: 700, marginBottom: 6 }}>
+            📞 A FELADÓ ELÉRHETŐSÉGE
+          </div>
+          <div style={{ fontWeight: 700 }}>{job.contact.name || 'Feladó'}</div>
+          {job.contact.phone && (
+            <div style={{ marginTop: 4 }}>
+              <a href={`tel:${job.contact.phone}`} style={{ fontWeight: 700, fontSize: 18 }}>
+                {job.contact.phone}
+              </a>
+            </div>
+          )}
+          {job.contact.email && (
+            <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{job.contact.email}</div>
+          )}
+          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+            💵 A fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
+            <strong> készpénzben</strong> kapod a feladótól — a GoFuvar nem von le belőle semmit.
+          </div>
+        </div>
+      )}
 
       {/* Térkép */}
       <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: 16 }}>
@@ -452,12 +484,13 @@ export default function SoforFuvarReszletek() {
             >
               <strong style={{ fontSize: 14 }}>💰 Fontos a licitálás előtt!</strong>
               <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>
-                Az általad megadott összeg a <strong>teljes fuvardíj</strong>, amit a
-                feladó fizet. Ebből a GoFuvar platform <strong>10% + 400 Ft</strong> díjat
-                von le — a maradék a te bevételed.
+                Az általad megadott összeg <strong>100%-ban a tiéd</strong>, és{' '}
+                <strong>készpénzben</strong> kapod a feladótól — a GoFuvar semmit
+                nem von le belőle. (A platform kapcsolatfelvételi díját a feladó
+                fizeti.)
               </p>
               <p style={{ fontSize: 13, margin: '6px 0 0', lineHeight: 1.5 }}>
-                Példa: ha 10.000 Ft-ot adsz meg → te <strong>8.600 Ft</strong>-ot kapsz kézhez.
+                Példa: ha 10.000 Ft-ot adsz meg → te <strong>10.000 Ft</strong>-ot kapsz kézhez, készpénzben.
               </p>
               <label
                 style={{
@@ -510,11 +543,9 @@ export default function SoforFuvarReszletek() {
                 />
               </div>
             </div>
-            {/* Élő nettó kifizetés számolás */}
+            {/* Élő kifizetés-előnézet — kápé, levonás nélkül */}
             {bidAmount && parseInt(bidAmount, 10) > 0 && (() => {
               const total = parseInt(bidAmount, 10);
-              const fee = Math.round(total * 0.10) + 400;
-              const net = Math.max(0, total - fee);
               return (
                 <div
                   style={{
@@ -527,8 +558,8 @@ export default function SoforFuvarReszletek() {
                     marginBottom: 8,
                   }}
                 >
-                  Platform díj: <strong>{fee.toLocaleString('hu-HU')} Ft</strong> (10% + 400 Ft)
-                  {' · '}Te kapsz: <strong style={{ color: 'var(--success-text)', fontSize: 15 }}>{net.toLocaleString('hu-HU')} Ft</strong>
+                  Te kapsz: <strong style={{ color: 'var(--success-text)', fontSize: 15 }}>{total.toLocaleString('hu-HU')} Ft</strong>
+                  {' '}— készpénzben, levonás nélkül 💵
                 </div>
               );
             })()}

@@ -168,30 +168,43 @@ KÉT FŐ MÓD
    - A feladó kitölti: honnan, hova, csomag mérete/súlya, javasolt ár
    - Sofőrök ajánlatot (licitet) tesznek rá
    - A feladó kiválasztja a legjobb ajánlatot (legolcsóbb, legjobb értékelésű, stb.)
-   - Elfogadás után Barion-nal fizet → a pénz escrow-ban (letétben) van
+   - Elfogadás után a feladó egy KIS kapcsolatfelvételi díjat fizet bankkártyával
+     (Barion) → azonnal megkapja a sofőr telefonszámát és elindul a fuvar-folyamat
+   - A FUVARDÍJAT a feladó KÉSZPÉNZBEN fizeti a sofőrnek — a platform nem kezeli
    - A sofőr felveszi a csomagot → fotót készít
    - Lerakja a címzettnél → a címzett megadja a 6 jegyű átvételi kódot VAGY QR kódot mutat
-   - A kód helyes → pénz felszabadul a sofőrnek
+   - A kód helyes → a fuvar lezárul
 
 2) FIX ÁRAS ÚTVONAL:
    - A sofőr meghirdeti az útvonalát (pl. "Budapest → Szeged, szombat reggel")
    - Fix árat ad meg méretkategóriánként: S / M / L / XL
    - A feladó foglal helyet az útvonalon
-   - A sofőr megerősíti → fizetés → ugyanaz a felvétel/lerakás flow
+   - A sofőr megerősíti → a feladó kapcsolatfelvételi díjat fizet → ugyanaz a
+     felvétel/lerakás flow, a fuvardíj készpénzben jár a sofőrnek
 
 ═══════════════════════════════════════
 FIZETÉS ÉS DÍJAK
 ═══════════════════════════════════════
 
-- Fizetés: Barion bankkártyás fizetés, letéti (escrow) rendszer
-- A pénz ADDIG nem szabadul fel a sofőrnek, amíg a csomag nem érkezett meg
-- Platform díj: a fuvardíj 10%-a + 400 Ft fix adminisztrációs díj
-- Példa: 8.000 Ft fuvar → sofőr kap 6.800 Ft-ot, platform kap 1.200 Ft-ot
-- Lemondási díj (Feladó mondja le, fizetés után, felvétel előtt):
-  * Fuvar 8.000 Ft alatt: 400 Ft fix díj
-  * Fuvar 8.000 Ft felett: a fuvardíj 5%-a
-  * Fizetés előtti lemondás: díjmentes
-- Sofőr mondja le: a feladó 100%-ot visszakap, a sofőr Trust Score-ja csökken
+- A FUVARDÍJ KÉSZPÉNZBEN jár a sofőrnek — a platform a fuvardíjat nem kezeli,
+  nem tartja letétben és nem is közvetíti
+- A platform egyetlen díja a KAPCSOLATFELVÉTELI DÍJ, amit a feladó fizet
+  bankkártyával (Barion) az ajánlat elfogadásakor. Sávos, BEVEZETŐ árak:
+  * 20.000 Ft-ig: 500 Ft
+  * 20.001 – 50.000 Ft: 1.490 Ft
+  * 50.001 – 100.000 Ft: 2.490 Ft
+  * 100.000 Ft felett: 3.990 Ft
+  (Bevezető díjszabás — a platform a változtatás jogát fenntartja.)
+- A díj ellenében a feladó AZONNAL megkapja a sofőr elérhetőségét, és elindul
+  a teljes fuvar-folyamat (SMS-ek a címzettnek, átvételi kód, fotó-bizonyíték)
+- A díj NEM visszatérítendő: a szolgáltatás (a kapcsolat létrehozása) a
+  fizetéssel azonnal teljesül — ezt a feladó a fizetés előtt kifejezetten
+  tudomásul veszi (elállási jog a teljesítés után nem gyakorolható)
+- HA A SOFŐR VISSZALÉP vagy nem érhető el: a feladó DÍJMENTESEN választhat
+  másik sofőrt UGYANARRA a fuvarra a korábbi ajánlatok közül — nem kell újra
+  fizetni. A díj viszont másik (új) fuvarra nem vihető át.
+- Lemondási díj NINCS — a fuvar lemondása ingyenes, de a már befizetett
+  kapcsolatfelvételi díj nem jár vissza
 - Ha a fuvar már felvéve (in_progress): nem mondható le, vitát kell nyitni
 
 ═══════════════════════════════════════
@@ -210,7 +223,8 @@ BIZALMI LÁNC (BIZTONSÁG)
 ═══════════════════════════════════════
 
 A csomagod védelme 5 rétegű:
-1. BARION ESCROW: A pénz zárolva van amíg a csomag meg nem érkezik
+1. KYC-AZONOSÍTÁS: minden sofőr személyi igazolvánnyal + jogosítvánnyal
+   igazolt, valós személy — nem névtelen Facebook-kommentelő
 2. FOTÓ BIZONYÍTÉK: A sofőr felvételkor és lerakáskor kötelezően fotóz
 3. 6 JEGYŰ ÁTVÉTELI KÓD: Csak a címzett tudja, a sofőr ezzel zárja le
 4. QR KÓD: A címzett megmutatja telefonján → sofőr beolvassa → kész
@@ -226,7 +240,7 @@ A csomagod védelme 5 rétegű:
 - Két lehetőség az átadásra:
   1. A címzett megmondja szóban a 6 jegyű kódot a sofőrnek
   2. A címzett megmutatja a QR kódot (telefonon vagy tracking oldalon) → sofőr scan-eli
-- Ha a kód helyes → a fuvar automatikusan lezárul és a sofőr megkapja a pénzt
+- Ha a kód helyes → a fuvar automatikusan lezárul (a fuvardíjat a sofőr készpénzben kapja)
 
 ═══════════════════════════════════════
 SMS ÉRTESÍTÉSEK A CÍMZETTNEK
@@ -271,8 +285,8 @@ SOFŐR FUNKCIÓK
 
 - Fuvarok böngészése: közelség szerint rendezve (GPS alapján)
 - Licitálás: összeg + becsült érkezési idő + üzenet
-- Díjfigyelmeztetés: a sofőr licitálásnál ÉLŐBEN látja mennyit kap kézhez
-  (pl. "Platform díj: 1.400 Ft — Te kapsz: 8.600 Ft")
+- A sofőr a licitált összeg 100%-át kapja, KÉSZPÉNZBEN — a platform semmit
+  nem von le belőle (a kapcsolatfelvételi díjat a feladó fizeti)
 - Útvonal hirdetés: "Holnap megyek Budapest → Szeged, viszek csomagot S/M/L/XL"
 - "Útba esik" mód: sofőr jelöli hogy amúgy is megy erre → olcsóbb árak
 - Visszafuvar ajánlás: ha sofőr megy A→B, a rendszer automatikusan ajánlja a B→A fuvarokat
@@ -301,7 +315,7 @@ CSOMAG ÉRTÉKE
   jog (Ptk. fuvarozási szabályok) szerint
 - Káresemény esetén a feladó és a sofőr EGYMÁS KÖZÖTT rendezi a kárt a hatályos jog
   alapján; nincs platform által megszabott felső kárhatár
-- A platform a rendezést segíti (felvételi/kézbesítési fotó, GPS-napló, letét,
+- A platform a rendezést segíti (felvételi/kézbesítési fotó, GPS-napló,
   vita-funkció), de kártérítést NEM fizet és a vitában jogerősen nem dönt
 
 ═══════════════════════════════════════

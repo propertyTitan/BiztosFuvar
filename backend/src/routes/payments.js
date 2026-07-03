@@ -13,7 +13,6 @@ const { authRequired } = require('../middleware/auth');
 const { createNotification } = require('../services/notifications');
 const { computeVat } = require('../services/vat');
 const { generatePlatformFeeInvoice } = require('../services/invoicing');
-const { freezeExchangeRate } = require('../services/exchange');
 const barion = require('../services/barion');
 const realtime = require('../realtime');
 const { getJobParty } = require('../utils/jobAccess');
@@ -123,42 +122,42 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
   const currency = d.currency || d.job_currency || 'HUF';
   const title = d.title || d.route_title || '?';
 
-  // === SUCCEEDED — Sikeres fizetés ===
+  // === SUCCEEDED — Sikeres díj-fizetés ===
+  // Készpénzes modell: a beérkezett összeg a KAPCSOLATFELVÉTELI DÍJ (a
+  // platform saját bevétele, a feladó fizeti). A fuvardíj készpénzben megy
+  // a sofőrnek — arról a platform nem könyvel és nem számláz.
   if (barionStatus === 'Succeeded') {
-    // 1) Split kalkuláció — ugyanazzal a képlettel (10% + 400 Ft fix), mint
-    // az escrow-felosztás, különben a számla és a tényleges utalás eltérne.
-    const { carrierShare: carrierPayout, platformShare: platformFee } =
-      barion.calculatePlatformFee(totalAmount);
+    // 1) A díj teljes egészében a platformé; sofőr-kifizetés nincs.
+    const platformFee = totalAmount;
+    const carrierPayout = 0;
 
-    // 2) VAT kiszámítás a sofőr profilja alapján
+    // 2) VAT kiszámítás a díjat fizető FELADÓ profilja alapján
+    const { rows: shipperRows } = await db.query(
+      `SELECT billing_country, tax_id, company_name FROM users WHERE id = $1`,
+      [d.shipper_id],
+    );
+    const shipper = shipperRows[0] || {};
     const vatResult = await computeVat({
-      buyerCountry: d.carrier_country || 'HU',
-      buyerTaxId: d.carrier_tax_id,
-      buyerIsCompany: !!(d.carrier_company || d.carrier_tax_id),
+      buyerCountry: shipper.billing_country || 'HU',
+      buyerTaxId: shipper.tax_id,
+      buyerIsCompany: !!(shipper.company_name || shipper.tax_id),
       amount: platformFee,
       currency,
     });
 
-    // 3) Árfolyam befagyasztás (ha EUR tranzakció)
-    let exchangeData = null;
-    if (currency === 'EUR') {
-      exchangeData = await freezeExchangeRate();
-    }
-
-    // 4) paid_at beállítás (idempotens — csak ha még nincs)
+    // 3) paid_at beállítás (idempotens — csak ha még nincs) + a díj-sor
+    //    lezárása: a szolgáltatás (kontakt-átadás) teljesült, 'released'.
     if (entity.type === 'job') {
       await db.query(
         `UPDATE jobs SET paid_at = NOW() WHERE id = $1 AND paid_at IS NULL`,
         [d.job_id],
       );
-      if (exchangeData) {
-        await db.query(
-          `UPDATE escrow_transactions
-              SET exchange_rate = $1, exchange_rate_frozen_at = NOW()
-            WHERE job_id = $2`,
-          [exchangeData.rate, d.job_id],
-        );
-      }
+      await db.query(
+        `UPDATE escrow_transactions
+            SET status = 'released', released_at = NOW()
+          WHERE job_id = $1 AND status = 'held'`,
+        [d.job_id],
+      );
     } else {
       await db.query(
         `UPDATE route_bookings SET paid_at = NOW() WHERE id = $1 AND paid_at IS NULL`,
@@ -166,39 +165,32 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       );
     }
 
-    // 5) Számla-előkészítés (invoice metadata) — STUB módban is menti
+    // 4) Számla-előkészítés a FELADÓNAK (invoice metadata) — STUB is menti
     let invoice = null;
-    if (d.carrier_id) {
-      try {
-        invoice = await generatePlatformFeeInvoice({
-          jobId: entity.type === 'job' ? d.job_id : null,
-          bookingId: entity.type === 'booking' ? d.id : null,
-          platformFee,
-          currency,
-          carrierId: d.carrier_id,
-        });
-      } catch (err) {
-        console.error('[invoicing] Számla generálás hiba:', err.message);
-      }
+    try {
+      invoice = await generatePlatformFeeInvoice({
+        jobId: entity.type === 'job' ? d.job_id : null,
+        bookingId: entity.type === 'booking' ? d.id : null,
+        platformFee,
+        currency,
+        buyerUserId: d.shipper_id,
+      });
+    } catch (err) {
+      console.error('[invoicing] Számla generálás hiba:', err.message);
     }
 
-    // 6) Admin-barát összefoglaló szöveg
-    const carrierType = d.carrier_company ? 'cég' : 'magánszemély';
-    const carrierCountryLabel = d.carrier_country || 'HU';
+    // 5) Admin-barát összefoglaló szöveg
     const vatLabel = vatResult.isReverseCharge
       ? 'ford. adózás'
       : `${Math.round(vatResult.vatRate * 100)}% ÁFA`;
     const summary = [
-      `${carrierCountryLabel} ${carrierType}`,
-      `${d.carrier_name || '?'}`,
-      `fizet: ${totalAmount} ${currency}`,
-      `jutalék: ${platformFee} ${currency} (${vatLabel})`,
-      `sofőr kap: ${carrierPayout} ${currency}`,
-      exchangeData ? `árfolyam: ${exchangeData.rate} HUF/EUR` : null,
+      `${d.shipper_name || '?'} (feladó)`,
+      `kapcsolatfelvételi díj: ${platformFee} ${currency} (${vatLabel})`,
+      `fuvardíj (kápé, sofőrnek): ${d.accepted_price_huf || d.price_huf || '?'} ${currency}`,
       invoice ? `számla: ${invoice.id}` : null,
     ].filter(Boolean).join(' · ');
 
-    // 7) Payment event log (idempotency + audit)
+    // 6) Payment event log (idempotency + audit)
     await logPaymentEvent({
       paymentId: PaymentId, status: barionStatus, eventType: 'webhook',
       jobId: entity.type === 'job' ? d.job_id : null,
@@ -212,13 +204,13 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       processed: true,
     });
 
-    // 8) Értesítések
+    // 7) Értesítések: a kontakt felfedve, indulhat a fuvar
     if (d.carrier_id) {
       await createNotification({
         user_id: d.carrier_id,
         type: entity.type === 'job' ? 'job_paid' : 'booking_paid',
-        title: '💰 Kifizették a fuvarodat!',
-        body: `"${title}" — ${totalAmount} ${currency}. A sofőri részt (${carrierPayout} ${currency}) a kézbesítés után kapod meg.`,
+        title: '🤝 Indulhat a fuvar!',
+        body: `"${title}" — a feladó kifizette a kapcsolatfelvételi díjat. Mostantól látjátok egymás elérhetőségét; a fuvardíjat készpénzben kapod.`,
         link: entity.type === 'job' ? `/sofor/fuvar/${d.job_id}` : `/sofor/utvonal/${d.route_id}`,
       }).catch(() => {});
       realtime.emitToUser(d.carrier_id, entity.type === 'job' ? 'job:paid' : 'route-booking:paid', {
@@ -340,13 +332,15 @@ router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {
   );
   if (!rows[0]) return res.json(null);
   const r = rows[0];
+  // Készpénzes modell: a "payout" a kézbesítéskor készpénzben történik,
+  // a platform nem utal a sofőrnek. A mezők a UI kompatibilitás miatt
+  // maradnak: payout_ready = a fuvar lezárult (a kápé átadása esedékes).
   res.json({
     ...r,
-    payout_ready: r.job_status === 'delivered' && r.escrow_status === 'released',
+    cash_payment: true,
+    payout_ready: r.job_status === 'delivered',
     payout_blocked_reason:
-      r.job_status !== 'delivered' ? 'A fuvar még nincs lezárva.'
-      : r.escrow_status !== 'released' ? 'Az escrow még nem szabadult fel.'
-      : null,
+      r.job_status !== 'delivered' ? 'A fuvar még nincs lezárva.' : null,
   });
 });
 

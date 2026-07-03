@@ -19,7 +19,7 @@ export default function AszfPage() {
       <h1 style={{ marginBottom: 4 }}>Általános Szerződési Feltételek (ÁSZF)</h1>
       <p className="muted" style={{ margin: 0 }}>
         <strong>Platform:</strong> GoFuvar (gofuvar.hu és a mobilalkalmazások)<br />
-        <strong>Hatályos:</strong> 2026. június 13-tól
+        <strong>Hatályos:</strong> 2026. július 3-tól
       </p>
 
       <h2 style={{ marginTop: 32 }}>1. A Szolgáltató adatai és Elérhetőségei</h2>
@@ -46,9 +46,12 @@ export default function AszfPage() {
       </p>
       <p>
         A fuvarozási szerződés kizárólag a csomagot feladó (továbbiakban: <strong>Feladó</strong>) és
-        a fuvarozást vállaló (továbbiakban: <strong>Sofőr</strong>) között jön létre. A Szolgáltató szerepe
-        az ajánlat-közvetítésre, a kommunikációs felület biztosítására, az átvételi kód generálására,
-        a Barion letét kezelésének közvetítésére és a vita-rendezési eljárás lefolytatására korlátozódik.
+        a fuvarozást vállaló (továbbiakban: <strong>Sofőr</strong>) között jön létre. A Szolgáltató
+        szolgáltatása az <strong>összeköttetés létrehozása</strong>: az ajánlat-közvetítés, a
+        kommunikációs felület biztosítása, a Felek kapcsolatfelvételi adatainak átadása (a 4. pont
+        szerinti díj ellenében), az átvételi kód generálása és a vita-rendezési eljárás lefolytatása.
+        A Szolgáltató a Feladó és a Sofőr közötti fuvardíjat <strong>nem kezeli, nem tartja letétben
+        és nem közvetíti</strong> — azt a Felek egymás között, közvetlenül rendezik (4.2. pont).
       </p>
       <p>
         A Szolgáltató magyar székhelyű piactér; fő tevékenysége a magyarországi belföldi fuvarok
@@ -127,36 +130,74 @@ export default function AszfPage() {
 
       <h2 style={{ marginTop: 32 }}>4. Pénzügyi Feltételek és Számlázás</h2>
       <p>
-        <strong>4.1. Fizetés (Barion Escrow):</strong> A fuvardíjat a Feladó a Barion Payment Zrt.
-        letéti rendszerén keresztül egyenlíti ki. A letét a sikeres kézbesítés (átvételi kód beolvasása)
-        pillanatában szabadul fel a Sofőr részére.
+        <strong>4.1. Kapcsolatfelvételi (közvetítési) díj:</strong> A Szolgáltató egyetlen díja a
+        kapcsolatfelvételi díj, amelyet a <strong>Feladó</strong> fizet meg bankkártyával (a Barion
+        Payment Zrt. fizetési rendszerén keresztül) az ajánlat (licit vagy foglalás) elfogadásakor.
+        A díj ellenében a Szolgáltató <strong>azonnal átadja a Feladónak a Sofőr kapcsolatfelvételi
+        adatait</strong> (név, telefonszám, e-mail cím), a Sofőrnek a Feladóét, és elindítja a
+        fuvar-folyamatot támogató szolgáltatásokat (címzetti SMS-értesítések, átvételi kód,
+        fotó-bizonyíték, vita-funkció).
       </p>
       <p>
-        <strong>4.2. Platformhasználati díj:</strong> A Szolgáltató a Sofőr felé a teljes fuvardíj{' '}
-        <strong>10%-a + 400 Ft fix adminisztrációs díjat</strong> számít fel, amely a Sofőr részére kifizetésre
-        kerülő összegből kerül levonásra.
+        A díj a megállapodott fuvardíjhoz igazodó sávos, <strong>bevezető árazású</strong> díj:
+      </p>
+      <ul>
+        <li>20.000 Ft fuvardíjig: <strong>500 Ft</strong></li>
+        <li>20.001 – 50.000 Ft fuvardíj között: <strong>1.490 Ft</strong></li>
+        <li>50.001 – 100.000 Ft fuvardíj között: <strong>2.490 Ft</strong></li>
+        <li>100.000 Ft fuvardíj felett: <strong>3.990 Ft</strong></li>
+      </ul>
+      <p>
+        A feltüntetett díjak bruttó (ÁFA-t tartalmazó) összegek. A „bevezető ár" megjelölés arra utal,
+        hogy a Szolgáltató a díjszabást a 13. pont szerinti módosítási szabályok betartásával a
+        későbbiekben megváltoztathatja; a már megfizetett díjat a módosítás nem érinti.
+      </p>
+      <p>
+        <strong>A díj nem visszatérítendő:</strong> a Szolgáltató szolgáltatása (a kapcsolatfelvételi
+        adatok átadása és a fuvar-folyamat elindítása) a díj megfizetésével <strong>azonnal és teljes
+        egészében teljesül</strong> (lásd 6.2. pont). Ha azonban a fuvar a kiválasztott Sofőr
+        érdekkörében felmerülő okból hiúsul meg (a Sofőr visszalép vagy nem elérhető), a Feladó{' '}
+        <strong>ugyanarra a fuvarra díjmentesen választhat másik Sofőrt</strong> a beérkezett ajánlatok
+        közül — új díjfizetés nélkül. A megfizetett díj kizárólag arra a fuvarra (küldeményre)
+        vonatkozik, amelyre a Feladó megfizette; <strong>másik fuvarra nem vihető át</strong> és
+        készpénzre nem váltható.
+      </p>
+      <p>
+        <strong>4.2. Fuvardíj — készpénzes fizetés a Felek között:</strong> A fuvardíjat a Feladó{' '}
+        <strong>közvetlenül a Sofőrnek fizeti meg, készpénzben</strong>, a Felek megállapodása szerint
+        (jellemzően a csomag átvételekor vagy kézbesítésekor). A Szolgáltató a fuvardíjat nem szedi be,
+        nem tartja letétben, abból nem von le semmit, és a fuvardíj megfizetéséért vagy elmaradásáért
+        nem felel. A fuvardíj-fizetéssel kapcsolatos igényeket a Felek egymás között, a Ptk. szabályai
+        szerint rendezik.
       </p>
       <p>
         <strong>4.3. Számlázás:</strong> A fuvardíj teljes (100%) összegéről a számlát/bizonylatot
-        a <strong>Sofőr állítja ki a Feladó részére</strong>. A Szolgáltató a Platformhasználati díjról
-        állít ki számlát a <strong>Sofőr részére</strong>.
+        a <strong>Sofőr állítja ki a Feladó részére</strong>. A Szolgáltató a kapcsolatfelvételi díjról
+        állít ki számlát a <strong>Feladó részére</strong>.
       </p>
 
       <h2 style={{ marginTop: 32 }}>5. Lemondás, Kártérítési Felelősség és DAC7</h2>
       <p>
-        <strong>5.1. Lemondás:</strong>
+        <strong>5.1. Lemondás:</strong> A fuvar lemondásáért a Szolgáltató <strong>külön lemondási
+        díjat nem számít fel</strong>.
       </p>
       <ul>
         <li>
-          <strong>Feladói lemondás (felvétel előtt):</strong> Amennyiben a fuvardíj letétbe helyezése
-          (fizetés) már megtörtént, a Szolgáltató 8.000 Ft alatti fuvardíj esetén 400 Ft fix
-          adminisztrációs díjat, 8.000 Ft feletti fuvardíj esetén a fuvardíj 5%-át vonja le.
-          Fizetés előtti lemondás esetén díjmentes.
+          <strong>Feladói lemondás (felvétel előtt):</strong> díjmentes. A már megfizetett
+          kapcsolatfelvételi díj azonban — mivel a Szolgáltató szolgáltatása (a kontakt-átadás)
+          már teljesült — <strong>nem jár vissza</strong>, és másik fuvarra nem vihető át
+          (4.1. pont).
         </li>
         <li>
-          <strong>Sofőri lemondás:</strong> A Feladó a kifizetett letét 100%-át maradéktalanul
-          visszakapja, a Sofőr platformon belüli &quot;Trust Score&quot; értéke csökken; ismételt indokolatlan
-          lemondás esetén a Szolgáltató a Sofőri fiókot felfüggesztheti.
+          <strong>Sofőri lemondás:</strong> A fuvar díjmentesen újranyílik: a Feladó a korábban
+          beérkezett ajánlatok közül új díjfizetés nélkül választhat másik Sofőrt ugyanarra a
+          fuvarra (4.1. pont). A visszalépő Sofőr platformon belüli &quot;Trust Score&quot; értéke csökken;
+          ismételt indokolatlan lemondás esetén a Szolgáltató a Sofőri fiókot felfüggesztheti.
+        </li>
+        <li>
+          A fuvardíjjal a Szolgáltató nem rendelkezik (4.2. pont), így lemondás esetén a Szolgáltató
+          fuvardíjat nem térít vissza és nem is tart vissza — a Felek közötti esetleges elszámolás
+          (pl. már megkezdett fuvar költsége) a Felek egymás közötti ügye.
         </li>
       </ul>
       <p>
@@ -178,8 +219,7 @@ export default function AszfPage() {
         a Felek között a vonatkozó jog határozza meg; a Szolgáltató <strong>nem szab meg felső kárhatárt</strong>,
         és nem korlátozza a Feleket a jogszabályból eredő igényeik érvényesítésében. A Szolgáltató a
         rendezést kizárólag technikai eszközökkel segíti (felvételi és kézbesítési fotó, GPS-napló, in-app
-        kommunikáció, a vita-funkció, valamint — a Felek megegyezése esetén — az escrow-letétből történő
-        kifizetés közvetítése), de <strong>kártérítést nem fizet</strong>, és a Felek közötti jogvitában
+        kommunikáció, a vita-funkció), de <strong>kártérítést nem fizet</strong>, és a Felek közötti jogvitában
         érdemben, jogerős hatállyal nem dönt. A Felek a vitájukat a hatályos jog szerint, szükség esetén
         bírósági úton érvényesíthetik (lásd 8. pont).
       </p>
@@ -208,10 +248,10 @@ export default function AszfPage() {
           belül érdemben nyilatkozik (elismeri vagy vitatja a kárt).
         </li>
         <li>
-          <strong>Pénzügyi rendezés:</strong> elismert kár esetén a Szolgáltató közvetít a Felek között
-          a fizetés módjáról; ha a fuvar még nyitott letéttel rendelkezik, a Sofőr hozzájárulásával
-          a kártérítés a letétből vonható le. A Szolgáltató NEM biztosító — a kártérítést nem ő fizeti,
-          csak a tranzakciót segíti.
+          <strong>Pénzügyi rendezés:</strong> elismert kár esetén a kártérítést a Felek egymás között,
+          közvetlenül rendezik (a Szolgáltató a fuvardíjat és a kártérítést nem kezeli). A Szolgáltató
+          NEM biztosító — a kártérítést nem ő fizeti, csak a rendezést segíti a bizonyítékok
+          rendelkezésre bocsátásával.
         </li>
         <li>
           <strong>Vita esetén:</strong> ha a Sofőr vitatja a kárt, vagy a felek a pénzügyi rendezésben
@@ -240,12 +280,13 @@ export default function AszfPage() {
         A Felek egyike sem felel olyan szerződésszegésért, amely előre nem látható, kívülről érkező,
         elháríthatatlan eseményből (vis maior) ered. Ide tartozik különösen: természeti katasztrófa,
         pandémia, sztrájk, hatósági korlátozás, közlekedési útzár, kibertámadás, áramkimaradás vagy
-        a Barion / Vercel / Supabase szolgáltatás tartós kiesése.
+        a platform működéséhez igénybe vett külső szolgáltatások (fizetési, tárhely-, adatbázis-
+        szolgáltató) tartós kiesése.
       </p>
       <p>
-        Vis maior esetén a Szolgáltató jogosult az érintett fuvarokat felfüggeszteni, az escrow-t
-        biztosítani, és a Feleket a megoldás módjáról értesíteni. Vis maior eredetű kárért a
-        Szolgáltatót nem terheli kártérítési kötelezettség.
+        Vis maior esetén a Szolgáltató jogosult az érintett fuvarokat felfüggeszteni és a Feleket a
+        megoldás módjáról értesíteni. Vis maior eredetű kárért a Szolgáltatót nem terheli kártérítési
+        kötelezettség.
       </p>
 
       <h3 style={{ marginTop: 24 }}>5.6. DAC7</h3>
@@ -261,13 +302,29 @@ export default function AszfPage() {
       <p>
         <strong>6.1. 14 napos elállási jog (B2C):</strong> A fogyasztó és a vállalkozás közötti
         szerződések részletes szabályairól szóló 45/2014. (II. 26.) Korm. rendelet alapján a
-        fogyasztónak minősülő Feladót alapesetben 14 napos elállási jog illeti meg.
+        fogyasztónak minősülő Feladót alapesetben 14 napos elállási jog illeti meg a Szolgáltatóval
+        kötött, a kapcsolatfelvételi díj ellenében nyújtott közvetítési szolgáltatásra vonatkozó
+        szerződéstől.
       </p>
       <p>
-        <strong>6.2. Kivételszabály (Az elállási jog elvesztése):</strong> Tekintettel arra, hogy a
-        platformon a fuvarozási szolgáltatás a Feladó kifejezett, előzetes beleegyezésével kezdődik meg,
-        a Feladó elveszíti a 14 napos elállási jogát abban a pillanatban, amikor a szolgáltatás egésze
-        teljesítésre kerül (a csomag sikeres kézbesítése megtörténik) [Rendelet 29. &sect; (1) bek. a) pont].
+        <strong>6.2. Kivételszabály (Az elállási jog elvesztése) — azonnali teljesítés:</strong>{' '}
+        A Szolgáltató szolgáltatása (a kapcsolatfelvételi adatok átadása és a fuvar-folyamat
+        elindítása) a díj megfizetésével <strong>azonnal és teljes egészében teljesül</strong>.
+        A fizetés előtt a Feladó — külön, kifejezett jelölőnégyzettel — nyilatkozik arról, hogy:
+      </p>
+      <ul>
+        <li><strong>kéri a szolgáltatás azonnali megkezdését és teljesítését</strong>, és</li>
+        <li>
+          <strong>tudomásul veszi, hogy a szolgáltatás egészének teljesítését követően elállási /
+          felmondási jogát elveszíti</strong> [Rendelet 29. &sect; (1) bek. a) pont].
+        </li>
+      </ul>
+      <p>
+        Ennek megfelelően a kapcsolatfelvételi adatok átadását követően a megfizetett díj nem
+        követelhető vissza. Ez nem érinti a 4.1. pont szerinti díjmentes újraválasztás lehetőségét
+        (ha a fuvar a Sofőr érdekkörében felmerülő okból hiúsul meg), és nem érinti a Feladónak a
+        Sofőrrel szemben, a fuvarozási szerződésből eredő jogait, amelyeket a Felek egymás között
+        érvényesítenek.
       </p>
       <p>
         <strong>6.3. Panaszkezelés:</strong> A Felhasználó panaszát a{' '}
@@ -322,18 +379,20 @@ export default function AszfPage() {
       <h2 style={{ marginTop: 32 }}>7. Vita-rendezés a Platformon belül</h2>
       <p>
         A Felhasználók a köztük felmerülő vitákat elsősorban a Platformon belüli vita-funkción
-        (&quot;Problémám van ezzel a fuvarral&quot;) keresztül rendezhetik. A vita megnyitásával az érintett
-        fuvar escrow letéte automatikusan befagyasztásra kerül a vita lezárásáig.
+        (&quot;Problémám van ezzel a fuvarral&quot;) keresztül rendezhetik.
       </p>
       <p>
         A Szolgáltató Admin-csapata a vitát a beadott bizonyítékok (fotók, GPS-log, in-app
         kommunikáció, átvételi kód státusza) alapján <strong>14 munkanapon belül</strong> bírálja
-        el, és írásban közli a döntést a Felekkel. A döntés alapján a letét felszabadításra,
-        részben vagy egészben visszatérítésre kerül.
+        el, és írásban közli az álláspontját a Felekkel. Mivel a Szolgáltató a fuvardíjat nem
+        kezeli (4.2. pont), a döntés pénzmozgással nem jár: a döntés a Platformon belüli
+        következményekre (pl. Trust Score, fiók-felfüggesztés, az eset dokumentálása), illetve a
+        Felek közötti rendezés elősegítésére terjed ki. A Szolgáltató méltányosságból, saját
+        döntése alapján a kapcsolatfelvételi díjat jóváírhatja vagy visszatérítheti — erre
+        azonban a Felhasználónak alanyi joga nincs.
       </p>
       <p>
-        Az Admin-döntést a vesztes fél jogosult a következő pontban szabályozott bírósági úton
-        támadni; a letét státusza azonban az Admin-döntés szerint alakul.
+        Az Admin-álláspont a Feleket a bírósági igényérvényesítésben nem korlátozza (8. pont).
       </p>
 
       <h2 style={{ marginTop: 32 }}>8. Joghatóság, Irányadó Jog és Bíróság</h2>
@@ -397,7 +456,8 @@ export default function AszfPage() {
       <p>
         <strong>A Platform megkerülésének tilalma:</strong> a Felhasználók a Platformon megismert
         fuvart, megbízást vagy másik Felhasználót <strong>nem vihetik a Platformon kívülre a
-        platformhasználati díj megkerülése céljából</strong>. Az ilyen magatartás a 11. pont szerinti
+        kapcsolatfelvételi díj megkerülése céljából</strong> (ide értve az elérhetőségek díjfizetés
+        előtti cseréjét a chat- vagy kérdés-funkcióban). Az ilyen magatartás a 11. pont szerinti
         felfüggesztést vagy megszüntetést vonhatja maga után, és a Szolgáltató jogosult az elmaradt
         díjat érvényesíteni.
       </p>
@@ -416,8 +476,8 @@ export default function AszfPage() {
       </p>
       <p>
         <strong>11.3.</strong> Nyitott (folyamatban lévő) fuvar esetén a Szolgáltató törekszik a
-        tranzakció és az escrow-letét rendezett lezárására a vita-eljárás (7. pont), illetve a Felek
-        megegyezése szerint. Súlyos vagy ismételt jogsértés esetén azonnali felfüggesztés alkalmazható.
+        tranzakció rendezett lezárására a vita-eljárás (7. pont), illetve a Felek megegyezése szerint.
+        Súlyos vagy ismételt jogsértés esetén azonnali felfüggesztés alkalmazható.
       </p>
       <p>
         <strong>11.4.</strong> A platform integritásának, a Felhasználók biztonságának és a

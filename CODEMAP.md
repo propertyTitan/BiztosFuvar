@@ -74,11 +74,11 @@ Top-level fájlok:
 | `auth.js` | regisztráció, login (email **LOWER**-rel, case-insensitive), email-verifikáció, jelszó-reset |
 | `jobs.js` | fuvar CRUD, listázás, `as=assigned` szűrő (sofőri fuvaraim) |
 | `bids.js` | licitálás, licit elfogadása (atomic first-wins) |
-| `photos.js` | felvételi/kézbesítési fotók (R2-re tölt) |
+| `photos.js` | felvételi/kézbesítési fotók (R2-re tölt); kézbesítéskor NINCS pénzmozgás (kápé-modell) |
 | `tracking.js` | élő GPS pozíció-küldés/lekérés (auth-os) |
 | `publicTracking.js` | nyilvános követés token alapján (no auth) |
 | `reviews.js` | értékelések |
-| `payments.js` | escrow, split, Barion-flow (STUB) |
+| `payments.js` | kapcsolatfelvételi díj Barion-webhookja + admin fizetési napló (STUB). ⚠️ Kápé-modell (2026-07-03): a fuvardíj készpénzben megy, a platform csak a díjat szedi; az escrow_transactions tábla a DÍJ-fizetést könyveli (amount=díj, carrier_share=0) |
 | `carrierRoutes.js` | sofőri fix útvonalak + foglalás rájuk |
 | `backhaul.js` | visszafuvar-matching |
 | `bids` / `disputes.js` | vitarendezés |
@@ -98,7 +98,8 @@ Top-level fájlok:
 
 | Fájl | Mit | Állapot |
 |---|---|---|
-| `barion.js` | fizetés (escrow, split) | **STUB** (`isStub()` true ha nincs `BARION_POS_KEY`) |
+| `barion.js` | díj-fizetés (`startFeePayment`); a régi escrow/split fn-ek dormant | **STUB** (`isStub()` true ha nincs `BARION_POS_KEY`) |
+| `connectionFee.js` | kapcsolatfelvételi díjsávok (ÁSZF 4.1) — az üzleti számok itt | ÉL |
 | `email.js` | tranzakciós email | **STUB** (Resend kulcsra vár) |
 | `sms.js` | 5 db SMS flow | **STUB** (SeeMe.hu kulcs "elvileg megvan") |
 | `gemini.js` | AI chat + KYC OCR/kor-ellenőrzés | **ÉL** |
@@ -230,12 +231,12 @@ Az `expo: ~54.0.0` pin SDK 52 deps-szel **szándékos** — ne piszkáld.
 | "Hozzá akarok nyúlni…" | Kezdd itt |
 |---|---|
 | egy API-endpointhoz | `backend/src/routes/` + nézd a `router.<method>('/út')`-at (legtöbb `/`-en) |
-| fizetéshez / escrow-hoz | `services/barion.js` + `routes/payments.js` (STUB!) |
+| fizetéshez / díjhoz | `services/connectionFee.js` (sávok) + `services/barion.js` + `routes/payments.js` (STUB!) |
 | KYC-hez | `services/kyc.js` + `services/gemini.js` (backend) / `KycModal.tsx` (web) |
 | egy frontend-hívás formátumához | `web/src/api.ts` (egyetlen híd) |
 | authz "ki láthatja ezt a fuvart" | `utils/jobAccess.js` → `getJobParty` |
 | dark-mode szín-bug | `web/app/globals.css` → `body, body * { color: var(--text) }` felülírja mindent; inline `color` kell explicit |
-| üzleti számhoz (díj, plafon) | `backend/src/constants.js` + CLAUDE.md #5 (NE írd felül egyoldalúan) |
+| üzleti számhoz (díj, plafon) | `backend/src/services/connectionFee.js` (díjsávok) + `backend/src/constants.js` + CLAUDE.md #5 (NE írd felül egyoldalúan) |
 | séma / új mező | `backend/db/migrations/` (új számozott fájl) |
 
 ---
@@ -248,7 +249,7 @@ Az `expo: ~54.0.0` pin SDK 52 deps-szel **szándékos** — ne piszkáld.
 | Google Maps | ÉL | — |
 | R2 storage | ÉL (még publikus bucket) | — |
 | Neon Postgres | ÉL | — |
-| **Barion (fizetés)** | **STUB** | **fő launch-blokker** (szerződésre vár) |
+| **Barion (fizetés)** | **STUB** | sima webshop-szerződés kell (a kápé-modellel az escrow/Bridge már NEM blokker) |
 | Resend (email) | STUB | kulcsra vár |
 | SeeMe.hu (SMS) | STUB | kulcs "elvileg megvan", bekötés hátra |
 | Sentry | STUB | DSN-re vár |

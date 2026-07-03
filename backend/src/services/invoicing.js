@@ -1,8 +1,10 @@
 // GoFuvar számlagenerálás — Számlázz.hu / Billingo API wrapper.
 //
-// A fuvar kézbesítésekor a platform 10% jutalékáról automatikusan
-// generálódik egy számla. A számla:
-//   - Kétnyelvű (HU + a sofőr nyelve, vagy EN fallback)
+// A kapcsolatfelvételi díj megfizetésekor automatikusan generálódik egy
+// számla a díjat fizető FELADÓ részére (készpénzes modell, 2026-07-03 —
+// a fuvardíj maga a feladó és a sofőr közt mozog, arról a platform nem
+// számláz). A számla:
+//   - Kétnyelvű (HU + a vevő nyelve, vagy EN fallback)
 //   - A VAT engine által meghatározott adómértékkel
 //   - A kötelező jogi szövegekkel (reverse charge, ÁFA tv. hivatkozás)
 //   - STUB módban: konzolra logolja és PDF helyett NULL-t ad vissza
@@ -24,7 +26,7 @@ function getProvider() {
  */
 function buildInvoiceData({
   jobId, bookingId, currency, platformFee,
-  vatResult, carrierUser, locale,
+  vatResult, buyerUser, locale,
 }) {
   const lang = locale === 'hu' ? 'hu' : 'en';
   const otherLang = lang === 'hu' ? 'en' : 'hu';
@@ -49,19 +51,19 @@ function buildInvoiceData({
       address: process.env.COMPANY_ADDRESS || '1234 Budapest, Példa utca 1.',
       bankAccount: process.env.COMPANY_BANK_ACCOUNT || 'HU12 1234 5678 9012 3456 7890 0000',
     },
-    // Vevő (a sofőr)
+    // Vevő (a díjat fizető feladó)
     buyer: {
-      name: carrierUser.company_name || carrierUser.full_name,
-      taxId: carrierUser.tax_id || null,
-      address: carrierUser.billing_address || '—',
-      country: carrierUser.billing_country || 'HU',
+      name: buyerUser.company_name || buyerUser.full_name,
+      taxId: buyerUser.tax_id || null,
+      address: buyerUser.billing_address || '—',
+      country: buyerUser.billing_country || 'HU',
     },
     // Tételek
     items: [
       {
-        name_hu: 'Platform közvetítői díj – GoFuvar',
-        name_en: 'Platform brokerage fee – GoFuvar',
-        name: lang === 'hu' ? 'Platform közvetítői díj – GoFuvar' : 'Platform brokerage fee – GoFuvar',
+        name_hu: 'Kapcsolatfelvételi (közvetítési) díj – GoFuvar',
+        name_en: 'Connection (brokerage) fee – GoFuvar',
+        name: lang === 'hu' ? 'Kapcsolatfelvételi (közvetítési) díj – GoFuvar' : 'Connection (brokerage) fee – GoFuvar',
         quantity: 1,
         unit: lang === 'hu' ? 'db' : 'pcs',
         unitPrice: vatResult.netAmount,
@@ -90,33 +92,33 @@ function buildInvoiceData({
 }
 
 /**
- * Számla generálása a platform jutalékról.
+ * Számla generálása a kapcsolatfelvételi díjról.
  *
  * @param {object} params
  * @param {string} [params.jobId]
  * @param {string} [params.bookingId]
- * @param {number} params.platformFee – a nettó jutalék összeg
+ * @param {number} params.platformFee – a díj összege (bruttó, HUF)
  * @param {string} params.currency – 'HUF' | 'EUR'
- * @param {string} params.carrierId – a sofőr user ID-je
+ * @param {string} params.buyerUserId – a díjat fizető user (feladó) ID-je
  */
-async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, currency, carrierId }) {
-  // Sofőr adatainak lekérdezése
+async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, currency, buyerUserId }) {
+  // Vevő adatainak lekérdezése
   const { rows: userRows } = await db.query(
     `SELECT id, full_name, company_name, tax_id, billing_address, billing_country, locale
        FROM users WHERE id = $1`,
-    [carrierId],
+    [buyerUserId],
   );
-  const carrierUser = userRows[0];
-  if (!carrierUser) {
-    console.error('[invoicing] Sofőr nem található:', carrierId);
+  const buyerUser = userRows[0];
+  if (!buyerUser) {
+    console.error('[invoicing] Vevő nem található:', buyerUserId);
     return null;
   }
 
   // VAT kiszámítása
   const vatResult = await computeVat({
-    buyerCountry: carrierUser.billing_country || 'HU',
-    buyerTaxId: carrierUser.tax_id,
-    buyerIsCompany: !!(carrierUser.company_name || carrierUser.tax_id),
+    buyerCountry: buyerUser.billing_country || 'HU',
+    buyerTaxId: buyerUser.tax_id,
+    buyerIsCompany: !!(buyerUser.company_name || buyerUser.tax_id),
     amount: platformFee,
     currency,
   });
@@ -124,8 +126,8 @@ async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, curre
   // Számla adat összeállítása
   const invoiceData = buildInvoiceData({
     jobId, bookingId, currency, platformFee,
-    vatResult, carrierUser,
-    locale: carrierUser.locale || 'hu',
+    vatResult, buyerUser,
+    locale: buyerUser.locale || 'hu',
   });
 
   const provider = getProvider();
@@ -150,7 +152,7 @@ async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, curre
        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'stub','sent')
        RETURNING *`,
       [
-        jobId || null, bookingId || null, carrierId,
+        jobId || null, bookingId || null, buyerUserId,
         invoiceData.buyer.name, invoiceData.buyer.taxId,
         invoiceData.buyer.address, invoiceData.buyer.country,
         currency, vatResult.netAmount, vatResult.vatRate,

@@ -198,7 +198,7 @@ export default function FoglalasaimOldal() {
                 }}
                 title={`Fizetve: ${new Date(b.paid_at).toLocaleString('hu-HU')}`}
               >
-                ✅ FIZETVE
+                ✅ DÍJ FIZETVE
               </div>
             )}
             {b.status === 'confirmed' && !b.paid_at && (
@@ -217,7 +217,7 @@ export default function FoglalasaimOldal() {
                   opacity: payingId === b.id ? 0.7 : 1,
                 }}
               >
-                {payingId === b.id ? 'Fizetés indítása…' : 'Fizetés Barionnal'}
+                {payingId === b.id ? 'Fizetés indítása…' : 'Kapcsolatfelvételi díj fizetése'}
               </button>
             )}
 
@@ -300,8 +300,8 @@ export default function FoglalasaimOldal() {
         open={!!cancelTarget}
         title="Foglalás lemondása"
         message={cancelTarget?.paid_at
-          ? 'Biztosan lemondod a foglalást? A lemondási díjat (8 000 Ft-ig 400 Ft, felette a fuvardíj 5%-a) levonjuk a visszatérítésből.'
-          : 'Biztosan lemondod a foglalást? Még nem történt fizetés, így díj sincs.'}
+          ? 'Biztosan lemondod a foglalást? A lemondás díjmentes, de a már befizetett kapcsolatfelvételi díj nem visszatérítendő.'
+          : 'Biztosan lemondod a foglalást? Még nem történt fizetés, így semmilyen díj nincs.'}
         confirmLabel="Lemondom"
         danger
         fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. Másik megoldást találtam' }]}

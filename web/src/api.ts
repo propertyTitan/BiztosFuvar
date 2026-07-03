@@ -87,6 +87,8 @@ export type RouteBooking = {
   barion_gateway_url?: string | null;
   carrier_share_huf?: number | null;
   platform_share_huf?: number | null;
+  /** A foglaláshoz rögzített kapcsolatfelvételi díj (bruttó Ft, bevezető ár). */
+  connection_fee_huf?: number | null;
   created_at: string;
   confirmed_at: string | null;
   paid_at: string | null;
@@ -130,8 +132,19 @@ export type Job = {
     | 'cancelled';
   /** 6 számjegyű átvételi kód — a backend csak a feladónak adja vissza. */
   delivery_code?: string | null;
-  /** Sikeres feladói fizetés időbélyegzője (`accepted` után). */
+  /** A kapcsolatfelvételi díj sikeres fizetésének időbélyegzője (`accepted` után). */
   paid_at?: string | null;
+  /** A fuvarhoz rögzített kapcsolatfelvételi díj (bruttó Ft, bevezető ár). */
+  connection_fee_huf?: number | null;
+  /** Hányszor lett a fuvar díjmentesen újranyitva (sofőr-csere). */
+  reopened_count?: number;
+  /** A másik fél elérhetősége — CSAK a díj megfizetése után adja a backend. */
+  contact?: {
+    role: 'carrier' | 'shipper';
+    name: string | null;
+    phone: string | null;
+    email: string | null;
+  };
   /** Barion fizetési URL — STUB módban `stub:...`. */
   barion_gateway_url?: string | null;
   /** Azonnali fuvar ("UberFuvar" mód) — fix ár, első elfogadó nyer. */
@@ -574,46 +587,62 @@ export const api = {
     request<{ ok: true }>(`/route-bookings/${id}/reject`, { method: 'POST' }),
 
   /**
-   * Lusta Barion reservation — akkor hívjuk, amikor a feladó a "Fizetés
-   * Barionnal" gombra kattint. Ha a foglaláshoz már tartozik gateway URL,
-   * azt kapjuk vissza; ha nem, a backend most hozza létre, elmenti, és
-   * visszaadja. Idempotens, bármikor hívható egy megerősített foglalásra.
+   * A kapcsolatfelvételi díj fizetésének (lusta) indítása — akkor hívjuk,
+   * amikor a feladó a fizetés gombra kattint. Ha a foglaláshoz már tartozik
+   * gateway URL, azt kapjuk vissza; ha nem, a backend most hozza létre.
+   * Idempotens, bármikor hívható egy megerősített foglalásra.
    */
   payRouteBooking: (id: string) =>
-    request<{ payment_id: string; gateway_url: string; is_stub: boolean; reused: boolean }>(
+    request<{ payment_id: string; gateway_url: string; fee_huf: number; is_stub: boolean; reused: boolean }>(
       `/route-bookings/${id}/pay`,
       { method: 'POST' },
     ),
 
   /**
-   * A fizetés NYUGTÁZÁSA — STUB módban a /fizetes-stub oldal "Fizetek most"
-   * gombja hívja. Beállítja a `paid_at`-ot, értesítést küld a sofőrnek, és
-   * realtime eventet szór, hogy mindkét fél UI-ja friss legyen.
+   * A díj-fizetés NYUGTÁZÁSA — STUB módban a /fizetes-stub oldal "Fizetek
+   * most" gombja hívja. A `consent` KÖTELEZŐ: a feladó kéri az azonnali
+   * teljesítést (kontakt-átadás) és tudomásul veszi, hogy utána elállási
+   * joga elvész (45/2014. Korm. r. 29. § (1) a)).
    */
-  confirmRouteBookingPayment: (id: string) =>
+  confirmRouteBookingPayment: (id: string, consent: boolean) =>
     request<{ ok: true; paid_at: string; already_paid?: boolean }>(
       `/route-bookings/${id}/confirm-payment`,
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ consent }) },
     ),
 
-  /** Licites fuvar lusta Barion reservation — ugyanaz a minta, mint a route bookingnál. */
+  /** Licites fuvar kapcsolatfelvételi díj fizetés-indítása — ugyanaz a minta, mint a route bookingnál. */
   payJob: (id: string) =>
-    request<{ payment_id: string; gateway_url: string; is_stub: boolean; reused: boolean }>(
+    request<{ payment_id: string; gateway_url: string; fee_huf: number; is_stub: boolean; reused: boolean }>(
       `/jobs/${id}/pay`,
       { method: 'POST' },
     ),
 
-  /** Licites fuvar fizetés nyugtázása — paid_at + notif a sofőrnek. */
-  confirmJobPayment: (id: string) =>
+  /** Licites fuvar díj-fizetés nyugtázása — consent kötelező (elállási jog tudomásulvétele). */
+  confirmJobPayment: (id: string, consent: boolean) =>
     request<{ ok: true; paid_at: string; already_paid?: boolean }>(
       `/jobs/${id}/confirm-payment`,
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ consent }) },
     ),
 
-  /** Licites fuvar lemondása. Ha már fizetve, automatikus refund (10% díjjal a feladónál). */
+  /**
+   * Licites fuvar lemondása. Pénzmozgás nincs (a fuvardíj készpénzes, a
+   * kapcsolatfelvételi díj nem visszatérítendő). Ha a SOFŐR mondja le,
+   * a fuvar díjmentesen újranyílik (reopened: true).
+   */
   cancelJob: (id: string, reason?: string) =>
-    request<{ ok: true; status: string; cancellation_fee_huf: number; refund_huf: number }>(
+    request<{ ok: true; status: string; cancellation_fee_huf: number; refund_huf: number; reopened?: boolean; fee_kept?: boolean }>(
       `/jobs/${id}/cancel`,
+      { method: 'POST', body: JSON.stringify({ reason }) },
+    ),
+
+  /**
+   * Sofőr-csere: a feladó újranyitja az elfogadott fuvart (a sofőr nem
+   * elérhető / visszalépett). A korábbi licitek újra választhatók, a
+   * befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad.
+   */
+  reopenJob: (id: string, reason?: string) =>
+    request<{ ok: true; status: string; reopened: boolean }>(
+      `/jobs/${id}/reopen`,
       { method: 'POST', body: JSON.stringify({ reason }) },
     ),
 

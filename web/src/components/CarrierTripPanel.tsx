@@ -9,8 +9,8 @@
 //   2. in_progress → "Kézbesítés igazolása": fotó + 6 jegyű átvételi kód → delivered
 //
 // A backend (routes/photos.js) a kind=pickup / kind=dropoff alapján váltja
-// a státuszt; dropoff-nál a kódot is ellenőrzi. Sikeres kézbesítés után
-// az escrow felszabadul.
+// a státuszt; dropoff-nál a kódot is ellenőrzi. Sikeres kézbesítés után a
+// fuvardíj készpénzben jár a sofőrnek.
 
 import { useRef, useState } from 'react';
 import { api } from '@/api';
@@ -86,9 +86,10 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone }: Props)
       <div className="card" style={{ marginTop: 16, borderColor: 'var(--warning, #d97706)' }}>
         <h2 style={{ marginTop: 0 }}>⏳ Fizetésre vár</h2>
         <p className="muted" style={{ marginTop: 0, fontSize: 14, lineHeight: 1.5 }}>
-          A feladó még nem fizette ki a fuvart. A csomagot csak a fizetés
-          beérkezése után vedd át — addig a felvétel igazolása nem elérhető.
-          Amint a fizetés megtörténik, ez az oldal automatikusan frissül.
+          A feladó még nem fizette meg a kapcsolatfelvételi díjat. A csomagot
+          csak a díj beérkezése után vedd át — addig a felvétel igazolása nem
+          elérhető. Amint a fizetés megtörténik, ez az oldal automatikusan
+          frissül. A fuvardíjat készpénzben kapod a feladótól.
         </p>
       </div>
     );

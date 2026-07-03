@@ -1,19 +1,16 @@
 'use client';
 
-// STUB Barion fizetési oldal.
+// STUB Barion fizetési oldal — KAPCSOLATFELVÉTELI DÍJ.
 //
 // Ez NEM a valódi Barion — egy in-app szimuláció, amit STUB módban
 // (amikor nincs beállítva BARION_POS_KEY a backend-en) mutatunk,
 // hogy a teljes UX flow végigjátszható legyen próba közben is.
 //
-// Elér oda: a `confirmed` státuszú foglalás / fuvar `barion_gateway_url`
-// mezője `stub:payment/<id>` formátumú — a foglalásaim oldalon levő
-// "Fizetés" gomb erre az oldalra navigál, query paraméterekkel átadva az
-// összeget és a típust (booking / job).
-//
-// A "Fizetek most" gomb NEM hív backend-et: csak vizuálisan mutatja a
-// sikert, majd visszaküldi a felhasználót. A valódi escrow felszabadítás
-// a dropoff fotó pillanatában történik, nem itt.
+// Készpénzes modell (2026-07-03): itt NEM a fuvardíjat fizeti a feladó,
+// hanem a sávos kapcsolatfelvételi díjat. A fizetéshez KÖTELEZŐ a
+// beleegyező checkbox (45/2014. Korm. r. 29. § (1) a)): a feladó kéri
+// az azonnali teljesítést (kontakt-átadás) és tudomásul veszi, hogy a
+// teljesítés után elállási joga elvész.
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
@@ -21,7 +18,8 @@ import { useToast } from '@/components/ToastProvider';
 
 type LoadedData = {
   title: string;
-  amount: number;
+  feeHuf: number;
+  cashHuf: number;
   pickup: string;
   dropoff: string;
   back: string;
@@ -37,6 +35,7 @@ function FizetesStubContent() {
 
   const [data, setData] = useState<LoadedData>(null);
   const [error, setError] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
   const [step, setStep] = useState<'review' | 'processing' | 'done'>('review');
 
   useEffect(() => {
@@ -46,7 +45,8 @@ function FizetesStubContent() {
           const b = await api.getRouteBooking(bookingId);
           setData({
             title: b.route_title || 'Sofőri útvonal',
-            amount: b.price_huf,
+            feeHuf: b.connection_fee_huf || 0,
+            cashHuf: b.price_huf,
             pickup: b.pickup_address,
             dropoff: b.dropoff_address,
             back: '/dashboard/foglalasaim',
@@ -55,7 +55,8 @@ function FizetesStubContent() {
           const j = await api.getJob(jobId);
           setData({
             title: j.title,
-            amount: j.accepted_price_huf || j.suggested_price_huf || 0,
+            feeHuf: j.connection_fee_huf || 0,
+            cashHuf: j.accepted_price_huf || j.suggested_price_huf || 0,
             pickup: j.pickup_address,
             dropoff: j.dropoff_address,
             back: `/dashboard/fuvar/${jobId}`,
@@ -70,20 +71,23 @@ function FizetesStubContent() {
   }, [bookingId, jobId]);
 
   async function pay() {
+    if (!consent) {
+      toast.error('Beleegyezés szükséges', 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.');
+      return;
+    }
     setStep('processing');
     // 1.5 másodperc "feldolgozás" – mint egy valódi Barion oldal
     await new Promise((r) => setTimeout(r, 1500));
 
     // STUB → itt mi magunk nyugtázzuk a backend-en a fizetést.
     // Valódi Barion esetén a /payments/barion/callback IPN hívja majd
-    // ugyanezt a logikát. Mindkét fizetési flow-hoz (licites fuvar +
-    // fix áras foglalás) tartozik confirm-payment endpoint, ami
-    // beállítja a `paid_at`-ot és értesíti a sofőrt.
+    // ugyanezt a logikát. A consent kötelezően megy a backendnek — az
+    // menti a fee_consent_at időbélyeget (jogi bizonyíték).
     try {
       if (bookingId) {
-        await api.confirmRouteBookingPayment(bookingId);
+        await api.confirmRouteBookingPayment(bookingId, consent);
       } else if (jobId) {
-        await api.confirmJobPayment(jobId);
+        await api.confirmJobPayment(jobId, consent);
       }
     } catch (e: any) {
       toast.error('Fizetés nyugtázása sikertelen', e.message);
@@ -92,7 +96,7 @@ function FizetesStubContent() {
     }
 
     setStep('done');
-    toast.success('Fizetés sikeres (STUB)', `${data?.amount.toLocaleString('hu-HU')} Ft lefoglalva`);
+    toast.success('Fizetés sikeres (STUB)', `${data?.feeHuf.toLocaleString('hu-HU')} Ft kapcsolatfelvételi díj`);
     // 2 másodperc múlva visszatérünk a foglalásaim oldalra
     setTimeout(() => {
       if (data?.back) router.push(data.back);
@@ -175,11 +179,13 @@ function FizetesStubContent() {
                 padding: '16px 20px',
                 background: 'var(--bg)',
                 borderRadius: 10,
-                marginBottom: 16,
+                marginBottom: 12,
                 textAlign: 'center',
               }}
             >
-              <div className="muted" style={{ fontSize: 12 }}>FIZETENDŐ ÖSSZEG</div>
+              <div className="muted" style={{ fontSize: 12 }}>
+                KAPCSOLATFELVÉTELI DÍJ (bevezető ár)
+              </div>
               <div
                 style={{
                   fontSize: 32,
@@ -188,9 +194,58 @@ function FizetesStubContent() {
                   marginTop: 4,
                 }}
               >
-                {data.amount.toLocaleString('hu-HU')} Ft
+                {data.feeHuf.toLocaleString('hu-HU')} Ft
+              </div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+                A díj ellenében azonnal megkapod a sofőr elérhetőségét, és
+                elindul a fuvar-folyamat (SMS-ek, átvételi kód, fotó-bizonyíték).
               </div>
             </div>
+
+            <div
+              style={{
+                fontSize: 13,
+                background: 'var(--bg)',
+                padding: 12,
+                borderRadius: 8,
+                marginBottom: 12,
+              }}
+            >
+              💵 A fuvardíjat (
+              <strong>{data.cashHuf.toLocaleString('hu-HU')} Ft</strong>
+              ) NEM itt fizeted: azt <strong>készpénzben</strong> adod át a
+              sofőrnek.
+            </div>
+
+            <label
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+                fontSize: 13,
+                lineHeight: 1.5,
+                padding: 12,
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+                marginBottom: 12,
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                style={{ marginTop: 3, flexShrink: 0 }}
+              />
+              <span>
+                Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása){' '}
+                <strong>azonnali teljesítését</strong>, és tudomásul veszem,
+                hogy a teljesítés után <strong>elállási jogomat elvesztem</strong>{' '}
+                (45/2014. Korm. rendelet 29. § (1) a)). A díj nem
+                visszatérítendő; ha a fuvar a sofőr hibájából hiúsul meg,
+                díjmentesen választhatok másik sofőrt ugyanerre a fuvarra.
+              </span>
+            </label>
 
             <div
               style={{
@@ -212,12 +267,15 @@ function FizetesStubContent() {
               type="button"
               className="btn"
               onClick={pay}
+              disabled={!consent}
               style={{
                 width: '100%',
-                background: 'var(--success-strong)',
+                background: consent ? 'var(--success-strong)' : 'var(--muted)',
                 padding: '14px 24px',
                 fontSize: 16,
                 fontWeight: 700,
+                opacity: consent ? 1 : 0.6,
+                cursor: consent ? 'pointer' : 'not-allowed',
               }}
             >
               Fizetek most (STUB)
@@ -248,10 +306,11 @@ function FizetesStubContent() {
             <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
             <div style={{ fontWeight: 700, fontSize: 18 }}>Sikeres fizetés!</div>
             <div className="muted" style={{ fontSize: 14, marginTop: 8 }}>
-              {data.amount.toLocaleString('hu-HU')} Ft lefoglalva a Barion letétben
+              {data.feeHuf.toLocaleString('hu-HU')} Ft kapcsolatfelvételi díj
+              megfizetve — a sofőr elérhetősége mostantól látható
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
-              Visszairányítás a foglalásaidhoz…
+              Visszairányítás…
             </div>
           </div>
         )}

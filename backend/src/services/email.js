@@ -209,7 +209,7 @@ async function sendBidAcceptedEmail({ to, carrierName, jobTitle, jobId, amountHu
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
     <p>Nagyszerű hírek — a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvar feladója elfogadta az ajánlatodat!</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(amountHuf)} Ft</p>
-    <p>Amint a feladó kifizeti a fuvart (Barion letétbe), elindulhatsz. A fuvart a mobilapplikációban tudod majd lezárni a felvételi fotóval és a 6 jegyű átvételi kóddal.</p>
+    <p>A teljes összeget <strong>készpénzben</strong> kapod a feladótól. Amint a feladó megfizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét és elindulhatsz. A fuvart a felvételi fotóval és a 6 jegyű átvételi kóddal tudod majd lezárni.</p>
   `;
   return sendEmail({
     to,
@@ -227,12 +227,12 @@ async function sendBidAcceptedEmail({ to, carrierName, jobTitle, jobId, amountHu
  * A feladó kifizette a licites fuvart → a sofőr kap értesítést.
  */
 async function sendJobPaidEmail({ to, carrierName, jobTitle, jobId, amountHuf, shipperName }) {
-  const heading = '💰 Kifizették a fuvarodat!';
+  const heading = '🤝 Indulhat a fuvar!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
-    <p><strong>${escapeHtml(shipperName) || 'A feladó'}</strong> kifizette a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvart — a fuvardíj a Barion letétben van.</p>
+    <p><strong>${escapeHtml(shipperName) || 'A feladó'}</strong> kifizette a kapcsolatfelvételi díjat a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarhoz — mostantól látjátok egymás elérhetőségét.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(amountHuf)} Ft</p>
-    <p>Indulhatsz! A Proof of Delivery után (pickup + dropoff fotó, 6 jegyű átvételi kód) a sofőri rész (90%) automatikusan a tiéd lesz.</p>
+    <p>Indulhatsz! A fuvardíjat <strong>készpénzben</strong> kapod a feladótól. A fuvart a felvételi fotóval és a 6 jegyű átvételi kóddal zárod le.</p>
   `;
   return sendEmail({
     to,
@@ -255,7 +255,7 @@ async function sendBookingReceivedEmail({ to, carrierName, routeTitle, routeId, 
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
     <p><strong>${escapeHtml(shipperName) || 'Egy feladó'}</strong> foglalt helyet a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonaladra.</p>
     <p style="font-size:24px;font-weight:800;color:#1e40af;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
-    <p>Erősítsd meg a foglalást, hogy a feladó kifizethesse a fuvardíjat.</p>
+    <p>Erősítsd meg a foglalást — a feladó a kapcsolatfelvételi díj megfizetése után látja az elérhetőségedet, a fuvardíjat készpénzben kapod tőle.</p>
   `;
   return sendEmail({
     to,
@@ -278,7 +278,7 @@ async function sendBookingConfirmedEmail({ to, shipperName, routeTitle, bookingI
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
     <p><strong>${escapeHtml(carrierName) || 'A sofőr'}</strong> elfogadta a foglalásodat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonalon.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
-    <p>Most tudod kifizetni a fuvardíjat a Barion letétbe. A foglalásod a "Foglalásaim" menüpontban érhető el.</p>
+    <p>Most tudod megfizetni a kapcsolatfelvételi díjat — utána megkapod a sofőr elérhetőségét, a fuvardíjat pedig készpénzben adod át neki. A foglalásod a "Foglalásaim" menüpontban érhető el.</p>
   `;
   return sendEmail({
     to,
@@ -296,12 +296,12 @@ async function sendBookingConfirmedEmail({ to, shipperName, routeTitle, bookingI
  * A feladó kifizette a fix áras foglalást → sofőr kap értesítést.
  */
 async function sendBookingPaidEmail({ to, carrierName, routeTitle, bookingId, priceHuf, shipperName }) {
-  const heading = '💰 Kifizetett foglalás!';
+  const heading = '🤝 Indulhat a foglalás!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
-    <p><strong>${escapeHtml(shipperName) || 'A feladó'}</strong> kifizette a foglalását a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonaladon.</p>
+    <p><strong>${escapeHtml(shipperName) || 'A feladó'}</strong> kifizette a kapcsolatfelvételi díjat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonaladra szóló foglaláshoz.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
-    <p>A fuvardíj a Barion letétben van. A csomag átadása után a sofőri rész automatikusan a tiéd lesz.</p>
+    <p>A fuvardíjat <strong>készpénzben</strong> kapod a feladótól a csomag átadásakor/kézbesítésekor.</p>
   `;
   return sendEmail({
     to,
@@ -359,16 +359,10 @@ async function sendCancellationEmail({
     <p>Az alábbi fuvart <strong>${whoCancelled}</strong> lemondta:
     <strong>"${escapeHtml(jobTitle)}"</strong>.</p>
   `;
-  if (recipientIsShipper && refundHuf > 0) {
+  if (recipientIsShipper) {
     bodyHtml += `
-      <p>A Barion letétből <strong>${formatHuf(refundHuf)} Ft</strong> visszatérül a számládra
-      a következő napokban.</p>
+      <p>Pénzmozgás nem történt a lemondással: a fuvardíj készpénzben járt volna a sofőrnek, így nincs mit visszatéríteni. Ha már fizettél kapcsolatfelvételi díjat, az a fuvarra érvényes marad — a fuvar oldalán díjmentesen választhatsz másik sofőrt a korábbi ajánlatok közül.</p>
     `;
-    if (feeHuf > 0) {
-      bodyHtml += `
-        <p class="muted">Lemondási díj: ${formatHuf(feeHuf)} Ft (8 000 Ft-ig 400 Ft, felette a fuvardíj 5%-a) – ez a szabályzatunk szerinti díj, amit levontunk a visszatérítésből.</p>
-      `;
-    }
   }
   if (!recipientIsShipper) {
     bodyHtml += `

@@ -90,7 +90,7 @@ export default function AdatkezelesPage() {
         <strong>4.1. Adatfeldolgozók (EU területén belül):</strong>
       </p>
       <ul>
-        <li><strong>Barion Payment Zrt.</strong> (1117 Budapest) — fizetési közvetítés, escrow letét</li>
+        <li><strong>Barion Payment Zrt.</strong> (1117 Budapest) — bankkártyás fizetés (kapcsolatfelvételi díj)</li>
         <li><strong>Vercel Inc.</strong> (Frankfurt régió) — webes alkalmazás-hosting</li>
         <li><strong>Railway Corp.</strong> (EU régió) — backend-hosting</li>
         <li><strong>Supabase Inc.</strong> (eu-central-1, Frankfurt) — PostgreSQL adatbázis</li>

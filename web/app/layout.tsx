@@ -42,11 +42,11 @@ export const metadata: Metadata = {
     template: '%s | GoFuvar',
   },
   description:
-    'Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. Biztonságos Barion letét, fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
+    'Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. A fuvardíjat készpénzben fizeted a sofőrnek — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
   keywords: [
     'fuvar', 'szállítás', 'csomag', 'költöztetés', 'sofőr', 'fuvartőzsde',
     'GoFuvar', 'közösségi szállítás', 'licit', 'fix áras fuvar',
-    'Barion', 'escrow', 'Magyarország',
+    'készpénzes fuvar', 'Magyarország',
   ],
   metadataBase: new URL('https://gofuvar.hu'),
   openGraph: {
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'GoFuvar – Közösségi fuvartőzsde',
-    description: 'Csomagod van? Sofőröd is lesz. Biztonságos letéti fizetés, 6 jegyű átvételi kód.',
+    description: 'Csomagod van? Sofőröd is lesz. Készpénzes fizetés a sofőrnek, 6 jegyű átvételi kód.',
     images: ['/og-image.png'],
   },
   manifest: '/manifest.webmanifest',

@@ -96,8 +96,8 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
             <h2 style={{ marginTop: 0, fontSize: 18 }}>Vita megnyitása</h2>
             <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
               Írd le pontosan, hogy mi a probléma a fuvarral. Egy adminisztrátor 24 órán
-              belül megvizsgálja és felveszi veled a kapcsolatot. A vita ideje alatt a
-              fizetés (escrow) befagyasztásra kerül.
+              belül megvizsgálja és felveszi veled a kapcsolatot. A vitához a
+              fotó-bizonyítékok és a fuvar adatai rendelkezésre állnak.
             </p>
             <textarea
               value={description}

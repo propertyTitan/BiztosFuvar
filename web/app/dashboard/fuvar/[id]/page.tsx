@@ -66,7 +66,6 @@ export default function FuvarReszletek() {
   const [job, setJob] = useState<Job | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
-  const [escrow, setEscrow] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [counterTarget, setCounterTarget] = useState<Bid | null>(null);
   const [paying, setPaying] = useState(false);
@@ -91,6 +90,7 @@ export default function FuvarReszletek() {
   // Dialógus-állapotok (window.confirm/prompt kiváltva)
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDisputeDialog, setShowDisputeDialog] = useState(false);
+  const [showReopenDialog, setShowReopenDialog] = useState(false);
   // A konfetti csak akkor szóljon, ha a kézbesítés MOST történt — nem minden
   // oldalbetöltésnél, ha a fuvar már korábban 'delivered' lett.
   const initialStatusRef = useRef<string | null>(null);
@@ -99,10 +99,9 @@ export default function FuvarReszletek() {
     if (!job) return;
     try {
       const res = await api.cancelJob(id, reason);
-      const msg =
-        res.refund_huf > 0
-          ? `Fuvar lemondva. Visszatérítés: ${res.refund_huf.toLocaleString('hu-HU')} Ft${res.cancellation_fee_huf > 0 ? ` (díj: ${res.cancellation_fee_huf.toLocaleString('hu-HU')} Ft)` : ''}.`
-          : 'Fuvar lemondva.';
+      const msg = res.fee_kept
+        ? 'Fuvar lemondva. A kapcsolatfelvételi díj nem visszatérítendő (a kontakt-átadás már teljesült).'
+        : 'Fuvar lemondva.';
       toast.success('Lemondás kész', msg);
       await loadAll();
     } catch (e: any) {
@@ -110,15 +109,25 @@ export default function FuvarReszletek() {
     }
   }
 
+  async function reopenJob(reason: string) {
+    if (!job) return;
+    try {
+      await api.reopenJob(id, reason);
+      toast.success('Fuvar újranyitva', 'A korábbi ajánlatok újra elérhetők — díjmentesen választhatsz másik sofőrt.');
+      await loadAll();
+    } catch (e: any) {
+      toast.error('Sofőr-csere sikertelen', e.message);
+    }
+  }
+
   async function loadAll() {
     try {
-      const [j, b, p, e] = await Promise.all([
+      const [j, b, p] = await Promise.all([
         api.getJob(id),
         api.listBids(id),
         api.listPhotos(id),
-        api.jobEscrow(id),
       ]);
-      setJob(j); setBids(b); setPhotos(p); setEscrow(e);
+      setJob(j); setBids(b); setPhotos(p);
       if (initialStatusRef.current === null) initialStatusRef.current = j.status;
     } catch (err: any) { setError(err.message); }
   }
@@ -157,7 +166,7 @@ export default function FuvarReszletek() {
     setAcceptingBidId(bidId);
     try {
       await api.acceptBid(bidId);
-      toast.success('Licit elfogadva', 'Most már kifizetheted a fuvart.');
+      toast.success('Licit elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a sofőr elérhetőségét, a fuvardíjat pedig készpénzben adod át neki.');
       await loadAll();
     } catch (err: any) {
       toast.error('Hiba a licit elfogadásakor', err.message);
@@ -391,26 +400,32 @@ export default function FuvarReszletek() {
             ))}
         </div>
 
-        {/* Letét + fizetés */}
+        {/* Kapcsolatfelvételi díj + fizetés */}
         <div className="card">
-          <h2>Letét (Barion)</h2>
-          {job.status !== 'accepted' && !escrow && (
-            <p className="muted">Nincs letét — még nincs elfogadott licit.</p>
+          <h2>Fizetés</h2>
+          {job.status !== 'accepted' && !job.paid_at && (
+            <p className="muted">Még nincs elfogadott licit — elfogadás után itt fizeted a kapcsolatfelvételi díjat.</p>
           )}
-          {(job.status === 'accepted' || escrow) && (
+          {(job.status === 'accepted' || job.paid_at) && (
             <>
-              <p>
-                Összeg:{' '}
+              <p style={{ marginBottom: 4 }}>
+                Fuvardíj (készpénzben a sofőrnek):{' '}
                 <strong>
-                  {(job.accepted_price_huf ?? escrow?.amount_huf ?? 0).toLocaleString('hu-HU')} Ft
+                  {(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft
                 </strong>
               </p>
-              {/* Jutalék részletezés eltávolítva — a feladónak nem releváns */}
+              <p style={{ marginTop: 0 }}>
+                Kapcsolatfelvételi díj{' '}
+                <span className="muted" style={{ fontSize: 12 }}>(bevezető ár)</span>:{' '}
+                <strong>
+                  {(job.connection_fee_huf ?? 0).toLocaleString('hu-HU')} Ft
+                </strong>
+              </p>
 
               {/* Fizetés állapot: FIZETVE címke, vagy Fizetés gomb.
-                  A /pay endpoint lusta (ha nincs még reservation, most
+                  A /pay endpoint lusta (ha nincs még fizetés-sor, most
                   hozza létre), úgyhogy a gomb akkor is működik, ha az
-                  escrow még nem jött létre az accept során. */}
+                  nem jött létre az accept során. */}
               {job.paid_at ? (
                 <div
                   style={{
@@ -426,26 +441,92 @@ export default function FuvarReszletek() {
                   }}
                   title={`Fizetve: ${new Date(job.paid_at).toLocaleString('hu-HU')}`}
                 >
-                  ✅ FIZETVE
+                  ✅ DÍJ FIZETVE
                 </div>
               ) : job.status === 'accepted' ? (
-                <button
-                  type="button"
-                  onClick={startPayment}
-                  disabled={paying}
-                  className="btn"
+                <>
+                  <button
+                    type="button"
+                    onClick={startPayment}
+                    disabled={paying}
+                    className="btn"
+                    style={{
+                      marginTop: 12,
+                      background: 'var(--success-strong)',
+                      border: 'none',
+                      cursor: paying ? 'wait' : 'pointer',
+                      opacity: paying ? 0.7 : 1,
+                    }}
+                  >
+                    {paying ? 'Fizetés indítása…' : `Díj fizetése (${(job.connection_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}
+                  </button>
+                  <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>
+                    A díj ellenében azonnal megkapod a sofőr telefonszámát, és
+                    elindul a fuvar-folyamat (SMS a címzettnek, átvételi kód,
+                    fotó-bizonyíték). A fuvardíjat készpénzben adod át a sofőrnek.
+                  </p>
+                </>
+              ) : null}
+
+              {/* KONTAKT — ezt vetted meg a díjjal */}
+              {job.paid_at && job.contact && (
+                <div
                   style={{
                     marginTop: 12,
-                    background: 'var(--success-strong)',
-                    border: 'none',
-                    cursor: paying ? 'wait' : 'pointer',
-                    opacity: paying ? 0.7 : 1,
+                    padding: 14,
+                    background: 'var(--success-light)',
+                    borderRadius: 10,
+                    border: '1px solid #86efac',
                   }}
                 >
-                  {paying ? 'Fizetés indítása…' : 'Fizetés Barionnal'}
-                </button>
-              ) : null}
+                  <div style={{ fontSize: 12, color: '#166534', fontWeight: 700, marginBottom: 6 }}>
+                    📞 A SOFŐR ELÉRHETŐSÉGE
+                  </div>
+                  <div style={{ fontWeight: 700 }}>{job.contact.name || 'Sofőr'}</div>
+                  {job.contact.phone && (
+                    <div style={{ marginTop: 4 }}>
+                      <a href={`tel:${job.contact.phone}`} style={{ fontWeight: 700, fontSize: 18 }}>
+                        {job.contact.phone}
+                      </a>
+                    </div>
+                  )}
+                  {job.contact.email && (
+                    <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{job.contact.email}</div>
+                  )}
+                  <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+                    💵 Ne feledd: a fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
+                    készpénzben fizeted a sofőrnek.
+                  </div>
+                </div>
+              )}
             </>
+          )}
+
+          {/* Sofőr-csere — ha a sofőr nem elérhető, díjmentes újraválasztás */}
+          {job.status === 'accepted' && user?.id === job.shipper_id && (
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+              <button
+                type="button"
+                onClick={() => setShowReopenDialog(true)}
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  padding: '6px 14px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                🔁 Másik sofőrt választok
+              </button>
+              <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                Ha a sofőr nem elérhető vagy visszalépett: a korábbi ajánlatok újra
+                elérhetővé válnak, és díjmentesen választhatsz — a befizetett díj erre
+                a fuvarra érvényes marad.
+              </p>
+            </div>
           )}
 
           {/* Lemondás gomb — bárhol elérhető, ha a fuvar még lemondható */}
@@ -467,11 +548,9 @@ export default function FuvarReszletek() {
               >
                 Fuvar lemondása
               </button>
-              {job.paid_at && (
-                <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                  Lemondási díj: 8 000 Ft-ig 400 Ft, felette 5% — a maradék automatikusan visszajár.
-                </p>
-              )}
+              <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                A lemondás díjmentes. {job.paid_at ? 'A már befizetett kapcsolatfelvételi díj nem visszatérítendő és másik fuvarra nem vihető át.' : 'Pénzmozgás még nem történt.'}
+              </p>
             </div>
           )}
 
@@ -488,13 +567,6 @@ export default function FuvarReszletek() {
               }}
             >
               <strong>❌ Ez a fuvar le lett mondva.</strong>
-              {(job as any).refund_huf > 0 && (
-                <div style={{ marginTop: 4 }}>
-                  Visszatérítve: {(job as any).refund_huf.toLocaleString('hu-HU')} Ft
-                  {(job as any).cancellation_fee_huf > 0 &&
-                    ` (díj: ${(job as any).cancellation_fee_huf.toLocaleString('hu-HU')} Ft)`}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -563,9 +635,30 @@ export default function FuvarReszletek() {
       {/* Licitek */}
       {(job.status === 'pending' || job.status === 'bidding') && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2>Beérkezett licitek ({bids.length})</h2>
-          {bids.length === 0 && <p className="muted">Még nincs licit. A sofőrök hamarosan ajánlatot tesznek.</p>}
-          {bids.map((b) => (
+          {job.paid_at && (
+            <div
+              style={{
+                padding: 12,
+                background: 'var(--success-light)',
+                borderRadius: 8,
+                border: '1px solid #86efac',
+                fontSize: 13,
+                marginBottom: 12,
+                color: '#166534',
+              }}
+            >
+              ✅ <strong>Díjmentes újraválasztás:</strong> a kapcsolatfelvételi díjat
+              már befizetted erre a fuvarra — az új sofőr kiválasztása után nem kell
+              újra fizetned, azonnal megkapod az elérhetőségét.
+            </div>
+          )}
+          {/* Csak az aktív (pending) licitek választhatók — újranyitás után a
+              leváltott sofőr elutasított licitje nem fogadható el újra. */}
+          <h2>Beérkezett licitek ({bids.filter((b) => b.status === 'pending').length})</h2>
+          {bids.filter((b) => b.status === 'pending').length === 0 && (
+            <p className="muted">Még nincs licit. A sofőrök hamarosan ajánlatot tesznek.</p>
+          )}
+          {bids.filter((b) => b.status === 'pending').map((b) => (
             <div key={b.id} style={{ borderBottom: '1px solid var(--border)', padding: '16px 0' }}>
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <Link href={`/profil/${b.carrier_id}`} className="row" style={{ gap: 12, alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
@@ -656,8 +749,8 @@ export default function FuvarReszletek() {
         open={showCancelDialog}
         title="Fuvar lemondása"
         message={job.paid_at
-          ? 'Biztosan lemondod a fuvart? 8 000 Ft-ig 400 Ft, felette 5% lemondási díjat vonunk le, a maradék visszakerül a kártyádra.'
-          : 'Biztosan lemondod a fuvart? Még nem történt fizetés, így díj sincs.'}
+          ? 'Biztosan lemondod a fuvart? A lemondás díjmentes, de a már befizetett kapcsolatfelvételi díj nem visszatérítendő és másik fuvarra nem vihető át. Ha csak a sofőrrel van gond, válaszd inkább a "Másik sofőrt választok" lehetőséget — az ingyenes.'
+          : 'Biztosan lemondod a fuvart? Még nem történt fizetés, így semmilyen díj nincs.'}
         confirmLabel="Lemondom"
         danger
         fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. Már nem aktuális' }]}
@@ -666,6 +759,20 @@ export default function FuvarReszletek() {
           cancelJob((v.reason || '').trim());
         }}
         onClose={() => setShowCancelDialog(false)}
+      />
+
+      {/* Sofőr-csere dialógus */}
+      <ConfirmDialog
+        open={showReopenDialog}
+        title="🔁 Másik sofőrt választok"
+        message="A fuvar visszakerül licit állapotba: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad — az új sofőr kiválasztása díjmentes. A jelenlegi sofőr értesítést kap."
+        confirmLabel="Újranyitom"
+        fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. A sofőr nem veszi fel a telefont' }]}
+        onConfirm={(v) => {
+          setShowReopenDialog(false);
+          reopenJob((v.reason || '').trim());
+        }}
+        onClose={() => setShowReopenDialog(false)}
       />
 
       {/* Vita-nyitó dialógus */}
