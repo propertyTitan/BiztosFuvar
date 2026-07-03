@@ -38,10 +38,14 @@ async function createUser({ role = 'shipper', kyc = 'verified', email } = {}) {
   return user;
 }
 
+const { calculateConnectionFee } = require('../src/services/connectionFee');
+
 /**
- * Fuvar létrehozása a kívánt állapotban.
+ * Fuvar létrehozása a kívánt állapotban (készpénzes modell).
  *  - status: 'accepted' | 'in_progress' | ...
- *  - paid: true → paid_at = NOW() + 'held' escrow sor (stub Barion payment id-vel)
+ *  - paid: true → a KAPCSOLATFELVÉTELI DÍJ fizetve: paid_at + fee_consent_at
+ *    + 'released' díj-sor az escrow_transactions-ben (amount = díj, a
+ *    fuvardíj kápéban megy, azt a platform nem könyveli)
  *  - carrierId: a kijelölt sofőr
  */
 async function createJob({
@@ -54,6 +58,7 @@ async function createJob({
   senderDeliveryCode = '333444',
 } = {}) {
   const trackingToken = crypto.randomBytes(16).toString('hex');
+  const feeHuf = calculateConnectionFee(priceHuf);
   const { rows } = await db.query(
     `INSERT INTO jobs (
        shipper_id, carrier_id, title, description,
@@ -62,7 +67,8 @@ async function createJob({
        suggested_price_huf, accepted_price_huf, status,
        delivery_code, sender_delivery_code, tracking_token,
        recipient_name, recipient_phone,
-       paid_at
+       connection_fee_huf,
+       paid_at, fee_consent_at
      ) VALUES (
        $1, $2, 'Teszt fuvar', 'teszt',
        'Budapest, Teszt u. 1.', 47.4979, 19.0402,
@@ -70,16 +76,19 @@ async function createJob({
        $3, $3, $4,
        $5, $6, $7,
        'Teszt Címzett', '+36301112233',
+       $9,
+       CASE WHEN $8 THEN NOW() ELSE NULL END,
        CASE WHEN $8 THEN NOW() ELSE NULL END
      ) RETURNING *`,
-    [shipperId, carrierId, priceHuf, status, deliveryCode, senderDeliveryCode, trackingToken, paid],
+    [shipperId, carrierId, priceHuf, status, deliveryCode, senderDeliveryCode, trackingToken, paid, feeHuf],
   );
   const job = rows[0];
   if (paid) {
     await db.query(
-      `INSERT INTO escrow_transactions (job_id, amount_huf, status, barion_payment_id)
-       VALUES ($1, $2, 'held', $3)`,
-      [job.id, priceHuf, `stub-${job.id}`],
+      `INSERT INTO escrow_transactions
+         (job_id, amount_huf, status, barion_payment_id, carrier_share_huf, platform_share_huf, released_at)
+       VALUES ($1, $2, 'released', $3, 0, $2, NOW())`,
+      [job.id, feeHuf, `stub-${job.id}`],
     );
   }
   return job;

@@ -321,9 +321,10 @@ export default function FeladoUtvonalReszletek() {
           </p>
         )}
         <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-          A foglalást a sofőrnek meg kell erősítenie. A megerősítés után a
-          Barion letétbe helyezi a fuvardíjat, és a fuvar a szokásos módon megy:
-          pickup fotó, átvételi kód, kifizetés.
+          A foglalást a sofőrnek meg kell erősítenie. A megerősítés után egy kis
+          kapcsolatfelvételi díjat fizetsz (bevezető ár), megkapod a sofőr
+          elérhetőségét, és a fuvar a szokásos módon megy: pickup fotó,
+          átvételi kód — a fuvardíjat készpénzben adod át a sofőrnek.
         </p>
       </form>
       )}

@@ -22,12 +22,12 @@ const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; s
   // ŐSZINTÉN jelöljük: "Hamarosan" badge, jövő időben fogalmazva.
   { icon: MapPin, tint: '#db2777', title: 'Élő GPS követés', soon: true,
     desc: 'A GoFuvar mobilalkalmazással érkezik: valós időben követheted majd a sofőröd pozícióját a térképen.' },
-  { icon: ShieldCheck, tint: 'var(--success)', title: 'Barion letét (Escrow)',
-    desc: 'A fuvardíj a Barion letétben pihen, amíg a csomag bizonyítottan megérkezik. Biztonságos mindkét félnek.' },
+  { icon: ShieldCheck, tint: 'var(--success)', title: 'Készpénzes fizetés, kis díj',
+    desc: 'A fuvardíjat készpénzben adod a sofőrnek — a platformnak csak egy kis kapcsolatfelvételi díjat fizetsz (bevezető áron már 500 Ft-tól).' },
   { icon: Camera, tint: '#0891b2', title: 'Fotó bizonyíték',
     desc: 'A sofőr felvételi és lerakodási fotóval igazolja a csomag állapotát — vita esetén ez a bizonyíték.' },
   { icon: KeyRound, tint: 'var(--warning)', title: '6 jegyű átvételi kód',
-    desc: 'A lezáráshoz a sofőrnek be kell írnia a feladó 6 jegyű kódját. Nincs kód — nincs kifizetés.' },
+    desc: 'A lezáráshoz a sofőrnek be kell írnia a feladó 6 jegyű kódját. Nincs kód — nincs lezárt fuvar.' },
 ];
 
 // A fuvar útjának három állomása — a lépések az útvonal-fonálra fűződnek:
@@ -37,14 +37,14 @@ const STEPS = [
   { num: '1', title: 'Hirdesd meg a fuvart', dot: 'var(--primary)',
     desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.' },
   { num: '2', title: 'Válassz sofőrt', dot: 'var(--primary)',
-    desc: 'Fogadd el a legjobb licitet, vagy foglalj fix áras útvonalon. Fizesd ki biztonságosan a Barion letétbe.' },
+    desc: 'Fogadd el a legjobb licitet, vagy foglalj fix áras útvonalon. Egy kis kapcsolatfelvételi díj után azonnal megkapod a sofőr elérhetőségét.' },
   { num: '3', title: 'Vedd át a kóddal', dot: 'var(--success)',
-    desc: 'A címzett SMS-ben kapja a követési linket és a kódot. Az átvételkor add át a 6 jegyű kódot — a sofőr kifizetése automatikus.' },
+    desc: 'A címzett SMS-ben kapja a követési linket és a kódot. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat készpénzben rendezed a sofőrrel.' },
 ];
 
 const TRUST = [
-  { stat: '10%', label: 'platform jutalék — a sofőré a 90%' },
-  { stat: '100%', label: 'visszatérítés, ha a sofőr mondja le' },
+  { stat: '500 Ft-tól', label: 'kapcsolatfelvételi díj (bevezető ár)' },
+  { stat: '100%', label: 'a fuvardíjból a sofőré — készpénzben' },
   { stat: '6 jegyű', label: 'kód zárja le az átadást' },
   { stat: '24/7', label: 'AI segéd válaszol' },
 ];
@@ -270,9 +270,9 @@ export default function LandingPage() {
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
               <li>Hirdesd meg a fuvart — a sofőrök licitálnak rá</li>
               <li>Vagy foglalj helyet egy fix áras útvonalon</li>
-              <li>Fizess biztonságosan a Barion letétbe</li>
+              <li>Kis díj után azonnal megkapod a sofőr elérhetőségét</li>
               <li>A címzett SMS-ben kapja a követési linket</li>
-              <li>Add át a 6 jegyű kódot az átvételkor</li>
+              <li>Add át a 6 jegyű kódot, a fuvardíjat kápéban rendezed</li>
             </ul>
           </div>
           <div style={{
@@ -286,9 +286,9 @@ export default function LandingPage() {
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
               <li>Licitálj nyitott fuvarokra — a legjobb nyer</li>
               <li>Vagy hirdesd meg az utadat fix árakkal</li>
-              <li>A fuvardíj 90%-a a tiéd (10% platform jutalék)</li>
+              <li>A fuvardíj 100%-a a tiéd, készpénzben — nincs levonás</li>
               <li>Igazold a felvételt és lerakodást fotóval</li>
-              <li>Kérd az átvételi kódot → automatikus kifizetés</li>
+              <li>Kérd az átvételi kódot → fuvar lezárva, a kápé a tiéd</li>
             </ul>
           </div>
         </div>

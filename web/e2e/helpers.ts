@@ -128,20 +128,34 @@ export async function setJobAccepted(
   carrierId: string,
   { paid = true, priceHuf = 20000, status = 'accepted' as string } = {},
 ) {
+  // Készpénzes modell: paid = a KAPCSOLATFELVÉTELI díj fizetve (sávos díj),
+  // a díj-sor 'released' (a szolgáltatás a kontakt-átadással teljesült).
+  const feeHuf = connectionFee(priceHuf);
   await dbQuery(
     `UPDATE jobs SET carrier_id = $2, status = $3, accepted_price_huf = $4,
-            paid_at = CASE WHEN $5 THEN NOW() ELSE NULL END
+            connection_fee_huf = $6,
+            paid_at = CASE WHEN $5 THEN NOW() ELSE NULL END,
+            fee_consent_at = CASE WHEN $5 THEN NOW() ELSE NULL END
       WHERE id = $1`,
-    [jobId, carrierId, status, priceHuf, paid],
+    [jobId, carrierId, status, priceHuf, paid, feeHuf],
   );
   if (paid) {
     await dbQuery(
-      `INSERT INTO escrow_transactions (job_id, amount_huf, status, barion_payment_id)
-       VALUES ($1, $2, 'held', $3)
+      `INSERT INTO escrow_transactions
+         (job_id, amount_huf, status, barion_payment_id, carrier_share_huf, platform_share_huf, released_at)
+       VALUES ($1, $2, 'released', $3, 0, $2, NOW())
        ON CONFLICT (job_id) DO NOTHING`,
-      [jobId, priceHuf, `stub-${jobId}`],
+      [jobId, feeHuf, `stub-${jobId}`],
     );
   }
+}
+
+/** A backend connectionFee sávjainak tükre (ÁSZF 4.1) — a tesztek elvárásaihoz. */
+export function connectionFee(priceHuf: number): number {
+  if (priceHuf <= 20000) return 500;
+  if (priceHuf <= 50000) return 1490;
+  if (priceHuf <= 100000) return 2490;
+  return 3990;
 }
 
 /** Sofőr-licit közvetlenül az API-n (a licit-űrlapot a 02-es teszt fedi). */

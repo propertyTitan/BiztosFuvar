@@ -125,6 +125,70 @@ async function reservePayment({ jobId, amount, totalHuf, shipperEmail, carrierEm
 }
 
 /**
+ * Kapcsolatfelvételi díj beszedése — SIMA (azonnali) Barion fizetés, nem
+ * foglalás. A készpénzes modellben (2026-07-03) a platform csak a saját
+ * díját szedi be a feladótól; a fuvardíj készpénzben megy a sofőrnek,
+ * így nincs escrow, nincs split, nincs transfer.
+ *
+ * @param {object} p
+ * @param {string} p.jobId        — fuvar vagy foglalás azonosító (redirect-hez)
+ * @param {number} p.feeHuf       — a díj bruttó Ft-ban
+ * @param {string} p.shipperEmail
+ * @param {string} [p.redirectPath] — hova jöjjön vissza a fizetés után
+ */
+async function startFeePayment({ jobId, feeHuf, shipperEmail, redirectPath }) {
+  if (isStub()) {
+    return {
+      paymentId: `stub-${jobId}`,
+      gatewayUrl: `stub:payment/${jobId}`,
+      stub: true,
+      currency: 'HUF',
+      message: `Barion STUB – ${feeHuf} Ft kapcsolatfelvételi díj.`,
+    };
+  }
+
+  const payload = {
+    PaymentType: 'Immediate',
+    PaymentWindow: '00:30:00',
+    GuestCheckOut: true,
+    FundingSources: ['All'],
+    PaymentRequestId: `bf-fee-${jobId}-${Date.now()}`,
+    PayerHint: shipperEmail,
+    Currency: 'HUF',
+    Locale: 'hu-HU',
+    OrderNumber: `FEE-${String(jobId).substring(0, 8)}`,
+    RedirectUrl: `${process.env.WEB_BASE_URL || 'http://localhost:3000'}${redirectPath || `/dashboard/fuvar/${jobId}`}`,
+    CallbackUrl: `${process.env.API_BASE_URL || 'http://localhost:4000'}/payments/barion/callback`,
+    Transactions: [
+      {
+        POSTransactionId: `bf-${jobId}-fee`,
+        Payee: PLATFORM_PAYEE,
+        Total: feeHuf,
+        Comment: `GoFuvar kapcsolatfelvételi díj – ${jobId}`,
+        Items: [
+          {
+            Name: 'Kapcsolatfelvételi díj (bevezető ár)',
+            Description: `GoFuvar közvetítési díj #${jobId} — a fuvardíjat készpénzben fizeted a sofőrnek`,
+            Quantity: 1,
+            Unit: 'db',
+            UnitPrice: feeHuf,
+            ItemTotal: feeHuf,
+          },
+        ],
+      },
+    ],
+  };
+
+  const json = await barionFetch('/v2/Payment/Start', payload);
+  return {
+    paymentId: json.PaymentId,
+    gatewayUrl: json.GatewayUrl,
+    stub: false,
+    raw: json,
+  };
+}
+
+/**
  * Foglalás lezárása – a Proof of Delivery után hívjuk.
  * A `Transactions` mezőben adjuk meg a SPLIT-et:
  *   - 90 % carrier-nek
@@ -259,17 +323,19 @@ async function getPaymentState(paymentId) {
   return json;
 }
 
-function computeCancellationSettlement({ totalHuf, paid, cancelledByRole }) {
-  if (!paid || !totalHuf) return { fee: 0, refund: 0 };
-  if (cancelledByRole === 'carrier') return { fee: 0, refund: totalHuf };
-  // Feladó lemondás:
-  const fee = totalHuf <= 8000 ? 400 : Math.round(totalHuf * 0.05);
-  const refund = totalHuf - fee;
-  return { fee, refund };
+// A készpénzes modellben (2026-07-03) lemondási díj és visszatérítés NINCS:
+// a platform nem kezeli a fuvardíjat, a kapcsolatfelvételi díj pedig a
+// szolgáltatás (kontakt-átadás) teljesítésével elhasználódik — nem
+// visszatérítendő (ÁSZF + 45/2014. Korm. r. 29. § (1) a)). Sofőr-oldali
+// meghiúsulásnál a feladó díjmentesen választhat másik sofőrt ugyanarra a
+// fuvarra (jobs.js reopen-logika).
+function computeCancellationSettlement() {
+  return { fee: 0, refund: 0 };
 }
 
 module.exports = {
   reservePayment,
+  startFeePayment,
   finishReservation,
   cancelReservation,
   refundPayment,

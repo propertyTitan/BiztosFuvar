@@ -84,14 +84,14 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     });
   }
 
-  // Fizetési guard: a munka (felvétel/kézbesítés) CSAK kifizetett fuvaron
-  // indulhat. Enélkül a sofőr fizetetlen fuvart is elkezdhetne/lezárhatna —
-  // a letéti modell lényege, hogy a pénz már a platformnál van, mielőtt a
-  // csomag mozogna. A feladó utólag is fizethet (confirm-payment), utána a
-  // fotó-feltöltés újra megengedett.
+  // Fizetési guard: a munka (felvétel/kézbesítés) CSAK azután indulhat,
+  // hogy a feladó megfizette a kapcsolatfelvételi díjat. Enélkül a fuvar
+  // a platformon kívül bonyolódna (a díj a platform egyetlen bevétele —
+  // készpénzes modell). A feladó utólag is fizethet (confirm-payment),
+  // utána a fotó-feltöltés újra megengedett.
   if ((kind === 'pickup' || kind === 'dropoff') && !job.paid_at) {
     return res.status(409).json({
-      error: 'Ez a fuvar még nincs kifizetve — a munka csak a feladó fizetése után kezdhető el.',
+      error: 'A feladó még nem fizette meg a kapcsolatfelvételi díjat — a munka csak ezután kezdhető el.',
     });
   }
 
@@ -197,58 +197,11 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       return res.status(409).json({ error: 'Ezt a fuvart időközben már lezárták.' });
     }
 
-    // Jutalékmentes voucher ellenőrzés — ha a sofőrnek van, 0% jutalék
-    const { useVoucherIfAvailable } = require('../services/gamification');
-    let voucherUsed = false;
-    if (job.carrier_id) {
-      voucherUsed = await useVoucherIfAvailable(job.carrier_id, jobId, null);
-      if (voucherUsed) {
-        console.log(`[gamification] Voucher felhasználva! Sofőr: ${job.carrier_id}, Job: ${jobId} → 0% jutalék`);
-      }
-    }
-
-    // Escrow felszabadítás atomi claim-mel: csak az a kérés indíthat Barion
-    // kifizetést, amelyik a 'held' sort ténylegesen 'released'-re billentette.
-    // Így ismételt/párhuzamos hívás nem okozhat dupla átutalást.
-    let payout = null;
-    try {
-      const { rows: escrowRows } = await db.query(
-        `UPDATE escrow_transactions
-            SET status = 'released', released_at = NOW()
-          WHERE job_id = $1 AND status = 'held'
-          RETURNING barion_payment_id, amount_huf`,
-        [jobId],
-      );
-      const esc = escrowRows[0];
-      if (esc && esc.barion_payment_id) {
-        const { rows: carrierRows } = await db.query(
-          `SELECT u.email AS carrier_email
-             FROM jobs j JOIN users u ON u.id = j.carrier_id
-            WHERE j.id = $1`,
-          [jobId],
-        );
-        payout = await barion.finishReservation({
-          paymentId: esc.barion_payment_id,
-          jobId,
-          totalHuf: esc.amount_huf,
-          carrierPayee: carrierRows[0]?.carrier_email,
-        });
-      }
-      // Ha voucher → az escrow-ban is jelöljük hogy 0% volt a jutalék
-      if (voucherUsed && esc) {
-        await db.query(
-          `UPDATE escrow_transactions
-              SET carrier_share_huf = amount_huf, platform_share_huf = 0
-            WHERE job_id = $1`,
-          [jobId],
-        );
-      }
-    } catch (err) {
-      console.error('[barion] finishReservation hiba:', err.message);
-    }
-
-    validation.payout = payout;
-    realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation, payout });
+    // Készpénzes modell: kézbesítéskor NINCS pénzmozgás a platformon — a
+    // sofőr a fuvardíjat készpénzben kapja a feladótól/címzettől. A
+    // kapcsolatfelvételi díj könyvelése már a fizetéskor lezárult
+    // ('released'), így itt csak a státusz-átmenet + értesítések maradnak.
+    realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation });
 
     // Értesítés a FELADÓNAK: a csomagod megérkezett!
     try {
@@ -270,7 +223,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           user_id: info.shipper_id,
           type: 'job_delivered',
           title: '📦 A csomagod megérkezett!',
-          body: `${info.carrier_name || 'A sofőr'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve, a kifizetés automatikusan megtörtént.`,
+          body: `${info.carrier_name || 'A sofőr'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj készpénzben jár a sofőrnek.`,
           link: `/dashboard/fuvar/${jobId}`,
         });
 
@@ -279,7 +232,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           const { sendSms } = require('../services/sms');
           if (info.shipper_phone) {
             sendSms(info.shipper_phone,
-              `A csomagod kezbesittes megtortent! Fuvar: ${info.title}. A Barion letet felszabadult.`
+              `A csomagod kezbesitese megtortent! Fuvar: ${info.title}. Udv, GoFuvar`
             ).catch(() => {});
           }
           // Címzettnek is — sikeres átvétel visszaigazolás
@@ -298,7 +251,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
               <p>Szia ${info.shipper_name || 'GoFuvar felhasználó'}!</p>
               <p>Nagyszerű hír — <strong>${info.carrier_name || 'a sofőr'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${info.title}"</strong> fuvarban!</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
-              <p>A 6 jegyű átvételi kód ellenőrizve, a Barion letét felszabadult. A sofőr megkapta a díjazását (90%), a platform jutalék (10%) levonva.</p>
+              <p>A 6 jegyű átvételi kód ellenőrizve. A fuvardíj készpénzben jár a sofőrnek — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
               <p>Ha bármi probléma van a csomagoddal, a fuvar részletek oldalán tudsz vitás esetet nyitni.</p>
             `;
             sendEmail({

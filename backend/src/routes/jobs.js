@@ -14,6 +14,7 @@ const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendJobPaidEmail, sendCancellationEmail } = require('../services/email');
 const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
 const { findBackhaulCandidates } = require('../services/backhaul');
+const { calculateConnectionFee } = require('../services/connectionFee');
 
 const router = express.Router();
 
@@ -505,7 +506,33 @@ router.get('/:id', authRequired, async (req, res) => {
     console.log(`[delivery-code] lusta generálás: job ${job.id} (kód nem naplózva)`);
   }
 
-  res.json(scrubJobForUser(job, req.user));
+  const scrubbed = scrubJobForUser(job, req.user);
+
+  // KONTAKT-FELFEDÉS — ez az, amit a kapcsolatfelvételi díj megvesz.
+  // A másik fél neve + telefonszáma + emailje CSAK a díj megfizetése
+  // (paid_at) UTÁN kerül a válaszba. Enélkül a felek csak a platformon
+  // belüli chatben beszélhetnek (ahol a contactGuard szűri a számokat).
+  if (job.paid_at && job.carrier_id) {
+    const isShipper = req.user.sub === job.shipper_id;
+    const isCarrier = req.user.sub === job.carrier_id;
+    if (isShipper || isCarrier) {
+      const otherId = isShipper ? job.carrier_id : job.shipper_id;
+      const { rows: contactRows } = await db.query(
+        `SELECT full_name, phone, email FROM users WHERE id = $1`,
+        [otherId],
+      );
+      if (contactRows[0]) {
+        scrubbed.contact = {
+          role: isShipper ? 'carrier' : 'shipper',
+          name: contactRows[0].full_name,
+          phone: contactRows[0].phone,
+          email: contactRows[0].email,
+        };
+      }
+    }
+  }
+
+  res.json(scrubbed);
 });
 
 // GET /jobs/mine/list?as=posted|assigned – saját fuvarok
@@ -525,26 +552,22 @@ router.get('/mine/list', authRequired, async (req, res) => {
 
 // POST /jobs/:id/pay
 //
-// Lusta Barion reservation a licites fuvarhoz. Akkor hívjuk, amikor a
-// feladó a "Fizetés Barionnal" gombra kattint a fuvar részletek oldalon.
+// Kapcsolatfelvételi díj fizetésének (lusta) indítása. Akkor hívjuk, amikor
+// a feladó a fizetés gombra kattint a fuvar részletek oldalon.
 //   - Ha már létezik escrow_transactions sor gateway_url-lel, azt adjuk
 //     vissza (idempotens).
-//   - Ha nincs (pl. az accept régebbi kóddal futott, amikor még nem volt
-//     reservation), MOST hozzuk létre, eltároljuk az escrow sorra, és
-//     visszaadjuk az új URL-t.
-//
-// Ugyanaz a minta, mint a `/route-bookings/:id/pay`-nél.
+//   - Ha nincs, MOST hozzuk létre és eltároljuk.
+// A díj a megállapodott ár sávja szerint számolódik (connectionFee service);
+// a fuvardíj magát NEM itt fizetik — az készpénzben megy a sofőrnek.
 router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             e.barion_gateway_url,
             e.barion_payment_id,
-            s.email AS shipper_email,
-            c.email AS carrier_email
+            s.email AS shipper_email
        FROM jobs j
   LEFT JOIN escrow_transactions e ON e.job_id = j.id
        JOIN users s ON s.id = j.shipper_id
-  LEFT JOIN users c ON c.id = j.carrier_id
       WHERE j.id = $1`,
     [req.params.id],
   );
@@ -558,16 +581,18 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
       error: 'Csak elfogadott licit után fizethető (státusz: ' + j.status + ')',
     });
   }
-  const totalHuf = j.accepted_price_huf;
-  if (!totalHuf) {
-    return res.status(409).json({ error: 'Hiányzik az elfogadott ár' });
+  if (j.paid_at) {
+    return res.status(409).json({ error: 'A kapcsolatfelvételi díj már ki van fizetve ehhez a fuvarhoz.' });
   }
+  const feeHuf = j.connection_fee_huf
+    || calculateConnectionFee(j.accepted_price_huf || j.suggested_price_huf || 0);
 
   // Idempotens: ha már van gateway_url, csak visszaadjuk.
   if (j.barion_gateway_url) {
     return res.json({
       payment_id: j.barion_payment_id,
       gateway_url: j.barion_gateway_url,
+      fee_huf: feeHuf,
       is_stub: String(j.barion_gateway_url).startsWith('stub:'),
       reused: true,
     });
@@ -575,37 +600,39 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
 
   let barionRes;
   try {
-    barionRes = await barion.reservePayment({
+    barionRes = await barion.startFeePayment({
       jobId: j.id,
-      totalHuf,
+      feeHuf,
       shipperEmail: j.shipper_email,
-      carrierEmail: j.carrier_email,
     });
   } catch (err) {
-    console.error('[barion] lusta reservePayment (job) hiba:', err.message);
-    return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+    console.error('[barion] lusta startFeePayment (job) hiba:', err.message);
+    return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
   }
-
-  const { carrierShare, platformShare } = barion.calculatePlatformFee(totalHuf);
 
   await db.query(
     `INSERT INTO escrow_transactions
        (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
         carrier_share_huf, platform_share_huf)
-     VALUES ($1,$2,'held',$3,$4,$5,$6)
+     VALUES ($1,$2,'held',$3,$4,0,$2)
      ON CONFLICT (job_id) DO UPDATE SET
        amount_huf         = EXCLUDED.amount_huf,
        barion_payment_id  = EXCLUDED.barion_payment_id,
        barion_gateway_url = EXCLUDED.barion_gateway_url,
-       carrier_share_huf  = EXCLUDED.carrier_share_huf,
+       carrier_share_huf  = 0,
        platform_share_huf = EXCLUDED.platform_share_huf,
        held_at            = NOW()`,
-    [j.id, totalHuf, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
+    [j.id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
+  );
+  await db.query(
+    `UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2 AND connection_fee_huf IS NULL`,
+    [feeHuf, j.id],
   );
 
   res.json({
     payment_id: barionRes.paymentId,
     gateway_url: barionRes.gatewayUrl,
+    fee_huf: feeHuf,
     is_stub: !!barionRes.stub,
     reused: false,
   });
@@ -613,12 +640,16 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
 
 // POST /jobs/:id/confirm-payment
 //
-// Sikeres fizetés nyugtázása. STUB módban a `/fizetes-stub` oldal
-// "Fizetek most" gombja hívja; valódi Barion mellett a callback fogja.
-// Idempotens. Mit csinál:
-//   1) `paid_at` beállítása a jobs soron
-//   2) Értesítés a sofőrnek: "Péter kifizette a fuvarodat"
-//   3) Realtime event mindkét félnek (`job:paid`), hogy a UI frissüljön
+// A kapcsolatfelvételi díj sikeres fizetésének nyugtázása. STUB módban a
+// `/fizetes-stub` oldal "Fizetek most" gombja hívja; valódi Barion mellett
+// a callback fogja. Idempotens. Mit csinál:
+//   1) FOGYASZTÓVÉDELMI KAPU: kötelező a kifejezett beleegyezés (consent) —
+//      a feladó kéri az azonnali teljesítést (kontakt-átadás) és tudomásul
+//      veszi, hogy a teljesítés után elállási joga elvész
+//      (45/2014. Korm. r. 29. § (1) a)). Enélkül 400.
+//   2) `paid_at` + `fee_consent_at` beállítása, a díj-sor 'released'
+//   3) Értesítés mindkét félnek: megkapjátok egymás elérhetőségét,
+//      a fuvardíj készpénzben jár a sofőrnek
 router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
@@ -646,11 +677,27 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
     return res.json({ ok: true, already_paid: true, paid_at: j.paid_at });
   }
 
+  if (req.body?.consent !== true) {
+    return res.status(400).json({
+      error: 'A fizetéshez kérned kell az azonnali teljesítést és tudomásul venned, hogy a kapcsolatfelvételi adatok átadása után elállási jogod elvész.',
+      code: 'CONSENT_REQUIRED',
+    });
+  }
+
   const { rows: upd } = await db.query(
-    `UPDATE jobs SET paid_at = NOW() WHERE id = $1 RETURNING paid_at`,
+    `UPDATE jobs SET paid_at = NOW(), fee_consent_at = NOW() WHERE id = $1 RETURNING paid_at`,
     [j.id],
   );
   const paidAt = upd[0].paid_at;
+
+  // A díj beérkezett és a szolgáltatás (kontakt-átadás) azonnal teljesül —
+  // a könyvelési sor végleges ('released'), visszatérítés nincs.
+  await db.query(
+    `UPDATE escrow_transactions
+        SET status = 'released', released_at = NOW()
+      WHERE job_id = $1 AND status = 'held'`,
+    [j.id],
+  );
 
   // Értesítés a sofőrnek (a licitet nyert carrier): in-app + email
   if (j.carrier_id) {
@@ -658,8 +705,8 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
       await createNotification({
         user_id: j.carrier_id,
         type: 'job_paid',
-        title: '💰 Kifizették a fuvarodat!',
-        body: `${j.shipper_name || 'A feladó'} kifizette a(z) "${j.title}" fuvart ${j.accepted_price_huf.toLocaleString('hu-HU')} Ft értékben.`,
+        title: '🤝 Indulhat a fuvar!',
+        body: `${j.shipper_name || 'A feladó'} kifizette a kapcsolatfelvételi díjat a(z) "${j.title}" fuvarhoz. Mostantól látjátok egymás elérhetőségét — a fuvardíjat (${(j.accepted_price_huf || 0).toLocaleString('hu-HU')} Ft) készpénzben kapod.`,
         link: `/sofor/fuvar/${j.id}`,
       });
     } catch (e) {
@@ -690,30 +737,68 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
   res.json({ ok: true, paid_at: paidAt });
 });
 
+// A fuvar díjmentes újranyitása, amikor a KIVÁLASZTOTT SOFŐRREL hiúsul meg
+// a fuvar (a sofőr lemondja, vagy a feladó cseréli, mert nem elérhető).
+// Készpénzes modell szabálya (ÁSZF): a kapcsolatfelvételi díj a FUVARRA
+// szól — újraválasztásnál nem kell újra fizetni, de másik fuvarra nem
+// vihető át. Mit csinál:
+//   - a fuvar vissza 'bidding'-re, carrier_id törölve
+//   - a meghiúsult sofőr licitje 'rejected'
+//   - az elfogadáskor tömegesen elutasított licitek vissza 'pending'-re,
+//     hogy a feladó választhasson közülük
+//   - paid_at + connection_fee_huf MARAD (a díj már teljesített kontakt-
+//     átadást fedez, az újraválasztás díjmentes)
+async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
+  await db.query(
+    `UPDATE jobs
+        SET status = 'bidding',
+            carrier_id = NULL,
+            accepted_price_huf = NULL,
+            reopened_count = reopened_count + 1,
+            updated_at = NOW()
+      WHERE id = $1 AND status = 'accepted'`,
+    [j.id],
+  );
+  if (failedCarrierId) {
+    await db.query(
+      `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND carrier_id = $2`,
+      [j.id, failedCarrierId],
+    );
+  }
+  await db.query(
+    `UPDATE bids SET status = 'pending'
+      WHERE job_id = $1 AND status = 'rejected' AND carrier_id <> $2`,
+    [j.id, failedCarrierId || '00000000-0000-0000-0000-000000000000'],
+  );
+  realtime.emitToJob(j.id, 'job:reopened', { job_id: j.id, reason: reason || null });
+  realtime.emitGlobal('jobs:reopened', { job_id: j.id });
+}
+
 // POST /jobs/:id/cancel
 //
 // Licites fuvar lemondása. Bárki hívhatja, aki érdekelt fél:
 //   - a feladó (shipper_id = me) VAGY
 //   - a kijelölt sofőr (carrier_id = me), ha már elfogadtuk a licitet.
 //
-// Szabályok:
+// Készpénzes modell szabályai (2026-07-03):
 //   - Ha a fuvar már `in_progress`/`delivered`/`completed`/`cancelled` →
 //     nem lehet lemondani (későn érkezett).
-//   - Ha még nincs kifizetve, egyszerűen `status='cancelled'` + notif.
-//   - Ha ki van fizetve és a FELADÓ mondja le → 8 000 Ft-ig 400 Ft, felette 5%,
-//     a maradék refund Barion-on keresztül.
-//   - Ha a SOFŐR mondja le → 100% refund a feladónak.
+//   - Pénzmozgás NINCS: a platform nem kezeli a fuvardíjat, a
+//     kapcsolatfelvételi díj pedig nem visszatérítendő (ÁSZF + 45/2014.
+//     Korm. r. 29. § (1) a) — a szolgáltatás a kontakt-átadással teljesült).
+//   - Ha a SOFŐR mondja le az elfogadott fuvart → a fuvar NEM vész el:
+//     díjmentesen újranyílik, a feladó a korábbi ajánlatokból választhat.
+//   - Ha a FELADÓ mondja le → a fuvar 'cancelled'; a már befizetett díj
+//     nem jár vissza és másik fuvarra nem vihető át.
 router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
   const { reason } = req.body || {};
   const { rows } = await db.query(
     `SELECT j.*,
             s.full_name AS shipper_name, s.email AS shipper_email,
-            c.full_name AS carrier_name, c.email AS carrier_email,
-            e.barion_payment_id
+            c.full_name AS carrier_name, c.email AS carrier_email
        FROM jobs j
        JOIN users s ON s.id = j.shipper_id
   LEFT JOIN users c ON c.id = j.carrier_id
-  LEFT JOIN escrow_transactions e ON e.job_id = j.id
       WHERE j.id = $1`,
     [req.params.id],
   );
@@ -738,45 +823,42 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
 
   const cancelledByRole = iAmShipper ? 'shipper' : 'carrier';
   const paid = !!j.paid_at;
-  const total = j.accepted_price_huf || 0;
-  const { fee, refund } = barion.computeCancellationSettlement({
-    totalHuf: total,
-    paid,
-    cancelledByRole,
-  });
 
-  // Ha már volt fizetés és a sofőr már dolgozik rajta: Barion refund.
-  // STUB módban ez csak log, éles üzemben a Payment/Refund API.
-  if (paid && refund > 0 && j.barion_payment_id) {
+  // === SOFŐR-LEMONDÁS elfogadott fuvaron → díjmentes újranyitás ===
+  if (iAmCarrier && j.status === 'accepted') {
+    await reopenJobForNewDriver(j, { failedCarrierId: j.carrier_id, reason });
     try {
-      await barion.refundPayment({
-        paymentId: j.barion_payment_id,
-        jobId: j.id,
-        refundAmountHuf: refund,
-        reason: reason || `Fuvar lemondva (${cancelledByRole})`,
+      await createNotification({
+        user_id: j.shipper_id,
+        type: 'job_reopened',
+        title: '🔁 A sofőr visszalépett — válassz másikat!',
+        body: `A sofőr lemondta a(z) "${j.title}" fuvart. A korábbi ajánlatok újra elérhetők — díjmentesen választhatsz másik sofőrt erre a fuvarra${paid ? ' (a befizetett kapcsolatfelvételi díjad erre a fuvarra érvényes marad)' : ''}.`,
+        link: `/dashboard/fuvar/${j.id}`,
       });
-    } catch (err) {
-      console.error('[barion] refund hiba:', err.message);
-      return res.status(502).json({ error: 'A visszatérítés sikertelen, próbáld később.' });
+    } catch (e) {
+      console.warn('[notifications] job_reopened hiba:', e.message);
     }
+    return res.json({ ok: true, status: 'bidding', reopened: true });
   }
 
+  // === FELADÓ-LEMONDÁS (vagy sofőr-lemondás nem-elfogadott állapotban) ===
   await db.query(
     `UPDATE jobs
         SET status = 'cancelled',
             cancelled_at = NOW(),
             cancelled_by = $1,
             cancel_reason = $2,
-            cancellation_fee_huf = $3,
-            refund_huf = $4,
+            cancellation_fee_huf = 0,
+            refund_huf = 0,
             updated_at = NOW()
-      WHERE id = $5`,
-    [req.user.sub, reason || null, fee, refund, j.id],
+      WHERE id = $3`,
+    [req.user.sub, reason || null, j.id],
   );
 
-  // A letét-könyvelés kövesse a valóságot: a Barion-visszatérítés elindult,
-  // a 'held' sor legyen 'refunded' (eddig örökre held maradt — a kifizetést
-  // a cancelled státusz-guard amúgy is blokkolta, de a főkönyv hazudott).
+  // Ha a díj-fizetés még függőben volt ('held' = elindított, de be nem
+  // fejezett Barion-fizetés), zárjuk le refunded-ként, hogy a főkönyv ne
+  // mutasson nyitott tételt. A már 'released' (befizetett) díjhoz nem
+  // nyúlunk — az nem visszatérítendő.
   await db.query(
     `UPDATE escrow_transactions
         SET status = 'refunded', refunded_at = NOW()
@@ -796,7 +878,7 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
         title: '❌ Fuvar lemondva',
         body: iAmShipper
           ? `A feladó lemondta a(z) "${j.title}" fuvart.`
-          : `A sofőr lemondta a(z) "${j.title}" fuvart. A teljes fuvardíj visszajár.`,
+          : `A sofőr lemondta a(z) "${j.title}" fuvart.`,
         link: `/dashboard/fuvar/${j.id}`,
       });
     } catch (e) {
@@ -809,26 +891,12 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
           recipientName: otherName,
           jobTitle: j.title,
           cancelledByRole,
-          refundHuf: refund,
-          feeHuf: fee,
+          refundHuf: 0,
+          feeHuf: 0,
           recipientIsShipper: !iAmShipper, // a "másik" fél, szóval ha én sofőr vagyok, ő a feladó
         }).catch((e) => console.warn('[email] job_cancelled hiba:', e.message));
       });
     }
-  }
-
-  // A user saját magának is kaphasson visszajelzést (pl. a feladó
-  // visszalátja mennyit kap vissza)
-  if (paid && iAmShipper && refund > 0) {
-    try {
-      await createNotification({
-        user_id: j.shipper_id,
-        type: 'refund_issued',
-        title: '💸 Visszatérítés folyamatban',
-        body: `${refund.toLocaleString('hu-HU')} Ft visszautalás indult${fee > 0 ? ` (${fee.toLocaleString('hu-HU')} Ft lemondási díj levonva)` : ''}.`,
-        link: `/hirdeteseim`,
-      });
-    } catch {}
   }
 
   realtime.emitGlobal('jobs:cancelled', { job_id: j.id, cancelled_by: cancelledByRole });
@@ -836,9 +904,59 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
   res.json({
     ok: true,
     status: 'cancelled',
-    cancellation_fee_huf: fee,
-    refund_huf: refund,
+    cancellation_fee_huf: 0,
+    refund_huf: 0,
+    // Őszinte visszajelzés a feladónak: a befizetett díj nem jár vissza
+    fee_kept: paid && iAmShipper,
   });
+});
+
+// POST /jobs/:id/reopen — a FELADÓ sofőrt cserél az elfogadott fuvaron
+// (pl. a sofőr nem elérhető / nem jelent meg). Díjmentes: a befizetett
+// kapcsolatfelvételi díj erre a fuvarra érvényben marad, a korábbi licitek
+// újra választhatók. Csak 'accepted' állapotban (in_progress-től már a
+// vitarendezés a helyes út).
+router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
+  const { reason } = req.body || {};
+  const { rows } = await db.query(
+    `SELECT j.*, c.full_name AS carrier_name
+       FROM jobs j
+  LEFT JOIN users c ON c.id = j.carrier_id
+      WHERE j.id = $1`,
+    [req.params.id],
+  );
+  const j = rows[0];
+  if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (j.shipper_id !== req.user.sub) {
+    return res.status(403).json({ error: 'Csak a fuvar feladója cserélhet sofőrt' });
+  }
+  if (j.status !== 'accepted') {
+    return res.status(409).json({
+      error: j.status === 'in_progress'
+        ? 'A fuvar már folyamatban van — probléma esetén nyiss vitás esetet.'
+        : `Sofőr-csere csak elfogadott fuvaron lehetséges (státusz: ${j.status}).`,
+    });
+  }
+
+  const failedCarrierId = j.carrier_id;
+  await reopenJobForNewDriver(j, { failedCarrierId, reason });
+
+  // A leváltott sofőr értesítése
+  if (failedCarrierId) {
+    try {
+      await createNotification({
+        user_id: failedCarrierId,
+        type: 'job_reopened',
+        title: 'ℹ️ A feladó másik sofőrt választ',
+        body: `A feladó újranyitotta a(z) "${j.title}" fuvart${reason ? ` (indok: ${reason})` : ''}. A licited lezárult.`,
+        link: `/sofor/licitjeim`,
+      });
+    } catch (e) {
+      console.warn('[notifications] job_reopened (carrier) hiba:', e.message);
+    }
+  }
+
+  res.json({ ok: true, status: 'bidding', reopened: true });
 });
 
 // POST /jobs/:id/instant-accept
@@ -906,7 +1024,8 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
 
     const job = upd[0];
 
-    // Ugyanaz az escrow init, mint a licit elfogadásnál: Barion Reservation.
+    // Ugyanaz a díj-flow, mint a licit elfogadásnál: kapcsolatfelvételi díj
+    // a feladótól; a fuvardíj készpénzben megy a sofőrnek.
     const { rows: partyRows } = await client.query(
       `SELECT s.email AS shipper_email, s.full_name AS shipper_name,
               c.email AS carrier_email, c.full_name AS carrier_name
@@ -916,36 +1035,38 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
     );
     const parties = partyRows[0] || {};
 
+    const feeHuf = calculateConnectionFee(job.accepted_price_huf);
     let barionRes = { paymentId: null, gatewayUrl: null };
     try {
-      barionRes = await barion.reservePayment({
+      barionRes = await barion.startFeePayment({
         jobId: job.id,
-        totalHuf: job.accepted_price_huf,
+        feeHuf,
         shipperEmail: parties.shipper_email,
-        carrierEmail: parties.carrier_email,
       });
     } catch (err) {
-      console.error('[barion] instant reservePayment hiba:', err.message);
+      console.error('[barion] instant startFeePayment hiba:', err.message);
       await client.query('ROLLBACK');
-      return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+      return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
     }
 
-    const { carrierShare, platformShare } = barion.calculatePlatformFee(job.accepted_price_huf);
-
+    await client.query(
+      `UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2`,
+      [feeHuf, job.id],
+    );
     await client.query(
       `INSERT INTO escrow_transactions
          (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
           carrier_share_huf, platform_share_huf)
-       VALUES ($1,$2,'held',$3,$4,$5,$6)
+       VALUES ($1,$2,'held',$3,$4,0,$2)
        ON CONFLICT (job_id) DO UPDATE SET
          amount_huf         = EXCLUDED.amount_huf,
          status             = 'held',
          barion_payment_id  = EXCLUDED.barion_payment_id,
          barion_gateway_url = EXCLUDED.barion_gateway_url,
-         carrier_share_huf  = EXCLUDED.carrier_share_huf,
+         carrier_share_huf  = 0,
          platform_share_huf = EXCLUDED.platform_share_huf,
          held_at            = NOW()`,
-      [job.id, job.accepted_price_huf, barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare],
+      [job.id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
     );
 
     await client.query('COMMIT');
@@ -970,7 +1091,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
         user_id: job.shipper_id,
         type: 'instant_accepted',
         title: '⚡ Sofőr vállalta az azonnali fuvart!',
-        body: `${parties.carrier_name || 'Egy sofőr'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizess a Barion oldalon.`,
+        body: `${parties.carrier_name || 'Egy sofőr'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat készpénzben adod a sofőrnek.`,
         link: `/dashboard/fuvar/${job.id}`,
       });
     } catch (e) {
@@ -982,11 +1103,10 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       job_id: job.id,
       carrier_id: job.carrier_id,
       amount_huf: job.accepted_price_huf,
+      connection_fee_huf: feeHuf,
       barion: {
         payment_id: barionRes.paymentId,
         gateway_url: barionRes.gatewayUrl,
-        carrier_share_huf: carrierShare,
-        platform_share_huf: platformShare,
       },
     });
   } catch (err) {

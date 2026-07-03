@@ -9,6 +9,7 @@ const db = require('../db');
 const { authRequired, requireDriverKYC } = require('../middleware/auth');
 const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const barion = require('../services/barion');
+const { calculateConnectionFee } = require('../services/connectionFee');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
@@ -559,23 +560,22 @@ router.post(
         return res.status(409).json({ error: 'A foglalás már nem megerősíthető' });
       }
 
-      // Barion foglalás a teljes árra
+      // Kapcsolatfelvételi díj indítása (készpénzes modell: a fuvardíjat a
+      // feladó készpénzben adja a sofőrnek, a platform csak a díjat szedi)
+      const feeHuf = calculateConnectionFee(b.price_huf);
       let barionRes = { paymentId: null, gatewayUrl: null };
       try {
-        barionRes = await barion.reservePayment({
+        barionRes = await barion.startFeePayment({
           jobId: b.id, // itt a booking id-t használjuk
-          totalHuf: b.price_huf,
+          feeHuf,
           shipperEmail: b.shipper_email,
-          carrierEmail: b.carrier_email,
+          redirectPath: '/dashboard/foglalasaim',
         });
       } catch (err) {
-        console.error('[barion] reservePayment hiba:', err.message);
+        console.error('[barion] startFeePayment hiba:', err.message);
         await client.query('ROLLBACK');
-        return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+        return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
       }
-
-      // 90/10 split – a mentésnél is tároljuk, hogy a lezáráskor elő tudjuk venni
-      const { carrierShare, platformShare } = barion.calculatePlatformFee(b.price_huf);
 
       await client.query(
         `UPDATE route_bookings
@@ -583,10 +583,11 @@ router.post(
                 confirmed_at        = NOW(),
                 barion_payment_id   = $1,
                 barion_gateway_url  = $2,
-                carrier_share_huf   = $3,
-                platform_share_huf  = $4
-          WHERE id = $5`,
-        [barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare, b.id],
+                connection_fee_huf  = $3,
+                carrier_share_huf   = 0,
+                platform_share_huf  = $3
+          WHERE id = $4`,
+        [barionRes.paymentId, barionRes.gatewayUrl, feeHuf, b.id],
       );
 
       await client.query('COMMIT');
@@ -613,7 +614,7 @@ router.post(
           user_id: b.shipper_id,
           type: 'booking_confirmed',
           title: '✅ A sofőr megerősítette a foglalásod!',
-          body: `${info.carrier_name || 'A sofőr'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizess a Barion oldalon.`,
+          body: `${info.carrier_name || 'A sofőr'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat készpénzben adod a sofőrnek.`,
           link: `/dashboard/foglalasaim`,
         });
         if (info.shipper_email) {
@@ -690,30 +691,30 @@ router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req,
     });
   }
 
-  // Nincs még reservation → most hozzuk létre, és mentsük el a sorra.
+  // Nincs még fizetés → most hozzuk létre, és mentsük el a sorra.
+  const feeHuf = b.connection_fee_huf || calculateConnectionFee(b.price_huf);
   let barionRes;
   try {
-    barionRes = await barion.reservePayment({
+    barionRes = await barion.startFeePayment({
       jobId: b.id,
-      totalHuf: b.price_huf,
+      feeHuf,
       shipperEmail: b.shipper_email,
-      carrierEmail: b.carrier_email,
+      redirectPath: '/dashboard/foglalasaim',
     });
   } catch (err) {
-    console.error('[barion] lusta reservePayment hiba:', err.message);
-    return res.status(502).json({ error: 'Barion foglalás sikertelen', detail: err.message });
+    console.error('[barion] lusta startFeePayment hiba:', err.message);
+    return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
   }
-
-  const { carrierShare, platformShare } = barion.calculatePlatformFee(b.price_huf);
 
   await db.query(
     `UPDATE route_bookings
         SET barion_payment_id   = $1,
             barion_gateway_url  = $2,
-            carrier_share_huf   = COALESCE(carrier_share_huf, $3),
-            platform_share_huf  = COALESCE(platform_share_huf, $4)
-      WHERE id = $5`,
-    [barionRes.paymentId, barionRes.gatewayUrl, carrierShare, platformShare, b.id],
+            connection_fee_huf  = COALESCE(connection_fee_huf, $3),
+            carrier_share_huf   = 0,
+            platform_share_huf  = COALESCE(platform_share_huf, $3)
+      WHERE id = $4`,
+    [barionRes.paymentId, barionRes.gatewayUrl, feeHuf, b.id],
   );
 
   res.json({
@@ -765,8 +766,17 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
     return res.json({ ok: true, already_paid: true, paid_at: b.paid_at });
   }
 
+  // Fogyasztóvédelmi kapu: kifejezett beleegyezés az azonnali teljesítésbe
+  // + az elállási jog elvesztésének tudomásulvétele (45/2014. 29.§ (1) a)).
+  if (req.body?.consent !== true) {
+    return res.status(400).json({
+      error: 'A fizetéshez kérned kell az azonnali teljesítést és tudomásul venned, hogy a kapcsolatfelvételi adatok átadása után elállási jogod elvész.',
+      code: 'CONSENT_REQUIRED',
+    });
+  }
+
   const { rows: updated } = await db.query(
-    `UPDATE route_bookings SET paid_at = NOW() WHERE id = $1 RETURNING paid_at`,
+    `UPDATE route_bookings SET paid_at = NOW(), fee_consent_at = NOW() WHERE id = $1 RETURNING paid_at`,
     [b.id],
   );
   const paidAt = updated[0].paid_at;
@@ -776,8 +786,8 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
     await createNotification({
       user_id: b.carrier_id,
       type: 'booking_paid',
-      title: '💰 Kifizetett foglalás!',
-      body: `${b.shipper_name || 'A feladó'} kifizette a(z) "${b.route_title}" foglalását ${b.price_huf.toLocaleString('hu-HU')} Ft értékben.`,
+      title: '🤝 Indulhat a foglalás!',
+      body: `${b.shipper_name || 'A feladó'} kifizette a kapcsolatfelvételi díjat a(z) "${b.route_title}" foglaláshoz. A fuvardíjat (${b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben kapod.`,
       link: `/sofor/utvonal/${b.route_id}`,
     });
   } catch (e) {
@@ -907,26 +917,11 @@ router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (r
 
   const cancelledByRole = iAmShipper ? 'shipper' : 'carrier';
   const paid = !!b.paid_at;
-  const total = b.price_huf || 0;
-  const { fee, refund } = barion.computeCancellationSettlement({
-    totalHuf: total,
-    paid,
-    cancelledByRole,
-  });
-
-  if (paid && refund > 0 && b.barion_payment_id) {
-    try {
-      await barion.refundPayment({
-        paymentId: b.barion_payment_id,
-        jobId: b.id,
-        refundAmountHuf: refund,
-        reason: reason || `Foglalás lemondva (${cancelledByRole})`,
-      });
-    } catch (err) {
-      console.error('[barion] refund hiba:', err.message);
-      return res.status(502).json({ error: 'A visszatérítés sikertelen, próbáld később.' });
-    }
-  }
+  // Készpénzes modell: a platform nem kezeli a fuvardíjat, így visszatérítés
+  // és lemondási díj sincs. A kapcsolatfelvételi díj nem visszatérítendő
+  // (a szolgáltatás — kontakt-átadás — a fizetéssel teljesült, ÁSZF).
+  const fee = 0;
+  const refund = 0;
 
   await db.query(
     `UPDATE route_bookings
@@ -951,7 +946,7 @@ router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (r
         title: '❌ Foglalás lemondva',
         body: iAmShipper
           ? `A feladó lemondta a foglalását a(z) "${b.route_title}" útvonalon.`
-          : `A sofőr lemondta a foglalásodat a(z) "${b.route_title}" útvonalon. A teljes díj visszajár.`,
+          : `A sofőr lemondta a foglalásodat a(z) "${b.route_title}" útvonalon. Keress másik útvonalat vagy adj fel fuvart — ha már fizettél kapcsolatfelvételi díjat, jelezz a panasz@gofuvar.hu címen.`,
         link: iAmShipper ? `/sofor/utvonal/${b.route_id}` : `/dashboard/foglalasaim`,
       });
     } catch (e) {

@@ -777,7 +777,7 @@ export default function UjFuvar() {
           onChange={(e) =>
             set('suggested_price_huf', e.target.value === '' ? '' : Number(e.target.value))
           }
-          placeholder={form.is_instant ? 'pl. 12000 (ezt kapja kézhez a sofőr + jutalék)' : 'pl. 65000'}
+          placeholder={form.is_instant ? 'pl. 12000 (a sofőr készpénzben, levonás nélkül kapja)' : 'pl. 65000'}
           required
           style={missing(form.suggested_price_huf) ? redBorder : undefined}
         />
