@@ -91,7 +91,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
                 { lat: j.dropoff_lat, lng: j.dropoff_lng },
               ]}
               options={{
-                strokeColor: isMine ? '#facc15' : 'var(--primary)',
+                strokeColor: isMine ? '#facc15' : '#1e40af',
                 strokeOpacity: 0,
                 strokeWeight: 2,
                 icons: [
@@ -113,7 +113,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
               icon={{
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 10,
-                fillColor: isMine ? '#facc15' : 'var(--success)',
+                fillColor: isMine ? '#facc15' : '#16a34a',
                 fillOpacity: 1,
                 strokeColor: '#fff',
                 strokeWeight: 2,
@@ -126,7 +126,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
               icon={{
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 7,
-                fillColor: 'var(--danger)',
+                fillColor: '#dc2626',
                 fillOpacity: 0.85,
                 strokeColor: '#fff',
                 strokeWeight: 1.5,
@@ -160,17 +160,17 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
                 </span>
               )}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0' }}>
+            <div style={{ fontSize: 12, color: '#475569' /* InfoWindow háttere MINDIG fehér — fix sötét szín kell */, margin: '2px 0' }}>
               📍 {activeJob.pickup_address}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0' }}>
+            <div style={{ fontSize: 12, color: '#475569' /* InfoWindow háttere MINDIG fehér — fix sötét szín kell */, margin: '2px 0' }}>
               🏁 {activeJob.dropoff_address}
             </div>
             <div
               style={{
                 fontSize: 15,
                 fontWeight: 700,
-                color: 'var(--primary-text)',
+                color: '#1e40af',
                 margin: '6px 0',
               }}
             >

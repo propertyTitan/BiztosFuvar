@@ -257,15 +257,17 @@ export default function LandingPage() {
           Két szerepkör — egy platform
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
-          <div className="on-light" style={{
-            background: 'linear-gradient(135deg, var(--primary-subtle) 0%, #eff6ff 100%)',
-            borderRadius: 'var(--radius-xl)', padding: 32, border: '1px solid #93c5fd',
+          {/* Csak tokenek: dark módban a tint + felület együtt sötétül, az
+              ikon a -text változatot kapja (light: mély, dark: világos szín) */}
+          <div style={{
+            background: 'linear-gradient(135deg, var(--primary-subtle) 0%, var(--surface) 100%)',
+            borderRadius: 'var(--radius-xl)', padding: 32, border: '1px solid var(--primary-light)',
           }}>
             <div style={{ display: 'inline-flex', padding: 12, borderRadius: 14, background: 'rgba(30,64,175,0.12)', marginBottom: 16 }}>
-              <Package size={26} color="var(--primary)" />
+              <Package size={26} color="var(--primary-text)" />
             </div>
             <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Feladó vagyok</h3>
-            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: '#1e293b', fontSize: 15 }}>
+            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
               <li>Hirdesd meg a fuvart — a sofőrök licitálnak rá</li>
               <li>Vagy foglalj helyet egy fix áras útvonalon</li>
               <li>Fizess biztonságosan a Barion letétbe</li>
@@ -273,15 +275,15 @@ export default function LandingPage() {
               <li>Add át a 6 jegyű kódot az átvételkor</li>
             </ul>
           </div>
-          <div className="on-light" style={{
-            background: 'linear-gradient(135deg, var(--success-light) 0%, #f0fdf4 100%)',
-            borderRadius: 'var(--radius-xl)', padding: 32, border: '1px solid #86efac',
+          <div style={{
+            background: 'linear-gradient(135deg, var(--success-light) 0%, var(--surface) 100%)',
+            borderRadius: 'var(--radius-xl)', padding: 32, border: '1px solid var(--success)',
           }}>
             <div style={{ display: 'inline-flex', padding: 12, borderRadius: 14, background: 'rgba(22,163,74,0.12)', marginBottom: 16 }}>
-              <Truck size={26} color="#15803d" />
+              <Truck size={26} color="var(--success-text)" />
             </div>
             <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Sofőr vagyok</h3>
-            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: '#1e293b', fontSize: 15 }}>
+            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
               <li>Licitálj nyitott fuvarokra — a legjobb nyer</li>
               <li>Vagy hirdesd meg az utadat fix árakkal</li>
               <li>A fuvardíj 90%-a a tiéd (10% platform jutalék)</li>

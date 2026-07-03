@@ -120,7 +120,7 @@ export default function LiveTrackingMap({ job }: Props) {
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
             scale: 14,
-            fillColor: 'var(--success)',
+            fillColor: '#16a34a' /* Google Maps API: CSS-var NEM megy, csak literál hex! */,
             fillOpacity: 1,
             strokeColor: '#fff',
             strokeWeight: 2,
@@ -134,7 +134,7 @@ export default function LiveTrackingMap({ job }: Props) {
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
             scale: 14,
-            fillColor: 'var(--danger)',
+            fillColor: '#dc2626',
             fillOpacity: 1,
             strokeColor: '#fff',
             strokeWeight: 2,
@@ -149,7 +149,7 @@ export default function LiveTrackingMap({ job }: Props) {
             icon={{
               path: google.maps.SymbolPath.CIRCLE,
               scale: 10,
-              fillColor: 'var(--danger)',
+              fillColor: '#dc2626',
               fillOpacity: 1,
               strokeColor: '#fff',
               strokeWeight: 3,
@@ -160,7 +160,7 @@ export default function LiveTrackingMap({ job }: Props) {
         <Polyline
           path={path}
           options={{
-            strokeColor: 'var(--primary)',
+            strokeColor: '#1e40af',
             strokeWeight: 4,
             strokeOpacity: 0.7,
             geodesic: true,
@@ -171,7 +171,7 @@ export default function LiveTrackingMap({ job }: Props) {
           <Polyline
             path={trail}
             options={{
-              strokeColor: 'var(--danger)',
+              strokeColor: '#dc2626',
               strokeWeight: 5,
               strokeOpacity: 0.9,
             }}
