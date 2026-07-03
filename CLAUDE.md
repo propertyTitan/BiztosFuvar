@@ -44,7 +44,10 @@ szerződés kizárólag a Feladó és a Sofőr között jön létre.
 - Escrow + split payment (Barion)
 - 6 jegyű átvételi kód + QR kód
 - 5 db SMS a címzettnek (felvétel, 5km, 300m, kézbesítés, feladónak is visszaigazolás)
-- Élő GPS-tracking (background, dinamikus 60s→15s frekvencia)
+- Élő GPS-tracking (background, dinamikus 60s→15s frekvencia) — ⚠️ a
+  backend kész, de élő pozíció CSAK a mobilapppal lesz (Phase 6); a
+  web-first launchon MINDENHOL "Hamarosan"-ként kommunikáljuk (2026-07-03
+  döntés, PR #48: landing badge, chatbot-tudás, tracking-oldal szövege)
 - Privát file storage (R2 + audit log)
 - Email verifikáció + password reset
 - Sentry hibajelzés (kulcsra vár)
@@ -176,6 +179,11 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   (részletek: 7. szakasz 8. pont). Közben javítva: fizetetlen fuvaron nem
   indítható munka (paid_at guard) + lemondáskor az escrow-sor refunded-re
   vált (eddig held-ben ragadt)
+- **GPS "Hamarosan" kommunikáció + dark mode fixek (2026-07-03, PR #48-49)**
+  — az élő GPS sehol nem launch-ígéret többé (badge + jövő idő); fekete
+  térkép-markerek javítva. ⚠️ TANULSÁG: a Google Maps API (fillColor/
+  strokeColor) és az InfoWindow tartalma NEM ért CSS-változót — ott
+  mindig literál hex kell, színtoken-sweep ne érintse!
 - **SEO-alapok + design-identitás (2026-07-03, PR #46-47)** — og:image
   (FB-megosztáshoz), JSON-LD, meta descriptionök; gomb-emoji purge;
   márka-aláírás: A→B útvonal-motívum (hero + "Hogyan működik" fonál +
