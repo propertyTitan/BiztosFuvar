@@ -96,7 +96,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
           position={{ lat: j.pickup_lat, lng: j.pickup_lng }}
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
-            scale: 9, fillColor: 'var(--success)', fillOpacity: 1,
+            scale: 9, fillColor: '#16a34a' /* Google Maps API: CSS-var NEM megy, csak literál hex! */, fillOpacity: 1,
             strokeColor: '#fff', strokeWeight: 2,
           }}
           title={`${j.title} – Felvétel`}
@@ -108,7 +108,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
           position={{ lat: j.dropoff_lat, lng: j.dropoff_lng }}
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
-            scale: 9, fillColor: 'var(--danger)', fillOpacity: 1,
+            scale: 9, fillColor: '#dc2626', fillOpacity: 1,
             strokeColor: '#fff', strokeWeight: 2,
           }}
           title={`${j.title} – Lerakodás`}
@@ -121,7 +121,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
           zIndex={999}
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
-            scale: 11, fillColor: 'var(--danger)', fillOpacity: 1,
+            scale: 11, fillColor: '#dc2626', fillOpacity: 1,
             strokeColor: '#fff', strokeWeight: 3,
           }}
           title="Sofőr (élő)"
