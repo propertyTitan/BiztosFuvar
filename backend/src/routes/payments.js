@@ -133,7 +133,8 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
 
     // 2) VAT kiszámítás a díjat fizető FELADÓ profilja alapján
     const { rows: shipperRows } = await db.query(
-      `SELECT billing_country, tax_id, company_name FROM users WHERE id = $1`,
+      `SELECT billing_country, tax_id, company_name, email, full_name
+         FROM users WHERE id = $1`,
       [d.shipper_id],
     );
     const shipper = shipperRows[0] || {};
@@ -220,6 +221,23 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
     if (d.shipper_id) {
       realtime.emitToUser(d.shipper_id, entity.type === 'job' ? 'job:paid' : 'route-booking:paid', {
         job_id: d.job_id, booking_id: d.id,
+      });
+    }
+
+    // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §) —
+    // éles Barion-fizetésnél ez a webhook a fizetés hiteles forrása.
+    if (shipper.email) {
+      const { sendFeeConfirmationEmail } = require('../services/email');
+      setImmediate(() => {
+        sendFeeConfirmationEmail({
+          to: shipper.email,
+          shipperName: shipper.full_name,
+          jobTitle: title,
+          feeHuf: totalAmount,
+          cashHuf: d.accepted_price_huf || d.price_huf,
+          paidAtIso: new Date().toISOString(),
+          detailsPath: entity.type === 'job' ? `/dashboard/fuvar/${d.job_id}` : '/dashboard/foglalasaim',
+        }).catch((e) => console.warn('[email] fee_confirmation hiba:', e.message));
       });
     }
 

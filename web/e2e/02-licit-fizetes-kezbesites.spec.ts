@@ -41,14 +41,15 @@ test('licit → elfogadás → fizetés → felvétel → kézbesítés kóddal'
   await expect(carrierPage.getByRole('button', { name: /Felvétel igazolása/ })).toHaveCount(0);
 
   // ---- 4. A feladó fizeti a kapcsolatfelvételi díjat (stub Barion) ----
+  // Consent nélkül a fizetés nem indítható — a 45/2014-es nyilatkozat a
+  // Barion-redirect ELŐTT kötelező (a gomb addig tiltott)
+  await expect(shipperPage.getByRole('button', { name: /Díj fizetése/ })).toBeDisabled();
+  await shipperPage.getByRole('checkbox').check();
   await shipperPage.getByRole('button', { name: /Díj fizetése/ }).click();
   await shipperPage.waitForURL(/fizetes-stub/, { timeout: 20_000 });
   // 12 000 Ft-os fuvar → 500 Ft-os sáv; a fuvardíj kápéban megy
   await expect(shipperPage.getByText(/KAPCSOLATFELVÉTELI DÍJ/).first()).toBeVisible();
   await expect(shipperPage.getByText(/500\s?Ft/).first()).toBeVisible();
-  // Consent nélkül a gomb tiltott — a 45/2014-es nyilatkozat kötelező
-  await expect(shipperPage.getByRole('button', { name: /Fizetek most/ })).toBeDisabled();
-  await shipperPage.getByRole('checkbox').check();
   await shipperPage.getByRole('button', { name: /Fizetek most/ }).click();
   await shipperPage.waitForURL((url) => !url.pathname.includes('fizetes-stub'), { timeout: 20_000 });
 

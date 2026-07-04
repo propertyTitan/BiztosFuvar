@@ -69,12 +69,19 @@ export default function FuvarReszletek() {
   const [error, setError] = useState<string | null>(null);
   const [counterTarget, setCounterTarget] = useState<Bid | null>(null);
   const [paying, setPaying] = useState(false);
+  // 45/2014. 29.§ (1) a) nyilatkozat — a fizetés indításának feltétele,
+  // a backend a redirect ELŐTT rögzíti (fee_consent_at).
+  const [feeConsent, setFeeConsent] = useState(false);
   const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
 
   async function startPayment() {
+    if (!feeConsent) {
+      toast.error('Beleegyezés szükséges', 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.');
+      return;
+    }
     setPaying(true);
     try {
-      const r = await api.payJob(id);
+      const r = await api.payJob(id, feeConsent);
       if (r.is_stub) {
         router.push(`/fizetes-stub?job=${id}`);
       } else {
@@ -445,17 +452,46 @@ export default function FuvarReszletek() {
                 </div>
               ) : job.status === 'accepted' ? (
                 <>
+                  <label
+                    style={{
+                      display: 'flex',
+                      gap: 10,
+                      alignItems: 'flex-start',
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      padding: 12,
+                      borderRadius: 8,
+                      border: '1px solid var(--border)',
+                      marginTop: 12,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={feeConsent}
+                      onChange={(e) => setFeeConsent(e.target.checked)}
+                      style={{ marginTop: 3, flexShrink: 0 }}
+                    />
+                    <span>
+                      Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása){' '}
+                      <strong>azonnali teljesítését</strong>, és tudomásul veszem,
+                      hogy a teljesítés után <strong>elállási jogomat elvesztem</strong>{' '}
+                      (45/2014. Korm. rendelet 29. § (1) a)). A díj nem
+                      visszatérítendő; ha a fuvar a sofőr hibájából hiúsul meg,
+                      díjmentesen választhatok másik sofőrt ugyanerre a fuvarra.
+                    </span>
+                  </label>
                   <button
                     type="button"
                     onClick={startPayment}
-                    disabled={paying}
+                    disabled={paying || !feeConsent}
                     className="btn"
                     style={{
                       marginTop: 12,
-                      background: 'var(--success-strong)',
+                      background: feeConsent ? 'var(--success-strong)' : 'var(--muted)',
                       border: 'none',
-                      cursor: paying ? 'wait' : 'pointer',
-                      opacity: paying ? 0.7 : 1,
+                      cursor: paying ? 'wait' : feeConsent ? 'pointer' : 'not-allowed',
+                      opacity: paying || !feeConsent ? 0.7 : 1,
                     }}
                   >
                     {paying ? 'Fizetés indítása…' : `Díj fizetése (${(job.connection_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}

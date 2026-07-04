@@ -64,19 +64,38 @@ describe('Fizetési guard — fizetetlen fuvaron nem indul munka', () => {
     const blocked = await uploadPhoto({ jobId: job.id, token: carrier.token, kind: 'pickup' });
     expect(blocked.status).toBe(409);
 
-    // Consent nélkül a fizetés nem nyugtázható (elállási jog tudomásulvétele)
-    const noConsent = await request(app)
-      .post(`/jobs/${job.id}/confirm-payment`)
+    // Consent nélkül a fizetés el sem indítható (elállási jog tudomásulvétele
+    // a Barion-redirect ELŐTT kötelező) és nyugtázni sem lehet
+    const noConsentPay = await request(app)
+      .post(`/jobs/${job.id}/pay`)
       .set('Authorization', `Bearer ${shipper.token}`)
       .send({});
-    expect(noConsent.status).toBe(400);
-    expect(noConsent.body.code).toBe('CONSENT_REQUIRED');
+    expect(noConsentPay.status).toBe(400);
+    expect(noConsentPay.body.code).toBe('CONSENT_REQUIRED');
+
+    const noConsentConfirm = await request(app)
+      .post(`/jobs/${job.id}/confirm-payment`)
+      .set('Authorization', `Bearer ${shipper.token}`);
+    expect(noConsentConfirm.status).toBe(400);
+    expect(noConsentConfirm.body.code).toBe('CONSENT_REQUIRED');
+
+    // Consent-tel az indítás rögzíti a nyilatkozatot, a nyugtázás átmegy
+    const start = await request(app)
+      .post(`/jobs/${job.id}/pay`)
+      .set('Authorization', `Bearer ${shipper.token}`)
+      .send({ consent: true });
+    expect(start.status).toBe(200);
 
     const pay = await request(app)
       .post(`/jobs/${job.id}/confirm-payment`)
-      .set('Authorization', `Bearer ${shipper.token}`)
-      .send({ consent: true });
+      .set('Authorization', `Bearer ${shipper.token}`);
     expect(pay.status).toBe(200);
+
+    // A nyilatkozat időbélyege (jogi bizonyíték) mentve
+    const { rows: consentRows } = await db.query(
+      'SELECT fee_consent_at FROM jobs WHERE id = $1', [job.id],
+    );
+    expect(consentRows[0].fee_consent_at).toBeTruthy();
 
     const allowed = await uploadPhoto({ jobId: job.id, token: carrier.token, kind: 'pickup' });
     expect(allowed.status).toBe(201);

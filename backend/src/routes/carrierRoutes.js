@@ -20,6 +20,7 @@ const {
   sendBookingPaidEmail,
   sendBookingRejectedEmail,
   sendCancellationEmail,
+  sendFeeConfirmationEmail,
 } = require('../services/email');
 
 const router = express.Router();
@@ -680,6 +681,24 @@ router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req,
       error: 'Csak megerősített foglalást lehet fizetni (státusz: ' + b.status + ')',
     });
   }
+  if (b.paid_at) {
+    return res.status(409).json({ error: 'A kapcsolatfelvételi díj már ki van fizetve ehhez a foglaláshoz.' });
+  }
+
+  // Fogyasztóvédelmi kapu a fizetés INDÍTÁSAKOR (45/2014. 29. § (1) a)) —
+  // ugyanaz a minta, mint a /jobs/:id/pay-nél.
+  if (!b.fee_consent_at) {
+    if (req.body?.consent !== true) {
+      return res.status(400).json({
+        error: 'A fizetéshez kérned kell az azonnali teljesítést és tudomásul venned, hogy a kapcsolatfelvételi adatok átadása után elállási jogod elvész.',
+        code: 'CONSENT_REQUIRED',
+      });
+    }
+    await db.query(
+      `UPDATE route_bookings SET fee_consent_at = NOW() WHERE id = $1 AND fee_consent_at IS NULL`,
+      [b.id],
+    );
+  }
 
   // Idempotens: ha már megvan, csak visszaadjuk.
   if (b.barion_gateway_url) {
@@ -766,9 +785,16 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
     return res.json({ ok: true, already_paid: true, paid_at: b.paid_at });
   }
 
-  // Fogyasztóvédelmi kapu: kifejezett beleegyezés az azonnali teljesítésbe
-  // + az elállási jog elvesztésének tudomásulvétele (45/2014. 29.§ (1) a)).
-  if (req.body?.consent !== true) {
+  // Éles Barion mellett a webhook a fizetés hiteles forrása — a kézi
+  // nyugtázás csak stub (teszt) módban él.
+  if (!barion.isStub()) {
+    return res.status(409).json({
+      error: 'A fizetést a Barion igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
+    });
+  }
+
+  // A beleegyezést a fizetés indítása (/pay) rögzítette — enélkül nincs nyugtázás.
+  if (!b.fee_consent_at) {
     return res.status(400).json({
       error: 'A fizetéshez kérned kell az azonnali teljesítést és tudomásul venned, hogy a kapcsolatfelvételi adatok átadása után elállási jogod elvész.',
       code: 'CONSENT_REQUIRED',
@@ -776,10 +802,25 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
   }
 
   const { rows: updated } = await db.query(
-    `UPDATE route_bookings SET paid_at = NOW(), fee_consent_at = NOW() WHERE id = $1 RETURNING paid_at`,
+    `UPDATE route_bookings SET paid_at = NOW() WHERE id = $1 RETURNING paid_at`,
     [b.id],
   );
   const paidAt = updated[0].paid_at;
+
+  // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §)
+  if (b.shipper_email) {
+    setImmediate(() => {
+      sendFeeConfirmationEmail({
+        to: b.shipper_email,
+        shipperName: b.shipper_name,
+        jobTitle: b.route_title,
+        feeHuf: b.connection_fee_huf || 0,
+        cashHuf: b.price_huf,
+        paidAtIso: paidAt,
+        detailsPath: '/dashboard/foglalasaim',
+      }).catch((e) => console.warn('[email] fee_confirmation hiba:', e.message));
+    });
+  }
 
   // 1) Értesítés a sofőrnek (a hirdetés létrehozójának): in-app + email
   try {

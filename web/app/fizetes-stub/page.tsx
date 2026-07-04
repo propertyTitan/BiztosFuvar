@@ -7,10 +7,10 @@
 // hogy a teljes UX flow végigjátszható legyen próba közben is.
 //
 // Készpénzes modell (2026-07-03): itt NEM a fuvardíjat fizeti a feladó,
-// hanem a sávos kapcsolatfelvételi díjat. A fizetéshez KÖTELEZŐ a
-// beleegyező checkbox (45/2014. Korm. r. 29. § (1) a)): a feladó kéri
-// az azonnali teljesítést (kontakt-átadás) és tudomásul veszi, hogy a
-// teljesítés után elállási joga elvész.
+// hanem a sávos kapcsolatfelvételi díjat. A 45/2014. 29. § (1) a) szerinti
+// beleegyező nyilatkozatot a feladó MÁR a fizetés indításakor megtette
+// (a /pay rögzítette a fee_consent_at-ot) — itt, a "Barion-oldalon" csak
+// emlékeztetjük rá, ahogy élesben is a redirect előtt nyilatkozik.
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
@@ -35,7 +35,6 @@ function FizetesStubContent() {
 
   const [data, setData] = useState<LoadedData>(null);
   const [error, setError] = useState<string | null>(null);
-  const [consent, setConsent] = useState(false);
   const [step, setStep] = useState<'review' | 'processing' | 'done'>('review');
 
   useEffect(() => {
@@ -71,23 +70,19 @@ function FizetesStubContent() {
   }, [bookingId, jobId]);
 
   async function pay() {
-    if (!consent) {
-      toast.error('Beleegyezés szükséges', 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.');
-      return;
-    }
     setStep('processing');
     // 1.5 másodperc "feldolgozás" – mint egy valódi Barion oldal
     await new Promise((r) => setTimeout(r, 1500));
 
     // STUB → itt mi magunk nyugtázzuk a backend-en a fizetést.
     // Valódi Barion esetén a /payments/barion/callback IPN hívja majd
-    // ugyanezt a logikát. A consent kötelezően megy a backendnek — az
-    // menti a fee_consent_at időbélyeget (jogi bizonyíték).
+    // ugyanezt a logikát. A beleegyezés (fee_consent_at) már a fizetés
+    // indításakor rögzült — enélkül a backend itt 400-at adna.
     try {
       if (bookingId) {
-        await api.confirmRouteBookingPayment(bookingId, consent);
+        await api.confirmRouteBookingPayment(bookingId);
       } else if (jobId) {
-        await api.confirmJobPayment(jobId, consent);
+        await api.confirmJobPayment(jobId);
       }
     } catch (e: any) {
       toast.error('Fizetés nyugtázása sikertelen', e.message);
@@ -217,35 +212,22 @@ function FizetesStubContent() {
               sofőrnek.
             </div>
 
-            <label
+            <div
               style={{
-                display: 'flex',
-                gap: 10,
-                alignItems: 'flex-start',
-                fontSize: 13,
-                lineHeight: 1.5,
+                fontSize: 12,
+                color: 'var(--muted)',
                 padding: 12,
                 borderRadius: 8,
                 border: '1px solid var(--border)',
                 marginBottom: 12,
-                cursor: 'pointer',
+                lineHeight: 1.5,
               }}
             >
-              <input
-                type="checkbox"
-                checked={consent}
-                onChange={(e) => setConsent(e.target.checked)}
-                style={{ marginTop: 3, flexShrink: 0 }}
-              />
-              <span>
-                Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása){' '}
-                <strong>azonnali teljesítését</strong>, és tudomásul veszem,
-                hogy a teljesítés után <strong>elállási jogomat elvesztem</strong>{' '}
-                (45/2014. Korm. rendelet 29. § (1) a)). A díj nem
-                visszatérítendő; ha a fuvar a sofőr hibájából hiúsul meg,
-                díjmentesen választhatok másik sofőrt ugyanerre a fuvarra.
-              </span>
-            </label>
+              ℹ️ A fizetés indításakor nyilatkoztál: kérted a szolgáltatás
+              (kapcsolatfelvételi adatok átadása) azonnali teljesítését, és
+              tudomásul vetted, hogy a teljesítés után elállási jogod elvész
+              (45/2014. Korm. r. 29. § (1) a)). A díj nem visszatérítendő.
+            </div>
 
             <div
               style={{
@@ -267,15 +249,12 @@ function FizetesStubContent() {
               type="button"
               className="btn"
               onClick={pay}
-              disabled={!consent}
               style={{
                 width: '100%',
-                background: consent ? 'var(--success-strong)' : 'var(--muted)',
+                background: 'var(--success-strong)',
                 padding: '14px 24px',
                 fontSize: 16,
                 fontWeight: 700,
-                opacity: consent ? 1 : 0.6,
-                cursor: consent ? 'pointer' : 'not-allowed',
               }}
             >
               Fizetek most (STUB)

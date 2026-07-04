@@ -43,11 +43,18 @@ export default function FoglalasaimOldal() {
   const [error, setError] = useState<string | null>(null);
   // Melyik foglalás fizetésgombja tölt éppen (egyszerre csak egy lehet).
   const [payingId, setPayingId] = useState<string | null>(null);
+  // 45/2014. 29.§ (1) a) nyilatkozat foglalásonként — a fizetés indításának
+  // feltétele, a backend a redirect ELŐTT rögzíti (fee_consent_at).
+  const [consented, setConsented] = useState<Record<string, boolean>>({});
 
   async function startPayment(bookingId: string) {
+    if (!consented[bookingId]) {
+      toast.error('Beleegyezés szükséges', 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.');
+      return;
+    }
     setPayingId(bookingId);
     try {
-      const r = await api.payRouteBooking(bookingId);
+      const r = await api.payRouteBooking(bookingId, true);
       if (r.is_stub) {
         router.push(`/fizetes-stub?booking=${bookingId}`);
       } else {
@@ -202,23 +209,51 @@ export default function FoglalasaimOldal() {
               </div>
             )}
             {b.status === 'confirmed' && !b.paid_at && (
-              <button
-                type="button"
-                onClick={() => startPayment(b.id)}
-                disabled={payingId === b.id}
-                className="btn"
-                style={{
-                  marginTop: 10,
-                  display: 'inline-block',
-                  background: 'var(--success-strong)',
-                  fontSize: 14,
-                  border: 'none',
-                  cursor: payingId === b.id ? 'wait' : 'pointer',
-                  opacity: payingId === b.id ? 0.7 : 1,
-                }}
-              >
-                {payingId === b.id ? 'Fizetés indítása…' : 'Kapcsolatfelvételi díj fizetése'}
-              </button>
+              <div style={{ marginTop: 10 }}>
+                <label
+                  style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'flex-start',
+                    fontSize: 12,
+                    lineHeight: 1.5,
+                    padding: 10,
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!consented[b.id]}
+                    onChange={(e) => setConsented((c) => ({ ...c, [b.id]: e.target.checked }))}
+                    style={{ marginTop: 2, flexShrink: 0 }}
+                  />
+                  <span>
+                    Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása){' '}
+                    <strong>azonnali teljesítését</strong>, és tudomásul veszem, hogy a
+                    teljesítés után <strong>elállási jogomat elvesztem</strong>{' '}
+                    (45/2014. Korm. r. 29. § (1) a)). A díj nem visszatérítendő.
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => startPayment(b.id)}
+                  disabled={payingId === b.id || !consented[b.id]}
+                  className="btn"
+                  style={{
+                    marginTop: 8,
+                    display: 'inline-block',
+                    background: consented[b.id] ? 'var(--success-strong)' : 'var(--muted)',
+                    fontSize: 14,
+                    border: 'none',
+                    cursor: payingId === b.id ? 'wait' : consented[b.id] ? 'pointer' : 'not-allowed',
+                    opacity: payingId === b.id || !consented[b.id] ? 0.7 : 1,
+                  }}
+                >
+                  {payingId === b.id ? 'Fizetés indítása…' : 'Kapcsolatfelvételi díj fizetése'}
+                </button>
+              </div>
             )}
 
             {/* Lemondás gomb — csak még lemondható állapotban */}
