@@ -94,10 +94,52 @@ async function createJob({
   return job;
 }
 
+/**
+ * Fix áras foglalás létrehozása a kívánt állapotban (útvonalastul).
+ * A createJob tükre a foglalási ágra — a BUG-041 (foglalás-lezárás)
+ * teszteléséhez.
+ */
+async function createBooking({
+  shipperId,
+  carrierId,
+  status = 'confirmed',
+  paid = false,
+  priceHuf = 15000,
+  deliveryCode = '111222',
+} = {}) {
+  const { rows: routeRows } = await db.query(
+    `INSERT INTO carrier_routes (carrier_id, title, departure_at, status)
+     VALUES ($1, 'Teszt útvonal', NOW() + INTERVAL '1 day', 'open')
+     RETURNING id`,
+    [carrierId],
+  );
+  const routeId = routeRows[0].id;
+  const { rows } = await db.query(
+    `INSERT INTO route_bookings (
+       route_id, shipper_id, package_size, length_cm, width_cm, height_cm,
+       weight_kg, pickup_address, pickup_lat, pickup_lng,
+       dropoff_address, dropoff_lat, dropoff_lng,
+       price_huf, delivery_code, status,
+       recipient_name, recipient_phone,
+       paid_at, fee_consent_at
+     ) VALUES (
+       $1, $2, 'M', 40, 30, 20,
+       5, 'Budapest, Teszt u. 1.', 47.4979, 19.0402,
+       'Szeged, Teszt tér 2.', 46.2530, 20.1414,
+       $3, $4, $5,
+       'Teszt Címzett', '+36301112233',
+       CASE WHEN $6 THEN NOW() ELSE NULL END,
+       CASE WHEN $6 THEN NOW() ELSE NULL END
+     ) RETURNING *`,
+    [routeId, shipperId, priceHuf, deliveryCode, status, paid],
+  );
+  return { booking: rows[0], routeId };
+}
+
 /** 1×1 pixeles érvényes PNG — a fotó-feltöltéses tesztekhez. */
 const TINY_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   'base64',
 );
 
-module.exports = { db, app, createUser, createJob, uniqueEmail, TINY_PNG };
+module.exports = { db, app, createUser, createJob, createBooking, uniqueEmail, TINY_PNG };

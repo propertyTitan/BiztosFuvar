@@ -12,6 +12,7 @@ import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import CarrierTripPanel from '@/components/CarrierTripPanel';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -216,6 +217,38 @@ export default function UtvonalReszletek() {
             )}
           </div>
         </div>
+
+        {/* Felvétel / kézbesítés — a foglalás lezárási útja (BUG-041 fix).
+            Ugyanaz a panel, mint a licites fuvarnál: fizetett foglaláson
+            pickup fotó → in_progress, dropoff fotó + 6 jegyű kód → delivered. */}
+        {['confirmed', 'in_progress'].includes(b.status) && (
+          <CarrierTripPanel
+            jobId={b.id}
+            entity="booking"
+            status={b.status}
+            paid={!!b.paid_at}
+            onDone={load}
+            idPrefix={`b-${b.id.slice(0, 8)}-`}
+          />
+        )}
+
+        {b.status === 'delivered' && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: 12,
+              background: 'var(--success-light)',
+              borderRadius: 8,
+              border: '1px solid #86efac',
+              fontSize: 13,
+              color: '#166534',
+            }}
+          >
+            ✅ <strong>Kézbesítve</strong>
+            {b.delivered_at && ` — ${new Date(b.delivered_at).toLocaleString('hu-HU')}`}.
+            A fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben jár neked.
+          </div>
+        )}
       </div>
     );
   }

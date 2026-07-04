@@ -12,6 +12,7 @@ import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import ReviewBox from '@/components/ReviewBox';
 import { Loading, ErrorState } from '@/components/StateView';
 
 const STATUS_LABEL: Record<string, string> = {
@@ -244,6 +245,28 @@ export default function FoglalasaimOldal() {
             )}
           </div>
         </div>
+
+        {/* Kézbesítés után: kápé-emlékeztető + a sofőr értékelése */}
+        {b.status === 'delivered' && (
+          <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+            <div
+              style={{
+                padding: 10,
+                background: 'var(--success-light)',
+                borderRadius: 8,
+                border: '1px solid #86efac',
+                fontSize: 13,
+                color: '#166534',
+                marginBottom: 10,
+              }}
+            >
+              ✅ <strong>Kézbesítve</strong>
+              {b.delivered_at && ` — ${new Date(b.delivered_at).toLocaleString('hu-HU')}`}.
+              Ne feledd: a fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben jár a sofőrnek.
+            </div>
+            <ReviewBox entityKey="booking_id" entityId={b.id} onDone={load} />
+          </div>
+        )}
       </div>
     );
   }
