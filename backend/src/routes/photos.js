@@ -290,6 +290,231 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   res.status(201).json({ photo, validation });
 });
 
+// ============================================================
+// FOGLALÁS (route_bookings) — felvétel + kézbesítés (BUG-041)
+// ============================================================
+//
+// A fix áras foglalás lezárási útja — a licites fuvarok pickup/dropoff
+// flow-jának tükre:
+//   confirmed (+ díj fizetve) --pickup fotó--> in_progress
+//   in_progress --dropoff fotó + helyes kód--> delivered
+// Ugyanaz a paid-guard, kód brute-force lockout és terminál-védelem.
+
+// POST /route-bookings/:bookingId/photos
+//   multipart/form-data: file, kind (pickup/dropoff/damage/document),
+//   gps_lat/gps_lng/gps_accuracy_m, delivery_code (dropoff-nál kötelező)
+router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('file'), async (req, res) => {
+  const { bookingId } = req.params;
+  const { kind, gps_lat, gps_lng, gps_accuracy_m, delivery_code } = req.body;
+  if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
+  if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
+    return res.status(400).json({ error: 'Csak képfájl tölthető fel (JPG/PNG).' });
+  }
+  const BOOKING_KINDS = ['pickup', 'dropoff', 'damage', 'document'];
+  if (!BOOKING_KINDS.includes(kind)) {
+    return res.status(400).json({ error: 'Érvénytelen kind' });
+  }
+
+  const { rows: bRows } = await db.query(
+    `SELECT b.*, r.carrier_id, r.title AS route_title
+       FROM route_bookings b
+       JOIN carrier_routes r ON r.id = b.route_id
+      WHERE b.id = $1`,
+    [bookingId],
+  );
+  const booking = bRows[0];
+  if (!booking) return res.status(404).json({ error: 'Foglalás nem található' });
+
+  // Csak a kijelölt sofőr dolgozhat a foglaláson
+  if (booking.carrier_id !== req.user.sub) {
+    return res.status(403).json({ error: 'Csak az útvonal sofőrje tölthet fel pickup/dropoff fotót' });
+  }
+
+  // Terminál-státusz védelem
+  const TERMINAL = ['delivered', 'cancelled', 'rejected'];
+  if (TERMINAL.includes(booking.status)) {
+    return res.status(409).json({
+      error: `Ez a foglalás már lezárult (státusz: ${booking.status}). Nem tölthető fel további fotó.`,
+    });
+  }
+
+  // Fizetési guard: a munka csak a kapcsolatfelvételi díj beérkezése után
+  // indulhat (a fuvarokkal azonos szabály)
+  if ((kind === 'pickup' || kind === 'dropoff') && !booking.paid_at) {
+    return res.status(409).json({
+      error: 'A feladó még nem fizette meg a kapcsolatfelvételi díjat — a munka csak ezután kezdhető el.',
+    });
+  }
+
+  // DROPOFF → átvételi kód kötelező (a címzett SMS-ben kapta)
+  if (kind === 'dropoff') {
+    if (booking.status !== 'in_progress') {
+      return res.status(409).json({ error: 'A kézbesítés csak felvett (folyamatban lévő) foglaláson igazolható.' });
+    }
+    if (!delivery_code || String(delivery_code).trim().length === 0) {
+      return res.status(400).json({
+        error: 'Hiányzó átvételi kód – kérd el az átvevőtől a 6 számjegyű kódot',
+      });
+    }
+    if (!booking.delivery_code) {
+      return res.status(409).json({
+        error: 'Ehhez a foglaláshoz nem tartozik átvételi kód – vedd fel a kapcsolatot az ügyfélszolgálattal',
+      });
+    }
+    // Brute-force védelem: 5 hibás próba után 1 órás zárolás
+    if (booking.delivery_code_locked_until && new Date(booking.delivery_code_locked_until) > new Date()) {
+      return res.status(429).json({
+        error: 'Túl sok hibás kódpróbálkozás — a kód-ellenőrzés átmenetileg zárolva. Próbáld újra később, vagy hívd az ügyfélszolgálatot.',
+      });
+    }
+    if (!codesMatch(String(delivery_code).trim(), booking.delivery_code)) {
+      const { rows: attemptRows } = await db.query(
+        `UPDATE route_bookings
+            SET delivery_code_attempts = delivery_code_attempts + 1,
+                delivery_code_locked_until = CASE
+                  WHEN delivery_code_attempts + 1 >= $2 THEN NOW() + INTERVAL '1 hour'
+                  ELSE delivery_code_locked_until END
+          WHERE id = $1
+          RETURNING delivery_code_attempts`,
+        [bookingId, MAX_CODE_ATTEMPTS],
+      );
+      const attempts = attemptRows[0]?.delivery_code_attempts || 0;
+      const remaining = Math.max(0, MAX_CODE_ATTEMPTS - attempts);
+      return res.status(403).json({
+        error: remaining > 0
+          ? `Érvénytelen átvételi kód (még ${remaining} próbálkozás)`
+          : 'Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.',
+      });
+    }
+    await db.query(
+      `UPDATE route_bookings SET delivery_code_attempts = 0, delivery_code_locked_until = NULL WHERE id = $1`,
+      [bookingId],
+    );
+  }
+
+  // Tárolás (R2 / disk / base64 fallback — a fuvar-fotókkal azonos út)
+  let url;
+  try {
+    url = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+  } catch (err) {
+    console.warn('[photos] storage save failed, falling back to data URL:', err.message);
+    url = encodeAsDataUrl(req.file);
+  }
+
+  const { rows } = await db.query(
+    `INSERT INTO photos (booking_id, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+    [
+      bookingId, req.user.sub, kind, url,
+      gps_lat ? parseFloat(gps_lat) : null,
+      gps_lng ? parseFloat(gps_lng) : null,
+      gps_accuracy_m ? parseFloat(gps_accuracy_m) : null,
+    ],
+  );
+  const photo = rows[0];
+
+  // ---- Státusz-átmenetek ----
+  if (kind === 'pickup' && booking.status === 'confirmed') {
+    await db.query(
+      `UPDATE route_bookings SET status = 'in_progress' WHERE id = $1`,
+      [bookingId],
+    );
+    realtime.emitToUser(booking.shipper_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
+    realtime.emitToUser(booking.carrier_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
+    createNotification({
+      user_id: booking.shipper_id,
+      type: 'booking_picked_up',
+      title: '🚚 A csomagod úton van!',
+      body: `A sofőr felvette a csomagodat (${booking.route_title || 'foglalás'}). A címzett a 6 jegyű kóddal veszi át.`,
+      link: '/dashboard/foglalasaim',
+    }).catch(() => {});
+  }
+
+  if (kind === 'dropoff' && booking.status === 'in_progress') {
+    // Atomi státusz-átmenet: párhuzamos kérések közül csak az első nyer
+    const claim = await db.query(
+      `UPDATE route_bookings SET status = 'delivered', delivered_at = NOW()
+        WHERE id = $1 AND status = 'in_progress'`,
+      [bookingId],
+    );
+    if (claim.rowCount === 0) {
+      return res.status(409).json({ error: 'Ezt a foglalást időközben már lezárták.' });
+    }
+
+    // Készpénzes modell: kézbesítéskor nincs pénzmozgás a platformon — a
+    // fuvardíjat a sofőr készpénzben kapja.
+    realtime.emitToUser(booking.shipper_id, 'route-booking:delivered', { booking_id: bookingId, photo });
+    realtime.emitToUser(booking.carrier_id, 'route-booking:delivered', { booking_id: bookingId, photo });
+
+    // Értesítések (in-app + SMS) — fire-and-forget
+    createNotification({
+      user_id: booking.shipper_id,
+      type: 'booking_delivered',
+      title: '📦 A csomagod megérkezett!',
+      body: `A(z) "${booking.route_title || 'foglalás'}" csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj készpénzben jár a sofőrnek.`,
+      link: '/dashboard/foglalasaim',
+    }).catch(() => {});
+    setImmediate(async () => {
+      try {
+        const { sendSms } = require('../services/sms');
+        const { rows: shipperRows } = await db.query(
+          `SELECT phone, email, full_name FROM users WHERE id = $1`,
+          [booking.shipper_id],
+        );
+        const shipper = shipperRows[0] || {};
+        if (shipper.phone) {
+          sendSms(shipper.phone,
+            `A csomagod kezbesitese megtortent! Foglalas: ${booking.route_title || ''}. Udv, GoFuvar`,
+          ).catch(() => {});
+        }
+        if (booking.recipient_phone) {
+          sendSms(booking.recipient_phone,
+            `Koszonjuk! A csomag atveve. Udv, GoFuvar`,
+          ).catch(() => {});
+        }
+        if (shipper.email) {
+          sendEmail({
+            to: shipper.email,
+            subject: `✅ Kézbesítve: ${booking.route_title || 'foglalásod'}`,
+            html: `
+              <p>Szia ${shipper.full_name || 'GoFuvar felhasználó'}!</p>
+              <p>A foglalásod csomagja sikeresen kézbesítve — a 6 jegyű átvételi kód ellenőrizve.</p>
+              <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
+              <p>A fuvardíj készpénzben jár a sofőrnek — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
+              <p>Ha bármi probléma van a csomagoddal, a Foglalásaim oldalon tudsz vitás esetet nyitni.</p>
+            `,
+          }).catch((e) => console.warn('[email] booking_delivered hiba:', e.message));
+        }
+      } catch (e) {
+        console.warn('[notifications] booking_delivered hiba:', e.message);
+      }
+    });
+  }
+
+  res.status(201).json({ photo, validation: { ok: true } });
+});
+
+// GET /route-bookings/:bookingId/photos — csak a foglalás felei láthatják
+router.get('/route-bookings/:bookingId/photos', authRequired, async (req, res) => {
+  const { rows: bRows } = await db.query(
+    `SELECT b.shipper_id, r.carrier_id
+       FROM route_bookings b JOIN carrier_routes r ON r.id = b.route_id
+      WHERE b.id = $1`,
+    [req.params.bookingId],
+  );
+  const b = bRows[0];
+  if (!b) return res.status(404).json({ error: 'Foglalás nem található' });
+  const isParty = req.user.sub === b.shipper_id || req.user.sub === b.carrier_id
+    || req.user.role === 'admin';
+  if (!isParty) return res.status(403).json({ error: 'Nincs jogosultság ehhez a foglaláshoz.' });
+
+  const { rows } = await db.query(
+    'SELECT * FROM photos WHERE booking_id = $1 ORDER BY taken_at ASC',
+    [req.params.bookingId],
+  );
+  res.json(rows);
+});
+
 // GET /jobs/:jobId/photos
 // A fuvar fele (feladó / kijelölt sofőr / admin) MINDEN fotót lát. Egy
 // kívülálló (pl. licitálni készülő sofőr) csak a 'listing' fotókat — ezek

@@ -462,6 +462,35 @@ export const api = {
     return res.json();
   },
 
+  /** Foglalás pickup/dropoff fotó — a fuvar-fotó tükre (BUG-041 fix). */
+  uploadBookingPhoto: async (
+    bookingId: string,
+    file: File,
+    kind: 'pickup' | 'dropoff' | 'damage' | 'document',
+    opts?: { deliveryCode?: string },
+  ) => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('kind', kind);
+    if (opts?.deliveryCode) form.append('delivery_code', opts.deliveryCode);
+
+    const token = getToken();
+    const res = await fetch(`${BASE_URL}/route-bookings/${bookingId}/photos`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: form,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Fotó feltöltés sikertelen');
+    }
+    return res.json();
+  },
+
+  /** Egy foglalás fotói (csak a felek láthatják). */
+  listBookingPhotos: (bookingId: string) =>
+    request<any[]>(`/route-bookings/${bookingId}/photos`),
+
   /** Escrow / Barion állapot egy fuvarhoz. */
   jobEscrow: (jobId: string) =>
     request<{
