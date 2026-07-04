@@ -247,6 +247,70 @@ async function sendJobPaidEmail({ to, carrierName, jobTitle, jobId, amountHuf, s
 }
 
 /**
+ * Díj-visszaigazolás a FELADÓNAK a kapcsolatfelvételi díj megfizetése után.
+ *
+ * Jogi szerepe van: a 45/2014. (II. 26.) Korm. rendelet 18. §-a szerint a
+ * szerződés megkötését tartós adathordozón (emailben) vissza kell igazolni,
+ * benne a fogyasztó 29. § (1) a) szerinti nyilatkozatával (azonnali
+ * teljesítés kérése + az elállási jog elvesztésének tudomásulvétele).
+ * A nyilatkozat szövege szó szerint az, amit a feladó a fizetésnél a
+ * jelölőnégyzettel elfogadott (fee_consent_at időbélyeggel rögzítve).
+ *
+ * @param {object} p
+ * @param {string} p.to — a feladó email címe
+ * @param {string} [p.shipperName]
+ * @param {string} p.jobTitle — a fuvar/foglalás címe
+ * @param {number} p.feeHuf — a megfizetett kapcsolatfelvételi díj (bruttó Ft)
+ * @param {number} [p.cashHuf] — a sofőrnek készpénzben járó fuvardíj
+ * @param {string} [p.paidAtIso] — a fizetés időpontja (ISO string)
+ * @param {string} [p.detailsPath] — a fuvar/foglalás oldala (pl. /dashboard/fuvar/<id>)
+ */
+async function sendFeeConfirmationEmail({
+  to, shipperName, jobTitle, feeHuf, cashHuf, paidAtIso, detailsPath,
+}) {
+  const heading = '🧾 Díj-visszaigazolás — kapcsolatfelvételi díj megfizetve';
+  const paidAtTxt = paidAtIso
+    ? new Date(paidAtIso).toLocaleString('hu-HU', { timeZone: 'Europe/Budapest' })
+    : new Date().toLocaleString('hu-HU', { timeZone: 'Europe/Budapest' });
+  const bodyHtml = `
+    <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
+    <p>Ezúton visszaigazoljuk, hogy a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarhoz
+    a kapcsolatfelvételi díjat megfizetted.</p>
+    <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">
+      ${formatHuf(feeHuf)} Ft <span style="font-size:13px;font-weight:400;color:#666">(bruttó, bevezető ár)</span>
+    </p>
+    <p style="font-size:13px;color:#666;margin:0 0 16px">Fizetés időpontja: ${escapeHtml(paidAtTxt)}</p>
+    <p>A szolgáltatás (a sofőr kapcsolatfelvételi adatainak átadása és a fuvar-folyamat
+    elindítása) a fizetéssel <strong>teljesült</strong> — a sofőr elérhetőségét a fuvar
+    oldalán találod.</p>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:16px 0;font-size:13px;line-height:1.6">
+      <strong>A fizetéskor tett nyilatkozatod:</strong><br />
+      „Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása) azonnali teljesítését,
+      és tudomásul veszem, hogy a teljesítés után elállási jogomat elvesztem
+      (45/2014. Korm. rendelet 29. § (1) a)). A díj nem visszatérítendő; ha a fuvar a
+      sofőr hibájából hiúsul meg, díjmentesen választhatok másik sofőrt ugyanerre a fuvarra."
+    </div>
+    ${cashHuf ? `<p>💵 Emlékeztető: a fuvardíjat (<strong>${formatHuf(cashHuf)} Ft</strong>)
+    <strong>készpénzben</strong> fizeted közvetlenül a sofőrnek — a GoFuvar a fuvardíjat
+    nem kezeli.</p>` : ''}
+    <p style="font-size:13px;color:#666">Ha a sofőr visszalép vagy nem elérhető, a fuvar
+    oldalán díjmentesen választhatsz másik sofőrt ugyanerre a fuvarra — a díj másik
+    fuvarra nem vihető át. A díjról a számlát külön küldjük. Részletek:
+    <a href="${getWebBase()}/aszf">ÁSZF (4. és 6. pont)</a>.</p>
+  `;
+  return sendEmail({
+    to,
+    subject: `Díj-visszaigazolás: ${jobTitle} — ${formatHuf(feeHuf)} Ft`,
+    html: wrapHtml({
+      heading,
+      bodyHtml,
+      ctaText: 'Fuvar megnyitása',
+      ctaHref: `${getWebBase()}${detailsPath || '/dashboard'}`,
+    }),
+  });
+}
+
+/**
  * Új foglalás érkezett a sofőr egyik útvonalára.
  */
 async function sendBookingReceivedEmail({ to, carrierName, routeTitle, routeId, shipperName, priceHuf }) {
@@ -455,6 +519,7 @@ module.exports = {
   sendLaneAlertEmail,
   sendBidAcceptedEmail,
   sendJobPaidEmail,
+  sendFeeConfirmationEmail,
   sendBookingReceivedEmail,
   sendBookingConfirmedEmail,
   sendBookingPaidEmail,

@@ -587,41 +587,40 @@ export const api = {
     request<{ ok: true }>(`/route-bookings/${id}/reject`, { method: 'POST' }),
 
   /**
-   * A kapcsolatfelvételi díj fizetésének (lusta) indítása — akkor hívjuk,
-   * amikor a feladó a fizetés gombra kattint. Ha a foglaláshoz már tartozik
-   * gateway URL, azt kapjuk vissza; ha nem, a backend most hozza létre.
-   * Idempotens, bármikor hívható egy megerősített foglalásra.
+   * A kapcsolatfelvételi díj fizetésének indítása — akkor hívjuk, amikor a
+   * feladó a fizetés gombra kattint. A `consent` KÖTELEZŐ az első híváskor:
+   * a feladó kéri az azonnali teljesítést (kontakt-átadás) és tudomásul
+   * veszi, hogy utána elállási joga elvész (45/2014. 29. § (1) a)) — a
+   * nyilatkozat MÉG a Barion-átirányítás előtt rögzül. Idempotens.
    */
-  payRouteBooking: (id: string) =>
+  payRouteBooking: (id: string, consent: boolean) =>
     request<{ payment_id: string; gateway_url: string; fee_huf: number; is_stub: boolean; reused: boolean }>(
       `/route-bookings/${id}/pay`,
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ consent }) },
     ),
 
   /**
-   * A díj-fizetés NYUGTÁZÁSA — STUB módban a /fizetes-stub oldal "Fizetek
-   * most" gombja hívja. A `consent` KÖTELEZŐ: a feladó kéri az azonnali
-   * teljesítést (kontakt-átadás) és tudomásul veszi, hogy utána elállási
-   * joga elvész (45/2014. Korm. r. 29. § (1) a)).
+   * A díj-fizetés NYUGTÁZÁSA — CSAK STUB módban él (a /fizetes-stub oldal
+   * hívja); éles Barionnál a webhook igazolja a fizetést.
    */
-  confirmRouteBookingPayment: (id: string, consent: boolean) =>
+  confirmRouteBookingPayment: (id: string) =>
     request<{ ok: true; paid_at: string; already_paid?: boolean }>(
       `/route-bookings/${id}/confirm-payment`,
-      { method: 'POST', body: JSON.stringify({ consent }) },
-    ),
-
-  /** Licites fuvar kapcsolatfelvételi díj fizetés-indítása — ugyanaz a minta, mint a route bookingnál. */
-  payJob: (id: string) =>
-    request<{ payment_id: string; gateway_url: string; fee_huf: number; is_stub: boolean; reused: boolean }>(
-      `/jobs/${id}/pay`,
       { method: 'POST' },
     ),
 
-  /** Licites fuvar díj-fizetés nyugtázása — consent kötelező (elállási jog tudomásulvétele). */
-  confirmJobPayment: (id: string, consent: boolean) =>
+  /** Licites fuvar díj-fizetés indítása — consent kötelező (elállási nyilatkozat a redirect előtt). */
+  payJob: (id: string, consent: boolean) =>
+    request<{ payment_id: string; gateway_url: string; fee_huf: number; is_stub: boolean; reused: boolean }>(
+      `/jobs/${id}/pay`,
+      { method: 'POST', body: JSON.stringify({ consent }) },
+    ),
+
+  /** Licites fuvar díj-fizetés nyugtázása — csak STUB módban él. */
+  confirmJobPayment: (id: string) =>
     request<{ ok: true; paid_at: string; already_paid?: boolean }>(
       `/jobs/${id}/confirm-payment`,
-      { method: 'POST', body: JSON.stringify({ consent }) },
+      { method: 'POST' },
     ),
 
   /**

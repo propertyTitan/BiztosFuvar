@@ -11,7 +11,7 @@ const realtime = require('../realtime');
 const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
-const { sendJobPaidEmail, sendCancellationEmail } = require('../services/email');
+const { sendJobPaidEmail, sendCancellationEmail, sendFeeConfirmationEmail } = require('../services/email');
 const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
 const { findBackhaulCandidates } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
@@ -584,6 +584,24 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
   if (j.paid_at) {
     return res.status(409).json({ error: 'A kapcsolatfelvételi díj már ki van fizetve ehhez a fuvarhoz.' });
   }
+
+  // FOGYASZTÓVÉDELMI KAPU a fizetés INDÍTÁSAKOR: a feladó kifejezetten kéri
+  // az azonnali teljesítést és tudomásul veszi az elállási jog elvesztését
+  // (45/2014. 29. § (1) a)). Élesben a tényleges fizetés a Barion oldalán
+  // történik, ezért a nyilatkozatot MÉG A REDIRECT ELŐTT rögzítjük.
+  if (!j.fee_consent_at) {
+    if (req.body?.consent !== true) {
+      return res.status(400).json({
+        error: 'A fizetéshez kérned kell az azonnali teljesítést és tudomásul venned, hogy a kapcsolatfelvételi adatok átadása után elállási jogod elvész.',
+        code: 'CONSENT_REQUIRED',
+      });
+    }
+    await db.query(
+      `UPDATE jobs SET fee_consent_at = NOW() WHERE id = $1 AND fee_consent_at IS NULL`,
+      [j.id],
+    );
+  }
+
   const feeHuf = j.connection_fee_huf
     || calculateConnectionFee(j.accepted_price_huf || j.suggested_price_huf || 0);
 
@@ -640,20 +658,20 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
 
 // POST /jobs/:id/confirm-payment
 //
-// A kapcsolatfelvételi díj sikeres fizetésének nyugtázása. STUB módban a
-// `/fizetes-stub` oldal "Fizetek most" gombja hívja; valódi Barion mellett
-// a callback fogja. Idempotens. Mit csinál:
-//   1) FOGYASZTÓVÉDELMI KAPU: kötelező a kifejezett beleegyezés (consent) —
-//      a feladó kéri az azonnali teljesítést (kontakt-átadás) és tudomásul
-//      veszi, hogy a teljesítés után elállási joga elvész
-//      (45/2014. Korm. r. 29. § (1) a)). Enélkül 400.
-//   2) `paid_at` + `fee_consent_at` beállítása, a díj-sor 'released'
-//   3) Értesítés mindkét félnek: megkapjátok egymás elérhetőségét,
-//      a fuvardíj készpénzben jár a sofőrnek
+// A kapcsolatfelvételi díj sikeres fizetésének nyugtázása. CSAK STUB
+// módban él (a `/fizetes-stub` oldal "Fizetek most" gombja hívja) — éles
+// Barionnál a fizetés hiteles forrása a webhook (payments.js), ez a
+// végpont ott 409-et ad, különben bárki fizetés nélkül nyithatná meg a
+// kontaktot. Idempotens. Mit csinál:
+//   1) Guard: a fizetés-indításkor rögzített beleegyezés (fee_consent_at)
+//      megléte kötelező (45/2014. 29. § (1) a) — a /pay rögzíti)
+//   2) `paid_at` beállítása, a díj-sor 'released'
+//   3) Értesítés + díj-visszaigazoló email a feladónak
 router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             s.full_name AS shipper_name,
+            s.email AS shipper_email,
             c.full_name AS carrier_name,
             c.email AS carrier_email
        FROM jobs j
@@ -677,7 +695,15 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
     return res.json({ ok: true, already_paid: true, paid_at: j.paid_at });
   }
 
-  if (req.body?.consent !== true) {
+  // Éles Barion mellett a webhook a fizetés hiteles forrása — ezt a
+  // kézi nyugtázást csak stub (teszt) módban engedjük.
+  if (!barion.isStub()) {
+    return res.status(409).json({
+      error: 'A fizetést a Barion igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
+    });
+  }
+
+  if (!j.fee_consent_at) {
     return res.status(400).json({
       error: 'A fizetéshez kérned kell az azonnali teljesítést és tudomásul venned, hogy a kapcsolatfelvételi adatok átadása után elállási jogod elvész.',
       code: 'CONSENT_REQUIRED',
@@ -685,7 +711,7 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
   }
 
   const { rows: upd } = await db.query(
-    `UPDATE jobs SET paid_at = NOW(), fee_consent_at = NOW() WHERE id = $1 RETURNING paid_at`,
+    `UPDATE jobs SET paid_at = NOW() WHERE id = $1 RETURNING paid_at`,
     [j.id],
   );
   const paidAt = upd[0].paid_at;
@@ -698,6 +724,22 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
       WHERE job_id = $1 AND status = 'held'`,
     [j.id],
   );
+
+  // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §):
+  // a megfizetett díj + a fizetéskor tett elállási nyilatkozat szövege.
+  if (j.shipper_email) {
+    setImmediate(() => {
+      sendFeeConfirmationEmail({
+        to: j.shipper_email,
+        shipperName: j.shipper_name,
+        jobTitle: j.title,
+        feeHuf: j.connection_fee_huf || 0,
+        cashHuf: j.accepted_price_huf,
+        paidAtIso: paidAt,
+        detailsPath: `/dashboard/fuvar/${j.id}`,
+      }).catch((e) => console.warn('[email] fee_confirmation hiba:', e.message));
+    });
+  }
 
   // Értesítés a sofőrnek (a licitet nyert carrier): in-app + email
   if (j.carrier_id) {
