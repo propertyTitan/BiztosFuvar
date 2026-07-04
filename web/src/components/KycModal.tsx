@@ -78,6 +78,9 @@ export default function KycModal() {
     setUploadResult(null);
     try {
       const res = await api.uploadKycDocument(file, TYPE_TO_DOC[kycType]);
+      // A profil-oldal és a HomeHub KYC-kártyája ebből tudja, hogy a
+      // státusz megváltozott — F5 nélkül frissülnek (stale UI fix)
+      window.dispatchEvent(new Event('gofuvar:kyc-updated'));
       if (res.status === 'verified') {
         setUploadResult('verified');
         setTimeout(() => handleClose(), 2500);

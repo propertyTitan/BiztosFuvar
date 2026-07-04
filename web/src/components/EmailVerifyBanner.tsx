@@ -2,11 +2,18 @@
 
 // Bannert mutat a verifikálatlan email-felhasználóknak. Nem blokkol,
 // csak figyelmeztet és lehetőséget ad új link kérésére.
+//
+// BUG-015 fix: a banner a bejelentkezett USERT követi (useCurrentUser),
+// nem egyszeri mount-kori lekérés. A login/logout kliens-oldali navigáció
+// (nincs teljes újratöltés), így a korábbi verzió user-váltás után is a
+// RÉGI user email-címét mutatta — adatvédelmi hiba közös gépen.
 
 import { useEffect, useState } from 'react';
 import { api } from '@/api';
+import { useCurrentUser } from '@/lib/auth';
 
 export default function EmailVerifyBanner() {
+  const user = useCurrentUser();
   const [show, setShow] = useState(false);
   const [email, setEmail] = useState('');
   const [resending, setResending] = useState(false);
@@ -15,8 +22,13 @@ export default function EmailVerifyBanner() {
 
   useEffect(() => {
     let cancelled = false;
-    if (typeof window === 'undefined') return;
-    if (!window.localStorage.getItem('gofuvar_token')) return;
+    // User-váltásnál (login/logout) minden állapot nullázódik — a banner
+    // sosem mutathatja egy korábbi user adatát.
+    setShow(false);
+    setEmail('');
+    setDone(false);
+    setError(null);
+    if (!user) return undefined;
 
     api.getMyProfile()
       .then((me: any) => {
@@ -28,7 +40,7 @@ export default function EmailVerifyBanner() {
       .catch(() => {});
 
     return () => { cancelled = true; };
-  }, []);
+  }, [user?.id]);
 
   async function resend() {
     setResending(true);

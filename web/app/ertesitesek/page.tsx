@@ -62,6 +62,8 @@ export default function ErtesitesekOldal() {
       setItems((prev) =>
         prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)),
       );
+      // A fejléc harang-számlálója is frissüljön (stale UI fix)
+      window.dispatchEvent(new Event('gofuvar:notifications-read'));
     } catch {}
   }
 
@@ -69,6 +71,7 @@ export default function ErtesitesekOldal() {
     try {
       await api.markAllNotificationsRead();
       setItems((prev) => prev.map((x) => ({ ...x, read_at: x.read_at || new Date().toISOString() })));
+      window.dispatchEvent(new Event('gofuvar:notifications-read'));
     } catch {}
   }
 

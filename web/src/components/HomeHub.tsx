@@ -24,6 +24,11 @@ export default function HomeHub() {
   const [driver, setDriver] = useState<any>(null);
   const [gameStats, setGameStats] = useState<any>(null);
   const [showKycWelcome, setShowKycWelcome] = useState(false);
+  // BUG-017/018 fix: a KYC-kártya a VALÓS verifikációs státuszhoz kötött,
+  // nem csak a localStorage-flaghez. Verifikált usernek sosem jelenik meg
+  // (akkor sem, ha a flag hiányzik — pl. másik gépen/úton verifikált);
+  // nem-verifikáltnak addig látszik, amíg el nem rejti.
+  const [kycStatus, setKycStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -31,7 +36,23 @@ export default function HomeHub() {
     if (!localStorage.getItem(key)) {
       setShowKycWelcome(true);
     }
+    let cancelled = false;
+    const checkKyc = () => {
+      api.getMyProfile()
+        .then((p: any) => { if (!cancelled) setKycStatus(p?.identity_kyc_status || 'none'); })
+        .catch(() => {});
+    };
+    checkKyc();
+    // A KYC-modal sikeres feltöltés után eseményt szór — F5 nélkül frissülünk
+    window.addEventListener('gofuvar:kyc-updated', checkKyc);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('gofuvar:kyc-updated', checkKyc);
+    };
   }, [user?.id]);
+
+  // A kártya csak akkor él, ha a user TÉNYLEG nincs verifikálva
+  const kycCardVisible = showKycWelcome && kycStatus !== null && kycStatus !== 'verified';
 
   useEffect(() => {
     if (!user) return;
@@ -119,7 +140,7 @@ export default function HomeHub() {
           </div>
 
           {/* KYC tájékoztató — sofőr módban is, első belépéskor */}
-          {showKycWelcome && (
+          {kycCardVisible && (
             <div
               style={{
                 marginBottom: 20,
@@ -324,7 +345,7 @@ export default function HomeHub() {
           </div>
 
           {/* KYC tájékoztató — első belépéskor */}
-          {showKycWelcome && (
+          {kycCardVisible && (
             <div
               style={{
                 marginBottom: 20,

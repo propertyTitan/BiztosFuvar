@@ -28,6 +28,46 @@ function getWebBase() {
   return process.env.WEB_BASE_URL || 'http://localhost:3000';
 }
 
+// ---------- Mező-validációk (BUG-011) ----------
+// A regisztráció és a profil-szerkesztés közös szabályai. Eddig a "8 szóköz
+// mint jelszó" és a csupa-szóköz név is átment, a telefonszám/rendszám pedig
+// bármit elfogadott — ezek itt szűrődnek ki, egy helyen.
+
+/** Név: trim után 2–100 karakter, legalább egy nem-szóköz. null = hibás. */
+function cleanFullName(v) {
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  if (t.length < 2 || t.length > 100) return null;
+  return t;
+}
+
+/** Jelszó: 8–128 karakter, és trim után is legalább 8 érdemi karakter
+ *  (a csupa/szinte-csupa szóköz jelszó nem jelszó). */
+function validPassword(v) {
+  return typeof v === 'string' && v.length <= 128 && v.trim().length >= 8;
+}
+
+/** Telefonszám: nemzetközi formátumokat engedünk (szóköz/kötőjel/zárójel
+ *  szeparátorral), de a számjegy-tartalom 6–15 kell legyen (E.164). */
+function cleanPhone(v) {
+  if (v == null || v === '') return '';
+  if (typeof v !== 'string' || v.length > 30) return null;
+  const t = v.trim();
+  const digits = t.replace(/\D/g, '');
+  if (!/^\+?[\d\s\-/().]+$/.test(t) || digits.length < 6 || digits.length > 15) return null;
+  return t;
+}
+
+/** Rendszám: 2–12 karakter, betű/szám/kötőjel/szóköz. Üres = törlés. */
+function cleanPlate(v) {
+  if (v == null || v === '') return '';
+  if (typeof v !== 'string') return null;
+  const t = v.trim().toUpperCase();
+  if (t.length < 2 || t.length > 12) return null;
+  if (!/^[A-ZÁÉÍÓÖŐÚÜŰ0-9\- ]+$/.test(t)) return null;
+  return t;
+}
+
 // A telefonos fotók (iPhone / nagy MP-s Android) gyakran 6-12 MB-osak, ezért
 // a limit 15 MB. Régen 5 MB volt, és a túllépés egy nyers MulterError-t dobott,
 // amiből a központi hibakezelő ijesztő 500 "Szerverhiba"-t csinált — emiatt a
@@ -94,6 +134,24 @@ router.post('/register', registerRateLimit, async (req, res) => {
     return res.status(400).json({ error: 'Hiányzó mezők' });
   }
 
+  // Mező-validációk (BUG-011): csupa-szóköz név/jelszó, formátumtalan
+  // telefonszám/rendszám és túl hosszú értékek kiszűrése
+  const cleanName = cleanFullName(full_name);
+  if (!cleanName) {
+    return res.status(400).json({ error: 'Érvénytelen név — 2–100 karakter, nem állhat csak szóközből.' });
+  }
+  if (typeof normEmail !== 'string' || normEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normEmail)) {
+    return res.status(400).json({ error: 'Érvénytelen e-mail cím formátum.' });
+  }
+  const cleanedPhone = cleanPhone(phone);
+  if (cleanedPhone === null) {
+    return res.status(400).json({ error: 'Érvénytelen telefonszám — 6–15 számjegy, pl. +36 20 123 4567.' });
+  }
+  const cleanedPlate = cleanPlate(vehicle_plate);
+  if (cleanedPlate === null) {
+    return res.status(400).json({ error: 'Érvénytelen rendszám — 2–12 karakter, betű/szám/kötőjel.' });
+  }
+
   const accountType = rawAccountType === 'company' ? 'company' : 'individual';
   if (accountType === 'company') {
     if (!company_name) {
@@ -107,8 +165,10 @@ router.post('/register', registerRateLimit, async (req, res) => {
     }
   }
 
-  if (password.length < 8) {
-    return res.status(400).json({ error: 'A jelszó minimum 8 karakter legyen' });
+  if (!validPassword(password)) {
+    return res.status(400).json({
+      error: 'A jelszó minimum 8 érdemi karakter legyen (legfeljebb 128) — nem állhat csupa szóközből.',
+    });
   }
 
   try {
@@ -124,7 +184,7 @@ router.post('/register', registerRateLimit, async (req, res) => {
                           email_verification_token_hash, email_verification_sent_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
        RETURNING id, role, email, full_name, account_type, email_verified`,
-      [role, normEmail, hashPassword(password), full_name, phone || null, vehicle_type || null, vehicle_plate || null,
+      [role, normEmail, hashPassword(password), cleanName, cleanedPhone || null, vehicle_type || null, cleanedPlate || null,
        accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null,
        verifyHash],
     );
@@ -133,7 +193,7 @@ router.post('/register', registerRateLimit, async (req, res) => {
     // Email küldés — best-effort, soha nem akasztjuk meg vele a registert
     sendEmailVerificationEmail({
       to: normEmail,
-      fullName: full_name,
+      fullName: cleanName,
       verifyUrl: `${getWebBase()}/email-megerositese?token=${verifyToken}`,
     }).catch((e) => console.warn('[auth] verify mail küldés hiba:', e.message));
 
@@ -329,6 +389,31 @@ router.patch('/me', authRequired, async (req, res) => {
   // kerüljön szemét érték a számlázási mezőbe (a Barion VAT-számítás ezt olvassa).
   if (req.body.tax_id !== undefined && req.body.tax_id && !/^\d{8}-\d{1,2}-\d{2}$/.test(req.body.tax_id)) {
     return res.status(400).json({ error: 'Érvénytelen adószám formátum (pl. 12345678-1-42)' });
+  }
+  // Mező-validációk (BUG-011) — ugyanazok a szabályok, mint a regisztrációnál
+  if (req.body.full_name !== undefined) {
+    const cleaned = cleanFullName(req.body.full_name);
+    if (!cleaned) {
+      return res.status(400).json({ error: 'Érvénytelen név — 2–100 karakter, nem állhat csak szóközből.' });
+    }
+    req.body.full_name = cleaned;
+  }
+  if (req.body.phone !== undefined) {
+    const cleaned = cleanPhone(req.body.phone);
+    if (cleaned === null) {
+      return res.status(400).json({ error: 'Érvénytelen telefonszám — 6–15 számjegy, pl. +36 20 123 4567.' });
+    }
+    req.body.phone = cleaned;
+  }
+  if (req.body.vehicle_plate !== undefined) {
+    const cleaned = cleanPlate(req.body.vehicle_plate);
+    if (cleaned === null) {
+      return res.status(400).json({ error: 'Érvénytelen rendszám — 2–12 karakter, betű/szám/kötőjel.' });
+    }
+    req.body.vehicle_plate = cleaned;
+  }
+  if (req.body.bio !== undefined && typeof req.body.bio === 'string' && req.body.bio.length > 1000) {
+    return res.status(400).json({ error: 'A bemutatkozás legfeljebb 1000 karakter lehet.' });
   }
   const updates = [];
   const values = [];

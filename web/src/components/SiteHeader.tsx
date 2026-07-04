@@ -44,7 +44,16 @@ export default function SiteHeader() {
       toast[kind](n?.title || 'Új értesítés', n?.body || undefined);
     };
     socket.on('notification:new', onNew);
-    return () => { socket.off('notification:new', onNew); };
+    // Az értesítések oldal olvasottra állításakor a badge azonnal frissül
+    // (eddig F5-ig a régi számot mutatta — stale UI fix)
+    const onRead = () => {
+      api.unreadNotificationCount().then((r) => setUnread(r.count)).catch(() => {});
+    };
+    window.addEventListener('gofuvar:notifications-read', onRead);
+    return () => {
+      socket.off('notification:new', onNew);
+      window.removeEventListener('gofuvar:notifications-read', onRead);
+    };
   }, [user?.id, toast]);
 
   // Kívülre kattintás → user-menü dropdown bezárás
