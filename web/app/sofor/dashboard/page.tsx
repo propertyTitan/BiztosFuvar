@@ -75,11 +75,13 @@ export default function SoforDashboard() {
       {monthly.length > 0 && (
         <div className="card" style={{ marginTop: 24 }}>
           <h2 style={{ marginTop: 0, marginBottom: 16 }}>Havi bevétel trend</h2>
-          <div style={{ display: 'flex', alignItems: 'end', gap: 4, height: 160 }}>
+          {/* BUG-036: kevés adatnál az oszlop ne nyúljon teljes szélességre
+              (egy hónapnyi adattal töröttnek nézett ki) — max 96px/oszlop */}
+          <div style={{ display: 'flex', alignItems: 'end', gap: 4, height: 160, justifyContent: monthly.length < 4 ? 'flex-start' : 'stretch' }}>
             {monthly.map((m) => {
               const height = Math.max(4, (m.net / maxMonthlyNet) * 140);
               return (
-                <div key={m.month} style={{ flex: 1, textAlign: 'center' }}>
+                <div key={m.month} style={{ flex: 1, maxWidth: 96, textAlign: 'center' }}>
                   <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>
                     {fmt(m.net)} Ft
                   </div>

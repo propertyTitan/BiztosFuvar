@@ -56,6 +56,20 @@ export default function SiteHeader() {
     };
   }, [user?.id, toast]);
 
+  // Aktív mód (Sofőr/Feladó) követése — a HomeHub mód-váltója írja a
+  // localStorage-t és eseményt szór (BUG-034: mindenhol látszódjon)
+  const [activeMode, setActiveMode] = useState<'driver' | 'shipper' | null>(null);
+  useEffect(() => {
+    const readMode = () => {
+      const m = window.localStorage.getItem('gofuvar_mode');
+      setActiveMode(m === 'driver' || m === 'shipper' ? m : 'shipper');
+    };
+    if (user) readMode(); else setActiveMode(null);
+    window.addEventListener('gofuvar:mode-change', readMode);
+    return () => window.removeEventListener('gofuvar:mode-change', readMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   // Kívülre kattintás → user-menü dropdown bezárás
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -93,6 +107,23 @@ export default function SiteHeader() {
       {/* ── Közép: 3 fő navigáció (csak bejelentkezve) ── */}
       {user && (
         <nav style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {/* BUG-034 (részleges): az aktív mód a főoldalon kívül is
+              látszódjon — kattintásra a főoldali mód-váltóhoz visz */}
+          {activeMode && (
+            <Link
+              href="/"
+              title="Aktív mód — a főoldalon válthatsz"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', borderRadius: 999, fontSize: 12,
+                fontWeight: 700, textDecoration: 'none', marginRight: 4,
+                background: 'rgba(255,255,255,0.18)', color: '#fff',
+                border: '1px solid rgba(255,255,255,0.3)', whiteSpace: 'nowrap',
+              }}
+            >
+              {activeMode === 'driver' ? '🚛 Sofőr mód' : '📦 Feladó mód'}
+            </Link>
+          )}
           <Link href="/" style={navLinkStyle}>
             <Home size={15} /> {t('nav.home')}
           </Link>

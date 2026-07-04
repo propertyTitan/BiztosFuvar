@@ -20,6 +20,10 @@ export default function FeladoiUtvonalBongeszo() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [city, setCity] = useState('');
+  // BUG-027: a "nincs találat" üzenet ne az élő input-state-et mutassa
+  // (gépelés közben karakterenként frissült, mintha a keresés lefutott
+  // volna) — csak a ténylegesen lefuttatott keresés városát
+  const [appliedCity, setAppliedCity] = useState('');
   const [view, setView] = useState<ViewMode>('list');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -35,6 +39,7 @@ export default function FeladoiUtvonalBongeszo() {
         to_date: (dates ? dates.to : toDate) || undefined,
       });
       setRoutes(data);
+      setAppliedCity(filterCity || '');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -184,7 +189,7 @@ export default function FeladoiUtvonalBongeszo() {
       {!loading && !error && routes.length === 0 && (
         <div className="card" style={{ marginTop: 16 }}>
           <p className="muted">
-            Jelenleg nincs olyan nyitott útvonal, ami{city ? ` a(z) „${city}" várost érinti` : ' elérhető lenne'}.
+            Jelenleg nincs olyan nyitott útvonal, ami{appliedCity ? ` a(z) „${appliedCity}" várost érinti` : ' elérhető lenne'}.
           </p>
         </div>
       )}

@@ -78,6 +78,12 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   if (!title || !departure_at) {
     return res.status(400).json({ error: 'Hiányzó mezők: cím és indulás időpontja' });
   }
+  // TC-013/TC-107: útvonalnév trim után 3–100 karakter — a csupa-szóköz és
+  // a layout-törő végtelen string kiszűrése
+  const titleClean = typeof title === 'string' ? title.trim() : '';
+  if (titleClean.length < 3 || titleClean.length > 100) {
+    return res.status(400).json({ error: 'Az útvonal neve 3–100 karakter legyen (nem állhat csak szóközből).' });
+  }
   if (!Array.isArray(waypoints) || waypoints.length < 2) {
     return res.status(400).json({ error: 'Legalább egy kiindulópont és egy célpont szükséges (waypoints)' });
   }
@@ -105,7 +111,7 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
        VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10)
        RETURNING *`,
       [
-        req.user.sub, title, description || null, departure_at,
+        req.user.sub, titleClean, description || null, departure_at,
         JSON.stringify(waypoints), vehicle_description || null,
         !!is_template, template_source_id, status, !!is_ride_along,
       ],
@@ -156,7 +162,12 @@ router.get('/carrier-routes/mine', authRequired, async (req, res) => {
 router.get('/carrier-routes', authRequired, async (req, res) => {
   const { city, from_date, to_date, max_price } = req.query;
   let sql = `SELECT * FROM carrier_routes
-              WHERE status = 'open' AND departure_at >= NOW() - INTERVAL '12 hours'`;
+              WHERE status = 'open'
+                -- BUG-028: indulás után az útvonal tűnjön el a keresésből.
+                -- 1 óra türelmi idő marad a kicsit csúszó indulásokra (a
+                -- korábbi 12 óra alatt a feladók már elment sofőrökkel
+                -- próbáltak egyeztetni).
+                AND departure_at >= NOW() - INTERVAL '1 hour'`;
   const params = [];
   if (city) {
     // A JSONB @> operátorral: létezik-e olyan eleme a waypoints tömbnek, amelynek name mezője illeszkedik

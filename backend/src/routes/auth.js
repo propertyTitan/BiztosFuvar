@@ -445,7 +445,9 @@ router.patch('/me', authRequired, async (req, res) => {
     `UPDATE users SET ${updates.join(', ')}, updated_at = NOW()
       WHERE id = $${idx}
     RETURNING id, role, email, full_name, phone, vehicle_type, vehicle_plate,
-              avatar_url, bio, rating_avg, rating_count, created_at`,
+              avatar_url, bio, rating_avg, rating_count, created_at,
+              identity_kyc_status, driver_kyc_status, account_type,
+              company_name, company_verification_status, email_verified`,
     values,
   );
   if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });

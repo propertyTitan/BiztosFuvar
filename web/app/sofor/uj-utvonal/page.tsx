@@ -107,7 +107,8 @@ function UjUtvonalContent() {
 
   async function submit(publishNow: boolean) {
     if (!canSubmit) {
-      setError('Hiányzó adatok: ' + missingFields.join(', ') + '.');
+      // BUG-024: a "mi hiányzik" lista a gombok alatt amúgy is látszik —
+      // ugyanazt a szöveget nem írjuk ki még egyszer hibaként
       return;
     }
     setError(null);

@@ -39,6 +39,11 @@ describe('Fuvar-adatok láthatósága (scrub)', () => {
     expect(res.body.recipient_name).toBeUndefined();
     expect(res.body.recipient_phone).toBeUndefined();
     expect(res.body.barion_payment_id).toBeUndefined();
+    // BUG-038: a fizetési státusz és a díj sem jár kívülállónak — a vesztes
+    // licitálók élőben látták a nyertes "Fizetésre vár → FIZETVE" állapotát
+    expect(res.body.paid_at).toBeUndefined();
+    expect(res.body.fee_consent_at).toBeUndefined();
+    expect(res.body.connection_fee_huf).toBeUndefined();
   });
 
   it('a feladó látja a saját vész-kódját és a tokent, a címzett kódját NEM', async () => {

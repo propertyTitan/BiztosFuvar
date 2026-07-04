@@ -45,7 +45,9 @@ describe('Új útvonal form — validáció', () => {
     // így a JS "mi hiányzik" ága fut le és üzenetet ad.
     await user.click(screen.getByRole('button', { name: 'Mentés piszkozatként' }));
 
-    expect(screen.getByText(/Hiányzó adatok:/)).toBeInTheDocument();
+    // BUG-024 fix után: a hiánylista EGY helyen jelenik meg (a gombok
+    // alatti állandó hint), a submit nem duplikálja hibaüzenetként
+    expect(screen.queryByText(/Hiányzó adatok:/)).not.toBeInTheDocument();
     expect(createCarrierRoute).not.toHaveBeenCalled();
     // A perzisztens hint is ott van az űrlap alján
     expect(screen.getByText(/A publikáláshoz még hiányzik:/)).toBeInTheDocument();

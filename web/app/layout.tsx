@@ -136,6 +136,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <noscript>
+          <div style={{ padding: 24, textAlign: 'center', fontFamily: 'sans-serif' }}>
+            A GoFuvar működéséhez JavaScript szükséges. Kérjük, engedélyezd a
+            böngésződben, majd töltsd újra az oldalt.
+          </div>
+        </noscript>
         <I18nProvider>
         <ToastProvider>
           <KycModalProvider />

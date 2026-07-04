@@ -223,7 +223,7 @@ export default function SoforFuvarReszletek() {
           <span className={`pill ${STATUS_PILL[job.status] || 'pill-progress'}`}>{STATUS_LABEL[job.status] || job.status}</span>
           {/* Fizetés állapot — csak accepted+ státuszoknál érdekes.
               A sofőr ebből látja, hogy a feladó már kifizette-e vagy sem. */}
-          {['accepted', 'in_progress', 'delivered'].includes(job.status) && (
+          {iAmTheCarrier && ['accepted', 'in_progress', 'delivered'].includes(job.status) && (
             job.paid_at ? (
               <span
                 className="pill"
@@ -636,11 +636,28 @@ export default function SoforFuvarReszletek() {
 
       {myBid && (
         <div className="card" style={{ marginTop: 16, background: 'var(--surface)' }}>
-          <h2 style={{ marginTop: 0 }}>A te licitelt</h2>
-          <p>
-            <strong className="price">{myBid.amount_huf.toLocaleString('hu-HU')} Ft</strong>
-            {myBid.eta_minutes && <span className="muted"> · érkezés ~{myBid.eta_minutes} perc</span>}
-          </p>
+          <h2 style={{ marginTop: 0 }}>A te licited</h2>
+          {/* BUG-037: elfogadás után a MEGÁLLAPODOTT ár számít — ellenajánlatos
+              alku után az eredeti licit-összeg tévesen többet ígért. */}
+          {(() => {
+            const agreed = myBid.status === 'accepted' && iAmTheCarrier && job.accepted_price_huf != null
+              ? job.accepted_price_huf
+              : (myBid.counter_amount_huf ?? myBid.amount_huf);
+            return (
+              <p>
+                <strong className="price">{agreed.toLocaleString('hu-HU')} Ft</strong>
+                {agreed !== myBid.amount_huf && (
+                  <span className="muted" style={{ textDecoration: 'line-through', marginLeft: 8, fontSize: 13 }}>
+                    {myBid.amount_huf.toLocaleString('hu-HU')} Ft
+                  </span>
+                )}
+                {agreed !== myBid.amount_huf && (
+                  <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>(alku utáni ár)</span>
+                )}
+                {myBid.eta_minutes && <span className="muted"> · érkezés ~{myBid.eta_minutes} perc</span>}
+              </p>
+            );
+          })()}
           <span className={`pill pill-${myBid.status === 'accepted' ? 'delivered' : 'bidding'}`}>
             {myBid.status === 'pending' && 'Várakozik elfogadásra'}
             {myBid.status === 'accepted' && 'Elfogadva 🎉'}
