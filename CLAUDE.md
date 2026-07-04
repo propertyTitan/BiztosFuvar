@@ -167,6 +167,18 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   webhook+számla a feladónak), web (consent-checkbox a fizetésnél,
   kontakt-kártyák, sávos díj-UI, landing/chatbot/email szövegek), ÁSZF
   teljes pénzügyi átírás (4., 5.1, 6.2, 7. szakasz)
+- **Díj-visszaigazoló email + consent a /pay-en (2026-07-04, PR #51)** —
+  45/2014. 18.§ tartós adathordozós visszaigazolás a feladónak (a
+  nyilatkozat szó szerinti szövegével); a consent a fizetés INDÍTÁSAKOR
+  rögzül (élesben a Barion-oldalon nem nyilatkoztathatnánk), a
+  confirm-payment élesben tiltott (webhook a hiteles forrás)
+- **Tesztelői hibajavítások (2026-07-04, PR #52-53)** — BUG-041: a fix
+  áras foglalás lezárható (booking pickup/dropoff + kód, 045-ös migráció,
+  CarrierTripPanel entity='booking', ReviewBox a foglalásokra); süti-banner
+  GDPR-linkje 404 volt (/adatvedelem→/adatkezeles); KYC-kártya a valós
+  státuszhoz kötve; mező-validációk (BUG-011); stale-UI kör eseményvezérelt
+  frissítéssel — BUG-015: az EmailVerifyBanner user-váltásnál nulláz (idegen
+  email többé nem látszik)
 - Admin CRUD panel
 - PWA telepíthető
 - Coverage Európa
@@ -246,14 +258,16 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **62 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **74 teszt fut CI-ben minden
    PR-en és main-pushon** (~2,5 perc összesen):
    - **27 web unit** (Vitest, `web-tests.yml`)
-   - **25 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
-     `backend-tests.yml`): díj-fizetési guard + consent, kód brute-force
-     lockout, lemondás pénzmozgás nélkül, sofőr-lemondás → díjmentes reopen,
-     licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR, licit-láthatóság,
-     admin-eszkaláció tiltás, kapcsolatfelvételi díjsávok (ÁSZF 4.1)
+   - **37 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+     `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
+     brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
+     díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
+     licit-láthatóság, admin-eszkaláció tiltás, kapcsolatfelvételi díjsávok
+     (ÁSZF 4.1), foglalás-lezárás (BUG-041: booking pickup/dropoff + kód),
+     mező-validációk (BUG-011: szóköz-jelszó/név, telefon, rendszám)
    - **10 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
