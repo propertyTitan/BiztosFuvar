@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
-import { useCurrentUser } from '@/lib/auth';
+import { useCurrentUser, setCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
@@ -45,17 +45,24 @@ export default function ProfilOldal() {
 
   useEffect(() => {
     if (!me) return;
-    api.getMyProfile().then((p) => {
-      setProfile(p);
-      setFullName(p.full_name || '');
-      setPhone(p.phone || '');
-      setVehicleType(p.vehicle_type || '');
-      setVehiclePlate(p.vehicle_plate || '');
-      setBio(p.bio || '');
-    }).catch((e: any) => {
-      // Hiba nélkül a "Betöltés…" örökre ott ragadna
-      setLoadError(e.message || 'Nem sikerült betölteni a profilt.');
-    });
+    const loadProfile = () => {
+      api.getMyProfile().then((p) => {
+        setProfile(p);
+        setFullName(p.full_name || '');
+        setPhone(p.phone || '');
+        setVehicleType(p.vehicle_type || '');
+        setVehiclePlate(p.vehicle_plate || '');
+        setBio(p.bio || '');
+      }).catch((e: any) => {
+        // Hiba nélkül a "Betöltés…" örökre ott ragadna
+        setLoadError(e.message || 'Nem sikerült betölteni a profilt.');
+      });
+    };
+    loadProfile();
+    // A KYC-modal sikeres feltöltése után a státusz-jelvények F5 nélkül
+    // frissülnek (stale UI fix)
+    window.addEventListener('gofuvar:kyc-updated', loadProfile);
+    return () => window.removeEventListener('gofuvar:kyc-updated', loadProfile);
   }, [me]);
 
   async function save() {
@@ -70,6 +77,12 @@ export default function ProfilOldal() {
       });
       setProfile(updated);
       setEditing(false);
+      // A fejléc (és minden useCurrentUser-fogyasztó) is az új nevet lássa
+      // F5 nélkül (stale UI fix)
+      const token = window.localStorage.getItem('gofuvar_token');
+      if (token && me) {
+        setCurrentUser({ ...me, full_name: updated.full_name }, token);
+      }
       toast.success('Profil mentve');
     } catch (e: any) {
       toast.error('Hiba', e.message);
