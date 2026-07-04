@@ -67,6 +67,9 @@ export default function HomeHub() {
   function switchMode(m: Mode) {
     setMode(m);
     localStorage.setItem('gofuvar_mode', m);
+    // A fejléc mód-chipje is frissüljön (BUG-034: a főoldalt elhagyva nem
+    // látszott, melyik mód aktív)
+    window.dispatchEvent(new Event('gofuvar:mode-change'));
   }
 
   if (!user) return null;

@@ -63,10 +63,14 @@ function scrubJobForUser(job, user) {
     // látja (kézbesítéskor hívnia kell tudni)
     return rest;
   }
-  // Kívülálló (pl. licitálni készülő sofőr): címzett-PII és Barion-adatok sem
+  // Kívülálló (pl. licitálni készülő vagy vesztes sofőr): címzett-PII,
+  // Barion-adatok ÉS a fizetési státusz sem jár (BUG-038: a vesztes
+  // licitálók élőben látták a nyertes tranzakció "Fizetésre vár →
+  // FIZETVE" állapotát — semmi közük hozzá).
   const {
     recipient_name, recipient_phone, recipient_email,
-    barion_payment_id, barion_gateway_url, ...publicFields
+    barion_payment_id, barion_gateway_url,
+    paid_at, fee_consent_at, connection_fee_huf, ...publicFields
   } = rest;
   return publicFields;
 }
@@ -133,6 +137,12 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
       pickup_lat == null || pickup_lng == null ||
       dropoff_lat == null || dropoff_lng == null) {
     return res.status(400).json({ error: 'Hiányzó kötelező mezők (cím / koordináták)' });
+  }
+  // Cím: trim után 3–120 karakter (TC-013/107 család: a csupa-szóköz és a
+  // layout-törő végtelen string kiszűrése)
+  const titleClean = typeof title === 'string' ? title.trim() : '';
+  if (titleClean.length < 3 || titleClean.length > 120) {
+    return res.status(400).json({ error: 'A fuvar címe 3–120 karakter legyen (nem állhat csak szóközből).' });
   }
 
   // Szolgáltatási terület ellenőrzés: legalább az egyik pontnak (pickup vagy dropoff)
@@ -265,7 +275,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,'bidding',$19,NULL,NULL,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
      RETURNING *`,
     [
-      req.user.sub, title, description || null,
+      req.user.sub, titleClean, description || null,
       pickup_address, pickup_lat, pickup_lng,
       dropoff_address, dropoff_lat, dropoff_lng,
       distanceKm, weightKg, volumeM3,

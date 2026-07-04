@@ -45,6 +45,46 @@ describe('Regisztráció mező-validációk (BUG-011)', () => {
   });
 });
 
+describe('Cím-validációk (TC-013/TC-107)', () => {
+  it('csupa-szóköz és túl hosszú fuvar-cím → 400', async () => {
+    const user = await createUser();
+    const base = {
+      pickup_address: 'Budapest, Teszt u. 1.', pickup_lat: 47.4979, pickup_lng: 19.0402,
+      dropoff_address: 'Szeged, Teszt tér 2.', dropoff_lat: 46.2530, dropoff_lng: 20.1414,
+      weight_kg: 5, length_cm: 40, width_cm: 30, height_cm: 20,
+    };
+    const spaces = await request(app)
+      .post('/jobs')
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ ...base, title: '    ' });
+    expect(spaces.status).toBe(400);
+
+    const tooLong = await request(app)
+      .post('/jobs')
+      .set('Authorization', `Bearer ${user.token}`)
+      .send({ ...base, title: 'x'.repeat(500) });
+    expect(tooLong.status).toBe(400);
+  });
+
+  it('csupa-szóköz útvonalnév → 400', async () => {
+    const carrier = await createUser({ role: 'carrier' });
+    const res = await request(app)
+      .post('/carrier-routes')
+      .set('Authorization', `Bearer ${carrier.token}`)
+      .send({
+        title: '   ',
+        departure_at: new Date(Date.now() + 86400000).toISOString(),
+        waypoints: [
+          { name: 'Budapest', lat: 47.4979, lng: 19.0402, order: 0 },
+          { name: 'Szeged', lat: 46.253, lng: 20.1414, order: 1 },
+        ],
+        prices: [{ size: 'M', price_huf: 10000 }],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/útvonal neve/i);
+  });
+});
+
 describe('Profil-szerkesztés mező-validációk (BUG-011)', () => {
   it('csupa szóköz név és szemét rendszám → 400; érvényes értékek trimmelve mentődnek', async () => {
     const user = await createUser();

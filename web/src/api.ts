@@ -904,7 +904,9 @@ export const api = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.error || 'KYC dokumentum feltöltés sikertelen');
+      // BUG-019: a duplikátum-409 az okot ai_reason-ben küldi, error mező
+      // nélkül — enélkül a user csak generikus "sikertelen"-t látott
+      throw new Error(err.error || err.ai_reason || 'KYC dokumentum feltöltés sikertelen');
     }
     return res.json() as Promise<{
       ok: boolean;

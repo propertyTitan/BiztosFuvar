@@ -167,6 +167,7 @@ function BejelentkezesContent() {
               type="text"
               autoComplete="name"
               value={fullName}
+              maxLength={100}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Pl. Kovács Péter"
               required

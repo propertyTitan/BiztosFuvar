@@ -75,7 +75,9 @@ export default function ProfilOldal() {
         vehicle_plate: vehiclePlate.trim(),
         bio: bio.trim(),
       });
-      setProfile(updated);
+      // BUG-009: merge — a PATCH-válasz nem a teljes profil, sima
+      // cserénél a KYC-jelvények "nincs feltöltve"-re estek vissza F5-ig
+      setProfile((prev: any) => ({ ...prev, ...updated }));
       setEditing(false);
       // A fejléc (és minden useCurrentUser-fogyasztó) is az új nevet lássa
       // F5 nélkül (stale UI fix)
@@ -124,7 +126,7 @@ export default function ProfilOldal() {
       if (!res.ok) throw new Error('Feltöltés sikertelen');
       const { url } = await res.json();
       const updated = await api.updateMyProfile({ avatar_url: url });
-      setProfile(updated);
+      setProfile((prev: any) => ({ ...prev, ...updated }));
       toast.success('Profilkép mentve!');
     } catch (err: any) {
       toast.error('Hiba', err.message);
@@ -342,6 +344,7 @@ export default function ProfilOldal() {
                 <input
                   className="input"
                   value={fullName}
+              maxLength={100}
                   onChange={(e) => setFullName(e.target.value)}
                 />
               </div>

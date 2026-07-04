@@ -36,6 +36,9 @@ function HubContent() {
         role="tablist"
         style={{
           display: 'flex', gap: 4, marginBottom: 20, overflowX: 'auto',
+          // BUG-040: a görgetés maradjon (kis kijelzőn kell), de a
+          // scrollbar ne látsszon
+          scrollbarWidth: 'none',
           borderBottom: '1px solid var(--border)', paddingBottom: 0,
         }}
       >
