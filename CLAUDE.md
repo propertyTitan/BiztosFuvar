@@ -258,24 +258,35 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **74 teszt fut CI-ben minden
-   PR-en és main-pushon** (~2,5 perc összesen):
-   - **27 web unit** (Vitest, `web-tests.yml`)
-   - **37 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+8. Vercel + Railway automatikusan deployol; **85 teszt fut CI-ben minden
+   PR-en és main-pushon** (~3 perc összesen):
+   - **28 web unit** (Vitest, `web-tests.yml`) — benne a
+     **link-integritás osztály-teszt**: minden statikus belső href-hez
+     léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
+   - **44 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
      licit-láthatóság, admin-eszkaláció tiltás, kapcsolatfelvételi díjsávok
-     (ÁSZF 4.1), foglalás-lezárás (BUG-041: booking pickup/dropoff + kód),
-     mező-validációk (BUG-011: szóköz-jelszó/név, telefon, rendszám)
-   - **10 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+     (ÁSZF 4.1), foglalás-lezárás (BUG-041), mező-validációk (BUG-011),
+     plusz két OSZTÁLY-teszt:
+     - **gonosz-input suite**: a fő írási végpontok rossz inputra (szóköz,
+       óriás string, rossz típus, negatív/óriás szám) SOHA nem adhatnak
+       500-at
+     - **scrub-ALLOWLIST**: kívülálló pontosan a felsorolt publikus
+       job-mezőket kaphatja — új DB-oszlop = a teszt elhasal, tudatos
+       döntés kell (a paid_at-szivárgás osztálya ellen)
+   - **13 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"
      guard → díj-fizetés consent-checkboxszal → kontakt-felfedés → pickup →
      kód-lezárás); vita; ellenajánlat-alku; Hozasd el (mockolt link-preview +
      termékkép a sofőrnél); admin KYC jóváhagyás; feladói lemondás (díj nem
-     jár vissza) + sofőr-csere (díjmentes újraválasztás)
+     jár vissza) + sofőr-csere (díjmentes újraválasztás); **stale-state
+     osztály** (user-váltás reload nélkül: banner/harang-badge — BUG-015/030
+     osztálya); **foglalás-végrehajtás UI** (sofőr pickup+kód → feladó
+     Kézbesítve — BUG-041 osztálya)
    Lokálisan: `cd web && npm test` / `npm run test:e2e` ill.
    `cd backend && npm test` (a teszt-Postgresek az 54331/54332-es porton
    futnak — a prod Neont teszt SOHA nem éri el).
