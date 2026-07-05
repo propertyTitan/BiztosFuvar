@@ -74,7 +74,7 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
  Neon (Postgres)    Cloudflare R2        Külső:
  (eu-central-1)     (privát bucket)       Barion (fizetés, STUB)
                                           SeeMe.hu (SMS, STUB)
-                                          Resend (email, STUB)
+                                          Resend (email, ✅ ÉLES)
                                           Sentry (hibafigyelés, STUB)
                                           Google Gemini AI
                                           Google Maps Platform
@@ -153,7 +153,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - Backend Railway-en, always-on
 - DB migrációk
 - ÁSZF + GDPR Tiszta Hód adatokkal + EU-kiegészítés
-- Email verifikáció + password reset (kód, STUB)
+- Email verifikáció + password reset (✅ ÉLES a Resenddel, 2026-07-05)
+- **Resend email ÉLES (2026-07-05)** — gofuvar.hu domain verifikálva a
+  Resendben (DKIM + SPF a `send` aldomainen + DMARC, DNS a Rackhost/dns24
+  panelben), `RESEND_API_KEY` + `EMAIL_FROM=GoFuvar <noreply@gofuvar.hu>`
+  a Railway env-ben; élesben tesztelve (verify + jelszó-reset email
+  kézbesítve gmail-re). ⚠️ TANULSÁG: az `EMAIL_FROM` nélkül a kód a
+  `onboarding@resend.dev` fallbackra esik, amit a Resend 403-mal dob el —
+  a Railway-logban látszik. PR #56: elavult "Letét" szlogen + nem létező
+  "GoFuvar Kft." cégnév javítva (email-fejléc + web-lábléc)
 - Sentry SDK (DSN-re vár)
 - Cookie consent, EmailVerifyBanner, DisputeButton, ReviewBox, ChatBox
 - KYC AI (Gemini)
@@ -242,7 +250,13 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   webshop-szerződés elég (napok, nem hetek). A Bridge-kérelem futhat tovább a
   háttérben a későbbi "Védett fizetés" opcióhoz
 - **D-U-N-S szám** — Apple-enrollment-flow indítása apukán át (Apple Developer fiók)
-- **Resend.com** — fiók + DNS verify + API key Railway env-be
+- **Bejövő email (info@ / panasz@)** — ⚠️ a gofuvar.hu-nak NINCS MX
+  rekordja, az ÁSZF-ben/láblécben szereplő címek NEM fogadnak levelet!
+  Terv (ingyenes, user OK-zta): sima gmail postaláda (pl.
+  gofuvar.info@gmail.com) + ImprovMX-átirányítás (MX mx1/mx2.improvmx.com
+  a fő domainre + SPF TXT a Rackhost-panelben); válaszküldés a Gmail
+  "Send mail as"-szel a Resend SMTP-n (smtp.resend.com, user: resend,
+  jelszó: az API-kulcs). Fizetős postafiók (4.500 Ft/hó) NEM kell
 - **SeeMe.hu** — API kulcs Railway env-be
 - **Sentry.io** — DSN Railway + Vercel env-be
 - **Számlázz.hu / Billingo** — előfizetés + API kulcs (nem launch-blokker)
