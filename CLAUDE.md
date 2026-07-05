@@ -203,6 +203,23 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   kápé-flow (licit + foglalás + reopen + consent + kontakt-kapuzás) a prod
   API-n, jelölt tesztadatokkal, auto-takarítással. Deploy után:
   `cd backend && node scripts/eles-fustteszt.js`
+- **Ajánlói program ÉLES (2026-07-05, PR #58)** — egyoldalú referral: aki a
+  linkjén (`?ref=KÓD`) hoz egy usert, ÉS az teljesíti az első fuvarját
+  (feladóként az első díj kifizetése, VAGY sofőrként a fuvar lezárása), az
+  ajánló ingyen-feladás kupont kap (kapcsolatfelvételi díj elengedve a 2490
+  Ft-os plafonig). Védelem: meghívott KYC='verified', userenként egyszer
+  (atomi guard), havi 5 plafon ajánlónként. 046 migráció (users.referral_code
+  UNIQUE + referred_by + referral_reward_granted_at; fee_vouchers.max_fee_huf),
+  services/referral.js, GET /auth/referral, ReferralCard a profilon. A kupon a
+  /pay-en Barion nélkül vált be (paid_via_voucher, 0 Ft). Végrehajtva: prod
+  migráció + éles füstteszt zöld (`backend/scripts/referral-eles-fustteszt.js`).
+  ⚠️ TANULSÁG: a félkész gamification voucher-rendszert (fee_vouchers) ez
+  tette végre BEVÁLTHATÓVÁ (a useVoucherIfAvailable eddig sehol nem futott)
+- **Sofőri (szint-alapú) kupon KIKAPCSOLVA (2026-07-05, PR #58)** — a sofőr
+  100% kápét kap, sosem fizet kapcsolatfelvételi díjat, így egy díj-elengedő
+  kupon neki haszontalan. A `recalcLevel` level_up_bonus + `grantMonthlyVouchers`
+  kivéve (dormant, LEVELS[].monthlyVouchers config marad). Kupont mostantól
+  CSAK az ajánlói program oszt, mindig a feladó oldalán
 - **Tesztelői hibajavítások (2026-07-04, PR #52-53)** — BUG-041: a fix
   áras foglalás lezárható (booking pickup/dropoff + kód, 045-ös migráció,
   CarrierTripPanel entity='booking', ReviewBox a foglalásokra); süti-banner
