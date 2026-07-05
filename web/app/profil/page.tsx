@@ -295,13 +295,8 @@ export default function ProfilOldal() {
                 status={profile.driver_kyc_status}
                 docType="drivers_license"
               />
-              {profile.account_type === 'company' && (
-                <KycStatusRow
-                  label="Céges verifikáció"
-                  status={profile.company_verification_status}
-                  docType="company_document"
-                />
-              )}
+              {/* Céges verifikáció kikapcsolva (2026-07-05): a céges fiók
+                  dokumentum-feltöltés nélkül működik, csak adószám + cégnév. */}
             </div>
           </div>
 
