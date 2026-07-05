@@ -82,9 +82,13 @@ export default function FuvarReszletek() {
     setPaying(true);
     try {
       const r = await api.payJob(id, feeConsent);
-      if (r.is_stub) {
+      if (r.paid_via_voucher) {
+        // Ingyen feladás kupon fedezte a díjat — nincs Barion-fizetés.
+        toast.success('Ingyen feladás! 🎉', 'A kuponod fedezte a kapcsolatfelvételi díjat — a kapcsolat megnyílt.');
+        router.refresh();
+      } else if (r.is_stub) {
         router.push(`/fizetes-stub?job=${id}`);
-      } else {
+      } else if (r.gateway_url) {
         window.location.href = r.gateway_url;
       }
     } catch (e: any) {

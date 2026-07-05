@@ -15,6 +15,8 @@ const { sendJobPaidEmail, sendCancellationEmail, sendFeeConfirmationEmail } = re
 const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
 const { findBackhaulCandidates } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
+const { useVoucherIfAvailable } = require('../services/gamification');
+const { maybeGrantReferralReward } = require('../services/referral');
 
 const router = express.Router();
 
@@ -626,6 +628,34 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
     });
   }
 
+  // ── INGYEN FELADÁS: kupon beváltása (ajánlói program / szint-kupon) ──
+  // Ha a feladónak van felhasználható kupon, és a díj a kupon plafonja
+  // alatt van, a Barion-fizetést KIHAGYJUK: a kupon a teljes díjat
+  // elengedi, a kontakt felfedődik, mintha fizetett volna (paid_at).
+  const voucherUsed = await useVoucherIfAvailable(req.user.sub, { jobId: j.id, feeHuf });
+  if (voucherUsed) {
+    // Ingyen feladás: nincs pénzmozgás, ezért NEM keletkezik escrow-sor
+    // (az amount_huf > 0 CHECK amúgy sem engedne 0 Ft-os díj-sort). A
+    // kontakt-felfedés a paid_at-en múlik, a díj pedig 0.
+    const { rows: upd } = await db.query(
+      `UPDATE jobs SET connection_fee_huf = 0, paid_at = NOW()
+        WHERE id = $1 AND paid_at IS NULL RETURNING paid_at`,
+      [j.id],
+    );
+    if (upd[0] && j.carrier_id) {
+      createNotification({
+        user_id: j.carrier_id,
+        type: 'job_paid',
+        title: '🤝 A feladó megnyitotta a kapcsolatot',
+        body: 'A feladó rendezte a kapcsolatfelvételi díjat — mostantól látjátok egymás elérhetőségét.',
+        link: `/sofor/fuvar/${j.id}`,
+      }).catch(() => {});
+    }
+    // A meghívott→ajánló jutalom-trigger (a feladó teljesítette az első díját).
+    maybeGrantReferralReward(j.shipper_id, { role: 'shipper', jobId: j.id }).catch(() => {});
+    return res.json({ ok: true, paid_via_voucher: true, fee_huf: 0, gateway_url: null });
+  }
+
   let barionRes;
   try {
     barionRes = await barion.startFeePayment({
@@ -725,6 +755,10 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
     [j.id],
   );
   const paidAt = upd[0].paid_at;
+
+  // Ajánlói jutalom-trigger: a feladó most fizette az első kapcsolatfelvételi
+  // díját → ha ő egy meghívott, az ajánlója kap egy ingyen-feladás kupont.
+  maybeGrantReferralReward(j.shipper_id, { role: 'shipper', jobId: j.id }).catch(() => {});
 
   // A díj beérkezett és a szolgáltatás (kontakt-átadás) azonnal teljesül —
   // a könyvelési sor végleges ('released'), visszatérítés nincs.

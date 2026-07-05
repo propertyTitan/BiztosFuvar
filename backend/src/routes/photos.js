@@ -16,6 +16,7 @@ const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { sendEmail } = require('../services/email');
 const { saveFile } = require('../services/storage');
+const { maybeGrantReferralReward } = require('../services/referral');
 const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
@@ -202,6 +203,10 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     // kapcsolatfelvételi díj könyvelése már a fizetéskor lezárult
     // ('released'), így itt csak a státusz-átmenet + értesítések maradnak.
     realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation });
+
+    // Ajánlói jutalom-trigger: a sofőr most zárta le a fuvarját → ha ő egy
+    // meghívott, és ez az első teljesített fuvarja, az ajánlója kupont kap.
+    maybeGrantReferralReward(job.carrier_id, { role: 'carrier', jobId }).catch(() => {});
 
     // Értesítés a FELADÓNAK: a csomagod megérkezett!
     try {

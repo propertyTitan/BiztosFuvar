@@ -8,6 +8,7 @@ const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit, writeRateLimit } = require('../middleware/rateLimit');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
+const { getOrCreateReferralCode, resolveReferrerId } = require('../services/referral');
 const { saveFile } = require('../services/storage');
 const {
   sendEmailVerificationEmail,
@@ -118,7 +119,7 @@ router.post('/register', registerRateLimit, async (req, res) => {
   const {
     email, password, full_name, phone, vehicle_type, vehicle_plate,
     account_type: rawAccountType, company_name, tax_id, company_reg_number,
-    eu_vat_number, billing_address,
+    eu_vat_number, billing_address, ref,
   } = req.body || {};
   // A role mező már opcionális — minden user lehet egyszerre feladó és sofőr is.
   // A DB-ben még tároljuk a legacy role mezőt, de a logika nem használja.
@@ -178,17 +179,26 @@ router.post('/register', registerRateLimit, async (req, res) => {
     const verifyToken = generateAuthToken();
     const verifyHash = hashAuthToken(verifyToken);
 
+    // Ajánlói attribúció: ha ?ref=KÓD-dal jött, megkeressük az ajánlót.
+    // (Az önmagára-ajánlás itt nem lehetséges — új user, még nincs id-ja.)
+    const referrerId = ref ? await resolveReferrerId(ref) : null;
+
     const { rows } = await db.query(
       `INSERT INTO users (role, email, password_hash, full_name, phone, vehicle_type, vehicle_plate,
                           account_type, company_name, tax_id, company_reg_number, eu_vat_number, billing_address,
+                          referred_by,
                           email_verification_token_hash, email_verification_sent_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
        RETURNING id, role, email, full_name, account_type, email_verified`,
       [role, normEmail, hashPassword(password), cleanName, cleanedPhone || null, vehicle_type || null, cleanedPlate || null,
        accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null,
+       referrerId,
        verifyHash],
     );
     const user = rows[0];
+
+    // Saját ajánlói kód generálása (a válasz előtt, hogy azonnal megosztható).
+    await getOrCreateReferralCode(user.id).catch((e) => console.warn('[referral] kód-gen hiba:', e.message));
 
     // Email küldés — best-effort, soha nem akasztjuk meg vele a registert
     sendEmailVerificationEmail({
@@ -590,6 +600,38 @@ router.get('/me/driver-dashboard', authRequired, async (req, res) => {
     ratingAvg: game.rating_avg || 0,
     ratingCount: game.rating_count || 0,
     isVerified: game.is_verified_carrier || false,
+  });
+});
+
+// GET /auth/referral — az ajánlói programom: kód, link, eddigi sikeres
+// ajánlások száma, és hány felhasználható ingyen-feladás kupon vár.
+router.get('/referral', authRequired, async (req, res) => {
+  const uid = req.user.sub;
+  const code = await getOrCreateReferralCode(uid);
+  const [{ rows: referredRows }, { rows: voucherRows }] = await Promise.all([
+    // Sikeres ajánlások: akiket behoztam ÉS már teljesítettek (jutalmaztak).
+    db.query(
+      `SELECT
+         COUNT(*)::int AS total_referred,
+         COUNT(*) FILTER (WHERE referral_reward_granted_at IS NOT NULL)::int AS completed_referred
+       FROM users WHERE referred_by = $1`,
+      [uid],
+    ),
+    // Felhasználható ajánlói (és egyéb) ingyen-kuponok száma.
+    db.query(
+      `SELECT COUNT(*)::int AS c FROM fee_vouchers
+        WHERE user_id = $1 AND used_at IS NULL
+          AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE`,
+      [uid],
+    ),
+  ]);
+  const base = process.env.WEB_BASE_URL || 'https://gofuvar.hu';
+  res.json({
+    code,
+    link: code ? `${base}/bejelentkezes?mode=register&ref=${code}` : null,
+    totalReferred: referredRows[0]?.total_referred || 0,
+    completedReferred: referredRows[0]?.completed_referred || 0,
+    availableVouchers: voucherRows[0]?.c || 0,
   });
 });
 

@@ -11,6 +11,7 @@ import { useCurrentUser, setCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
+import ReferralCard from '@/components/ReferralCard';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -299,6 +300,8 @@ export default function ProfilOldal() {
                   dokumentum-feltöltés nélkül működik, csak adószám + cégnév. */}
             </div>
           </div>
+
+          <ReferralCard />
 
           <button
             className="btn"

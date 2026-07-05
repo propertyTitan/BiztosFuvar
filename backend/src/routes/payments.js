@@ -16,6 +16,7 @@ const { generatePlatformFeeInvoice } = require('../services/invoicing');
 const barion = require('../services/barion');
 const realtime = require('../realtime');
 const { getJobParty } = require('../utils/jobAccess');
+const { maybeGrantReferralReward } = require('../services/referral');
 
 const router = express.Router();
 
@@ -165,6 +166,13 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
         [d.id],
       );
     }
+
+    // Ajánlói jutalom-trigger: a feladó kifizette az első kapcsolatfelvételi
+    // díját (éles webhook-út) → ha meghívott, az ajánlója kupont kap.
+    maybeGrantReferralReward(d.shipper_id, {
+      role: 'shipper',
+      jobId: entity.type === 'job' ? d.job_id : null,
+    }).catch(() => {});
 
     // 4) Számla-előkészítés a FELADÓNAK (invoice metadata) — STUB is menti
     let invoice = null;

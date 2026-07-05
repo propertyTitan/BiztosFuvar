@@ -21,6 +21,8 @@ function BejelentkezesContent() {
   const searchParams = useSearchParams();
   const initialMode: Mode = searchParams.get('mode') === 'register' ? 'register' : 'login';
   const [mode, setMode] = useState<Mode>(initialMode);
+  // Ajánlói kód a linkből (?ref=…) — a regisztrációhoz kötjük az ajánlóhoz.
+  const refCode = (searchParams.get('ref') || '').trim();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -65,6 +67,7 @@ function BejelentkezesContent() {
               full_name: fullName,
               phone,
               account_type: accountType,
+              ...(refCode ? { ref: refCode } : {}),
               ...(accountType === 'company' ? {
                 company_name: companyName,
                 tax_id: taxId,
@@ -158,6 +161,15 @@ function BejelentkezesContent() {
       </p>
 
       <form onSubmit={onSubmit} className="card">
+        {mode === 'register' && refCode && (
+          <div style={{
+            background: 'var(--success-bg, #f0fdf4)', border: '1px solid #16a34a',
+            borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 14,
+          }}>
+            🎉 Meghívóval regisztrálsz! Miután teljesíted az első fuvarodat,
+            az ismerősöd egy ingyen feladást kap.
+          </div>
+        )}
         {mode === 'register' && (
           <>
             <label htmlFor="reg-name">Teljes név</label>
