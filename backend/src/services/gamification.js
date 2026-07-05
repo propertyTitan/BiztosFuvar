@@ -1,10 +1,11 @@
-// GoFuvar Gamifikáció — szintrendszer, jelvények, jutalékmentes voucher-ek.
+// GoFuvar Gamifikáció — szintrendszer, jelvények.
 //
-// Jutalékmentes fuvar szabály:
-//   Level 5+ → havi 1 ingyenes fuvar
-//   Level 7+ → havi 2 ingyenes fuvar
-//   Level 9-10 → havi 3 ingyenes fuvar
-//   + minden szintlépéskor 1 ajándék voucher
+// A SOFŐRI jutalékmentes kupon (szintlépéskor + havi) EGYELŐRE KIKAPCSOLVA
+// (2026-07-05): a sofőr 100% készpénzt kap, sosem fizet kapcsolatfelvételi
+// díjat, így egy díj-elengedő kupon számára használhatatlan. A LEVELS[]
+// .monthlyVouchers config megmarad (dormant), a szint/jelvény rész él.
+// Kupont mostantól csak az ajánlói program oszt (services/referral.js), és
+// az a FELADÓ oldalon (kapcsolatfelvételi díjnál) váltható be.
 
 const db = require('../db');
 const { createNotification } = require('./notifications');
@@ -88,14 +89,14 @@ async function recalcLevel(userId) {
   // Ha szintet lépett: ajándék voucher + értesítés
   if (leveledUp) {
     const lvlDef = LEVELS.find((l) => l.level === newLevel);
-    // 1 ajándék jutalékmentes fuvar a szintlépésért
-    await grantVoucher(userId, 'level_up_bonus', 30);
-
+    // Sofőri jutalékmentes kupon EGYELŐRE KIKAPCSOLVA (2026-07-05): a sofőr
+    // 100% készpénzt kap, sosem fizet kapcsolatfelvételi díjat, így egy
+    // díj-elengedő kupon számára használhatatlan. Csak szint + értesítés marad.
     await createNotification({
       user_id: userId,
       type: 'level_up',
       title: `${lvlDef?.icon || '🎉'} Szintet léptél: ${newLevelName}!`,
-      body: `Elérted a ${newLevel}. szintet! Ajándékba kapsz 1 jutalékmentes fuvart. ${lvlDef?.monthlyVouchers ? `Mostantól havonta ${lvlDef.monthlyVouchers} jutalékmentes fuvart kapsz.` : ''}`,
+      body: `Elérted a(z) ${newLevel}. szintet: ${newLevelName}. Gratulálunk, csak így tovább!`,
       link: '/profil',
     }).catch(() => {});
   }
@@ -158,20 +159,12 @@ async function grantVoucher(userId, reason, validDays = 30, maxFeeHuf = null) {
  * Ez minden hónap 1-jén fut (cron job vagy manuális trigger).
  */
 async function grantMonthlyVouchers() {
-  const { rows: users } = await db.query(
-    `SELECT id, level FROM users WHERE level >= 5`,
-  );
-  let granted = 0;
-  for (const u of users) {
-    const lvlDef = LEVELS.find((l) => l.level === u.level);
-    const count = lvlDef?.monthlyVouchers || 0;
-    for (let i = 0; i < count; i++) {
-      await grantVoucher(u.id, 'level_monthly', 31);
-      granted++;
-    }
-  }
-  console.log(`[gamification] Havi voucher-ek: ${granted} db generálva ${users.length} sofőrnek`);
-  return granted;
+  // Sofőri havi jutalékmentes kupon EGYELŐRE KIKAPCSOLVA (2026-07-05): a
+  // sofőr 100% készpénzt kap, sosem fizet kapcsolatfelvételi díjat, így a
+  // díj-elengedő kupon számára haszontalan. Visszakapcsoláshoz a korábbi,
+  // LEVELS[].monthlyVouchers alapján osztó ciklus állítható vissza.
+  console.log('[gamification] Havi sofőri voucher-ek kikapcsolva — 0 db.');
+  return 0;
 }
 
 /**
