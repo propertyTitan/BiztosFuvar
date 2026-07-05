@@ -172,6 +172,20 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   nyilatkozat szó szerinti szövegével); a consent a fizetés INDÍTÁSAKOR
   rögzül (élesben a Barion-oldalon nem nyilatkoztathatnánk), a
   confirm-payment élesben tiltott (webhook a hiteles forrás)
+- **Tesztelői hibák 2. köre (2026-07-04, PR #54)** — 12 közepes/alacsony
+  javítás, köztük: BUG-038 adatexpozíció (kívülálló látta a paid_at-ot —
+  scrub bővítve), BUG-028 (elindult útvonal 12 óráig kereshető volt → 1 óra),
+  BUG-009 (PATCH /me RETURNING + profil-merge), BUG-037 (alku utáni ár a
+  sofőrnél), fejléc mód-chip (BUG-034 részleges), cím/útvonalnév-validációk
+- **Tesztbővítés: 5 osztály-teszt (2026-07-05, PR #55)** — gonosz-input
+  suite (írási végpontok sose 500-aznak), scrub-ALLOWLIST (új job-oszlop =
+  tudatos döntés), link-integritás (halott belső href = piros build),
+  stale-state E2E (user-váltás reload nélkül), foglalás-végrehajtás E2E.
+  Elv: a tesztelő találjon ÚJ hibaosztályt, az automata őrizze az ismertet
+- **Éles füstteszt-szkript**: `backend/scripts/eles-fustteszt.js` — a teljes
+  kápé-flow (licit + foglalás + reopen + consent + kontakt-kapuzás) a prod
+  API-n, jelölt tesztadatokkal, auto-takarítással. Deploy után:
+  `cd backend && node scripts/eles-fustteszt.js`
 - **Tesztelői hibajavítások (2026-07-04, PR #52-53)** — BUG-041: a fix
   áras foglalás lezárható (booking pickup/dropoff + kód, 045-ös migráció,
   CarrierTripPanel entity='booking', ReviewBox a foglalásokra); süti-banner
@@ -232,6 +246,11 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - **SeeMe.hu** — API kulcs Railway env-be
 - **Sentry.io** — DSN Railway + Vercel env-be
 - **Számlázz.hu / Billingo** — előfizetés + API kulcs (nem launch-blokker)
+- **Tesztelői visszakérdezések** (a 2. körből elhalasztva): BUG-005 — hol
+  látott fejléc-avatart (a fejlécben monogram van); BUG-033 — melyik 4
+  különböző feliratú menüpont visz ugyanoda. Termék-/design-döntést vár:
+  BUG-019 forgatás-kerülés (OCR-alapú duplikátum-szűrés korlátja),
+  BUG-034 teljes mód-alapú navigáció (IA-redesign)
 
 ### 🟠 Phase 6 (későbbre)
 - Privát R2 file storage + audit log (progressive_kyc-vel kompatibilisre — már van branch, csak nem mergelve)
