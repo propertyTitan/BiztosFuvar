@@ -137,6 +137,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 | Coverage | **Európa-szintű** (lat 34-71, lng -10..32) — magyar fő piac, EU mellesleg |
 | Csomag tilalom | NINCS hardcoded lista — a Feladó felelős hogy ellenőrizze a sofőr engedélyét speciális áruhoz (élő állat, gyógyszer, stb.) |
 | Sofőri biztosítás | KGFB nyilatkozaton (kötelező magyar jog szerint); Casco/CMR NEM kötelező és NEM ellenőrizzük |
+| Céges fiók (KYB) | **Adószám + cégnév KÖTELEZŐ (formátum-ellenőrzéssel), de NINCS dokumentum/fotó/admin-jóváhagyás (2026-07-05, PR #57)** — a régi company_verification kapu kivéve, a plumbing dormant. A természetes személyt az identity KYC védi. Jövőbeli olcsó win: NAV adószám-lekérdezés + "Ellenőrzött cég" jelvény (Option B), majd reputációs "Kiemelt fuvarozó" (uShip/Shiply-modell). Céges perszónák: költöztető cég, bútorbolt, fuvarozó |
 | KYC retention | 5 év a fiók-törlés után (ÁSZF), de a fotó 30 nap után törlődik (privacy-by-default — még nem aktív, Phase 6) |
 | GPS retention | 7 nap nyers, utána anonimizálva |
 | Chat retention | 6 hónap a fuvar lezárása után |
@@ -279,6 +280,12 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - Custom domain név pointing API-ra (api.gofuvar.hu = Railway)
 - Cégkivonat-igénylés Apple-D-U-N-S-hez
 - Magyar ügyvéd-review az AI-által írt EU-kiegészítésekre
+- **Team / multi-user céges regisztráció** (user erősen fontolgatja,
+  2026-07-05) — egy céges fiók alá több sofőr/felhasználó (pl. költöztető
+  cég 5 kocsival, bútorbolt több ügyintézővel). Al-fiók/jogosultság-kezelés,
+  nagyobb feature — a launchhoz 1 login/cég elég. Ha ide kerül: nézd meg a
+  céges strategy-döntést (5. szakasz) és a company_verification dormant
+  plumbingot (PR #57)
 
 ---
 
