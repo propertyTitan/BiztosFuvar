@@ -162,6 +162,12 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   `onboarding@resend.dev` fallbackra esik, amit a Resend 403-mal dob el —
   a Railway-logban látszik. PR #56: elavult "Letét" szlogen + nem létező
   "GoFuvar Kft." cégnév javítva (email-fejléc + web-lábléc)
+- **Bejövő email ÉLES (2026-07-05)** — info@ / panasz@ (és catch-all
+  miatt MINDEN @gofuvar.hu cím, a user jovany@gofuvar.hu fiók-emailje is)
+  az ImprovMX-en át a user gmailjébe fut (MX mx1/mx2.improvmx.com + SPF
+  a fő domainen, ingyenes csomag); end-to-end tesztelve (Resend →
+  info@ → gmail kézbesítve). Fizetős postafiók NEM kell — a válaszküldés
+  a Gmail "Küldés másként"-jével megy a Resend SMTP-n
 - Sentry SDK (DSN-re vár)
 - Cookie consent, EmailVerifyBanner, DisputeButton, ReviewBox, ChatBox
 - KYC AI (Gemini)
@@ -250,13 +256,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   webshop-szerződés elég (napok, nem hetek). A Bridge-kérelem futhat tovább a
   háttérben a későbbi "Védett fizetés" opcióhoz
 - **D-U-N-S szám** — Apple-enrollment-flow indítása apukán át (Apple Developer fiók)
-- **Bejövő email (info@ / panasz@)** — ⚠️ a gofuvar.hu-nak NINCS MX
-  rekordja, az ÁSZF-ben/láblécben szereplő címek NEM fogadnak levelet!
-  Terv (ingyenes, user OK-zta): sima gmail postaláda (pl.
-  gofuvar.info@gmail.com) + ImprovMX-átirányítás (MX mx1/mx2.improvmx.com
-  a fő domainre + SPF TXT a Rackhost-panelben); válaszküldés a Gmail
-  "Send mail as"-szel a Resend SMTP-n (smtp.resend.com, user: resend,
-  jelszó: az API-kulcs). Fizetős postafiók (4.500 Ft/hó) NEM kell
+- **Gmail "Küldés másként" megerősítése** — a user állítja be, hogy a
+  gmailből info@gofuvar.hu néven válaszolhasson (SMTP: smtp.resend.com,
+  port 465, user: resend, jelszó: a Resend API-kulcs + "válasz ugyanarról
+  a címről" pipa). A bejövő irány már ÉLES (lásd ✅ lista)
 - **SeeMe.hu** — API kulcs Railway env-be
 - **Sentry.io** — DSN Railway + Vercel env-be
 - **Számlázz.hu / Billingo** — előfizetés + API kulcs (nem launch-blokker)
