@@ -144,12 +144,12 @@ async function recalcLevel(userId) {
  * @param {string} reason - 'level_monthly' | 'level_up_bonus' | 'promo'
  * @param {number} validDays - hány napig érvényes
  */
-async function grantVoucher(userId, reason, validDays = 30) {
+async function grantVoucher(userId, reason, validDays = 30, maxFeeHuf = null) {
   const validUntil = new Date(Date.now() + validDays * 86400000).toISOString().slice(0, 10);
   await db.query(
-    `INSERT INTO fee_vouchers (user_id, reason, valid_until)
-     VALUES ($1, $2, $3)`,
-    [userId, reason, validUntil],
+    `INSERT INTO fee_vouchers (user_id, reason, valid_until, max_fee_huf)
+     VALUES ($1, $2, $3, $4)`,
+    [userId, reason, validUntil, maxFeeHuf],
   );
 }
 
@@ -178,16 +178,20 @@ async function grantMonthlyVouchers() {
  * Ellenőrzi, hogy a sofőrnek van-e felhasználható voucher-je.
  * Ha igen, felhasználja (used_at = NOW) és true-t ad vissza.
  */
-async function useVoucherIfAvailable(userId, jobId, bookingId) {
+async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, feeHuf = null } = {}) {
+  // A legkorábban lejáró, még érvényes és a díj-plafonnak megfelelő kupont
+  // használjuk fel. A max_fee_huf plafon (ajánlói kuponoknál) kizárja a
+  // magas díjú feladásokat; NULL plafon = bármekkora díjra jó (szint-kupon).
   const { rows } = await db.query(
     `SELECT id FROM fee_vouchers
       WHERE user_id = $1
         AND used_at IS NULL
         AND valid_from <= CURRENT_DATE
         AND valid_until >= CURRENT_DATE
+        AND (max_fee_huf IS NULL OR $2::int IS NULL OR max_fee_huf >= $2::int)
       ORDER BY valid_until ASC
       LIMIT 1`,
-    [userId],
+    [userId, feeHuf],
   );
   if (!rows[0]) return false;
   await db.query(

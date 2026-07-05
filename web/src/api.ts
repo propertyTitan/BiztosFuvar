@@ -300,6 +300,8 @@ export const api = {
     account_type?: 'individual' | 'company';
     company_name?: string; tax_id?: string; company_reg_number?: string;
     eu_vat_number?: string; billing_address?: string;
+    /** Ajánlói kód a ?ref=… linkből (opcionális). */
+    ref?: string;
   }) =>
     request<{ token: string; user: { id: string; role: string; email: string; full_name: string } }>(
       '/auth/register',
@@ -638,12 +640,24 @@ export const api = {
       { method: 'POST' },
     ),
 
-  /** Licites fuvar díj-fizetés indítása — consent kötelező (elállási nyilatkozat a redirect előtt). */
+  /** Licites fuvar díj-fizetés indítása — consent kötelező (elállási nyilatkozat a redirect előtt).
+   *  Ha a feladónak van ingyen-feladás kuponja (ajánlói program), a válasz
+   *  `paid_via_voucher: true` + `gateway_url: null` — ilyenkor nincs Barion-redirect. */
   payJob: (id: string, consent: boolean) =>
-    request<{ payment_id: string; gateway_url: string; fee_huf: number; is_stub: boolean; reused: boolean }>(
+    request<{
+      payment_id?: string; gateway_url: string | null; fee_huf: number;
+      is_stub?: boolean; reused?: boolean; paid_via_voucher?: boolean; ok?: boolean;
+    }>(
       `/jobs/${id}/pay`,
       { method: 'POST', body: JSON.stringify({ consent }) },
     ),
+
+  /** Az ajánlói programom: kód, megosztható link, eddigi ajánlások, kuponok. */
+  getReferralInfo: () =>
+    request<{
+      code: string | null; link: string | null;
+      totalReferred: number; completedReferred: number; availableVouchers: number;
+    }>('/auth/referral'),
 
   /** Licites fuvar díj-fizetés nyugtázása — csak STUB módban él. */
   confirmJobPayment: (id: string) =>
