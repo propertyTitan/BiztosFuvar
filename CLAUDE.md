@@ -215,6 +215,14 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   migráció + éles füstteszt zöld (`backend/scripts/referral-eles-fustteszt.js`).
   ⚠️ TANULSÁG: a félkész gamification voucher-rendszert (fee_vouchers) ez
   tette végre BEVÁLTHATÓVÁ (a useVoucherIfAvailable eddig sehol nem futott)
+- **Beírható ajánlói kód (2026-07-05, PR #59)** — a link mellett a KÓD is
+  megosztható: a regisztrációs űrlapon van egy szerkeszthető „Ajánlói kód"
+  mező (a `?ref`-ből előtöltve, kézzel is beírható, nagybetűsít + szóköz-szűr),
+  a ReferralCard pedig a kódot külön, kiemelt, másolható mezőben mutatja. A
+  backend a kódot kis/nagybetűre érzéketlenül oldja fel (`resolveReferrerId`
+  → `UPPER(referral_code)`), ismeretlen kódra a regisztráció sikeres, csak
+  attribúció nélkül. Frontend-only, nincs migráció. Élesben tesztelve (kézzel
+  gépelt, kisbetűs kód is helyesen attribuál)
 - **Sofőri (szint-alapú) kupon KIKAPCSOLVA (2026-07-05, PR #58)** — a sofőr
   100% kápét kap, sosem fizet kapcsolatfelvételi díjat, így egy díj-elengedő
   kupon neki haszontalan. A `recalcLevel` level_up_bonus + `grantMonthlyVouchers`
