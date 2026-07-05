@@ -54,7 +54,7 @@ szerződés kizárólag a Feladó és a Sofőr között jön létre.
   döntés, PR #48: landing badge, chatbot-tudás, tracking-oldal szövege)
 - Privát file storage (R2 + audit log)
 - Email verifikáció + password reset
-- Sentry hibajelzés (kulcsra vár)
+- Sentry hibajelzés (✅ éles: web + backend)
 - Dispute system, Review system, Chat
 - Admin CRUD panel
 - Coverage zones (Európa-szintű, magyar fő piac)
@@ -75,7 +75,7 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
  (eu-central-1)     (privát bucket)       Barion (fizetés, STUB)
                                           SeeMe.hu (SMS, STUB)
                                           Resend (email, ✅ ÉLES)
-                                          Sentry (hibafigyelés, STUB)
+                                          Sentry (hibafigyelés, ✅ ÉLES)
                                           Google Gemini AI
                                           Google Maps Platform
 ```
@@ -168,7 +168,9 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   a fő domainen, ingyenes csomag); end-to-end tesztelve (Resend →
   info@ → gmail kézbesítve). Fizetős postafiók NEM kell — a válaszküldés
   a Gmail "Küldés másként"-jével megy a Resend SMTP-n
-- Sentry SDK (DSN-re vár)
+- Sentry ✅ ÉLES mindkét oldalon (2026-07-05-én ellenőrizve): `SENTRY_DSN`
+  a Railway-en, `NEXT_PUBLIC_SENTRY_DSN` a Vercelen (Production+Preview,
+  ~2026-06 óta) — a CLAUDE.md sokáig tévesen STUB-ként tartotta nyilván
 - Cookie consent, EmailVerifyBanner, DisputeButton, ReviewBox, ChatBox
 - KYC AI (Gemini)
 - 5 SMS flow (kód, STUB)
@@ -261,7 +263,6 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   port 465, user: resend, jelszó: a Resend API-kulcs + "válasz ugyanarról
   a címről" pipa). A bejövő irány már ÉLES (lásd ✅ lista)
 - **SeeMe.hu** — API kulcs Railway env-be
-- **Sentry.io** — DSN Railway + Vercel env-be
 - **Számlázz.hu / Billingo** — előfizetés + API kulcs (nem launch-blokker)
 - **Tesztelői visszakérdezések** (a 2. körből elhalasztva): BUG-005 — hol
   látott fejléc-avatart (a fejlécben monogram van); BUG-033 — melyik 4

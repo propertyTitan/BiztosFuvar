@@ -22,3 +22,5 @@ backend/tests/.pg-data/
 web/e2e/.pg-data/
 web/playwright-report/
 web/test-results/
+.vercel
+.env*
