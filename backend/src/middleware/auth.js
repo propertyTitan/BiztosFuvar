@@ -38,13 +38,10 @@ async function requireIdentityKYC(req, res, next) {
         identity_kyc_status: u.identity_kyc_status,
       });
     }
-    if (u.account_type === 'company' && u.company_verification_status !== 'verified') {
-      return res.status(403).json({
-        error: 'A céges fiókodat még nem ellenőriztük.',
-        code: 'COMPANY_KYC_REQUIRED',
-        company_verification_status: u.company_verification_status,
-      });
-    }
+    // Céges KYB-kapu szándékosan kikapcsolva (2026-07-05): a céges fiók az
+    // adószám + cégnév megadásával működik, nincs dokumentum/fotó-ellenőrzés.
+    // A company_verification_status oszlop + admin-folyamat dormant, később
+    // visszakapcsolható. A természetes személyt az identity KYC továbbra is védi.
     next();
   } catch (err) { next(err); }
 }
@@ -64,13 +61,7 @@ async function requireDriverKYC(req, res, next) {
         identity_kyc_status: u.identity_kyc_status,
       });
     }
-    if (u.account_type === 'company' && u.company_verification_status !== 'verified') {
-      return res.status(403).json({
-        error: 'A céges fiókodat még nem ellenőriztük.',
-        code: 'COMPANY_KYC_REQUIRED',
-        company_verification_status: u.company_verification_status,
-      });
-    }
+    // Céges KYB-kapu szándékosan kikapcsolva (2026-07-05) — lásd requireIdentityKYC.
     if (u.driver_kyc_status !== 'verified') {
       return res.status(403).json({
         error: 'A sofőri tevékenységhez kérjük, igazold a jogosítványod.',
