@@ -21,8 +21,9 @@ function BejelentkezesContent() {
   const searchParams = useSearchParams();
   const initialMode: Mode = searchParams.get('mode') === 'register' ? 'register' : 'login';
   const [mode, setMode] = useState<Mode>(initialMode);
-  // Ajánlói kód a linkből (?ref=…) — a regisztrációhoz kötjük az ajánlóhoz.
-  const refCode = (searchParams.get('ref') || '').trim();
+  // Ajánlói kód: a linkből (?ref=…) előtöltve, de a regisztrációs mezőben
+  // kézzel is beírható/módosítható (akinek csak a kódot adták, nem a linket).
+  const [refCode, setRefCode] = useState((searchParams.get('ref') || '').trim().toUpperCase());
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -193,6 +194,18 @@ function BejelentkezesContent() {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+36 30 123 4567"
+            />
+
+            <label htmlFor="reg-ref">Ajánlói kód (opcionális)</label>
+            <input
+              id="reg-ref"
+              className="input"
+              type="text"
+              value={refCode}
+              maxLength={16}
+              onChange={(e) => setRefCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
+              placeholder="Pl. BXWZ3LM"
+              style={{ letterSpacing: 1, textTransform: 'uppercase' }}
             />
 
             {/* Magánszemély / Cég toggle */}

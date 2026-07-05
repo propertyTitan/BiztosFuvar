@@ -13,20 +13,19 @@ type ReferralInfo = {
 
 export default function ReferralCard() {
   const [info, setInfo] = useState<ReferralInfo | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<'code' | 'link' | null>(null);
 
   useEffect(() => {
     api.getReferralInfo().then(setInfo).catch(() => {});
   }, []);
 
-  if (!info || !info.link) return null;
+  if (!info || !info.link || !info.code) return null;
 
-  async function copy() {
-    if (!info?.link) return;
+  async function copy(what: 'code' | 'link', value: string) {
     try {
-      await navigator.clipboard.writeText(info.link);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(value);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 2000);
     } catch {
       // Ha a clipboard nem elérhető, a user kézzel is kimásolhatja a mezőből.
     }
@@ -36,12 +35,29 @@ export default function ReferralCard() {
     <div className="card" style={{ marginTop: 16 }}>
       <h2 style={{ marginTop: 0 }}>🎁 Hívd meg ismerőseidet</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Oszd meg a linkedet. Ha valaki a linkeddel regisztrál és teljesíti az
-        első fuvarját (feladóként vagy sofőrként), a következő feladásod
-        kapcsolatfelvételi díját <strong>elengedjük</strong>.
+        Oszd meg a kódodat vagy a linkedet. Ha valaki vele regisztrál és
+        teljesíti az első fuvarját (feladóként vagy sofőrként), a következő
+        feladásod kapcsolatfelvételi díját <strong>elengedjük</strong>.
       </p>
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '12px 0' }}>
+      {/* Ajánlói kód — verbális/üzenetben megosztható, kézzel is beírható a
+          regisztrációnál. */}
+      <label style={{ fontSize: 13, fontWeight: 600 }}>Ajánlói kódod</label>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 12px' }}>
+        <input
+          className="input"
+          readOnly
+          value={info.code}
+          onFocus={(e) => e.currentTarget.select()}
+          style={{ flex: '0 0 auto', width: 140, fontSize: 20, fontWeight: 800, letterSpacing: 2, textAlign: 'center' }}
+        />
+        <button type="button" className="btn" onClick={() => copy('code', info.code!)} style={{ whiteSpace: 'nowrap' }}>
+          {copied === 'code' ? '✓ Kimásolva' : 'Kód másolása'}
+        </button>
+      </div>
+
+      <label style={{ fontSize: 13, fontWeight: 600 }}>Vagy oszd meg a linkedet</label>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 12px' }}>
         <input
           className="input"
           readOnly
@@ -49,8 +65,8 @@ export default function ReferralCard() {
           onFocus={(e) => e.currentTarget.select()}
           style={{ flex: 1, minWidth: 220, fontSize: 13 }}
         />
-        <button type="button" className="btn" onClick={copy} style={{ whiteSpace: 'nowrap' }}>
-          {copied ? '✓ Kimásolva' : 'Link másolása'}
+        <button type="button" className="btn" onClick={() => copy('link', info.link!)} style={{ whiteSpace: 'nowrap' }}>
+          {copied === 'link' ? '✓ Kimásolva' : 'Link másolása'}
         </button>
       </div>
 
