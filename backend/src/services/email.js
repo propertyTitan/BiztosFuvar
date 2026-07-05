@@ -120,7 +120,7 @@ function wrapHtml({ heading, bodyHtml, ctaText, ctaHref }) {
           <tr>
             <td style="background:linear-gradient(135deg,#1e40af 0%,#3b82f6 100%);padding:24px 32px;color:#fff">
               <div style="font-size:22px;font-weight:800;letter-spacing:-0.5px">🚚 GoFuvar</div>
-              <div style="font-size:13px;opacity:0.85;margin-top:4px">Bizalom. Fotó. Kód. Letét.</div>
+              <div style="font-size:13px;opacity:0.85;margin-top:4px">Bizalom. Fotó. Kód.</div>
             </td>
           </tr>
           <tr>
