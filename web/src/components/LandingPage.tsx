@@ -232,6 +232,45 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ===== Zöld / üzemanyag szekció ===== */}
+      <section style={{ padding: '48px 0' }}>
+        <div
+          className="card"
+          style={{
+            background: 'var(--success-bg, #f0fdf4)',
+            border: '1px solid #16a34a',
+            padding: 'clamp(24px, 4vw, 40px)',
+            marginBottom: 0,
+          }}
+        >
+          <h2 style={{ textAlign: 'center', fontSize: 'clamp(24px, 3vw, 30px)', fontWeight: 800, margin: '0 0 12px', color: '#15803d' }}>
+            🌿 Zöld, mert nem csinál felesleges utat
+          </h2>
+          <p style={{ textAlign: 'center', color: 'var(--text)', maxWidth: 620, margin: '0 auto 28px', lineHeight: 1.6 }}>
+            A csomagod egy <strong>meglévő úton</strong> utazik: a sofőr úgyis megy
+            A-ból B-be. Nincs külön futárautó, nincs plusz károsanyag — egy hagyományos
+            kézbesítéshez képest a kibocsátás elmarad. A sofőr pedig egy úton, amit
+            amúgy is megtenne, <strong>megkeresi az üzemanyaga árát</strong> — sőt, jóval többet.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, maxWidth: 720, margin: '0 auto' }}>
+            {[
+              { big: '~43 kg', small: 'megspórolt CO₂ egy Budapest–Szeged fuvaron' },
+              { big: '~7 700 Ft', small: 'üzemanyag, amit a sofőr ezen az úton megkeres' },
+              { big: '0', small: 'plusz futárautó — meglévő útra pakolsz' },
+            ].map((s) => (
+              <div key={s.small} className="card" style={{ textAlign: 'center', marginBottom: 0 }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d' }}>{s.big}</div>
+                <div className="muted" style={{ fontSize: 13, lineHeight: 1.45, marginTop: 4 }}>{s.small}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12.5, margin: '20px auto 0', maxWidth: 560 }}>
+            A számok tájékoztató becslések (átlagos személyautó ~7 l/100km, elkerült dedikált
+            futár-kisteher ~250 g CO₂/km).
+          </p>
+        </div>
+      </section>
+
       {/* ===== Bizalom-csík — csendes, egysoros; a szám a mondat része,
            nem plakát (a "óriás szám + mini felirat" kártyarács helyett) ===== */}
       <section style={{ padding: '32px 0', borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
