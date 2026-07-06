@@ -242,6 +242,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   belső linkelés, sitemap bővítve, dark-mode tokenek. Útvonal-oldalon a
   green.ts-ből zöld/üzemanyag stat. Frontend-only. ⚠️ NINCS app — a
   szövegekben app-ígéret TILOS (a lane-alert „e-mailben szólunk", nem „app")
+- **Use-case landing bővítés (2026-07-06, PR #63)** — 4 új használati eset
+  oldal az adatból: `/koltoztetes`, `/nagygep-szallitas`,
+  `/marketplace-elhozas`, `/autoszallitas`. Az autószállítás TRÉLERES +
+  kiemelt engedély-figyelmeztetéssel (a GoFuvar közvetítő, a feladó felel a
+  szállító engedélyének ellenőrzéséért — ÁSZF-konzisztens). Útvonal-oldalból
+  többet NEM gyártunk (user döntése), a fókusz a use-case-eken.
+  ⚠️ ÁRAZÁS-MEGFOGALMAZÁS: a landingeken TILOS a „te szabod az árat" — a
+  licites modellben a SOFŐR ad árajánlatot, a feladó elfogadja/ellenajánlatot
+  tesz („A sofőr ajánl, te döntesz"). Az okos árazó csak ajánlott sávot ad.
 - **Sofőri (szint-alapú) kupon KIKAPCSOLVA (2026-07-05, PR #58)** — a sofőr
   100% kápét kap, sosem fizet kapcsolatfelvételi díjat, így egy díj-elengedő
   kupon neki haszontalan. A `recalcLevel` level_up_bonus + `grantMonthlyVouchers`
