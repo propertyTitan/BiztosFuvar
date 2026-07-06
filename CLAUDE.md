@@ -223,6 +223,16 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   → `UPPER(referral_code)`), ismeretlen kódra a regisztráció sikeres, csak
   attribúció nélkül. Frontend-only, nincs migráció. Élesben tesztelve (kézzel
   gépelt, kisbetűs kód is helyesen attribuál)
+- **Zöld pozicionálás + „megkeresed az üzemanyagod árát" (2026-07-06, PR #60)**
+  — Tourmix-tanulság: a GoFuvar eleve zöldebb egy dedikált futárnál (a csomag
+  meglévő úton utazik → nincs plusz jármű/károsanyag). `web/src/lib/green.ts`
+  (konzervatív becslés: ~7 l/100km · 650 Ft/l · elkerült futár ~250 g CO₂/km,
+  egy helyen hangolható) + GreenBadge komponens; a sofőr a fuvar-részleten és
+  -listán látja a megspórolt CO₂-t + hogy a fuvardíj fedezi az üzemanyagot;
+  landing zöld szekció (BP–Szeged példa). A számok TÁJÉKOZTATÓ becslések,
+  jelölve. Frontend-only. Következő lépcső (még NEM kész): kézbesítés utáni
+  „X kg CO₂-t spóroltál" + sofőr-dashboard halmozott statisztika (total_km
+  már megvan)
 - **Sofőri (szint-alapú) kupon KIKAPCSOLVA (2026-07-05, PR #58)** — a sofőr
   100% kápét kap, sosem fizet kapcsolatfelvételi díjat, így egy díj-elengedő
   kupon neki haszontalan. A `recalcLevel` level_up_bonus + `grantMonthlyVouchers`
