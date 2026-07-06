@@ -22,7 +22,7 @@ export default function GreenBadge({ distanceKm, priceHuf, compact }: Props) {
 
   if (compact) {
     return (
-      <span className="muted" style={{ fontSize: 12.5, color: '#15803d' }}>
+      <span style={{ fontSize: 12.5, color: 'var(--success-text)' }}>
         🌿 ~{s.co2SavedKg} kg CO₂ megspórolva
         {coversFuel ? ` · üzemanyag megkeresve` : ''}
       </span>
@@ -32,8 +32,8 @@ export default function GreenBadge({ distanceKm, priceHuf, compact }: Props) {
   return (
     <div
       style={{
-        background: 'var(--success-bg, #f0fdf4)',
-        border: '1px solid #16a34a',
+        background: 'var(--success-light)',
+        border: '1px solid var(--success)',
         borderRadius: 10,
         padding: '12px 14px',
         margin: '12px 0',
@@ -41,7 +41,7 @@ export default function GreenBadge({ distanceKm, priceHuf, compact }: Props) {
         lineHeight: 1.55,
       }}
     >
-      <div style={{ fontWeight: 700, color: '#15803d', marginBottom: 4 }}>
+      <div style={{ fontWeight: 700, color: 'var(--success-text)', marginBottom: 4 }}>
         🌿 Zöld fuvar
       </div>
       <div style={{ color: 'var(--text)' }}>

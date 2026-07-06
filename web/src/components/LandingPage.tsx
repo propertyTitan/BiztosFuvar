@@ -237,13 +237,13 @@ export default function LandingPage() {
         <div
           className="card"
           style={{
-            background: 'var(--success-bg, #f0fdf4)',
-            border: '1px solid #16a34a',
+            background: 'var(--success-light)',
+            border: '1px solid var(--success)',
             padding: 'clamp(24px, 4vw, 40px)',
             marginBottom: 0,
           }}
         >
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(24px, 3vw, 30px)', fontWeight: 800, margin: '0 0 12px', color: '#15803d' }}>
+          <h2 style={{ textAlign: 'center', fontSize: 'clamp(24px, 3vw, 30px)', fontWeight: 800, margin: '0 0 12px', color: 'var(--success-text)' }}>
             🌿 Zöld, mert nem csinál felesleges utat
           </h2>
           <p style={{ textAlign: 'center', color: 'var(--text)', maxWidth: 620, margin: '0 auto 28px', lineHeight: 1.6 }}>
@@ -259,7 +259,7 @@ export default function LandingPage() {
               { big: '0', small: 'plusz futárautó — meglévő útra pakolsz' },
             ].map((s) => (
               <div key={s.small} className="card" style={{ textAlign: 'center', marginBottom: 0 }}>
-                <div style={{ fontSize: 28, fontWeight: 800, color: '#15803d' }}>{s.big}</div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--success-text)' }}>{s.big}</div>
                 <div className="muted" style={{ fontSize: 13, lineHeight: 1.45, marginTop: 4 }}>{s.small}</div>
               </div>
             ))}
