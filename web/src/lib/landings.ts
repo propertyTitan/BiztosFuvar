@@ -110,6 +110,30 @@ const PERSONAS: LandingConfig[] = [
       { q: 'Kapok számlát?', a: 'Igen, a kapcsolatfelvételi díjról a céges adataiddal kiállított számlát kapsz.' },
     ],
   },
+  {
+    slug: 'fuvarozoknak',
+    kind: 'persona',
+    navLabel: 'Fuvarozóknak',
+    metaTitle: 'Fuvarozó cégeknek és egyéni vállalkozóknak — rendszeres fuvar jutalék nélkül | GoFuvar',
+    metaDescription: 'Fuvarozó vállalkozás vagy egyéni vállalkozó? Töltsd meg az üres visszautaidat, kapj rendszeres fuvarokat az útvonaladon, és tartsd meg a fuvardíj 100%-át készpénzben — a platform nem von le jutalékot a díjadból.',
+    eyebrow: 'Fuvarozó vállalkozásoknak',
+    headline: 'Rendszeres fuvar a vállalkozásodnak — jutalék nélkül',
+    subhead: 'Fuvarozó cég, egyéni vállalkozó vagy hivatásos sofőr? Töltsd meg az üres kilométereidet és a visszautaidat rendszeres fuvarokkal. A fuvardíj 100%-a a tiéd, készpénzben — a GoFuvar a te díjadból NEM von le jutalékot.',
+    primaryCta: { label: 'Regisztrálj fuvarozóként', href: '/bejelentkezes?mode=register' },
+    bullets: [
+      { icon: '💯', title: 'A fuvardíj 100%-a a tiéd', desc: 'A díjat készpénzben kapod a feladótól, a platform NEM von le belőle jutalékot. A GoFuvar bevétele a feladótól szedett kapcsolatfelvételi díj — a te díjadhoz nem nyúlunk.' },
+      { icon: '↩️', title: 'Töltsd meg az üres visszautat', desc: 'A visszafuvar-matching felajánlja a visszaútra eső fuvarokat, hogy ne menj üresen — a holtkilométer bevétellé válik.' },
+      { icon: '🗺️', title: 'Rendszeres fuvar az útvonaladon', desc: 'Állítsd be a szokásos útvonalaidat, és e-mailben szólunk a rád illő fuvarokról — nem kell folyton keresgélned.' },
+      { icon: '🧾', title: 'Céges / EV fiók', desc: 'Adószámmal céges vagy egyéni vállalkozói fiókot hozol létre — professzionális profil, ami bizalmat ad a feladónak.' },
+      { icon: '⭐', title: 'Építs reputációt', desc: 'Az értékeléseid és a teljesített fuvaraid előrébb hoznak; a megbízható fuvarozók kapják a legtöbb megkeresést.' },
+    ],
+    faq: [
+      { q: 'Mennyit von le a platform a fuvardíjból?', a: 'Semmit. A fuvardíj 100%-a a tiéd, készpénzben. A GoFuvar bevétele a feladótól szedett kapcsolatfelvételi díj — a te díjadhoz nem nyúlunk.' },
+      { q: 'Hogyan jutok rendszeresen fuvarhoz?', a: 'Böngészed a kiírt fuvarokat és árajánlatot adsz; az útvonal-figyelővel e-mailben szólunk a rád illő fuvarokról; a visszafuvar-matching pedig az üres visszautat is megtölti.' },
+      { q: 'Céges vagy egyéni vállalkozóként is működik?', a: 'Igen. Adószámmal céges vagy EV fiókot hozhatsz létre. A saját számlázásodat (a feladó felé, a fuvardíjról) te intézed, ahogy a jogszabály előírja — a GoFuvar a fuvardíjat nem kezeli.' },
+      { q: 'Kell azonosítás?', a: 'Igen: személyazonosság-ellenőrzés (KYC) és jogosítvány szükséges, mielőtt fuvart vállalhatsz.' },
+    ],
+  },
 ];
 
 // ─────────────────────────── HASZNÁLATI ESET OLDALAK ───────────────────────────
