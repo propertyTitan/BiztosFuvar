@@ -332,6 +332,36 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ===== Fuvarozó-toborzó sáv (a profi kínálati oldal a jó feladói élményhez) ===== */}
+      <section style={{ padding: '24px 0 48px' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, var(--primary-subtle) 0%, var(--surface) 100%)',
+          border: '1px solid var(--primary-light)',
+          borderRadius: 'var(--radius-xl)',
+          padding: 'clamp(28px, 4vw, 44px)',
+          display: 'flex', flexWrap: 'wrap', gap: 24,
+          alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ flex: '1 1 320px' }}>
+            <div style={{ display: 'inline-flex', padding: 10, borderRadius: 12, background: 'rgba(30,64,175,0.12)', marginBottom: 12 }}>
+              <Truck size={24} color="var(--primary-text)" />
+            </div>
+            <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 800, margin: '0 0 10px', color: 'var(--text)' }}>
+              Fuvarozó cég vagy egyéni vállalkozó?
+            </h2>
+            <p style={{ color: 'var(--text)', margin: 0, lineHeight: 1.6, fontSize: 15.5, maxWidth: 560 }}>
+              Töltsd meg az üres kilométereidet és a visszautaidat rendszeres fuvarokkal.
+              A fuvardíj <strong>100%-a a tiéd, készpénzben</strong> — a platform a te
+              díjadból nem von le jutalékot.
+            </p>
+          </div>
+          <Link href="/fuvarozoknak" className="btn"
+            style={{ textDecoration: 'none', fontSize: 16, padding: '14px 26px', whiteSpace: 'nowrap' }}>
+            Fuvarozóknak <ArrowRight size={18} />
+          </Link>
+        </div>
+      </section>
+
       {/* ===== CTA ===== */}
       <section style={{ textAlign: 'center', padding: '64px 0', borderTop: '1px solid var(--border)' }}>
         <h2 style={{ fontSize: 'clamp(26px, 4vw, 32px)', fontWeight: 900, marginBottom: 16 }}>
