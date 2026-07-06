@@ -13,6 +13,7 @@ import { useCurrentUser } from '@/lib/auth';
 import { Loading } from '@/components/StateView';
 import { getSocket } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
+import GreenBadge from '@/components/GreenBadge';
 import { useTranslation, formatPrice } from '@/lib/i18n';
 
 type ListedJob = Job & { distance_to_pickup_km?: number };
@@ -430,6 +431,11 @@ export default function SoforFuvarokLista() {
                     </span>
                   )}
                 </div>
+                {j.distance_km != null && (
+                  <div style={{ marginTop: 6 }}>
+                    <GreenBadge distanceKm={j.distance_km} priceHuf={j.suggested_price_huf} compact />
+                  </div>
+                )}
                 {isInstant && !isMine && j.instant_expires_at && (
                   <p
                     style={{

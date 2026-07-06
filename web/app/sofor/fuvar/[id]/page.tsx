@@ -18,6 +18,7 @@ import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
+import GreenBadge from '@/components/GreenBadge';
 import ChatBox from '@/components/ChatBox';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
@@ -394,6 +395,7 @@ export default function SoforFuvarReszletek() {
             </div>
           )}
         </div>
+        <GreenBadge distanceKm={job.distance_km} priceHuf={job.suggested_price_huf} />
         {job.description && (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
             <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Leírás a feladótól</div>
