@@ -251,6 +251,18 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   ⚠️ ÁRAZÁS-MEGFOGALMAZÁS: a landingeken TILOS a „te szabod az árat" — a
   licites modellben a SOFŐR ad árajánlatot, a feladó elfogadja/ellenajánlatot
   tesz („A sofőr ajánl, te döntesz"). Az okos árazó csak ajánlott sávot ad.
+- **Fuvarozók-oldal + landing-szöveg finomítás (2026-07-06, PR #64)** —
+  `/fuvarozoknak`: dedikált toborzó-oldal fuvarozó cégeknek / egyéni
+  vállalkozóknak / hivatásos sofőröknek (a profi kínálati oldal, amire a jó
+  feladói élmény épül). Fő üzenet: a fuvardíj 100%-a a tiéd készpénzben,
+  NINCS jutalék a díjadból; üres visszaút megtöltése; rendszeres fuvar;
+  céges/EV profil; reputáció. A FŐOLDAL is kapott egy fuvarozó-toborzó sávot
+  (link a /fuvarozoknak-ra). ⚠️ KÉT SZÖVEG-SZABÁLY (visszatérő hibák): (1)
+  TILOS „gyakran olcsóbb, mint egy dedikált cég/futár" — helyette verseny-
+  alapú „a sofőrök versenye miatt gyakran kedvező áron"; (2) TILOS „a sofőr
+  ennyi Ft üzemanyagot keres a fuvaron" kvantifikált stat (az üzemanyag
+  költség, nem kereset) — a zöld/CO₂ üzenet marad, a /soforoknek kvalitatív
+  „megkeresed az üzemanyagod árát" toborzó-üzenete OK
 - **Sofőri (szint-alapú) kupon KIKAPCSOLVA (2026-07-05, PR #58)** — a sofőr
   100% kápét kap, sosem fizet kapcsolatfelvételi díjat, így egy díj-elengedő
   kupon neki haszontalan. A `recalcLevel` level_up_bonus + `grantMonthlyVouchers`
