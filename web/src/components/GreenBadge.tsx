@@ -4,27 +4,22 @@ import { greenStats } from '@/lib/green';
 
 type Props = {
   distanceKm: number | null | undefined;
-  /** A fuvardíj (Ft) — ha megvan, kiírjuk, hogy fedezi az üzemanyagot. */
-  priceHuf?: number | null;
   /** Kompakt mód: egysoros változat (pl. listában). */
   compact?: boolean;
 };
 
 /**
- * Zöld / üzemanyag jelvény egy fuvarhoz: mennyi CO₂-t spórol (meglévő úton
- * viszik), és — ha van fuvardíj — hogy a díj bőven fedezi az út üzemanyagát.
- * Tájékoztató becslés (lásd lib/green.ts), nem ígéret.
+ * Zöld jelvény egy fuvarhoz: mennyi CO₂ marad el azzal, hogy egy meglévő
+ * úton viszik (nem külön futárautóval). Tájékoztató becslés (lásd lib/green.ts).
  */
-export default function GreenBadge({ distanceKm, priceHuf, compact }: Props) {
+export default function GreenBadge({ distanceKm, compact }: Props) {
   if (!distanceKm || distanceKm <= 0) return null;
-  const s = greenStats(distanceKm, priceHuf);
-  const coversFuel = s.coversFuel != null && s.coversFuel >= 1;
+  const s = greenStats(distanceKm);
 
   if (compact) {
     return (
       <span style={{ fontSize: 12.5, color: 'var(--success-text)' }}>
         🌿 ~{s.co2SavedKg} kg CO₂ megspórolva
-        {coversFuel ? ` · üzemanyag megkeresve` : ''}
       </span>
     );
   }
@@ -47,10 +42,6 @@ export default function GreenBadge({ distanceKm, priceHuf, compact }: Props) {
       <div style={{ color: 'var(--text)' }}>
         Meglévő úton viszed → egy külön futárhoz képest kb.{' '}
         <strong>{s.co2SavedKg} kg CO₂</strong> marad el.
-      </div>
-      <div style={{ color: 'var(--text)', marginTop: 2 }}>
-        ⛽ Az út üzemanyaga kb. <strong>{s.fuelCostHuf.toLocaleString('hu-HU')} Ft</strong> (~{s.fuelLiters} l)
-        {coversFuel ? ' — a fuvardíjból bőven megkeresed.' : '.'}
       </div>
     </div>
   );

@@ -250,12 +250,11 @@ export default function LandingPage() {
             A csomagod egy <strong>meglévő úton</strong> utazik: a sofőr úgyis megy
             A-ból B-be. Nincs külön futárautó, nincs plusz károsanyag — egy hagyományos
             kézbesítéshez képest a kibocsátás elmarad. A sofőr pedig egy úton, amit
-            amúgy is megtenne, <strong>megkeresi az üzemanyaga árát</strong> — sőt, jóval többet.
+            amúgy is megtenne, egy fuvarral <strong>hasznot termel</strong>.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, maxWidth: 720, margin: '0 auto' }}>
             {[
               { big: '~43 kg', small: 'megspórolt CO₂ egy Budapest–Szeged fuvaron' },
-              { big: '~7 700 Ft', small: 'üzemanyag, amit a sofőr ezen az úton megkeres' },
               { big: '0', small: 'plusz futárautó — meglévő útra pakolsz' },
             ].map((s) => (
               <div key={s.small} className="card" style={{ textAlign: 'center', marginBottom: 0 }}>

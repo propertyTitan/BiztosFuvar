@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   ],
   openGraph: {
     title: 'Vettél valamit online? Hozasd el — GoFuvar',
-    description: 'Másold be a termék linkjét (IKEA, OBI, Praktiker, Jófogás), és egy sofőr elhozza. Biztonságos, gyakran olcsóbb, mint egy futárszolgálat.',
+    description: 'Másold be a termék linkjét (IKEA, OBI, Praktiker, Jófogás), és egy sofőr elhozza. Biztonságos, és a sofőrök versenye miatt gyakran kedvező áron.',
     type: 'website',
     locale: 'hu_HU',
   },
