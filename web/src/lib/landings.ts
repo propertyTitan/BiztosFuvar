@@ -49,7 +49,7 @@ function routeConfig(r: { slug: string; from: string; to: string; km: number }):
     eyebrow: 'Útvonal',
     headline: `Fuvar ${title}`,
     subhead: `Csomag, bútor vagy bármi, ami elfér egy autóban — vidd el ${title} útvonalon egy sofőrrel, aki úgyis arra megy. Meglévő út, tisztességes ár, biztonságos átadás.`,
-    primaryCta: { label: `Adj fel egy fuvart ${r.to}re/ra`, href: '/bejelentkezes?mode=register' },
+    primaryCta: { label: 'Adj fel egy fuvart', href: '/bejelentkezes?mode=register' },
     route: { fromCity: r.from, toCity: r.to, distanceKm: r.km },
     bullets: [
       { icon: '🌿', title: 'Zöld, mert meglévő úton megy', desc: `A sofőr úgyis megy ${title} — a csomagod egy meglévő útra kerül, nincs plusz jármű, nincs plusz károsanyag.` },
@@ -79,7 +79,7 @@ const PERSONAS: LandingConfig[] = [
     primaryCta: { label: 'Regisztrálj sofőrként', href: '/bejelentkezes?mode=register' },
     bullets: [
       { icon: '⛽', title: 'Megkeresed az üzemanyagod', desc: 'Egy meglévő úton, amit amúgy is megtennél, a fuvardíj bőven fedezi az üzemanyagot — a többi tiszta kereset.' },
-      { icon: '🗺️', title: 'Útvonal-figyelő', desc: 'Állítsd be a szokásos útvonaladat, és szólunk (e-mail + app), amikor illő fuvar kerül ki rá.' },
+      { icon: '🗺️', title: 'Útvonal-figyelő', desc: 'Állítsd be a szokásos útvonaladat, és e-mailben szólunk, amikor illő fuvar kerül ki rá.' },
       { icon: '↩️', title: 'Visszafuvar', desc: 'Ne térj vissza üresen: a rendszer felajánlja a visszaútra eső fuvarokat is.' },
       { icon: '💵', title: 'Készpénz, azonnal', desc: 'A fuvardíjat a feladótól készpénzben kapod, levonás nélkül — a GoFuvar a fuvardíjhoz nem nyúl.' },
     ],
