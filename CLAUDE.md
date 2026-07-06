@@ -233,6 +233,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   jelölve. Frontend-only. Következő lépcső (még NEM kész): kézbesítés utáni
   „X kg CO₂-t spóroltál" + sofőr-dashboard halmozott statisztika (total_km
   már megvan)
+- **Kattintható SEO landing-oldalak (2026-07-06, PR #62)** — adat-vezérelt
+  sablon (`web/src/lib/landings.ts` + `LandingTemplate.tsx`): új oldal = új
+  bejegyzés az adatba. 3 típus: útvonal (`app/fuvar/[utvonal]` dinamikus,
+  SSG + generateMetadata: BP–Szeged/Debrecen/Pécs/Miskolc/Győr), célközönség
+  (`/soforoknek`, `/webshopoknak`), használati eset (`/butorszallitas`,
+  `/ikea-behozatal`). FAQ JSON-LD (rich result), footer „Népszerű oldalak"
+  belső linkelés, sitemap bővítve, dark-mode tokenek. Útvonal-oldalon a
+  green.ts-ből zöld/üzemanyag stat. Frontend-only. ⚠️ NINCS app — a
+  szövegekben app-ígéret TILOS (a lane-alert „e-mailben szólunk", nem „app")
 - **Sofőri (szint-alapú) kupon KIKAPCSOLVA (2026-07-05, PR #58)** — a sofőr
   100% kápét kap, sosem fizet kapcsolatfelvételi díjat, így egy díj-elengedő
   kupon neki haszontalan. A `recalcLevel` level_up_bonus + `grantMonthlyVouchers`
@@ -309,8 +318,9 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ### 🟠 Phase 6 (későbbre)
 - Privát R2 file storage + audit log (progressive_kyc-vel kompatibilisre — már van branch, csak nem mergelve)
 - Mobile native app (App Store + Play Store)
-- Top 5 útvonal-landing oldalak (`gofuvar.hu/pest-szeged` stb.)
-- Sofőröknek külön landing
+- Top 5 útvonal-landing oldalak — ✅ ALAP KÉSZ (PR #62, `/fuvar/<utvonal>`);
+  bővíthető több útvonallal az adatból (lib/landings.ts)
+- Sofőröknek külön landing — ✅ KÉSZ (`/soforoknek`, PR #62)
 - Service Worker offline-támogatás (a sofőr elfogadott fuvarjait offline lássa)
 - Custom domain név pointing API-ra (api.gofuvar.hu = Railway)
 - Cégkivonat-igénylés Apple-D-U-N-S-hez
