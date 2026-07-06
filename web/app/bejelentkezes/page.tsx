@@ -164,8 +164,9 @@ function BejelentkezesContent() {
       <form onSubmit={onSubmit} className="card">
         {mode === 'register' && refCode && (
           <div style={{
-            background: 'var(--success-bg, #f0fdf4)', border: '1px solid #16a34a',
+            background: 'var(--success-light)', border: '1px solid var(--success)',
             borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 14,
+            color: 'var(--text)',
           }}>
             🎉 Meghívóval regisztrálsz! Miután teljesíted az első fuvarodat,
             az ismerősöd egy ingyen feladást kap.
