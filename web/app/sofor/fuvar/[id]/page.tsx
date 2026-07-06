@@ -395,7 +395,7 @@ export default function SoforFuvarReszletek() {
             </div>
           )}
         </div>
-        <GreenBadge distanceKm={job.distance_km} priceHuf={job.suggested_price_huf} />
+        <GreenBadge distanceKm={job.distance_km} />
         {job.description && (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
             <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Leírás a feladótól</div>

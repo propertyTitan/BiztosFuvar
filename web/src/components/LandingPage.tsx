@@ -250,12 +250,11 @@ export default function LandingPage() {
             A csomagod egy <strong>meglévő úton</strong> utazik: a sofőr úgyis megy
             A-ból B-be. Nincs külön futárautó, nincs plusz károsanyag — egy hagyományos
             kézbesítéshez képest a kibocsátás elmarad. A sofőr pedig egy úton, amit
-            amúgy is megtenne, <strong>megkeresi az üzemanyaga árát</strong> — sőt, jóval többet.
+            amúgy is megtenne, egy fuvarral <strong>hasznot termel</strong>.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, maxWidth: 720, margin: '0 auto' }}>
             {[
               { big: '~43 kg', small: 'megspórolt CO₂ egy Budapest–Szeged fuvaron' },
-              { big: '~7 700 Ft', small: 'üzemanyag, amit a sofőr ezen az úton megkeres' },
               { big: '0', small: 'plusz futárautó — meglévő útra pakolsz' },
             ].map((s) => (
               <div key={s.small} className="card" style={{ textAlign: 'center', marginBottom: 0 }}>
@@ -330,6 +329,36 @@ export default function LandingPage() {
               <li>Kérd az átvételi kódot → fuvar lezárva, a kápé a tiéd</li>
             </ul>
           </div>
+        </div>
+      </section>
+
+      {/* ===== Fuvarozó-toborzó sáv (a profi kínálati oldal a jó feladói élményhez) ===== */}
+      <section style={{ padding: '24px 0 48px' }}>
+        <div style={{
+          background: 'linear-gradient(135deg, var(--primary-subtle) 0%, var(--surface) 100%)',
+          border: '1px solid var(--primary-light)',
+          borderRadius: 'var(--radius-xl)',
+          padding: 'clamp(28px, 4vw, 44px)',
+          display: 'flex', flexWrap: 'wrap', gap: 24,
+          alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <div style={{ flex: '1 1 320px' }}>
+            <div style={{ display: 'inline-flex', padding: 10, borderRadius: 12, background: 'rgba(30,64,175,0.12)', marginBottom: 12 }}>
+              <Truck size={24} color="var(--primary-text)" />
+            </div>
+            <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 800, margin: '0 0 10px', color: 'var(--text)' }}>
+              Fuvarozó cég vagy egyéni vállalkozó?
+            </h2>
+            <p style={{ color: 'var(--text)', margin: 0, lineHeight: 1.6, fontSize: 15.5, maxWidth: 560 }}>
+              Töltsd meg az üres kilométereidet és a visszautaidat rendszeres fuvarokkal.
+              A fuvardíj <strong>100%-a a tiéd, készpénzben</strong> — a platform a te
+              díjadból nem von le jutalékot.
+            </p>
+          </div>
+          <Link href="/fuvarozoknak" className="btn"
+            style={{ textDecoration: 'none', fontSize: 16, padding: '14px 26px', whiteSpace: 'nowrap' }}>
+            Fuvarozóknak <ArrowRight size={18} />
+          </Link>
         </div>
       </section>
 

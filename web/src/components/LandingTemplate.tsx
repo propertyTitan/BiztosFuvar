@@ -73,8 +73,8 @@ export default function LandingTemplate({ config }: { config: LandingConfig }) {
               <div className="muted" style={{ fontSize: 13 }}>megspórolt CO₂ egy meglévő úton</div>
             </div>
             <div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--success-text)' }}>~{green.fuelCostHuf.toLocaleString('hu-HU')} Ft</div>
-              <div className="muted" style={{ fontSize: 13 }}>üzemanyag, amit a sofőr ezen az úton megkeres</div>
+              <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--success-text)' }}>0</div>
+              <div className="muted" style={{ fontSize: 13 }}>plusz futárautó — meglévő útra pakolsz</div>
             </div>
           </div>
         </section>

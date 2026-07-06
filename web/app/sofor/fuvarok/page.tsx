@@ -433,7 +433,7 @@ export default function SoforFuvarokLista() {
                 </div>
                 {j.distance_km != null && (
                   <div style={{ marginTop: 6 }}>
-                    <GreenBadge distanceKm={j.distance_km} priceHuf={j.suggested_price_huf} compact />
+                    <GreenBadge distanceKm={j.distance_km} compact />
                   </div>
                 )}
                 {isInstant && !isMine && j.instant_expires_at && (
