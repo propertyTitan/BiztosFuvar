@@ -75,7 +75,7 @@ export default function QrCode({ jobId, deliveryCode, size = 220 }: Props) {
         {deliveryCode}
       </div>
       <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-        Mutasd meg a sofőrnek — olvassa be az appban, vagy diktáld a kódot
+        Mutasd meg vagy diktáld be a sofőrnek a kódot
       </div>
     </div>
   );
