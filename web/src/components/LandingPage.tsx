@@ -322,6 +322,7 @@ export default function LandingPage() {
             </div>
             <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Sofőr vagyok</h3>
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
+              <li>Autó, bicikli, gyalog vagy tömegközlekedés — jogosítvány nem kell</li>
               <li>Licitálj nyitott fuvarokra — a legjobb nyer</li>
               <li>Vagy hirdesd meg az utadat fix árakkal</li>
               <li>A fuvardíj 100%-a a tiéd, készpénzben — nincs levonás</li>
