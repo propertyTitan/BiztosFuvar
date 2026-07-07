@@ -117,10 +117,8 @@ export default function AszfPage() {
         <li>a fuvarra <strong>alkohol- és kábítószer-mentesen</strong> érkezik, és a fuvar teljes idejében
           ebben az állapotban marad</li>
         <li><strong>gépjárművel történő fuvarozás esetén</strong> érvényes, a jármű kategóriájának
-          megfelelő vezetői engedéllyel, érvényes forgalmi engedéllyel és érvényes
-          <strong> kötelező gépjármű-felelősségbiztosítással (KGFB)</strong> rendelkezik (a KGFB a
-          2009. évi LXII. törvény alapján a magyar jogban kötelező), és nem áll vezetéstől eltiltás
-          vagy a járművezetést kizáró egészségügyi állapot alatt</li>
+          megfelelő vezetői engedéllyel és érvényes forgalmi engedéllyel rendelkezik, és nem áll
+          vezetéstől eltiltás vagy a járművezetést kizáró egészségügyi állapot alatt</li>
       </ul>
       <p>
         A Szolgáltató a fenti követelményeket <strong>nem ellenőrzi tételesen</strong>, hanem a Sofőr
