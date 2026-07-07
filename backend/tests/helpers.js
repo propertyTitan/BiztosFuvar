@@ -24,8 +24,9 @@ function uniqueEmail(prefix = 'user') {
 async function createUser({ role = 'shipper', kyc = 'verified', email } = {}) {
   const { rows } = await db.query(
     `INSERT INTO users (role, email, password_hash, full_name, phone,
-                        identity_kyc_status, driver_kyc_status)
-     VALUES ($1, $2, 'x', $3, '+36201234567', $4, $4)
+                        identity_kyc_status, driver_kyc_status, driver_terms_accepted_at)
+     VALUES ($1, $2, 'x', $3, '+36201234567', $4, $4,
+             CASE WHEN $4 = 'verified' THEN NOW() ELSE NULL END)
      RETURNING id, role, email`,
     [role, email || uniqueEmail(role), `Teszt ${role}`, kyc],
   );

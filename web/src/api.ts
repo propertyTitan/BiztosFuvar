@@ -786,6 +786,10 @@ export const api = {
   getMyProfile: () =>
     request<any>('/auth/me'),
 
+  /** Sofőri egyszeri nyilatkozat elfogadása (jogszabályok + KRESZ betartása). */
+  acceptDriverTerms: () =>
+    request<{ ok: true; driver_terms_accepted_at: string }>('/auth/accept-driver-terms', { method: 'POST' }),
+
   updateMyProfile: (data: {
     full_name?: string; phone?: string; vehicle_type?: string;
     vehicle_plate?: string; bio?: string; avatar_url?: string;
