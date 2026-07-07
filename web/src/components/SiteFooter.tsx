@@ -35,7 +35,7 @@ export default function SiteFooter() {
       </div>
 
       <div style={{ fontWeight: 600, marginBottom: 4 }}>🚛 GoFuvar</div>
-      <div>Bizalom. Fotó. Kód.</div>
+      <div style={{ fontWeight: 700 }}>Ha fuvar kell, akkor GoFuvar.</div>
       <div style={{ marginTop: 10, fontSize: 13, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
         <Link href="/aszf" style={{ color: 'inherit', textDecoration: 'underline' }}>ÁSZF</Link>
         <Link href="/adatkezeles" style={{ color: 'inherit', textDecoration: 'underline' }}>Adatkezelési tájékoztató</Link>
