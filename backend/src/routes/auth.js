@@ -383,12 +383,27 @@ router.get('/me', authRequired, async (req, res) => {
             avatar_url, bio, rating_avg, rating_count, created_at,
             account_type, identity_kyc_status, driver_kyc_status, company_verification_status,
             company_name, tax_id, company_reg_number, eu_vat_number, billing_address,
+            driver_terms_accepted_at,
             email_verified
        FROM users WHERE id = $1`,
     [req.user.sub],
   );
   if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
   res.json(rows[0]);
+});
+
+// POST /auth/accept-driver-terms — a sofőri egyszeri nyilatkozat elfogadása:
+// a felhasználó kijelenti, hogy minden vonatkozó jogszabályt és a KRESZ-t
+// betartja. Ezt a sofőr-mód első használatakor kell elfogadni; enélkül a
+// requireDriverKYC nem enged licitálni / útvonalat hirdetni. Idempotens.
+router.post('/accept-driver-terms', authRequired, async (req, res) => {
+  const { rows } = await db.query(
+    `UPDATE users SET driver_terms_accepted_at = COALESCE(driver_terms_accepted_at, NOW())
+      WHERE id = $1 RETURNING driver_terms_accepted_at`,
+    [req.user.sub],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+  res.json({ ok: true, driver_terms_accepted_at: rows[0].driver_terms_accepted_at });
 });
 
 // PATCH /auth/me — profil szerkesztés

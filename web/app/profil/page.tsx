@@ -291,11 +291,9 @@ export default function ProfilOldal() {
                 status={profile.identity_kyc_status}
                 docType="id_card"
               />
-              <KycStatusRow
-                label="Jogosítvány (sofőröknek)"
-                status={profile.driver_kyc_status}
-                docType="drivers_license"
-              />
+              {/* Jogosítvány-feltöltés megszűnt (2026-07-07): a személyi
+                  igazolvány igazolása elég mindenhez (feladó ÉS sofőr).
+                  A sofőri KRESZ-nyilatkozat a sofőr-mód első használatakor. */}
               {/* Céges verifikáció kikapcsolva (2026-07-05): a céges fiók
                   dokumentum-feltöltés nélkül működik, csak adószám + cégnév. */}
             </div>

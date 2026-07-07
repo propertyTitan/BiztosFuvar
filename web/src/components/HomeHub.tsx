@@ -368,8 +368,8 @@ export default function HomeHub() {
                   </p>
                   <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
                     <li><strong>Feladóként:</strong> személyi igazolvány fotója (mindkét oldal)</li>
-                    <li><strong>Sofőrként:</strong> személyi igazolvány + jogosítvány fotója</li>
-                    <li><strong>Cégként:</strong> a fentiek + cégkivonat</li>
+                    <li><strong>Sofőrként:</strong> személyi igazolvány (jogosítvány nem kell) + egy rövid nyilatkozat</li>
+                    <li><strong>Cégként:</strong> a fentiek + adószám</li>
                   </ul>
                   <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.6 }}>
                     Addig is nyugodtan böngészd a platformot, töltsd ki a fuvar adatait —

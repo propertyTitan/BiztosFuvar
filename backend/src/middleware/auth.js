@@ -49,11 +49,14 @@ async function requireIdentityKYC(req, res, next) {
 async function requireDriverKYC(req, res, next) {
   try {
     const { rows } = await db.query(
-      `SELECT identity_kyc_status, account_type, company_verification_status, driver_kyc_status, can_bid FROM users WHERE id = $1`,
+      `SELECT identity_kyc_status, driver_terms_accepted_at FROM users WHERE id = $1`,
       [req.user.sub],
     );
     const u = rows[0];
     if (!u) return res.status(401).json({ error: 'Felhasználó nem található' });
+    // A személyi igazolvány (identity KYC) mindenkinek kötelező — aki ezt
+    // igazolta, jogosult MINDENRE (feladó és sofőr). A jogosítvány-követelmény
+    // megszűnt (2026-07-07): a nem-motoros futárokat is engedjük.
     if (u.identity_kyc_status !== 'verified') {
       return res.status(403).json({
         error: 'A biztonságos fizetéshez és a csomagod védelméhez kérjük, igazold a profilod.',
@@ -61,18 +64,11 @@ async function requireDriverKYC(req, res, next) {
         identity_kyc_status: u.identity_kyc_status,
       });
     }
-    // Céges KYB-kapu szándékosan kikapcsolva (2026-07-05) — lásd requireIdentityKYC.
-    if (u.driver_kyc_status !== 'verified') {
+    // Sofőri egyszeri nyilatkozat: minden jogszabály + KRESZ betartása.
+    if (!u.driver_terms_accepted_at) {
       return res.status(403).json({
-        error: 'A sofőri tevékenységhez kérjük, igazold a jogosítványod.',
-        code: 'DRIVER_KYC_REQUIRED',
-        driver_kyc_status: u.driver_kyc_status,
-      });
-    }
-    if (u.can_bid === false) {
-      return res.status(403).json({
-        error: 'A jogosítványod lejárt vagy nincs jóváhagyva. Frissítsd a profilodon.',
-        code: 'LICENSE_EXPIRED',
+        error: 'A fuvarozás megkezdéséhez fogadd el a nyilatkozatot: minden vonatkozó jogszabályt és a KRESZ-t betartod.',
+        code: 'DRIVER_TERMS_REQUIRED',
       });
     }
     next();

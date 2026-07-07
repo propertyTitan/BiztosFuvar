@@ -85,7 +85,7 @@ const PERSONAS: LandingConfig[] = [
     ],
     faq: [
       { q: 'Kell hozzá vállalkozás?', a: 'A saját adóügyi státuszodért te felelsz (rendszeres kereső tevékenységhez a magyar jog szerint általában vállalkozói forma kell). A GoFuvar a fuvardíjat nem kezeli és nem számlázza — az a te és a feladó közti készpénzes ügylet.' },
-      { q: 'Hogyan kezdjek?', a: 'Regisztrálj, menj át a személyazonosság-ellenőrzésen (KYC), töltsd fel a jogosítványod, és már licitálhatsz is a fuvarokra.' },
+      { q: 'Hogyan kezdjek?', a: 'Regisztrálj, igazold a személyazonosságod (személyi igazolvány), fogadd el a rövid sofőri nyilatkozatot (jogszabályok + KRESZ betartása), és már licitálhatsz is. Jogosítvány NEM kell — bringás, gyalogos vagy tömegközlekedős futárként is mehet.' },
       { q: 'Én választom a fuvart?', a: 'Igen. Te böngészed a fuvarokat, te adsz ajánlatot, és csak azt vállalod, ami neked megéri.' },
     ],
   },
@@ -131,7 +131,7 @@ const PERSONAS: LandingConfig[] = [
       { q: 'Mennyit von le a platform a fuvardíjból?', a: 'Semmit. A fuvardíj 100%-a a tiéd, készpénzben. A GoFuvar bevétele a feladótól szedett kapcsolatfelvételi díj — a te díjadhoz nem nyúlunk.' },
       { q: 'Hogyan jutok rendszeresen fuvarhoz?', a: 'Böngészed a kiírt fuvarokat és árajánlatot adsz; az útvonal-figyelővel e-mailben szólunk a rád illő fuvarokról; a visszafuvar-matching pedig az üres visszautat is megtölti.' },
       { q: 'Céges vagy egyéni vállalkozóként is működik?', a: 'Igen. Adószámmal céges vagy EV fiókot hozhatsz létre. A saját számlázásodat (a feladó felé, a fuvardíjról) te intézed, ahogy a jogszabály előírja — a GoFuvar a fuvardíjat nem kezeli.' },
-      { q: 'Kell azonosítás?', a: 'Igen: személyazonosság-ellenőrzés (KYC) és jogosítvány szükséges, mielőtt fuvart vállalhatsz.' },
+      { q: 'Kell azonosítás?', a: 'Igen: személyazonosság-ellenőrzés (személyi igazolvány) szükséges. Jogosítvány NEM kell — sofőrként egy rövid nyilatkozatot fogadsz el (jogszabályok + KRESZ betartása).' },
     ],
   },
 ];

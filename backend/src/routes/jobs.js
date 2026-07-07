@@ -1054,16 +1054,8 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
 // Ugyanazt csinálja, mint a licites elfogadás (escrow indítás, carrier_id
 // beállítás, notifikációk), csak bid sor nélkül.
 router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
-  // KYC: lejárt jogosítvány → nem fogadhatja el
-  const { rows: kyc } = await db.query(
-    `SELECT can_bid FROM users WHERE id = $1`, [req.user.sub],
-  );
-  if (kyc[0] && kyc[0].can_bid === false) {
-    return res.status(403).json({
-      error: 'A jogosítványod lejárt vagy nincs jóváhagyva. Frissítsd a profilodon.',
-      code: 'LICENSE_EXPIRED',
-    });
-  }
+  // Jogosítvány-követelmény megszűnt (2026-07-07): a requireDriverKYC
+  // (személyi igazolvány + sofőri nyilatkozat) elég; a can_bid-kapu kivéve.
 
   const client = await db.pool.connect();
   try {
