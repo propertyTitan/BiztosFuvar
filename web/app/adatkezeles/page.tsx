@@ -42,7 +42,7 @@ export default function AdatkezelesPage() {
           <strong>Azonosító adatok:</strong> Név, e-mail, telefonszám.
         </li>
         <li>
-          <strong>KYC adatok:</strong> Személyi igazolvány, jogosítvány, cégkivonat, adószám
+          <strong>KYC adatok:</strong> Személyi igazolvány, és céges fiók esetén adószám
           (Biztonság, jogi megfelelés). A KYC dokumentumok fotója nyers formában a hitelesítés
           ideje alatt kerül tárolásra.
         </li>
@@ -187,9 +187,9 @@ export default function AdatkezelesPage() {
       </p>
       <ul>
         <li>
-          <strong>AI-alapú KYC előellenőrzés:</strong> a feltöltött személyi igazolvány és
-          jogosítvány képét a Google Gemini AI elemzi (név, születési dátum, lejárati dátum
-          kiolvasása, kép-minőség ellenőrzés). Az AI csak <strong>előellenőrzést</strong> végez,
+          <strong>AI-alapú KYC előellenőrzés:</strong> a feltöltött személyi igazolvány
+          képét a Google Gemini AI elemzi (név, születési dátum kiolvasása, kép-minőség
+          ellenőrzés). Az AI csak <strong>előellenőrzést</strong> végez,
           <strong> a végleges hitelesítést minden esetben emberi adminisztrátor</strong> hagyja
           jóvá.
         </li>

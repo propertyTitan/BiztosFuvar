@@ -65,8 +65,11 @@ export default function AszfPage() {
         személyek és jogi személyek számára engedélyezett.
       </p>
       <p>
-        <strong>3.2.</strong> A tranzakciók megkezdése a személyazonosság (KYC) igazolásához kötött
-        (Személyi igazolvány, Sofőröknél + Jogosítvány, Cégeknél + Cégkivonat és Adószám).
+        <strong>3.2.</strong> A tranzakciók megkezdése a személyazonosság (KYC) igazolásához kötött:
+        minden Felhasználónak a Személyi igazolvány igazolása szükséges. A sofőri (fuvarozói)
+        tevékenységhez a Felhasználó ezen felül elfogadja a jelen ÁSZF 3.4. pontja szerinti sofőri
+        nyilatkozatot (minden vonatkozó jogszabály és a KRESZ betartása). Céges fiók esetén az
+        Adószám megadása is szükséges.
       </p>
 
       <h3 style={{ marginTop: 24 }}>3.3. A Feladó felelőssége az áru jogszerű feladhatóságáért</h3>
@@ -108,13 +111,16 @@ export default function AszfPage() {
       </p>
       <ul>
         <li>18. életévét betöltötte és cselekvőképes</li>
-        <li>érvényes, az általa használt jármű kategóriájának megfelelő vezetői engedéllyel rendelkezik</li>
-        <li>az általa használt jármű érvényes forgalmi engedéllyel és érvényes
-          <strong> kötelező gépjármű felelősségbiztosítással (KGFB)</strong> rendelkezik (a KGFB a kötelező
-          gépjármű-felelősségbiztosításról szóló 2009. évi LXII. törvény alapján a magyar jogban kötelező)</li>
+        <li>a fuvarozás során <strong>minden vonatkozó jogszabályt és a KRESZ szabályait betartja</strong>,
+          és az általa választott közlekedési móddal (pl. gépjármű, kerékpár, gyalog, tömegközlekedés)
+          jogszerűen és biztonságosan közlekedik</li>
         <li>a fuvarra <strong>alkohol- és kábítószer-mentesen</strong> érkezik, és a fuvar teljes idejében
           ebben az állapotban marad</li>
-        <li>nem áll vezetéstől eltiltás vagy a járművezetést kizáró egészségügyi állapot alatt</li>
+        <li><strong>gépjárművel történő fuvarozás esetén</strong> érvényes, a jármű kategóriájának
+          megfelelő vezetői engedéllyel, érvényes forgalmi engedéllyel és érvényes
+          <strong> kötelező gépjármű-felelősségbiztosítással (KGFB)</strong> rendelkezik (a KGFB a
+          2009. évi LXII. törvény alapján a magyar jogban kötelező), és nem áll vezetéstől eltiltás
+          vagy a járművezetést kizáró egészségügyi állapot alatt</li>
       </ul>
       <p>
         A Szolgáltató a fenti követelményeket <strong>nem ellenőrzi tételesen</strong>, hanem a Sofőr
