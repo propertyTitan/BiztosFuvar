@@ -194,7 +194,7 @@ export default function PublicTrackingPage() {
 
       {/* Footer */}
       <div style={{ textAlign: 'center', marginTop: 32, fontSize: 12, opacity: 0.5 }}>
-        🚛 GoFuvar — Bizalom. Fotó. Kód. Letét.
+        🚛 Ha fuvar kell, akkor GoFuvar.
       </div>
     </div>
   );
