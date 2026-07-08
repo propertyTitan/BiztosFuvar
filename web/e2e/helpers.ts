@@ -45,9 +45,11 @@ export async function createUser(
 
   const { rows } = await dbQuery(
     `INSERT INTO users (role, email, password_hash, full_name, phone,
-                        identity_kyc_status, driver_kyc_status, driver_terms_accepted_at)
+                        identity_kyc_status, driver_kyc_status, driver_terms_accepted_at,
+                        email_verified)
      VALUES ($1, $2, $3, $4, '+36201234567', $5, $5,
-             CASE WHEN $5 = 'verified' THEN NOW() ELSE NULL END)
+             CASE WHEN $5 = 'verified' THEN NOW() ELSE NULL END,
+             true)
      RETURNING id, role`,
     [role, email, passwordHash, name, kyc],
   );

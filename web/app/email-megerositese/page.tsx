@@ -55,13 +55,15 @@ function EmailMegerositeseInner() {
             <p style={{ marginTop: 8, color: '#14532d' }}>
               Köszönjük! A fiókod most már teljesen aktív.
             </p>
-            <Link
-              href="/bejelentkezes"
+            {/* Teljes újratöltés (nem Next-navigáció), hogy az EmailVerifyGate
+                újraellenőrizze a /me-t és beengedjen az oldalra. */}
+            <a
+              href="/"
               className="btn"
               style={{ display: 'inline-block', marginTop: 16, textDecoration: 'none' }}
             >
-              Bejelentkezés →
-            </Link>
+              Tovább az oldalra →
+            </a>
           </>
         )}
 

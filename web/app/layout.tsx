@@ -8,7 +8,7 @@ import { Inter, Bricolage_Grotesque } from 'next/font/google';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
 import AiChatWidget from '@/components/AiChatWidget';
-import EmailVerifyBanner from '@/components/EmailVerifyBanner';
+import EmailVerifyGate from '@/components/EmailVerifyGate';
 import CookieConsentBanner from '@/components/CookieConsentBanner';
 import InstallPromptBanner from '@/components/InstallPromptBanner';
 import { ToastProvider } from '@/components/ToastProvider';
@@ -147,7 +147,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <KycModalProvider />
           <CoverageModal />
           <SiteHeader />
-          <EmailVerifyBanner />
+          <EmailVerifyGate />
           <InstallPromptBanner />
           <main className="site-main">
             {/* Teszt-mód jelzés egy helyen, az egész appra — korábban a
