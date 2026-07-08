@@ -7,10 +7,12 @@
 import { test, expect } from '@playwright/test';
 import { createUser, dbQuery, loginAs } from './helpers';
 
-test('user-váltás reload nélkül: a banner a MOSTANI user emailjét mutatja (BUG-015)', async ({ page }) => {
-  // A DB-vel gyártott userek email_verified=false-szal jönnek → a banner él
+test('user-váltás reload nélkül: a kapu a MOSTANI user emailjét mutatja (BUG-015)', async ({ page }) => {
+  // Ehhez a teszthez a userek email_verified=false kell, hogy az
+  // EmailVerifyGate (megerősítő kapu) éljen és a user emailjét mutassa.
   const userA = await createUser('shipper', 'Stale Anna');
   const userB = await createUser('shipper', 'Stale Bella');
+  await dbQuery('UPDATE users SET email_verified = false WHERE id IN ($1, $2)', [userA.id, userB.id]);
 
   await loginAs(page, userA);
   await page.goto('/');
