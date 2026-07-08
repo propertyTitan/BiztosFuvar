@@ -3,7 +3,7 @@ const express = require('express');
 const db = require('../db');
 const { authRequired, requireDriverKYC } = require('../middleware/auth');
 const realtime = require('../realtime');
-const barion = require('../services/barion');
+const paymentProvider = require('../services/paymentProvider');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendBidReceivedEmail, sendBidAcceptedEmail } = require('../services/email');
@@ -273,7 +273,7 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
 
   let barionRes = { paymentId: null, gatewayUrl: null };
   try {
-    barionRes = await barion.startFeePayment({
+    barionRes = await paymentProvider.startFeePayment({
       jobId: bid.job_id,
       feeHuf,
       shipperEmail: bid.shipper_email,

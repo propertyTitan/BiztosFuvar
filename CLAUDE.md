@@ -320,10 +320,20 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   kész fordítással tér vissza
 
 ### 🟡 Várakozóban
-- **Barion szerződés** — ⚠️ a készpénzes modellel (2026-07-03) a Bridge/escrow
-  **már NEM launch-blokker**: a kapcsolatfelvételi díjhoz SIMA Barion
-  webshop-szerződés elég (napok, nem hetek). A Bridge-kérelem futhat tovább a
-  háttérben a későbbi "Védett fizetés" opcióhoz
+- **FIZETÉS: QVIK-re váltás (2026-07-08 döntés)** — a Barion drága; a
+  kapcsolatfelvételi díjat **QVIK-kel** (magyar azonnali fizetés, QR /
+  request-to-pay, ~0,4–0,8% díj, azonnali jóváírás, nincs chargeback) szedjük.
+  **ELŐKÉSZÍTVE (PR: QVIK-prep):** `services/paymentProvider.js` absztrakció
+  (a `PAYMENT_PROVIDER` env váltja: barion|qvik; a jobs/bids ezen megy),
+  `services/qvik.js` stub + dokumentált TODO-k, `/payments/qvik/callback`
+  route-skeleton. **AKTIVÁLÁS amikor megjön a jogosultság:** (1) töltsd ki a
+  `qvik.js` `startFeePayment`+`getPaymentState`-jét a PSP API-jával; (2) állítsd
+  be `PAYMENT_PROVIDER=qvik` + `QVIK_API_KEY`/`QVIK_MERCHANT_ID`/`QVIK_BASE_URL`
+  a Railway-en; (3) kösd be a qvik-callback feldolgozását (a Barion-callback
+  27–291. sorát javasolt közös `confirmFeePayment` helperbe kiszervezni). A
+  Barion default marad, amíg át nem állítjuk — nulla kód-változtatás a hívóknál.
+- **Barion szerződés** — a QVIK-kel ez háttérbe kerül; a Barion-kód default/
+  fallback marad. (Korábbi: a díjhoz sima webshop-szerződés elég volt.)
 - **D-U-N-S szám** — Apple-enrollment-flow indítása apukán át (Apple Developer fiók)
 - **Gmail "Küldés másként" megerősítése** — a user állítja be, hogy a
   gmailből info@gofuvar.hu néven válaszolhasson (SMTP: smtp.resend.com,
