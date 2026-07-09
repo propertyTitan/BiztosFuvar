@@ -169,20 +169,13 @@ if (require.main === module) {
 
 module.exports = { app, server };
 
-// Supabase free-tier keep-alive: a project 7 nap inaktivitás után auto-pause-ol.
-// 5 percenként egy könnyű SELECT 1-et küldünk a DB-nek, hogy a "last activity"
-// soha ne ürüljön ki. Cost: ~8.640 query/hó, ami a free-tier alatt elhanyagolható.
-// Lokál fejlesztésnél is fut, nem zavaró (csak egy gyors ping).
+// A korábbi 5 perces DB keep-alive ping KIVÉVE (2026-07-09): a Supabase-korszak
+// maradványa volt (rosszul elnevezve — valójában a DATABASE_URL-t, azaz a
+// Neont pingelte). A Neon compute-idő alapján számláz: a ping 0-24 ébren
+// tartotta → felesleges compute-fogyasztás (a júniusi kvóta-kifutás egyik
+// valószínű oka). Nélküle a Neon üresjáratban elalszik; az első kérésnél
+// ~1 mp cold start — alacsony forgalomnál ez a jó csere.
 if (process.env.DATABASE_URL) {
-  const db = require('./db');
-  const KEEPALIVE_MS = 5 * 60 * 1000;
-  setInterval(() => {
-    db.query('SELECT 1').catch((err) => {
-      console.error('[keepalive] DB ping hiba:', err.message);
-    });
-  }, KEEPALIVE_MS).unref();
-  console.log('[keepalive] Supabase ping aktív (5 perc)');
-
   // KYC-okmányok nyers fotóinak napi törlése a végleges döntés után
   // (adatminimalizálás). Boot után ~1 perccel egyszer, majd 24 óránként.
   const { purgeOldKycFiles } = require('./services/kyc');
