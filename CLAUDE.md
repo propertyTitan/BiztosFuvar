@@ -105,7 +105,12 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
   "RLS disabled / sensitive data publicly accessible" riasztására az **RLS mind
   a 24 táblán bekapcsolva** (policy nélkül = semmi nem fér hozzá — nem használt
   projektnél ez a kívánt állapot; adat NEM szivárgott, mert nincs benne adat).
-  Javasolt végállapot: a projekt törlése (user-döntés). Ha DB-eredetű
+  2026-07-09: a projekt **SZÜNETELTETVE** (paused — API+DB elérhetetlen);
+  a végleges törlés csak a Supabase dashboardon lehetséges (Settings →
+  General → Delete project), user-teendő. Ugyanekkor a backend 5 perces
+  DB keep-alive pingje KIVÉVE (PR #70) — Supabase-maradvány volt, a Neont
+  tartotta ébren 0-24 (valószínű júniusi kvóta-kifutás ok); a Neon most
+  üresjáratban alszik, első kérésnél ~1 mp cold start. Ha DB-eredetű
   "Szerverhiba" (500) jön, a **Neont** kell nézni — NEM a Supabase-t
   (kvóta: console.neon.tech)
 
