@@ -53,7 +53,10 @@ szerződés kizárólag a Feladó és a Sofőr között jön létre.
   web-first launchon MINDENHOL "Hamarosan"-ként kommunikáljuk (2026-07-03
   döntés, PR #48: landing badge, chatbot-tudás, tracking-oldal szövege)
 - Privát file storage (R2 + audit log)
-- Email verifikáció + password reset
+- Email verifikáció + password reset — **KEMÉNY kapu (PR #68)**: regisztráció
+  után blokkoló "Erősítsd meg az email címed" képernyő, csak verifikálás után
+  enged tovább (EmailVerifyGate; frontend-oldali kapu)
+- Sofőri KRESZ-nyilatkozat kapu (PR #67) — jogosítvány NEM kell, személyi elég
 - Sentry hibajelzés (✅ éles: web + backend)
 - Dispute system, Review system, Chat
 - Admin CRUD panel
@@ -72,7 +75,8 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
    ┌───────────────────┼────────────────────┐
    ↓                   ↓                    ↓
  Neon (Postgres)    Cloudflare R2        Külső:
- (eu-central-1)     (privát bucket)       Barion (fizetés, STUB)
+ (eu-central-1)     (privát bucket)       Fizetés: Barion STUB (default);
+                                            QVIK-prep KÉSZ (váltás env-vel)
                                           SeeMe.hu (SMS, STUB)
                                           Resend (email, ✅ ÉLES)
                                           Sentry (hibafigyelés, ✅ ÉLES)
@@ -95,9 +99,15 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
 - Migrációk lokálisan futnak a prod ellen: `npm run db:migrate`
 - RLS nincs használatban (a backend egyetlen DB-userrel csatlakozik) — DB-credet
   SOHA ne tegyünk a frontendre
-- ⚠️ A régi Supabase projekt (`frlxrbdfcuojzhafelyn`) **üres és nem használt**
-  (csak `auth`+`vault` séma). Ha DB-eredetű "Szerverhiba" (500) jön, a **Neont**
-  kell nézni/upgradelni — NEM a Supabase-t (kvóta: console.neon.tech)
+- ⚠️ A régi Supabase projekt (`frlxrbdfcuojzhafelyn`) **NEM használt, de NEM
+  üres sémájú**: a teljes GoFuvar-séma ott van (24 tábla, korai fejlesztésből),
+  viszont **minden tábla 0 soros** és `auth.users` is 0. 2026-07-09: a Supabase
+  "RLS disabled / sensitive data publicly accessible" riasztására az **RLS mind
+  a 24 táblán bekapcsolva** (policy nélkül = semmi nem fér hozzá — nem használt
+  projektnél ez a kívánt állapot; adat NEM szivárgott, mert nincs benne adat).
+  Javasolt végállapot: a projekt törlése (user-döntés). Ha DB-eredetű
+  "Szerverhiba" (500) jön, a **Neont** kell nézni — NEM a Supabase-t
+  (kvóta: console.neon.tech)
 
 ### R2 bucket
 - `gofuvar-uploads` a Cloudflare account `4ffc8483390d0d1da83fab3ba05a4172`-en
@@ -243,6 +253,24 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   belső linkelés, sitemap bővítve, dark-mode tokenek. Útvonal-oldalon a
   green.ts-ből zöld/üzemanyag stat. Frontend-only. ⚠️ NINCS app — a
   szövegekben app-ígéret TILOS (a lane-alert „e-mailben szólunk", nem „app")
+- **Jogosítvány ki + sofőri KRESZ-nyilatkozat (2026-07-07, PR #67)** — a
+  személyi igazolvány (identity KYC) elég MINDENHEZ; sofőr-mód első
+  használatakor DriverTermsGate nyilatkozat (047 migráció:
+  `driver_terms_accepted_at`; `POST /auth/accept-driver-terms`). ÁSZF 3.2/3.4
+  + adatkezelés átírva (KGFB is ki). Élesben smoke-tesztelve. Részletek az
+  5. szakasz "Sofőri KYC" soránál
+- **Kemény email-verify kapu (2026-07-08, PR #68)** — regisztráció/belépés
+  után blokkoló "Erősítsd meg az email címed" overlay (EmailVerifyGate a
+  globális layoutban; a soft EmailVerifyBanner törölve); a /email-megerositese
+  céloldal sosem blokkolt; "Új link kérése" + "Már megerősítettem" + kijelentkezés.
+  Frontend-oldali kapu (backend-kényszerítés opcionális hardening later).
+  E2E helper email_verified=true-t seedel
+- **QVIK fizetés-előkészítés MERGELVE (2026-07-09, PR #69)** — provider-
+  absztrakció élesben, a `/payments/qvik/callback` a prodon fogadóképes
+  (részletek + aktiválási checklist a 🟡 Várakozóban szakaszban)
+- **Új szlogen (2026-07-07, PR #66)**: "Ha fuvar kell, akkor GoFuvar." —
+  web footer + minden email fejléce + tracking-oldal (a "Bizalom. Fotó. Kód."
+  és a bennragadt "Letét." lecserélve)
 - **Use-case landing bővítés (2026-07-06, PR #63)** — 4 új használati eset
   oldal az adatból: `/koltoztetes`, `/nagygep-szallitas`,
   `/marketplace-elhozas`, `/autoszallitas`. Az autószállítás TRÉLERES +
@@ -323,7 +351,8 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - **FIZETÉS: QVIK-re váltás (2026-07-08 döntés)** — a Barion drága; a
   kapcsolatfelvételi díjat **QVIK-kel** (magyar azonnali fizetés, QR /
   request-to-pay, ~0,4–0,8% díj, azonnali jóváírás, nincs chargeback) szedjük.
-  **ELŐKÉSZÍTVE (PR: QVIK-prep):** `services/paymentProvider.js` absztrakció
+  **ELŐKÉSZÍTVE + MERGELVE (PR #69, 2026-07-09; a qvik-callback a prodon él):**
+  `services/paymentProvider.js` absztrakció
   (a `PAYMENT_PROVIDER` env váltja: barion|qvik; a jobs/bids ezen megy),
   `services/qvik.js` stub + dokumentált TODO-k, `/payments/qvik/callback`
   route-skeleton. **AKTIVÁLÁS amikor megjön a jogosultság:** (1) töltsd ki a
@@ -491,7 +520,9 @@ git log --oneline -20
 - A te platformod **érettebb** mint a fenti versenytársak (KYC AI, recipient SMS, dispute UI, audit log)
 - A reális első éves bevétel: **0-30M HUF** (Bear-Base case)
 - 18 hónap után **2-3M HUF/hó** ~65% eséllyel
-- A **Barion szerződés** a fő külső függőség — ha minden megvan, már lehet launch
+- A **QVIK-jogosultság (fizetés-elfogadás)** a fő külső függőség — ha megvan,
+  a `qvik.js` kitöltése + env-váltás után lehet launch (a Barion-szerződés
+  háttérbe került, a Barion-kód fallback)
 
 ---
 
