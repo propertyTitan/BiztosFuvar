@@ -8,7 +8,7 @@ const { reviewJobDescription } = require('../services/gemini');
 const { distanceMeters } = require('../utils/geo');
 const { maskEmail } = require('../utils/mask');
 const realtime = require('../realtime');
-const barion = require('../services/barion');
+const paymentProvider = require('../services/paymentProvider');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendJobPaidEmail, sendCancellationEmail, sendFeeConfirmationEmail } = require('../services/email');
@@ -658,7 +658,7 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
 
   let barionRes;
   try {
-    barionRes = await barion.startFeePayment({
+    barionRes = await paymentProvider.startFeePayment({
       jobId: j.id,
       feeHuf,
       shipperEmail: j.shipper_email,
@@ -737,7 +737,7 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
 
   // Éles Barion mellett a webhook a fizetés hiteles forrása — ezt a
   // kézi nyugtázást csak stub (teszt) módban engedjük.
-  if (!barion.isStub()) {
+  if (!paymentProvider.isStub()) {
     return res.status(409).json({
       error: 'A fizetést a Barion igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
     });
@@ -1116,7 +1116,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
     const feeHuf = calculateConnectionFee(job.accepted_price_huf);
     let barionRes = { paymentId: null, gatewayUrl: null };
     try {
-      barionRes = await barion.startFeePayment({
+      barionRes = await paymentProvider.startFeePayment({
         jobId: job.id,
         feeHuf,
         shipperEmail: parties.shipper_email,

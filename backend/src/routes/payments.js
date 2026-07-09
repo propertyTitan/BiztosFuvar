@@ -291,6 +291,38 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
 });
 
 // ============================================================
+// QVIK callback — SKELETON (integrációkor kitöltendő)
+// ============================================================
+//
+// A QVIK-PSP ide POST-ol, amikor a feladó jóváhagyta az azonnali utalást.
+// A route MÁR REGISZTRÁLVA van, hogy a PSP-nél beállítható legyen a callback
+// URL-je (`${API_BASE_URL}/payments/qvik/callback`). A valódi logika TODO.
+//
+// INTEGRÁCIÓS TEENDŐ (amikor megvan a QVIK-jogosultság):
+//   1) A body-ból kiolvasni a payment/reference azonosítót (PSP-formátum).
+//   2) A státuszt NEM a body-ból hinni, hanem `qvik.getPaymentState(id)`-val
+//      visszaellenőrizni (mint a Barionnál — hamisított POST ellen).
+//   3) 'Succeeded' esetén a fizetés-megerősítés UGYANAZ, mint a Barion-
+//      callbackben (fentebb, 27–291. sor): paid_at beállítása, escrow-sor
+//      'released', VAT + számla (generatePlatformFeeInvoice), értesítés +
+//      díj-visszaigazoló email, és a maybeGrantReferralReward trigger.
+//      → Javasolt: a Barion-callback e részét integrációkor közös helperbe
+//        (`confirmFeePayment(entityType, id)`) kiszervezni, és mindkét
+//        callback azt hívja (nulla duplikáció).
+//   4) Idempotencia: payment_events (payment_id, status) UNIQUE — ugyanúgy.
+const qvik = require('../services/qvik');
+router.post('/payments/qvik/callback', express.json(), async (req, res) => {
+  console.log('[qvik] callback (skeleton) — body:', JSON.stringify(req.body || {}).slice(0, 200));
+  // Amíg nincs bekötve, csak nyugtázunk, hogy a PSP ne ismételgesse.
+  // (Éles integrációnál ide jön a fenti 1–4. lépés.)
+  if (!qvik.isStub()) {
+    // A valódi feldolgozás helye — lásd a fenti INTEGRÁCIÓS TEENDŐ-t.
+    console.warn('[qvik] callback beérkezett, de a feldolgozás még nincs bekötve (TODO).');
+  }
+  res.json({ ok: true, note: 'qvik callback skeleton — feldolgozás integrációkor' });
+});
+
+// ============================================================
 // ADMIN — Fizetési napló
 // ============================================================
 
