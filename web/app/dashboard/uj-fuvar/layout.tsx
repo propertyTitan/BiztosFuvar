@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'Új fuvar feladása',
-  description: 'Add fel a fuvarod pár perc alatt: cím, méret, ár — a sofőrök licitálnak rá, te választasz.',
+  description: 'Add fel a fuvarod pár perc alatt: cím, méret, ár — a sofőrök ajánlatot tesznek rá, te választasz.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

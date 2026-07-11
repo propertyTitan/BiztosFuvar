@@ -24,8 +24,8 @@ test('licit → elfogadás → fizetés → felvétel → kézbesítés kóddal'
 
   await carrierPage.locator('form input[type="number"]').first().fill('12000');
   await carrierPage.getByText('Igen, benne van az ajánlatomban').click();
-  await carrierPage.getByRole('button', { name: 'Licit elküldése' }).click();
-  await expect(carrierPage.getByText(/Licit elküldve/).first()).toBeVisible();
+  await carrierPage.getByRole('button', { name: 'Ajánlat elküldése' }).click();
+  await expect(carrierPage.getByText(/Ajánlat elküldve/).first()).toBeVisible();
 
   // ---- 2. A feladó látja és elfogadja a licitet ----
   await shipperPage.goto(`/dashboard/fuvar/${job.id}`);

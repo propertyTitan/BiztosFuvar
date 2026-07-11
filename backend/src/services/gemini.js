@@ -164,10 +164,11 @@ Jelenleg az ország egész területén működünk. Nemzetközi (EU + EGT) viszo
 KÉT FŐ MÓD
 ═══════════════════════════════════════
 
-1) LICITES FUVAR (a leggyakoribb):
+1) FUVARFELADÁS AJÁNLATOKKAL (a leggyakoribb):
    - A feladó kitölti: honnan, hova, csomag mérete/súlya, javasolt ár
-   - Sofőrök ajánlatot (licitet) tesznek rá
-   - A feladó kiválasztja a legjobb ajánlatot (legolcsóbb, legjobb értékelésű, stb.)
+   - Sofőrök árajánlatot tesznek rá
+   - A feladó kiválasztja a neki tetsző ajánlatot (nem a legolcsóbb "nyer" —
+     a feladó szabadon dönt ár, értékelés, időpont alapján, ellenajánlatot is tehet)
    - Elfogadás után a feladó egy KIS kapcsolatfelvételi díjat fizet bankkártyával
      (Barion) → azonnal megkapja a sofőr telefonszámát és elindul a fuvar-folyamat
    - A FUVARDÍJAT a feladó KÉSZPÉNZBEN fizeti a sofőrnek — a platform nem kezeli
@@ -223,8 +224,8 @@ BIZALMI LÁNC (BIZTONSÁG)
 ═══════════════════════════════════════
 
 A csomagod védelme 5 rétegű:
-1. KYC-AZONOSÍTÁS: minden sofőr személyi igazolvánnyal + jogosítvánnyal
-   igazolt, valós személy — nem névtelen Facebook-kommentelő
+1. KYC-AZONOSÍTÁS: minden sofőr személyi igazolvánnyal igazolt, valós
+   személy — nem névtelen Facebook-kommentelő
 2. FOTÓ BIZONYÍTÉK: A sofőr felvételkor és lerakáskor kötelezően fotóz
 3. 6 JEGYŰ ÁTVÉTELI KÓD: Csak a címzett tudja, a sofőr ezzel zárja le
 4. QR KÓD: A címzett megmutatja telefonján → sofőr beolvassa → kész
@@ -261,14 +262,16 @@ REGISZTRÁCIÓ ÉS KYC (AZONOSÍTÁS)
 
 - Regisztráció: email + jelszó + név (30 másodperc)
 - Regisztráció után AZONNAL böngészhetsz és kitöltheted az űrlapokat
-- Az első fuvar feladásakor / licitálásnál kéri a rendszer a személyi igazolvány feltöltését
+- Az első fuvar feladásakor / ajánlattételnél kéri a rendszer a személyi igazolvány feltöltését
 - AI (mesterséges intelligencia) 3 másodperc alatt ellenőrzi:
   * Valódi személyi igazolvány-e (nem macskafotó)
   * Olvasható-e
   * A tulajdonos betöltötte-e a 18 évet
 - Ha minden OK → azonnal használhatod a platformot
-- Sofőröknek: személyi + jogosítvány kell
-- Cégeknek: személyi + cégkivonat + adószám kell
+- Sofőröknek: a személyi igazolvány elég + egy rövid sofőri nyilatkozat
+  (jogszabályok + KRESZ betartása) az első fuvarvállalás előtt
+- Cégeknek: cégnév + adószám kell (a természetes személyt a személyi
+  igazolványos KYC azonosítja)
 
 ═══════════════════════════════════════
 CÉGES (B2B) FIÓK
@@ -284,8 +287,8 @@ SOFŐR FUNKCIÓK
 ═══════════════════════════════════════
 
 - Fuvarok böngészése: közelség szerint rendezve (GPS alapján)
-- Licitálás: összeg + becsült érkezési idő + üzenet
-- A sofőr a licitált összeg 100%-át kapja, KÉSZPÉNZBEN — a platform semmit
+- Ajánlattétel: összeg + becsült érkezési idő + üzenet
+- A sofőr az elfogadott összeg 100%-át kapja, KÉSZPÉNZBEN — a platform semmit
   nem von le belőle (a kapcsolatfelvételi díjat a feladó fizeti)
 - Útvonal hirdetés: "Holnap megyek Budapest → Szeged, viszek csomagot S/M/L/XL"
 - "Útba esik" mód: sofőr jelöli hogy amúgy is megy erre → olcsóbb árak
@@ -388,11 +391,11 @@ SZABÁLYOK A VÁLASZOLÁSHOZ
 - Ha nem tudod a választ: "Ebben sajnos nem tudok segíteni. Kérlek írd meg az info@gofuvar.hu címre és kollégáink segítenek!"
 - Ha a felhasználó dühös/csalódott: legyél empátiás, ajánld fel a panasz@gofuvar.hu címet
 - Népszerű kérdések amikre TUDSZ válaszolni:
-  * "Mennyibe kerül?" → Használd az ár-kalkulátort a főoldalon, vagy adj fel fuvart és nézd meg a liciteket
-  * "Biztonságos?" → Igen, 5 rétegű bizalmi lánc (Barion escrow, fotó, kód, QR, GPS)
+  * "Mennyibe kerül?" → Használd az ár-kalkulátort a főoldalon, vagy adj fel fuvart és nézd meg a beérkező ajánlatokat
+  * "Biztonságos?" → Igen, többrétegű bizalmi lánc (KYC-azonosítás, fotó, kód, QR)
   * "Hogyan fizetek?" → Bankkártyával, Barion-on keresztül
   * "Mi van ha sérül a csomag?" → Nyiss vitát a fuvar oldalán, az admin kivizsgálja
-  * "Hogyan leszek sofőr?" → Regisztrálj, töltsd fel a személyid + jogosítványod, és licitálhatsz
+  * "Hogyan leszek sofőr?" → Regisztrálj, töltsd fel a személyi igazolványod, fogadd el a sofőri nyilatkozatot, és már ajánlatot tehetsz a fuvarokra
   * "Hol tudom letölteni az appot?" / "Van iOS / Android app?" →
     "Jelenleg nincs külön letölthető app. A gofuvar.hu mobilon ugyanúgy
     működik, és telefonon a böngészőből fel tudod tenni a kezdőképernyőre
@@ -404,7 +407,7 @@ SZABÁLYOK A VÁLASZOLÁSHOZ
     és általában magasabb áron. EU-n kívülre (UK, Svájc) is mehet,
     de a vámkezelés a feladó felelőssége."
   * "Hol működtök?" → "Egész Magyarországon, és nemzetközi EU-fuvarokat is vállalunk."
-  * "Mikor lesz elérhető a városomban?" → Jelenleg Budapest és Pest megye, hamarosan bővítünk
+  * "Mikor lesz elérhető a városomban?" → Már az egész országban elérhető — a kérdés inkább az, van-e éppen sofőr a környékeden
 
 ═══════════════════════════════════════
 🔗 BELSŐ LINKEK — NAVIGÁLD A FELHASZNÁLÓT
@@ -417,27 +420,27 @@ listából használj útvonalat — SOHA ne találj ki másikat, és ne tegyél 
 teljes URL-t (csak a /-rel kezdődő belső útvonalat):
 
 FELADÓNAK:
-- /dashboard/uj-fuvar    → új fuvar feladása (licit vagy fix ár)
+- /dashboard/uj-fuvar    → új fuvar feladása (ajánlatkérés vagy fix ár)
 - /dashboard             → feladói irányítópult, saját feladott fuvarok
 - /dashboard/utvonalak   → fix áras útvonalak böngészése, foglalás
 - /hirdeteseim           → saját hirdetéseim / aktív fuvarjaim
 - /dashboard/foglalasaim → útvonal-foglalásaim
 
 SOFŐRNEK:
-- /sofor/fuvarok       → licitálható fuvarok böngészése
+- /sofor/fuvarok       → elérhető fuvarok böngészése
 - /sofor/dashboard     → sofőri irányítópult
-- /sofor/licitjeim     → beadott licitjeim
+- /sofor/licitjeim     → beadott ajánlataim
 - /sofor/sajat-fuvarok → elvállalt fuvarjaim
 - /sofor/visszafuvar   → visszafuvar (üres visszaút feltöltése)
 - /sofor/uj-utvonal    → új fix áras útvonal meghirdetése
 
 ÁLTALÁNOS:
-- /profil       → profil, KYC (személyi/jogosítvány feltöltés), beállítások
+- /profil       → profil, KYC (személyi igazolvány feltöltés), beállítások
 - /ertesitesek  → értesítések
 
 Példák a helyes használatra:
 - "Hol adok fel fuvart?" → "Itt tudsz új fuvart feladni: [Új fuvar feladása](/dashboard/uj-fuvar)"
-- "Hogyan leszek sofőr?" → "Töltsd fel a dokumentumaidat a profilodban: [Profil / KYC](/profil), utána már licitálhatsz: [Licitálható fuvarok](/sofor/fuvarok)"
+- "Hogyan leszek sofőr?" → "Töltsd fel a személyi igazolványod a profilodban: [Profil / KYC](/profil), utána már ajánlatot tehetsz: [Elérhető fuvarok](/sofor/fuvarok)"
 - "Hol látom a fuvarjaimat?" → feladónak [Irányítópult](/dashboard), sofőrnek [Elvállalt fuvarjaim](/sofor/sajat-fuvarok)
 
 Ne tegyél linket, ha a kérdés nem egy konkrét oldalhoz kötődik (pl. "biztonságos?").
@@ -465,7 +468,7 @@ async function supportChat(message, history = []) {
       reply:
         'Üdv! Jelenleg offline módban vagyok (nincs Gemini API kulcs beállítva). ' +
         'Az alap funkciókhoz nézd meg a menüpontokat: ' +
-        '"Licitálható fuvarok", "Útba eső sofőrök", "Saját fuvaraim".',
+        '"Elérhető fuvarok", "Útba eső sofőrök", "Saját fuvaraim".',
     };
   }
   try {

@@ -23,7 +23,7 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: 'Várakozik', bidding: 'Licitálható', accepted: 'Elfogadva',
+  pending: 'Várakozik', bidding: 'Ajánlatokat vár', accepted: 'Elfogadva',
   in_progress: 'Folyamatban', delivered: 'Lerakva', completed: 'Lezárva',
   disputed: 'Vitatott', cancelled: 'Lemondva',
 };
@@ -177,10 +177,10 @@ export default function FuvarReszletek() {
     setAcceptingBidId(bidId);
     try {
       await api.acceptBid(bidId);
-      toast.success('Licit elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a sofőr elérhetőségét, a fuvardíjat pedig készpénzben adod át neki.');
+      toast.success('Ajánlat elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a sofőr elérhetőségét, a fuvardíjat pedig készpénzben adod át neki.');
       await loadAll();
     } catch (err: any) {
-      toast.error('Hiba a licit elfogadásakor', err.message);
+      toast.error('Hiba az ajánlat elfogadásakor', err.message);
     } finally {
       setAcceptingBidId(null);
     }
@@ -415,7 +415,7 @@ export default function FuvarReszletek() {
         <div className="card">
           <h2>Fizetés</h2>
           {job.status !== 'accepted' && !job.paid_at && (
-            <p className="muted">Még nincs elfogadott licit — elfogadás után itt fizeted a kapcsolatfelvételi díjat.</p>
+            <p className="muted">Még nincs elfogadott ajánlat — elfogadás után itt fizeted a kapcsolatfelvételi díjat.</p>
           )}
           {(job.status === 'accepted' || job.paid_at) && (
             <>
@@ -694,9 +694,9 @@ export default function FuvarReszletek() {
           )}
           {/* Csak az aktív (pending) licitek választhatók — újranyitás után a
               leváltott sofőr elutasított licitje nem fogadható el újra. */}
-          <h2>Beérkezett licitek ({bids.filter((b) => b.status === 'pending').length})</h2>
+          <h2>Beérkezett ajánlatok ({bids.filter((b) => b.status === 'pending').length})</h2>
           {bids.filter((b) => b.status === 'pending').length === 0 && (
-            <p className="muted">Még nincs licit. A sofőrök hamarosan ajánlatot tesznek.</p>
+            <p className="muted">Még nincs ajánlat. A sofőrök hamarosan ajánlatot tesznek.</p>
           )}
           {bids.filter((b) => b.status === 'pending').map((b) => (
             <div key={b.id} style={{ borderBottom: '1px solid var(--border)', padding: '16px 0' }}>
@@ -805,7 +805,7 @@ export default function FuvarReszletek() {
       <ConfirmDialog
         open={showReopenDialog}
         title="🔁 Másik sofőrt választok"
-        message="A fuvar visszakerül licit állapotba: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad — az új sofőr kiválasztása díjmentes. A jelenlegi sofőr értesítést kap."
+        message="A fuvar újra ajánlatokat fogad: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad — az új sofőr kiválasztása díjmentes. A jelenlegi sofőr értesítést kap."
         confirmLabel="Újranyitom"
         fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. A sofőr nem veszi fel a telefont' }]}
         onConfirm={(v) => {

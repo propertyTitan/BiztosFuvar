@@ -103,7 +103,7 @@ export default function ErtesitesekOldal() {
           <div style={{ fontSize: 40 }}>🔔</div>
           <p style={{ margin: '8px 0 4px', fontWeight: 700 }}>Még nincs értesítésed.</p>
           <p className="muted" style={{ margin: '0 0 16px' }}>
-            Itt jelennek meg a liciteid, fuvarjaid és üzeneteid eseményei.
+            Itt jelennek meg az ajánlataid, fuvarjaid és üzeneteid eseményei.
           </p>
           <Link className="btn" href="/dashboard/uj-fuvar">Adj fel egy fuvart</Link>
         </div>

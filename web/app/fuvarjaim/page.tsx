@@ -17,7 +17,7 @@ import Bookings from '@/components/fuvarjaim/Bookings';
 const TABS = [
   { key: 'hirdeteseim', label: 'Hirdetéseim', icon: Megaphone, Comp: PostedJobs },
   { key: 'vallalt', label: 'Vállalt fuvarok', icon: Truck, Comp: CarryingJobs },
-  { key: 'licitjeim', label: 'Licitjeim', icon: Tag, Comp: MyBids },
+  { key: 'licitjeim', label: 'Ajánlataim', icon: Tag, Comp: MyBids },
   { key: 'foglalasaim', label: 'Foglalásaim', icon: Package, Comp: Bookings },
 ] as const;
 

@@ -42,10 +42,10 @@ export const metadata: Metadata = {
     template: '%s | GoFuvar',
   },
   description:
-    'Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. A fuvardíjat készpénzben fizeted a sofőrnek — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
+    'Hirdess meg egy fuvart és a sofőrök ajánlatot tesznek rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. A fuvardíjat készpénzben fizeted a sofőrnek — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
   keywords: [
     'fuvar', 'szállítás', 'csomag', 'költöztetés', 'sofőr', 'fuvartőzsde',
-    'GoFuvar', 'közösségi szállítás', 'licit', 'fix áras fuvar',
+    'GoFuvar', 'közösségi szállítás', 'árajánlat', 'fix áras fuvar',
     'készpénzes fuvar', 'Magyarország',
   ],
   metadataBase: new URL('https://gofuvar.hu'),

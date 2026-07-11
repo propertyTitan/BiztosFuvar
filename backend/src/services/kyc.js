@@ -5,7 +5,7 @@
 //   2) Admin jóváhagyja → status: approved, lejárat mentve
 //   3) 30 nappal lejárat előtt → értesítés ("Frissítsd a jogosítványod!")
 //   4) 7 nappal előtt → utolsó figyelmeztetés
-//   5) Lejárat napján → can_bid = false, licitálás letiltva
+//   5) Lejárat napján → can_bid = false, ajánlattétel letiltva
 //
 // A checkExpiredLicenses() cron job-ként fut naponta.
 
@@ -86,7 +86,7 @@ async function approveDocument(docId, adminId) {
     user_id: doc.user_id,
     type: 'kyc_approved',
     title: '✅ Dokumentumod jóváhagyva!',
-    body: 'A jogosítványod elfogadásra került. Mostantól licitálhatsz.',
+    body: 'A jogosítványod elfogadásra került. Mostantól tehetsz ajánlatot a fuvarokra.',
     link: '/profil',
   }).catch(() => {});
 
@@ -150,7 +150,7 @@ async function checkExpiredLicenses() {
       user_id: doc.user_id,
       type: 'license_expiry_warning',
       title: '⚠️ Jogosítványod 30 napon belül lejár!',
-      body: `Kérjük frissítsd a jogosítványod a lejárat (${doc.expiry_date}) előtt, különben nem tudsz majd licitálni.`,
+      body: `Kérjük frissítsd a jogosítványod a lejárat (${doc.expiry_date}) előtt, különben nem tudsz majd fuvart vállalni.`,
       link: '/profil',
     }).catch(() => {});
     await db.query(`UPDATE kyc_documents SET expiry_warned_30d = true WHERE id = $1`, [doc.id]);
@@ -169,7 +169,7 @@ async function checkExpiredLicenses() {
       user_id: doc.user_id,
       type: 'license_expiry_urgent',
       title: '🔴 Jogosítványod 7 napon belül lejár!',
-      body: 'Ha nem frissíted, a lejárat napján automatikusan letiltjuk a licitálási lehetőséget.',
+      body: 'Ha nem frissíted, a lejárat napján automatikusan letiltjuk az ajánlattételi lehetőséget.',
       link: '/profil',
     }).catch(() => {});
     await db.query(`UPDATE kyc_documents SET expiry_warned_7d = true WHERE id = $1`, [doc.id]);
@@ -188,8 +188,8 @@ async function checkExpiredLicenses() {
     await createNotification({
       user_id: doc.user_id,
       type: 'license_expired',
-      title: '🚫 Jogosítványod lejárt — licitálás letiltva',
-      body: 'Tölts fel új, érvényes jogosítványt a profil oldaladon a licitálás újraengedélyezéséhez.',
+      title: '🚫 Jogosítványod lejárt — ajánlattétel letiltva',
+      body: 'Tölts fel új, érvényes jogosítványt a profil oldaladon az ajánlattétel újraengedélyezéséhez.',
       link: '/profil',
     }).catch(() => {});
   }

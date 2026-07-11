@@ -17,7 +17,7 @@ const STORAGE_KEY = 'gofuvar_ai_history';
 const SUGGESTIONS = [
   'Hogyan adok fel új fuvart?',
   'Mi az a 6 jegyű kód?',
-  'Mi a különbség a licit és a fix ár között?',
+  'Mi a különbség az ajánlatkérés és a fix ár között?',
   'Hogyan működik a lemondás?',
 ];
 

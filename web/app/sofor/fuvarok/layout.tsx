@@ -4,8 +4,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Licitálható fuvarok',
-  description: 'Nyitott fuvarok sofőröknek: licitálj arra, ami útba esik, és keress a szabad kapacitásoddal.',
+  title: 'Elérhető fuvarok',
+  description: 'Nyitott fuvarok sofőröknek: tegyél ajánlatot arra, ami útba esik, és keress a szabad kapacitásoddal.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

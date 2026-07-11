@@ -294,7 +294,7 @@ export default function SoforFuvarokLista() {
       {!loading && !error && jobs.length === 0 && (
         <div className="card" style={{ marginTop: 16, textAlign: 'center', padding: 32 }}>
           <div style={{ fontSize: 40 }}>🚛</div>
-          <p style={{ margin: '8px 0 4px', fontWeight: 700 }}>Jelenleg nincs licitálható fuvar a közelben.</p>
+          <p style={{ margin: '8px 0 4px', fontWeight: 700 }}>Jelenleg nincs elérhető fuvar a közelben.</p>
           <p className="muted" style={{ margin: '0 0 16px' }}>
             Hirdess fix áras útvonalat — a feladók rád találnak, és üresjárat nélkül fuvarozhatsz.
           </p>
@@ -364,7 +364,7 @@ export default function SoforFuvarokLista() {
                         fontSize: 11,
                         letterSpacing: 0.5,
                       }}
-                      title="Azonnali fuvar: első elfogadó nyer, nincs licitálás."
+                      title="Azonnali fuvar: első elfogadó viszi, nincs ajánlattétel."
                     >
                       ⚡ AZONNALI
                     </span>
@@ -378,7 +378,7 @@ export default function SoforFuvarokLista() {
                         fontWeight: 800,
                         fontSize: 11,
                       }}
-                      title="Ezt te adtad fel — nem licitálhatsz rá."
+                      title="Ezt te adtad fel — nem tehetsz rá ajánlatot."
                     >
                       SAJÁT HIRDETÉS
                     </span>

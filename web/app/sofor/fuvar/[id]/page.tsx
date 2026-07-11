@@ -28,7 +28,7 @@ import { Loading, ErrorState } from '@/components/StateView';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
-  bidding: 'Licitálható',
+  bidding: 'Elérhető',
   accepted: 'Elfogadva',
   in_progress: 'Folyamatban',
   delivered: 'Lerakva',
@@ -119,7 +119,7 @@ export default function SoforFuvarReszletek() {
     e.preventDefault();
     const amount = parseInt(bidAmount, 10);
     if (!amount || amount <= 0) {
-      toast.error('Érvénytelen összeg', 'Érvényes licit-összeget adj meg (Ft).');
+      toast.error('Érvénytelen összeg', 'Érvényes ajánlati összeget adj meg (Ft).');
       return;
     }
     if (!returnPolicy) {
@@ -143,7 +143,7 @@ export default function SoforFuvarReszletek() {
         return_policy: returnPolicy,
         return_fee_huf: returnFeeNum,
       });
-      toast.success('Licit elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
+      toast.success('Ajánlat elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
       setBidAmount('');
       setBidEta('');
       setBidMessage('');
@@ -151,7 +151,7 @@ export default function SoforFuvarReszletek() {
       setReturnFee('');
       await load();
     } catch (err: any) {
-      toast.error('Licit hiba', err.message);
+      toast.error('Ajánlatküldési hiba', err.message);
     } finally {
       setSubmitting(false);
     }
@@ -460,7 +460,7 @@ export default function SoforFuvarReszletek() {
         >
           <h2 style={{ marginTop: 0 }}>📣 Ez a te saját hirdetésed</h2>
           <p style={{ marginBottom: 8 }}>
-            A saját fuvaradra nem licitálhatsz. A licitek kezeléséhez nyisd meg a feladói nézetet.
+            A saját fuvaradra nem tehetsz ajánlatot. Az ajánlatok kezeléséhez nyisd meg a feladói nézetet.
           </p>
           <Link className="btn" href={`/dashboard/fuvar/${job.id}`}>
             Feladói nézet →
@@ -471,7 +471,7 @@ export default function SoforFuvarReszletek() {
       {/* Licit feladás vagy meglévő licit állapota */}
       {!iAmTheShipper && (job.status === 'pending' || job.status === 'bidding') && !myBid && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Licit feladása</h2>
+          <h2 style={{ marginTop: 0 }}>Ajánlattétel</h2>
 
           {/* Díj figyelmeztetés — egyszer megmutatjuk, utána "ne jelenjen meg többet" */}
           {!feeInfoDismissed && (
@@ -484,7 +484,7 @@ export default function SoforFuvarReszletek() {
                 border: '1px solid rgba(251,191,36,0.5)',
               }}
             >
-              <strong style={{ fontSize: 14 }}>💰 Fontos a licitálás előtt!</strong>
+              <strong style={{ fontSize: 14 }}>💰 Fontos az ajánlattétel előtt!</strong>
               <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>
                 Az általad megadott összeg <strong>100%-ban a tiéd</strong>, és{' '}
                 <strong>készpénzben</strong> kapod a feladótól — a GoFuvar semmit
@@ -630,7 +630,7 @@ export default function SoforFuvarReszletek() {
             </div>
 
             <button className="btn" type="submit" disabled={submitting} style={{ marginTop: 16 }}>
-              {submitting ? 'Küldés…' : 'Licit elküldése'}
+              {submitting ? 'Küldés…' : 'Ajánlat elküldése'}
             </button>
           </form>
         </div>
@@ -638,7 +638,7 @@ export default function SoforFuvarReszletek() {
 
       {myBid && (
         <div className="card" style={{ marginTop: 16, background: 'var(--surface)' }}>
-          <h2 style={{ marginTop: 0 }}>A te licited</h2>
+          <h2 style={{ marginTop: 0 }}>A te ajánlatod</h2>
           {/* BUG-037: elfogadás után a MEGÁLLAPODOTT ár számít — ellenajánlatos
               alku után az eredeti licit-összeg tévesen többet ígért. */}
           {(() => {
@@ -766,7 +766,7 @@ export default function SoforFuvarReszletek() {
       {/* Összes beérkezett licit (referencia) */}
       {(job.status === 'pending' || job.status === 'bidding') && bids.length > 0 && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Eddigi licitek ({bids.length})</h2>
+          <h2 style={{ marginTop: 0 }}>Eddigi ajánlatok ({bids.length})</h2>
           {bids.map((b) => (
             <div
               key={b.id}

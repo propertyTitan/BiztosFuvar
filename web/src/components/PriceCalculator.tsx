@@ -156,7 +156,7 @@ export default function PriceCalculator() {
               Legvalószínűbb: <strong>{fmt(result.estimate_huf)} Ft</strong>
             </div>
             <p className="muted" style={{ fontSize: 12, marginTop: 12, marginBottom: 0 }}>
-              A tényleges ár a sofőrök licitjeitől függ. Regisztrálj, add fel a
+              A tényleges ár a sofőrök ajánlataitól függ. Regisztrálj, add fel a
               fuvart, és perceken belül érkeznek az ajánlatok!
             </p>
             <a

@@ -63,7 +63,7 @@ export default function FeladoiUtvonalBongeszo() {
           <h1 style={{ marginBottom: 4 }}>Útba eső sofőrök</h1>
           <p className="muted" style={{ margin: 0 }}>
             Sofőrök által meghirdetett útvonalak. Foglalj helyet a csomagod
-            számára az útjukon, fix áron — nincs licitálás.
+            számára az útjukon, fix áron — nincs ajánlattétel.
           </p>
         </div>
         <div className="row" style={{ gap: 8, alignItems: 'center' }}>

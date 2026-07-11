@@ -93,7 +93,7 @@ router.get('/calculator/estimate', (req, res) => {
     estimate_huf: roundTo500(estimate),
     range_low_huf: roundTo500(low),
     range_high_huf: roundTo500(high),
-    note: 'Becsült ár a távolság, súly és csomagméret alapján. A tényleges ár a sofőrök licitjeitől függ.',
+    note: 'Becsült ár a távolság, súly és csomagméret alapján. A tényleges ár a sofőrök ajánlataitól függ.',
   });
 });
 

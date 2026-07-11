@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'Értesítések',
-  description: 'A fuvarjaiddal kapcsolatos értesítések: licitek, fizetések, kézbesítések.',
+  description: 'A fuvarjaiddal kapcsolatos értesítések: ajánlatok, fizetések, kézbesítések.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

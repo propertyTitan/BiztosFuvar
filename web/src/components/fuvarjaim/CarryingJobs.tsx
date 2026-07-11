@@ -11,7 +11,7 @@ import { Loading } from '@/components/StateView';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
-  bidding: 'Licitálható',
+  bidding: 'Elérhető',
   accepted: 'Elfogadva',
   in_progress: 'Folyamatban',
   delivered: 'Lerakva',
@@ -87,7 +87,7 @@ export default function SoforSajatFuvarok() {
       {!loading && !error && jobs.length === 0 && (
         <div className="card">
           <p className="muted">
-            Még nincs aktív fuvarod. Licitálj néhány fuvarra az{' '}
+            Még nincs aktív fuvarod. Tegyél ajánlatot néhány fuvarra az{' '}
             <a href="/sofor/fuvarok">Elérhető fuvarok</a> oldalon!
           </p>
         </div>
