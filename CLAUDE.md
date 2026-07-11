@@ -283,6 +283,13 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Apró UI-polír (2026-07-11, PR #75)** — (1) **locale-fix**: a böngésző-
+  nyelv AUTO-detektálás kivéve az i18n-ből (fixen magyar; angol böngésző
+  eddig kevert "Log in"+magyar oldalt kapott) — a külföldi launchnál kész
+  fordítással kapcsolható vissza (komment jelzi a helyét az i18n.tsx-ben);
+  (2) landing-kártyák + 404 + footer emoji → lucide SVG (⚠️ SZABÁLY: UI-
+  ikonként emoji TILOS, mindig lucide — emoji csak prózában/banner-ben OK);
+  (3) hero "Sofőröd is lesz." + stat "500 Ft-tól" nowrap (sortörés-fix)
 - **Új szlogen (2026-07-07, PR #66)**: "Ha fuvar kell, akkor GoFuvar." —
   web footer + minden email fejléce + tracking-oldal (a "Bizalom. Fotó. Kód."
   és a bennragadt "Letét." lecserélve)
