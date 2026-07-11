@@ -2,15 +2,37 @@
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 
-function authRequired(req, res, next) {
+async function authRequired(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
   if (!token) return res.status(401).json({ error: 'Hiányzó token' });
+  let payload;
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
-    next();
+    // Explicit algoritmus-whitelist: HS256 (szimmetrikus). Enélkül elméletben
+    // alg-confusion nyílna, ha valaha nyilvános kulcsra váltanánk.
+    payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
   } catch (err) {
     return res.status(401).json({ error: 'Érvénytelen token' });
+  }
+  try {
+    // Session-invalidáció: a token `tv` claimje egyezzen a DB aktuális
+    // token_version-jével. Jelszó-reset (token_version++) után a régi token
+    // itt bukik el. A `tv ?? 0` a migráció előtt kiadott tokeneket 0-ként
+    // kezeli (zökkenőmentes bevezetés).
+    const { rows } = await db.query('SELECT token_version FROM users WHERE id = $1', [payload.sub]);
+    if (!rows[0]) return res.status(401).json({ error: 'Érvénytelen token' });
+    if ((rows[0].token_version ?? 0) !== (payload.tv ?? 0)) {
+      return res.status(401).json({
+        error: 'A munkameneted lejárt — jelentkezz be újra.',
+        code: 'SESSION_INVALIDATED',
+      });
+    }
+    req.user = payload;
+    next();
+  } catch (err) {
+    // DB-hiba NEM jelent érvénytelen tokent (pl. Neon cold start) — továbbadjuk
+    // a hibakezelőnek (500, retryable), nem léptetjük ki feleslegesen a usert.
+    next(err);
   }
 }
 

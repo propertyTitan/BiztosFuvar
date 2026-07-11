@@ -1,0 +1,13 @@
+-- Session-invalidáció: JWT token_version.
+--
+-- A kiadott JWT beleírja a user aktuális token_version-jét (`tv` claim), és az
+-- authRequired minden kérésnél összeveti a DB-beli értékkel. Ha a kettő eltér,
+-- a token érvénytelen. Így a jelszó-reset (és bármely jövőbeli "jelentkeztess
+-- ki minden eszközről" művelet) a token_version léptetésével AZONNAL
+-- érvényteleníti a korábban kiadott tokeneket — eddig a stateless JWT a
+-- lejáratig (7 nap) élt, a jelszó-reset sem vonta vissza.
+--
+-- Default 0: a migráció előtt kiadott (tv nélküli) tokenek 0-ként kezelődnek,
+-- és a friss sorok is 0-ról indulnak → zökkenőmentes bevezetés, senki nem esik
+-- ki a deploykor. Az első jelszó-reset lépteti 1-re.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0;

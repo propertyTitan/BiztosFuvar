@@ -22,14 +22,21 @@ function init(httpServer) {
     },
   });
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     socket.data.user = null;
     if (token) {
       try {
-        socket.data.user = jwt.verify(token, process.env.JWT_SECRET);
+        const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+        // Session-invalidáció a socketen is: a jelszó-reset (token_version++)
+        // után a nyitott socket ne maradjon hitelesítve. Eltérő tv / hiányzó
+        // user → vendégként kezeljük (szoba-join nélkül).
+        const { rows } = await db.query('SELECT token_version FROM users WHERE id = $1', [payload.sub]);
+        if (rows[0] && (rows[0].token_version ?? 0) === (payload.tv ?? 0)) {
+          socket.data.user = payload;
+        }
       } catch {
-        // Érvénytelen/lejárt token → vendégként kezelve, szoba-join nélkül
+        // Érvénytelen/lejárt token vagy DB-hiba → vendégként kezelve
       }
     }
     next();
