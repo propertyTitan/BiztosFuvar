@@ -108,7 +108,11 @@ function verifyPassword(password, stored) {
 
 function signToken(user) {
   return jwt.sign(
-    { sub: user.id, role: user.role, email: user.email },
+    // `tv` = token_version: session-invalidációhoz. A middleware minden
+    // kérésnél a DB-beli users.token_version-höz hasonlítja. Friss/register
+    // usernél ez 0; jelszó-reset után a DB értéke nő, így a régi tokenek
+    // (kisebb tv-vel) elbuknak.
+    { sub: user.id, role: user.role, email: user.email, tv: user.token_version ?? 0 },
     process.env.JWT_SECRET,
     { expiresIn: '7d' },
   );
@@ -189,7 +193,7 @@ router.post('/register', registerRateLimit, async (req, res) => {
                           referred_by,
                           email_verification_token_hash, email_verification_sent_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
-       RETURNING id, role, email, full_name, account_type, email_verified`,
+       RETURNING id, role, email, full_name, account_type, email_verified, token_version`,
       [role, normEmail, hashPassword(password), cleanName, cleanedPhone || null, vehicle_type || null, cleanedPlate || null,
        accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null,
        referrerId,
@@ -278,6 +282,10 @@ router.post('/reset-password', loginRateLimit, async (req, res) => {
           SET password_hash = $1,
               password_reset_token_hash = NULL,
               password_reset_expires_at = NULL,
+              -- Session-invalidáció: a korábban kiadott (kisebb tv-jű) tokenek
+              -- azonnal érvénytelenné válnak. Ez a reset lényege: ha valaki a
+              -- tokenünkkel visszaélt, a jelszó-csere kizárja.
+              token_version = token_version + 1,
               updated_at = NOW()
         WHERE id = $2`,
       [hashPassword(password), user.id],
@@ -358,7 +366,7 @@ router.post('/login', loginRateLimit, async (req, res) => {
   // régi sorokban vegyes írásmód lehet, ezért itt is LOWER-rel hasonlítunk —
   // különben a "Tester@…" fiók nem tudna "tester@…"-ként belépni.
   const { rows } = await db.query(
-    'SELECT id, role, email, full_name, password_hash FROM users WHERE LOWER(email) = LOWER($1)',
+    'SELECT id, role, email, full_name, password_hash, token_version FROM users WHERE LOWER(email) = LOWER($1)',
     [email.trim()],
   );
   const user = rows[0];
