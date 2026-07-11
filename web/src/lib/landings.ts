@@ -5,7 +5,15 @@
 // (persona), használati eset (usecase). Új oldal = új bejegyzés ide, a
 // megjelenítést nem kell írni.
 
-export type LandingBullet = { icon?: string; title: string; desc: string };
+import {
+  Banknote, BicepsFlexed, Bike, Camera, Coins, HandCoins, Leaf, Link2,
+  Map, MapPin, Package, Receipt, ShieldCheck, ShoppingCart, Sofa, Star,
+  Timer, TriangleAlert, Truck, Undo2, WashingMachine, type LucideIcon,
+} from 'lucide-react';
+
+// Az icon lucide-komponens (emoji TILOS — platformonként másképp renderel);
+// a tint a kártya-ikon színe, alapból var(--primary).
+export type LandingBullet = { icon?: LucideIcon; tint?: string; title: string; desc: string };
 export type FAQItem = { q: string; a: string };
 export type LandingCTA = { label: string; href: string };
 
@@ -52,10 +60,10 @@ function routeConfig(r: { slug: string; from: string; to: string; km: number }):
     primaryCta: { label: 'Adj fel egy fuvart', href: '/bejelentkezes?mode=register' },
     route: { fromCity: r.from, toCity: r.to, distanceKm: r.km },
     bullets: [
-      { icon: '🌿', title: 'Zöld, mert meglévő úton megy', desc: `A sofőr úgyis megy ${title} — a csomagod egy meglévő útra kerül, nincs plusz jármű, nincs plusz károsanyag.` },
-      { icon: '📸', title: 'Fotó + 6 jegyű kód', desc: 'A sofőr felvételkor és átadáskor is fotózza a csomagot, a kézbesítést pedig egy 6 jegyű átvételi kód zárja le.' },
-      { icon: '🛡️', title: 'Ellenőrzött sofőrök', desc: 'Minden sofőr átmegy a személyazonosság-ellenőrzésen (KYC), mielőtt fuvart vállalhat.' },
-      { icon: '💵', title: 'Készpénzes fuvardíj', desc: 'A fuvardíjat készpénzben adod a sofőrnek; a GoFuvar csak egy kis kapcsolatfelvételi díjat szed elfogadáskor.' },
+      { icon: Leaf, tint: 'var(--success)', title: 'Zöld, mert meglévő úton megy', desc: `A sofőr úgyis megy ${title} — a csomagod egy meglévő útra kerül, nincs plusz jármű, nincs plusz károsanyag.` },
+      { icon: Camera, title: 'Fotó + 6 jegyű kód', desc: 'A sofőr felvételkor és átadáskor is fotózza a csomagot, a kézbesítést pedig egy 6 jegyű átvételi kód zárja le.' },
+      { icon: ShieldCheck, title: 'Ellenőrzött sofőrök', desc: 'Minden sofőr átmegy a személyazonosság-ellenőrzésen (KYC), mielőtt fuvart vállalhat.' },
+      { icon: Banknote, tint: 'var(--success)', title: 'Készpénzes fuvardíj', desc: 'A fuvardíjat készpénzben adod a sofőrnek; a GoFuvar csak egy kis kapcsolatfelvételi díjat szed elfogadáskor.' },
     ],
     faq: [
       { q: `Mennyibe kerül egy ${title} fuvar?`, a: 'A fuvardíjat a sofőrrel egyeztetitek — feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján. A GoFuvar ezen felül egy sávos, bevezető kapcsolatfelvételi díjat számít (500–3 990 Ft), amit a fuvar elfogadásakor fizetsz.' },
@@ -78,10 +86,10 @@ const PERSONAS: LandingConfig[] = [
     subhead: 'Ha úgyis mész valahová — autóval, biciklivel, gyalog vagy tömegközlekedéssel —, vigyél magaddal egy csomagot az útvonaladon. Elég hozzá a személyi igazolványod. Te döntöd el, melyik fuvart vállalod.',
     primaryCta: { label: 'Regisztrálj sofőrként', href: '/bejelentkezes?mode=register' },
     bullets: [
-      { icon: '🚲', title: 'Bármivel szállíthatsz', desc: 'Autó, furgon, bicikli, gyalog vagy tömegközlekedés — mind mehet. Elég hozzá a személyi igazolványod.' },
-      { icon: '⏱️', title: 'A lényeg a pontosság', desc: 'Ami számít: időben odaérsz, és betartod, amit az ajánlatodban vállaltál. A jó értékelések hozzák a következő fuvart.' },
-      { icon: '🗺️', title: 'Útvonal-figyelő', desc: 'Állítsd be a szokásos útvonaladat, és e-mailben szólunk, amikor illő fuvar kerül ki rá.' },
-      { icon: '💵', title: 'Készpénz, azonnal', desc: 'A fuvardíjat a feladótól készpénzben kapod, levonás nélkül — a GoFuvar a fuvardíjhoz nem nyúl.' },
+      { icon: Bike, title: 'Bármivel szállíthatsz', desc: 'Autó, furgon, bicikli, gyalog vagy tömegközlekedés — mind mehet. Elég hozzá a személyi igazolványod.' },
+      { icon: Timer, title: 'A lényeg a pontosság', desc: 'Ami számít: időben odaérsz, és betartod, amit az ajánlatodban vállaltál. A jó értékelések hozzák a következő fuvart.' },
+      { icon: Map, title: 'Útvonal-figyelő', desc: 'Állítsd be a szokásos útvonaladat, és e-mailben szólunk, amikor illő fuvar kerül ki rá.' },
+      { icon: Banknote, tint: 'var(--success)', title: 'Készpénz, azonnal', desc: 'A fuvardíjat a feladótól készpénzben kapod, levonás nélkül — a GoFuvar a fuvardíjhoz nem nyúl.' },
     ],
     faq: [
       { q: 'Kell hozzá vállalkozás?', a: 'A saját adóügyi státuszodért te felelsz (rendszeres kereső tevékenységhez a magyar jog szerint általában vállalkozói forma kell). A GoFuvar a fuvardíjat nem kezeli és nem számlázza — az a te és a feladó közti készpénzes ügylet.' },
@@ -100,10 +108,10 @@ const PERSONAS: LandingConfig[] = [
     subhead: 'Bútor, nagy doboz, több darab? A GoFuvar sofőrök oda viszik, ahová a szokásos futár nehezen. Céges fiókkal, számlával, ellenőrzött sofőrökkel.',
     primaryCta: { label: 'Hozz létre céges fiókot', href: '/bejelentkezes?mode=register' },
     bullets: [
-      { icon: '📦', title: 'Terjedelmes áru is', desc: 'Nem méret-korlátos futárcsomag: bármi, ami elfér egy autóban vagy furgonban.' },
-      { icon: '🧾', title: 'Céges fiók + számla', desc: 'Adószámmal regisztrálsz, a kapcsolatfelvételi díjról számlát kapsz.' },
-      { icon: '🛡️', title: 'Ellenőrzött sofőrök', desc: 'KYC-ellenőrzött sofőrök, fotó a felvételről és az átadásról, 6 jegyű átvételi kód.' },
-      { icon: '🌿', title: 'Zöldebb kiszállítás', desc: 'A csomag meglévő úton utazik — kevesebb kibocsátás, amit a vásárlóidnak is kommunikálhatsz.' },
+      { icon: Package, title: 'Terjedelmes áru is', desc: 'Nem méret-korlátos futárcsomag: bármi, ami elfér egy autóban vagy furgonban.' },
+      { icon: Receipt, title: 'Céges fiók + számla', desc: 'Adószámmal regisztrálsz, a kapcsolatfelvételi díjról számlát kapsz.' },
+      { icon: ShieldCheck, title: 'Ellenőrzött sofőrök', desc: 'KYC-ellenőrzött sofőrök, fotó a felvételről és az átadásról, 6 jegyű átvételi kód.' },
+      { icon: Leaf, tint: 'var(--success)', title: 'Zöldebb kiszállítás', desc: 'A csomag meglévő úton utazik — kevesebb kibocsátás, amit a vásárlóidnak is kommunikálhatsz.' },
     ],
     faq: [
       { q: 'Hogyan integrálom a boltomba?', a: 'Induláskor manuális feladással működik (pár perc/rendelés). A webshop-integráció a roadmapen van — jelezd az igényt, és előre veszünk.' },
@@ -121,11 +129,11 @@ const PERSONAS: LandingConfig[] = [
     subhead: 'Fuvarozó cég, egyéni vállalkozó vagy hivatásos sofőr? Töltsd meg az üres kilométereidet és a visszautaidat rendszeres fuvarokkal. A fuvardíj 100%-a a tiéd, készpénzben — a GoFuvar a te díjadból NEM von le jutalékot.',
     primaryCta: { label: 'Regisztrálj fuvarozóként', href: '/bejelentkezes?mode=register' },
     bullets: [
-      { icon: '💯', title: 'A fuvardíj 100%-a a tiéd', desc: 'A díjat készpénzben kapod a feladótól, a platform NEM von le belőle jutalékot. A GoFuvar bevétele a feladótól szedett kapcsolatfelvételi díj — a te díjadhoz nem nyúlunk.' },
-      { icon: '↩️', title: 'Töltsd meg az üres visszautat', desc: 'A visszafuvar-matching felajánlja a visszaútra eső fuvarokat, hogy ne menj üresen — a holtkilométer bevétellé válik.' },
-      { icon: '🗺️', title: 'Rendszeres fuvar az útvonaladon', desc: 'Állítsd be a szokásos útvonalaidat, és e-mailben szólunk a rád illő fuvarokról — nem kell folyton keresgélned.' },
-      { icon: '🧾', title: 'Céges / EV fiók', desc: 'Adószámmal céges vagy egyéni vállalkozói fiókot hozol létre — professzionális profil, ami bizalmat ad a feladónak.' },
-      { icon: '⭐', title: 'Építs reputációt', desc: 'Az értékeléseid és a teljesített fuvaraid előrébb hoznak; a megbízható fuvarozók kapják a legtöbb megkeresést.' },
+      { icon: HandCoins, tint: 'var(--success)', title: 'A fuvardíj 100%-a a tiéd', desc: 'A díjat készpénzben kapod a feladótól, a platform NEM von le belőle jutalékot. A GoFuvar bevétele a feladótól szedett kapcsolatfelvételi díj — a te díjadhoz nem nyúlunk.' },
+      { icon: Undo2, title: 'Töltsd meg az üres visszautat', desc: 'A visszafuvar-matching felajánlja a visszaútra eső fuvarokat, hogy ne menj üresen — a holtkilométer bevétellé válik.' },
+      { icon: Map, title: 'Rendszeres fuvar az útvonaladon', desc: 'Állítsd be a szokásos útvonalaidat, és e-mailben szólunk a rád illő fuvarokról — nem kell folyton keresgélned.' },
+      { icon: Receipt, title: 'Céges / EV fiók', desc: 'Adószámmal céges vagy egyéni vállalkozói fiókot hozol létre — professzionális profil, ami bizalmat ad a feladónak.' },
+      { icon: Star, tint: 'var(--warning)', title: 'Építs reputációt', desc: 'Az értékeléseid és a teljesített fuvaraid előrébb hoznak; a megbízható fuvarozók kapják a legtöbb megkeresést.' },
     ],
     faq: [
       { q: 'Mennyit von le a platform a fuvardíjból?', a: 'Semmit. A fuvardíj 100%-a a tiéd, készpénzben. A GoFuvar bevétele a feladótól szedett kapcsolatfelvételi díj — a te díjadhoz nem nyúlunk.' },
@@ -149,10 +157,10 @@ const USECASES: LandingConfig[] = [
     subhead: 'Egy kanapé, egy szekrény, egy marketplace-en vett asztal — a GoFuvar sofőrök elviszik. A sofőrök ajánlatot tesznek rá, te a neked megfelelőt választod — a verseny miatt gyakran kedvező áron.',
     primaryCta: REGISTER_CTA,
     bullets: [
-      { icon: '🛋️', title: 'Nagy darab is elfér', desc: 'Nem futárcsomag-méret: bútor, több darab, terjedelmes tárgy — ami befér egy autóba vagy furgonba.' },
-      { icon: '💪', title: 'Bepakolás jelölhető', desc: 'Feladáskor jelezheted, ha emeletre kell felvinni vagy segítség kell a pakoláshoz.' },
-      { icon: '📸', title: 'Fotó + kód védelem', desc: 'A sofőr fotózza a bútort felvételkor és átadáskor, a kézbesítést 6 jegyű kód zárja.' },
-      { icon: '💵', title: 'A sofőr ajánl, te döntesz', desc: 'A sofőrök árajánlatot tesznek a fuvarodra; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
+      { icon: Sofa, title: 'Nagy darab is elfér', desc: 'Nem futárcsomag-méret: bútor, több darab, terjedelmes tárgy — ami befér egy autóba vagy furgonba.' },
+      { icon: BicepsFlexed, title: 'Bepakolás jelölhető', desc: 'Feladáskor jelezheted, ha emeletre kell felvinni vagy segítség kell a pakoláshoz.' },
+      { icon: Camera, title: 'Fotó + kód védelem', desc: 'A sofőr fotózza a bútort felvételkor és átadáskor, a kézbesítést 6 jegyű kód zárja.' },
+      { icon: Banknote, tint: 'var(--success)', title: 'A sofőr ajánl, te döntesz', desc: 'A sofőrök árajánlatot tesznek a fuvarodra; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
     ],
     faq: [
       { q: 'Mennyibe kerül a bútorszállítás?', a: 'Feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján; a sofőrök erre tesznek árajánlatot, te pedig a neked megfelelőt elfogadod. A GoFuvar egy sávos kapcsolatfelvételi díjat számít az elfogadáskor.' },
@@ -170,10 +178,10 @@ const USECASES: LandingConfig[] = [
     subhead: 'IKEA, OBI, Praktiker, Jófogás: másold be a termék linkjét, mi kiolvassuk a méretet és a képet, egy sofőr pedig elhozza neked. Rugalmas, és a sofőrök versenye miatt gyakran kedvező áron.',
     primaryCta: { label: 'Hozasd el most', href: '/hozasd-el' },
     bullets: [
-      { icon: '🔗', title: 'Csak a link kell', desc: 'Bemásolod a termék linkjét, mi előnézetet csinálunk (cím + kép), és előtöltjük a fuvart.' },
-      { icon: '🚚', title: 'A sofőr elhozza', desc: 'Egy sofőr, aki úgyis arra jár, felveszi a boltból és házhoz viszi.' },
-      { icon: '📸', title: 'Fotó + kód', desc: 'Ugyanaz a védelem, mint minden fuvarnál: fotó a felvételről és az átadásról, 6 jegyű kód.' },
-      { icon: '💰', title: 'Versenyző árak', desc: 'Több sofőr tesz ajánlatot a fuvarra, és egy meglévő útra pakolva az ár gyakran kedvező.' },
+      { icon: Link2, title: 'Csak a link kell', desc: 'Bemásolod a termék linkjét, mi előnézetet csinálunk (cím + kép), és előtöltjük a fuvart.' },
+      { icon: Truck, title: 'A sofőr elhozza', desc: 'Egy sofőr, aki úgyis arra jár, felveszi a boltból és házhoz viszi.' },
+      { icon: Camera, title: 'Fotó + kód', desc: 'Ugyanaz a védelem, mint minden fuvarnál: fotó a felvételről és az átadásról, 6 jegyű kód.' },
+      { icon: Coins, tint: 'var(--success)', title: 'Versenyző árak', desc: 'Több sofőr tesz ajánlatot a fuvarra, és egy meglévő útra pakolva az ár gyakran kedvező.' },
     ],
     faq: [
       { q: 'Mely boltok támogatottak?', a: 'IKEA, OBI, Praktiker, Jófogás termék-linkek előnézetét olvassuk ki. Más boltból a fuvart kézzel is feladhatod.' },
@@ -191,10 +199,10 @@ const USECASES: LandingConfig[] = [
     subhead: 'Egy albérlet-váltás, pár bútor és néhány doboz — a GoFuvar sofőrök rugalmasan elviszik. A sofőrök ajánlatot tesznek rá, te a neked megfelelőt választod — a verseny miatt gyakran kedvező áron.',
     primaryCta: { label: 'Add fel a költözésed', href: '/bejelentkezes?mode=register' },
     bullets: [
-      { icon: '📦', title: 'Bútor és doboz egyben', desc: 'Nem futárcsomag-méret: bútor, dobozok, terjedelmes tárgyak — ami befér egy autóba vagy furgonba.' },
-      { icon: '💪', title: 'Bepakolás, emelet jelölhető', desc: 'Feladáskor jelezheted, ha emeletre kell felvinni vagy segítség kell a pakoláshoz — a sofőr előre látja.' },
-      { icon: '🛡️', title: 'Ellenőrzött sofőrök, fotó + kód', desc: 'KYC-ellenőrzött sofőrök, fotó a felvételről és az átadásról, 6 jegyű átvételi kód.' },
-      { icon: '💵', title: 'A sofőr ajánl, te döntesz', desc: 'A sofőrök árajánlatot tesznek a fuvarodra; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
+      { icon: Package, title: 'Bútor és doboz egyben', desc: 'Nem futárcsomag-méret: bútor, dobozok, terjedelmes tárgyak — ami befér egy autóba vagy furgonba.' },
+      { icon: BicepsFlexed, title: 'Bepakolás, emelet jelölhető', desc: 'Feladáskor jelezheted, ha emeletre kell felvinni vagy segítség kell a pakoláshoz — a sofőr előre látja.' },
+      { icon: ShieldCheck, title: 'Ellenőrzött sofőrök, fotó + kód', desc: 'KYC-ellenőrzött sofőrök, fotó a felvételről és az átadásról, 6 jegyű átvételi kód.' },
+      { icon: Banknote, tint: 'var(--success)', title: 'A sofőr ajánl, te döntesz', desc: 'A sofőrök árajánlatot tesznek a fuvarodra; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
     ],
     faq: [
       { q: 'Mennyibe kerül egy kis költözés?', a: 'Feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján; a sofőrök erre tesznek árajánlatot, te pedig a neked megfelelőt elfogadod. A GoFuvar egy sávos kapcsolatfelvételi díjat számít az elfogadáskor.' },
@@ -212,10 +220,10 @@ const USECASES: LandingConfig[] = [
     subhead: 'Nagy háztartási gép, ami nem fér a kocsidba? Egy GoFuvar sofőr furgonnal elviszi. A sofőrök ajánlatot tesznek rá, te a neked megfelelőt fogadod el — a verseny miatt gyakran kedvező áron.',
     primaryCta: { label: 'Add fel a szállítást', href: '/bejelentkezes?mode=register' },
     bullets: [
-      { icon: '🧺', title: 'Nagygép is elfér', desc: 'Mosógép, hűtő, mosogatógép, szárítógép — furgonos sofőr elviszi.' },
-      { icon: '💪', title: 'Bepakolás, emelet jelölhető', desc: 'Ha emeletre kell felvinni vagy segítség kell, jelöld a feladásnál — a sofőr beárazza.' },
-      { icon: '📸', title: 'Fotó + 6 jegyű kód', desc: 'A gépet a sofőr felvételkor és átadáskor is fotózza, a kézbesítést kód zárja.' },
-      { icon: '💵', title: 'A sofőr ajánl, te döntesz', desc: 'A sofőrök árajánlatot tesznek; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
+      { icon: WashingMachine, title: 'Nagygép is elfér', desc: 'Mosógép, hűtő, mosogatógép, szárítógép — furgonos sofőr elviszi.' },
+      { icon: BicepsFlexed, title: 'Bepakolás, emelet jelölhető', desc: 'Ha emeletre kell felvinni vagy segítség kell, jelöld a feladásnál — a sofőr beárazza.' },
+      { icon: Camera, title: 'Fotó + 6 jegyű kód', desc: 'A gépet a sofőr felvételkor és átadáskor is fotózza, a kézbesítést kód zárja.' },
+      { icon: Banknote, tint: 'var(--success)', title: 'A sofőr ajánl, te döntesz', desc: 'A sofőrök árajánlatot tesznek; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
     ],
     faq: [
       { q: 'Felviszik az emeletre?', a: 'Ha a feladásnál jelzed a bepakolási igényt (emelet, lift), a sofőr ezt előre látja és beárazza. Nehéz gépnél érdemes segítséget is jelölni.' },
@@ -233,10 +241,10 @@ const USECASES: LandingConfig[] = [
     subhead: 'Jófogás, Facebook Marketplace, apróhirdetés — a nagy vagy távoli tárgyat egy sofőr elhozza neked, aki úgyis arra jár. Te egyeztetsz az eladóval, a sofőr meg elhozza.',
     primaryCta: { label: 'Add fel az elhozást', href: '/bejelentkezes?mode=register' },
     bullets: [
-      { icon: '🛒', title: 'Bármi, ami elfér', desc: 'Bútor, gép, terjedelmes tárgy — ami befér egy autóba vagy furgonba.' },
-      { icon: '📍', title: 'Távoli eladótól is', desc: 'Ha az eladó egy másik városban van, egy arra tartó sofőr elhozza.' },
-      { icon: '📸', title: 'Fotó + 6 jegyű kód', desc: 'A tárgyat a sofőr felvételkor és átadáskor is fotózza, a kézbesítést kód zárja.' },
-      { icon: '💵', title: 'A sofőr ajánl, te döntesz', desc: 'A sofőrök árajánlatot tesznek; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
+      { icon: ShoppingCart, title: 'Bármi, ami elfér', desc: 'Bútor, gép, terjedelmes tárgy — ami befér egy autóba vagy furgonba.' },
+      { icon: MapPin, title: 'Távoli eladótól is', desc: 'Ha az eladó egy másik városban van, egy arra tartó sofőr elhozza.' },
+      { icon: Camera, title: 'Fotó + 6 jegyű kód', desc: 'A tárgyat a sofőr felvételkor és átadáskor is fotózza, a kézbesítést kód zárja.' },
+      { icon: Banknote, tint: 'var(--success)', title: 'A sofőr ajánl, te döntesz', desc: 'A sofőrök árajánlatot tesznek; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
     ],
     faq: [
       { q: 'Honnan hozza el a sofőr?', a: 'A feladásnál megadod a felvételi címet (az eladó címe), a sofőr onnan viszi a te címedre. Az eladóval az átadás időpontját neked kell egyeztetned.' },
@@ -254,10 +262,10 @@ const USECASES: LandingConfig[] = [
     subhead: 'Megvett autó, nem üzemképes jármű vagy projekt-autó — egy tréleres szállító elviheti A-ból B-be. ⚠️ Fontos: autót kizárólag ENGEDÉLLYEL RENDELKEZŐ szállítóval vitess — ezt neked kell ellenőrizned.',
     primaryCta: { label: 'Add fel az autószállítást', href: '/bejelentkezes?mode=register' },
     bullets: [
-      { icon: '🚚', title: 'Tréleres szállító', desc: 'Olyan szállítót válassz, akinek van trélere és jogosultsága jármű szállítására — a feladásnál ezt egyeztesd.' },
-      { icon: '⚠️', title: 'Az engedély a te felelősséged', desc: 'A GoFuvar közvetítő, nem fuvarozó: NEM ellenőrzi a szállító engedélyét. Neked kell meggyőződnöd róla, hogy a szállító jogosult autó szállítására.' },
-      { icon: '📸', title: 'Fotó + 6 jegyű kód', desc: 'Az autót a szállító felvételkor és átadáskor is fotózza, az átadást 6 jegyű kód zárja.' },
-      { icon: '💵', title: 'A szállító ajánl, te döntesz', desc: 'A szállítók árajánlatot tesznek; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
+      { icon: Truck, title: 'Tréleres szállító', desc: 'Olyan szállítót válassz, akinek van trélere és jogosultsága jármű szállítására — a feladásnál ezt egyeztesd.' },
+      { icon: TriangleAlert, tint: 'var(--warning)', title: 'Az engedély a te felelősséged', desc: 'A GoFuvar közvetítő, nem fuvarozó: NEM ellenőrzi a szállító engedélyét. Neked kell meggyőződnöd róla, hogy a szállító jogosult autó szállítására.' },
+      { icon: Camera, title: 'Fotó + 6 jegyű kód', desc: 'Az autót a szállító felvételkor és átadáskor is fotózza, az átadást 6 jegyű kód zárja.' },
+      { icon: Banknote, tint: 'var(--success)', title: 'A szállító ajánl, te döntesz', desc: 'A szállítók árajánlatot tesznek; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
     ],
     faq: [
       { q: 'Kell engedély az autószállításhoz?', a: 'Jármű közúti, kereskedelmi jellegű szállítása engedélyhez kötött lehet. A GoFuvar nem fuvarozó és nem ellenőrzi az engedélyeket — a feladó felelőssége, hogy engedéllyel rendelkező szállítót válasszon.' },

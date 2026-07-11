@@ -8,7 +8,7 @@
 // 'use client' a useCurrentUser miatt: belépett usernek a HomeHub jelenik meg.
 import Link from 'next/link';
 import {
-  Gavel, Route, MapPin, ShieldCheck, Camera, KeyRound,
+  Gavel, Route, MapPin, ShieldCheck, Camera, KeyRound, Leaf,
   Package, Truck, ArrowRight, Check, ShoppingBag, type LucideIcon,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
@@ -78,9 +78,11 @@ export default function LandingPage() {
           margin: '0 auto 6px', maxWidth: 720, letterSpacing: '-1.2px',
         }}>
           Csomagod van?{' '}
+          {/* nowrap: a "Sofőröd is lesz." egyben törjön új sorba, ne a közepén */}
           <span style={{
             background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+            whiteSpace: 'nowrap',
           }}>Sofőröd is lesz.</span>
         </h1>
         {/* A márka aláírása: A→B útvonal-vonal, betöltéskor megrajzolja
@@ -243,8 +245,12 @@ export default function LandingPage() {
             marginBottom: 0,
           }}
         >
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(24px, 3vw, 30px)', fontWeight: 800, margin: '0 0 12px', color: 'var(--success-text)' }}>
-            🌿 Zöld, mert nem csinál felesleges utat
+          <h2 style={{
+            textAlign: 'center', fontSize: 'clamp(24px, 3vw, 30px)', fontWeight: 800,
+            margin: '0 0 12px', color: 'var(--success-text)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap',
+          }}>
+            <Leaf size={26} aria-hidden /> Zöld, mert nem csinál felesleges utat
           </h2>
           <p style={{ textAlign: 'center', color: 'var(--text)', maxWidth: 620, margin: '0 auto 28px', lineHeight: 1.6 }}>
             A csomagod egy <strong>meglévő úton</strong> utazik: a sofőr úgyis megy
@@ -282,6 +288,7 @@ export default function LandingPage() {
               <span style={{
                 fontFamily: 'var(--font-display), var(--font-inter), sans-serif',
                 fontSize: 22, fontWeight: 800, color: 'var(--primary-text)',
+                whiteSpace: 'nowrap',
               }}>{t.stat}</span>
               <span className="muted" style={{ fontSize: 14 }}>{t.label}</span>
             </div>

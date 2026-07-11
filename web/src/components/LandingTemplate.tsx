@@ -83,14 +83,27 @@ export default function LandingTemplate({ config }: { config: LandingConfig }) {
       {/* ── Érték-pontok ── */}
       <section style={{ padding: '8px 0 40px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
-          {config.bullets.map((b) => (
-            <div key={b.title} className="card" style={{ marginBottom: 0 }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px', display: 'flex', gap: 8, alignItems: 'center' }}>
-                {b.icon && <span aria-hidden>{b.icon}</span>}{b.title}
-              </h3>
-              <p className="muted" style={{ fontSize: 14, lineHeight: 1.55, margin: 0 }}>{b.desc}</p>
-            </div>
-          ))}
+          {config.bullets.map((b) => {
+            const Icon = b.icon;
+            return (
+              <div key={b.title} className="card" style={{ marginBottom: 0 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px', display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {Icon && (
+                    <span aria-hidden style={{
+                      width: 34, height: 34, borderRadius: 10, flexShrink: 0,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'color-mix(in srgb, var(--surface-hover) 60%, transparent)',
+                      border: '1px solid var(--border)',
+                    }}>
+                      <Icon size={18} color={b.tint ?? 'var(--primary)'} strokeWidth={2.2} />
+                    </span>
+                  )}
+                  {b.title}
+                </h3>
+                <p className="muted" style={{ fontSize: 14, lineHeight: 1.55, margin: 0 }}>{b.desc}</p>
+              </div>
+            );
+          })}
         </div>
       </section>
 
