@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'Fuvarjaim',
-  description: 'Hirdetéseid, foglalásaid, licitjeid és vállalt fuvarjaid egy helyen.',
+  description: 'Hirdetéseid, foglalásaid, ajánlataid és vállalt fuvarjaid egy helyen.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

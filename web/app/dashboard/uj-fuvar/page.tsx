@@ -356,7 +356,7 @@ export default function UjFuvar() {
         {/* --- Fotók --- */}
         <h2 style={{ marginTop: 24 }}>Fotók a csomagról</h2>
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-          Opcionális, de erősen ajánlott. A sofőrök pontosabb licitet adnak,
+          Opcionális, de erősen ajánlott. A sofőrök pontosabb ajánlatot adnak,
           ha látják, mit kell szállítani. Max {MAX_PHOTO_COUNT} kép, fotónként
           legfeljebb {MAX_PHOTO_BYTES / 1024 / 1024} MB.
         </p>
@@ -717,7 +717,7 @@ export default function UjFuvar() {
               onChange={(e) => set('is_instant', e.target.checked)}
               style={{ width: 20, height: 20, flexShrink: 0 }}
             />
-            <strong style={{ fontSize: 15 }}>⚡ Azonnali fuvar (nincs licitálás)</strong>
+            <strong style={{ fontSize: 15 }}>⚡ Azonnali fuvar (nincs ajánlattétel)</strong>
           </div>
           <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
             Fix áron adod fel, és az első sofőr, aki elvállalja, elviszi.
@@ -800,7 +800,7 @@ export default function UjFuvar() {
               </button>
             </div>
             <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-              Becslés a táv, súly és csomagméret alapján. A végső árat a sofőrök licitjei alakítják.
+              Becslés a táv, súly és csomagméret alapján. A végső árat a sofőrök ajánlatai alakítják.
             </p>
           </div>
         )}
