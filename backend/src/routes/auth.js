@@ -722,7 +722,9 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
       [docNumberHash, req.user.sub],
     );
     if (existing.length > 0) {
-      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM: user=${req.user.sub} docNumber=${docNumberRaw} → már használja: ${existing[0].user_id}`);
+      // NE logold a nyers okmányszámot — a DB-ben is csak hash-elve tároljuk.
+      // Az app-log (Railway/Sentry) nem lehet kormányzati okmányszám-forrás.
+      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM: user=${req.user.sub} docHash=${docNumberHash.slice(0, 12)}… → már használja: ${existing[0].user_id}`);
       return res.status(409).json({
         ok: false,
         status: 'rejected',
@@ -739,7 +741,9 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     docStatus = 'pending';
     kycStatus = 'pending';
     rejectionReason = 'A dokumentum tulajdonosa 18 év alatti — adminisztrátori jóváhagyásra vár.';
-    console.log(`[kyc] 18 ÉV ALATTI GYANÚ: user=${req.user.sub} birthDate=${aiResult.birthDate}`);
+    // A születési dátum PII — nem megy app-logba; az adminnak az értesítésben
+    // (jogosult címzett) mutatjuk meg a döntéshez.
+    console.log(`[kyc] 18 ÉV ALATTI GYANÚ: user=${req.user.sub}`);
     // Admin értesítés
     try {
       const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
@@ -781,7 +785,7 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     docStatus = 'approved';
     kycStatus = 'verified';
     rejectionReason = null;
-    console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}${aiResult.birthDate ? ` birthDate=${aiResult.birthDate}` : ''}`);
+    console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
   } else {
     docStatus = 'rejected';
     kycStatus = 'rejected';

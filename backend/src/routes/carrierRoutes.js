@@ -28,6 +28,23 @@ const router = express.Router();
 // Az :id uuid — nem-uuid érték a query előtt 400-zal elbukik (a PATCH/:id
 // saját catch-blokkja egyébként elnyelné a Postgres uuid-hibát 500-ként).
 const { uuidParam } = require('../middleware/validateParams');
+
+// Foglalás-scrub — a jobs.js `scrubJobForUser` mintájára. A `delivery_code`
+// és a `tracking_token` CSAK a feladóé/adminé: a publikus követőoldal a
+// tokenből kiírja az átvételi kódot, így ha a sofőr a tokenhez jutna, a
+// kódvédelmet megkerülhetné (a korábbi kód csak a `delivery_code`-ot vette
+// ki, a tokent bennhagyta — az volt a lyuk).
+function scrubBookingForUser(booking, user) {
+  if (!booking) return booking;
+  const isShipper = user?.sub === booking.shipper_id;
+  const isAdmin = user?.role === 'admin';
+  if (isAdmin || isShipper) return booking;
+  // Sofőr (vagy bárki más, aki idáig eljut): kód + token nélkül. A címzett
+  // elérhetőségét a sofőr látja (kézbesítéskor hívnia kell tudni), a
+  // fizetési Barion-mezők a feladó oldalán relevánsak.
+  const { delivery_code, tracking_token, ...rest } = booking;
+  return rest;
+}
 router.param('id', uuidParam);
 
 function generateDeliveryCode() {
@@ -412,8 +429,21 @@ router.post(
     );
     const booking = insertRows[0];
 
-    // Real-time értesítés a sofőrnek
-    realtime.emitGlobal(`route-bookings:new:${route.carrier_id}`, booking);
+    // Real-time értesítés a sofőrnek — KIZÁRÓLAG a sofőr saját szobájába
+    // (`emitToUser`), NEM globálisan. A korábbi `emitGlobal('...:${carrier_id}')`
+    // minden csatlakozott klienshez elment; a carrier_id a publikus
+    // útvonal-listából megszerezhető, így bárki lehallgathatta az új foglalás
+    // átvételi kódját, tracking tokenjét és a címzett PII-ját. A payload is
+    // minimális, nem-érzékeny (a részleteket a sofőr a REST-en, scrubbolva kéri le).
+    realtime.emitToUser(route.carrier_id, 'route-bookings:new', {
+      booking_id: booking.id,
+      route_id: booking.route_id,
+      pickup_address: booking.pickup_address,
+      dropoff_address: booking.dropoff_address,
+      package_size: booking.package_size,
+      price_huf: booking.price_huf,
+      created_at: booking.created_at,
+    });
 
     // Értesítés a sofőrnek: új foglalás érkezett (in-app + email)
     try {
@@ -497,7 +527,9 @@ router.get(
         ORDER BY b.created_at DESC`,
       [req.params.id],
     );
-    res.json(rows);
+    // A sofőr a saját útvonala foglalásait látja — de a `delivery_code` és a
+    // `tracking_token` tőle is elrejtendő (kód-megkerülés elleni védelem).
+    res.json(rows.map((b) => scrubBookingForUser(b, req.user)));
   },
 );
 
@@ -533,11 +565,10 @@ router.get('/route-bookings/:id', authRequired, async (req, res) => {
     return res.status(403).json({ error: 'Nincs jogosultság' });
   }
 
-  // delivery_code kiszűrése a sofőr oldalán
-  if (b.shipper_id !== req.user.sub && req.user.role !== 'admin') {
-    delete b.delivery_code;
-  }
-  res.json(b);
+  // A sofőrtől a `delivery_code` ÉS a `tracking_token` is elrejtendő
+  // (a token → publikus követőoldal → kód-megkerülés). A scrub a
+  // feladónak/adminnak mindent visszaad.
+  res.json(scrubBookingForUser(b, req.user));
 });
 
 // POST /route-bookings/:id/confirm – az útvonal tulajdonosa elfogadja a foglalást
