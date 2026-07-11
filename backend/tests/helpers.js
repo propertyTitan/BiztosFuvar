@@ -57,6 +57,8 @@ async function createJob({
   priceHuf = 15000,
   deliveryCode = '111222',
   senderDeliveryCode = '333444',
+  pickupAddress = 'Budapest, Teszt u. 1.',
+  dropoffAddress = 'Szeged, Teszt tér 2.',
 } = {}) {
   const trackingToken = crypto.randomBytes(16).toString('hex');
   const feeHuf = calculateConnectionFee(priceHuf);
@@ -72,8 +74,8 @@ async function createJob({
        paid_at, fee_consent_at
      ) VALUES (
        $1, $2, 'Teszt fuvar', 'teszt',
-       'Budapest, Teszt u. 1.', 47.4979, 19.0402,
-       'Szeged, Teszt tér 2.', 46.2530, 20.1414,
+       $10, 47.4979, 19.0402,
+       $11, 46.2530, 20.1414,
        $3, $3, $4,
        $5, $6, $7,
        'Teszt Címzett', '+36301112233',
@@ -81,7 +83,8 @@ async function createJob({
        CASE WHEN $8 THEN NOW() ELSE NULL END,
        CASE WHEN $8 THEN NOW() ELSE NULL END
      ) RETURNING *`,
-    [shipperId, carrierId, priceHuf, status, deliveryCode, senderDeliveryCode, trackingToken, paid, feeHuf],
+    [shipperId, carrierId, priceHuf, status, deliveryCode, senderDeliveryCode, trackingToken, paid, feeHuf,
+     pickupAddress, dropoffAddress],
   );
   const job = rows[0];
   if (paid) {

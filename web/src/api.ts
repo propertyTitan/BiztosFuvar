@@ -314,6 +314,8 @@ export const api = {
   listJobs: (params: {
     status?: string; lat?: number; lng?: number; radius_km?: number;
     min_price?: number; max_price?: number; max_weight_kg?: number;
+    /** Város-szűrők: részszöveg-keresés a felvételi / lerakodási címben. */
+    pickup_city?: string; dropoff_city?: string;
     /** 'true' = csak azonnali fuvarok, 'false' = csak licites, undefined = mind. */
     instant?: 'true' | 'false';
   } = {}) => {
@@ -325,6 +327,8 @@ export const api = {
     if (params.min_price != null) qs.set('min_price', String(params.min_price));
     if (params.max_price != null) qs.set('max_price', String(params.max_price));
     if (params.max_weight_kg != null) qs.set('max_weight_kg', String(params.max_weight_kg));
+    if (params.pickup_city?.trim()) qs.set('pickup_city', params.pickup_city.trim());
+    if (params.dropoff_city?.trim()) qs.set('dropoff_city', params.dropoff_city.trim());
     if (params.instant) qs.set('instant', params.instant);
     return request<(Job & { distance_to_pickup_km?: number })[]>(`/jobs?${qs.toString()}`);
   },

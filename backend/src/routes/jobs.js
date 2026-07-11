@@ -437,7 +437,11 @@ const VALID_JOB_STATUSES = [
 ];
 
 router.get('/', authRequired, async (req, res) => {
-  const { status = 'bidding', lat, lng, radius_km, min_price, max_price, max_weight_kg, instant } = req.query;
+  const {
+    status = 'bidding', lat, lng, radius_km,
+    min_price, max_price, max_weight_kg, instant,
+    pickup_city, dropoff_city,
+  } = req.query;
   if (!VALID_JOB_STATUSES.includes(status)) {
     return res.status(400).json({ error: `Érvénytelen státusz: "${status}".` });
   }
@@ -461,6 +465,19 @@ router.get('/', authRequired, async (req, res) => {
   if (max_weight_kg) {
     params.push(Number(max_weight_kg));
     sql += ` AND j.weight_kg <= $${params.length}`;
+  }
+
+  // Város-szűrők: részszöveg-keresés a címmezőkön (ILIKE — "szeged" is
+  // találja a "Szeged"-et). A % / _ LIKE-joker karaktereket kiszedjük,
+  // hogy a minta csak azt találja, amit a user tényleg beírt.
+  const cityPattern = (v) => `%${String(v).trim().slice(0, 80).replace(/[%_]/g, '')}%`;
+  if (pickup_city && String(pickup_city).trim()) {
+    params.push(cityPattern(pickup_city));
+    sql += ` AND j.pickup_address ILIKE $${params.length}`;
+  }
+  if (dropoff_city && String(dropoff_city).trim()) {
+    params.push(cityPattern(dropoff_city));
+    sql += ` AND j.dropoff_address ILIKE $${params.length}`;
   }
 
   // ?instant=true → csak azonnali, még élő fuvarok (nem lejárt)
