@@ -43,7 +43,7 @@ szerződés kizárólag a Feladó és a Sofőr között jön létre.
 - KYC AI-val (Gemini olvas ID-t, kor-ellenőrzés, admin jóváhagyás)
 - **Készpénzes modell (2026-07-03)**: a fuvardíj KÁPÉBAN megy a sofőrnek
   (100%, levonás nélkül); a platform sávos KAPCSOLATFELVÉTELI DÍJAT szed a
-  feladótól elfogadáskor (Barion, sima webshop-fizetés — NEM kell escrow!);
+  feladótól elfogadáskor (QVIK, sima díjfizetés — NEM kell escrow!);
   kontakt-felfedés csak a díj után; az escrow-kód dormant (később
   "Védett fizetés" opció lehet)
 - 6 jegyű átvételi kód + QR kód
@@ -75,8 +75,11 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
    ┌───────────────────┼────────────────────┐
    ↓                   ↓                    ↓
  Neon (Postgres)    Cloudflare R2        Külső:
- (eu-central-1)     (privát bucket)       Fizetés: Barion STUB (default);
-                                            QVIK-prep KÉSZ (váltás env-vel)
+ (eu-central-1)     (privát bucket)       Fizetés: QVIK (user-döntés
+                                            2026-07-11: Barion VÉGLEG elvetve
+                                            — "meguntam a velük lévő harcot";
+                                            a Barion-kód dormant fallback,
+                                            NEM élesítjük, Pixel se kell)
                                           SeeMe.hu (SMS, STUB)
                                           Resend (email, ✅ ÉLES)
                                           Sentry (hibafigyelés, ✅ ÉLES)
@@ -381,10 +384,14 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   `qvik.js` `startFeePayment`+`getPaymentState`-jét a PSP API-jával; (2) állítsd
   be `PAYMENT_PROVIDER=qvik` + `QVIK_API_KEY`/`QVIK_MERCHANT_ID`/`QVIK_BASE_URL`
   a Railway-en; (3) kösd be a qvik-callback feldolgozását (a Barion-callback
-  27–291. sorát javasolt közös `confirmFeePayment` helperbe kiszervezni). A
-  Barion default marad, amíg át nem állítjuk — nulla kód-változtatás a hívóknál.
-- **Barion szerződés** — a QVIK-kel ez háttérbe kerül; a Barion-kód default/
-  fallback marad. (Korábbi: a díjhoz sima webshop-szerződés elég volt.)
+  27–291. sorát javasolt közös `confirmFeePayment` helperbe kiszervezni).
+  **2026-07-11 user-döntés: a Barion VÉGLEG ELVETVE** ("meguntam a velük lévő
+  harcot") — a Barion-kód csak dormant maradvány, NEM élesítendő; Barion-
+  szerződés és Barion Pixel okafogyott. Launch-fizetés = QVIK. ⚠️ Következmény:
+  a QVIK HUF-os, magyar bankappos fizetés → a kapcsolatfelvételi díjat csak
+  magyar bankszámlás feladó tudja fizetni (a folyosó-fuvarok diaszpóra-
+  feladóinak többségénél ez OK; nem-magyar feladóhoz később kártyás
+  alternatíva kell majd, pl. Stripe — 2027+ kérdés).
 - **D-U-N-S szám** — Apple-enrollment-flow indítása apukán át (Apple Developer fiók)
 - **Gmail "Küldés másként" megerősítése** — a user állítja be, hogy a
   gmailből info@gofuvar.hu néven válaszolhasson (SMTP: smtp.resend.com,
@@ -528,7 +535,8 @@ git log --oneline -20
 
 1. **Üdvözöld a user-t magyarul**, röviden
 2. **Kérdezd meg**: van-e konkrét feladat, vagy státusz-update kell
-3. Ha **Barion-helyzet**: kérdezd meg milyen választ kapott
+3. Ha **QVIK-helyzet**: kérdezd meg, megjött-e a fizetés-elfogadási
+   jogosultság (a Barion 2026-07-11 óta VÉGLEG elvetve — ne hozd fel)
 4. Ha **Apple-helyzet**: D-U-N-S megérkezett-e, enrollment hol tart
 5. Ha **bug**: kérdezz konkrét reprodukálási lépést / screenshot / Sentry-link
 6. Ha **új feature**: győződj meg róla hogy nem ütközik a #5 üzleti döntésekkel
@@ -543,15 +551,15 @@ git log --oneline -20
 - A reális első éves bevétel: **0-30M HUF** (Bear-Base case)
 - 18 hónap után **2-3M HUF/hó** ~65% eséllyel
 - A **QVIK-jogosultság (fizetés-elfogadás)** a fő külső függőség — ha megvan,
-  a `qvik.js` kitöltése + env-váltás után lehet launch (a Barion-szerződés
-  háttérbe került, a Barion-kód fallback)
+  a `qvik.js` kitöltése + env-váltás után lehet launch (a Barion 2026-07-11
+  óta VÉGLEG elvetve, a Barion-kód csak dormant maradvány)
 
 ---
 
 ## 12. Apa & család kontextus
 
 - Apa (Jovány Gyula) tulajdonos + ügyvezető — **csak külső dokumentumokra kell**
-  (Apple Developer signing, Barion szerződés, banki ügyek)
+  (Apple Developer signing, PSP/QVIK-szerződés, banki ügyek)
 - A user családi céget használ — **stabilitás háttérben**, ezért kibír 18 hónap
   veszteséget
 - A user érzelmi háttér: néha túlteher, néha pumped — légy emberi társa
