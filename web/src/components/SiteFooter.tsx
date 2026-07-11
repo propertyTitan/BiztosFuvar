@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Truck } from 'lucide-react';
 import { landingLinks } from '@/lib/landings';
 
 export default function SiteFooter() {
@@ -34,7 +35,9 @@ export default function SiteFooter() {
         ))}
       </div>
 
-      <div style={{ fontWeight: 600, marginBottom: 4 }}>🚛 GoFuvar</div>
+      <div style={{ fontWeight: 600, marginBottom: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+        <Truck size={16} aria-hidden /> GoFuvar
+      </div>
       <div style={{ fontWeight: 700 }}>Ha fuvar kell, akkor GoFuvar.</div>
       <div style={{ marginTop: 10, fontSize: 13, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
         <Link href="/aszf" style={{ color: 'inherit', textDecoration: 'underline' }}>ÁSZF</Link>

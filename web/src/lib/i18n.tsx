@@ -46,17 +46,16 @@ function resolve(obj: any, path: string): string | undefined {
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState('hu');
 
-  // Betöltés localStorage-ból (vagy böngésző nyelv)
+  // Betöltés localStorage-ból (explicit user-választás).
+  //
+  // Böngésző-nyelv AUTO-detektálás NINCS: a fordítás csak részleges
+  // (~3/31 oldal) és a nyelvváltó el van rejtve, így egy angol böngésző
+  // kevert nyelvű oldalt kapna ("Log in" + magyar tartalom). A külföldi
+  // launchnál (kész fordítás + visszahozott nyelvváltó) kapcsolható vissza.
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored && LOCALES[stored]) {
       setLocaleState(stored);
-    } else {
-      // Böngésző nyelv detektálás
-      const browserLang = navigator.language?.split('-')[0];
-      if (browserLang && LOCALES[browserLang]) {
-        setLocaleState(browserLang);
-      }
     }
   }, []);
 

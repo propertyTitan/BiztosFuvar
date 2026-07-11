@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { ArrowRight, Home, Package, SearchX, Truck } from 'lucide-react';
 
 type Mode = 'driver' | 'shipper';
 
@@ -56,8 +57,8 @@ export default function NotFound() {
   if (isModeMismatch) {
     const targetLabel = intended === 'shipper' ? 'Feladó' : 'Sofőr';
     const currentLabel = currentMode === 'shipper' ? 'Feladó' : 'Sofőr';
-    const targetEmoji = intended === 'shipper' ? '📦' : '🚛';
-    const currentEmoji = currentMode === 'shipper' ? '📦' : '🚛';
+    const TargetIcon = intended === 'shipper' ? Package : Truck;
+    const CurrentIcon = currentMode === 'shipper' ? Package : Truck;
 
     return (
       <div
@@ -68,8 +69,13 @@ export default function NotFound() {
           textAlign: 'center',
         }}
       >
-        <div style={{ fontSize: 64, marginBottom: 16 }}>
-          {currentEmoji} → {targetEmoji}
+        <div aria-hidden style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          gap: 16, marginBottom: 20, color: 'var(--primary)',
+        }}>
+          <CurrentIcon size={52} strokeWidth={1.8} />
+          <ArrowRight size={30} color="var(--muted)" />
+          <TargetIcon size={52} strokeWidth={1.8} />
         </div>
         <h1 style={{ margin: '0 0 12px' }}>Másik mód szükséges</h1>
         <p style={{ color: 'var(--muted)', marginBottom: 28, lineHeight: 1.6 }}>
@@ -92,7 +98,7 @@ export default function NotFound() {
             className="btn"
             style={{ minWidth: 220 }}
           >
-            {targetEmoji} Átváltás {targetLabel} módra
+            <TargetIcon size={18} /> Átváltás {targetLabel} módra
           </button>
           <Link
             href="/"
@@ -116,7 +122,9 @@ export default function NotFound() {
         textAlign: 'center',
       }}
     >
-      <div style={{ fontSize: 72, marginBottom: 16 }}>🔎</div>
+      <div aria-hidden style={{ display: 'flex', justifyContent: 'center', marginBottom: 20, color: 'var(--muted)' }}>
+        <SearchX size={64} strokeWidth={1.6} />
+      </div>
       <h1 style={{ margin: '0 0 12px' }}>Az oldal nem található</h1>
       <p style={{ color: 'var(--muted)', marginBottom: 28, lineHeight: 1.6 }}>
         Lehet, hogy egy régi linket követtél, vagy elgépelted a címet. Nincs
@@ -127,7 +135,7 @@ export default function NotFound() {
         className="btn"
         style={{ textDecoration: 'none', minWidth: 220 }}
       >
-        🏠 Vissza a főoldalra
+        <Home size={18} /> Vissza a főoldalra
       </Link>
     </div>
   );
