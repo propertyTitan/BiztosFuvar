@@ -273,6 +273,16 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - **QVIK fizetés-előkészítés MERGELVE (2026-07-09, PR #69)** — provider-
   absztrakció élesben, a `/payments/qvik/callback` a prodon fogadóképes
   (részletek + aktiválási checklist a 🟡 Várakozóban szakaszban)
+- **„Licit" kivezetve a felületről (2026-07-11, PR #71)** — a szó árverést
+  sugallt (legalacsonyabb ár nyer), pedig a feladó szabadon választ. Új
+  terminológia: sofőrnek „Elérhető fuvarok" / „ajánlattétel" / „Ajánlataim";
+  feladónak „fuvarfeladás" / „a sofőrök ajánlatot tesznek rá" / státusz:
+  „Ajánlatokat vár". Web (src + app oldalak, hu.json), backend emailek +
+  értesítések + hibaüzenetek + chatbot-tudás mind átírva. ⚠️ SZÖVEG-SZABÁLY:
+  user felé „licit/licitálás" TILOS — mindig „ajánlat/ajánlattétel". NEM
+  változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
+  az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
+  (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
 - **Új szlogen (2026-07-07, PR #66)**: "Ha fuvar kell, akkor GoFuvar." —
   web footer + minden email fejléce + tracking-oldal (a "Bizalom. Fotó. Kód."
   és a bennragadt "Letét." lecserélve)
