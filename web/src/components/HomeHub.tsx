@@ -158,7 +158,7 @@ export default function HomeHub() {
                 <div>
                   <strong style={{ fontSize: 16 }}>Sofőrként is szükséges az azonosítás!</strong>
                   <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
-                    Ahhoz, hogy licitálhass vagy útvonalat hirdethess, szükséged van:
+                    Ahhoz, hogy fuvart vállalhass vagy útvonalat hirdethess, szükséged van:
                   </p>
                   <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
                     <li><strong>Személyi igazolvány</strong> fotója (mindkét oldal)</li>
@@ -267,11 +267,11 @@ export default function HomeHub() {
               <h2 style={{ margin: '0 0 8px' }}>
                 {(d?.nearbyJobsCount || 0) > 0
                   ? `${d.nearbyJobsCount} fuvar vár a közeledben!`
-                  : 'Keress licitálható fuvarokat!'}
+                  : 'Böngészd az elérhető fuvarokat!'}
               </h2>
               <p className="muted" style={{ marginBottom: 16 }}>
                 {(d?.nearbyJobsCount || 0) > 0
-                  ? 'Nézd meg a licitálható fuvarokat és tegyél ajánlatot.'
+                  ? 'Nézd meg az elérhető fuvarokat és tegyél ajánlatot.'
                   : 'Nézz körül a fuvarok között, vagy hirdess meg egy fix áras útvonalat.'}
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -285,7 +285,7 @@ export default function HomeHub() {
             </div>
           )}
 
-          {/* Várakozó licitek */}
+          {/* Várakozó ajánlatok */}
           {d && d.pendingBidsCount > 0 && (
             <Link
               href="/fuvarjaim?tab=licitjeim"
@@ -297,7 +297,7 @@ export default function HomeHub() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>🏷️ {d.pendingBidsCount} licited válaszra vár</div>
+                <div style={{ fontWeight: 700 }}>🏷️ {d.pendingBidsCount} ajánlatod válaszra vár</div>
                 <div className="muted" style={{ fontSize: 13 }}>Koppints a részletekhez</div>
               </div>
               <span style={{ fontSize: 20 }}>→</span>
@@ -309,7 +309,7 @@ export default function HomeHub() {
             {[
               { href: '/sofor/fuvarok', icon: <Target size={18} />, label: 'Fuvarok' },
               { href: '/sofor/dashboard', icon: <BarChart3 size={18} />, label: 'Dashboard' },
-              { href: '/fuvarjaim?tab=licitjeim', icon: <Tag size={18} />, label: 'Licitjeim' },
+              { href: '/fuvarjaim?tab=licitjeim', icon: <Tag size={18} />, label: 'Ajánlataim' },
               { href: '/fuvarjaim?tab=vallalt', icon: <Truck size={18} />, label: t('nav.myJobs') },
               { href: '/sofor/visszafuvar', icon: <RefreshCw size={18} />, label: 'Visszafuvar' },
               { href: '/sofor/uj-utvonal', icon: <Plus size={18} />, label: 'Új útvonal' },
@@ -362,7 +362,7 @@ export default function HomeHub() {
                 <div>
                   <strong style={{ fontSize: 16 }}>Üdvözlünk a GoFuvar-on!</strong>
                   <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
-                    Ahhoz, hogy fuvart adhass fel vagy licitálhass, szükség van az
+                    Ahhoz, hogy fuvart adhass fel vagy fuvart vállalhass, szükség van az
                     <strong> azonosításodra (KYC)</strong>. Ez egy egyszeri, gyors lépés:
                   </p>
                   <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
@@ -437,7 +437,7 @@ export default function HomeHub() {
             >
               <div style={{ marginBottom: 8 }}><FileText size={36} color="var(--primary)" /></div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>Fuvar feladása</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Sofőrök licitálnak rá</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Sofőrök ajánlatot tesznek rá</div>
             </Link>
             <Link
               href="/dashboard/utvonalak"

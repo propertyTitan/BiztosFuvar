@@ -590,7 +590,7 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
   }
   if (j.status !== 'accepted') {
     return res.status(409).json({
-      error: 'Csak elfogadott licit után fizethető (státusz: ' + j.status + ')',
+      error: 'Csak elfogadott ajánlat után fizethető (státusz: ' + j.status + ')',
     });
   }
   if (j.paid_at) {
@@ -727,7 +727,7 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
   }
   if (j.status !== 'accepted') {
     return res.status(409).json({
-      error: 'Csak elfogadott licit után fizethető (státusz: ' + j.status + ')',
+      error: 'Csak elfogadott ajánlat után fizethető (státusz: ' + j.status + ')',
     });
   }
 
@@ -1034,7 +1034,7 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
         user_id: failedCarrierId,
         type: 'job_reopened',
         title: 'ℹ️ A feladó másik sofőrt választ',
-        body: `A feladó újranyitotta a(z) "${j.title}" fuvart${reason ? ` (indok: ${reason})` : ''}. A licited lezárult.`,
+        body: `A feladó újranyitotta a(z) "${j.title}" fuvart${reason ? ` (indok: ${reason})` : ''}. Az ajánlatod lezárult.`,
         link: `/sofor/licitjeim`,
       });
     } catch (e) {
@@ -1091,7 +1091,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       );
       const j = check[0];
       if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
-      if (!j.is_instant) return res.status(409).json({ error: 'Ez nem azonnali fuvar — licitálj helyette.' });
+      if (!j.is_instant) return res.status(409).json({ error: 'Ez nem azonnali fuvar — tegyél ajánlatot helyette.' });
       if (j.shipper_id === req.user.sub) return res.status(403).json({ error: 'A saját fuvarodat nem fogadhatod el' });
       if (j.carrier_id) return res.status(409).json({ error: 'Sajnos elkelt — valaki más gyorsabb volt.' });
       if (j.instant_expires_at && new Date(j.instant_expires_at) < new Date()) {

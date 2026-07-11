@@ -129,10 +129,10 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
   );
   if (!jobRows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
   if (jobRows[0].shipper_id === req.user.sub) {
-    return res.status(403).json({ error: 'A saját fuvarodra nem licitálhatsz.' });
+    return res.status(403).json({ error: 'A saját fuvarodra nem tehetsz ajánlatot.' });
   }
   if (!['pending', 'bidding'].includes(jobRows[0].status)) {
-    return res.status(409).json({ error: 'A fuvarra már nem lehet licitálni' });
+    return res.status(409).json({ error: 'A fuvarra már nem lehet ajánlatot tenni' });
   }
 
   // Jogosítvány-követelmény megszűnt (2026-07-07): a személyi igazolvány +
@@ -173,7 +173,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
         await createNotification({
           user_id: info.shipper_id,
           type: 'bid_received',
-          title: 'Új licit érkezett 🎯',
+          title: 'Új ajánlat érkezett 🎯',
           body: `${info.carrier_name} ${numAmount.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
           link: `/dashboard/fuvar/${jobId}`,
         });
@@ -195,7 +195,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
 
     res.status(201).json(rows[0]);
   } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Már licitáltál erre a fuvarra' });
+    if (err.code === '23505') return res.status(409).json({ error: 'Már tettél ajánlatot erre a fuvarra' });
     throw err;
   }
 });
@@ -264,7 +264,7 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
     [bid.carrier_id, agreedPrice, feeHuf, bid.job_id],
   );
   if (jobClaim.rowCount === 0) {
-    return { ok: false, status: 409, error: 'A fuvar már nem elfogadható (időközben elfogadtak egy másik licitet).' };
+    return { ok: false, status: 409, error: 'A fuvar már nem elfogadható (időközben elfogadtak egy másik ajánlatot).' };
   }
 
   if (feeAlreadyPaid) {
@@ -326,7 +326,7 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
       title: '🎉 Megállapodás!',
       body: acceptedBy === 'carrier'
         ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, KÉSZPÉNZBEN kapod. A feladó most fizeti a kapcsolatfelvételi díjat, utána megkapjátok egymás elérhetőségét és indulhatsz.`
-        : `A(z) "${info.title || 'fuvar'}" licitedet elfogadták ${priceTxt} Ft-ért — a teljes összeget KÉSZPÉNZBEN kapod. Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
+        : `A(z) "${info.title || 'fuvar'}" fuvarra tett ajánlatodat elfogadták ${priceTxt} Ft-ért — a teljes összeget KÉSZPÉNZBEN kapod. Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
       link: `/sofor/fuvar/${bid.job_id}`,
     });
     if (info.carrier_email) {
@@ -374,7 +374,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
       [req.params.id],
     );
     const bid = bidRows[0];
-    if (!bid) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Licit nem található' }); }
+    if (!bid) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Ajánlat nem található' }); }
     if (bid.shipper_id !== req.user.sub) {
       await client.query('ROLLBACK'); return res.status(403).json({ error: 'Nincs jogosultság' });
     }
@@ -382,7 +382,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'A fuvar már nem elfogadható' });
     }
     if (bid.status !== 'pending') {
-      await client.query('ROLLBACK'); return res.status(409).json({ error: 'Ez a licit már nem aktív.' });
+      await client.query('ROLLBACK'); return res.status(409).json({ error: 'Ez az ajánlat már nem aktív.' });
     }
     // Ha a feladó tett ellenajánlatot, ami még válaszra vár, ő nem fogadhat el —
     // a labda a sofőrnél van.
@@ -440,7 +440,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
       [req.params.id],
     );
     const bid = bidRows[0];
-    if (!bid) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Licit nem található' }); }
+    if (!bid) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Ajánlat nem található' }); }
     if (bid.carrier_id !== req.user.sub) {
       await client.query('ROLLBACK'); return res.status(403).json({ error: 'Nincs jogosultság' });
     }
@@ -448,7 +448,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'A fuvar már nem elfogadható' });
     }
     if (bid.status !== 'pending') {
-      await client.query('ROLLBACK'); return res.status(409).json({ error: 'Ez a licit már nem aktív.' });
+      await client.query('ROLLBACK'); return res.status(409).json({ error: 'Ez az ajánlat már nem aktív.' });
     }
     if (bid.counter_by !== 'shipper' || bid.counter_amount_huf == null) {
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'Nincs elfogadható feladói ellenajánlat.' });
@@ -493,7 +493,7 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
     [req.params.id],
   );
   const bid = rows[0];
-  if (!bid) return res.status(404).json({ error: 'Licit nem található' });
+  if (!bid) return res.status(404).json({ error: 'Ajánlat nem található' });
   const isShipper = bid.shipper_id === req.user.sub;
   const isCarrier = bid.carrier_id === req.user.sub;
   if (!isShipper && !isCarrier) return res.status(403).json({ error: 'Nincs jogosultság' });
@@ -501,7 +501,7 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
     return res.status(409).json({ error: 'A fuvar már nem alkudható.' });
   }
   if (bid.bid_status !== 'pending') {
-    return res.status(409).json({ error: 'Erre a licitre már nem lehet ellenajánlatot tenni.' });
+    return res.status(409).json({ error: 'Erre az ajánlatra már nem lehet ellenajánlatot tenni.' });
   }
 
   const role = isShipper ? 'shipper' : 'carrier';
@@ -513,7 +513,7 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
     [amt, role, bid.id],
   );
   if (upd.rowCount === 0) {
-    return res.status(409).json({ error: 'Erre a licitre már nem lehet ellenajánlatot tenni.' });
+    return res.status(409).json({ error: 'Erre az ajánlatra már nem lehet ellenajánlatot tenni.' });
   }
 
   const otherUserId = isShipper ? bid.carrier_id : bid.shipper_id;

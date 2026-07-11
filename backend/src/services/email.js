@@ -152,10 +152,10 @@ function formatHuf(n) {
 }
 
 /**
- * Új licit érkezett a feladó egyik fuvarára.
+ * Új ajánlat érkezett a feladó egyik fuvarára.
  */
 async function sendBidReceivedEmail({ to, shipperName, jobTitle, jobId, carrierName, amountHuf }) {
-  const heading = '🎯 Új licit a fuvarodra!';
+  const heading = '🎯 Új ajánlat a fuvarodra!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
     <p><strong>${escapeHtml(carrierName) || 'Egy sofőr'}</strong> ajánlatot tett a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarodra.</p>
@@ -164,7 +164,7 @@ async function sendBidReceivedEmail({ to, shipperName, jobTitle, jobId, carrierN
   `;
   return sendEmail({
     to,
-    subject: `Új licit: ${formatHuf(amountHuf)} Ft – ${jobTitle}`,
+    subject: `Új ajánlat: ${formatHuf(amountHuf)} Ft – ${jobTitle}`,
     html: wrapHtml({
       heading,
       bodyHtml,
@@ -181,7 +181,7 @@ async function sendLaneAlertEmail({ to, carrierName, jobTitle, jobId, routeLabel
   const heading = '🎯 Új fuvar a figyelt útvonaladon!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
-    <p>Új licitálható fuvar került ki, ami illeszkedik az egyik beállított útvonal-figyelődre:</p>
+    <p>Új fuvar került ki, ami illeszkedik az egyik beállított útvonal-figyelődre:</p>
     <p style="font-size:18px;font-weight:800;margin:16px 0 4px">${escapeHtml(jobTitle)}</p>
     <p style="color:#475569;margin:0 0 12px">${escapeHtml(routeLabel)}</p>
     ${priceHuf ? `<p style="font-size:22px;font-weight:800;color:#1e40af;margin:8px 0">~${formatHuf(priceHuf)} Ft</p>` : ''}
@@ -201,10 +201,10 @@ async function sendLaneAlertEmail({ to, carrierName, jobTitle, jobId, routeLabel
 }
 
 /**
- * A sofőr licitjét elfogadta a feladó.
+ * A sofőr ajánlatát elfogadta a feladó.
  */
 async function sendBidAcceptedEmail({ to, carrierName, jobTitle, jobId, amountHuf }) {
-  const heading = '🎉 Elfogadták a licitedet!';
+  const heading = '🎉 Elfogadták az ajánlatodat!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
     <p>Nagyszerű hírek — a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvar feladója elfogadta az ajánlatodat!</p>
@@ -430,7 +430,7 @@ async function sendCancellationEmail({
   }
   if (!recipientIsShipper) {
     bodyHtml += `
-      <p>Az útvonaladon/licites fuvaron lévő foglalás visszavonásra került. Nincs további teendőd.</p>
+      <p>Az útvonaladon/fuvarodon lévő foglalás visszavonásra került. Nincs további teendőd.</p>
     `;
   }
   return sendEmail({
@@ -475,7 +475,7 @@ async function sendEmailVerificationEmail({ to, fullName, verifyUrl }) {
     <p>Szia ${escapeHtml(fullName) || 'GoFuvar felhasználó'}!</p>
     <p>Köszönjük, hogy regisztráltál! Egy utolsó lépés van hátra: kattints az alábbi
     gombra, hogy megerősítsd az e-mail címedet. E nélkül nem tudunk neked
-    fontos értesítéseket küldeni (új licit, fizetés, lejáró jogosítvány, stb.).</p>
+    fontos értesítéseket küldeni (új ajánlat, fizetés, stb.).</p>
     <p style="font-size:13px;color:#64748b;margin-top:16px">A link 7 napig érvényes. Ha nem te regisztráltál, hagyd figyelmen kívül ezt az emailt.</p>
   `;
   return sendEmail({

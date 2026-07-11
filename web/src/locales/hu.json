@@ -37,7 +37,7 @@
   },
   "nav": {
     "home": "Főoldal",
-    "biddableJobs": "Licitálható fuvarok",
+    "biddableJobs": "Elérhető fuvarok",
     "fixedRoutes": "Fix áras fuvarok",
     "myJobs": "Saját fuvarjaim",
     "myBookings": "Foglalásaim",
@@ -61,8 +61,8 @@
     "volume": "Térfogat",
     "description": "Leírás",
     "ownPost": "SAJÁT POSZT",
-    "ownPostHint": "Ezt te adtad fel — nem licitálhatsz rá.",
-    "noJobs": "Jelenleg nincs licitálható fuvar a közelben.",
+    "ownPostHint": "Ezt te adtad fel — nem tehetsz rá ajánlatot.",
+    "noJobs": "Jelenleg nincs elérhető fuvar a közelben.",
     "photos": "Fotók a csomagról",
     "category": {
       "standard": "Standard fuvar",
@@ -71,13 +71,13 @@
     }
   },
   "bids": {
-    "placeBid": "Licit feladása",
+    "placeBid": "Ajánlattétel",
     "bidAmount": "Ajánlott ár",
-    "sendBid": "Licit elküldése",
-    "bidSent": "Licit elküldve",
+    "sendBid": "Ajánlat elküldése",
+    "bidSent": "Ajánlat elküldve",
     "acceptBid": "Elfogadom",
-    "myBids": "Licitjeim",
-    "noBids": "Még nincs licit."
+    "myBids": "Ajánlataim",
+    "noBids": "Még nincs ajánlat."
   },
   "routes": {
     "title": "Útba eső sofőrök",
@@ -155,8 +155,8 @@
     "title": "Értesítések",
     "markAllRead": "Összes olvasva",
     "noNotifications": "Még nincs értesítésed.",
-    "newBid": "Új licit érkezett",
-    "bidAccepted": "Elfogadták a licitedet!",
+    "newBid": "Új ajánlat érkezett",
+    "bidAccepted": "Elfogadták az ajánlatodat!",
     "bookingConfirmed": "A sofőr megerősítette a foglalásod!",
     "paymentReceived": "Kifizették a fuvarodat!",
     "packageDelivered": "A csomagod megérkezett!",
@@ -173,7 +173,7 @@
     "tagline": "Magyarország közösségi fuvartőzsdéje",
     "heroTitle": "Csomagod van?",
     "heroHighlight": "Sofőröd is lesz.",
-    "heroSub": "Hirdess meg egy fuvart és a sofőrök licitálnak rá — vagy foglalj helyet egy útba eső sofőr fix áras útvonalán.",
+    "heroSub": "Hirdess meg egy fuvart és a sofőrök ajánlatot tesznek rá — vagy foglalj helyet egy útba eső sofőr fix áras útvonalán.",
     "cta": "Regisztráció / Belépés",
     "ctaFree": "Ingyenes regisztráció · Nincs havidíj",
     "howItWorks": "Hogyan működik?",

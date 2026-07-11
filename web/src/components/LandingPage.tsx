@@ -14,8 +14,8 @@ import {
 import { useCurrentUser } from '@/lib/auth';
 
 const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; soon?: boolean }[] = [
-  { icon: Gavel, tint: 'var(--primary)', title: 'Licitálható fuvarok',
-    desc: 'Hirdesd meg a csomagodat, és a sofőrök licitálnak rá. Te döntöd el, melyik ajánlatot fogadod el.' },
+  { icon: Gavel, tint: 'var(--primary)', title: 'Fuvarfeladás pár perc alatt',
+    desc: 'Hirdesd meg a csomagodat, és a sofőrök ajánlatot tesznek rá. Te döntöd el, melyik ajánlatot fogadod el.' },
   { icon: Route, tint: '#7c3aed', title: 'Fix áras útvonalak',
     desc: 'A sofőrök meghirdetik az útjukat fix áron. Foglalj helyet a csomagodnak egyetlen kattintással.' },
   // Az élő GPS a mobilapppal érkezik — a launchkor még nincs, ezért
@@ -37,7 +37,7 @@ const STEPS = [
   { num: '1', title: 'Hirdesd meg a fuvart', dot: 'var(--primary)',
     desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.' },
   { num: '2', title: 'Válassz sofőrt', dot: 'var(--primary)',
-    desc: 'Fogadd el a legjobb licitet, vagy foglalj fix áras útvonalon. Egy kis kapcsolatfelvételi díj után azonnal megkapod a sofőr elérhetőségét.' },
+    desc: 'Fogadd el a neked tetsző ajánlatot, vagy foglalj fix áras útvonalon. Egy kis kapcsolatfelvételi díj után azonnal megkapod a sofőr elérhetőségét.' },
   { num: '3', title: 'Vedd át a kóddal', dot: 'var(--success)',
     desc: 'A címzett SMS-ben kapja a követési linket és a kódot. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat készpénzben rendezed a sofőrrel.' },
 ];
@@ -104,7 +104,7 @@ export default function LandingPage() {
           fontSize: 'clamp(16px, 2vw, 20px)', color: 'var(--text-secondary)',
           maxWidth: 580, margin: '0 auto 32px', lineHeight: 1.5,
         }}>
-          Hirdess meg egy fuvart és a sofőrök licitálnak rá — vagy foglalj
+          Hirdess meg egy fuvart és a sofőrök ajánlatot tesznek rá — vagy foglalj
           helyet egy útba eső sofőr fix áras útvonalán. Biztonságos fizetés,
           fotó bizonyíték, 6 jegyű átvételi kód.
         </p>
@@ -306,7 +306,7 @@ export default function LandingPage() {
             </div>
             <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Feladó vagyok</h3>
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
-              <li>Hirdesd meg a fuvart — a sofőrök licitálnak rá</li>
+              <li>Hirdesd meg a fuvart — a sofőrök ajánlatot tesznek rá</li>
               <li>Vagy foglalj helyet egy fix áras útvonalon</li>
               <li>Kis díj után azonnal megkapod a sofőr elérhetőségét</li>
               <li>A címzett SMS-ben kapja a követési linket</li>
@@ -323,7 +323,7 @@ export default function LandingPage() {
             <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Sofőr vagyok</h3>
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
               <li>Autó, bicikli, gyalog vagy tömegközlekedés — bármivel mehet</li>
-              <li>Licitálj nyitott fuvarokra — a legjobb nyer</li>
+              <li>Böngéssz az elérhető fuvarok között és tegyél ajánlatot</li>
               <li>Vagy hirdesd meg az utadat fix árakkal</li>
               <li>A fuvardíj 100%-a a tiéd, készpénzben — nincs levonás</li>
               <li>Igazold a felvételt és lerakodást fotóval</li>
@@ -370,7 +370,7 @@ export default function LandingPage() {
         </h2>
         <p style={{ color: 'var(--muted)', marginBottom: 32, fontSize: 16 }}>
           Regisztrálj ingyenesen, és pár perc múlva már feladhatsz egy fuvart
-          vagy licitálhatsz egyre.
+          vagy ajánlatot tehetsz egyre.
         </p>
         <Link href="/bejelentkezes?mode=register" className="btn"
           style={{ fontSize: 17, padding: '16px 38px', borderRadius: 12, fontWeight: 800 }}>

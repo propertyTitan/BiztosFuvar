@@ -10,7 +10,7 @@ import { api, Job, CarrierRoute } from '@/api';
 
 const JOB_STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
-  bidding: 'Licitálható',
+  bidding: 'Ajánlatokat vár',
   accepted: 'Elfogadva',
   in_progress: 'Folyamatban',
   delivered: 'Lerakva',
@@ -50,11 +50,11 @@ export default function SajatHirdeteseim() {
         <div>
           <h2 style={{ marginTop: 0, marginBottom: 4 }}>Saját hirdetéseim</h2>
           <p className="muted" style={{ margin: 0 }}>
-            Minden, amit TE adtál fel — licites fuvarok és fix áras útvonalak egy helyen.
+            Minden, amit TE adtál fel — feladott fuvarok és fix áras útvonalak egy helyen.
           </p>
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <Link className="btn" href="/dashboard/uj-fuvar">+ Új licites</Link>
+          <Link className="btn" href="/dashboard/uj-fuvar">+ Új fuvar</Link>
           <Link className="btn btn-secondary" href="/sofor/uj-utvonal">+ Új fix áras</Link>
         </div>
       </div>
@@ -66,12 +66,12 @@ export default function SajatHirdeteseim() {
         </div>
       )}
 
-      {/* Licites fuvarok */}
-      <h2 style={{ marginTop: 24 }}>📝 Licites fuvarjaim ({jobs.length})</h2>
+      {/* Feladott fuvarok */}
+      <h2 style={{ marginTop: 24 }}>📝 Feladott fuvarjaim ({jobs.length})</h2>
       {!loading && jobs.length === 0 && (
         <div className="card">
           <p className="muted">
-            Még nincs licites fuvarod.{' '}
+            Még nincs feladott fuvarod.{' '}
             <Link href="/dashboard/uj-fuvar">Hirdess meg egyet!</Link>
           </p>
         </div>

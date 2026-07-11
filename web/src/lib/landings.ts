@@ -85,7 +85,7 @@ const PERSONAS: LandingConfig[] = [
     ],
     faq: [
       { q: 'Kell hozzá vállalkozás?', a: 'A saját adóügyi státuszodért te felelsz (rendszeres kereső tevékenységhez a magyar jog szerint általában vállalkozói forma kell). A GoFuvar a fuvardíjat nem kezeli és nem számlázza — az a te és a feladó közti készpénzes ügylet.' },
-      { q: 'Hogyan kezdjek?', a: 'Regisztrálj, igazold a személyazonosságod (személyi igazolvány), fogadd el a rövid sofőri nyilatkozatot (jogszabályok + KRESZ betartása), és már licitálhatsz is — autóval, biciklivel, gyalog vagy tömegközlekedéssel is.' },
+      { q: 'Hogyan kezdjek?', a: 'Regisztrálj, igazold a személyazonosságod (személyi igazolvány), fogadd el a rövid sofőri nyilatkozatot (jogszabályok + KRESZ betartása), és már ajánlatot tehetsz a fuvarokra — autóval, biciklivel, gyalog vagy tömegközlekedéssel is.' },
       { q: 'Én választom a fuvart?', a: 'Igen. Te böngészed a fuvarokat, te adsz ajánlatot, és csak azt vállalod, ami neked megéri.' },
     ],
   },
@@ -173,7 +173,7 @@ const USECASES: LandingConfig[] = [
       { icon: '🔗', title: 'Csak a link kell', desc: 'Bemásolod a termék linkjét, mi előnézetet csinálunk (cím + kép), és előtöltjük a fuvart.' },
       { icon: '🚚', title: 'A sofőr elhozza', desc: 'Egy sofőr, aki úgyis arra jár, felveszi a boltból és házhoz viszi.' },
       { icon: '📸', title: 'Fotó + kód', desc: 'Ugyanaz a védelem, mint minden fuvarnál: fotó a felvételről és az átadásról, 6 jegyű kód.' },
-      { icon: '💰', title: 'Versenyző árak', desc: 'Több sofőr licitál a fuvarra, és egy meglévő útra pakolva az ár gyakran kedvező.' },
+      { icon: '💰', title: 'Versenyző árak', desc: 'Több sofőr tesz ajánlatot a fuvarra, és egy meglévő útra pakolva az ár gyakran kedvező.' },
     ],
     faq: [
       { q: 'Mely boltok támogatottak?', a: 'IKEA, OBI, Praktiker, Jófogás termék-linkek előnézetét olvassuk ki. Más boltból a fuvart kézzel is feladhatod.' },
@@ -209,7 +209,7 @@ const USECASES: LandingConfig[] = [
     metaDescription: 'Mosógép, hűtő, mosogatógép, szárítógép elvitele egy sofőrrel furgonnal. A sofőrök versenye miatt gyakran kedvező áron, fotó + 6 jegyű átvételi kód.',
     eyebrow: 'Nagygép-szállítás',
     headline: 'Mosógép, hűtő? Van rá sofőr furgonnal',
-    subhead: 'Nagy háztartási gép, ami nem fér a kocsidba? Egy GoFuvar sofőr furgonnal elviszi. A sofőrök licitálnak rá, te a neked megfelelőt fogadod el — a verseny miatt gyakran kedvező áron.',
+    subhead: 'Nagy háztartási gép, ami nem fér a kocsidba? Egy GoFuvar sofőr furgonnal elviszi. A sofőrök ajánlatot tesznek rá, te a neked megfelelőt fogadod el — a verseny miatt gyakran kedvező áron.',
     primaryCta: { label: 'Add fel a szállítást', href: '/bejelentkezes?mode=register' },
     bullets: [
       { icon: '🧺', title: 'Nagygép is elfér', desc: 'Mosógép, hűtő, mosogatógép, szárítógép — furgonos sofőr elviszi.' },

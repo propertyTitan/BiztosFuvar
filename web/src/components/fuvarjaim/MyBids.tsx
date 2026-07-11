@@ -1,7 +1,7 @@
 'use client';
 
-// Sofőr "Licitjeim" oldal.
-// - Összes licit, amit valaha leadott, a kapcsolódó fuvar adataival együtt.
+// Sofőr "Ajánlataim" oldal.
+// - Összes ajánlat, amit valaha leadott, a kapcsolódó fuvar adataival együtt.
 // - Csoportosítva: Elfogadott (nyertes) / Várakozik / Elutasított vagy régi.
 // - Koppintás a kártyára → vissza a fuvar részletes oldalára.
 import { useEffect, useState } from 'react';
@@ -93,7 +93,7 @@ export default function SoforLicitjeim() {
 
   return (
     <div>
-      <h2 style={{ marginTop: 0 }}>Licitjeim</h2>
+      <h2 style={{ marginTop: 0 }}>Ajánlataim</h2>
       <p className="muted" style={{ marginTop: 0 }}>
         Itt láthatod, milyen ajánlatokat adtál és azokat elfogadták-e.
       </p>
@@ -111,7 +111,7 @@ export default function SoforLicitjeim() {
       {!loading && !error && rows.length === 0 && (
         <div className="card">
           <p className="muted">
-            Még nem adtál le licitet. Nézegess az{' '}
+            Még nem tettél ajánlatot. Nézegess az{' '}
             <a href="/sofor/fuvarok">Elérhető fuvarok</a> között, és tegyél egy ajánlatot!
           </p>
         </div>
