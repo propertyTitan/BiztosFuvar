@@ -32,6 +32,10 @@ export default function SoforFuvarokLista() {
   const [filterMinPrice, setFilterMinPrice] = useState('');
   const [filterMaxPrice, setFilterMaxPrice] = useState('');
   const [filterMaxWeight, setFilterMaxWeight] = useState('');
+  const [filterFromCity, setFilterFromCity] = useState('');
+  const [filterToCity, setFilterToCity] = useState('');
+  // '' = mind, 'true' = csak azonnali, 'false' = csak ajánlatkérős
+  const [filterType, setFilterType] = useState<'' | 'true' | 'false'>('');
   const [showFilters, setShowFilters] = useState(false);
   // Éppen melyik instant fuvart próbáljuk elvállalni (race-prevent UI)
   const [acceptingInstantId, setAcceptingInstantId] = useState<string | null>(null);
@@ -57,12 +61,19 @@ export default function SoforFuvarokLista() {
   // A `filters` felülbírálással a "Szűrők törlése" azonnal üres szűrőkkel
   // tud lekérdezni — a state-ből olvasás ott stale closure-t adna (a régi
   // értékekkel kérdezne le, hiába nullázzuk előtte a state-et).
-  async function load(lat?: number, lng?: number, filters?: { min: string; max: string; weight: string }) {
+  async function load(
+    lat?: number,
+    lng?: number,
+    filters?: { min: string; max: string; weight: string; from: string; to: string; type: '' | 'true' | 'false' },
+  ) {
     setLoading(true);
     try {
       const min = filters ? filters.min : filterMinPrice;
       const max = filters ? filters.max : filterMaxPrice;
       const weight = filters ? filters.weight : filterMaxWeight;
+      const from = filters ? filters.from : filterFromCity;
+      const to = filters ? filters.to : filterToCity;
+      const type = filters ? filters.type : filterType;
       const data = await api.listJobs({
         status: 'bidding',
         lat,
@@ -71,6 +82,9 @@ export default function SoforFuvarokLista() {
         min_price: min ? Number(min) : undefined,
         max_price: max ? Number(max) : undefined,
         max_weight_kg: weight ? Number(weight) : undefined,
+        pickup_city: from || undefined,
+        dropoff_city: to || undefined,
+        instant: type || undefined,
       });
       setJobs(data);
     } catch (err: any) {
@@ -223,6 +237,41 @@ export default function SoforFuvarokLista() {
           <div className="card" style={{ marginTop: 8, padding: 16 }}>
             <div className="row" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
               <div>
+                <label style={{ fontSize: 12 }}>Honnan (város)</label>
+                <input
+                  className="input"
+                  type="text"
+                  value={filterFromCity}
+                  onChange={(e) => setFilterFromCity(e.target.value)}
+                  placeholder="pl. Budapest"
+                  style={{ width: 140 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12 }}>Hová (város)</label>
+                <input
+                  className="input"
+                  type="text"
+                  value={filterToCity}
+                  onChange={(e) => setFilterToCity(e.target.value)}
+                  placeholder="pl. Szeged"
+                  style={{ width: 140 }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 12 }}>Típus</label>
+                <select
+                  className="input"
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value as '' | 'true' | 'false')}
+                  style={{ width: 150 }}
+                >
+                  <option value="">Mind</option>
+                  <option value="false">Ajánlatkérős</option>
+                  <option value="true">⚡ Azonnali</option>
+                </select>
+              </div>
+              <div>
                 <label style={{ fontSize: 12 }}>Min ár (Ft)</label>
                 <input
                   className="input"
@@ -263,7 +312,7 @@ export default function SoforFuvarokLista() {
               >
                 Szűrés
               </button>
-              {(filterMinPrice || filterMaxPrice || filterMaxWeight) && (
+              {(filterMinPrice || filterMaxPrice || filterMaxWeight || filterFromCity || filterToCity || filterType) && (
                 <button
                   className="btn btn-secondary"
                   type="button"
@@ -271,7 +320,10 @@ export default function SoforFuvarokLista() {
                     setFilterMinPrice('');
                     setFilterMaxPrice('');
                     setFilterMaxWeight('');
-                    load(here?.lat, here?.lng, { min: '', max: '', weight: '' });
+                    setFilterFromCity('');
+                    setFilterToCity('');
+                    setFilterType('');
+                    load(here?.lat, here?.lng, { min: '', max: '', weight: '', from: '', to: '', type: '' });
                   }}
                   style={{ fontSize: 12, padding: '6px 12px' }}
                 >
