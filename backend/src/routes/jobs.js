@@ -296,9 +296,14 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
 
   const job = rows[0];
 
-  // A real-time `jobs:new` event-ből vegyük ki a kódot, a sofőrök ne lássák
-  const { delivery_code: _omit, ...publicJob } = job;
-  realtime.emitGlobal('jobs:new', publicJob);
+  // A real-time `jobs:new` MINDEN csatlakozott kliensnek megy (io.emit),
+  // beleértve a be nem jelentkezett vendégeket is — ezért a payloadot a
+  // KÍVÜLÁLLÓ nézetére kell scrubbolni. A korábbi `{ delivery_code, ...rest }`
+  // csak a kódot vette ki, de bennhagyta a címzett PII-ját (név/telefon/email),
+  // a `tracking_token`-t (amivel a publikus követőoldalról kiolvasható lett
+  // volna a kód) és a `sender_delivery_code`-ot. A `scrubJobForUser(job, null)`
+  // ugyanazt a határt adja, mint a REST kívülálló-ág.
+  realtime.emitGlobal('jobs:new', scrubJobForUser(job, null));
 
   console.log(`[delivery-code] job ${job.id}: átvételi kód generálva (feladó: ${maskEmail(req.user.email)})`);
 
@@ -1213,3 +1218,6 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
 });
 
 module.exports = router;
+// A `jobs:new` socket-broadcast és a REST kívülálló-ág ezt a scrubot használja
+// — exportáljuk, hogy a biztonsági tesztek közvetlenül őrizhessék a határt.
+module.exports.scrubJobForUser = scrubJobForUser;

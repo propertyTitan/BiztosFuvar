@@ -118,24 +118,25 @@ async function createBooking({
     [carrierId],
   );
   const routeId = routeRows[0].id;
+  const trackingToken = crypto.randomBytes(16).toString('hex');
   const { rows } = await db.query(
     `INSERT INTO route_bookings (
        route_id, shipper_id, package_size, length_cm, width_cm, height_cm,
        weight_kg, pickup_address, pickup_lat, pickup_lng,
        dropoff_address, dropoff_lat, dropoff_lng,
        price_huf, delivery_code, status,
-       recipient_name, recipient_phone,
+       recipient_name, recipient_phone, tracking_token,
        paid_at, fee_consent_at
      ) VALUES (
        $1, $2, 'M', 40, 30, 20,
        5, 'Budapest, Teszt u. 1.', 47.4979, 19.0402,
        'Szeged, Teszt tér 2.', 46.2530, 20.1414,
        $3, $4, $5,
-       'Teszt Címzett', '+36301112233',
+       'Teszt Címzett', '+36301112233', $7,
        CASE WHEN $6 THEN NOW() ELSE NULL END,
        CASE WHEN $6 THEN NOW() ELSE NULL END
      ) RETURNING *`,
-    [routeId, shipperId, priceHuf, deliveryCode, status, paid],
+    [routeId, shipperId, priceHuf, deliveryCode, status, paid, trackingToken],
   );
   return { booking: rows[0], routeId };
 }
