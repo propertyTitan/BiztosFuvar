@@ -391,7 +391,13 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   a QVIK HUF-os, magyar bankappos fizetés → a kapcsolatfelvételi díjat csak
   magyar bankszámlás feladó tudja fizetni (a folyosó-fuvarok diaszpóra-
   feladóinak többségénél ez OK; nem-magyar feladóhoz később kártyás
-  alternatíva kell majd, pl. Stripe — 2027+ kérdés).
+  alternatíva kell majd, pl. Stripe — 2027+ kérdés). ⚠️ JOGI SZABÁLY a
+  kártyás lábhoz (2026-07-11): **kártya-FELÁR tilos** (PSD2 — fogyasztói
+  kártyára az EU-ban surcharge nem számolható fel, "kényelmi díj" néven
+  sem); a legális irány a FORDÍTOTT keret: magasabb listaár + **QVIK-
+  kedvezmény** (pl. kártyával 650/1.690/2.690/4.290, QVIK-kel a kommunikált
+  500/1.490/2.490/3.990) — a QVIK a default/kiemelt opció a fizetőoldalon.
+  EUR-sávoknál egyszerűbb: a kártyaköltség eleve beárazva.
 - **D-U-N-S szám** — Apple-enrollment-flow indítása apukán át (Apple Developer fiók)
 - **Gmail "Küldés másként" megerősítése** — a user állítja be, hogy a
   gmailből info@gofuvar.hu néven válaszolhasson (SMTP: smtp.resend.com,
