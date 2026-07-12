@@ -73,6 +73,11 @@ export default function FuvarReszletek() {
   // a backend a redirect ELŐTT rögzíti (fee_consent_at).
   const [feeConsent, setFeeConsent] = useState(false);
   const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
+  // Élőben (Socket.IO) érkezett ajánlatok id-i: belépő animáció + „ÚJ"
+  // jelvény, ami ~10 mp után magától elhalványul. A timereket unmountkor
+  // takarítjuk.
+  const [freshBids, setFreshBids] = useState<Record<string, boolean>>({});
+  const freshTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   async function startPayment() {
     if (!feeConsent) {
@@ -152,8 +157,26 @@ export default function FuvarReszletek() {
       onDelivered: () => loadAll(),
       onAccepted: () => loadAll(),
       onCountered: () => loadAll(),
+      // Új ajánlat élőben: frissítés + a sor „megérkezik" (bid-arrive
+      // animáció + ÚJ jelvény, 10 mp múlva kifakul)
+      onNewBid: (b: any) => {
+        loadAll();
+        if (!b?.id) return;
+        setFreshBids((prev) => ({ ...prev, [b.id]: true }));
+        freshTimersRef.current.push(setTimeout(() => {
+          setFreshBids((prev) => {
+            const next = { ...prev };
+            delete next[b.id];
+            return next;
+          });
+        }, 10000));
+      },
     });
-    return unsub;
+    return () => {
+      unsub();
+      freshTimersRef.current.forEach(clearTimeout);
+      freshTimersRef.current = [];
+    };
   }, [id]);
 
   // Külön: `job:paid` user-szoba event, hogy a sikeres fizetés után
@@ -699,7 +722,18 @@ export default function FuvarReszletek() {
             <p className="muted">Még nincs ajánlat. A sofőrök hamarosan ajánlatot tesznek.</p>
           )}
           {bids.filter((b) => b.status === 'pending').map((b) => (
-            <div key={b.id} style={{ borderBottom: '1px solid var(--border)', padding: '16px 0' }}>
+            <div
+              key={b.id}
+              className={freshBids[b.id] ? 'bid-arrive' : undefined}
+              style={{
+                borderBottom: '1px solid var(--border)', padding: '16px 8px',
+                // Friss (élőben érkezett) ajánlat: finom kék tint, ami a
+                // jelvénnyel együtt fakul ki (transition mindig rajta van)
+                background: freshBids[b.id] ? 'rgba(37,99,235,0.07)' : 'transparent',
+                borderRadius: 12,
+                transition: 'background 0.8s ease',
+              }}
+            >
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <Link href={`/profil/${b.carrier_id}`} className="row" style={{ gap: 12, alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
                   {/* Sofőr avatar + info — kattintható profil */}
@@ -722,7 +756,16 @@ export default function FuvarReszletek() {
                     {(b.carrier_name || '?').charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{b.carrier_name || 'Sofőr'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span></div>
+                    <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      {b.carrier_name || 'Sofőr'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span>
+                      {freshBids[b.id] && (
+                        <span style={{
+                          background: 'var(--primary)', color: '#fff',
+                          fontSize: 'var(--fs-caption)', fontWeight: 800, letterSpacing: 0.4,
+                          borderRadius: 999, padding: '2px 8px', textTransform: 'uppercase',
+                        }}>Új</span>
+                      )}
+                    </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {(b.rating_avg ?? 0) > 0 && (
                         <span style={{ fontSize: 12, color: 'var(--warning)', fontWeight: 600 }}>

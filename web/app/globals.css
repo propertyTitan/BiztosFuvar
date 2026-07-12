@@ -608,6 +608,12 @@ label {
 .pp-offer-in {
   animation: gofuvar-offer-in 0.5s ease-out 1.4s both;
 }
+/* Ugyanez a belépés a VALÓDI ajánlat-listán (feladói fuvar-oldal):
+   a Socket.IO-n élőben érkező új ajánlat így "érkezik meg" — a landing
+   mockup ígérete és a termék-élmény összeér. Késleltetés nincs. */
+.bid-arrive {
+  animation: gofuvar-offer-in 0.5s ease-out both;
+}
 /* A lebegő kód-chip keskeny képernyőn kilógna — ott a telefon elég.
    !important: a komponens inline display:flex-ét kell felülütni. */
 @media (max-width: 560px) {
@@ -619,6 +625,7 @@ label {
   .card, .site-main > * { animation: none; }
   .pp-offer-in { animation: none; }
   .skeleton { animation: none; }
+  .bid-arrive { animation: none; }
 }
 /* Egy oszlopba törve (mobil) a vízszintes fonál értelmét veszti */
 @media (max-width: 859px) {
