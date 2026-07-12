@@ -40,6 +40,20 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  /* ── Betűméret-skála (2026-07-12) ──
+     ÚJ kódban fontSize CSAK a skáláról: 11 / 12 / 13 / 14 / 16 / 18 / 20 /
+     24 / 32 px (hero-cím: clamp). A köztes értékek (12.5, 14.5, 15.5…)
+     TILOSAK — ettől csúszik szét a felület. A régi kód sweepelése
+     fokozatos, amihez épp hozzányúlunk. */
+  --fs-caption: 11px;  /* badge, apró címke */
+  --fs-small: 12px;    /* másodlagos meta */
+  --fs-body-sm: 13px;  /* lista-meta, kis gomb */
+  --fs-body: 14px;     /* alap UI-szöveg, gomb, input */
+  --fs-lead: 16px;     /* kiemelt sor, kártya-cím */
+  --fs-h3: 18px;
+  --fs-title: 20px;    /* stat-szám, szekció-kiemelés */
+  --fs-h2: 24px;
+  --fs-h1: 32px;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
   --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
@@ -558,6 +572,20 @@ label {
   to   { transform: rotate(360deg); }
 }
 
+/* ── Skeleton (lista-betöltő vázak, StateView.ListSkeleton) ──
+   Token-alapú → dark mode-ban is helyes; reduced-motion-nél áll. */
+@keyframes gofuvar-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--surface-hover) 25%, var(--border) 50%, var(--surface-hover) 75%);
+  background-size: 200% 100%;
+  animation: gofuvar-shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
 /* ── Útvonal-motívum (a márka aláírása) ──
    A→B pontozott vonal: a hero-ban egyszer megrajzolja magát betöltéskor,
    a "Hogyan működik?" lépéseit pedig fonálként köti össze. A kék pont a
@@ -590,6 +618,7 @@ label {
   .route-draw { animation: none; }
   .card, .site-main > * { animation: none; }
   .pp-offer-in { animation: none; }
+  .skeleton { animation: none; }
 }
 /* Egy oszlopba törve (mobil) a vízszintes fonál értelmét veszti */
 @media (max-width: 859px) {

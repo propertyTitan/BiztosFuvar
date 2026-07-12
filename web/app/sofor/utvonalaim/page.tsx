@@ -8,6 +8,8 @@ import Link from 'next/link';
 import { api, CarrierRoute } from '@/api';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { Route as RouteIcon } from 'lucide-react';
 
 const STATUS_LABEL: Record<CarrierRoute['status'], string> = {
   draft: 'Piszkozat',
@@ -156,7 +158,7 @@ export default function UtvonalaimOldal() {
         tudod állítani az állapotukat.
       </p>
 
-      {loading && <p>Betöltés…</p>}
+      {loading && <ListSkeleton rows={3} />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)' }}>
           <strong>Hiba:</strong> {error}
@@ -164,12 +166,12 @@ export default function UtvonalaimOldal() {
       )}
 
       {!loading && !error && routes.length === 0 && (
-        <div className="card">
-          <p className="muted">
-            Még nincs meghirdetett útvonalad. Kattints a{' '}
-            <Link href="/sofor/uj-utvonal">+ Új útvonal hirdetése</Link> gombra!
-          </p>
-        </div>
+        <EmptyState
+          icon={<RouteIcon size={28} aria-hidden />}
+          title="Hirdesd meg az első útvonalad"
+          description="Ha úgyis mész valahová, hirdesd meg az utad fix áron — a feladók helyet foglalnak a csomagjuknak, te pedig megkeresed az üzemanyagod árát."
+          cta={<Link className="btn" href="/sofor/uj-utvonal">Új útvonal hirdetése</Link>}
+        />
       )}
 
       {byStatus.open.length > 0 && (

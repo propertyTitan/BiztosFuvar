@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { Tag } from 'lucide-react';
 
 type Row = Awaited<ReturnType<typeof api.myBids>>[number];
 
@@ -98,7 +100,7 @@ export default function SoforLicitjeim() {
         Itt láthatod, milyen ajánlatokat adtál és azokat elfogadták-e.
       </p>
 
-      {loading && <p>Betöltés…</p>}
+      {loading && <ListSkeleton rows={3} />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)' }}>
           <strong>Hiba:</strong> {error}
@@ -109,12 +111,12 @@ export default function SoforLicitjeim() {
       )}
 
       {!loading && !error && rows.length === 0 && (
-        <div className="card">
-          <p className="muted">
-            Még nem tettél ajánlatot. Nézegess az{' '}
-            <a href="/sofor/fuvarok">Elérhető fuvarok</a> között, és tegyél egy ajánlatot!
-          </p>
-        </div>
+        <EmptyState
+          icon={<Tag size={28} aria-hidden />}
+          title="Még nem tettél ajánlatot"
+          description="Böngéssz az elérhető fuvarok között, és tegyél ajánlatot arra, ami útba esik — a fuvardíj 100%-a a tiéd, készpénzben."
+          cta={<Link className="btn" href="/sofor/fuvarok">Elérhető fuvarok</Link>}
+        />
       )}
 
       {accepted.length > 0 && (

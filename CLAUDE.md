@@ -507,6 +507,24 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - NEM mergelek PR-t ha kétséges (csak ha user explicit OK-zott)
 - Production-deploy: PR + user-tudtával
 
+### Design-szabályok (2026-07-12)
+- **Betűméret-skála**: ÚJ kódban fontSize CSAK 11/12/13/14/16/18/20/24/32 px
+  (tokenek a globals.css-ben: `--fs-caption`…`--fs-h1`) vagy clamp() a
+  hero-címekhez. Köztes érték (12.5, 14.5, 15.5…) TILOS. Régi kód sweepelése
+  fokozatos — amihez épp hozzányúlunk.
+- **UI-ikon**: mindig lucide, emoji TILOS (emoji csak prózában/bannerben — PR #75/#76).
+- **Állapotok**: lista-betöltés = `<ListSkeleton rows={n} />`, üres lista =
+  `<EmptyState icon={<Lucide/>} title desc cta />`, hiba = `<ErrorState />`
+  (mind `components/StateView.tsx`). Kézi `<p>Betöltés…</p>` TILOS. A `Loading`
+  (kamionos spinner) részlet-oldalakra való, listákra nem.
+- ⚠️ **rgba-tint csapda**: inline style-ban a `var(--primary-subtle)` /
+  `--success-light` stb. HÁTTÉRHEZ a globals.css egy `!important`
+  szöveg-színszabályt társít ([style*=…] szelektorok, dark-mode mentőháló) —
+  ha a belső színt magad adod, rgba-tintet használj háttérnek
+  (pl. `rgba(37,99,235,0.10)`; minta: ProductPreview, StateView).
+- **OG-kép**: `web/scripts/generate-og-image.js` → `public/og-image.png`
+  (szöveg-változásnál újragenerálni, ne kézzel szerkeszteni).
+
 ---
 
 ## 8. Branch / commit-history navigáció
