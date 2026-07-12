@@ -286,6 +286,13 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Design-polír 1. kör (2026-07-12, PR #77)** — (1) EmptyState v2: márkázott
+  üres állapotok 9 felületen (szaggatott kártya + lucide-ikon kör + A→B
+  motívum + CTA; compact variáns a Fuvarjaim füleknek); (2) ListSkeleton a
+  fő listákra (a Neon cold startot fedi); (3) type-scale tokenek + szabály
+  (7. szakasz Design-szabályok); (4) OG-kép újragenerálva — ⚠️ a régin még
+  "letéti fizetés" állt (escrow-kori, HAMIS a kápé-modellben); generátor:
+  `web/scripts/generate-og-image.js`
 - **Landing termék-mockup + emoji-sweep (2026-07-12, PR #76)** — (1) a hero
   alatt telefon-keretes, TOKEN-ALAPÚ élő termék-előnézet (ProductPreview.tsx):
   a feladott fuvarra érkező ajánlatok jelenete, a 3. (legjobb) ajánlat 1,4s
