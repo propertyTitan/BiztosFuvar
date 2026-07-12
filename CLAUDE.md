@@ -286,6 +286,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Landing termék-mockup + emoji-sweep (2026-07-12, PR #76)** — (1) a hero
+  alatt telefon-keretes, TOKEN-ALAPÚ élő termék-előnézet (ProductPreview.tsx):
+  a feladott fuvarra érkező ajánlatok jelenete, a 3. (legjobb) ajánlat 1,4s
+  késleltetéssel "érkezik" (gofuvar-offer-in; reduced-motion OK), lebegő
+  átvételi kód-chip (560px alatt rejtve — ⚠️ inline display ellen `!important`
+  kell a media query-ben); szándékosan NEM PNG (dark mode-dal vált, nem avul);
+  (2) a PR #75-ös emoji→lucide szabály maradékai kigyomlálva (HomeHub
+  mód-váltó, fejléc mód-chip, státusz-sorok, pill-emojik). Screenshot-
+  ellenőrzés Playwrighttal (light/dark/mobil)
 - **Apró UI-polír (2026-07-11, PR #75)** — (1) **locale-fix**: a böngésző-
   nyelv AUTO-detektálás kivéve az i18n-ből (fixen magyar; angol böngésző
   eddig kevert "Log in"+magyar oldalt kapott) — a külföldi launchnál kész
