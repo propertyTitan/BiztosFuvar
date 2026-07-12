@@ -570,9 +570,26 @@ label {
 .route-draw {
   animation: gofuvar-route-reveal 1.1s ease-out 0.2s both;
 }
+/* ── Landing termék-mockup (ProductPreview) ──
+   A harmadik ajánlat "megérkezik" a mock-képernyőn: a hero ígéretének
+   ("Sofőröd is lesz.") eljátszása. Egyszeri, 1.4s késleltetésű belépés. */
+@keyframes gofuvar-offer-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.pp-offer-in {
+  animation: gofuvar-offer-in 0.5s ease-out 1.4s both;
+}
+/* A lebegő kód-chip keskeny képernyőn kilógna — ott a telefon elég.
+   !important: a komponens inline display:flex-ét kell felülütni. */
+@media (max-width: 560px) {
+  .pp-code-chip { display: none !important; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .route-draw { animation: none; }
   .card, .site-main > * { animation: none; }
+  .pp-offer-in { animation: none; }
 }
 /* Egy oszlopba törve (mobil) a vízszintes fonál értelmét veszti */
 @media (max-width: 859px) {

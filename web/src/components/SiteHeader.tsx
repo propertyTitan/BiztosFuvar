@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Home, Target, Route, User, Truck, Shield,
-  Bell, BellRing, Bot, LogOut, ChevronDown,
+  Bell, BellRing, Bot, LogOut, ChevronDown, Package,
 } from 'lucide-react';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
@@ -121,7 +121,10 @@ export default function SiteHeader() {
                 border: '1px solid rgba(255,255,255,0.3)', whiteSpace: 'nowrap',
               }}
             >
-              {activeMode === 'driver' ? '🚛 Sofőr mód' : '📦 Feladó mód'}
+              {/* UI-ikon szabály: lucide, nem emoji (CLAUDE.md, PR #75) */}
+              {activeMode === 'driver'
+                ? <><Truck size={13} /> Sofőr mód</>
+                : <><Package size={13} /> Feladó mód</>}
             </Link>
           )}
           <Link href="/" style={navLinkStyle}>
