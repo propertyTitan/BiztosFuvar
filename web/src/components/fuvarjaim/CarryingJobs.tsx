@@ -7,7 +7,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job } from '@/api';
-import { Loading } from '@/components/StateView';
+import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { Truck } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -76,7 +77,7 @@ export default function SoforSajatFuvarok() {
     <div>
       <h2 style={{ marginTop: 0 }}>Saját fuvaraim</h2>
 
-      {loading && <Loading />}
+      {loading && <ListSkeleton rows={3} />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)' }}>
           <strong>Hiba:</strong> {error}
@@ -85,12 +86,12 @@ export default function SoforSajatFuvarok() {
       )}
 
       {!loading && !error && jobs.length === 0 && (
-        <div className="card">
-          <p className="muted">
-            Még nincs aktív fuvarod. Tegyél ajánlatot néhány fuvarra az{' '}
-            <a href="/sofor/fuvarok">Elérhető fuvarok</a> oldalon!
-          </p>
-        </div>
+        <EmptyState
+          icon={<Truck size={28} aria-hidden />}
+          title="Még nincs vállalt fuvarod"
+          description="Tegyél ajánlatot egy fuvarra, ami útba esik — ha a feladó elfogad, itt vezeted végig a felvételtől a kód-lezárásig."
+          cta={<Link className="btn" href="/sofor/fuvarok">Elérhető fuvarok</Link>}
+        />
       )}
 
       {active.length > 0 && (

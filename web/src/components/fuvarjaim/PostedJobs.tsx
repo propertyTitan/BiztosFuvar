@@ -7,6 +7,8 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job, CarrierRoute } from '@/api';
+import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { FileText, Route as RouteIcon } from 'lucide-react';
 
 const JOB_STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -59,7 +61,7 @@ export default function SajatHirdeteseim() {
         </div>
       </div>
 
-      {loading && <p>Betöltés…</p>}
+      {loading && <ListSkeleton rows={3} />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)' }}>
           <strong>Hiba:</strong> {error}
@@ -69,12 +71,13 @@ export default function SajatHirdeteseim() {
       {/* Feladott fuvarok */}
       <h2 style={{ marginTop: 24 }}>📝 Feladott fuvarjaim ({jobs.length})</h2>
       {!loading && jobs.length === 0 && (
-        <div className="card">
-          <p className="muted">
-            Még nincs feladott fuvarod.{' '}
-            <Link href="/dashboard/uj-fuvar">Hirdess meg egyet!</Link>
-          </p>
-        </div>
+        <EmptyState
+          compact
+          icon={<FileText size={22} aria-hidden />}
+          title="Még nincs feladott fuvarod"
+          description="Add fel az elsőt — a sofőrök ajánlatot tesznek rá, és te választasz közülük."
+          cta={<Link className="btn" href="/dashboard/uj-fuvar">Fuvar feladása</Link>}
+        />
       )}
       {jobs.map((j) => (
         <Link
@@ -105,12 +108,13 @@ export default function SajatHirdeteseim() {
       {/* Fix áras útvonalak */}
       <h2 style={{ marginTop: 32 }}>🛣️ Fix áras útvonalaim ({routes.length})</h2>
       {!loading && routes.length === 0 && (
-        <div className="card">
-          <p className="muted">
-            Még nincs hirdetett útvonalad.{' '}
-            <Link href="/sofor/uj-utvonal">Hirdess meg egyet!</Link>
-          </p>
-        </div>
+        <EmptyState
+          compact
+          icon={<RouteIcon size={22} aria-hidden />}
+          title="Még nincs hirdetett útvonalad"
+          description="Ha úgyis mész valahová, hirdesd meg fix áron — a feladók helyet foglalnak a csomagjuknak."
+          cta={<Link className="btn btn-secondary" href="/sofor/uj-utvonal">Útvonal hirdetése</Link>}
+        />
       )}
       {routes.map((r) => {
         const first = r.waypoints[0]?.name || '?';

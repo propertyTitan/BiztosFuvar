@@ -10,7 +10,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
-import { Loading } from '@/components/StateView';
+import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { PackageSearch } from 'lucide-react';
 import { getSocket } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
 import GreenBadge from '@/components/GreenBadge';
@@ -335,7 +336,7 @@ export default function SoforFuvarokLista() {
         )}
       </div>
 
-      {loading && <Loading />}
+      {loading && <ListSkeleton rows={5} />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)', marginTop: 16 }}>
           <strong>Hiba:</strong> {error}
@@ -344,14 +345,13 @@ export default function SoforFuvarokLista() {
       )}
 
       {!loading && !error && jobs.length === 0 && (
-        <div className="card" style={{ marginTop: 16, textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 40 }}>🚛</div>
-          <p style={{ margin: '8px 0 4px', fontWeight: 700 }}>Jelenleg nincs elérhető fuvar a közelben.</p>
-          <p className="muted" style={{ margin: '0 0 16px' }}>
-            Hirdess fix áras útvonalat — a feladók rád találnak, és üresjárat nélkül fuvarozhatsz.
-          </p>
-          <Link className="btn" href="/sofor/uj-utvonal">Új útvonal meghirdetése</Link>
-        </div>
+        <EmptyState
+          icon={<PackageSearch size={28} aria-hidden />}
+          title="Most épp nincs elérhető fuvar"
+          description="A fuvarok folyamatosan érkeznek. Állíts be útvonal-figyelőt, és e-mailben szólunk, ha a te útvonaladra jön fuvar — vagy hirdesd meg az utad fix áron, és a feladók találnak meg téged."
+          cta={<Link className="btn" href="/sofor/ertesitok">Útvonal-figyelő beállítása</Link>}
+          secondaryCta={<Link className="btn btn-ghost" href="/sofor/uj-utvonal">Új útvonal meghirdetése</Link>}
+        />
       )}
 
       {/* Térképes nézet: minden fuvar felvételi + lerakodási markerrel

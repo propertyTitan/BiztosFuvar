@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import QrCode from '@/components/QrCode';
 import { Loading, EmptyState } from '@/components/StateView';
+import { SearchX } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -73,7 +74,7 @@ export default function PublicTrackingPage() {
   if (error || !data) return (
     <div style={{ maxWidth: 500, margin: '40px auto', padding: '0 16px' }}>
       <EmptyState
-        icon="🔍"
+        icon={<SearchX size={28} aria-hidden />}
         title="Fuvar nem található"
         description="A link érvénytelen, lejárt, vagy a fuvar már törölve lett. Ellenőrizd a kapott linket."
       />

@@ -8,7 +8,8 @@ import Link from 'next/link';
 import { api } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
-import { Loading } from '@/components/StateView';
+import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { BellOff } from 'lucide-react';
 
 type Notification = {
   id: string;
@@ -91,7 +92,7 @@ export default function ErtesitesekOldal() {
         )}
       </div>
 
-      {loading && <Loading />}
+      {loading && <ListSkeleton rows={5} />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)' }}>
           Hiba: {error}
@@ -99,14 +100,12 @@ export default function ErtesitesekOldal() {
       )}
 
       {!loading && items.length === 0 && (
-        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 40 }}>🔔</div>
-          <p style={{ margin: '8px 0 4px', fontWeight: 700 }}>Még nincs értesítésed.</p>
-          <p className="muted" style={{ margin: '0 0 16px' }}>
-            Itt jelennek meg az ajánlataid, fuvarjaid és üzeneteid eseményei.
-          </p>
-          <Link className="btn" href="/dashboard/uj-fuvar">Adj fel egy fuvart</Link>
-        </div>
+        <EmptyState
+          icon={<BellOff size={28} aria-hidden />}
+          title="Még nincs értesítésed"
+          description="Itt jelennek meg az ajánlataid, fuvarjaid és üzeneteid eseményei — élőben, frissítés nélkül."
+          cta={<Link className="btn" href="/dashboard/uj-fuvar">Adj fel egy fuvart</Link>}
+        />
       )}
 
       {items.map((n) => {

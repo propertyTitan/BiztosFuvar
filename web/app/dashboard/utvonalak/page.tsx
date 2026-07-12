@@ -9,7 +9,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, CarrierRoute } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
-import { Loading } from '@/components/StateView';
+import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { Route as RouteIcon } from 'lucide-react';
 import RouteBrowseMap from '@/components/RouteBrowseMap';
 
 type ViewMode = 'list' | 'map';
@@ -179,7 +180,7 @@ export default function FeladoiUtvonalBongeszo() {
         </div>
       </form>
 
-      {loading && <Loading />}
+      {loading && <ListSkeleton rows={4} />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)', marginTop: 16 }}>
           <strong>Hiba:</strong> {error}
@@ -187,11 +188,17 @@ export default function FeladoiUtvonalBongeszo() {
       )}
 
       {!loading && !error && routes.length === 0 && (
-        <div className="card" style={{ marginTop: 16 }}>
-          <p className="muted">
-            Jelenleg nincs olyan nyitott útvonal, ami{appliedCity ? ` a(z) „${appliedCity}" várost érinti` : ' elérhető lenne'}.
-          </p>
-        </div>
+        <EmptyState
+          icon={<RouteIcon size={28} aria-hidden />}
+          title={appliedCity
+            ? `Most épp nincs útvonal „${appliedCity}" érintésével`
+            : 'Most épp nincs nyitott útvonal'}
+          description="Add fel a fuvarod hirdetésként — a sofőrök ajánlatot tesznek rá, és te választasz közülük."
+          cta={<Link className="btn" href="/dashboard/uj-fuvar">Fuvar feladása</Link>}
+          secondaryCta={appliedCity
+            ? <button type="button" className="btn btn-ghost" onClick={() => { setCity(''); load(''); }}>Szűrő törlése</button>
+            : undefined}
+        />
       )}
 
       {/* Térképes nézet: minden útvonalhoz zöld start + piros cél marker,

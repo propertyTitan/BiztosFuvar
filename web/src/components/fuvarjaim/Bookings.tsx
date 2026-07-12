@@ -13,7 +13,8 @@ import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ReviewBox from '@/components/ReviewBox';
-import { Loading, ErrorState } from '@/components/StateView';
+import { ListSkeleton, EmptyState, ErrorState } from '@/components/StateView';
+import { CalendarCheck } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Sofőri megerősítésre vár',
@@ -321,16 +322,16 @@ export default function FoglalasaimOldal() {
         </Link>
       </div>
 
-      {loading && <Loading />}
+      {loading && <ListSkeleton rows={3} />}
       {error && <ErrorState message={error} onRetry={load} />}
 
       {!loading && !error && rows.length === 0 && (
-        <div className="card">
-          <p className="muted">
-            Még nincs foglalásod. Nézd meg az{' '}
-            <Link href="/dashboard/utvonalak">Útba eső sofőrök</Link> listát!
-          </p>
-        </div>
+        <EmptyState
+          icon={<CalendarCheck size={28} aria-hidden />}
+          title="Még nincs foglalásod"
+          description="Nézd meg az útba eső sofőrök fix áras útvonalait, és foglalj helyet a csomagodnak egy kattintással."
+          cta={<Link className="btn" href="/dashboard/utvonalak">Fix áras útvonalak</Link>}
+        />
       )}
 
       {pending.length > 0 && (

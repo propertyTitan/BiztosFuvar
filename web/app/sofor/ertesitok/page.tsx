@@ -187,7 +187,7 @@ export default function ErtesitokOldal() {
       ) : alerts.length === 0 && !showForm ? (
         <div style={{ marginTop: 16 }}>
           <EmptyState
-            icon={<Bell size={44} color="var(--primary)" />}
+            icon={<Bell size={28} aria-hidden />}
             title="Még nincs útvonal-figyelőd"
             description="Állíts be egyet, és nem maradsz le a számodra fontos fuvarokról — emailt és értesítést küldünk, amint új illeszkedő fuvar érkezik."
             cta={<button className="btn" onClick={() => setShowForm(true)}><Plus size={18} /> Első figyelő létrehozása</button>}
