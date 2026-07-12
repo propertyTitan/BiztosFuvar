@@ -12,6 +12,7 @@ import { useTranslation, formatPrice } from '@/lib/i18n';
 import {
   FileText, Route as RouteIcon, ShoppingBag, Target, BarChart3, Tag,
   Truck, RefreshCw, Plus, ClipboardList, Package, Bell, User as UserIcon,
+  BadgeCheck, Star, Ticket, MapPin, Flag, Camera,
 } from 'lucide-react';
 
 type Mode = 'driver' | 'shipper';
@@ -93,9 +94,10 @@ export default function HomeHub() {
             fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
             background: mode === 'driver' ? 'var(--primary)' : 'transparent',
             color: mode === 'driver' ? '#fff' : 'var(--muted)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}
         >
-          🚛 Sofőr
+          <Truck size={15} /> Sofőr
         </button>
         <button
           type="button"
@@ -105,9 +107,10 @@ export default function HomeHub() {
             fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
             background: mode === 'shipper' ? 'var(--primary)' : 'transparent',
             color: mode === 'shipper' ? '#fff' : 'var(--muted)',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}
         >
-          📦 Feladó
+          <Package size={15} /> Feladó
         </button>
       </div>
 
@@ -123,9 +126,15 @@ export default function HomeHub() {
               <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Sofőr'}! 👋</h1>
               <p className="muted" style={{ margin: '4px 0 0' }}>
                 {d ? `${d.level}. szint — ${d.levelName}` : ''}
-                {d?.isVerified ? ' · ✅ Ellenőrzött' : ''}
-                {d?.ratingCount > 0 ? ` · ⭐ ${Number(d.ratingAvg).toFixed(1)}` : ''}
-                {d?.availableVouchers > 0 ? ` · 🎟️ ${d.availableVouchers} jutalékmentes kupon` : ''}
+                {d?.isVerified ? (
+                  <>{' · '}<BadgeCheck size={13} color="var(--success)" style={{ verticalAlign: -2 }} /> Ellenőrzött</>
+                ) : null}
+                {d?.ratingCount > 0 ? (
+                  <>{' · '}<Star size={13} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {Number(d.ratingAvg).toFixed(1)}</>
+                ) : null}
+                {d?.availableVouchers > 0 ? (
+                  <>{' · '}<Ticket size={13} style={{ verticalAlign: -2 }} /> {d.availableVouchers} jutalékmentes kupon</>
+                ) : null}
               </p>
             </div>
             {d && (
@@ -205,7 +214,13 @@ export default function HomeHub() {
           {d && d.activeJobs?.length > 0 ? (
             // Van aktív fuvar → ez a fő tartalom
             <div style={{ marginBottom: 24 }}>
-              <h2 style={{ margin: '0 0 12px' }}>🟢 Aktív fuvarjaid</h2>
+              <h2 style={{ margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span aria-hidden style={{
+                  width: 10, height: 10, borderRadius: '50%', flexShrink: 0,
+                  background: 'var(--success)', display: 'inline-block',
+                }} />
+                Aktív fuvarjaid
+              </h2>
               {d.activeJobs.map((j: any) => (
                 <Link
                   key={j.id}
@@ -220,8 +235,12 @@ export default function HomeHub() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 16 }}>{j.title}</div>
-                      <div className="muted" style={{ fontSize: 13 }}>
-                        📍 {j.pickup_address?.split(',')[0]} → 🏁 {j.dropoff_address?.split(',')[0]}
+                      <div className="muted" style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                        <MapPin size={13} style={{ flexShrink: 0 }} />
+                        {j.pickup_address?.split(',')[0]}
+                        <span aria-hidden>→</span>
+                        <Flag size={13} style={{ flexShrink: 0 }} />
+                        {j.dropoff_address?.split(',')[0]}
                       </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                         Feladó: {j.shipper_name} · {j.distance_km} km
@@ -230,7 +249,7 @@ export default function HomeHub() {
                     <div style={{ textAlign: 'right' }}>
                       <span className={`pill ${j.status === 'in_progress' ? 'pill-progress' : 'pill-accepted'}`}
                         style={{ fontSize: 13, padding: '6px 14px' }}>
-                        {j.status === 'in_progress' ? '🟢 Úton' : '🟡 Elfogadva'}
+                        {j.status === 'in_progress' ? 'Úton' : 'Elfogadva'}
                       </span>
                       <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
                         {formatPrice(j.accepted_price_huf)}
@@ -239,16 +258,18 @@ export default function HomeHub() {
                         <div style={{
                           marginTop: 8, background: 'var(--success-strong)', color: '#fff',
                           padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
                         }}>
-                          📸 INDÍTÁS →
+                          <Camera size={14} /> INDÍTÁS →
                         </div>
                       )}
                       {j.status === 'in_progress' && (
                         <div style={{
                           marginTop: 8, background: 'var(--danger-strong)', color: '#fff',
                           padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
+                          display: 'inline-flex', alignItems: 'center', gap: 6,
                         }}>
-                          📸 LEZÁRÁS →
+                          <Camera size={14} /> LEZÁRÁS →
                         </div>
                       )}
                     </div>
@@ -276,7 +297,7 @@ export default function HomeHub() {
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <Link href="/sofor/fuvarok" className="btn" style={{ textDecoration: 'none' }}>
-                  🎯 Fuvarok böngészése
+                  <Target size={16} /> Fuvarok böngészése
                 </Link>
                 <Link href="/sofor/uj-utvonal" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
                   Útvonal hirdetése
@@ -297,7 +318,9 @@ export default function HomeHub() {
               }}
             >
               <div>
-                <div style={{ fontWeight: 700 }}>🏷️ {d.pendingBidsCount} ajánlatod válaszra vár</div>
+                <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Tag size={15} style={{ flexShrink: 0 }} /> {d.pendingBidsCount} ajánlatod válaszra vár
+                </div>
                 <div className="muted" style={{ fontSize: 13 }}>Koppints a részletekhez</div>
               </div>
               <span style={{ fontSize: 20 }}>→</span>

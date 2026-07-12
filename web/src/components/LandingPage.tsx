@@ -12,6 +12,7 @@ import {
   Package, Truck, ArrowRight, Check, ShoppingBag, type LucideIcon,
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
+import ProductPreview from '@/components/ProductPreview';
 
 const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; soon?: boolean }[] = [
   { icon: Gavel, tint: 'var(--primary)', title: 'Fuvarfeladás pár perc alatt',
@@ -129,6 +130,10 @@ export default function LandingPage() {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={15} color="var(--success)" /> Nincs havidíj</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={15} color="var(--success)" /> Csak sikeres fuvar után fizetsz</span>
         </div>
+
+        {/* A termék maga: telefon-mockup, amin épp ajánlatok érkeznek —
+            a "Sofőröd is lesz." ígéret képileg beváltva */}
+        <ProductPreview />
       </section>
 
       {/* ===== "Hozasd el" belépő sáv ===== */}
