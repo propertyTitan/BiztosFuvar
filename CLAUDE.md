@@ -286,6 +286,12 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Mobil túlcsordulás-fix (2026-07-13, PR #80)** — a dekor-elemek (hero-glow
+  inset -200px) túllógtak a viewporton → mobilon ki lehetett zoomolni, a
+  tartalom a kijelző ~2/3-áig ért. Fix: `html, body { overflow-x: clip }`
+  (CLIP, nem hidden — a sticky fejléc miatt!); osztály-teszt:
+  e2e/11-mobil-overflow (4 publikus oldal, 390px, scrollWidth ≤ clientWidth).
+  ⚠️ SZABÁLY: dekor-elem ne nyújtsa a dokumentumot — a clip véd, a teszt őrzi
 - **Élő ajánlat-érkezés (2026-07-12, PR #78)** — a `bids:new` socket-eventet
   a web eddig NEM hallgatta (az új ajánlat csak reloadra jelent meg!); most a
   feladói fuvar-oldalon élőben érkezik, a landing-mockup animációjával + ÚJ
