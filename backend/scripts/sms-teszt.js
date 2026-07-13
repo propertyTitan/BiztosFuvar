@@ -3,6 +3,8 @@
 //
 // Használat (a kulcsot env-ben add át, NE írd fájlba/kódba!):
 //   cd backend && SEEME_API_KEY='<kulcs>' node scripts/sms-teszt.js +36301234567
+// Egyéni üzenettel (idézőjelben, 2. paraméterként):
+//   ... node scripts/sms-teszt.js +36301234567 "Saját üzenet szövege"
 //
 // Kimenet: a SeeMe válasza — "OK <id>" = elment; "ERR <kód>" = SeeMe-hiba
 // (tipikusan: egyenleg még nem aktív, rossz kulcs, tiltott feladó).
@@ -22,7 +24,7 @@ const { sendSms, isStub } = require('../src/services/sms');
   }
   const r = await sendSms(
     to,
-    'GoFuvar teszt: az SMS-küldés él! Átvételi kód minta: 123456. Üdv, GoFuvar',
+    process.argv[3] || 'GoFuvar teszt: az SMS-küldés él! Átvételi kód minta: 123456. Üdv, GoFuvar',
   );
   console.log('Eredmény:', JSON.stringify(r));
   process.exit(r.ok ? 0 : 1);
