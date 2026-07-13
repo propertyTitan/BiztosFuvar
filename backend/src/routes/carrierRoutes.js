@@ -497,10 +497,8 @@ router.post(
             });
           } catch (e) { console.warn('[recipient] email hiba:', e.message); }
         }
-        if (recipient_phone) {
-          const { sendSms } = require('../services/sms');
-            sendSms(recipient_phone, `Szia${recipient_name ? ` ${recipient_name}` : ''}! Csomag érkezik hozzád a GoFuvar-on. Átvételi kód: ${deliveryCode} Kövesd: ${trackUrl}`).catch(() => {});
-        }
+        // SMS-MODELL (2026-07-13): foglaláskor SMS nincs — a címzett a
+        // felvételkor kapja az egyetlen SMS-t (photos.js booking pickup ág).
       });
     }
   },

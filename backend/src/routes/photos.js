@@ -182,6 +182,35 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   if (kind === 'pickup' && job.status === 'accepted') {
     await db.query(`UPDATE jobs SET status = 'in_progress', updated_at = NOW() WHERE id = $1`, [jobId]);
     realtime.emitToJob(jobId, 'job:picked_up', { job_id: jobId, photo });
+
+    // AZ EGYETLEN CÍMZETT-SMS (2026-07-13 user-döntés): a csomag
+    // felvételekor megy ki, az átvételhez szükséges adatokkal — 6 jegyű
+    // kód + a sofőr neve/telefonszáma. Minden más értesítés email/in-app
+    // (SMS ~20-30 Ft/db, email ~0). Ékezet nélkül: 1 GSM-szegmens maradjon.
+    setImmediate(async () => {
+      try {
+        const { rows: pickRows } = await db.query(
+          `SELECT j.recipient_phone, j.delivery_code,
+                  c.full_name AS carrier_name, c.phone AS carrier_phone
+             FROM jobs j
+        LEFT JOIN users c ON c.id = j.carrier_id
+            WHERE j.id = $1`,
+          [jobId],
+        );
+        const pi = pickRows[0];
+        if (pi && pi.recipient_phone && pi.delivery_code) {
+          const { sendSms } = require('../services/sms');
+          const sofor = pi.carrier_name
+            ? ` Sofor: ${pi.carrier_name}${pi.carrier_phone ? `, tel: ${pi.carrier_phone}` : ''}.`
+            : '';
+          sendSms(pi.recipient_phone,
+            `GoFuvar: uton a csomagod! Atveteli kod: ${pi.delivery_code}.${sofor} A kodot atvetelkor add meg a sofornek.`,
+          ).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[sms] pickup ertesites hiba:', e.message);
+      }
+    });
   }
 
   if (kind === 'dropoff' && job.status === 'in_progress') {
@@ -212,7 +241,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     try {
       const { rows: partyRows } = await db.query(
         `SELECT j.shipper_id, j.title, j.accepted_price_huf,
-                j.recipient_name, j.recipient_phone,
+                j.recipient_name, j.recipient_phone, j.recipient_email,
                 s.full_name AS shipper_name, s.email AS shipper_email,
                 s.phone AS shipper_phone,
                 c.full_name AS carrier_name
@@ -232,21 +261,22 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           link: `/dashboard/fuvar/${jobId}`,
         });
 
-        // 4. SMS: feladónak — csomag kézbesítve
-        setImmediate(() => {
-          const { sendSms } = require('../services/sms');
-          if (info.shipper_phone) {
-            sendSms(info.shipper_phone,
-              `A csomagod kezbesitese megtortent! Fuvar: ${info.title}. Udv, GoFuvar`
-            ).catch(() => {});
-          }
-          // Címzettnek is — sikeres átvétel visszaigazolás
-          if (info.recipient_phone) {
-            sendSms(info.recipient_phone,
-              `Koszonjuk! A csomag atveve. Fuvar: ${info.title}. Udv, GoFuvar`
-            ).catch(() => {});
-          }
-        });
+        // SMS-MODELL (2026-07-13): kézbesítésről SMS NINCS — email megy a
+        // feladónak (lent) és a címzettnek is, ha adott email-címet.
+        if (info.recipient_email) {
+          setImmediate(() => {
+            const { sendEmail: _sendR } = require('../services/email');
+            _sendR({
+              to: info.recipient_email,
+              subject: `✅ Csomag átvéve: ${info.title}`,
+              html: `
+                <p>Szia${info.recipient_name ? ` ${info.recipient_name}` : ''}!</p>
+                <p>A(z) <strong>"${info.title}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
+                <p>Köszönjük, hogy a GoFuvart használtátok!</p>
+              `,
+            }).catch((e) => console.warn('[email] recipient delivered hiba:', e.message));
+          });
+        }
         // Email is
         if (info.shipper_email) {
           setImmediate(() => {
@@ -426,6 +456,29 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     );
     realtime.emitToUser(booking.shipper_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
     realtime.emitToUser(booking.carrier_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
+
+    // AZ EGYETLEN CÍMZETT-SMS a foglalás-ágon is (2026-07-13): felvételkor,
+    // kód + sofőr elérhetőség. Ékezet nélkül (1 GSM-szegmens).
+    setImmediate(async () => {
+      try {
+        if (booking.recipient_phone && booking.delivery_code) {
+          const { rows: cRows } = await db.query(
+            `SELECT full_name, phone FROM users WHERE id = $1`,
+            [booking.carrier_id],
+          );
+          const c = cRows[0] || {};
+          const { sendSms } = require('../services/sms');
+          const sofor = c.full_name
+            ? ` Sofor: ${c.full_name}${c.phone ? `, tel: ${c.phone}` : ''}.`
+            : '';
+          sendSms(booking.recipient_phone,
+            `GoFuvar: uton a csomagod! Atveteli kod: ${booking.delivery_code}.${sofor} A kodot atvetelkor add meg a sofornek.`,
+          ).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[sms] booking pickup ertesites hiba:', e.message);
+      }
+    });
     createNotification({
       user_id: booking.shipper_id,
       type: 'booking_picked_up',
@@ -461,21 +514,23 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     }).catch(() => {});
     setImmediate(async () => {
       try {
-        const { sendSms } = require('../services/sms');
         const { rows: shipperRows } = await db.query(
           `SELECT phone, email, full_name FROM users WHERE id = $1`,
           [booking.shipper_id],
         );
         const shipper = shipperRows[0] || {};
-        if (shipper.phone) {
-          sendSms(shipper.phone,
-            `A csomagod kezbesitese megtortent! Foglalas: ${booking.route_title || ''}. Udv, GoFuvar`,
-          ).catch(() => {});
-        }
-        if (booking.recipient_phone) {
-          sendSms(booking.recipient_phone,
-            `Koszonjuk! A csomag atveve. Udv, GoFuvar`,
-          ).catch(() => {});
+        // SMS-MODELL (2026-07-13): kézbesítésről SMS NINCS — email megy a
+        // feladónak (lent) és a címzettnek, ha adott email-címet.
+        if (booking.recipient_email) {
+          sendEmail({
+            to: booking.recipient_email,
+            subject: `✅ Csomag átvéve: ${booking.route_title || 'GoFuvar foglalás'}`,
+            html: `
+              <p>Szia${booking.recipient_name ? ` ${booking.recipient_name}` : ''}!</p>
+              <p>A(z) <strong>"${booking.route_title || 'foglalt fuvar'}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
+              <p>Köszönjük, hogy a GoFuvart használtátok!</p>
+            `,
+          }).catch((e) => console.warn('[email] booking recipient delivered hiba:', e.message));
         }
         if (shipper.email) {
           sendEmail({

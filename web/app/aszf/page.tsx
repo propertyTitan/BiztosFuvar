@@ -355,31 +355,34 @@ export default function AszfPage() {
         </a>.
       </p>
 
-      <h3 style={{ marginTop: 24 }}>6.5. Automatizált SMS-értesítések és Címzetti adatok</h3>
+      <h3 style={{ marginTop: 24 }}>6.5. Automatizált értesítések és Címzetti adatok</h3>
       <p>
         <strong>Adatszolgáltatási felelősség:</strong> A Feladó kötelessége a Címzett pontos
         telefonszámának megadása. A Feladó szavatol azért, hogy rendelkezik a Címzett
-        hozzájárulásával a telefonszám átadásához és az SMS-alapú tájékoztatáshoz.
+        hozzájárulásával a telefonszám (és megadása esetén az email-cím) átadásához és az
+        SMS-, illetve email-alapú tájékoztatáshoz.
       </p>
       <p>
         <strong>Az értesítési folyamat:</strong> A Szolgáltató a fuvar biztonsága és a hatékony
-        kézbesítés érdekében összesen 5 db automatizált SMS-értesítést küld ki a folyamat során:
+        kézbesítés érdekében az alábbi automatizált értesítéseket küldi ki a folyamat során:
       </p>
       <ol>
-        <li><strong>Címzettnek:</strong> Értesítés az induló fuvarról (követési link + átvételi kód).</li>
-        <li><strong>Címzettnek:</strong> Értesítés, amikor a sofőr 5 km-es körzeten belülre ér.</li>
-        <li><strong>Címzettnek:</strong> Értesítés, amikor a sofőr 300 méteres körzeten belülre ér (&quot;A saroknál van&quot;).</li>
-        <li><strong>Címzettnek:</strong> Visszaigazolás a sikeres kézbesítésről (a fuvar lezárásakor).</li>
-        <li><strong>Feladónak:</strong> Visszaigazolás a sikeres kézbesítésről (a fuvar lezárásakor).</li>
+        <li><strong>Címzettnek (SMS):</strong> a csomag felvételekor — a 6 jegyű átvételi kód és a
+          Sofőr elérhetősége (név, telefonszám).</li>
+        <li><strong>Feladónak (email és platform-értesítés):</strong> visszaigazolás a sikeres
+          kézbesítésről (a fuvar lezárásakor).</li>
+        <li><strong>Címzettnek (email, amennyiben email-címe megadásra került):</strong> követési
+          link az induló fuvarról, valamint visszaigazolás a sikeres kézbesítésről.</li>
       </ol>
       <p>
-        Ezek az SMS-ek <strong>nem reklámcélú megkeresések</strong>, hanem a fuvarozási szerződés
-        teljesítéséhez szükséges tranzakciós értesítések, ezért nem esnek a 2008. évi XLVIII. törvény
-        (Grtv.) hatálya alá. A Szolgáltató külön reklám-jellegű hírlevelet vagy promóciós SMS-t kizárólag
-        kifejezett, dokumentált hozzájárulás alapján küld.
+        A Szolgáltató fenntartja a jogot, hogy a folyamat támogatására további tranzakciós
+        értesítéseket küldjön. Ezek az üzenetek <strong>nem reklámcélú megkeresések</strong>,
+        hanem a fuvarozási szerződés teljesítéséhez szükséges tranzakciós értesítések, ezért nem
+        esnek a 2008. évi XLVIII. törvény (Grtv.) hatálya alá. A Szolgáltató külön reklám-jellegű
+        hírlevelet vagy promóciós SMS-t kizárólag kifejezett, dokumentált hozzájárulás alapján küld.
       </p>
       <p>
-        <strong>Átvételi kód:</strong> A Címzett az SMS-ben kapja meg a 6 jegyű kódot, amelynek
+        <strong>Átvételi kód:</strong> A Címzett SMS-ben kapja meg a 6 jegyű kódot, amelynek
         közlése a Sofőrrel a teljesítés igazolásának alapfeltétele.
       </p>
 

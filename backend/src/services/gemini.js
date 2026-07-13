@@ -237,24 +237,24 @@ A csomagod védelme 5 rétegű:
 
 - A fuvar feladásakor automatikusan generálódik egy 6 jegyű kód
 - Ezt CSAK a feladó és a címzett látja (a sofőr NEM)
-- A címzett SMS-ben és emailben is megkapja a kódot + egy tracking linket
+- A címzett a csomag FELVÉTELEKOR SMS-ben kapja meg a kódot és a sofőr elérhetőségét (emailben tracking linket is kap, ha a feladó megadta az email-címét)
 - Két lehetőség az átadásra:
   1. A címzett megmondja szóban a 6 jegyű kódot a sofőrnek
   2. A címzett megmutatja a QR kódot (telefonon vagy tracking oldalon) → sofőr scan-eli
 - Ha a kód helyes → a fuvar automatikusan lezárul (a fuvardíjat a sofőr készpénzben kapja)
 
 ═══════════════════════════════════════
-SMS ÉRTESÍTÉSEK A CÍMZETTNEK
+SMS ÉS EMAIL ÉRTESÍTÉSEK A CÍMZETTNEK
 ═══════════════════════════════════════
 
-A címzettnek NEM kell appot telepítenie. 5 SMS-t kap automatikusan:
-1. Fuvar feladásakor: sofőr neve, telefonszáma, átvételi kód
-2. Sofőr 5 km-re van: "Hamarosan megérkezik!"
-3. Sofőr 300 m-re van: "A sofőr egy saroknyira van!"
-4. Csomag kézbesítve: visszaigazolás
-5. A feladó is kap visszaigazolást a kézbesítésről
+A címzettnek NEM kell appot telepítenie. Amikor a sofőr FELVESZI a
+csomagot, a címzett automatikusan kap EGY SMS-t az átvételhez szükséges
+adatokkal: a 6 jegyű átvételi kóddal és a sofőr nevével/telefonszámával.
 
-A címzett kap egy tracking linket is emailben, ahol böngészőben (app nélkül) követheti a sofőr pozícióját.
+A kézbesítésről a feladó emailben kap visszaigazolást (és a címzett is,
+ha a feladó megadta a címzett email-címét). Ha a feladó megadja a címzett
+email-címét, a címzett emailben tracking linket is kap, ahol böngészőben
+(app nélkül) követheti a fuvar állapotát.
 
 ═══════════════════════════════════════
 REGISZTRÁCIÓ ÉS KYC (AZONOSÍTÁS)
