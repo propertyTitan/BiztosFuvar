@@ -97,7 +97,15 @@
   .muted, label, .site-footer { color: var(--muted) !important; }
   .price { color: var(--primary-light) !important; }
   .site-header, .site-header * { color: #fff !important; }
-  .site-header { background: rgba(12, 18, 34, 0.95) !important; }
+  .site-header {
+    background: rgba(12, 18, 34, 0.95) !important;
+    border-bottom-color: var(--border) !important;
+    box-shadow: 0 1px 12px rgba(0, 0, 0, 0.35) !important;
+  }
+  /* !important: az alap logo-szabályok a fájlban KÉSŐBB jönnek (azonos
+     specificitás → az nyerne) — a dark-váltásnak itt kell felülütnie */
+  .site-header .logo-light { display: none !important; }
+  .site-header .logo-dark { display: block !important; }
   .card { background: var(--surface) !important; border-color: var(--border) !important; }
   input, select, textarea, .input {
     background: var(--surface) !important;
@@ -126,6 +134,12 @@
 
 /* ── Reset & Base ── */
 *, *::before, *::after { box-sizing: border-box; }
+/* Billentyűzetes fókusz-gyűrű (WCAG 2.4.7): csak :focus-visible-re —
+   egérkattintás nem villantja fel, TAB-navigáció mindig látja. */
+:where(a, button, input, select, textarea, [role='button'], [tabindex]):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary-light) 60%, transparent);
+  outline-offset: 2px;
+}
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
@@ -300,26 +314,34 @@ a { color: var(--primary-text); }
   .site-main { padding: 16px; }
 }
 
-/* ── Header ── */
+/* ── Header ──
+   2026-07-12: kék gradient → VILÁGOS fejléc (a mai fogyasztói appok
+   mintája: semleges fejléc, a tartalom hordozza a színt). Dark módban
+   továbbra is sötét (lásd a dark-blokk .site-header override-ját). */
 .site-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 28px;
-  background: linear-gradient(135deg, rgba(30, 64, 175, 0.97) 0%, rgba(37, 99, 235, 0.95) 100%);
+  background: rgba(248, 250, 252, 0.88);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  color: #fff;
+  color: var(--text);
   position: sticky;
   top: 0;
   z-index: 100;
-  box-shadow: 0 1px 20px rgba(30, 64, 175, 0.25);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 1px 12px rgba(15, 23, 42, 0.04);
 }
 .site-header .brand {
   display: flex;
   align-items: center;
   text-decoration: none;
 }
+/* Logó-pár: világos fejlécen a színes lockup, sötéten a fehér.
+   A display-t CSAK itt adjuk (inline display felülütné a váltást). */
+.site-header .logo-light { display: block; }
+.site-header .logo-dark { display: none; }
 .site-header nav {
   display: flex;
   align-items: center;
@@ -327,7 +349,7 @@ a { color: var(--primary-text); }
   gap: 4px;
 }
 .site-header nav a {
-  color: rgba(255,255,255,0.85);
+  color: var(--text-secondary);
   padding: 6px 12px;
   border-radius: var(--radius-sm);
   text-decoration: none;
@@ -337,8 +359,8 @@ a { color: var(--primary-text); }
   white-space: nowrap;
 }
 .site-header nav a:hover {
-  color: #fff;
-  background: rgba(255,255,255,0.12);
+  color: var(--text);
+  background: var(--surface-hover);
   text-decoration: none;
 }
 

@@ -9,7 +9,7 @@ import { api, CarrierRoute } from '@/api';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { Route as RouteIcon } from 'lucide-react';
+import { Route as RouteIcon, MapPin, Calendar, FileText, Truck } from 'lucide-react';
 
 const STATUS_LABEL: Record<CarrierRoute['status'], string> = {
   draft: 'Piszkozat',
@@ -82,10 +82,10 @@ export default function UtvonalaimOldal() {
               </Link>
             </h3>
             <p className="muted" style={{ margin: '4px 0' }}>
-              📍 {first} → {last}{stops}
+              <MapPin size={13} style={{ verticalAlign: -2 }} /> {first} → {last}{stops}
             </p>
             <p className="muted" style={{ margin: '4px 0' }}>
-              🗓 {new Date(r.departure_at).toLocaleString('hu-HU')}
+              <Calendar size={13} style={{ verticalAlign: -2 }} /> {new Date(r.departure_at).toLocaleString('hu-HU')}
             </p>
             <div className="row" style={{ gap: 6, marginTop: 8 }}>
               {r.prices.map((p) => (
@@ -176,21 +176,28 @@ export default function UtvonalaimOldal() {
 
       {byStatus.open.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>🟢 Publikálva ({byStatus.open.length})</h2>
+          <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span aria-hidden style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--success)', display: 'inline-block', flexShrink: 0 }} />
+            Publikálva ({byStatus.open.length})
+          </h2>
           {byStatus.open.map((r) => <RouteCard key={r.id} r={r} />)}
         </>
       )}
 
       {byStatus.draft.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>📝 Piszkozat ({byStatus.draft.length})</h2>
+          <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FileText size={20} /> Piszkozat ({byStatus.draft.length})
+          </h2>
           {byStatus.draft.map((r) => <RouteCard key={r.id} r={r} />)}
         </>
       )}
 
       {byStatus.inProgress.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>🚛 Úton / betelt ({byStatus.inProgress.length})</h2>
+          <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Truck size={20} /> Úton / betelt ({byStatus.inProgress.length})
+          </h2>
           {byStatus.inProgress.map((r) => <RouteCard key={r.id} r={r} />)}
         </>
       )}

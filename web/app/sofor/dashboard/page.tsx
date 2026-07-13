@@ -82,7 +82,7 @@ export default function SoforDashboard() {
               const height = Math.max(4, (m.net / maxMonthlyNet) * 140);
               return (
                 <div key={m.month} style={{ flex: 1, maxWidth: 96, textAlign: 'center' }}>
-                  <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>
+                  <div className="muted" style={{ fontSize: 11, marginBottom: 4 }}>
                     {fmt(m.net)} Ft
                   </div>
                   <div
@@ -94,7 +94,7 @@ export default function SoforDashboard() {
                     }}
                     title={`${m.month}: ${m.deliveries} fuvar, ${fmt(m.net)} Ft nettó`}
                   />
-                  <div className="muted" style={{ fontSize: 10, marginTop: 4 }}>
+                  <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
                     {m.month.slice(5)}
                   </div>
                 </div>
@@ -167,7 +167,7 @@ export default function SoforDashboard() {
 function StatCard({ icon, value, label }: { icon: string; value: string | number; label: string }) {
   return (
     <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-      <div style={{ fontSize: 28, marginBottom: 4 }}>{icon}</div>
+      <div style={{ fontSize: 24, marginBottom: 4 }}>{icon}</div>
       <div style={{ fontSize: 20, fontWeight: 800 }}>{value}</div>
       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{label}</div>
     </div>

@@ -18,7 +18,7 @@ export default function GreenBadge({ distanceKm, compact }: Props) {
 
   if (compact) {
     return (
-      <span style={{ fontSize: 12.5, color: 'var(--success-text)' }}>
+      <span style={{ fontSize: 13, color: 'var(--success-text)' }}>
         🌿 ~{s.co2SavedKg} kg CO₂ megspórolva
       </span>
     );
@@ -32,7 +32,7 @@ export default function GreenBadge({ distanceKm, compact }: Props) {
         borderRadius: 10,
         padding: '12px 14px',
         margin: '12px 0',
-        fontSize: 13.5,
+        fontSize: 14,
         lineHeight: 1.55,
       }}
     >

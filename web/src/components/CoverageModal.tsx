@@ -57,17 +57,17 @@ export default function CoverageModal() {
           onClick={() => setOpen(false)}
           style={{
             position: 'absolute', top: 12, right: 12, background: 'none',
-            border: 'none', fontSize: 22, cursor: 'pointer', color: '#666',
+            border: 'none', fontSize: 24, cursor: 'pointer', color: '#666',
           }}
         >
           ×
         </button>
 
         <div style={{ fontSize: 56, marginBottom: 12 }}>📍</div>
-        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 22 }}>
+        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 24 }}>
           Hamarosan nálatok is!
         </h2>
-        <p style={{ fontSize: 15, color: '#555', lineHeight: 1.6, marginBottom: 8 }}>
+        <p style={{ fontSize: 16, color: '#555', lineHeight: 1.6, marginBottom: 8 }}>
           A GoFuvar jelenleg <strong>Európa</strong> területén érhető el.
           A felvételi vagy lerakási címnek európai címnek kell lennie.
           Nemzetközi fuvarokhoz a sofőri kapacitás függvényében magasabb

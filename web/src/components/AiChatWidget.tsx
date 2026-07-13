@@ -146,7 +146,7 @@ export default function AiChatWidget() {
           color: '#fff',
           border: 'none',
           cursor: 'pointer',
-          fontSize: 28,
+          fontSize: 24,
           boxShadow: '0 6px 20px rgba(30,64,175,0.4)',
           zIndex: 1000,
           display: 'flex',

@@ -103,7 +103,7 @@ export default function InstallPromptBanner() {
         flexWrap: 'wrap',
       }}
     >
-      <span style={{ fontSize: 22 }}>📱</span>
+      <span style={{ fontSize: 24 }}>📱</span>
       <div style={{ flex: '1 1 200px', lineHeight: 1.4 }}>
         {platform === 'android' ? (
           <>

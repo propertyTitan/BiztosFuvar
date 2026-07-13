@@ -70,7 +70,7 @@ export default function ElfelejtettJelszo() {
             autoFocus
             placeholder="te@example.com"
             style={{
-              width: '100%', padding: '12px 14px', fontSize: 15,
+              width: '100%', padding: '12px 14px', fontSize: 16,
               border: '1px solid var(--border)', borderRadius: 8,
               background: 'var(--bg)', color: 'var(--text)',
             }}

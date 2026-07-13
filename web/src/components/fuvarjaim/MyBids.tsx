@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { Tag } from 'lucide-react';
+import { Tag, MapPin, Flag, BadgeCheck, Hourglass } from 'lucide-react';
 
 type Row = Awaited<ReturnType<typeof api.myBids>>[number];
 
@@ -59,10 +59,10 @@ export default function SoforLicitjeim() {
           <div style={{ flex: 1 }}>
             <h3 style={{ marginTop: 0, marginBottom: 4 }}>{r.job_title}</h3>
             <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
-              📍 {r.pickup_address}
+              <MapPin size={13} style={{ verticalAlign: -2 }} /> {r.pickup_address}
             </p>
             <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
-              🏁 {r.dropoff_address}
+              <Flag size={13} style={{ verticalAlign: -2 }} /> {r.dropoff_address}
             </p>
             {r.message && (
               <p className="muted" style={{ margin: '6px 0 0', fontSize: 13, fontStyle: 'italic' }}>
@@ -121,7 +121,9 @@ export default function SoforLicitjeim() {
 
       {accepted.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>✅ Elfogadva ({accepted.length})</h2>
+          <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BadgeCheck size={20} /> Elfogadva ({accepted.length})
+          </h2>
           {accepted.map((r) => (
             <Row key={r.bid_id} r={r} />
           ))}
@@ -130,7 +132,9 @@ export default function SoforLicitjeim() {
 
       {pending.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>⏳ Várakozik ({pending.length})</h2>
+          <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Hourglass size={20} /> Várakozik ({pending.length})
+          </h2>
           {pending.map((r) => (
             <Row key={r.bid_id} r={r} />
           ))}

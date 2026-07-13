@@ -61,7 +61,7 @@ export default function DriverTermsGate() {
         <label
           style={{
             display: 'flex', gap: 10, alignItems: 'flex-start', margin: '16px 0',
-            fontSize: 14.5, lineHeight: 1.55, cursor: 'pointer',
+            fontSize: 14, lineHeight: 1.55, cursor: 'pointer',
           }}
         >
           <input

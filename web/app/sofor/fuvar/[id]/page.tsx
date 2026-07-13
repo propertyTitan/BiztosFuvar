@@ -13,6 +13,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
+import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
@@ -207,14 +208,16 @@ export default function SoforFuvarReszletek() {
         <div>
           <h1 style={{ marginBottom: 4 }}>{job.title}</h1>
           <p className="muted" style={{ margin: 0 }}>
-            📍 {job.pickup_address} → 🏁 {job.dropoff_address}
+            <MapPin size={13} style={{ verticalAlign: -2 }} /> {job.pickup_address}
+            {' → '}
+            <Flag size={13} style={{ verticalAlign: -2 }} /> {job.dropoff_address}
           </p>
           {(job as any).recipient_name && (
             <div style={{ marginTop: 6, fontSize: 13 }}>
               <strong>Címzett:</strong> {(job as any).recipient_name}
               {(job as any).recipient_phone && (
                 <> · <a href={`tel:${(job as any).recipient_phone}`} style={{ fontWeight: 700 }}>
-                  📞 {(job as any).recipient_phone}
+                  <Phone size={12} style={{ verticalAlign: -1 }} /> {(job as any).recipient_phone}
                 </a></>
               )}
             </div>
@@ -236,7 +239,7 @@ export default function SoforFuvarReszletek() {
                 }}
                 title={`Díj fizetve: ${new Date(job.paid_at).toLocaleString('hu-HU')}`}
               >
-                ✅ DÍJ FIZETVE — 💵 fuvardíj kápéban
+                <BadgeCheck size={13} style={{ verticalAlign: -2 }} /> DÍJ FIZETVE — <Banknote size={13} style={{ verticalAlign: -2 }} /> fuvardíj kápéban
               </span>
             ) : (
               <span
@@ -248,7 +251,7 @@ export default function SoforFuvarReszletek() {
                 }}
                 title="A feladó még nem fizette meg a kapcsolatfelvételi díjat — addig a munka nem kezdhető el."
               >
-                ⏳ Fizetésre vár
+                <Hourglass size={13} style={{ verticalAlign: -2 }} /> Fizetésre vár
               </span>
             )
           )}
@@ -411,7 +414,9 @@ export default function SoforFuvarReszletek() {
           borderLeft: '4px solid #FB8C00',
           background: 'rgba(251,140,0,0.08)',
         }}>
-          <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 15 }}>📦 Bepakolás / cipelés</h3>
+          <h3 style={{ marginTop: 0, marginBottom: 8, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Package size={16} /> Bepakolás / cipelés
+          </h3>
           {(job as any).pickup_needs_carrying && (
             <div style={{ marginBottom: 6, fontSize: 14 }}>
               <strong>Felvételi hely:</strong> Bepakolás szükséges
@@ -560,7 +565,7 @@ export default function SoforFuvarReszletek() {
                     marginBottom: 8,
                   }}
                 >
-                  Te kapsz: <strong style={{ color: 'var(--success-text)', fontSize: 15 }}>{total.toLocaleString('hu-HU')} Ft</strong>
+                  Te kapsz: <strong style={{ color: 'var(--success-text)', fontSize: 16 }}>{total.toLocaleString('hu-HU')} Ft</strong>
                   {' '}— készpénzben, levonás nélkül 💵
                 </div>
               );
@@ -686,7 +691,7 @@ export default function SoforFuvarReszletek() {
           {myBid.status === 'pending' && myBid.counter_amount_huf != null && myBid.counter_by === 'shipper' && (
             <div className="callout callout-info" style={{ marginTop: 12, padding: 14 }}>
               <div style={{ fontSize: 14 }}>
-                🔁 A feladó ellenajánlata: <strong>{myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
+                <RefreshCw size={13} style={{ verticalAlign: -2 }} /> A feladó ellenajánlata: <strong>{myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
                 {' '}(a te ajánlatod {myBid.amount_huf.toLocaleString('hu-HU')} Ft volt)
               </div>
               <div className="row" style={{ gap: 8, marginTop: 12 }}>
@@ -706,7 +711,7 @@ export default function SoforFuvarReszletek() {
           )}
           {myBid.status === 'pending' && myBid.counter_amount_huf != null && myBid.counter_by === 'carrier' && (
             <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
-              ⏳ Elküldted az ellenajánlatod ({myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a feladó válaszára vár.
+              <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a feladó válaszára vár.
             </p>
           )}
         </div>
@@ -715,7 +720,7 @@ export default function SoforFuvarReszletek() {
       {/* Ellenajánlat visszaküldése a feladónak */}
       <ConfirmDialog
         open={counterOpen}
-        title="🔁 Ellenajánlat küldése"
+        title="Ellenajánlat küldése"
         message={myBid?.counter_amount_huf != null
           ? `A feladó ${myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft-ot ajánlott. Add meg, mennyit kérsz — a feladó elfogadhatja vagy visszadobhat.`
           : ''}
@@ -744,7 +749,9 @@ export default function SoforFuvarReszletek() {
       {/* Értékelés — delivered / completed állapotban */}
       {['delivered', 'completed'].includes(job.status) && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>⭐ Értékeld a feladót</h2>
+          <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Star size={20} color="var(--warning)" fill="var(--warning)" /> Értékeld a feladót
+          </h2>
           <p className="muted" style={{ marginBottom: 12 }}>
             Hogyan ment a kommunikáció? Megvolt a csomag? Kattints a csillagokra.
           </p>

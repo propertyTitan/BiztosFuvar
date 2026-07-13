@@ -131,15 +131,15 @@ export default function PublikusProfil() {
       {/* Statisztikák */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 16 }}>
         <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-          <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--primary-text)' }}>{profile.completed_jobs || 0}</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--primary-text)' }}>{profile.completed_jobs || 0}</div>
           <div className="muted" style={{ fontSize: 12 }}>Lezárt fuvar</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-          <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--primary-text)' }}>{profile.completed_route_deliveries || 0}</div>
+          <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--primary-text)' }}>{profile.completed_route_deliveries || 0}</div>
           <div className="muted" style={{ fontSize: 12 }}>Fix áras kézbesítés</div>
         </div>
         <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-          <div style={{ fontSize: 28, fontWeight: 900, color: 'var(--warning)' }}>
+          <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--warning)' }}>
             {profile.rating_count > 0 ? Number(profile.rating_avg).toFixed(1) : '—'}
           </div>
           <div className="muted" style={{ fontSize: 12 }}>Átlag értékelés</div>

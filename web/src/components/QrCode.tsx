@@ -65,7 +65,7 @@ export default function QrCode({ jobId, deliveryCode, size = 220 }: Props) {
       <div
         style={{
           marginTop: 12,
-          fontSize: 28,
+          fontSize: 24,
           fontWeight: 800,
           letterSpacing: 6,
           fontFamily: 'monospace',

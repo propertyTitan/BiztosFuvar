@@ -511,7 +511,7 @@ export default function AdminPanel() {
               </div>
             </div>
             {pe.is_reverse_charge && (
-              <span className="pill" style={{ marginTop: 4, background: 'var(--surface)', fontSize: 10 }}>
+              <span className="pill" style={{ marginTop: 4, background: 'var(--surface)', fontSize: 11 }}>
                 Fordított adózás
               </span>
             )}

@@ -163,7 +163,7 @@ export default function FeladoUtvonalReszletek() {
           <p className="muted" style={{ marginTop: 12 }}>🚛 {route.vehicle_description}</p>
         )}
         {route.description && (
-          <p style={{ marginTop: 8, color: 'var(--text)', fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+          <p style={{ marginTop: 8, color: 'var(--text)', fontSize: 16, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
             {route.description}
           </p>
         )}
@@ -195,7 +195,7 @@ export default function FeladoUtvonalReszletek() {
                 <div style={{ fontSize: 11, marginTop: 4, color: active ? 'var(--text-secondary)' : 'var(--muted)' }}>
                   {ps.description_hu}
                 </div>
-                <div style={{ marginTop: 6, fontWeight: 800, fontSize: 15, color: active ? 'var(--primary)' : 'var(--muted)' }}>
+                <div style={{ marginTop: 6, fontWeight: 800, fontSize: 16, color: active ? 'var(--primary)' : 'var(--muted)' }}>
                   {active ? `${price.price_huf.toLocaleString('hu-HU')} Ft` : 'nem vállalja'}
                 </div>
               </div>

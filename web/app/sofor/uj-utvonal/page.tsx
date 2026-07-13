@@ -233,7 +233,7 @@ function UjUtvonalContent() {
               onChange={(e) => setIsRideAlong(e.target.checked)}
               style={{ width: 20, height: 20, flexShrink: 0 }}
             />
-            <strong style={{ fontSize: 15 }}>🚗 Útba esik mód — amúgy is megyek erre</strong>
+            <strong style={{ fontSize: 16 }}>🚗 Útba esik mód — amúgy is megyek erre</strong>
           </div>
           <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
             Ha bejelölöd, a rendszer automatikusan kiajánlja neked az útvonaladba
