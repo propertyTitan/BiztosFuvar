@@ -99,24 +99,31 @@ async function sendSms(to, message) {
   }
 
   try {
+    // SeeMe gateway paraméterek (https://seeme.hu/tudastar/reszletek/
+    // sms-gateway-parameterek): key + number + message (UTF-8) kötelező.
+    // - 'sender' feladóazonosítót CSAK akkor küldünk, ha az adminban
+    //   jóváhagyott (különben code 9 elutasítás) → env-ből kapcsolható.
+    // - 'callback'-et NEM küldünk (státuszkód-listát vár; a korábbi
+    //   callback=0 érvénytelen volt → code 15, a küldés eldobva!).
     const params = new URLSearchParams({
       key: getApiKey(),
       message: cleanMessage,
       number: phone,
-      from: 'GoFuvar',
-      callback: '0',
     });
+    if (process.env.SEEME_SENDER) params.set('sender', process.env.SEEME_SENDER);
 
     const res = await fetch(`${SEEME_GATEWAY_URL}?${params.toString()}`);
     const text = await res.text();
 
-    // SeeMe válasz: "OK <id>" ha sikeres, "ERR <code>" ha hiba
-    if (text.startsWith('OK')) {
-      console.log(`[sms] küldve: ${maskPhone(phone)} (${cleanMessage.length} kar, ${smsCount} SMS) id=${text.trim()}`);
+    // SeeMe válasz query-string formában:
+    //   result=OK&price=...&code=0  |  result=ERR&code=<n>&message=<miért>
+    const parsed = new URLSearchParams(text);
+    if (parsed.get('result') === 'OK' || parsed.get('code') === '0') {
+      console.log(`[sms] küldve: ${maskPhone(phone)} (${cleanMessage.length} kar, ${smsCount} szegmens, ár: ${parsed.get('price') || '?'})`);
       return { ok: true, result: text.trim() };
     }
 
-    console.warn(`[sms] hiba: ${maskPhone(phone)} → ${text}`);
+    console.warn(`[sms] SeeMe elutasítás: ${maskPhone(phone)} → code=${parsed.get('code')} ${parsed.get('message') || text}`);
     return { ok: false, error: text };
   } catch (err) {
     console.error('[sms] küldés sikertelen:', err.message);
