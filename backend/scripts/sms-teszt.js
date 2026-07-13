@@ -22,7 +22,7 @@ const { sendSms, isStub } = require('../src/services/sms');
   }
   const r = await sendSms(
     to,
-    'GoFuvar teszt: az SMS-kuldes el! Atveteli kod minta: 123456. Udv, GoFuvar',
+    'GoFuvar teszt: az SMS-küldés él! Átvételi kód minta: 123456. Üdv, GoFuvar',
   );
   console.log('Eredmény:', JSON.stringify(r));
   process.exit(r.ok ? 0 : 1);

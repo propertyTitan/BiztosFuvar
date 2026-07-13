@@ -5,9 +5,11 @@
 //  API: https://seeme.hu/gateway
 //
 //  Fontos:
-//    - 160 karakter = 1 SMS (GSM 7-bit)
-//    - Ékezetes karakterek (ő,ű,á,é,stb.) → ékezettelenítve, hogy
-//      ne csússzon 70 karakter/SMS-re (UCS-2 kódolás)
+//    - ÉKEZETES küldés (2026-07-13, user-döntés): a szöveg ékezetekkel
+//      megy ki — igényesebb, cserébe UCS-2 kódolás: 70 kar = 1 szegmens,
+//      többrészesnél 67 kar/szegmens. A fuvaronkénti EGYETLEN SMS-nél ez
+//      tipikusan 2 szegmens (~2× díj) — tudatos döntés.
+//      A removeAccents megmaradt exportként, ha később spórolni kell.
 //    - Automatikus telefonszám normalizálás (06 → 36)
 //
 //  Env változók:
@@ -49,6 +51,18 @@ function removeAccents(str) {
 }
 
 /**
+ * SMS-szegmensek száma. Nem-ASCII (ékezetes) tartalomnál UCS-2:
+ * 70 kar = 1 rész, többrészesnél 67 kar/rész; tiszta ASCII-nál GSM-7:
+ * 160 / többrészesnél 153.
+ */
+function smsSegments(text) {
+  const ucs2 = /[^\x20-\x7E]/.test(text);
+  const single = ucs2 ? 70 : 160;
+  const multi = ucs2 ? 67 : 153;
+  return text.length <= single ? 1 : Math.ceil(text.length / multi);
+}
+
+/**
  * Telefonszám normalizálás a SeeMe formátumra.
  * Elfogad: +36301234567, 06301234567, 36301234567
  * Visszaad: 36301234567 (+ jel nélkül, országkóddal)
@@ -74,8 +88,9 @@ async function sendSms(to, message) {
   }
 
   const phone = normalizePhone(to);
-  const cleanMessage = removeAccents(message);
-  const smsCount = Math.ceil(cleanMessage.length / 160);
+  // Ékezetes küldés — a szöveget NEM alakítjuk át (lásd fejléc-komment)
+  const cleanMessage = message;
+  const smsCount = smsSegments(cleanMessage);
 
   if (isStub()) {
     // FONTOS: a szöveget NEM logoljuk — tartalmazhatja az átvételi kódot.
@@ -109,4 +124,4 @@ async function sendSms(to, message) {
   }
 }
 
-module.exports = { sendSms, removeAccents, normalizePhone, isStub };
+module.exports = { sendSms, removeAccents, normalizePhone, isStub, smsSegments };
