@@ -154,6 +154,17 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+/* ── Vízszintes túlcsordulás-védelem (2026-07-13) ──
+   A dekor-elemek (hero-glow inset -200px, mockup-fény -22%) szélesebbre
+   nyújtották a dokumentumot a viewportnál → mobilon ki lehetett zoomolni,
+   és a tartalom csak a kijelző ~2/3-áig ért ("gagyi hatás").
+   `clip` és NEM `hidden`: a clip nem csinál scroll-konténert, így a
+   position:sticky fejléc működik marad. A széles tartalom (admin-tábla,
+   fuvarjaim-fülek) a SAJÁT overflowX:auto dobozában görget, ahogy eddig.
+   A pinch-zoom (WCAG 1.4.4) érintetlen — csak a felesleges "vászon" tűnik el. */
+html, body {
+  overflow-x: clip;
+}
 ::selection {
   background: var(--primary);
   color: #fff;
