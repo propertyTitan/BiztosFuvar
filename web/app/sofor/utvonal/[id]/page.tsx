@@ -358,7 +358,7 @@ export default function UtvonalReszletek() {
           </p>
         )}
         {route.description && (
-          <p style={{ marginTop: 8, color: 'var(--text)', fontSize: 15, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+          <p style={{ marginTop: 8, color: 'var(--text)', fontSize: 16, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
             {route.description}
           </p>
         )}

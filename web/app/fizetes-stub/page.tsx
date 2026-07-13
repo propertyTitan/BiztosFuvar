@@ -128,7 +128,7 @@ function FizetesStubContent() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 22,
+            fontSize: 24,
           }}
         >
           💳
@@ -160,7 +160,7 @@ function FizetesStubContent() {
           <>
             <div style={{ marginBottom: 16 }}>
               <div className="muted" style={{ fontSize: 12 }}>FUVAR</div>
-              <div style={{ fontSize: 17, fontWeight: 700 }}>{data.title}</div>
+              <div style={{ fontSize: 18, fontWeight: 700 }}>{data.title}</div>
             </div>
 
             <div style={{ marginBottom: 16 }}>

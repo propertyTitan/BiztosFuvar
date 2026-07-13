@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { Truck } from 'lucide-react';
+import { Truck, MapPin, Flag } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -57,8 +57,8 @@ export default function SoforSajatFuvarok() {
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
           <div style={{ flex: 1 }}>
             <h3 style={{ marginTop: 0 }}>{j.title}</h3>
-            <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
-            <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>
+            <p className="muted" style={{ margin: '2px 0' }}><MapPin size={13} style={{ verticalAlign: -2 }} /> {j.pickup_address}</p>
+            <p className="muted" style={{ margin: '2px 0' }}><Flag size={13} style={{ verticalAlign: -2 }} /> {j.dropoff_address}</p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <span className={`pill ${STATUS_PILL[j.status] || 'pill-bidding'}`}>
@@ -96,7 +96,9 @@ export default function SoforSajatFuvarok() {
 
       {active.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>🚚 Aktív fuvarok ({active.length})</h2>
+          <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Truck size={20} /> Aktív fuvarok ({active.length})
+          </h2>
           <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
             A felvételt és a lezárást a fuvar megnyitása után itt, a böngészőben végzed el (fotó + átvételi kód).
           </p>

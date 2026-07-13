@@ -14,7 +14,7 @@ import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ReviewBox from '@/components/ReviewBox';
 import { ListSkeleton, EmptyState, ErrorState } from '@/components/StateView';
-import { CalendarCheck } from 'lucide-react';
+import { CalendarCheck, Calendar, MapPin, Flag, Truck, BadgeCheck, CheckCircle2, Hourglass, KeyRound } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Sofőri megerősítésre vár',
@@ -143,18 +143,18 @@ export default function FoglalasaimOldal() {
               {b.route_title || 'Sofőri útvonal'}
             </h3>
             {b.carrier_name && (
-              <p className="muted" style={{ margin: '2px 0' }}>🚛 Sofőr: {b.carrier_name}</p>
+              <p className="muted" style={{ margin: '2px 0' }}><Truck size={13} style={{ verticalAlign: -2 }} /> Sofőr: {b.carrier_name}</p>
             )}
             {b.departure_at && (
               <p className="muted" style={{ margin: '2px 0' }}>
-                🗓 {new Date(b.departure_at).toLocaleString('hu-HU')}
+                <Calendar size={13} style={{ verticalAlign: -2 }} /> {new Date(b.departure_at).toLocaleString('hu-HU')}
               </p>
             )}
             <p style={{ margin: '8px 0 2px', fontSize: 14 }}>
-              📍 {b.pickup_address}
+              <MapPin size={13} style={{ verticalAlign: -2 }} /> {b.pickup_address}
             </p>
             <p style={{ margin: '2px 0', fontSize: 14 }}>
-              🏁 {b.dropoff_address}
+              <Flag size={13} style={{ verticalAlign: -2 }} /> {b.dropoff_address}
             </p>
             <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
               Csomag: <strong>{b.package_size}</strong> ({b.length_cm}×{b.width_cm}×{b.height_cm} cm, {b.weight_kg} kg)
@@ -186,7 +186,7 @@ export default function FoglalasaimOldal() {
                 }}
                 title="Átvételi kód – add át a sofőrnek"
               >
-                🔐 {b.delivery_code}
+                <KeyRound size={13} style={{ verticalAlign: -2 }} /> {b.delivery_code}
               </div>
             )}
 
@@ -207,7 +207,7 @@ export default function FoglalasaimOldal() {
                 }}
                 title={`Fizetve: ${new Date(b.paid_at).toLocaleString('hu-HU')}`}
               >
-                ✅ DÍJ FIZETVE
+                <BadgeCheck size={14} style={{ verticalAlign: -2 }} /> DÍJ FIZETVE
               </div>
             )}
             {b.status === 'confirmed' && !b.paid_at && (
@@ -296,7 +296,7 @@ export default function FoglalasaimOldal() {
                 marginBottom: 10,
               }}
             >
-              ✅ <strong>Kézbesítve</strong>
+              <CheckCircle2 size={14} style={{ verticalAlign: -2 }} /> <strong>Kézbesítve</strong>
               {b.delivered_at && ` — ${new Date(b.delivered_at).toLocaleString('hu-HU')}`}.
               Ne feledd: a fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben jár a sofőrnek.
             </div>
@@ -336,14 +336,18 @@ export default function FoglalasaimOldal() {
 
       {pending.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>⏳ Sofőri megerősítésre vár ({pending.length})</h2>
+          <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Hourglass size={20} /> Sofőri megerősítésre vár ({pending.length})
+          </h2>
           {pending.map((b) => <BookingCard key={b.id} b={b} />)}
         </>
       )}
 
       {active.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>✅ Aktív foglalások ({active.length})</h2>
+          <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BadgeCheck size={20} /> Aktív foglalások ({active.length})
+          </h2>
           {active.map((b) => <BookingCard key={b.id} b={b} />)}
         </>
       )}

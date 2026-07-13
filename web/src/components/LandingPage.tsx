@@ -188,8 +188,8 @@ export default function LandingPage() {
                   boxShadow: '0 0 0 6px var(--bg)',
                 }}>{s.num}</div>
                 <div className="card" style={{ marginBottom: 0, textAlign: 'left' }}>
-                  <h3 style={{ fontSize: 19, fontWeight: 800, margin: '0 0 8px' }}>{s.title}</h3>
-                  <p className="muted" style={{ fontSize: 14.5, lineHeight: 1.6, margin: 0 }}>{s.desc}</p>
+                  <h3 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 8px' }}>{s.title}</h3>
+                  <p className="muted" style={{ fontSize: 14, lineHeight: 1.6, margin: 0 }}>{s.desc}</p>
                 </div>
               </div>
             ))}
@@ -269,12 +269,12 @@ export default function LandingPage() {
               { big: '0', small: 'plusz futárautó — meglévő útra pakolsz' },
             ].map((s) => (
               <div key={s.small} className="card" style={{ textAlign: 'center', marginBottom: 0 }}>
-                <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--success-text)' }}>{s.big}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--success-text)' }}>{s.big}</div>
                 <div className="muted" style={{ fontSize: 13, lineHeight: 1.45, marginTop: 4 }}>{s.small}</div>
               </div>
             ))}
           </div>
-          <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 12.5, margin: '20px auto 0', maxWidth: 560 }}>
+          <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: 13, margin: '20px auto 0', maxWidth: 560 }}>
             A számok tájékoztató becslések (átlagos személyautó ~7 l/100km, elkerült dedikált
             futár-kisteher ~250 g CO₂/km).
           </p>
@@ -292,7 +292,7 @@ export default function LandingPage() {
             <div key={t.label} style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
               <span style={{
                 fontFamily: 'var(--font-display), var(--font-inter), sans-serif',
-                fontSize: 22, fontWeight: 800, color: 'var(--primary-text)',
+                fontSize: 24, fontWeight: 800, color: 'var(--primary-text)',
                 whiteSpace: 'nowrap',
               }}>{t.stat}</span>
               <span className="muted" style={{ fontSize: 14 }}>{t.label}</span>
@@ -316,8 +316,8 @@ export default function LandingPage() {
             <div style={{ display: 'inline-flex', padding: 12, borderRadius: 14, background: 'rgba(30,64,175,0.12)', marginBottom: 16 }}>
               <Package size={26} color="var(--primary-text)" />
             </div>
-            <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Feladó vagyok</h3>
-            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
+            <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Feladó vagyok</h3>
+            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 16 }}>
               <li>Hirdesd meg a fuvart — a sofőrök ajánlatot tesznek rá</li>
               <li>Vagy foglalj helyet egy fix áras útvonalon</li>
               <li>Kis díj után azonnal megkapod a sofőr elérhetőségét</li>
@@ -332,8 +332,8 @@ export default function LandingPage() {
             <div style={{ display: 'inline-flex', padding: 12, borderRadius: 14, background: 'rgba(22,163,74,0.12)', marginBottom: 16 }}>
               <Truck size={26} color="var(--success-text)" />
             </div>
-            <h3 style={{ fontSize: 23, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Sofőr vagyok</h3>
-            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 15 }}>
+            <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Sofőr vagyok</h3>
+            <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 16 }}>
               <li>Autó, bicikli, gyalog vagy tömegközlekedés — bármivel mehet</li>
               <li>Böngéssz az elérhető fuvarok között és tegyél ajánlatot</li>
               <li>Vagy hirdesd meg az utadat fix árakkal</li>
@@ -362,7 +362,7 @@ export default function LandingPage() {
             <h2 style={{ fontSize: 'clamp(22px, 3vw, 28px)', fontWeight: 800, margin: '0 0 10px', color: 'var(--text)' }}>
               Fuvarozó cég vagy egyéni vállalkozó?
             </h2>
-            <p style={{ color: 'var(--text)', margin: 0, lineHeight: 1.6, fontSize: 15.5, maxWidth: 560 }}>
+            <p style={{ color: 'var(--text)', margin: 0, lineHeight: 1.6, fontSize: 16, maxWidth: 560 }}>
               Töltsd meg az üres kilométereidet és a visszautaidat rendszeres fuvarokkal.
               A fuvardíj <strong>100%-a a tiéd, készpénzben</strong> — a platform a te
               díjadból nem von le jutalékot.
@@ -385,7 +385,7 @@ export default function LandingPage() {
           vagy ajánlatot tehetsz egyre.
         </p>
         <Link href="/bejelentkezes?mode=register" className="btn"
-          style={{ fontSize: 17, padding: '16px 38px', borderRadius: 12, fontWeight: 800 }}>
+          style={{ fontSize: 18, padding: '16px 38px', borderRadius: 12, fontWeight: 800 }}>
           Ingyenes regisztráció <ArrowRight size={18} />
         </Link>
       </section>

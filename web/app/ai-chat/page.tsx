@@ -162,7 +162,7 @@ export default function AiChatPage() {
                 background: m.role === 'user' ? 'var(--primary)' : 'var(--surface)',
                 color: m.role === 'user' ? '#fff' : 'var(--text)',
                 border: m.role === 'assistant' ? '1px solid var(--border)' : undefined,
-                fontSize: 15,
+                fontSize: 16,
                 lineHeight: 1.5,
                 whiteSpace: 'pre-wrap',
               }}

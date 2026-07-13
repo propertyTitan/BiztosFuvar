@@ -147,7 +147,7 @@ export default function KycModal() {
             right: 12,
             background: 'none',
             border: 'none',
-            fontSize: 22,
+            fontSize: 24,
             cursor: 'pointer',
             color: '#666',
             lineHeight: 1,
@@ -196,7 +196,7 @@ export default function KycModal() {
               color: '#166534',
               borderRadius: 8,
               padding: '16px 16px',
-              fontSize: 15,
+              fontSize: 16,
               fontWeight: 700,
               textAlign: 'center',
             }}
@@ -229,7 +229,7 @@ export default function KycModal() {
                 background: '#2563eb',
                 color: '#fff',
                 fontWeight: 700,
-                fontSize: 15,
+                fontSize: 16,
                 cursor: 'pointer',
               }}
             >
@@ -294,7 +294,7 @@ export default function KycModal() {
                 background: !file || uploading ? '#d1d5db' : '#2563eb',
                 color: '#fff',
                 fontWeight: 700,
-                fontSize: 15,
+                fontSize: 16,
                 cursor: !file || uploading ? 'not-allowed' : 'pointer',
                 transition: 'background 0.15s',
               }}

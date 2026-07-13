@@ -58,7 +58,7 @@ export default function PriceComparison({ goFuvarEstimate, weightKg }: Props) {
 
   return (
     <div style={{ marginTop: 16 }}>
-      <h3 style={{ marginBottom: 12, fontSize: 15 }}>
+      <h3 style={{ marginBottom: 12, fontSize: 16 }}>
         💸 Mennyit spórolsz?
       </h3>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -94,7 +94,7 @@ export default function PriceComparison({ goFuvarEstimate, weightKg }: Props) {
                     {c.price.toLocaleString('hu-HU')} Ft
                   </span>
                   {isCheapest && (
-                    <span style={{ fontSize: 10, fontWeight: 800, color: c.bold ? '#FFD700' : 'var(--success)' }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: c.bold ? '#FFD700' : 'var(--success)' }}>
                       LEGJOBB
                     </span>
                   )}

@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
+import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, CheckCircle2 } from 'lucide-react';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
@@ -231,7 +232,11 @@ export default function FuvarReszletek() {
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
         <div>
           <h1 style={{ marginBottom: 4 }}>{job.title}</h1>
-          <p className="muted" style={{ margin: 0 }}>📍 {job.pickup_address} → 🏁 {job.dropoff_address}</p>
+          <p className="muted" style={{ margin: 0 }}>
+            <MapPin size={13} style={{ verticalAlign: -2 }} /> {job.pickup_address}
+            {' → '}
+            <Flag size={13} style={{ verticalAlign: -2 }} /> {job.dropoff_address}
+          </p>
         </div>
         <span className={`pill ${STATUS_PILL[job.status] || 'pill-progress'}`}>{STATUS_LABEL[job.status] || job.status}</span>
       </div>
@@ -389,7 +394,7 @@ export default function FuvarReszletek() {
           {job.description && (
             <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
               <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>Leírás</div>
-              <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', fontSize: 15, lineHeight: 1.5 }}>
+              <div style={{ whiteSpace: 'pre-wrap', color: 'var(--text)', fontSize: 16, lineHeight: 1.5 }}>
                 {job.description}
               </div>
             </div>
@@ -475,7 +480,7 @@ export default function FuvarReszletek() {
                   }}
                   title={`Fizetve: ${new Date(job.paid_at).toLocaleString('hu-HU')}`}
                 >
-                  ✅ DÍJ FIZETVE
+                  <BadgeCheck size={14} style={{ verticalAlign: -2 }} /> DÍJ FIZETVE
                 </div>
               ) : job.status === 'accepted' ? (
                 <>
@@ -582,7 +587,7 @@ export default function FuvarReszletek() {
                   fontWeight: 600,
                 }}
               >
-                🔁 Másik sofőrt választok
+                <RefreshCw size={12} style={{ verticalAlign: -2 }} /> Másik sofőrt választok
               </button>
               <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
                 Ha a sofőr nem elérhető vagy visszalépett: a korábbi ajánlatok újra
@@ -687,7 +692,9 @@ export default function FuvarReszletek() {
       {/* Értékelés — delivered / completed állapotban */}
       {['delivered', 'completed'].includes(job.status) && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>⭐ Értékeld a sofőrt</h2>
+          <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Star size={20} color="var(--warning)" fill="var(--warning)" /> Értékeld a sofőrt
+          </h2>
           <p className="muted" style={{ marginBottom: 12 }}>
             Hogyan teljesített a sofőr? Kattints a csillagokra és írd meg a véleményed.
           </p>
@@ -710,7 +717,7 @@ export default function FuvarReszletek() {
                 color: '#166534',
               }}
             >
-              ✅ <strong>Díjmentes újraválasztás:</strong> a kapcsolatfelvételi díjat
+              <CheckCircle2 size={13} style={{ verticalAlign: -2 }} /> <strong>Díjmentes újraválasztás:</strong> a kapcsolatfelvételi díjat
               már befizetted erre a fuvarra — az új sofőr kiválasztása után nem kell
               újra fizetned, azonnal megkapod az elérhetőségét.
             </div>
@@ -769,7 +776,7 @@ export default function FuvarReszletek() {
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                       {(b.rating_avg ?? 0) > 0 && (
                         <span style={{ fontSize: 12, color: 'var(--warning)', fontWeight: 600 }}>
-                          ⭐ {Number(b.rating_avg).toFixed(1)}
+                          <Star size={12} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {Number(b.rating_avg).toFixed(1)}
                           {(b.rating_count ?? 0) > 0 && <span className="muted"> ({b.rating_count})</span>}
                         </span>
                       )}
@@ -785,7 +792,7 @@ export default function FuvarReszletek() {
                       </div>
                       <strong className="price" style={{ fontSize: 18 }}>{b.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                        {b.counter_by === 'shipper' ? 'ellenajánlatod' : '🔁 a sofőr ellenajánlata'}
+                        {b.counter_by === 'shipper' ? 'ellenajánlatod' : <><RefreshCw size={11} style={{ verticalAlign: -1 }} /> a sofőr ellenajánlata</>}
                       </div>
                     </>
                   ) : (
@@ -799,7 +806,7 @@ export default function FuvarReszletek() {
               </div>
               {b.counter_by === 'shipper' && b.counter_amount_huf != null ? (
                 <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-                  ⏳ Elküldted az ellenajánlatod ({b.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a sofőr válaszára vár.
+                  <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({b.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a sofőr válaszára vár.
                 </p>
               ) : (
                 <div className="row" style={{ gap: 8, marginTop: 8 }}>
@@ -847,7 +854,7 @@ export default function FuvarReszletek() {
       {/* Sofőr-csere dialógus */}
       <ConfirmDialog
         open={showReopenDialog}
-        title="🔁 Másik sofőrt választok"
+        title="Másik sofőrt választok"
         message="A fuvar újra ajánlatokat fogad: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad — az új sofőr kiválasztása díjmentes. A jelenlegi sofőr értesítést kap."
         confirmLabel="Újranyitom"
         fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. A sofőr nem veszi fel a telefont' }]}
@@ -881,7 +888,7 @@ export default function FuvarReszletek() {
       {/* Ellenajánlat a sofőr licitjére */}
       <ConfirmDialog
         open={!!counterTarget}
-        title="🔁 Ellenajánlat küldése"
+        title="Ellenajánlat küldése"
         message={counterTarget
           ? `A sofőr ajánlata ${(counterTarget.counter_amount_huf ?? counterTarget.amount_huf).toLocaleString('hu-HU')} Ft. Add meg, mennyit ajánlasz — a sofőr elfogadhatja vagy visszadobhat.`
           : ''}

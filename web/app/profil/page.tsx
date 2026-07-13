@@ -218,7 +218,7 @@ export default function ProfilOldal() {
           </div>
         </label>
         <div>
-          <h1 style={{ margin: 0, fontSize: 26 }}>{profile.full_name}</h1>
+          <h1 style={{ margin: 0, fontSize: 24 }}>{profile.full_name}</h1>
           <p className="muted" style={{ margin: '4px 0' }}>{profile.email}</p>
           <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
             {profile.rating_count > 0 ? (

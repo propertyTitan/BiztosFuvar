@@ -65,15 +65,15 @@ export default function LandingTemplate({ config }: { config: LandingConfig }) {
             }}
           >
             <div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--success-text)' }}>{config.route.distanceKm} km</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--success-text)' }}>{config.route.distanceKm} km</div>
               <div className="muted" style={{ fontSize: 13 }}>{config.route.fromCity}–{config.route.toCity} táv</div>
             </div>
             <div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--success-text)' }}>~{green.co2SavedKg} kg</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--success-text)' }}>~{green.co2SavedKg} kg</div>
               <div className="muted" style={{ fontSize: 13 }}>megspórolt CO₂ egy meglévő úton</div>
             </div>
             <div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--success-text)' }}>0</div>
+              <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--success-text)' }}>0</div>
               <div className="muted" style={{ fontSize: 13 }}>plusz futárautó — meglévő útra pakolsz</div>
             </div>
           </div>
@@ -116,7 +116,7 @@ export default function LandingTemplate({ config }: { config: LandingConfig }) {
           <div style={{ maxWidth: 680, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {config.faq.map((f) => (
               <div key={f.q} className="card" style={{ marginBottom: 0 }}>
-                <h3 style={{ fontSize: 15.5, fontWeight: 700, margin: '0 0 6px' }}>{f.q}</h3>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 6px' }}>{f.q}</h3>
                 <p className="muted" style={{ fontSize: 14, lineHeight: 1.55, margin: 0 }}>{f.a}</p>
               </div>
             ))}

@@ -21,7 +21,7 @@ test('feladói ellenajánlat → sofőr elfogadja → alku-áras elfogadott fuva
   await expect(shipperPage.getByText(/12\s?000/).first()).toBeVisible();
 
   await shipperPage.getByRole('button', { name: 'Ellenajánlat' }).click();
-  await expect(shipperPage.getByText('🔁 Ellenajánlat küldése')).toBeVisible();
+  await expect(shipperPage.getByText('Ellenajánlat küldése')).toBeVisible();
   await shipperPage.locator('input[type="number"]:visible').last().fill('10000');
   await shipperPage.getByRole('button', { name: 'Ellenajánlat elküldése' }).click();
 

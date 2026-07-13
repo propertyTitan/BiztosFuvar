@@ -95,7 +95,11 @@ export default function SiteHeader() {
       {/* ── Bal oldal: Logo + nyelvváltó ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <Link href="/" className="brand" aria-label="GoFuvar">
-          <img src="/logo-white.svg?v=2" alt="GoFuvar" style={{ height: 36, width: 'auto', display: 'block' }} />
+          {/* Logó-pár: a CSS (globals .site-header .logo-*) váltja téma szerint */}
+          {/* display-t a CSS adja (logo-light/logo-dark) — inline display
+              itt felülütné a dark-mode váltást! */}
+          <img src="/logo.svg?v=2" alt="GoFuvar" className="logo-light" style={{ height: 36, width: 'auto' }} />
+          <img src="/logo-white.svg?v=2" alt="" aria-hidden className="logo-dark" style={{ height: 36, width: 'auto' }} />
         </Link>
         {/* Nyelvváltó ELREJTVE (2026-07-02): a fordítás csak ~3 komponensre
             készült el, EN-re váltva a 31 oldal magyar maradt — becsapós.
@@ -117,8 +121,8 @@ export default function SiteHeader() {
                 display: 'inline-flex', alignItems: 'center', gap: 4,
                 padding: '4px 10px', borderRadius: 999, fontSize: 12,
                 fontWeight: 700, textDecoration: 'none', marginRight: 4,
-                background: 'rgba(255,255,255,0.18)', color: '#fff',
-                border: '1px solid rgba(255,255,255,0.3)', whiteSpace: 'nowrap',
+                background: 'rgba(37,99,235,0.10)', color: 'var(--primary-text)',
+                border: '1px solid rgba(37,99,235,0.25)', whiteSpace: 'nowrap',
               }}
             >
               {/* UI-ikon szabály: lucide, nem emoji (CLAUDE.md, PR #75) */}
@@ -144,17 +148,8 @@ export default function SiteHeader() {
         {!user && (
           <Link
             href="/bejelentkezes"
-            style={{
-              color: '#fff',
-              textDecoration: 'none',
-              fontWeight: 600,
-              fontSize: 14,
-              padding: '8px 16px',
-              borderRadius: 8,
-              background: 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              transition: 'all 0.15s',
-            }}
+            className="btn"
+            style={{ fontSize: 14, padding: '8px 18px' }}
           >
             {t('auth.login')}
           </Link>
@@ -174,7 +169,9 @@ export default function SiteHeader() {
               }}
               title={t('nav.notifications')}
             >
-              <Bell size={20} color="#fff" style={{ display: 'block' }} />
+              {/* currentColor: light módban a --text-secondary-t, darkban a
+                  .site-header * fehérjét örökli */}
+              <Bell size={20} style={{ display: 'block', color: 'var(--text-secondary)' }} />
               {unread > 0 && (
                 <span
                   style={{
@@ -183,13 +180,13 @@ export default function SiteHeader() {
                     right: 2,
                     background: 'var(--danger-strong)',
                     color: '#fff',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 800,
                     borderRadius: 999,
                     padding: '1px 5px',
                     minWidth: 16,
                     textAlign: 'center',
-                    border: '2px solid var(--primary)',
+                    border: '2px solid var(--surface)',
                   }}
                 >
                   {unread > 99 ? '99+' : unread}
@@ -208,19 +205,21 @@ export default function SiteHeader() {
                   gap: 8,
                   padding: '5px 12px 5px 5px',
                   borderRadius: 999,
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  background: menuOpen ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.08)',
+                  border: '1px solid var(--border)',
+                  background: menuOpen ? 'var(--surface-hover)' : 'transparent',
                   cursor: 'pointer',
                   transition: 'all 0.15s',
-                  color: '#fff',
+                  color: 'var(--text)',
                 }}
               >
+                {/* A monogram-kör hozza a márka-kéket a világos fejlécen */}
                 <div
                   style={{
                     width: 30,
                     height: 30,
                     borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.25)',
+                    background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                    color: '#fff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -342,7 +341,7 @@ function DropdownItem({ href, icon, label, onClick }: { href: string; icon: Reac
 }
 
 const navLinkStyle: React.CSSProperties = {
-  color: 'rgba(255,255,255,0.9)',
+  color: 'var(--text-secondary)',
   padding: '7px 14px',
   borderRadius: 8,
   textDecoration: 'none',

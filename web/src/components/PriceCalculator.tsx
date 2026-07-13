@@ -123,7 +123,7 @@ export default function PriceCalculator() {
             type="button"
             onClick={calculate}
             disabled={loading}
-            style={{ fontSize: 15, padding: '12px 24px' }}
+            style={{ fontSize: 16, padding: '12px 24px' }}
           >
             {loading ? 'Számolás…' : 'Mutasd az árat!'}
           </button>

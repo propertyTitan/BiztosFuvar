@@ -13,7 +13,7 @@ export default function AdatkezelesPage() {
         margin: '0 auto',
         padding: '32px 20px',
         lineHeight: 1.65,
-        fontSize: 15,
+        fontSize: 16,
       }}
     >
       <h1 style={{ marginBottom: 4 }}>Adatkezelési Tájékoztató (GDPR)</h1>

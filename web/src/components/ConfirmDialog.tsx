@@ -136,7 +136,7 @@ export default function ConfirmDialog({
           outline: 'none',
         }}
       >
-        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 19, fontWeight: 700 }}>
+        <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 20, fontWeight: 700 }}>
           {title}
         </h2>
         {message && (

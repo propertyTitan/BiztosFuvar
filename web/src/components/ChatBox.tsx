@@ -160,7 +160,7 @@ export default function ChatBox({ entityKey, entityId }: Props) {
               </div>
               <div
                 style={{
-                  fontSize: 10,
+                  fontSize: 11,
                   opacity: 0.6,
                   marginTop: 4,
                   textAlign: 'right',

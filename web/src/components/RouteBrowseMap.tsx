@@ -143,7 +143,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
         >
           <div style={{ minWidth: 240, fontFamily: 'inherit' }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
-              <strong style={{ fontSize: 15 }}>{activeRoute.title}</strong>
+              <strong style={{ fontSize: 16 }}>{activeRoute.title}</strong>
               {currentUserId && activeRoute.carrier_id === currentUserId && (
                 <span
                   style={{
@@ -151,7 +151,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
                     color: '#713f12',
                     padding: '1px 6px',
                     borderRadius: 999,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: 800,
                   }}
                 >

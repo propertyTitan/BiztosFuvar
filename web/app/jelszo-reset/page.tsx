@@ -83,7 +83,7 @@ function JelszoResetInner() {
           minLength={8}
           placeholder="legalább 8 karakter"
           style={{
-            width: '100%', padding: '12px 14px', fontSize: 15,
+            width: '100%', padding: '12px 14px', fontSize: 16,
             border: '1px solid var(--border)', borderRadius: 8,
             background: 'var(--bg)', color: 'var(--text)', marginBottom: 12,
           }}
@@ -100,7 +100,7 @@ function JelszoResetInner() {
           minLength={8}
           placeholder="add meg újra"
           style={{
-            width: '100%', padding: '12px 14px', fontSize: 15,
+            width: '100%', padding: '12px 14px', fontSize: 16,
             border: '1px solid var(--border)', borderRadius: 8,
             background: 'var(--bg)', color: 'var(--text)',
           }}

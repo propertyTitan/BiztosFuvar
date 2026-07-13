@@ -143,7 +143,7 @@ export default function HomeHub() {
               color: '#fff', padding: '12px 24px', borderRadius: 14, textAlign: 'center',
             }}>
               <div style={{ fontSize: 11, opacity: 0.85 }}>Heti kereset</div>
-              <div style={{ fontSize: 26, fontWeight: 900 }}>
+              <div style={{ fontSize: 24, fontWeight: 900 }}>
                 {formatPrice(d.weekEarnings)}
               </div>
               <div style={{ fontSize: 11, opacity: 0.85 }}>{d.weekDeliveries} fuvar</div>
@@ -459,7 +459,7 @@ export default function HomeHub() {
               }}
             >
               <div style={{ marginBottom: 8 }}><FileText size={36} color="var(--primary)" /></div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Fuvar feladása</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Fuvar feladása</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Sofőrök ajánlatot tesznek rá</div>
             </Link>
             <Link
@@ -471,7 +471,7 @@ export default function HomeHub() {
               }}
             >
               <div style={{ marginBottom: 8 }}><RouteIcon size={36} color="var(--success)" /></div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Fix áras útvonal</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Fix áras útvonal</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Foglalj helyet egy sofőrnél</div>
             </Link>
             <Link
@@ -483,7 +483,7 @@ export default function HomeHub() {
               }}
             >
               <div style={{ marginBottom: 8 }}><ShoppingBag size={36} color="var(--warning)" /></div>
-              <div style={{ fontWeight: 700, fontSize: 15 }}>Hozasd el</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Hozasd el</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Online vásárlás linkből</div>
             </Link>
           </div>
@@ -514,7 +514,7 @@ export default function HomeHub() {
                 {l.badge ? (
                   <span style={{
                     position: 'absolute', top: 6, right: 8,
-                    background: 'var(--danger-strong)', color: '#fff', fontSize: 10,
+                    background: 'var(--danger-strong)', color: '#fff', fontSize: 11,
                     fontWeight: 800, borderRadius: 999, padding: '1px 6px',
                   }}>{l.badge}</span>
                 ) : null}

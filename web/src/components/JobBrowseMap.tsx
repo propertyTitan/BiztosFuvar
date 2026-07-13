@@ -144,7 +144,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
         >
           <div style={{ minWidth: 220, fontFamily: 'inherit' }}>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 4 }}>
-              <strong style={{ fontSize: 15 }}>{activeJob.title}</strong>
+              <strong style={{ fontSize: 16 }}>{activeJob.title}</strong>
               {currentUserId && activeJob.shipper_id === currentUserId && (
                 <span
                   style={{
@@ -152,7 +152,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
                     color: '#713f12',
                     padding: '1px 6px',
                     borderRadius: 999,
-                    fontSize: 9,
+                    fontSize: 11,
                     fontWeight: 800,
                   }}
                 >
@@ -168,7 +168,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
             </div>
             <div
               style={{
-                fontSize: 15,
+                fontSize: 16,
                 fontWeight: 700,
                 color: '#1e40af',
                 margin: '6px 0',

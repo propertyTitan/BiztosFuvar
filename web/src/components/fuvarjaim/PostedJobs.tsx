@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job, CarrierRoute } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { FileText, Route as RouteIcon } from 'lucide-react';
+import { FileText, Route as RouteIcon, MapPin, Flag, Calendar } from 'lucide-react';
 
 const JOB_STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -69,7 +69,9 @@ export default function SajatHirdeteseim() {
       )}
 
       {/* Feladott fuvarok */}
-      <h2 style={{ marginTop: 24 }}>📝 Feladott fuvarjaim ({jobs.length})</h2>
+      <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <FileText size={20} /> Feladott fuvarjaim ({jobs.length})
+      </h2>
       {!loading && jobs.length === 0 && (
         <EmptyState
           compact
@@ -89,8 +91,8 @@ export default function SajatHirdeteseim() {
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
             <div style={{ flex: 1 }}>
               <h3 style={{ marginTop: 0 }}>{j.title}</h3>
-              <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
-              <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>
+              <p className="muted" style={{ margin: '2px 0' }}><MapPin size={13} style={{ verticalAlign: -2 }} /> {j.pickup_address}</p>
+              <p className="muted" style={{ margin: '2px 0' }}><Flag size={13} style={{ verticalAlign: -2 }} /> {j.dropoff_address}</p>
               <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
                 {j.distance_km != null && `${j.distance_km} km`}
               </div>
@@ -106,7 +108,9 @@ export default function SajatHirdeteseim() {
       ))}
 
       {/* Fix áras útvonalak */}
-      <h2 style={{ marginTop: 32 }}>🛣️ Fix áras útvonalaim ({routes.length})</h2>
+      <h2 style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <RouteIcon size={20} /> Fix áras útvonalaim ({routes.length})
+      </h2>
       {!loading && routes.length === 0 && (
         <EmptyState
           compact
@@ -129,9 +133,9 @@ export default function SajatHirdeteseim() {
             <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
               <div style={{ flex: 1 }}>
                 <h3 style={{ marginTop: 0 }}>{r.title}</h3>
-                <p className="muted" style={{ margin: '2px 0' }}>📍 {first} → {last}</p>
+                <p className="muted" style={{ margin: '2px 0' }}><MapPin size={13} style={{ verticalAlign: -2 }} /> {first} → {last}</p>
                 <p className="muted" style={{ margin: '2px 0' }}>
-                  🗓 {new Date(r.departure_at).toLocaleString('hu-HU')}
+                  <Calendar size={13} style={{ verticalAlign: -2 }} /> {new Date(r.departure_at).toLocaleString('hu-HU')}
                 </p>
                 <div className="row" style={{ gap: 6, marginTop: 6 }}>
                   {r.prices.map((p) => (
