@@ -48,8 +48,11 @@ szerződés kizárólag a Feladó és a Sofőr között jön létre.
   "Védett fizetés" opció lehet)
 - 6 jegyű átvételi kód + QR kód
 - **1 db SMS-modell (2026-07-13, user-döntés)**: a címzett EGYETLEN SMS-t kap,
-  a csomag FELVÉTELEKOR (átvételi kód + sofőr neve/telefonszáma, ékezet
-  nélkül = 1 GSM-szegmens); minden más értesítés email/in-app — kézbesítésről
+  a csomag FELVÉTELEKOR (átvételi kód + sofőr neve/telefonszáma + "egyeztess
+  vele az érkezésről"); **ÉKEZETESEN megy (user-döntés, minőség)** → UCS-2,
+  max 2 szegmens (~40-60 Ft/fuvar; név 22 karakterre vágva, worst case 131
+  kar — a sendSms már NEM ékezettelenít, a removeAccents export megmaradt
+  spórolás-tartaléknak); minden más értesítés email/in-app — kézbesítésről
   email a feladónak + a címzettnek is, ha van email-címe. A korábbi 5 SMS-ből
   a feladáskori KI (túl korai volt: sofőr sem volt még), az 5km/300m KI (GPS
   úgyis mobil-fázis; email maradt), kézbesítési 2 db SMS→email. Ok: SMS

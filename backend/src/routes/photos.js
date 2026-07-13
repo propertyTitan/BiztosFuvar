@@ -200,11 +200,14 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
         const pi = pickRows[0];
         if (pi && pi.recipient_phone && pi.delivery_code) {
           const { sendSms } = require('../services/sms');
-          const sofor = pi.carrier_name
-            ? ` Sofor: ${pi.carrier_name}${pi.carrier_phone ? `, tel: ${pi.carrier_phone}` : ''}.`
+          // Név-plafon: az üzenet 134 karakter alatt maradjon (= max 2
+          // UCS-2 szegmens; e fölött 3. szegmens = +1 díj)
+          const nev = (pi.carrier_name || '').slice(0, 22);
+          const sofor = nev
+            ? ` Sofőr: ${nev}${pi.carrier_phone ? ` (${pi.carrier_phone})` : ''}.`
             : '';
           sendSms(pi.recipient_phone,
-            `GoFuvar: uton a csomagod! Atveteli kod: ${pi.delivery_code}.${sofor} A kodot atvetelkor add meg a sofornek.`,
+            `GoFuvar: úton a csomagod! Átvételi kód: ${pi.delivery_code}.${sofor} Kérjük, egyeztess vele az érkezésről.`,
           ).catch(() => {});
         }
       } catch (e) {
@@ -468,11 +471,12 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
           );
           const c = cRows[0] || {};
           const { sendSms } = require('../services/sms');
-          const sofor = c.full_name
-            ? ` Sofor: ${c.full_name}${c.phone ? `, tel: ${c.phone}` : ''}.`
+          const nev = (c.full_name || '').slice(0, 22);
+          const sofor = nev
+            ? ` Sofőr: ${nev}${c.phone ? ` (${c.phone})` : ''}.`
             : '';
           sendSms(booking.recipient_phone,
-            `GoFuvar: uton a csomagod! Atveteli kod: ${booking.delivery_code}.${sofor} A kodot atvetelkor add meg a sofornek.`,
+            `GoFuvar: úton a csomagod! Átvételi kód: ${booking.delivery_code}.${sofor} Kérjük, egyeztess vele az érkezésről.`,
           ).catch(() => {});
         }
       } catch (e) {

@@ -125,7 +125,7 @@ async function cleanup() {
     // 5. Státusz-ellenőrzés + kis várakozás, hogy a fire-and-forget SMS elmenjen
     const { rows: st } = await pool.query('SELECT status FROM jobs WHERE id = $1', [jobId]);
     if (st[0].status !== 'in_progress') throw new Error(`Várt in_progress, kapott: ${st[0].status}`);
-    log(`5) Fuvar-státusz: in_progress ✓ — várható SMS: "GoFuvar: uton a csomagod! Atveteli kod: ${code}. Sofor: Teszt Sofor Sandor, tel: +36201111111. ..."`);
+    log(`5) Fuvar-státusz: in_progress ✓ — várható SMS: "GoFuvar: úton a csomagod! Átvételi kód: ${code}. Sofőr: Teszt Sofor Sandor (+36201111111). Kérjük, egyeztess vele az érkezésről."`);
     await new Promise((r) => setTimeout(r, 8000));
 
     console.log('\n════════ ✅ A LÁNC LEFUTOTT — NÉZD A TELEFONOD! ════════');
