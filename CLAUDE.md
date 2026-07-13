@@ -296,6 +296,19 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **SeeMe SMS ✅ ÉLES (2026-07-13)** — kulcs ROTÁLVA (a régi a git-históriában
+  volt!) + `SEEME_API_KEY` a Railway-en; end-to-end bizonyítva a prodon
+  (sms-e2e-fustteszt.js: teszt-fuvar → stub-fizetés → felvételi fotó →
+  ékezetes SMS a user telefonján, 38 Ft = 2 UCS-2 szegmens). Út közben
+  javítva a gateway-hívás (PR #83: az érvénytelen callback=0 miatt a SeeMe
+  ELDOBTA a küldést; from→sender, válasz-parser query-string formára).
+  ⚠️ KRITIKUS TANULSÁG: a SeeMe-nél az IP-allowlist NEM kikapcsolható —
+  a Railway kimenő IP-je engedélyezve, de ha valaha ELFORDUL → code=13 →
+  minden SMS némán kiesik → SENTRY-RIASZTÁS figyeli (sms.js
+  reportSmsFailure); teendő ilyenkor: SeeMe admin → Gateway hozzáférés →
+  az új IP hozzáadása (az IP a hibaüzenetben olvasható). Feladó-azonosító:
+  SEEME_SENDER env-vel kapcsolható be, ha a "GoFuvar" sender jóváhagyott.
+  Teszt-eszközök: scripts/sms-teszt.js (kulcs kézzel) + sms-e2e-fustteszt.js
 - **Mobil túlcsordulás-fix (2026-07-13, PR #80)** — a dekor-elemek (hero-glow
   inset -200px) túllógtak a viewporton → mobilon ki lehetett zoomolni, a
   tartalom a kijelző ~2/3-áig ért. Fix: `html, body { overflow-x: clip }`
@@ -449,7 +462,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   gmailből info@gofuvar.hu néven válaszolhasson (SMTP: smtp.resend.com,
   port 465, user: resend, jelszó: a Resend API-kulcs + "válasz ugyanarról
   a címről" pipa). A bejövő irány már ÉLES (lásd ✅ lista)
-- **SeeMe.hu** — API kulcs Railway env-be
+- ~~SeeMe.hu — API kulcs Railway env-be~~ → ✅ ÉLES (2026-07-13, lásd a ✅ listát)
 - **Számlázz.hu / Billingo** — előfizetés + API kulcs (nem launch-blokker)
 - **Tesztelői visszakérdezések** (a 2. körből elhalasztva): BUG-005 — hol
   látott fejléc-avatart (a fejlécben monogram van); BUG-033 — melyik 4
@@ -597,6 +610,11 @@ git log --oneline -20
   Nézd a Neon compute-kvótát/csomagot a console.neon.tech-en. Teszt: a
   `/tracking/:token` végpont 500-at ad ha a DB döglött, 404-et ha él.
 - **PG SSL warning a Railway logokban** → nem hiba, csak figyelmeztetés
+- **SMS nem megy ki** → Railway log, keresés: `sms`. `[sms] SeeMe elutasítás
+  code=13` = a Railway kimenő IP elfordult → SeeMe admin → Gateway
+  hozzáférés → új IP engedélyezése (az IP a hibaüzenetben); erre Sentry-
+  riasztás is jön. code=7 = SeeMe egyenleg elfogyott (feltöltés).
+  Gyors kézi teszt: `SEEME_API_KEY=... node scripts/sms-teszt.js +36...`
 - **Robotok / noindex** → src `web/public/robots.txt` jelenleg `Disallow: /` — élesedéskor `Allow: /`-ra
 
 ---

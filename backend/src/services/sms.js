@@ -51,6 +51,32 @@ function removeAccents(str) {
 }
 
 /**
+ * SMS-hiba riasztás a Sentrybe (ha be van kötve). A néma SMS-kiesés a
+ * legalattomosabb üzemzavar: a küldés fire-and-forget, a user semmit nem
+ * lát belőle. Kiemelt eset a SeeMe code=13 — az azt jelenti, hogy a
+ * Railway KIMENŐ IP-JE ELFORDULT, és nincs rajta a SeeMe engedélyezett
+ * IP-listáján (a lista a SeeMe-nél nem kikapcsolható!) → teendő: SeeMe
+ * admin → Gateway hozzáférés → az új IP hozzáadása (az IP magában a
+ * hibaüzenetben olvasható).
+ */
+function reportSmsFailure(code, message, phone) {
+  if (!process.env.SENTRY_DSN) return;
+  try {
+    const Sentry = require('@sentry/node');
+    const title = String(code) === '13'
+      ? 'SMS-küldés ÁLL: a Railway kimenő IP nincs engedélyezve a SeeMe-nél (code=13) — SeeMe admin: új IP hozzáadása!'
+      : `SMS-küldés elutasítva (SeeMe code=${code || '?'})`;
+    Sentry.captureMessage(title, {
+      level: 'error',
+      tags: { seeme_code: String(code || 'ismeretlen') },
+      extra: { seeme_message: message, phone: maskPhone(phone) },
+    });
+  } catch (_) {
+    // A riasztás hibája sosem érintheti a fő folyamatot.
+  }
+}
+
+/**
  * SMS-szegmensek száma. Nem-ASCII (ékezetes) tartalomnál UCS-2:
  * 70 kar = 1 rész, többrészesnél 67 kar/rész; tiszta ASCII-nál GSM-7:
  * 160 / többrészesnél 153.
@@ -124,9 +150,14 @@ async function sendSms(to, message) {
     }
 
     console.warn(`[sms] SeeMe elutasítás: ${maskPhone(phone)} → code=${parsed.get('code')} ${parsed.get('message') || text}`);
+    reportSmsFailure(parsed.get('code'), parsed.get('message') || text, phone);
     return { ok: false, error: text };
   } catch (err) {
     console.error('[sms] küldés sikertelen:', err.message);
+    // Hálózati/váratlan hiba is riasztást érdemel — az SMS némán esne ki.
+    if (process.env.SENTRY_DSN) {
+      try { require('@sentry/node').captureException(err); } catch (_) { /* no-op */ }
+    }
     return { ok: false, error: err.message };
   }
 }
