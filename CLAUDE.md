@@ -129,7 +129,13 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
 
 ### R2 bucket
 - `gofuvar-uploads` a Cloudflare account `4ffc8483390d0d1da83fab3ba05a4172`-en
-- **Még publikus mode-ban** (privát R2 + audit log refactor függőben — Phase 6)
+  — publikus (job-fotók, avatarok); ez maradhat így
+- **`gofuvar-kyc` PRIVÁT bucket (2026-07-13)**: a KYC-okmányfotók ide mennek
+  (`private:<kulcs>` a DB-ben, publikus URL NINCS) — olvasás CSAK rövid
+  életű presigned URL-lel (admin-lista + feltöltés-válasz szerver-oldalon
+  írja alá; env: `R2_PRIVATE_BUCKET_NAME`). Régi fotók átköltöztetése:
+  `backend/scripts/kyc-privat-migracio.js`. A teljes privát-refactor
+  (job-fotók + audit log) továbbra is Phase 6
 
 ---
 
@@ -296,6 +302,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Privát KYC-bucket + kép magic-byte védelem (2026-07-13)** — a
+  2026-07-11-i biztonsági audit 1-2. tétele lezárva: (1) a KYC-okmányfotók
+  privát R2 bucketbe mennek (`gofuvar-kyc`, semmi publikus URL; presigned
+  olvasás — admin UI változatlan, a szerver írja alá a linkeket; env:
+  `R2_PRIVATE_BUCKET_NAME`; ha hiányzik → publikus bucketbe esik vissza
+  kyc/ prefixszel + boot-warning); (2) MINDEN kép-feltöltésen (KYC, avatar,
+  job- és booking-fotó) magic-byte ellenőrzés — a fájl TARTALMA dönt, nem
+  a kliens MIME-ja (SVG/HTML-álca = stored-XSS kizárva; JPG/PNG/WebP/HEIC/
+  AVIF/GIF fogadott, a sniffelt típus megy ContentType-ként a tárolóba)
 - **SeeMe SMS ✅ ÉLES (2026-07-13)** — kulcs ROTÁLVA (a régi a git-históriában
   volt!) + `SEEME_API_KEY` a Railway-en; end-to-end bizonyítva a prodon
   (sms-e2e-fustteszt.js: teszt-fuvar → stub-fizetés → felvételi fotó →

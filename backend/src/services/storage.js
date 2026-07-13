@@ -44,6 +44,7 @@ function initR2() {
     R2_SECRET_ACCESS_KEY,
     R2_BUCKET_NAME,
     R2_PUBLIC_URL,
+    R2_PRIVATE_BUCKET_NAME,
   } = process.env;
 
   if (
@@ -73,6 +74,12 @@ function initR2() {
     return {
       client,
       bucket: R2_BUCKET_NAME,
+      // PRIVÁT bucket (2026-07-13, biztonsági audit): a KYC-fotók ide
+      // kerülnek — ennek NINCS publikus URL-je, csak rövid életű aláírt
+      // (presigned) linkkel olvasható. Ha az env hiányzik, a privát mentés
+      // a publikus bucketbe esik vissza (jelezve a logban) — a deploy ne
+      // törjön, de a cél a R2_PRIVATE_BUCKET_NAME beállítása.
+      privateBucket: R2_PRIVATE_BUCKET_NAME || null,
       // Defenzív tisztítás: bármely `<` vagy `>` karaktert (pl. Safari /
       // clipboard auto-link felismerés a Raw Editor beillesztésnél), plusz
       // trailing slash → levágjuk. Így robusztus a rossz env paste ellen.
@@ -89,9 +96,18 @@ r2Client = r2Config?.client || null;
 
 if (r2Client) {
   console.log(`[storage] Cloudflare R2 aktív — bucket: ${r2Config.bucket}`);
+  if (r2Config.privateBucket) {
+    console.log(`[storage] Privát (KYC) bucket aktív: ${r2Config.privateBucket}`);
+  } else {
+    console.warn('[storage] ⚠️ R2_PRIVATE_BUCKET_NAME nincs beállítva — a KYC-fotók a PUBLIKUS bucketbe mennek!');
+  }
 } else {
   console.log('[storage] Lokális disk mód — Railway-en ez NEM perzisztens!');
 }
+
+// Privát fájlok disk-fallback mappája (dev/teszt mód)
+const PRIVATE_DIR = path.join(UPLOADS_DIR, 'private');
+if (!fs.existsSync(PRIVATE_DIR)) fs.mkdirSync(PRIVATE_DIR, { recursive: true });
 
 /**
  * Fájl mentése — vagy R2-re, vagy a lokális filesystem-re.
@@ -136,6 +152,75 @@ async function saveFile(buffer, originalName, mimetype) {
 }
 
 /**
+ * PRIVÁT fájl mentése (KYC-dokumentumok) — a privát R2 bucketbe, aminek
+ * nincs publikus URL-je. A visszaadott érték egy `private:<kulcs>` jelölő,
+ * ami a DB-be kerül; olvasni CSAK a getSignedPrivateUrl-lel lehet.
+ * Disk-fallback (dev/teszt): uploads/private/ alá kerül.
+ */
+async function savePrivateFile(buffer, originalName, mimetype) {
+  const ext = (originalName?.split('.').pop() || 'jpg').toLowerCase();
+  const safeExt = /^[a-z0-9]{1,6}$/.test(ext) ? ext : 'jpg';
+  const key = `kyc/${crypto.randomBytes(16).toString('hex')}.${safeExt}`;
+
+  if (r2Client && r2Config) {
+    try {
+      const { PutObjectCommand } = require('@aws-sdk/client-s3');
+      await r2Client.send(
+        new PutObjectCommand({
+          // Ha nincs külön privát bucket, a publikusba esünk vissza (a boot-
+          // log figyelmeztet) — a kyc/ prefix ott is elkülöníti a fájlokat.
+          Bucket: r2Config.privateBucket || r2Config.bucket,
+          Key: key,
+          Body: buffer,
+          ContentType: mimetype || 'application/octet-stream',
+          // NINCS public cache — a fájl aláírt URL-lel, rövid ideig olvasható
+          CacheControl: 'private, no-store',
+        }),
+      );
+      return `private:${key}`;
+    } catch (err) {
+      console.error('[storage] R2 privát upload hiba, disk fallback:', err.message);
+    }
+  }
+
+  // Disk fallback — a kulcs fájlnév-része kerül a private mappába
+  const filepath = path.join(PRIVATE_DIR, path.basename(key));
+  fs.writeFileSync(filepath, buffer);
+  return `private:${key}`;
+}
+
+/**
+ * Rövid életű, aláírt olvasó-URL egy privát fájlhoz.
+ * @param {string} privateUrl — a savePrivateFile által adott `private:<kulcs>`
+ * @param {number} expiresIn — érvényesség másodpercben (default 10 perc)
+ * @returns {Promise<string|null>} URL, vagy null ha a formátum ismeretlen
+ */
+async function getSignedPrivateUrl(privateUrl, expiresIn = 600) {
+  if (!privateUrl || !privateUrl.startsWith('private:')) return null;
+  const key = privateUrl.slice('private:'.length);
+  if (!key) return null;
+
+  if (r2Client && r2Config) {
+    try {
+      const { GetObjectCommand } = require('@aws-sdk/client-s3');
+      const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+      return await getSignedUrl(
+        r2Client,
+        new GetObjectCommand({ Bucket: r2Config.privateBucket || r2Config.bucket, Key: key }),
+        { expiresIn },
+      );
+    } catch (err) {
+      console.error('[storage] presign hiba:', err.message);
+      return null;
+    }
+  }
+
+  // Disk fallback (dev/teszt): a statikusan kiszolgált private mappa útja.
+  // Élesben ez az ág nem fut (ott R2 van); devben elfogadott kompromisszum.
+  return `/uploads/private/${path.basename(key)}`;
+}
+
+/**
  * Igazat ad vissza, ha R2 aktív. A hívó tudni akarja, perzisztens-e.
  */
 function isPersistent() {
@@ -151,6 +236,33 @@ function isPersistent() {
  */
 async function deleteFile(url) {
   if (!url) return false;
+
+  // Privát fájl: `private:<kulcs>` — a privát bucketből (vagy diskről) törlünk
+  if (url.startsWith('private:')) {
+    const key = url.slice('private:'.length);
+    if (!key) return false;
+    if (r2Client && r2Config) {
+      try {
+        const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+        await r2Client.send(new DeleteObjectCommand({
+          Bucket: r2Config.privateBucket || r2Config.bucket,
+          Key: key,
+        }));
+        return true;
+      } catch (err) {
+        console.error('[storage] R2 privát törlés hiba:', err.message);
+        return false;
+      }
+    }
+    try {
+      const filepath = path.join(PRIVATE_DIR, path.basename(key));
+      if (fs.existsSync(filepath)) fs.unlinkSync(filepath);
+      return true;
+    } catch (err) {
+      console.error('[storage] disk privát törlés hiba:', err.message);
+      return false;
+    }
+  }
 
   // R2 objektum: a publikus URL prefix után jön a kulcs (fájlnév)
   if (r2Client && r2Config && url.startsWith(`${r2Config.publicUrl}/`)) {
@@ -182,4 +294,4 @@ async function deleteFile(url) {
   return true;
 }
 
-module.exports = { saveFile, isPersistent, deleteFile };
+module.exports = { saveFile, savePrivateFile, getSignedPrivateUrl, isPersistent, deleteFile };

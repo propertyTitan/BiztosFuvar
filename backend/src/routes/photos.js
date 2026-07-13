@@ -55,6 +55,12 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
     return res.status(400).json({ error: 'Csak képfájl tölthető fel (JPG/PNG).' });
   }
+  // Magic-byte ellenőrzés (audit 2. tétel) — tartalom dönt, nem a kliens
+  const sniffedJob = require('../utils/imageSniff').sniffImageType(req.file.buffer);
+  if (!sniffedJob) {
+    return res.status(400).json({ error: 'A fájl nem érvényes képfájl (JPG/PNG/WebP/HEIC fogadott).' });
+  }
+  req.file.mimetype = sniffedJob;
   if (!ALLOWED_KINDS.includes(kind)) {
     return res.status(400).json({ error: 'Érvénytelen kind' });
   }
@@ -348,6 +354,12 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
   if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
     return res.status(400).json({ error: 'Csak képfájl tölthető fel (JPG/PNG).' });
   }
+  // Magic-byte ellenőrzés (audit 2. tétel) — tartalom dönt, nem a kliens
+  const sniffedBooking = require('../utils/imageSniff').sniffImageType(req.file.buffer);
+  if (!sniffedBooking) {
+    return res.status(400).json({ error: 'A fájl nem érvényes képfájl (JPG/PNG/WebP/HEIC fogadott).' });
+  }
+  req.file.mimetype = sniffedBooking;
   const BOOKING_KINDS = ['pickup', 'dropoff', 'damage', 'document'];
   if (!BOOKING_KINDS.includes(kind)) {
     return res.status(400).json({ error: 'Érvénytelen kind' });
