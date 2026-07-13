@@ -286,6 +286,20 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Élő ajánlat-érkezés (2026-07-12, PR #78)** — a `bids:new` socket-eventet
+  a web eddig NEM hallgatta (az új ajánlat csak reloadra jelent meg!); most a
+  feladói fuvar-oldalon élőben érkezik, a landing-mockup animációjával + ÚJ
+  jelvénnyel (10 mp után kifakul; `.bid-arrive`)
+- **Design-polír 2. kör (2026-07-13, PR #79)** — (1) **VILÁGOS FEJLÉC**: a kék
+  gradient → áttetsző surface light módban (dark marad sötét); logó-pár
+  (színes/fehér lockup, display CSAK CSS-ből — inline display felülütné a
+  témaváltást!); Belépés = primary CTA; (2) type-scale sweep: 67 off-scale
+  fontSize → skála, 39 fájlban (codemod); (3) emoji→lucide zárókör a fő
+  flow-kban (fuvarjaim 4 fül, útvonalaim, fuvar-részletek); (4)
+  :focus-visible fókusz-gyűrű (WCAG 2.4.7). ⚠️ TANULSÁG: emoji-eltávolításnál
+  az E2E szöveg-szelektorokat is nézd (04-ellenajanlat a 🔁-es címre várt).
+  Állapot: EU-mércén ~8/10, magyar piacon 9,5 — a 8,5+ út: valódi fotók
+  (launch után), komponensesítés, motion-mélység
 - **Design-polír 1. kör (2026-07-12, PR #77)** — (1) EmptyState v2: márkázott
   üres állapotok 9 felületen (szaggatott kártya + lucide-ikon kör + A→B
   motívum + CTA; compact variáns a Fuvarjaim füleknek); (2) ListSkeleton a
