@@ -308,7 +308,13 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   reportSmsFailure); teendő ilyenkor: SeeMe admin → Gateway hozzáférés →
   az új IP hozzáadása (az IP a hibaüzenetben olvasható). Feladó-azonosító:
   SEEME_SENDER env-vel kapcsolható be, ha a "GoFuvar" sender jóváhagyott.
-  Teszt-eszközök: scripts/sms-teszt.js (kulcs kézzel) + sms-e2e-fustteszt.js
+  Teszt-eszközök: scripts/sms-teszt.js (kulcs kézzel) + sms-e2e-fustteszt.js.
+  💰 ÁR-TERV (user, 2026-07-13): a 38 Ft/fuvar (ékezetes, 2 szegmens, 19
+  Ft/szegmens) EGYELŐRE marad, de volumen-felfutásnál (kb. 50-100e Ft/hó
+  SMS-számlánál) BIZTOSAN váltunk a ≤70 karakteres ékezetes rövid
+  változatra (1 szegmens = 19 Ft; a sofőr neve kimarad, csak kód +
+  telefonszám + "Egyeztess vele!") — ~5 perces módosítás a photos.js
+  két pickup-üzenetében
 - **Mobil túlcsordulás-fix (2026-07-13, PR #80)** — a dekor-elemek (hero-glow
   inset -200px) túllógtak a viewporton → mobilon ki lehetett zoomolni, a
   tartalom a kijelző ~2/3-áig ért. Fix: `html, body { overflow-x: clip }`
