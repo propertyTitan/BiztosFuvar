@@ -195,7 +195,16 @@ router.get('/admin/kyc-documents', ...adminOnly, async (req, res) => {
       ORDER BY k.created_at DESC LIMIT 50`,
     [status],
   );
-  res.json(rows);
+  // Privát tárolású fotókhoz (private:<kulcs>) rövid életű aláírt URL megy
+  // az admin-felületnek — a régi, publikus URL-es sorok változatlanul
+  // átmennek (a migrációs szkript költözteti őket).
+  const { getSignedPrivateUrl } = require('../services/storage');
+  const out = await Promise.all(rows.map(async (r) => (
+    r.file_url && r.file_url.startsWith('private:')
+      ? { ...r, file_url: await getSignedPrivateUrl(r.file_url) }
+      : r
+  )));
+  res.json(out);
 });
 
 // PATCH /admin/kyc-documents/:id — KYC dokumentum kézi jóváhagyása/elutasítása.

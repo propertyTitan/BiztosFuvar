@@ -9,7 +9,7 @@ const { authRequired } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit, writeRateLimit } = require('../middleware/rateLimit');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
 const { getOrCreateReferralCode, resolveReferrerId } = require('../services/referral');
-const { saveFile } = require('../services/storage');
+const { saveFile, savePrivateFile, getSignedPrivateUrl } = require('../services/storage');
 const {
   sendEmailVerificationEmail,
   sendPasswordResetEmail,
@@ -678,6 +678,12 @@ router.post('/avatar', authRequired, uploadSingle('file'), async (req, res) => {
   if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
     return res.status(400).json({ error: 'Csak képfájl tölthető fel (JPG/PNG).' });
   }
+  // Magic-byte ellenőrzés (audit 2. tétel) — tartalom dönt, nem a kliens
+  const sniffedAvatar = require('../utils/imageSniff').sniffImageType(req.file.buffer);
+  if (!sniffedAvatar) {
+    return res.status(400).json({ error: 'A fájl nem érvényes képfájl (JPG/PNG/WebP/HEIC fogadott).' });
+  }
+  req.file.mimetype = sniffedAvatar;
   try {
     const url = await saveFile(
       req.file.buffer,
@@ -705,11 +711,21 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
     return res.status(400).json({ error: 'Csak képfájl tölthető fel (JPG/PNG).' });
   }
+  // Magic-byte ellenőrzés: a fájl TARTALMA döntsön, ne a kliens MIME-ja
+  // (SVG/HTML image/*-nak álcázva stored-XSS lehetne — audit 2. tétel)
+  const sniffedKyc = require('../utils/imageSniff').sniffImageType(req.file.buffer);
+  if (!sniffedKyc) {
+    return res.status(400).json({ error: 'A fájl nem érvényes képfájl (JPG/PNG/WebP/HEIC fogadott).' });
+  }
+  req.file.mimetype = sniffedKyc;
   const { doc_type } = req.body || {};
   const validTypes = ['id_card', 'drivers_license', 'insurance', 'vehicle_registration', 'company_document'];
   if (!validTypes.includes(doc_type)) return res.status(400).json({ error: 'Érvénytelen dokumentum típus' });
 
-  const url = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+  // PRIVÁT tárolás (2026-07-13, biztonsági audit): a személyi okmány fotója
+  // a privát bucketbe kerül (`private:<kulcs>` a DB-ben), publikus URL-je
+  // NINCS — olvasni csak rövid életű aláírt linkkel lehet (admin-felület).
+  const url = await savePrivateFile(req.file.buffer, req.file.originalname, req.file.mimetype);
 
   // AI ellenőrzés: a feltöltött kép tényleg a megadott dokumentum típus-e?
   const { verifyKycDocument } = require('../services/gemini');
@@ -824,7 +840,8 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     ok: aiResult.valid && !isUnderage,
     doc_type,
     status: kycStatus,
-    file_url: url,
+    // A kliens felé aláírt (rövid életű) olvasó-URL megy, sosem a nyers kulcs
+    file_url: await getSignedPrivateUrl(url),
     ai_reason: isUnderage
       ? 'A születési dátumod alapján 18 év alatti vagy. A profilod adminisztrátori jóváhagyásra vár.'
       : aiResult.reason,
