@@ -317,11 +317,13 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
     notifyMatchingAlerts(job).catch((e) => console.warn('[laneAlerts] hiba:', e.message));
   });
 
-  // --- Címzett értesítése (SMS + email) a tracking linkkel ---
-  if (recipient_phone || recipient_email) {
+  // --- Címzett értesítése (CSAK email) a tracking linkkel ---
+  // SMS-MODELL (2026-07-13, user-döntés): a címzett EGYETLEN SMS-t kap, a
+  // csomag FELVÉTELEKOR (kód + sofőr elérhetősége — photos.js pickup ág).
+  // Feladáskor SMS nincs (sofőr sincs még); email mehet, az ingyen van.
+  if (recipient_email) {
     const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
     const trackingUrl = `${baseUrl}/nyomon-kovetes/${trackingToken}`;
-    const recipientMsg = `Szia${recipient_name ? ` ${recipient_name}` : ''}! Csomag érkezik hozzád a GoFuvar-on keresztül. Kövesd itt: ${trackingUrl} Az átvételi kód: ${deliveryCode}`;
 
     setImmediate(async () => {
       // Email küldés (ha van email + Resend API kulcs)
@@ -339,12 +341,6 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
         } catch (e) {
           console.warn('[recipient] email hiba:', e.message);
         }
-      }
-      // SMS küldés (ha van telefonszám) — a SeeMe gateway élesben küld,
-      // SEEME_API_KEY hiányában stub módban csak naplóz (kód nélkül).
-      if (recipient_phone) {
-        const { sendSms } = require('../services/sms');
-        sendSms(recipient_phone, recipientMsg).catch(() => {});
       }
     });
   }

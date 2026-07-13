@@ -40,7 +40,7 @@ const STEPS = [
   { num: '2', title: 'Válassz sofőrt', dot: 'var(--primary)',
     desc: 'Fogadd el a neked tetsző ajánlatot, vagy foglalj fix áras útvonalon. Egy kis kapcsolatfelvételi díj után azonnal megkapod a sofőr elérhetőségét.' },
   { num: '3', title: 'Vedd át a kóddal', dot: 'var(--success)',
-    desc: 'A címzett SMS-ben kapja a követési linket és a kódot. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat készpénzben rendezed a sofőrrel.' },
+    desc: 'Felvételkor a címzett SMS-ben kapja az átvételi kódot és a sofőr számát. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat készpénzben rendezed a sofőrrel.' },
 ];
 
 const TRUST = [
@@ -321,7 +321,7 @@ export default function LandingPage() {
               <li>Hirdesd meg a fuvart — a sofőrök ajánlatot tesznek rá</li>
               <li>Vagy foglalj helyet egy fix áras útvonalon</li>
               <li>Kis díj után azonnal megkapod a sofőr elérhetőségét</li>
-              <li>A címzett SMS-ben kapja a követési linket</li>
+              <li>Felvételkor a címzett SMS-ben kapja az átvételi kódot</li>
               <li>Add át a 6 jegyű kódot, a fuvardíjat kápéban rendezed</li>
             </ul>
           </div>
