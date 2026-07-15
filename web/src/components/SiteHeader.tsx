@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Home, Target, Route, User, Truck, Shield,
-  Bell, BellRing, Bot, LogOut, ChevronDown, Package,
+  Bell, BellRing, Bot, LogOut, ChevronDown, Package, Plus,
 } from 'lucide-react';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
@@ -134,12 +134,29 @@ export default function SiteHeader() {
           <Link href="/" style={navLinkStyle}>
             <Home size={15} /> {t('nav.home')}
           </Link>
-          <Link href="/sofor/fuvarok" style={navLinkStyle}>
-            <Target size={15} /> {t('nav.biddableJobs')}
-          </Link>
-          <Link href="/dashboard/utvonalak" style={navLinkStyle}>
-            <Route size={15} /> {t('nav.fixedRoutes')}
-          </Link>
+          {/* MÓD-ALAPÚ nav (2026-07-15, BUG-034 folytatás): feladó módban
+              ne sofőr-linkek látszódjanak — a linkek az aktív módot követik.
+              (activeMode null = betöltés alatt → feladói alapértelmezés,
+              ugyanaz, mint a HomeHub default módja) */}
+          {activeMode === 'driver' ? (
+            <>
+              <Link href="/sofor/fuvarok" style={navLinkStyle}>
+                <Target size={15} /> {t('nav.biddableJobs')}
+              </Link>
+              <Link href="/sofor/utvonalaim" style={navLinkStyle}>
+                <Route size={15} /> Útvonalaim
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link href="/dashboard/uj-fuvar" style={navLinkStyle}>
+                <Plus size={15} /> Fuvar feladása
+              </Link>
+              <Link href="/dashboard/utvonalak" style={navLinkStyle}>
+                <Route size={15} /> {t('nav.fixedRoutes')}
+              </Link>
+            </>
+          )}
         </nav>
       )}
 
@@ -265,8 +282,18 @@ export default function SiteHeader() {
                     {/* Mobilon a fő nav (Fuvarok / Útvonalak) rejtve van — itt
                         érhető el, hogy keskeny képernyőn se vesszen el. */}
                     <div className="only-mobile-menu">
-                      <DropdownItem href="/sofor/fuvarok" icon={<Target size={16} />} label={t('nav.biddableJobs')} onClick={() => setMenuOpen(false)} />
-                      <DropdownItem href="/dashboard/utvonalak" icon={<Route size={16} />} label={t('nav.fixedRoutes')} onClick={() => setMenuOpen(false)} />
+                      {/* Mobilon is az aktív mód linkjei (BUG-034 folytatás) */}
+                      {activeMode === 'driver' ? (
+                        <>
+                          <DropdownItem href="/sofor/fuvarok" icon={<Target size={16} />} label={t('nav.biddableJobs')} onClick={() => setMenuOpen(false)} />
+                          <DropdownItem href="/sofor/utvonalaim" icon={<Route size={16} />} label="Útvonalaim" onClick={() => setMenuOpen(false)} />
+                        </>
+                      ) : (
+                        <>
+                          <DropdownItem href="/dashboard/uj-fuvar" icon={<Plus size={16} />} label="Fuvar feladása" onClick={() => setMenuOpen(false)} />
+                          <DropdownItem href="/dashboard/utvonalak" icon={<Route size={16} />} label={t('nav.fixedRoutes')} onClick={() => setMenuOpen(false)} />
+                        </>
+                      )}
                     </div>
                     <DropdownItem href="/profil" icon={<User size={16} />} label={t('nav.profile')} onClick={() => setMenuOpen(false)} />
                     <DropdownItem href="/fuvarjaim" icon={<Truck size={16} />} label="Fuvarjaim" onClick={() => setMenuOpen(false)} />
