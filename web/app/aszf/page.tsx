@@ -147,10 +147,8 @@ export default function AszfPage() {
         A díj a megállapodott fuvardíjhoz igazodó sávos, <strong>bevezető árazású</strong> díj:
       </p>
       <ul>
-        <li>20.000 Ft fuvardíjig: <strong>500 Ft</strong></li>
-        <li>20.001 – 50.000 Ft fuvardíj között: <strong>1.490 Ft</strong></li>
-        <li>50.001 – 100.000 Ft fuvardíj között: <strong>2.490 Ft</strong></li>
-        <li>100.000 Ft fuvardíj felett: <strong>3.990 Ft</strong></li>
+        <li>50.000 Ft fuvardíjig: <strong>500 Ft</strong></li>
+        <li>50.000 Ft fuvardíj felett: <strong>1.000 Ft</strong></li>
       </ul>
       <p>
         A feltüntetett díjak bruttó (ÁFA-t tartalmazó) összegek. A „bevezető ár" megjelölés arra utal,

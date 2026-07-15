@@ -191,10 +191,8 @@ FIZETÉS ÉS DÍJAK
   nem tartja letétben és nem is közvetíti
 - A platform egyetlen díja a KAPCSOLATFELVÉTELI DÍJ, amit a feladó fizet
   bankkártyával (Barion) az ajánlat elfogadásakor. Sávos, BEVEZETŐ árak:
-  * 20.000 Ft-ig: 500 Ft
-  * 20.001 – 50.000 Ft: 1.490 Ft
-  * 50.001 – 100.000 Ft: 2.490 Ft
-  * 100.000 Ft felett: 3.990 Ft
+  * 50.000 Ft fuvardíjig: 500 Ft
+  * 50.000 Ft felett: 1.000 Ft
   (Bevezető díjszabás — a platform a változtatás jogát fenntartja.)
 - A díj ellenében a feladó AZONNAL megkapja a sofőr elérhetőségét, és elindul
   a teljes fuvar-folyamat (SMS-ek a címzettnek, átvételi kód, fotó-bizonyíték)

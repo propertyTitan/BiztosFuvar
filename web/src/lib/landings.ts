@@ -66,7 +66,7 @@ function routeConfig(r: { slug: string; from: string; to: string; km: number }):
       { icon: Banknote, tint: 'var(--success)', title: 'Készpénzes fuvardíj', desc: 'A fuvardíjat készpénzben adod a sofőrnek; a GoFuvar csak egy kis kapcsolatfelvételi díjat szed elfogadáskor.' },
     ],
     faq: [
-      { q: `Mennyibe kerül egy ${title} fuvar?`, a: 'A fuvardíjat a sofőrrel egyeztetitek — feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján. A GoFuvar ezen felül egy sávos, bevezető kapcsolatfelvételi díjat számít (500–3 990 Ft), amit a fuvar elfogadásakor fizetsz.' },
+      { q: `Mennyibe kerül egy ${title} fuvar?`, a: 'A fuvardíjat a sofőrrel egyeztetitek — feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján. A GoFuvar ezen felül egy bevezető kapcsolatfelvételi díjat számít (50 000 Ft fuvardíjig 500 Ft, felette 1 000 Ft), amit a fuvar elfogadásakor fizetsz.' },
       { q: 'Mennyi idő alatt indul?', a: 'Amint egy sofőr elfogadja a fuvart és kifizeted a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét, és egyeztethettek időpontot.' },
       { q: 'Mit küldhetek?', a: 'Bármit, ami elfér egy autóban és jogszerű. Speciális áruhoz (pl. élő állat, gyógyszer) neked kell ellenőrizned a sofőr engedélyét.' },
     ],

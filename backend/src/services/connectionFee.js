@@ -17,11 +17,14 @@
 // időszak árazása, a platform a díjszabás változtatásának jogát az ÁSZF-ben
 // fenntartja.
 
+// EGYSZERŰSÍTETT LAUNCH-ÁRAZÁS (2026-07-15, user + ügyvezető döntése):
+// az elsődleges cél a felhasználók gyűjtése — két sáv, pofonegyszerű:
+// 50 000 Ft fuvardíjig 500 Ft, felette 1 000 Ft. (A korábbi 4 sávos
+// 500/1490/2490/3990 struktúra hatályon kívül; díjemelés legkorábban
+// 2027 — lásd CLAUDE.md 5. szakasz.)
 const CONNECTION_FEE_TIERS = [
-  { maxPriceHuf: 20000, feeHuf: 500 },
-  { maxPriceHuf: 50000, feeHuf: 1490 },
-  { maxPriceHuf: 100000, feeHuf: 2490 },
-  { maxPriceHuf: Infinity, feeHuf: 3990 },
+  { maxPriceHuf: 50000, feeHuf: 500 },
+  { maxPriceHuf: Infinity, feeHuf: 1000 },
 ];
 
 /**

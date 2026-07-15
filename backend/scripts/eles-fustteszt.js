@@ -216,15 +216,15 @@ async function main() {
         pickup_address: 'Budapest, Váci út 1.', pickup_lat: 47.5104, pickup_lng: 19.0621,
         dropoff_address: 'Szeged, Kossuth Lajos sugárút 1.', dropoff_lat: 46.2546, dropoff_lng: 20.1443,
         weight_kg: 5, length_cm: 40, width_cm: 30, height_cm: 20,
-        suggested_price_huf: 25000,
+        suggested_price_huf: 60000,
       },
     });
     created.jobIds.push(job2.json?.id);
     const bid2 = await api('POST', `/jobs/${job2.json?.id}/bids`, {
-      token: carrier.token, body: { amount_huf: 25000, return_policy: 'included' },
+      token: carrier.token, body: { amount_huf: 60000, return_policy: 'included' },
     });
     const accept2 = await api('POST', `/bids/${bid2.json?.id}/accept`, { token: shipper.token, body: {} });
-    check('2. fuvar: 25e Ft → 1490 Ft-os díjsáv', accept2.json?.connection_fee_huf === 1490,
+    check('2. fuvar: 60e Ft → 1000 Ft-os felső díjsáv (2026-07-15 árazás)', accept2.json?.connection_fee_huf === 1000,
       `fee=${accept2.json?.connection_fee_huf}`);
     const reopen = await api('POST', `/jobs/${job2.json?.id}/reopen`, { token: shipper.token, body: { reason: 'füstteszt' } });
     const job2After = await api('GET', `/jobs/${job2.json?.id}`, { token: shipper.token });

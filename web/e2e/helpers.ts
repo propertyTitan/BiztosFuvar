@@ -156,9 +156,7 @@ export async function setJobAccepted(
 /** A backend connectionFee sávjainak tükre (ÁSZF 4.1) — a tesztek elvárásaihoz. */
 export function connectionFee(priceHuf: number): number {
   if (priceHuf <= 20000) return 500;
-  if (priceHuf <= 50000) return 1490;
-  if (priceHuf <= 100000) return 2490;
-  return 3990;
+  return 1000; // 50 000 Ft felett (2026-07-15: egyszerűsített sávok)
 }
 
 /** Sofőr-licit közvetlenül az API-n (a licit-űrlapot a 02-es teszt fedi). */

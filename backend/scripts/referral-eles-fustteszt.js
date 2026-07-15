@@ -42,7 +42,7 @@ async function insertAcceptedJob(shipperId, carrierId, priceHuf) {
         connection_fee_huf)
      VALUES ($1,$2,'TESZT referral fuvar','x','Budapest',47.5,19.0,'Szeged',46.2,20.1,
         $3,$3,'accepted','111222','333444',encode(gen_random_bytes(16),'hex'),'Teszt Címzett','+36301112233',
-        CASE WHEN $3 <= 20000 THEN 500 WHEN $3 <= 50000 THEN 1490 WHEN $3 <= 100000 THEN 2490 ELSE 3990 END)
+        CASE WHEN $3 <= 50000 THEN 500 ELSE 1000 END)
      RETURNING id`,
     [shipperId, carrierId, priceHuf],
   );
