@@ -302,6 +302,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Mód-alapú fejléc-nav (2026-07-15, PR #86)** — a fejléc középső linkjei
+  az aktív módot követik (feladó: Fuvar feladása + Fix áras fuvarok; sofőr:
+  Elérhető fuvarok + Útvonalaim; mobil dropdown is) — BUG-034 érdemi része
+  ezzel lezárva, a teljes IA-redesign már nem aktuális
 - **Privát KYC-bucket + kép magic-byte védelem (2026-07-13)** — a
   2026-07-11-i biztonsági audit 1-2. tétele lezárva: (1) a KYC-okmányfotók
   privát R2 bucketbe mennek (`gofuvar-kyc`, semmi publikus URL; presigned
