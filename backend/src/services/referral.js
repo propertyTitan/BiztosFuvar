@@ -23,7 +23,9 @@ const { createNotification } = require('./notifications');
 // ---- Konfig (egy helyen hangolható) ----
 // A kupon a legfeljebb ~100.000 Ft értékű feladás díját (2.490 Ft-os sáv és
 // alatta) fedezi teljesen; efölött nem alkalmazható (költség-plafon).
-const REFERRAL_VOUCHER_MAX_FEE_HUF = 2490;
+// Az egyszerűsített díjsávokkal (2026-07-15: 500/1000) a max díj 1 000 Ft —
+// a kupon-plafon ezt fedi. (A korábban kiosztott 2490-es kuponok érvényesek.)
+const REFERRAL_VOUCHER_MAX_FEE_HUF = 1000;
 // Meddig érvényes a kapott kupon.
 const REFERRAL_VOUCHER_VALID_DAYS = 60;
 // Egy ajánló legfeljebb ennyi jutalmat szerezhet naptári hónaponként.

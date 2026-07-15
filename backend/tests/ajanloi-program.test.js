@@ -119,8 +119,11 @@ describe('Ingyen feladás a /pay-en (kupon-beváltás)', () => {
 
   it('a plafon FÖLÖTTI díjra a kupon nem alkalmazható — marad a rendes fizetés', async () => {
     const shipper = await createUser();
-    await grantVoucher(shipper.id, 'referral', 60, REFERRAL_VOUCHER_MAX_FEE_HUF);
-    const job = await createJob({ shipperId: shipper.id, priceHuf: 150000 }); // díj: 3990 Ft > plafon
+    // Az új árazásban (500/1000) a referral-plafon (1000) minden díjat fedne —
+    // a plafon-GUARD logikát ezért egy kisebb, 500 Ft-os plafonú kuponnal
+    // és felső sávos (1000 Ft díjú) fuvarral tartjuk tesztelve.
+    await grantVoucher(shipper.id, 'referral', 60, 500);
+    const job = await createJob({ shipperId: shipper.id, priceHuf: 150000 }); // díj: 1000 Ft > 500 plafon
 
     const res = await request(app)
       .post(`/jobs/${job.id}/pay`)
