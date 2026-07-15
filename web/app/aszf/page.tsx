@@ -166,12 +166,13 @@ export default function AszfPage() {
         készpénzre nem váltható.
       </p>
       <p>
-        <strong>4.2. Fuvardíj — készpénzes fizetés a Felek között:</strong> A fuvardíjat a Feladó{' '}
-        <strong>közvetlenül a Sofőrnek fizeti meg, készpénzben</strong>, a Felek megállapodása szerint
-        (jellemzően a csomag átvételekor vagy kézbesítésekor). A Szolgáltató a fuvardíjat nem szedi be,
-        nem tartja letétben, abból nem von le semmit, és a fuvardíj megfizetéséért vagy elmaradásáért
-        nem felel. A fuvardíj-fizetéssel kapcsolatos igényeket a Felek egymás között, a Ptk. szabályai
-        szerint rendezik.
+        <strong>4.2. Fuvardíj — közvetlen fizetés a Felek között:</strong> A fuvardíjat a Feladó{' '}
+        <strong>közvetlenül a Sofőrnek fizeti meg</strong> — jellemzően készpénzben a csomag
+        átvételekor vagy kézbesítésekor, de a Felek megállapodása alapján bármely más közvetlen
+        fizetési mód (például banki átutalás) is alkalmazható. A Szolgáltató a fuvardíjat semmilyen
+        formában nem szedi be, nem tartja letétben, abból nem von le semmit, és a fuvardíj
+        megfizetéséért vagy elmaradásáért nem felel. A fuvardíj-fizetéssel kapcsolatos igényeket a
+        Felek egymás között, a Ptk. szabályai szerint rendezik.
       </p>
       <p>
         <strong>4.3. Számlázás:</strong> A fuvardíj teljes (100%) összegéről a számlát/bizonylatot
@@ -296,7 +297,7 @@ export default function AszfPage() {
       <p>
         A Szolgáltató az adózás rendjéről szóló jogszabályok és a 2011/16/EU Tanácsi irányelv (DAC7)
         szerint <strong>adatot szolgáltat a Nemzeti Adó- és Vámhivatal (NAV) felé</strong> a Sofőrök
-        platformon keresztül elért bevételeiről. Mivel a fuvardíj a Felek között készpénzben mozog
+        platformon keresztül elért bevételeiről. Mivel a fuvardíj a Felek között közvetlenül mozog
         (4.2. pont), az adatszolgáltatás a <strong>Platformon rögzített, megállapodott fuvardíjakon</strong>{' '}
         (a Szolgáltató számára ismert ellenértéken) alapul. Az adatszolgáltatás éves rendszerességgel
         történik, és a NAV-tól elvárt formátumban tartalmazza a Sofőr azonosító adatait, a tranzakciók
@@ -501,7 +502,7 @@ export default function AszfPage() {
         így különösen az üzleti felhasználók vonatkozásában az online közvetítő szolgáltatásokról szóló{' '}
         <strong>(EU) 2019/1150 rendelet (P2B)</strong> szerint — a Szolgáltató ezeket betartja. A fiók
         megszüntetése nem érinti a Felhasználó már megszerzett jogos követeléseit (pl. a Sofőrnek egy
-        már teljesített fuvar után a Feladótól készpénzben járó fuvardíjat), és nem mentesíti egyik
+        már teljesített fuvar után a Feladótól járó fuvardíjat), és nem mentesíti egyik
         Felet sem a megszüntetés előtt keletkezett kötelezettségei alól.
       </p>
 
