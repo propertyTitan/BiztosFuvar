@@ -302,6 +302,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Egyszerűsített launch-árazás (2026-07-15, PR #87)** — user + ügyvezető
+  döntése: ≤50e Ft fuvardíjig 500 Ft, felette 1.000 Ft (a 4 sávos struktúra
+  hatályon kívül; cél a user-gyűjtés). Díjmotor + ÁSZF 4.1 + chatbot +
+  landing-FAQ + referral-plafon (1.000) + tesztek + füstteszt mind szinkronban
 - **Mód-alapú fejléc-nav (2026-07-15, PR #86)** — a fejléc középső linkjei
   az aktív módot követik (feladó: Fuvar feladása + Fix áras fuvarok; sofőr:
   Elérhető fuvarok + Útvonalaim; mobil dropdown is) — BUG-034 érdemi része
