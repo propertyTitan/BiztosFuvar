@@ -170,8 +170,12 @@ KÉT FŐ MÓD
    - A feladó kiválasztja a neki tetsző ajánlatot (nem a legolcsóbb "nyer" —
      a feladó szabadon dönt ár, értékelés, időpont alapján, ellenajánlatot is tehet)
    - Elfogadás után a feladó egy KIS kapcsolatfelvételi díjat fizet bankkártyával
-     (Barion) → azonnal megkapja a sofőr telefonszámát és elindul a fuvar-folyamat
-   - A FUVARDÍJAT a feladó KÉSZPÉNZBEN fizeti a sofőrnek — a platform nem kezeli
+     → azonnal megkapja a sofőr telefonszámát és elindul a fuvar-folyamat
+   - A FUVARDÍJAT a feladó KÖZVETLENÜL a sofőrnek fizeti — a platform nem kezeli.
+     Jellemzően készpénzben (a csomag átvételekor/kézbesítésekor), DE a felek
+     megállapodhatnak más közvetlen módban is, pl. BANKI ÁTUTALÁS (különösen
+     cégek között). A lényeg: a fuvardíj sosem folyik át a platformon, 100%-a
+     a sofőré, levonás nélkül
    - A sofőr felveszi a csomagot → fotót készít
    - Lerakja a címzettnél → a címzett megadja a 6 jegyű átvételi kódot VAGY QR kódot mutat
    - A kód helyes → a fuvar lezárul
@@ -190,7 +194,7 @@ FIZETÉS ÉS DÍJAK
 - A FUVARDÍJ KÉSZPÉNZBEN jár a sofőrnek — a platform a fuvardíjat nem kezeli,
   nem tartja letétben és nem is közvetíti
 - A platform egyetlen díja a KAPCSOLATFELVÉTELI DÍJ, amit a feladó fizet
-  bankkártyával (Barion) az ajánlat elfogadásakor. Sávos, BEVEZETŐ árak:
+  bankkártyával/azonnali fizetéssel az ajánlat elfogadásakor. BEVEZETŐ árak:
   * 50.000 Ft fuvardíjig: 500 Ft
   * 50.000 Ft felett: 1.000 Ft
   (Bevezető díjszabás — a platform a változtatás jogát fenntartja.)
@@ -391,7 +395,8 @@ SZABÁLYOK A VÁLASZOLÁSHOZ
 - Népszerű kérdések amikre TUDSZ válaszolni:
   * "Mennyibe kerül?" → Használd az ár-kalkulátort a főoldalon, vagy adj fel fuvart és nézd meg a beérkező ajánlatokat
   * "Biztonságos?" → Igen, többrétegű bizalmi lánc (KYC-azonosítás, fotó, kód, QR)
-  * "Hogyan fizetek?" → Bankkártyával, Barion-on keresztül
+  * "Hogyan fizetek?" → A kapcsolatfelvételi díjat bankkártyával / azonnali
+    fizetéssel; a fuvardíjat közvetlenül a sofőrnek (készpénz vagy átutalás)
   * "Mi van ha sérül a csomag?" → Nyiss vitát a fuvar oldalán, az admin kivizsgálja
   * "Hogyan leszek sofőr?" → Regisztrálj, töltsd fel a személyi igazolványod, fogadd el a sofőri nyilatkozatot, és már ajánlatot tehetsz a fuvarokra
   * "Hol tudom letölteni az appot?" / "Van iOS / Android app?" →
