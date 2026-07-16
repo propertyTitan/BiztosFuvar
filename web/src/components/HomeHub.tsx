@@ -1,8 +1,8 @@
 'use client';
 
-// GoFuvar Okos Dashboard — mód-váltó (Sofőr / Feladó) + állapot-alapú.
+// GoFuvar Okos Dashboard — mód-váltó (Szállító / Feladó) + állapot-alapú.
 //
-// Sofőr mód: aktív fuvarok → 1 nagy CTA, heti kereset, közeli munkák
+// Szállító mód: aktív fuvarok → 1 nagy CTA, heti kereset, közeli munkák
 // Feladó mód: saját hirdetések, foglalások, átvételi kódok
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -97,7 +97,7 @@ export default function HomeHub() {
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
           }}
         >
-          <Truck size={15} /> Sofőr
+          <Truck size={15} /> Szállító
         </button>
         <button
           type="button"
@@ -114,7 +114,7 @@ export default function HomeHub() {
         </button>
       </div>
 
-      {/* ===== SOFŐR MÓD ===== */}
+      {/* ===== SZÁLLÍTÓ MÓD ===== */}
       {mode === 'driver' && (
         <>
           {/* Fejléc: üdvözlés + heti kereset */}
@@ -123,7 +123,7 @@ export default function HomeHub() {
             marginBottom: 20, flexWrap: 'wrap', gap: 12,
           }}>
             <div>
-              <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Sofőr'}! 👋</h1>
+              <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Szállító'}! 👋</h1>
               <p className="muted" style={{ margin: '4px 0 0' }}>
                 {d ? `${d.level}. szint — ${d.levelName}` : ''}
                 {d?.isVerified ? (
@@ -151,7 +151,7 @@ export default function HomeHub() {
             )}
           </div>
 
-          {/* KYC tájékoztató — sofőr módban is, első belépéskor */}
+          {/* KYC tájékoztató — szállító módban is, első belépéskor */}
           {kycCardVisible && (
             <div
               style={{
@@ -165,7 +165,7 @@ export default function HomeHub() {
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 36, flexShrink: 0 }}>🛡️</span>
                 <div>
-                  <strong style={{ fontSize: 16 }}>Sofőrként is szükséges az azonosítás!</strong>
+                  <strong style={{ fontSize: 16 }}>Szállítóként is szükséges az azonosítás!</strong>
                   <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
                     Ahhoz, hogy fuvart vállalhass vagy útvonalat hirdethess, szükséged van:
                   </p>
@@ -293,14 +293,14 @@ export default function HomeHub() {
               <p className="muted" style={{ marginBottom: 16 }}>
                 {(d?.nearbyJobsCount || 0) > 0
                   ? 'Nézd meg az elérhető fuvarokat és tegyél ajánlatot.'
-                  : 'Nézz körül a fuvarok között, vagy hirdess meg egy fix áras útvonalat.'}
+                  : 'Nézz körül a fuvarok között, vagy hirdess meg egy fix áras járatot.'}
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <Link href="/sofor/fuvarok" className="btn" style={{ textDecoration: 'none' }}>
                   <Target size={16} /> Fuvarok böngészése
                 </Link>
                 <Link href="/sofor/uj-utvonal" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-                  Útvonal hirdetése
+                  Járat hirdetése
                 </Link>
               </div>
             </div>
@@ -327,7 +327,7 @@ export default function HomeHub() {
             </Link>
           )}
 
-          {/* Gyors sofőr linkek */}
+          {/* Gyors szállító linkek */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
             {[
               { href: '/sofor/fuvarok', icon: <Target size={18} />, label: 'Fuvarok' },
@@ -335,8 +335,8 @@ export default function HomeHub() {
               { href: '/fuvarjaim?tab=licitjeim', icon: <Tag size={18} />, label: 'Ajánlataim' },
               { href: '/fuvarjaim?tab=vallalt', icon: <Truck size={18} />, label: t('nav.myJobs') },
               { href: '/sofor/visszafuvar', icon: <RefreshCw size={18} />, label: 'Visszafuvar' },
-              { href: '/sofor/uj-utvonal', icon: <Plus size={18} />, label: 'Új útvonal' },
-              { href: '/sofor/utvonalaim', icon: <RouteIcon size={18} />, label: 'Útvonalaim' },
+              { href: '/sofor/uj-utvonal', icon: <Plus size={18} />, label: 'Új járat' },
+              { href: '/sofor/utvonalaim', icon: <RouteIcon size={18} />, label: 'Járataim' },
             ].map((l) => (
               <Link
                 key={l.href}
@@ -390,7 +390,7 @@ export default function HomeHub() {
                   </p>
                   <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
                     <li><strong>Feladóként:</strong> személyi igazolvány fotója (mindkét oldal)</li>
-                    <li><strong>Sofőrként:</strong> személyi igazolvány + egy rövid nyilatkozat</li>
+                    <li><strong>Szállítóként:</strong> személyi igazolvány + egy rövid nyilatkozat</li>
                     <li><strong>Cégként:</strong> a fentiek + adószám</li>
                   </ul>
                   <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.6 }}>
@@ -460,7 +460,7 @@ export default function HomeHub() {
             >
               <div style={{ marginBottom: 8 }}><FileText size={36} color="var(--primary)" /></div>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Fuvar feladása</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Sofőrök ajánlatot tesznek rá</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Szállítók ajánlatot tesznek rá</div>
             </Link>
             <Link
               href="/dashboard/utvonalak"
@@ -471,8 +471,8 @@ export default function HomeHub() {
               }}
             >
               <div style={{ marginBottom: 8 }}><RouteIcon size={36} color="var(--success)" /></div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Fix áras útvonal</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Foglalj helyet egy sofőrnél</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Induló járatok</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Foglalj helyet egy szállítónál</div>
             </Link>
             <Link
               href="/hozasd-el"

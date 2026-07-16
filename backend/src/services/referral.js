@@ -7,7 +7,7 @@
 //
 // "Teljesítés" = a meghívott
 //   - feladóként: kifizette az első kapcsolatfelvételi díját (paid_at), VAGY
-//   - sofőrként: lezárta az első fuvart (delivered).
+//   - szállítóként: lezárta az első fuvart (delivered).
 // Amelyik előbb bekövetkezik. Userenként EGYSZER (referral_reward_granted_at).
 //
 // Visszaélés-védelem:

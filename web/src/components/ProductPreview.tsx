@@ -1,11 +1,11 @@
 // Termék-előnézet a landing hero-jába — telefon-keretben a GoFuvar
-// kulcspillanata: a feladott fuvarra érkeznek a sofőr-ajánlatok.
+// kulcspillanata: a feladott fuvarra érkeznek a szállító-ajánlatok.
 //
 // SZÁNDÉKOSAN nem screenshot-PNG, hanem token-alapú, "élő" mini-UI:
 //  - a dark mode-dal együtt vált (a PNG nem tudná),
 //  - mindig éles (retina, zoom),
 //  - a valódi termék-szókincset használja ("Ajánlatokat vár", pill-ek,
-//    átvételi kód) — a hero ígéretét ("Sofőröd is lesz.") játssza el:
+//    átvételi kód) — a hero ígéretét ("Szállítód is lesz.") játssza el:
 //    a harmadik, legjobb ajánlat kis késleltetéssel "érkezik meg"
 //    (gofuvar-offer-in a globals.css-ben, reduced-motion-nel kikapcsol).
 //
@@ -68,7 +68,7 @@ export default function ProductPreview() {
   return (
     <div
       role="img"
-      aria-label="A GoFuvar alkalmazás képernyője: egy feladott Budapest–Szeged fuvarra három sofőr tett ajánlatot."
+      aria-label="A GoFuvar alkalmazás képernyője: egy feladott Budapest–Szeged fuvarra három szállító tett ajánlatot."
       style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginTop: 48 }}
     >
       <div aria-hidden style={{ position: 'relative' }}>

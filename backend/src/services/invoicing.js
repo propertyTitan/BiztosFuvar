@@ -2,7 +2,7 @@
 //
 // A kapcsolatfelvételi díj megfizetésekor automatikusan generálódik egy
 // számla a díjat fizető FELADÓ részére (készpénzes modell, 2026-07-03 —
-// a fuvardíj maga a feladó és a sofőr közt mozog, arról a platform nem
+// a fuvardíj maga a feladó és a szállító közt mozog, arról a platform nem
 // számláz). A számla:
 //   - Kétnyelvű (HU + a vevő nyelve, vagy EN fallback)
 //   - A VAT engine által meghatározott adómértékkel

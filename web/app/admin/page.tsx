@@ -275,7 +275,7 @@ export default function AdminPanel() {
         </div>
         <div className="row" style={{ gap: 20, flexWrap: 'wrap', fontSize: 14 }}>
           <span title="Feladók">📦 {live?.by_role?.shipper ?? 0} feladó</span>
-          <span title="Sofőrök">🚚 {live?.by_role?.carrier ?? 0} sofőr</span>
+          <span title="Szállítók">🚚 {live?.by_role?.carrier ?? 0} szállító</span>
           <span title="Adminok">🛡️ {live?.by_role?.admin ?? 0} admin</span>
           <span className="muted" title="Token nélküli (vendég) kapcsolatok">
             👤 {live?.anonymous ?? 0} vendég
@@ -305,7 +305,7 @@ export default function AdminPanel() {
             { label: 'Összes fuvar', value: stats.total_jobs, color: 'var(--primary-subtle)' },
             { label: 'Aktív fuvar', value: stats.active_jobs, color: 'var(--success-light)' },
             { label: 'Felhasználók', value: stats.total_users, color: 'var(--warning-light)' },
-            { label: 'Fix áras útvonalak', value: stats.total_routes, color: 'var(--primary-subtle)' },
+            { label: 'Járatok', value: stats.total_routes, color: 'var(--primary-subtle)' },
             { label: 'Foglalások', value: stats.total_bookings, color: 'var(--warning-light)' },
             { label: 'Nyitott viták', value: stats.open_disputes, color: 'var(--danger-light)' },
           ].map((s) => (

@@ -230,7 +230,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
                       <textarea
                         value={answerDrafts[q.id] || ''}
                         onChange={(e) => onAnswerChange(q.id, e.target.value)}
-                        placeholder="Válaszolj nyíltan — mindenki látja, így segítesz a többi sofőrnek is."
+                        placeholder="Válaszolj nyíltan — mindenki látja, így segítesz a többi szállítónak is."
                         maxLength={1000}
                         rows={2}
                         style={{

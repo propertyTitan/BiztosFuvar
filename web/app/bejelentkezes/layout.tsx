@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'Bejelentkezés és regisztráció',
-  description: 'Lépj be a GoFuvar fiókodba, vagy regisztrálj ingyen — feladóként és sofőrként is használhatod.',
+  description: 'Lépj be a GoFuvar fiókodba, vagy regisztrálj ingyen — feladóként és szállítóként is használhatod.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

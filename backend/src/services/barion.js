@@ -2,7 +2,7 @@
 //
 // A teljes fuvardíjat a feladótól FOGLALJUK (reservation), majd a sikeres
 // "Proof of Delivery 2.0" után FELOSZTJUK:
-//   - 90 % a sofőrnek (carrier)
+//   - 90 % a szállítónak (carrier)
 //   - 10 % a GoFuvar platformnak (jutalék)
 //
 // Barion API dokumentáció:
@@ -29,7 +29,7 @@ function isStub() {
 
 /**
  * Platformdíj számítása: 10% + 400 Ft fix adminisztrációs díj.
- * Visszaadja a sofőr és a platform részét kerekítve.
+ * Visszaadja a szállító és a platform részét kerekítve.
  */
 function calculatePlatformFee(totalHuf) {
   const percentFee = Math.round(totalHuf * COMMISSION_PCT);
@@ -127,7 +127,7 @@ async function reservePayment({ jobId, amount, totalHuf, shipperEmail, carrierEm
 /**
  * Kapcsolatfelvételi díj beszedése — SIMA (azonnali) Barion fizetés, nem
  * foglalás. A készpénzes modellben (2026-07-03) a platform csak a saját
- * díját szedi be a feladótól; a fuvardíj készpénzben megy a sofőrnek,
+ * díját szedi be a feladótól; a fuvardíj készpénzben megy a szállítónak,
  * így nincs escrow, nincs split, nincs transfer.
  *
  * @param {object} p
@@ -168,7 +168,7 @@ async function startFeePayment({ jobId, feeHuf, shipperEmail, redirectPath }) {
         Items: [
           {
             Name: 'Kapcsolatfelvételi díj (bevezető ár)',
-            Description: `GoFuvar közvetítési díj #${jobId} — a fuvardíjat készpénzben fizeted a sofőrnek`,
+            Description: `GoFuvar közvetítési díj #${jobId} — a fuvardíjat készpénzben fizeted a szállítónak`,
             Quantity: 1,
             Unit: 'db',
             UnitPrice: feeHuf,
@@ -197,8 +197,8 @@ async function startFeePayment({ jobId, feeHuf, shipperEmail, redirectPath }) {
  * Barion modell: a `FinishReservation` minden tranzakciónak megadja az új
  * (csökkentett) összegét. Mi a teljes összeget hagyjuk a platform tranzakción
  * (azaz teljesen érvényesítjük), majd a kifizetést egy külön
- * `Payment/Transfer` hívással küldjük tovább a sofőrnek.
- * Ez a leggyakoribb pattern, ha a sofőr nem regisztrált Barion fiókkal indul.
+ * `Payment/Transfer` hívással küldjük tovább a szállítónak.
+ * Ez a leggyakoribb pattern, ha a szállító nem regisztrált Barion fiókkal indul.
  */
 async function finishReservation({ paymentId, jobId, totalHuf, carrierPayee }) {
   const { carrierShare, platformShare } = calculatePlatformFee(totalHuf);
@@ -225,14 +225,14 @@ async function finishReservation({ paymentId, jobId, totalHuf, carrierPayee }) {
     ],
   });
 
-  // 2) Sofőr részének átutalása (Transfer)
+  // 2) Szállító részének átutalása (Transfer)
   let transfer = null;
   if (carrierPayee) {
     transfer = await barionFetch('/v2/Transfer/Send', {
       Currency: 'HUF',
       Amount: carrierShare,
       RecipientName: carrierPayee,
-      Comment: `GoFuvar fuvar #${jobId} – sofőri részesedés`,
+      Comment: `GoFuvar fuvar #${jobId} – szállítói részesedés`,
     }).catch((err) => {
       console.warn('[barion] transfer hiba:', err.message);
       return { error: err.message };
@@ -297,7 +297,7 @@ async function refundPayment({ paymentId, jobId, refundAmountHuf, reason }) {
 /**
  * A GoFuvar lemondási díj-szabálya:
  *   - Ha még nem történt fizetés → díj = 0, refund = 0
- *   - Ha a SOFŐR mondja le → díj = 0, 100% refund a feladónak
+ *   - Ha a SZÁLLÍTÓ mondja le → díj = 0, 100% refund a feladónak
  *   - Ha a FELADÓ mondja le a már kifizetett fuvart:
  *       → 8.000 Ft alatt: 400 Ft fix díj
  *       → 8.000 Ft felett: 5%
@@ -326,8 +326,8 @@ async function getPaymentState(paymentId) {
 // A készpénzes modellben (2026-07-03) lemondási díj és visszatérítés NINCS:
 // a platform nem kezeli a fuvardíjat, a kapcsolatfelvételi díj pedig a
 // szolgáltatás (kontakt-átadás) teljesítésével elhasználódik — nem
-// visszatérítendő (ÁSZF + 45/2014. Korm. r. 29. § (1) a)). Sofőr-oldali
-// meghiúsulásnál a feladó díjmentesen választhat másik sofőrt ugyanarra a
+// visszatérítendő (ÁSZF + 45/2014. Korm. r. 29. § (1) a)). Szállító-oldali
+// meghiúsulásnál a feladó díjmentesen választhat másik szállítót ugyanarra a
 // fuvarra (jobs.js reopen-logika).
 function computeCancellationSettlement() {
   return { fee: 0, refund: 0 };

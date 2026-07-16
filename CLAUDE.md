@@ -302,6 +302,21 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Szállító + Járat átnevezés (2026-07-16, PR #90)** — user-döntés: a
+  „Sofőr" szerepnév USER FELÉ mindenhol **„Szállító"** (ok: jogosítvány-mentes
+  modell — bringás/gyalogos futár nem „sofőr"; céges szállítók), a „fix áras
+  útvonal" entitás pedig **„Járat"** (feladónak: „Induló járatok", szállítónak:
+  „Járataim" / „Új járat hirdetése"; a „fix ár" tulajdonság-jelvény, nem név).
+  108 fájlos bulk-sweep teljes magyar ragozási térképpel (sofőrrel→szállítóval
+  stb.) + célzott járat-kör. A hero-szlogen is: **„Csomagod van? Szállítód is
+  lesz."** (OG-kép újragenerálva). ⚠️ SZÖVEG-SZABÁLY (PR #71 mintájára):
+  user felé „sofőr" és „fix áras útvonal" TILOS — „szállító" és „(induló)
+  járat"; NEM változott: kód-belső nevek (driver/carrier/sofor URL-ek,
+  /sofor/*, /soforoknek), az ÁSZF „Sofőr" definiált fogalma (híd-definícióval:
+  „a Platform felületein: Szállító"), az adatkezelési tájékoztató, és a
+  „Útvonal-figyelő" (az MÁS fogalom: földrajzi lane-alert). A /soforoknek
+  metaTitle/description SEO-célból tartja a „sofőr/futár/fuvarozó" szavakat.
+  SMS: „Szállító:" (+3 kar → név-cap 22→20, worst case 132 kar = 2 szegmens)
 - **Egyszerűsített launch-árazás (2026-07-15, PR #87)** — user + ügyvezető
   döntése: ≤50e Ft fuvardíjig 500 Ft, felette 1.000 Ft (a 4 sávos struktúra
   hatályon kívül; cél a user-gyűjtés). Díjmotor + ÁSZF 4.1 + chatbot +

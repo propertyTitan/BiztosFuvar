@@ -3,7 +3,7 @@
 //
 //  Flow:
 //    1. Bajba jutott: POST /towing/request → GPS + issue_type + vehicle
-//    2. Backend: push a közeli, elérhető mentős-sofőröknek
+//    2. Backend: push a közeli, elérhető mentős-szállítóknak
 //    3. Mentős: POST /towing/:id/accept → első nyer (atomi)
 //    4. Mentős: POST /towing/:id/arrive → megérkeztem
 //    5. Mentős: POST /towing/:id/complete → kész, végső ár
@@ -88,7 +88,7 @@ router.post('/towing/request', authRequired, writeRateLimit, async (req, res) =>
 
   res.status(201).json(towReq);
 
-  // Fire-and-forget: közeli mentős-sofőrök értesítése
+  // Fire-and-forget: közeli mentős-szállítók értesítése
   setImmediate(async () => {
     try {
       await notifyNearbyTowDrivers(towReq);
@@ -364,7 +364,7 @@ router.post('/towing/:id/complete', authRequired, writeRateLimit, async (req, re
 });
 
 // =====================================================================
-//  Push logika — közeli mentős sofőrök értesítése
+//  Push logika — közeli mentős szállítók értesítése
 // =====================================================================
 
 async function notifyNearbyTowDrivers(towReq) {

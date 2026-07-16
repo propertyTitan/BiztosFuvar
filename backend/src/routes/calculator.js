@@ -23,7 +23,7 @@ const router = express.Router();
 // Az ársáv: -20% … +20% a számított ár körül, 500-asra kerekítve.
 //
 // KALIBRÁCIÓ: ezek a paraméterek egy helyen, könnyen hangolhatók. A 90 Ft/km
-// tudatos középút (2026-06): reális annyira, hogy a sofőrök licitáljanak rá,
+// tudatos középút (2026-06): reális annyira, hogy a szállítók licitáljanak rá,
 // de még a profi költöztető díjak alatt. A "csak megy arra" közösségi esetnél
 // alacsonyabb (~45) is indokolt lehet, a dedikált önköltség (~130) magasabb.
 // A valós medián a lezárt fuvarok adatából később felülírja ezt a horgonyt.
@@ -93,7 +93,7 @@ router.get('/calculator/estimate', (req, res) => {
     estimate_huf: roundTo500(estimate),
     range_low_huf: roundTo500(low),
     range_high_huf: roundTo500(high),
-    note: 'Becsült ár a távolság, súly és csomagméret alapján. A tényleges ár a sofőrök ajánlataitól függ.',
+    note: 'Becsült ár a távolság, súly és csomagméret alapján. A tényleges ár a szállítók ajánlataitól függ.',
   });
 });
 

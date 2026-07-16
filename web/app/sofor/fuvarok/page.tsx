@@ -1,6 +1,6 @@
 'use client';
 
-// Sofőr kezdőoldal: elérhető (licitálható) fuvarok listája.
+// Szállító kezdőoldal: elérhető (licitálható) fuvarok listája.
 // - Közelség szerint rendezve, ha a böngésző megadja a geolocation-t.
 // - Új fuvar érkezéskor (Socket.IO `jobs:new`) automatikusan frissül a lista.
 // - Minden kártya → a fuvar részletes oldalára visz, ahol licitálni lehet.
@@ -47,7 +47,7 @@ export default function SoforFuvarokLista() {
     try {
       const res = await api.acceptInstantJob(jobId);
       // Siker → vigyük a fuvar részletek oldalra, ahol a feladó fizethet
-      // (a sofőr szempontjából: várakozás kifizetésre).
+      // (a szállító szempontjából: várakozás kifizetésre).
       router.push(`/sofor/fuvar/${res.job_id}`);
     } catch (err: any) {
       setError(err.message);
@@ -368,7 +368,7 @@ export default function SoforFuvarokLista() {
 
       {view === 'list' && jobs.map((j) => {
         const isMine = !!me && j.shipper_id === me.id;
-        // IDEIGLENESEN KIKAPCSOLVA — 100+ sofőr után visszakapcsolni:
+        // IDEIGLENESEN KIKAPCSOLVA — 100+ szállító után visszakapcsolni:
         // const isInstant = !!j.is_instant;
         const isInstant = false;
         // Saját poszton csak szerkesztés/megtekintés. A részletek oldal

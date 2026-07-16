@@ -70,7 +70,7 @@ export default function CoverageModal() {
         <p style={{ fontSize: 16, color: '#555', lineHeight: 1.6, marginBottom: 8 }}>
           A GoFuvar jelenleg <strong>Európa</strong> területén érhető el.
           A felvételi vagy lerakási címnek európai címnek kell lennie.
-          Nemzetközi fuvarokhoz a sofőri kapacitás függvényében magasabb
+          Nemzetközi fuvarokhoz a szállítói kapacitás függvényében magasabb
           árat is elkérhetsz.
         </p>
 

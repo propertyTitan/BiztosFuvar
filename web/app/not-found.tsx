@@ -3,10 +3,10 @@
 // Next.js App Router custom 404 oldal.
 //
 // Mód-érzékeny: ha az URL alapján látható, hogy a felhasználó egy másik
-// mód (sofőr vagy feladó) alatti oldalra tévedt, akkor **mód-váltási
+// mód (szállító vagy feladó) alatti oldalra tévedt, akkor **mód-váltási
 // javaslatot** mutatunk, nem sima 404-et.
 //
-// Példa: a user Sofőr módban van, de rákattint egy feladói linkre
+// Példa: a user Szállító módban van, de rákattint egy feladói linkre
 // (pl. /dashboard/uj-fuvar), ami a mobilos menüben "feladó oldal".
 // A backend 404 helyett a frontend elmagyarázza, hogy ez feladó mód,
 // és egy kattintással át tudjon váltani.
@@ -18,7 +18,7 @@ import { ArrowRight, Home, Package, SearchX, Truck } from 'lucide-react';
 type Mode = 'driver' | 'shipper';
 
 // A két fő "módot" útvonalak alapján ismerjük fel:
-// - /sofor/*          → sofőr-specifikus
+// - /sofor/*          → szállító-specifikus
 // - /dashboard/*      → feladó-specifikus (a feladó dashboardja)
 // - /hirdeteseim, /profil, /ertesitesek → közös / neutral
 function guessModeFromPath(path: string | null): Mode | null {
@@ -55,8 +55,8 @@ export default function NotFound() {
 
   // ── Mód-váltási javaslat (intelligens 404) ──
   if (isModeMismatch) {
-    const targetLabel = intended === 'shipper' ? 'Feladó' : 'Sofőr';
-    const currentLabel = currentMode === 'shipper' ? 'Feladó' : 'Sofőr';
+    const targetLabel = intended === 'shipper' ? 'Feladó' : 'Szállító';
+    const currentLabel = currentMode === 'shipper' ? 'Feladó' : 'Szállító';
     const TargetIcon = intended === 'shipper' ? Package : Truck;
     const CurrentIcon = currentMode === 'shipper' ? Package : Truck;
 

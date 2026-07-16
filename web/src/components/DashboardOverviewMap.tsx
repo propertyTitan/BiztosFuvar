@@ -80,7 +80,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
             boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
           }}
         >
-          🔴 {liveCount} sofőr élőben követve
+          🔴 {liveCount} szállító élőben követve
         </div>
       )}
       <GoogleMap
@@ -124,7 +124,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
             scale: 11, fillColor: '#dc2626', fillOpacity: 1,
             strokeColor: '#fff', strokeWeight: 3,
           }}
-          title="Sofőr (élő)"
+          title="Szállító (élő)"
         />
       ))}
       </GoogleMap>

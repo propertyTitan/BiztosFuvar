@@ -1,4 +1,4 @@
-// In-app üzenetváltás feladó ↔ sofőr között.
+// In-app üzenetváltás feladó ↔ szállító között.
 //
 // A "beszélgetés" egy fuvarhoz (job_id) vagy foglaláshoz (booking_id)
 // kötődik. Mindkét érintett fél küldhet és olvashat üzeneteket. A
@@ -85,7 +85,7 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
   }
 
   // Értesítés a másik félnek (ha van)
-  // A link a CÍMZETT szemszögéből kell legyen: ha ő a sofőr, a sofőri
+  // A link a CÍMZETT szemszögéből kell legyen: ha ő a szállító, a szállítói
   // fuvar nézetre (/sofor/fuvar/...), ha feladó, a feladói nézetre
   // (/dashboard/fuvar/...). Így a mobil route mapping is a megfelelő
   // képernyőre viszi (ahol van chat + lezárás gomb).
@@ -96,7 +96,7 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
         'SELECT shipper_id FROM jobs WHERE id = $1',
         [job_id],
       );
-      // Ha a másik fél a feladó → feladói nézet; ha sofőr → sofőri nézet
+      // Ha a másik fél a feladó → feladói nézet; ha szállító → szállítói nézet
       const otherIsShipper = jobRows[0]?.shipper_id === access.otherUserId;
       notifLink = otherIsShipper
         ? `/dashboard/fuvar/${job_id}`

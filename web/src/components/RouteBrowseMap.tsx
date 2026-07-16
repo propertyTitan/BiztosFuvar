@@ -1,6 +1,6 @@
 'use client';
 
-// Fix áras sofőri útvonalak térképes böngészője.
+// Fix áras szállítói útvonalak térképes böngészője.
 //
 // Minden útvonalhoz egy zöld START marker (első waypoint) és egy piros
 // CÉL marker (utolsó waypoint) + egy halvány szaggatott vonal a teljes
@@ -8,7 +8,7 @@
 // (megnevezés, indulás, árak, "Részletek →" link).
 //
 // Saját poszt: sárga marker és sárga vonal, a részletek link pedig a
-// sofőri nézetre visz (szerkeszthető), nem a foglalás oldalra.
+// szállítói nézetre visz (szerkeszthető), nem a foglalás oldalra.
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, InfoWindow, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import Link from 'next/link';

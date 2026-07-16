@@ -46,7 +46,8 @@ export default function AszfPage() {
       </p>
       <p>
         A fuvarozási szerződés kizárólag a csomagot feladó (továbbiakban: <strong>Feladó</strong>) és
-        a fuvarozást vállaló (továbbiakban: <strong>Sofőr</strong>) között jön létre. A Szolgáltató
+        a fuvarozást vállaló (továbbiakban: <strong>Sofőr</strong> — a Platform felületein
+        megnevezése: <strong>„Szállító"</strong>; a két fogalom azonos) között jön létre. A Szolgáltató
         szolgáltatása az <strong>összeköttetés létrehozása</strong>: az ajánlat-közvetítés, a
         kommunikációs felület biztosítása, a Felek kapcsolatfelvételi adatainak átadása (a 4. pont
         szerinti díj ellenében), az átvételi kód generálása és a vita-rendezési eljárás lefolytatása.

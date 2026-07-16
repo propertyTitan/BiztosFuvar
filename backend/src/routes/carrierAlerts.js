@@ -1,6 +1,6 @@
 // =====================================================================
-//  Sofőr útvonal-figyelők (lane alerts) CRUD.
-//  A sofőr beállíthat figyelőket; új illeszkedő fuvarnál email + in-app
+//  Szállító útvonal-figyelők (lane alerts) CRUD.
+//  A szállító beállíthat figyelőket; új illeszkedő fuvarnál email + in-app
 //  értesítést kap (lásd services/laneAlerts.js).
 // =====================================================================
 
@@ -20,7 +20,7 @@ function num(v) {
   return Number.isFinite(n) ? n : null;
 }
 
-// GET /carrier-alerts — a bejelentkezett sofőr figyelői
+// GET /carrier-alerts — a bejelentkezett szállító figyelői
 router.get('/carrier-alerts', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT * FROM carrier_alerts WHERE carrier_id = $1 ORDER BY created_at DESC`,

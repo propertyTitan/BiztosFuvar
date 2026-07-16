@@ -1,7 +1,7 @@
 'use client';
 
 // =====================================================================
-//  Sofőr bevétel & teljesítmény dashboard.
+//  Szállító bevétel & teljesítmény dashboard.
 //  Szép grafikonok, havi trend, top útvonalak, statisztikák.
 // =====================================================================
 
@@ -55,7 +55,7 @@ export default function SoforDashboard() {
 
   return (
     <div>
-      <h1>📊 Sofőr Dashboard</h1>
+      <h1>📊 Szállító Dashboard</h1>
       <p className="muted">A te teljesítményed számokban.</p>
 
       {/* Fő statisztikák */}

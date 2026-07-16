@@ -1,7 +1,7 @@
 'use client';
 
 // Egy konkrét fuvar nézete a feladó számára:
-// - Élő követés Google Maps-en + Socket.IO sofőr piros pötty
+// - Élő követés Google Maps-en + Socket.IO szállító piros pötty
 // - Licitek listája (ha még bidding)
 // - Fotók (pickup / dropoff) — Proof of Delivery 2.0
 // - Escrow / Barion állapot
@@ -30,7 +30,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 // Sikertelen kézbesítés esetén történő visszaszállítás — jelvény a licit-soron.
-// Így a feladó összehasonlíthatja a sofőröket a visszaszállítási hajlandóság szerint.
+// Így a feladó összehasonlíthatja a szállítókat a visszaszállítási hajlandóság szerint.
 function ReturnPolicyBadge({ bid }: { bid: Bid }) {
   if (!bid.return_policy) return null;
   const map = {
@@ -46,7 +46,7 @@ function ReturnPolicyBadge({ bid }: { bid: Bid }) {
     <span
       className="pill"
       style={{ background: s.bg, color: s.color, fontWeight: 700, fontSize: 11 }}
-      title="A sofőr nyilatkozata: sikertelen kézbesítés esetén 5 munkanapon belül visszajuttatja-e a csomagot a feladóhoz."
+      title="A szállító nyilatkozata: sikertelen kézbesítés esetén 5 munkanapon belül visszajuttatja-e a csomagot a feladóhoz."
     >
       {s.text}
     </span>
@@ -130,10 +130,10 @@ export default function FuvarReszletek() {
     if (!job) return;
     try {
       await api.reopenJob(id, reason);
-      toast.success('Fuvar újranyitva', 'A korábbi ajánlatok újra elérhetők — díjmentesen választhatsz másik sofőrt.');
+      toast.success('Fuvar újranyitva', 'A korábbi ajánlatok újra elérhetők — díjmentesen választhatsz másik szállítót.');
       await loadAll();
     } catch (e: any) {
-      toast.error('Sofőr-csere sikertelen', e.message);
+      toast.error('Szállító-csere sikertelen', e.message);
     }
   }
 
@@ -201,7 +201,7 @@ export default function FuvarReszletek() {
     setAcceptingBidId(bidId);
     try {
       await api.acceptBid(bidId);
-      toast.success('Ajánlat elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a sofőr elérhetőségét, a fuvardíjat pedig készpénzben adod át neki.');
+      toast.success('Ajánlat elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig készpénzben adod át neki.');
       await loadAll();
     } catch (err: any) {
       toast.error('Hiba az ajánlat elfogadásakor', err.message);
@@ -217,7 +217,7 @@ export default function FuvarReszletek() {
     }
     try {
       await api.counterBid(bidId, Math.round(amount));
-      toast.success('Ellenajánlat elküldve', 'A sofőr értesítést kap róla.');
+      toast.success('Ellenajánlat elküldve', 'A szállító értesítést kap róla.');
       await loadAll();
     } catch (err: any) {
       toast.error('Hiba', err.message);
@@ -273,7 +273,7 @@ export default function FuvarReszletek() {
             {(job as any).sender_delivery_code}
           </div>
           <div style={{ fontSize: 13, opacity: 0.9, marginTop: 8, lineHeight: 1.5 }}>
-            ⚠️ Ezt a kódot <strong>CSAK</strong> akkor add meg a sofőrnek, ha a címzett
+            ⚠️ Ezt a kódot <strong>CSAK</strong> akkor add meg a szállítónak, ha a címzett
             nem elérhető és te engedélyezed a lerakást. A rendszer logolja, hogy
             ez a vészhelyzeti kóddal zárult le.
           </div>
@@ -304,7 +304,7 @@ export default function FuvarReszletek() {
           </div>
           <QrCode jobId={job.id} deliveryCode={job.delivery_code} size={200} />
           <div style={{ fontSize: 13, opacity: 0.9, marginTop: 16 }}>
-            Mutasd meg a sofőrnek a QR kódot vagy diktáld a 6 jegyű kódot.
+            Mutasd meg a szállítónak a QR kódot vagy diktáld a 6 jegyű kódot.
           </div>
         </div>
       )}
@@ -403,9 +403,9 @@ export default function FuvarReszletek() {
       )}
 
       <div className="grid-2" style={{ marginTop: 16 }}>
-        {/* Bizonyíték-fotók: pickup/dropoff/damage/document (a sofőrtől) */}
+        {/* Bizonyíték-fotók: pickup/dropoff/damage/document (a szállítótől) */}
         <div className="card">
-          <h2>Bizonyíték-fotók (sofőr)</h2>
+          <h2>Bizonyíték-fotók (szállító)</h2>
           {photos.filter((p) => p.kind !== 'listing').length === 0 && (
             <p className="muted">Még nincs pickup/dropoff fotó feltöltve.</p>
           )}
@@ -448,7 +448,7 @@ export default function FuvarReszletek() {
           {(job.status === 'accepted' || job.paid_at) && (
             <>
               <p style={{ marginBottom: 4 }}>
-                Fuvardíj (készpénzben a sofőrnek):{' '}
+                Fuvardíj (készpénzben a szállítónak):{' '}
                 <strong>
                   {(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft
                 </strong>
@@ -509,8 +509,8 @@ export default function FuvarReszletek() {
                       <strong>azonnali teljesítését</strong>, és tudomásul veszem,
                       hogy a teljesítés után <strong>elállási jogomat elvesztem</strong>{' '}
                       (45/2014. Korm. rendelet 29. § (1) a)). A díj nem
-                      visszatérítendő; ha a fuvar a sofőr hibájából hiúsul meg,
-                      díjmentesen választhatok másik sofőrt ugyanerre a fuvarra.
+                      visszatérítendő; ha a fuvar a szállító hibájából hiúsul meg,
+                      díjmentesen választhatok másik szállítót ugyanerre a fuvarra.
                     </span>
                   </label>
                   <button
@@ -529,9 +529,9 @@ export default function FuvarReszletek() {
                     {paying ? 'Fizetés indítása…' : `Díj fizetése (${(job.connection_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}
                   </button>
                   <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>
-                    A díj ellenében azonnal megkapod a sofőr telefonszámát, és
+                    A díj ellenében azonnal megkapod a szállító telefonszámát, és
                     elindul a fuvar-folyamat (SMS a címzettnek, átvételi kód,
-                    fotó-bizonyíték). A fuvardíjat készpénzben adod át a sofőrnek.
+                    fotó-bizonyíték). A fuvardíjat készpénzben adod át a szállítónak.
                   </p>
                 </>
               ) : null}
@@ -548,9 +548,9 @@ export default function FuvarReszletek() {
                   }}
                 >
                   <div style={{ fontSize: 12, color: '#166534', fontWeight: 700, marginBottom: 6 }}>
-                    📞 A SOFŐR ELÉRHETŐSÉGE
+                    📞 A SZÁLLÍTÓ ELÉRHETŐSÉGE
                   </div>
-                  <div style={{ fontWeight: 700 }}>{job.contact.name || 'Sofőr'}</div>
+                  <div style={{ fontWeight: 700 }}>{job.contact.name || 'Szállító'}</div>
                   {job.contact.phone && (
                     <div style={{ marginTop: 4 }}>
                       <a href={`tel:${job.contact.phone}`} style={{ fontWeight: 700, fontSize: 18 }}>
@@ -563,14 +563,14 @@ export default function FuvarReszletek() {
                   )}
                   <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
                     💵 Ne feledd: a fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
-                    készpénzben fizeted a sofőrnek.
+                    készpénzben fizeted a szállítónak.
                   </div>
                 </div>
               )}
             </>
           )}
 
-          {/* Sofőr-csere — ha a sofőr nem elérhető, díjmentes újraválasztás */}
+          {/* Szállító-csere — ha a szállító nem elérhető, díjmentes újraválasztás */}
           {job.status === 'accepted' && user?.id === job.shipper_id && (
             <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
               <button
@@ -587,10 +587,10 @@ export default function FuvarReszletek() {
                   fontWeight: 600,
                 }}
               >
-                <RefreshCw size={12} style={{ verticalAlign: -2 }} /> Másik sofőrt választok
+                <RefreshCw size={12} style={{ verticalAlign: -2 }} /> Másik szállítót választok
               </button>
               <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                Ha a sofőr nem elérhető vagy visszalépett: a korábbi ajánlatok újra
+                Ha a szállító nem elérhető vagy visszalépett: a korábbi ajánlatok újra
                 elérhetővé válnak, és díjmentesen választhatsz — a befizetett díj erre
                 a fuvarra érvényes marad.
               </p>
@@ -641,7 +641,7 @@ export default function FuvarReszletek() {
       </div>
 
       {/* Vita indítása — in_progress vagy delivered státuszban,
-          ha valami baj van a csomaggal / szállítással / sofőrrel. */}
+          ha valami baj van a csomaggal / szállítással / szállítóval. */}
       {['in_progress', 'delivered'].includes(job.status) && (
         <div className="card" style={{ marginTop: 16, background: '#fefce8', borderColor: 'var(--warning)' }}>
           <h2 style={{ marginTop: 0 }}>Probléma van a fuvarral?</h2>
@@ -681,7 +681,7 @@ export default function FuvarReszletek() {
         currentUserId={user?.id}
       />
 
-      {/* Chat — az elfogadott licittől kezdve a feladó és a sofőr
+      {/* Chat — az elfogadott licittől kezdve a feladó és a szállító
           üzenhetnek egymásnak, telefonszám-csere nélkül. */}
       {['accepted', 'in_progress', 'delivered', 'completed'].includes(job.status) && job.carrier_id && (
         <div style={{ marginTop: 16 }}>
@@ -693,10 +693,10 @@ export default function FuvarReszletek() {
       {['delivered', 'completed'].includes(job.status) && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Star size={20} color="var(--warning)" fill="var(--warning)" /> Értékeld a sofőrt
+            <Star size={20} color="var(--warning)" fill="var(--warning)" /> Értékeld a szállítót
           </h2>
           <p className="muted" style={{ marginBottom: 12 }}>
-            Hogyan teljesített a sofőr? Kattints a csillagokra és írd meg a véleményed.
+            Hogyan teljesített a szállító? Kattints a csillagokra és írd meg a véleményed.
           </p>
           <ReviewBox entityKey="job_id" entityId={id} onDone={loadAll} />
         </div>
@@ -718,15 +718,15 @@ export default function FuvarReszletek() {
               }}
             >
               <CheckCircle2 size={13} style={{ verticalAlign: -2 }} /> <strong>Díjmentes újraválasztás:</strong> a kapcsolatfelvételi díjat
-              már befizetted erre a fuvarra — az új sofőr kiválasztása után nem kell
+              már befizetted erre a fuvarra — az új szállító kiválasztása után nem kell
               újra fizetned, azonnal megkapod az elérhetőségét.
             </div>
           )}
           {/* Csak az aktív (pending) licitek választhatók — újranyitás után a
-              leváltott sofőr elutasított licitje nem fogadható el újra. */}
+              leváltott szállító elutasított licitje nem fogadható el újra. */}
           <h2>Beérkezett ajánlatok ({bids.filter((b) => b.status === 'pending').length})</h2>
           {bids.filter((b) => b.status === 'pending').length === 0 && (
-            <p className="muted">Még nincs ajánlat. A sofőrök hamarosan ajánlatot tesznek.</p>
+            <p className="muted">Még nincs ajánlat. A szállítók hamarosan ajánlatot tesznek.</p>
           )}
           {bids.filter((b) => b.status === 'pending').map((b) => (
             <div
@@ -743,7 +743,7 @@ export default function FuvarReszletek() {
             >
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
                 <Link href={`/profil/${b.carrier_id}`} className="row" style={{ gap: 12, alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
-                  {/* Sofőr avatar + info — kattintható profil */}
+                  {/* Szállító avatar + info — kattintható profil */}
                   <div
                     style={{
                       width: 40,
@@ -764,7 +764,7 @@ export default function FuvarReszletek() {
                   </div>
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      {b.carrier_name || 'Sofőr'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span>
+                      {b.carrier_name || 'Szállító'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span>
                       {freshBids[b.id] && (
                         <span style={{
                           background: 'var(--primary)', color: '#fff',
@@ -792,7 +792,7 @@ export default function FuvarReszletek() {
                       </div>
                       <strong className="price" style={{ fontSize: 18 }}>{b.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
                       <div style={{ fontSize: 11, color: 'var(--muted)' }}>
-                        {b.counter_by === 'shipper' ? 'ellenajánlatod' : <><RefreshCw size={11} style={{ verticalAlign: -1 }} /> a sofőr ellenajánlata</>}
+                        {b.counter_by === 'shipper' ? 'ellenajánlatod' : <><RefreshCw size={11} style={{ verticalAlign: -1 }} /> a szállító ellenajánlata</>}
                       </div>
                     </>
                   ) : (
@@ -806,7 +806,7 @@ export default function FuvarReszletek() {
               </div>
               {b.counter_by === 'shipper' && b.counter_amount_huf != null ? (
                 <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-                  <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({b.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a sofőr válaszára vár.
+                  <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({b.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a szállító válaszára vár.
                 </p>
               ) : (
                 <div className="row" style={{ gap: 8, marginTop: 8 }}>
@@ -839,7 +839,7 @@ export default function FuvarReszletek() {
         open={showCancelDialog}
         title="Fuvar lemondása"
         message={job.paid_at
-          ? 'Biztosan lemondod a fuvart? A lemondás díjmentes, de a már befizetett kapcsolatfelvételi díj nem visszatérítendő és másik fuvarra nem vihető át. Ha csak a sofőrrel van gond, válaszd inkább a "Másik sofőrt választok" lehetőséget — az ingyenes.'
+          ? 'Biztosan lemondod a fuvart? A lemondás díjmentes, de a már befizetett kapcsolatfelvételi díj nem visszatérítendő és másik fuvarra nem vihető át. Ha csak a szállítóval van gond, válaszd inkább a "Másik szállítót választok" lehetőséget — az ingyenes.'
           : 'Biztosan lemondod a fuvart? Még nem történt fizetés, így semmilyen díj nincs.'}
         confirmLabel="Lemondom"
         danger
@@ -851,13 +851,13 @@ export default function FuvarReszletek() {
         onClose={() => setShowCancelDialog(false)}
       />
 
-      {/* Sofőr-csere dialógus */}
+      {/* Szállító-csere dialógus */}
       <ConfirmDialog
         open={showReopenDialog}
-        title="Másik sofőrt választok"
-        message="A fuvar újra ajánlatokat fogad: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad — az új sofőr kiválasztása díjmentes. A jelenlegi sofőr értesítést kap."
+        title="Másik szállítót választok"
+        message="A fuvar újra ajánlatokat fogad: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad — az új szállító kiválasztása díjmentes. A jelenlegi szállító értesítést kap."
         confirmLabel="Újranyitom"
-        fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. A sofőr nem veszi fel a telefont' }]}
+        fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. A szállító nem veszi fel a telefont' }]}
         onConfirm={(v) => {
           setShowReopenDialog(false);
           reopenJob((v.reason || '').trim());
@@ -885,12 +885,12 @@ export default function FuvarReszletek() {
         onClose={() => setShowDisputeDialog(false)}
       />
 
-      {/* Ellenajánlat a sofőr licitjére */}
+      {/* Ellenajánlat a szállító licitjére */}
       <ConfirmDialog
         open={!!counterTarget}
         title="Ellenajánlat küldése"
         message={counterTarget
-          ? `A sofőr ajánlata ${(counterTarget.counter_amount_huf ?? counterTarget.amount_huf).toLocaleString('hu-HU')} Ft. Add meg, mennyit ajánlasz — a sofőr elfogadhatja vagy visszadobhat.`
+          ? `A szállító ajánlata ${(counterTarget.counter_amount_huf ?? counterTarget.amount_huf).toLocaleString('hu-HU')} Ft. Add meg, mennyit ajánlasz — a szállító elfogadhatja vagy visszadobhat.`
           : ''}
         confirmLabel="Ellenajánlat elküldése"
         fields={[{ key: 'amount', label: 'Ellenajánlatod (Ft)', type: 'number', required: true, placeholder: 'pl. 15000' }]}

@@ -2,7 +2,7 @@
 //  Azonnali fuvar ("UberFuvar" mód) segédfüggvények.
 //
 //  A modell egyszerű: amikor a feladó egy azonnali fuvart ad fel,
-//  PUSH értesítést küldünk minden olyan sofőrnek, aki a pickup-tól
+//  PUSH értesítést küldünk minden olyan szállítónak, aki a pickup-tól
 //  X km-en belül van (users.last_known_lat/lng alapján). Az első,
 //  aki a `POST /jobs/:id/instant-accept` végpontot eltalálja, nyer.
 //
@@ -21,13 +21,13 @@ const { createNotification } = require('./notifications');
 const realtime = require('../realtime');
 
 const DEFAULT_RADIUS_KM = 20;
-// Maximum hány sofőrt push-olunk egyszerre. Ha egy városban 500 aktív
-// sofőr van, egy azonnali fuvar nem ébreszti fel mindenkit (csak a top
+// Maximum hány szállítót push-olunk egyszerre. Ha egy városban 500 aktív
+// szállító van, egy azonnali fuvar nem ébreszti fel mindenkit (csak a top
 // közelieket). Tereléses versenyt kerül.
 const MAX_NOTIFICATIONS_PER_JOB = 40;
 
 /**
- * Aktív, közeli sofőrök keresése egy adott pont körül.
+ * Aktív, közeli szállítók keresése egy adott pont körül.
  * "Aktív" kritérium: van regisztrált push token ÉS van last_known_lat/lng
  * (tehát egyszer már engedett GPS-t). A can_bid flag-et tiszteletben
  * tartjuk — lejárt jogosítvány esetén nem zavarjuk őket.
@@ -44,7 +44,7 @@ async function findNearbyActiveCarriers(lat, lng, shipperIdToExclude, radiusKm =
   const latDeg = radiusKm / 111;
   const lngDeg = radiusKm / (111 * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
 
-  // JOIN push_tokens: csak azokat a sofőröket értesítjük, akiknél van
+  // JOIN push_tokens: csak azokat a szállítókat értesítjük, akiknél van
   // regisztrált eszköz. Különben a push csak tömegesen menne a semmibe.
   const { rows } = await db.query(
     `SELECT DISTINCT u.id,
@@ -79,7 +79,7 @@ async function findNearbyActiveCarriers(lat, lng, shipperIdToExclude, radiusKm =
 }
 
 /**
- * Értesíti a közeli sofőröket egy új azonnali fuvarról.
+ * Értesíti a közeli szállítókat egy új azonnali fuvarról.
  * Fire-and-forget: soha nem dob hibát, a hívó háttérben futtassa.
  *
  * @param {object} job        — a frissen beszúrt jobs sor
@@ -91,7 +91,7 @@ async function notifyNearbyCarriersOfInstantJob(job) {
       job.pickup_lat, job.pickup_lng, job.shipper_id, radius,
     );
     if (carriers.length === 0) {
-      console.log(`[instant] job ${job.id}: nincs közeli értesíthető sofőr (${radius} km)`);
+      console.log(`[instant] job ${job.id}: nincs közeli értesíthető szállító (${radius} km)`);
       return;
     }
     const priceStr = (job.suggested_price_huf || 0).toLocaleString('hu-HU');
@@ -117,7 +117,7 @@ async function notifyNearbyCarriersOfInstantJob(job) {
       suggested_price_huf: job.suggested_price_huf,
       instant_expires_at: job.instant_expires_at,
     });
-    console.log(`[instant] job ${job.id}: ${carriers.length} közeli sofőr értesítve (${radius} km)`);
+    console.log(`[instant] job ${job.id}: ${carriers.length} közeli szállító értesítve (${radius} km)`);
   } catch (err) {
     console.warn('[instant] notify hiba:', err.message);
   }

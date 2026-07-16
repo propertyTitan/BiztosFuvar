@@ -21,7 +21,7 @@ const TYPE_TO_DOC: Record<string, string> = {
 
 const TYPE_TITLES: Record<string, string> = {
   identity: 'Személyazonosság igazolása',
-  driver: 'Sofőri dokumentumok',
+  driver: 'Szállítói dokumentumok',
   company: 'Céges verifikáció',
 };
 
@@ -29,7 +29,7 @@ const TYPE_DESCRIPTIONS: Record<string, string> = {
   identity:
     'A platform biztonsága érdekében szükségünk van a személyazonosító dokumentumod feltöltésére. Ez biztosítja, hogy minden felhasználó valós személy legyen.',
   driver:
-    'Sofőrként szükséges a jogosítványod feltöltése. Ez a felhasználók biztonságát szolgálja és igazolja, hogy érvényes jogosítvánnyal rendelkezel.',
+    'Szállítóként szükséges a jogosítványod feltöltése. Ez a felhasználók biztonságát szolgálja és igazolja, hogy érvényes jogosítvánnyal rendelkezel.',
   company:
     'Céges fiók használatához szükséges a cég igazoló dokumentumainak feltöltése (pl. cégkivonat, adóbejelentés). Ez biztosítja a céges tranzakciók hitelességét.',
 };

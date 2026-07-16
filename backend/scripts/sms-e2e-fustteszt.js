@@ -4,7 +4,7 @@
 // Mit bizonyít: a teljes felvételi lánc élesben — teszt-fuvar (a megadott
 // szám a címzett) → díj-fizetés (stub) → FELVÉTELI FOTÓ feltöltése → a
 // szerver a Railway-en lévő SEEME_API_KEY-jel VALÓDI SMS-t küld a
-// címzettnek (átvételi kód + sofőr neve). A bizonyíték a telefonodon
+// címzettnek (átvételi kód + szállító neve). A bizonyíték a telefonodon
 // megérkező SMS.
 //
 // Futtatás:  cd backend && node scripts/sms-e2e-fustteszt.js +36301234567
@@ -66,14 +66,14 @@ async function cleanup() {
   console.log('\n════════ SMS E2E — ÉLES FÜSTTESZT (api.gofuvar.hu) ════════\n');
   let ok = true;
   try {
-    // 1. Feladó + sofőr regisztráció a prod API-n (tokenekért), majd KYC a DB-ben
+    // 1. Feladó + szállító regisztráció a prod API-n (tokenekért), majd KYC a DB-ben
     const regS = await api('/auth/register', { method: 'POST', body: { email: email('felado'), password: 'TesztJelszo123', full_name: 'TESZT SMS Felado' } });
     if (regS.status !== 201) throw new Error(`Feladó register HTTP ${regS.status}: ${JSON.stringify(regS.body)}`);
     const shipper = { id: regS.body.user.id, token: regS.body.token };
     createdUsers.push(shipper.id);
 
     const regC = await api('/auth/register', { method: 'POST', body: { email: email('sofor'), password: 'TesztJelszo123', full_name: 'Teszt Sofor Sandor' } });
-    if (regC.status !== 201) throw new Error(`Sofőr register HTTP ${regC.status}: ${JSON.stringify(regC.body)}`);
+    if (regC.status !== 201) throw new Error(`Szállító register HTTP ${regC.status}: ${JSON.stringify(regC.body)}`);
     const carrier = { id: regC.body.user.id, token: regC.body.token };
     createdUsers.push(carrier.id);
 
@@ -83,7 +83,7 @@ async function cleanup() {
         WHERE id = ANY($1)`,
       [[shipper.id, carrier.id]],
     );
-    log('1) Feladó + sofőr létrehozva (prod), KYC verified');
+    log('1) Feladó + szállító létrehozva (prod), KYC verified');
 
     // 2. Elfogadott teszt-fuvar — a CÍMZETT a megadott szám
     const code = String(Math.floor(100000 + Math.random() * 900000));
@@ -109,7 +109,7 @@ async function cleanup() {
     if (conf.status !== 200) throw new Error(`/confirm-payment HTTP ${conf.status}: ${JSON.stringify(conf.body)}`);
     log('3) Kapcsolatfelvételi díj fizetve (stub) → felvétel engedélyezve');
 
-    // 4. FELVÉTELI FOTÓ a sofőrrel → a szerver ITT küldi az éles SMS-t
+    // 4. FELVÉTELI FOTÓ a szállítóval → a szerver ITT küldi az éles SMS-t
     const form = new FormData();
     form.append('file', new Blob([TINY_PNG], { type: 'image/png' }), 'pickup.png');
     form.append('kind', 'pickup');
@@ -125,7 +125,7 @@ async function cleanup() {
     // 5. Státusz-ellenőrzés + kis várakozás, hogy a fire-and-forget SMS elmenjen
     const { rows: st } = await pool.query('SELECT status FROM jobs WHERE id = $1', [jobId]);
     if (st[0].status !== 'in_progress') throw new Error(`Várt in_progress, kapott: ${st[0].status}`);
-    log(`5) Fuvar-státusz: in_progress ✓ — várható SMS: "GoFuvar: úton a csomagod! Átvételi kód: ${code}. Sofőr: Teszt Sofor Sandor (+36201111111). Kérjük, egyeztess vele az érkezésről."`);
+    log(`5) Fuvar-státusz: in_progress ✓ — várható SMS: "GoFuvar: úton a csomagod! Átvételi kód: ${code}. Szállító: Teszt Sofor Sandor (+36201111111). Kérjük, egyeztess vele az érkezésről."`);
     await new Promise((r) => setTimeout(r, 8000));
 
     console.log('\n════════ ✅ A LÁNC LEFUTOTT — NÉZD A TELEFONOD! ════════');

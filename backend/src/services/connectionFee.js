@@ -3,14 +3,14 @@
 // ÜZLETI DÖNTÉS (2026-07-03, CLAUDE.md #5): a platform nem a fuvardíjat
 // kezeli, hanem az ÖSSZEKÖTTETÉST adja el. A feladó a licit elfogadásakor
 // sávos, BEVEZETŐ árú kapcsolatfelvételi díjat fizet (kártyával, Barion),
-// cserébe azonnal megkapja a sofőr elérhetőségét és elindul a fuvar-folyamat
-// (SMS-ek, átvételi kód, tracking). A fuvardíjat a sofőr KÉSZPÉNZBEN kapja.
+// cserébe azonnal megkapja a szállító elérhetőségét és elindul a fuvar-folyamat
+// (SMS-ek, átvételi kód, tracking). A fuvardíjat a szállító KÉSZPÉNZBEN kapja.
 //
 // A díj a szolgáltatás (kapcsolat-létrehozás) teljesítésével elhasználódik:
 // nem visszatérítendő (45/2014. Korm. r. 29. § (1) a) — kifejezett
 // beleegyezés + tudomásulvétel a fizetésnél kötelező). Ha a választott
-// sofőrrel a fuvar meghiúsul, a feladó UGYANARRA a fuvarra díjmentesen
-// választhat másik sofőrt a korábbi ajánlatok közül — másik fuvarra a
+// szállítóval a fuvar meghiúsul, a feladó UGYANARRA a fuvarra díjmentesen
+// választhat másik szállítót a korábbi ajánlatok közül — másik fuvarra a
 // befizetett díj nem vihető át.
 //
 // A sávok bruttó (27% ÁFA-t tartalmazó) árak. "Bevezető díj": a launch-

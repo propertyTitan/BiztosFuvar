@@ -1,6 +1,6 @@
 'use client';
 
-// Sofőr: egy konkrét útvonal részletei + beérkezett foglalások.
+// Szállító: egy konkrét útvonal részletei + beérkezett foglalások.
 // - Az útvonal adatai (waypoints, árak, státusz)
 // - Szerkesztés + publikálás gombok a tulajdonosnak (draft/open)
 // - Foglalások listája: feladó, csomag méret + pontos méretek, ár, gombok
@@ -51,7 +51,7 @@ export default function UtvonalReszletek() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Real-time: ha a feladó kifizet egy foglalást, a sofőr ezen az
+  // Real-time: ha a feladó kifizet egy foglalást, a szállító ezen az
   // oldalon AZONNAL lássa a "FIZETVE" címkét.
   useEffect(() => {
     if (!user) return;
@@ -194,7 +194,7 @@ export default function UtvonalReszletek() {
                 </button>
               </div>
             )}
-            {/* Lemondás — már elfogadott foglalásra is, sofőri 100% refund */}
+            {/* Lemondás — már elfogadott foglalásra is, szállítói 100% refund */}
             {b.status === 'confirmed' && (
               <div style={{ marginTop: 8 }}>
                 <button
@@ -420,7 +420,7 @@ export default function UtvonalReszletek() {
           dialog?.type === 'reject' ? 'Biztosan elutasítod ezt a foglalást? A feladó értesítést kap.'
           : dialog?.type === 'close' ? 'Lezárod az útvonalat? Ezután nem fogad további foglalást.'
           : dialog?.type === 'cancel' && dialog.booking.paid_at
-            ? 'Biztosan lemondod ezt a már elfogadott foglalást? A teljes fuvardíj visszajár a feladónak (sofőr-lemondás → 100% visszatérítés).'
+            ? 'Biztosan lemondod ezt a már elfogadott foglalást? A teljes fuvardíj visszajár a feladónak (szállító-lemondás → 100% visszatérítés).'
             : 'Biztosan lemondod ezt a foglalást?'
         }
         confirmLabel={

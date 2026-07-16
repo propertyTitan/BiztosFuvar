@@ -1,14 +1,14 @@
 'use client';
 
 // =====================================================================
-//  Sofőr – Visszafuvar ajánlások.
+//  Szállító – Visszafuvar ajánlások.
 //
-//  A sofőrnek minden aktív (elvállalt, még nem kézbesített) A → B
+//  A szállítónak minden aktív (elvállalt, még nem kézbesített) A → B
 //  fuvarjához listázzuk azokat a feladott fuvarokat, amelyek:
 //     - pickup-ja B közelében van,
 //     - dropoff-ja A közelében van.
 //
-//  Így a sofőr nem üresen megy vissza — plusz fuvart vállal ugyanarra a
+//  Így a szállító nem üresen megy vissza — plusz fuvart vállal ugyanarra a
 //  kilométerre. A backend `backhaul_score` alapján (0-100) rendezi a
 //  jelölteket.
 // =====================================================================

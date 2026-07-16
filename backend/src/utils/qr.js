@@ -1,7 +1,7 @@
 // =====================================================================
 //  QR kód generátor a delivery code-hoz.
 //
-//  A feladó/címzett megmutatja a QR kódot → a sofőr scan-eli a
+//  A feladó/címzett megmutatja a QR kódot → a szállító scan-eli a
 //  mobilján → fuvar lezárva. Gyorsabb és profibb mint a 6 jegyű
 //  számot diktálni.
 //
@@ -11,7 +11,7 @@
 //  így a szerverre nem kell extra endpoint.
 //
 //  A QR tartalom: `gofuvar:deliver:<jobId>:<deliveryCode>`
-//  A sofőr appja ezt parse-olja, és a kódot automatikusan elküldi
+//  A szállító appja ezt parse-olja, és a kódot automatikusan elküldi
 //  a POST /jobs/:jobId/photos végpontra delivery_code-ként.
 // =====================================================================
 
@@ -24,7 +24,7 @@ function qrContent(jobId, deliveryCode) {
 }
 
 /**
- * QR tartalom parse-olása a sofőr oldalon.
+ * QR tartalom parse-olása a szállító oldalon.
  * @returns {{ jobId: string, deliveryCode: string } | null}
  */
 function parseQrContent(content) {

@@ -1,7 +1,7 @@
 // =====================================================================
-//  Sofőr statisztikák / bevétel dashboard endpoint.
+//  Szállító statisztikák / bevétel dashboard endpoint.
 //
-//  GET /driver-stats → a bejelentkezett sofőr teljesítmény adatai:
+//  GET /driver-stats → a bejelentkezett szállító teljesítmény adatai:
 //    - Összesített és havi bevétel
 //    - Befejezett fuvarok száma
 //    - Átlagos értékelés

@@ -1,4 +1,4 @@
-// GoFuvar Trust Score — sofőr hitelességi index (0-100).
+// GoFuvar Trust Score — szállító hitelességi index (0-100).
 //
 // Összetevők:
 //   - Sikeres fuvarok száma (max 30 pont)

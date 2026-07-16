@@ -1,6 +1,6 @@
 'use client';
 
-// Sofőr: új / szerkesztés útvonal hirdetés form.
+// Szállító: új / szerkesztés útvonal hirdetés form.
 // - Új mód: URL `/sofor/uj-utvonal`
 // - Szerkesztés mód: URL `/sofor/uj-utvonal?edit=<id>` → betölti a
 //   meglévő útvonalat, és a mentéskor PATCH-et hív POST helyett.
@@ -59,7 +59,7 @@ function UjUtvonalContent() {
           `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
           `T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         setDepartureLocal(local);
-        // Méretek feltöltése a sofőr meglévő árai alapján
+        // Méretek feltöltése a szállító meglévő árai alapján
         const nextSizes: Record<PackageSizeId, SizeRow> = {
           S:  { enabled: false, price: '' },
           M:  { enabled: false, price: '' },
@@ -147,7 +147,7 @@ function UjUtvonalContent() {
 
   return (
     <div style={{ maxWidth: 760 }}>
-      <h1>{isEdit ? 'Útvonal szerkesztése' : 'Új útvonal hirdetése'}</h1>
+      <h1>{isEdit ? 'Járat szerkesztése' : 'Új járat hirdetése'}</h1>
       <p className="muted">
         {isEdit
           ? 'Módosítsd az útvonal részleteit. Mentheted piszkozatként vagy publikálhatod azonnal.'

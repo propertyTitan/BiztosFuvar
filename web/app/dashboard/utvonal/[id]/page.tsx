@@ -1,10 +1,10 @@
 'use client';
 
-// Feladó: egy konkrét sofőri útvonal részletei + foglalás form.
+// Feladó: egy konkrét szállítói útvonal részletei + foglalás form.
 // - Az útvonal, árak, időpont
 // - Foglalás form: csomag méretei + súly + pickup/dropoff cím autocomplete
 // - Automatikus méret-besorolás
-// - "Helyet foglalok" gomb → beállítja a státuszt pending-re (sofőrre vár)
+// - "Helyet foglalok" gomb → beállítja a státuszt pending-re (szállítóra vár)
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
@@ -51,10 +51,10 @@ export default function FeladoUtvonalReszletek() {
     return classifyPackage(L, W, H, kg);
   }, [length, width, height, weight]);
 
-  // A sofőr aktivált méretei
+  // A szállító aktivált méretei
   const activeSizes = new Set((route?.prices || []).map((p) => p.size));
   const priceForSelectedSize = route?.prices.find((p) => p.size === classification);
-  const sofőrVisziE = classification && activeSizes.has(classification);
+  const szállítóVisziE = classification && activeSizes.has(classification);
 
   // Mi hiányzik a foglaláshoz — hogy ne legyen néma a letiltott gomb.
   const missingFields: string[] = [];
@@ -63,8 +63,8 @@ export default function FeladoUtvonalReszletek() {
   }
   if (!pickupConfirmed) missingFields.push('Felvételi cím (válaszd a legördülőből)');
   if (!dropoffConfirmed) missingFields.push('Célcím (válaszd a legördülőből)');
-  if (classification && !sofőrVisziE) {
-    missingFields.push('Ezt a csomagméretet a sofőr nem vállalja ezen az útvonalon');
+  if (classification && !szállítóVisziE) {
+    missingFields.push('Ezt a csomagméretet a szállító nem vállalja ezen az útvonalon');
   }
   const canSubmit = missingFields.length === 0;
 
@@ -118,20 +118,20 @@ export default function FeladoUtvonalReszletek() {
       <h1>{route.title}</h1>
       <p className="muted">🗓 {new Date(route.departure_at).toLocaleString('hu-HU')}</p>
 
-      {/* Saját poszt figyelmeztetés: a saját útvonaladon nem foglalhatsz
+      {/* Saját poszt figyelmeztetés: a saját járatodon nem foglalhatsz
           helyet, de megnézheted/szerkesztheted. */}
       {isMine && (
         <div
           className="card on-light"
           style={{ background: '#fefce8', borderColor: '#facc15', marginTop: 16, color: 'var(--text)' }}
         >
-          <h2 style={{ marginTop: 0, color: 'var(--text)' }}>📣 Ez a te saját útvonalad</h2>
+          <h2 style={{ marginTop: 0, color: 'var(--text)' }}>📣 Ez a te saját járatod</h2>
           <p style={{ marginBottom: 8, color: '#334155' }}>
             A saját hirdetésedre nem foglalhatsz helyet. A foglalások
-            kezeléséhez és szerkesztéshez nyisd meg a sofőri nézetet.
+            kezeléséhez és szerkesztéshez nyisd meg a szállítói nézetet.
           </p>
           <Link className="btn" href={`/sofor/utvonal/${route.id}`}>
-            Sofőri nézet →
+            Szállítói nézet →
           </Link>
         </div>
       )}
@@ -171,7 +171,7 @@ export default function FeladoUtvonalReszletek() {
 
       {/* Elérhető árak */}
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>A sofőr által vállalt méretek</h2>
+        <h2 style={{ marginTop: 0 }}>A szállító által vállalt méretek</h2>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
           {PACKAGE_SIZES.map((ps) => {
             const price = route.prices.find((p) => p.size === ps.id);
@@ -237,16 +237,16 @@ export default function FeladoUtvonalReszletek() {
             style={{
               marginTop: 12,
               padding: 12,
-              background: sofőrVisziE ? 'var(--success-light)' : 'var(--danger-light)',
-              borderColor: sofőrVisziE ? '#86efac' : '#fca5a5',
+              background: szállítóVisziE ? 'var(--success-light)' : 'var(--danger-light)',
+              borderColor: szállítóVisziE ? '#86efac' : '#fca5a5',
               color: 'var(--text)',
             }}
           >
             <strong>Besorolás: {classification}</strong>
-            {sofőrVisziE ? (
-              <> — ezt a sofőr vállalja, <strong className="price">{priceForSelectedSize?.price_huf.toLocaleString('hu-HU')} Ft</strong></>
+            {szállítóVisziE ? (
+              <> — ezt a szállító vállalja, <strong className="price">{priceForSelectedSize?.price_huf.toLocaleString('hu-HU')} Ft</strong></>
             ) : (
-              <> — sajnos ezt a méretet a sofőr nem vállalja ezen az útvonalon.</>
+              <> — sajnos ezt a méretet a szállító nem vállalja ezen az útvonalon.</>
             )}
           </div>
         )}
@@ -296,7 +296,7 @@ export default function FeladoUtvonalReszletek() {
           <p style={{ color: 'var(--warning)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
         )}
 
-        <label>Megjegyzés a sofőrnek (opcionális)</label>
+        <label>Megjegyzés a szállítónak (opcionális)</label>
         <textarea
           className="input"
           rows={2}
@@ -321,10 +321,10 @@ export default function FeladoUtvonalReszletek() {
           </p>
         )}
         <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-          A foglalást a sofőrnek meg kell erősítenie. A megerősítés után egy kis
-          kapcsolatfelvételi díjat fizetsz (bevezető ár), megkapod a sofőr
+          A foglalást a szállítónak meg kell erősítenie. A megerősítés után egy kis
+          kapcsolatfelvételi díjat fizetsz (bevezető ár), megkapod a szállító
           elérhetőségét, és a fuvar a szokásos módon megy: pickup fotó,
-          átvételi kód — a fuvardíjat készpénzben adod át a sofőrnek.
+          átvételi kód — a fuvardíjat készpénzben adod át a szállítónak.
         </p>
       </form>
       )}

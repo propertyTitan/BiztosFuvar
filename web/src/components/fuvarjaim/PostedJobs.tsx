@@ -52,7 +52,7 @@ export default function SajatHirdeteseim() {
         <div>
           <h2 style={{ marginTop: 0, marginBottom: 4 }}>Saját hirdetéseim</h2>
           <p className="muted" style={{ margin: 0 }}>
-            Minden, amit TE adtál fel — feladott fuvarok és fix áras útvonalak egy helyen.
+            Minden, amit TE adtál fel — feladott fuvarok és induló járatok egy helyen.
           </p>
         </div>
         <div className="row" style={{ gap: 8 }}>
@@ -77,7 +77,7 @@ export default function SajatHirdeteseim() {
           compact
           icon={<FileText size={22} aria-hidden />}
           title="Még nincs feladott fuvarod"
-          description="Add fel az elsőt — a sofőrök ajánlatot tesznek rá, és te választasz közülük."
+          description="Add fel az elsőt — a szállítók ajánlatot tesznek rá, és te választasz közülük."
           cta={<Link className="btn" href="/dashboard/uj-fuvar">Fuvar feladása</Link>}
         />
       )}
@@ -109,15 +109,15 @@ export default function SajatHirdeteseim() {
 
       {/* Fix áras útvonalak */}
       <h2 style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <RouteIcon size={20} /> Fix áras útvonalaim ({routes.length})
+        <RouteIcon size={20} /> Járataim ({routes.length})
       </h2>
       {!loading && routes.length === 0 && (
         <EmptyState
           compact
           icon={<RouteIcon size={22} aria-hidden />}
-          title="Még nincs hirdetett útvonalad"
-          description="Ha úgyis mész valahová, hirdesd meg fix áron — a feladók helyet foglalnak a csomagjuknak."
-          cta={<Link className="btn btn-secondary" href="/sofor/uj-utvonal">Útvonal hirdetése</Link>}
+          title="Még nincs hirdetett járatod"
+          description="Ha úgyis mész valahová, hirdesd meg járatként, fix áron — a feladók helyet foglalnak a csomagjuknak."
+          cta={<Link className="btn btn-secondary" href="/sofor/uj-utvonal">Járat hirdetése</Link>}
         />
       )}
       {routes.map((r) => {

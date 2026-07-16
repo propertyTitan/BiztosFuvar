@@ -14,7 +14,7 @@ const { calculateConnectionFee } = require('../services/connectionFee');
 const router = express.Router();
 
 // GET /bids/preview — licit előnézet.
-// Készpénzes modell: a sofőr a TELJES összeget kézhez kapja (készpénzben,
+// Készpénzes modell: a szállító a TELJES összeget kézhez kapja (készpénzben,
 // levonás nélkül); a platformFee a feladó által fizetendő kapcsolatfelvételi
 // díj (tájékoztató jelleggel adjuk vissza).
 router.get('/bids/preview', authRequired, async (req, res) => {
@@ -31,7 +31,7 @@ router.get('/bids/preview', authRequired, async (req, res) => {
     cashPayment: true,
   };
 
-  // Ha a fuvar EUR-ban van de a sofőr HUF-ban akar licitálni (vagy fordítva)
+  // Ha a fuvar EUR-ban van de a szállító HUF-ban akar licitálni (vagy fordítva)
   if (job_currency && job_currency !== currency) {
     if (currency === 'EUR' && job_currency === 'HUF') {
       const conv = await convertEurToHuf(amt);
@@ -79,7 +79,7 @@ router.get('/bids/mine', authRequired, async (req, res) => {
 });
 
 // POST /jobs/:jobId/bids – bárki licitálhat egy fuvarra, kivéve ha ő a feladója
-// Támogatja a multi-currency-t: a sofőr a fuvar valutájában VAGY a sajátjában licitálhat
+// Támogatja a multi-currency-t: a szállító a fuvar valutájában VAGY a sajátjában licitálhat
 router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const { jobId } = req.params;
   const { amount_huf, amount, currency, message, eta_minutes, return_policy, return_fee_huf } = req.body || {};
@@ -136,7 +136,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
   }
 
   // Jogosítvány-követelmény megszűnt (2026-07-07): a személyi igazolvány +
-  // a sofőri nyilatkozat (requireDriverKYC) elég; a can_bid/license-kapu kivéve.
+  // a szállítói nyilatkozat (requireDriverKYC) elég; a can_bid/license-kapu kivéve.
 
   try {
     // Árfolyam befagyasztás ha cross-currency licit
@@ -201,8 +201,8 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
 });
 
 // GET /jobs/:jobId/bids
-// IDOR-védelem: a feladó és admin minden licitet lát; egy sofőr CSAK a saját
-// licitjét látja (más sofőr ajánlatát ne tudja kiolvasni). A frontend sofőr-
+// IDOR-védelem: a feladó és admin minden licitet lát; egy szállító CSAK a saját
+// licitjét látja (más szállító ajánlatát ne tudja kiolvasni). A frontend szállító-
 // oldal Promise.all-ban kéri, ezért 403 helyett szűrt 200-at adunk vissza.
 router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
   const { notFound, isShipper, isAdmin } = await getJobParty(req.params.jobId, req.user);
@@ -220,7 +220,7 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
       ORDER BY b.amount_huf ASC`,
     seeAll ? [req.params.jobId] : [req.params.jobId, req.user.sub],
   );
-  // Készpénzes modell: a sofőr a teljes összeget kapja (kápé, levonás
+  // Készpénzes modell: a szállító a teljes összeget kapja (kápé, levonás
   // nélkül); a platform_fee a feladó kapcsolatfelvételi díja ehhez a
   // licit-összeghez.
   const enriched = rows.map((b) => ({
@@ -234,11 +234,11 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
 // Az alku/elfogadás közös magja: a megállapodott áron (agreedPrice) lezárja
 // a licitet — beállítja a job-ot, a többi licitet elutasítja, és elindítja a
 // KAPCSOLATFELVÉTELI DÍJ fizetését (készpénzes modell: a fuvardíj kápéban
-// megy a sofőrnek, a platform csak a saját díját szedi be a feladótól).
+// megy a szállítónak, a platform csak a saját díját szedi be a feladótól).
 // Tranzakción BELÜL fut (a hívó nyitja/zárja).
 //
 // Díjmentes újraválasztás: ha a fuvaron a díj MÁR ki van fizetve (paid_at —
-// egy korábbi sofőrrel meghiúsult a fuvar és a feladó újat választ), nem
+// egy korábbi szállítóval meghiúsult a fuvar és a feladó újat választ), nem
 // indítunk új fizetést: a díj a fuvarra szól, egyszeri.
 //
 // Visszaad: { ok:true, barionRes, feeHuf, feeAlreadyPaid } VAGY
@@ -284,7 +284,7 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
   }
   // A fizetés-nyilvántartás az escrow_transactions táblában marad, de a sor
   // mostantól a kapcsolatfelvételi díjat könyveli: amount = díj,
-  // carrier_share = 0 (a sofőr kápéban kap, nem rajtunk keresztül),
+  // carrier_share = 0 (a szállító kápéban kap, nem rajtunk keresztül),
   // platform_share = a teljes díj.
   await client.query(
     `INSERT INTO escrow_transactions
@@ -309,7 +309,7 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
 }
 
 // Megállapodás-értesítések. acceptedBy: 'shipper' (a feladó fogadott el egy
-// licitet/sofőr-ellenajánlatot) vagy 'carrier' (a sofőr fogadta el a feladó
+// licitet/szállító-ellenajánlatot) vagy 'carrier' (a szállító fogadta el a feladó
 // ellenajánlatát). Soha nem dob.
 async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
   try {
@@ -340,13 +340,13 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
         }).catch((e) => console.warn('[email] bid_accepted hiba:', e.message));
       });
     }
-    // Ha a sofőr fogadta el a feladó ellenajánlatát, a feladót kell fizetésre szólítani
+    // Ha a szállító fogadta el a feladó ellenajánlatát, a feladót kell fizetésre szólítani
     if (acceptedBy === 'carrier') {
       await createNotification({
         user_id: bid.shipper_id,
         type: 'counter_accepted',
         title: '✅ Elfogadták az ellenajánlatodat',
-        body: `A sofőr elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd meg a kapcsolatfelvételi díjat a folytatáshoz — a fuvardíjat készpénzben adod majd a sofőrnek.`,
+        body: `A szállító elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd meg a kapcsolatfelvételi díjat a folytatáshoz — a fuvardíjat készpénzben adod majd a szállítónak.`,
         link: `/dashboard/fuvar/${bid.job_id}`,
       });
     }
@@ -355,7 +355,7 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
   }
 }
 
-// POST /bids/:id/accept – a fuvar FELADÓJA elfogadja a licitet (vagy a sofőr
+// POST /bids/:id/accept – a fuvar FELADÓJA elfogadja a licitet (vagy a szállító
 // legutóbbi ellenajánlatát) → ESCROW lefoglalás a megállapodott áron.
 router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) => {
   const client = await db.pool.connect();
@@ -385,12 +385,12 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'Ez az ajánlat már nem aktív.' });
     }
     // Ha a feladó tett ellenajánlatot, ami még válaszra vár, ő nem fogadhat el —
-    // a labda a sofőrnél van.
+    // a labda a szállítónál van.
     if (bid.counter_by === 'shipper' && bid.counter_amount_huf != null) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ error: 'A sofőr még nem reagált az ellenajánlatodra.' });
+      return res.status(409).json({ error: 'A szállító még nem reagált az ellenajánlatodra.' });
     }
-    // Megállapodott ár: ha a sofőr tett ellenajánlatot, azt fogadjuk el; különben az eredeti licit.
+    // Megállapodott ár: ha a szállító tett ellenajánlatot, azt fogadjuk el; különben az eredeti licit.
     const agreedPrice = (bid.counter_by === 'carrier' && bid.counter_amount_huf != null)
       ? bid.counter_amount_huf : bid.amount_huf;
 
@@ -423,7 +423,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
   }
 });
 
-// POST /bids/:id/accept-counter – a SOFŐR elfogadja a feladó ellenajánlatát.
+// POST /bids/:id/accept-counter – a SZÁLLÍTÓ elfogadja a feladó ellenajánlatát.
 router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req, res) => {
   const client = await db.pool.connect();
   try {
@@ -478,7 +478,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
 });
 
 // POST /bids/:id/counter – ellenajánlat a licit összegére. Mindkét fél teheti
-// (feladó vagy az adott licit sofőrje). A legutóbbi ellenajánlat felülírja az
+// (feladó vagy az adott licit szállítója). A legutóbbi ellenajánlat felülírja az
 // előzőt; a másik fél elfogadhatja (accept / accept-counter) vagy visszadobhat.
 router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) => {
   const amt = Number(req.body?.amount);

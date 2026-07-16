@@ -68,9 +68,9 @@ async function main() {
       body: { email: shipperEmail, password: 'FustTeszt123!', full_name: '[TESZT] Füst Feladó', phone: '+36 20 111 2233' },
     });
     const reg2 = await api('POST', '/auth/register', {
-      body: { email: carrierEmail, password: 'FustTeszt123!', full_name: '[TESZT] Füst Sofőr', phone: '+36 20 444 5566' },
+      body: { email: carrierEmail, password: 'FustTeszt123!', full_name: '[TESZT] Füst Szállító', phone: '+36 20 444 5566' },
     });
-    check('Regisztráció (feladó + sofőr)', reg1.status === 201 && reg2.status === 201,
+    check('Regisztráció (feladó + szállító)', reg1.status === 201 && reg2.status === 201,
       `${reg1.status}/${reg2.status}`);
     const shipper = { token: reg1.json?.token, id: reg1.json?.user?.id };
     const carrier = { token: reg2.json?.token, id: reg2.json?.user?.id };
@@ -105,7 +105,7 @@ async function main() {
       token: carrier.token,
       body: { amount_huf: 12000, return_policy: 'included' },
     });
-    check('Licit (sofőr)', bidRes.status === 201, `${bidRes.status}`);
+    check('Licit (szállító)', bidRes.status === 201, `${bidRes.status}`);
     const bidId = bidRes.json?.id;
 
     const accept = await api('POST', `/bids/${bidId}/accept`, { token: shipper.token, body: {} });
@@ -134,7 +134,7 @@ async function main() {
     check('Kontakt-felfedés a díj UTÁN (mindkét fél)',
       jobAfterS.json?.contact?.phone === '+36 20 444 5566'
       && jobAfterC.json?.contact?.phone === '+36 20 111 2233',
-      `feladó látja: ${jobAfterS.json?.contact?.phone}, sofőr látja: ${jobAfterC.json?.contact?.phone}`);
+      `feladó látja: ${jobAfterS.json?.contact?.phone}, szállító látja: ${jobAfterC.json?.contact?.phone}`);
     check('Címzetti kód a létrehozási válaszban + vész-kód a GET-ben',
       /^\d{6}$/.test(deliveryCode || '') && /^\d{6}$/.test(jobAfterS.json?.sender_delivery_code || ''), '');
 
@@ -168,7 +168,7 @@ async function main() {
         status: 'open',
       },
     });
-    check('Útvonal-hirdetés (sofőr)', routeRes.status === 201, `${routeRes.status}`);
+    check('Útvonal-hirdetés (szállító)', routeRes.status === 201, `${routeRes.status}`);
     const routeId = routeRes.json?.id;
     created.routeIds.push(routeId);
 
@@ -185,7 +185,7 @@ async function main() {
     created.bookingIds.push(bookingId);
 
     const bConfirm = await api('POST', `/route-bookings/${bookingId}/confirm`, { token: carrier.token, body: {} });
-    check('Sofőri megerősítés (díj-fizetés indul)', bConfirm.status === 200, `${bConfirm.status}`);
+    check('Szállítói megerősítés (díj-fizetés indul)', bConfirm.status === 200, `${bConfirm.status}`);
 
     const bPay = await api('POST', `/route-bookings/${bookingId}/pay`, { token: shipper.token, body: { consent: true } });
     const bConfirmPay = await api('POST', `/route-bookings/${bookingId}/confirm-payment`, { token: shipper.token, body: {} });
@@ -208,7 +208,7 @@ async function main() {
       bDrop.status === 201 && bFinal[0]?.status === 'delivered' && !!bFinal[0]?.delivered_at,
       `${bDrop.status}, státusz=${bFinal[0]?.status}`);
 
-    // ===== 3. Sofőr-csere (reopen) gyors ellenőrzés egy 2. fuvaron =====
+    // ===== 3. Szállító-csere (reopen) gyors ellenőrzés egy 2. fuvaron =====
     const job2 = await api('POST', '/jobs', {
       token: shipper.token,
       body: {
@@ -228,7 +228,7 @@ async function main() {
       `fee=${accept2.json?.connection_fee_huf}`);
     const reopen = await api('POST', `/jobs/${job2.json?.id}/reopen`, { token: shipper.token, body: { reason: 'füstteszt' } });
     const job2After = await api('GET', `/jobs/${job2.json?.id}`, { token: shipper.token });
-    check('Sofőr-csere (reopen) → vissza bidding-re',
+    check('Szállító-csere (reopen) → vissza bidding-re',
       reopen.status === 200 && job2After.json?.status === 'bidding', `${reopen.status}, ${job2After.json?.status}`);
   } finally {
     // ===== TAKARÍTÁS — csak a script által létrehozott sorok =====

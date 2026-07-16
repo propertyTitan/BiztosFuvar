@@ -8,7 +8,7 @@ const DB_URL = 'postgres://gofuvar:gofuvar@127.0.0.1:54332/gofuvar_test';
 
 test('a feladó vitát nyit, az oldal vitatott állapotot mutat', async ({ page }) => {
   const shipper = await createUser('shipper', 'Feladó Ferenc');
-  const carrier = await createUser('carrier', 'Sofőr Sándor');
+  const carrier = await createUser('carrier', 'Szállító Sándor');
   const job = await createJob(shipper);
 
   // A fuvar előélete (elfogadva → kifizetve → kézbesítve) itt nem a tesztelt

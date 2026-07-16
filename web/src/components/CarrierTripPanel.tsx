@@ -1,6 +1,6 @@
 'use client';
 
-// Sofőri fuvar-végrehajtás a weben (app nélkül).
+// Szállítói fuvar-végrehajtás a weben (app nélkül).
 //
 // Két lépés, mindkettő fotó-alapú — GPS NINCS (a háttér-GPS + közeledés-SMS
 // egy későbbi natív-app fejlesztés lesz):
@@ -10,7 +10,7 @@
 //
 // A backend (routes/photos.js) a kind=pickup / kind=dropoff alapján váltja
 // a státuszt; dropoff-nál a kódot is ellenőrzi. Sikeres kézbesítés után a
-// fuvardíj készpénzben jár a sofőrnek.
+// fuvardíj készpénzben jár a szállítónak.
 //
 // Két entitást szolgál ki: licites FUVAR (entity='job', a fuvar 'accepted'
 // állapotából indul) és fix áras FOGLALÁS (entity='booking', a foglalás
@@ -24,13 +24,13 @@ type Props = {
   jobId: string;
   status: string;
   /** Kifizette-e már a feladó (paid_at). Fizetetlen fuvaron a backend
-   *  úgysem enged pickup/dropoff fotót — itt előre jelezzük a sofőrnek. */
+   *  úgysem enged pickup/dropoff fotót — itt előre jelezzük a szállítónak. */
   paid: boolean;
   onDone: () => void; // a szülő újratölti a fuvart a státuszváltás után
   /** 'job' (alap) vagy 'booking' — melyik backend-végpontra töltsön. */
   entity?: 'job' | 'booking';
   /** Egyedi input-id prefix, ha egy oldalon több panel is megjelenik
-   *  (pl. a sofőr útvonal-oldalán foglalásonként egy). */
+   *  (pl. a szállító útvonal-oldalán foglalásonként egy). */
   idPrefix?: string;
 };
 

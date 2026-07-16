@@ -1,4 +1,4 @@
-// Kedvenc sofőrök — a feladó megjelölheti a jó sofőröket.
+// Kedvenc szállítók — a feladó megjelölheti a jó szállítókat.
 // Következő fuvar feladásnál a kedvencek prioritásos push-t kapnak.
 const express = require('express');
 const db = require('../db');
@@ -37,7 +37,7 @@ router.delete('/favorites/:driverId', authRequired, async (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /favorites — a bejelentkezett user kedvenc sofőrjei
+// GET /favorites — a bejelentkezett user kedvenc szállítójai
 router.get('/favorites', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT f.driver_id, f.created_at,
@@ -52,7 +52,7 @@ router.get('/favorites', authRequired, async (req, res) => {
   res.json(rows);
 });
 
-// GET /favorites/check/:driverId — kedvenc-e ez a sofőr?
+// GET /favorites/check/:driverId — kedvenc-e ez a szállító?
 router.get('/favorites/check/:driverId', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT 1 FROM favorite_drivers WHERE user_id = $1 AND driver_id = $2`,

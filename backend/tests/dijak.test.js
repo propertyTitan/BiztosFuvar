@@ -3,7 +3,7 @@
 // (2026-07-15, user + ügyvezető döntése, cél: user-gyűjtés):
 //   kapcsolatfelvételi díj (bruttó, bevezető ár, a FELADÓ fizeti):
 //     50 000 Ft fuvardíjig 500 Ft / felette 1 000 Ft
-//   a fuvardíj 100%-a a sofőré (készpénz, levonás nélkül)
+//   a fuvardíj 100%-a a szállítóé (készpénz, levonás nélkül)
 //   lemondási díj NINCS; a kapcsolatfelvételi díj nem visszatérítendő
 import { describe, it, expect } from 'vitest';
 

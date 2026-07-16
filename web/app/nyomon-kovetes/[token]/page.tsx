@@ -5,7 +5,7 @@
 //  Nem kell bejelentkezés, nem kell app. Egy link és kész.
 //
 //  URL: /nyomon-kovetes/<tracking_token>
-//  Mutatja: állapot, sofőr neve, GPS pozíció, ETA, átvételi kód, QR kód.
+//  Mutatja: állapot, szállító neve, GPS pozíció, ETA, átvételi kód, QR kód.
 // =====================================================================
 
 import { useEffect, useState } from 'react';
@@ -17,9 +17,9 @@ import { SearchX } from 'lucide-react';
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const STATUS_LABELS: Record<string, { label: string; color: string; icon: string }> = {
-  pending:     { label: 'Sofőrt keresünk',        color: '#6B7280', icon: '🔍' },
-  bidding:     { label: 'Sofőrt keresünk',        color: '#6B7280', icon: '🔍' },
-  accepted:    { label: 'Sofőr elfogadta',        color: '#2563EB', icon: '✅' },
+  pending:     { label: 'Szállítót keresünk',        color: '#6B7280', icon: '🔍' },
+  bidding:     { label: 'Szállítót keresünk',        color: '#6B7280', icon: '🔍' },
+  accepted:    { label: 'Szállító elfogadta',        color: '#2563EB', icon: '✅' },
   in_progress: { label: 'Csomag úton van!',       color: 'var(--success-text)', icon: '🚛' },
   delivered:   { label: 'Csomag megérkezett!',    color: 'var(--success-text)', icon: '🎉' },
   completed:   { label: 'Fuvar lezárva',          color: '#6B7280', icon: '✅' },
@@ -125,10 +125,10 @@ export default function PublicTrackingPage() {
         <div style={{ fontSize: 13 }}>🏁 {data.dropoff_address}</div>
       </div>
 
-      {/* Sofőr infó */}
+      {/* Szállító infó */}
       {data.carrier && (
         <div className="callout callout-success" style={{ padding: 16 }}>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>🚗 Sofőr: {data.carrier.name}</div>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>🚗 Szállító: {data.carrier.name}</div>
           {data.carrier.vehicle && (
             <div className="muted" style={{ fontSize: 13 }}>Jármű: {data.carrier.vehicle}</div>
           )}
@@ -172,7 +172,7 @@ export default function PublicTrackingPage() {
           }}
         >
           <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 12 }}>
-            🔐 Átvételi kód — mutasd meg a sofőrnek
+            🔐 Átvételi kód — mutasd meg a szállítónak
           </div>
           <QrCode jobId={data.id} deliveryCode={data.delivery_code} size={180} />
         </div>

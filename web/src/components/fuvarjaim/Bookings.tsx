@@ -2,8 +2,8 @@
 
 // Feladói foglalásaim – a route_bookings lista.
 // Ez a "Péter lássa, hogy János elfogadta" képernyő: itt jelenik meg minden,
-// amit a feladó egy sofőri útvonalon foglalt, és a státusz frissül, ahogy
-// a sofőr megerősíti, elutasítja, vagy éppen elindul.
+// amit a feladó egy szállítói útvonalon foglalt, és a státusz frissül, ahogy
+// a szállító megerősíti, elutasítja, vagy éppen elindul.
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -17,9 +17,9 @@ import { ListSkeleton, EmptyState, ErrorState } from '@/components/StateView';
 import { CalendarCheck, Calendar, MapPin, Flag, Truck, BadgeCheck, CheckCircle2, Hourglass, KeyRound } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: 'Sofőri megerősítésre vár',
+  pending: 'Szállítói megerősítésre vár',
   confirmed: 'Elfogadva – fizess Barionnal',
-  rejected: 'Sofőr elutasította',
+  rejected: 'Szállító elutasította',
   in_progress: 'Úton',
   delivered: 'Átadva',
   cancelled: 'Törölve',
@@ -140,10 +140,10 @@ export default function FoglalasaimOldal() {
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
           <div style={{ flex: 1 }}>
             <h3 style={{ marginTop: 0, marginBottom: 4 }}>
-              {b.route_title || 'Sofőri útvonal'}
+              {b.route_title || 'Szállítói útvonal'}
             </h3>
             {b.carrier_name && (
-              <p className="muted" style={{ margin: '2px 0' }}><Truck size={13} style={{ verticalAlign: -2 }} /> Sofőr: {b.carrier_name}</p>
+              <p className="muted" style={{ margin: '2px 0' }}><Truck size={13} style={{ verticalAlign: -2 }} /> Szállító: {b.carrier_name}</p>
             )}
             {b.departure_at && (
               <p className="muted" style={{ margin: '2px 0' }}>
@@ -184,7 +184,7 @@ export default function FoglalasaimOldal() {
                   letterSpacing: 3,
                   fontWeight: 700,
                 }}
-                title="Átvételi kód – add át a sofőrnek"
+                title="Átvételi kód – add át a szállítónak"
               >
                 <KeyRound size={13} style={{ verticalAlign: -2 }} /> {b.delivery_code}
               </div>
@@ -282,7 +282,7 @@ export default function FoglalasaimOldal() {
           </div>
         </div>
 
-        {/* Kézbesítés után: kápé-emlékeztető + a sofőr értékelése */}
+        {/* Kézbesítés után: kápé-emlékeztető + a szállító értékelése */}
         {b.status === 'delivered' && (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
             <div
@@ -298,7 +298,7 @@ export default function FoglalasaimOldal() {
             >
               <CheckCircle2 size={14} style={{ verticalAlign: -2 }} /> <strong>Kézbesítve</strong>
               {b.delivered_at && ` — ${new Date(b.delivered_at).toLocaleString('hu-HU')}`}.
-              Ne feledd: a fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben jár a sofőrnek.
+              Ne feledd: a fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben jár a szállítónak.
             </div>
             <ReviewBox entityKey="booking_id" entityId={b.id} onDone={load} />
           </div>
@@ -313,12 +313,12 @@ export default function FoglalasaimOldal() {
         <div>
           <h2 style={{ marginTop: 0, marginBottom: 4 }}>Foglalásaim</h2>
           <p className="muted" style={{ margin: 0 }}>
-            Fix áras foglalások sofőri útvonalakon. Itt látod a sofőr megerősítését,
+            Fix áras foglalások szállítói járatokon. Itt látod a szállító megerősítését,
             az átvételi kódot, és a fuvar állapotát.
           </p>
         </div>
         <Link href="/dashboard/utvonalak" className="btn">
-          + Új foglalás útvonalra
+          + Új foglalás járatra
         </Link>
       </div>
 
@@ -329,15 +329,15 @@ export default function FoglalasaimOldal() {
         <EmptyState
           icon={<CalendarCheck size={28} aria-hidden />}
           title="Még nincs foglalásod"
-          description="Nézd meg az útba eső sofőrök fix áras útvonalait, és foglalj helyet a csomagodnak egy kattintással."
-          cta={<Link className="btn" href="/dashboard/utvonalak">Fix áras útvonalak</Link>}
+          description="Nézd meg az útba eső szállítók induló járatait, és foglalj helyet a csomagodnak egy kattintással."
+          cta={<Link className="btn" href="/dashboard/utvonalak">Induló járatok</Link>}
         />
       )}
 
       {pending.length > 0 && (
         <>
           <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Hourglass size={20} /> Sofőri megerősítésre vár ({pending.length})
+            <Hourglass size={20} /> Szállítói megerősítésre vár ({pending.length})
           </h2>
           {pending.map((b) => <BookingCard key={b.id} b={b} />)}
         </>

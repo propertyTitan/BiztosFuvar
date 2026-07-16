@@ -1,11 +1,11 @@
-// Ellenajánlat (Vinted-stílusú alku): a feladó ellenajánlatot küld a sofőr
-// licitjére, a sofőr elfogadja — a fuvar az alku-áron kerül elfogadásra.
+// Ellenajánlat (Vinted-stílusú alku): a feladó ellenajánlatot küld a szállító
+// licitjére, a szállító elfogadja — a fuvar az alku-áron kerül elfogadásra.
 import { test, expect } from '@playwright/test';
 import { createUser, createJob, placeBid, getJobRow, loginAs } from './helpers';
 
-test('feladói ellenajánlat → sofőr elfogadja → alku-áras elfogadott fuvar', async ({ browser }) => {
+test('feladói ellenajánlat → szállító elfogadja → alku-áras elfogadott fuvar', async ({ browser }) => {
   const shipper = await createUser('shipper', 'Feladó Ferenc');
-  const carrier = await createUser('carrier', 'Sofőr Sándor');
+  const carrier = await createUser('carrier', 'Szállító Sándor');
   const job = await createJob(shipper);
   await placeBid(carrier, job.id, 12000);
 
@@ -27,7 +27,7 @@ test('feladói ellenajánlat → sofőr elfogadja → alku-áras elfogadott fuva
 
   await expect(shipperPage.getByText(/Elküldted az ellenajánlatod/).first()).toBeVisible();
 
-  // ---- 2. A sofőr látja és elfogadja az ellenajánlatot ----
+  // ---- 2. A szállító látja és elfogadja az ellenajánlatot ----
   await carrierPage.goto(`/sofor/fuvar/${job.id}`);
   await expect(carrierPage.getByText(/A feladó ellenajánlata/).first()).toBeVisible();
   await expect(carrierPage.getByText(/10\s?000/).first()).toBeVisible();

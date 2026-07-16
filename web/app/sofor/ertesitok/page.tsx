@@ -1,7 +1,7 @@
 'use client';
 
-// Sofőr útvonal-figyelők kezelése.
-// A sofőr beállít egy felvételi környéket (+ opcionális célt) sugárral, és
+// Szállító útvonal-figyelők kezelése.
+// A szállító beállít egy felvételi környéket (+ opcionális célt) sugárral, és
 // új illeszkedő fuvarnál email + in-app értesítést kap (SMS nincs).
 import { useEffect, useState } from 'react';
 import { Bell, Plus, Trash2, MapPin, Flag } from 'lucide-react';

@@ -1,6 +1,6 @@
 'use client';
 
-// Sofőr "Ajánlataim" oldal.
+// Szállító "Ajánlataim" oldal.
 // - Összes ajánlat, amit valaha leadott, a kapcsolódó fuvar adataival együtt.
 // - Csoportosítva: Elfogadott (nyertes) / Várakozik / Elutasított vagy régi.
 // - Koppintás a kártyára → vissza a fuvar részletes oldalára.
@@ -41,7 +41,7 @@ export default function SoforLicitjeim() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Csoportosítás a sofőrnek érthető szempontok szerint
+  // Csoportosítás a szállítónak érthető szempontok szerint
   const accepted = rows.filter((r) => r.bid_status === 'accepted');
   const pending = rows.filter((r) => r.bid_status === 'pending');
   const lost = rows.filter((r) => r.bid_status === 'rejected' || r.bid_status === 'withdrawn');

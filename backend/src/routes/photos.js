@@ -1,7 +1,7 @@
 // Fotó-feltöltés (Proof of Delivery 2.0).
 // - Memóriából tölti fel a multipart fájlt.
-// - GPS koordináta BIZONYÍTÉKKÉNT rögzítődik (vita esetén "hol volt a sofőr").
-// - A dropoff validáció 6 számjegyű ÁTVÉTELI KÓD alapján történik: a sofőr
+// - GPS koordináta BIZONYÍTÉKKÉNT rögzítődik (vita esetén "hol volt a szállító").
+// - A dropoff validáció 6 számjegyű ÁTVÉTELI KÓD alapján történik: a szállító
 //   beírja a feladótól kapott kódot, és ha egyezik, a fuvar 'delivered' lesz.
 // - Az AI elemzést (Gemini) kivettük: a fotó csak bizonyíték, nem kerül
 //   automatikus minősítés alá.
@@ -70,13 +70,13 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   if (!job) return res.status(404).json({ error: 'Fuvar nem található' });
 
   // Jogosultság: 'listing' fotót csak a feladó tölthet fel; minden más
-  // (pickup/dropoff/damage/document) csak a kijelölt sofőré.
+  // (pickup/dropoff/damage/document) csak a kijelölt szállítóé.
   if (kind === 'listing') {
     if (job.shipper_id !== req.user.sub) {
       return res.status(403).json({ error: 'Csak a feladó tölthet fel hirdetés fotót' });
     }
   } else if (job.carrier_id !== req.user.sub) {
-    return res.status(403).json({ error: 'Csak a kijelölt sofőr tölthet fel pickup/dropoff fotót' });
+    return res.status(403).json({ error: 'Csak a kijelölt szállító tölthet fel pickup/dropoff fotót' });
   }
 
   // Terminál-státusz védelem: ha a fuvar már lezárult vagy lemondva, ne
@@ -168,7 +168,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
 
   // Mentés. Az AI elemzés-mezők mostantól mindig null-ok (csak rögzítjük a fotót,
   // nem minősítjük). A GPS log-szerűen kerül be, bizonyítékként, akkor is ha
-  // nem pont a cél koordinátáján áll a sofőr.
+  // nem pont a cél koordinátáján áll a szállító.
   const { rows } = await db.query(
     `INSERT INTO photos (job_id, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m,
                          ai_has_cargo, ai_confidence, ai_raw_response)
@@ -191,7 +191,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
 
     // AZ EGYETLEN CÍMZETT-SMS (2026-07-13 user-döntés): a csomag
     // felvételekor megy ki, az átvételhez szükséges adatokkal — 6 jegyű
-    // kód + a sofőr neve/telefonszáma. Minden más értesítés email/in-app
+    // kód + a szállító neve/telefonszáma. Minden más értesítés email/in-app
     // (SMS ~20-30 Ft/db, email ~0). Ékezet nélkül: 1 GSM-szegmens maradjon.
     setImmediate(async () => {
       try {
@@ -207,10 +207,10 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
         if (pi && pi.recipient_phone && pi.delivery_code) {
           const { sendSms } = require('../services/sms');
           // Név-plafon: az üzenet 134 karakter alatt maradjon (= max 2
-          // UCS-2 szegmens; e fölött 3. szegmens = +1 díj)
-          const nev = (pi.carrier_name || '').slice(0, 22);
+          // UCS-2 szegmens; a "Szállító" szó +3 kar → cap 20)
+          const nev = (pi.carrier_name || '').slice(0, 20);
           const sofor = nev
-            ? ` Sofőr: ${nev}${pi.carrier_phone ? ` (${pi.carrier_phone})` : ''}.`
+            ? ` Szállító: ${nev}${pi.carrier_phone ? ` (${pi.carrier_phone})` : ''}.`
             : '';
           sendSms(pi.recipient_phone,
             `GoFuvar: úton a csomagod! Átvételi kód: ${pi.delivery_code}.${sofor} Kérjük, egyeztess vele az érkezésről.`,
@@ -237,12 +237,12 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     }
 
     // Készpénzes modell: kézbesítéskor NINCS pénzmozgás a platformon — a
-    // sofőr a fuvardíjat készpénzben kapja a feladótól/címzettől. A
+    // szállító a fuvardíjat készpénzben kapja a feladótól/címzettől. A
     // kapcsolatfelvételi díj könyvelése már a fizetéskor lezárult
     // ('released'), így itt csak a státusz-átmenet + értesítések maradnak.
     realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation });
 
-    // Ajánlói jutalom-trigger: a sofőr most zárta le a fuvarját → ha ő egy
+    // Ajánlói jutalom-trigger: a szállító most zárta le a fuvarját → ha ő egy
     // meghívott, és ez az első teljesített fuvarja, az ajánlója kupont kap.
     maybeGrantReferralReward(job.carrier_id, { role: 'carrier', jobId }).catch(() => {});
 
@@ -266,7 +266,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           user_id: info.shipper_id,
           type: 'job_delivered',
           title: '📦 A csomagod megérkezett!',
-          body: `${info.carrier_name || 'A sofőr'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj készpénzben jár a sofőrnek.`,
+          body: `${info.carrier_name || 'A szállító'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj készpénzben jár a szállítónak.`,
           link: `/dashboard/fuvar/${jobId}`,
         });
 
@@ -293,9 +293,9 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
             // Egyszerű inline email — a sendEmail wrapper-t használjuk
             const emailHtml = `
               <p>Szia ${info.shipper_name || 'GoFuvar felhasználó'}!</p>
-              <p>Nagyszerű hír — <strong>${info.carrier_name || 'a sofőr'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${info.title}"</strong> fuvarban!</p>
+              <p>Nagyszerű hír — <strong>${info.carrier_name || 'a szállító'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${info.title}"</strong> fuvarban!</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
-              <p>A 6 jegyű átvételi kód ellenőrizve. A fuvardíj készpénzben jár a sofőrnek — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
+              <p>A 6 jegyű átvételi kód ellenőrizve. A fuvardíj készpénzben jár a szállítónak — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
               <p>Ha bármi probléma van a csomagoddal, a fuvar részletek oldalán tudsz vitás esetet nyitni.</p>
             `;
             sendEmail({
@@ -310,7 +310,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       console.warn('[notifications] job_delivered hiba:', e.message);
     }
 
-    // Trust score + szint + jelvények újraszámolása a sofőrnek
+    // Trust score + szint + jelvények újraszámolása a szállítónak
     if (job.carrier_id) {
       setImmediate(async () => {
         try {
@@ -375,9 +375,9 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
   const booking = bRows[0];
   if (!booking) return res.status(404).json({ error: 'Foglalás nem található' });
 
-  // Csak a kijelölt sofőr dolgozhat a foglaláson
+  // Csak a kijelölt szállító dolgozhat a foglaláson
   if (booking.carrier_id !== req.user.sub) {
-    return res.status(403).json({ error: 'Csak az útvonal sofőrje tölthet fel pickup/dropoff fotót' });
+    return res.status(403).json({ error: 'Csak az útvonal szállítója tölthet fel pickup/dropoff fotót' });
   }
 
   // Terminál-státusz védelem
@@ -473,7 +473,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     realtime.emitToUser(booking.carrier_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
 
     // AZ EGYETLEN CÍMZETT-SMS a foglalás-ágon is (2026-07-13): felvételkor,
-    // kód + sofőr elérhetőség. Ékezet nélkül (1 GSM-szegmens).
+    // kód + szállító elérhetőség. Ékezet nélkül (1 GSM-szegmens).
     setImmediate(async () => {
       try {
         if (booking.recipient_phone && booking.delivery_code) {
@@ -483,9 +483,9 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
           );
           const c = cRows[0] || {};
           const { sendSms } = require('../services/sms');
-          const nev = (c.full_name || '').slice(0, 22);
+          const nev = (c.full_name || '').slice(0, 20);
           const sofor = nev
-            ? ` Sofőr: ${nev}${c.phone ? ` (${c.phone})` : ''}.`
+            ? ` Szállító: ${nev}${c.phone ? ` (${c.phone})` : ''}.`
             : '';
           sendSms(booking.recipient_phone,
             `GoFuvar: úton a csomagod! Átvételi kód: ${booking.delivery_code}.${sofor} Kérjük, egyeztess vele az érkezésről.`,
@@ -499,7 +499,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
       user_id: booking.shipper_id,
       type: 'booking_picked_up',
       title: '🚚 A csomagod úton van!',
-      body: `A sofőr felvette a csomagodat (${booking.route_title || 'foglalás'}). A címzett a 6 jegyű kóddal veszi át.`,
+      body: `A szállító felvette a csomagodat (${booking.route_title || 'foglalás'}). A címzett a 6 jegyű kóddal veszi át.`,
       link: '/dashboard/foglalasaim',
     }).catch(() => {});
   }
@@ -516,7 +516,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     }
 
     // Készpénzes modell: kézbesítéskor nincs pénzmozgás a platformon — a
-    // fuvardíjat a sofőr készpénzben kapja.
+    // fuvardíjat a szállító készpénzben kapja.
     realtime.emitToUser(booking.shipper_id, 'route-booking:delivered', { booking_id: bookingId, photo });
     realtime.emitToUser(booking.carrier_id, 'route-booking:delivered', { booking_id: bookingId, photo });
 
@@ -525,7 +525,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
       user_id: booking.shipper_id,
       type: 'booking_delivered',
       title: '📦 A csomagod megérkezett!',
-      body: `A(z) "${booking.route_title || 'foglalás'}" csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj készpénzben jár a sofőrnek.`,
+      body: `A(z) "${booking.route_title || 'foglalás'}" csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj készpénzben jár a szállítónak.`,
       link: '/dashboard/foglalasaim',
     }).catch(() => {});
     setImmediate(async () => {
@@ -556,7 +556,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
               <p>Szia ${shipper.full_name || 'GoFuvar felhasználó'}!</p>
               <p>A foglalásod csomagja sikeresen kézbesítve — a 6 jegyű átvételi kód ellenőrizve.</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
-              <p>A fuvardíj készpénzben jár a sofőrnek — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
+              <p>A fuvardíj készpénzben jár a szállítónak — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
               <p>Ha bármi probléma van a csomagoddal, a Foglalásaim oldalon tudsz vitás esetet nyitni.</p>
             `,
           }).catch((e) => console.warn('[email] booking_delivered hiba:', e.message));
@@ -592,8 +592,8 @@ router.get('/route-bookings/:bookingId/photos', authRequired, async (req, res) =
 });
 
 // GET /jobs/:jobId/photos
-// A fuvar fele (feladó / kijelölt sofőr / admin) MINDEN fotót lát. Egy
-// kívülálló (pl. licitálni készülő sofőr) csak a 'listing' fotókat — ezek
+// A fuvar fele (feladó / kijelölt szállító / admin) MINDEN fotót lát. Egy
+// kívülálló (pl. licitálni készülő szállító) csak a 'listing' fotókat — ezek
 // a hirdetés részei, kellenek a licithez. A pickup/dropoff/damage/document
 // fotók (és a beágyazott GPS-koordináták) privát bizonyítékok, ezeket
 // idegen nem láthatja.

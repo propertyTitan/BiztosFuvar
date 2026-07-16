@@ -4,8 +4,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Új útvonal meghirdetése',
-  description: 'Hirdesd meg az útvonalad fix árakkal — a feladók lefoglalják a szabad helyed.',
+  title: 'Új járat meghirdetése',
+  description: 'Hirdesd meg a járatod fix árakkal — a feladók lefoglalják a szabad helyed.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

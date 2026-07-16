@@ -1,6 +1,6 @@
 'use client';
 
-// Fuvaraim: minden olyan fuvar, amit a user SOFŐRKÉNT teljesít
+// Fuvaraim: minden olyan fuvar, amit a user SZÁLLÍTÓKÉNT teljesít
 // (licites fuvar, amire licitált és elfogadták, vagy fix áras foglalás,
 // amit megerősített).
 // A backend most már as=assigned paraméterrel szűr carrier_id-ra.
