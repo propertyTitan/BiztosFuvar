@@ -72,7 +72,8 @@ function scrubJobForUser(job, user) {
   const {
     recipient_name, recipient_phone, recipient_email,
     barion_payment_id, barion_gateway_url,
-    paid_at, fee_consent_at, connection_fee_huf, ...publicFields
+    paid_at, fee_consent_at, connection_fee_huf,
+    photo_retention_hold, ...publicFields
   } = rest;
   return publicFields;
 }

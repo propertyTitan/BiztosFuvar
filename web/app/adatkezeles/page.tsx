@@ -161,8 +161,11 @@ export default function AdatkezelesPage() {
           érdekében).
         </li>
         <li>
-          <strong>Fuvar-fotók (proof of delivery):</strong> a fuvarrekord élettartamával egyezően,
-          alapesetben 5 év.
+          <strong>Fuvar-fotók (felvételi és kézbesítési fotó):</strong> a fuvar lezárását követő{' '}
+          <strong>30 napig</strong>, ezt követően automatikusan törlésre kerülnek. Kivétel: ha a
+          fuvarral kapcsolatban vitarendezési eljárás indult, vagy jogi igény érvényesítése miatt
+          megőrzési zárolás van érvényben — ilyenkor <strong>kizárólag az érintett fuvar</strong>{' '}
+          fotói a polgári jogi elévülési időhöz igazodva legfeljebb 5 évig kerülnek megőrzésre.
         </li>
         <li>
           <strong>Push tokenek és eszközazonosítók:</strong> a fiók aktív állapotáig, vagy a
