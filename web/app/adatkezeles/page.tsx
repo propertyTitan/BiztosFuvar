@@ -149,8 +149,11 @@ export default function AdatkezelesPage() {
           aktív tárolást technikai-szervezési intézkedésekkel minimalizálja.
         </li>
         <li>
-          <strong>In-app Chat üzenetek és Értékelések:</strong> A fuvar lezárását követő 6 hónapig
-          (Kizárólag vitarendezés céljából, utána anonimizálásra kerülnek).
+          <strong>In-app Chat üzenetek:</strong> A fuvar lezárását követő <strong>6 hónapig</strong>{' '}
+          (kizárólag vitarendezés céljából), utána automatikusan törlésre kerülnek. Kivétel: ha a
+          fuvarral kapcsolatban vitarendezési eljárás indult vagy megőrzési zárolás van érvényben —
+          ilyenkor kizárólag az érintett fuvar üzenetei legfeljebb 5 évig kerülnek megőrzésre.
+          Az Értékelések (Trust Score) a profil részeként a fiók élettartamáig megmaradnak.
         </li>
         <li>
           <strong>GPS ping adatok:</strong> Az aktív fuvar befejezését követő 7 napig tároljuk

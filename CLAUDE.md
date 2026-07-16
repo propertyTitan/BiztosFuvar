@@ -173,9 +173,9 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 | Csomag tilalom | NINCS hardcoded lista — a Feladó felelős hogy ellenőrizze a sofőr engedélyét speciális áruhoz (élő állat, gyógyszer, stb.) |
 | Sofőri KYC / biztosítás | **Jogosítvány NEM kell (2026-07-07)** — a személyi igazolvány (identity KYC) elég MINDENHEZ (feladó+sofőr); így a nem-motoros futárok (bringa, gyalog, tömegközlekedés) is mehetnek. Sofőri egyszeri **nyilatkozat** (jogszabályok + KRESZ betartása) a sofőr-mód első használatakor (`driver_terms_accepted_at`, `POST /auth/accept-driver-terms`, DriverTermsGate). Külön **KGFB-nyilatkozat NINCS** (a KGFB magyar jog szerint úgyis kötelező minden gépjárműre; az ÁSZF 3.4 általános „minden jogszabályt betart" kikötése fedi). Casco/CMR NEM kötelező. ⚠️ marketingben TILOS a „jogosítvány nem kell" (ne hívjuk fel rá a figyelmet) — csak pozitív „bármivel mehet". ÁSZF 3.2/3.4 + adatkezelés átírva. Jogosítvány-plumbing dormant. Kor: ÁSZF 3.1 = 18+ (16+ = ügyvéd-kérdés) |
 | Céges fiók (KYB) | **Adószám + cégnév KÖTELEZŐ (formátum-ellenőrzéssel), de NINCS dokumentum/fotó/admin-jóváhagyás (2026-07-05, PR #57)** — a régi company_verification kapu kivéve, a plumbing dormant. A természetes személyt az identity KYC védi. Jövőbeli olcsó win: NAV adószám-lekérdezés + "Ellenőrzött cég" jelvény (Option B), majd reputációs "Kiemelt fuvarozó" (uShip/Shiply-modell). Céges perszónák: költöztető cég, bútorbolt, fuvarozó |
-| KYC retention | ✅ AKTÍV (2026-07-16-án ellenőrizve, a CLAUDE.md sokáig tévesen "nem aktív"-ként tartotta nyilván): a nyers okmányfotó a döntés (approved/rejected) után 30 nappal AUTOMATIKUSAN törlődik (napi job: `purgeOldKycFiles`, index.js ütemezi; pending-et nem bántja; a privát bucket kulcsait is kezeli). A metaadat (státusz + doc_number_hash csalásvédelemhez) marad — erre vonatkozik az 5 év a fiók-törlés után (ÁSZF). **Fuvar-fotók (pickup/dropoff, 2026-07-16 user-döntés, PR #91): alapból 30 nap a lezárás után, AUTOMATIKUS napi törléssel** (`photoRetention.js`); vitarendezés (a vita-nyitás auto-zárol: `photo_retention_hold=TRUE`, a vita lezárása után is marad) vagy admin-zárolás (`PATCH /admin/photo-hold`) esetén az érintett fuvar/foglalás fotói 5 évig, utána azok is törlődnek. 'listing' fotót nem érint. Adatkezelési 5. szakasz átírva. 049-es migráció |
-| GPS retention | 7 nap nyers, utána anonimizálva |
-| Chat retention | 6 hónap a fuvar lezárása után |
+| KYC retention | ✅ AKTÍV (2026-07-16-án ellenőrizve, a CLAUDE.md sokáig tévesen "nem aktív"-ként tartotta nyilván): a nyers okmányfotó a döntés (approved/rejected) után 30 nappal AUTOMATIKUSAN törlődik (napi job: `purgeOldKycFiles`, index.js ütemezi; pending-et nem bántja; a privát bucket kulcsait is kezeli). A metaadat (státusz + doc_number_hash csalásvédelemhez) marad — erre vonatkozik az 5 év a fiók-törlés után (ÁSZF). **Fuvar-fotók (pickup/dropoff, 2026-07-16 user-döntés, PR #91): alapból 30 nap a lezárás után, AUTOMATIKUS napi törléssel** (`retention.js` — 2026-07-17-én átnevezve, a chat+GPS purge is itt él); vitarendezés (a vita-nyitás auto-zárol: `photo_retention_hold=TRUE`, a vita lezárása után is marad) vagy admin-zárolás (`PATCH /admin/photo-hold`) esetén az érintett fuvar/foglalás fotói 5 évig, utána azok is törlődnek. 'listing' fotót nem érint. Adatkezelési 5. szakasz átírva. 049-es migráció |
+| GPS retention | ✅ GÉPESÍTVE (2026-07-17, PR #92): 7 nap után a nyers pingek auto-törlődnek (a job már él, pedig az élő GPS csak a mobil-fázisban indul — sosem gyűlhet) |
+| Chat retention | ✅ GÉPESÍTVE (2026-07-17, PR #92): 6 hónap a fuvar lezárása után auto-törlés; zárolt (vitás/admin-holdos) ügyletnél 5 év — ugyanaz a `photo_retention_hold` flag védi, mint a fotókat (egységes bizonyíték-zárolás) |
 | App store | **NINCS** még — PWA telepítéssel megy |
 | Marketing-stratégia | Top 5 magyar útvonal (Pest-X) + intercity fókusz |
 | Customer-base | Egyetemista bútor-átvitel, marketplace eladók, IKEA-vásárlók (3 perszóna) |
@@ -302,6 +302,13 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Chat + GPS retenció gépesítve (2026-07-17, PR #92)** — a photoRetention.js
+  → `retention.js` (általános adat-retenció): chat-üzenetek a lezárás után
+  6 hónappal törlődnek (zárolt ügyletnél 5 év — ugyanaz a hold flag, mint a
+  fotóknál), GPS-pingek 7 nap után; napi `runDailyRetention` kör. Az
+  adatkezelési 5. szakasz chat-sora a valós szabályra igazítva. Ezzel MINDEN
+  adattípus életciklusa gépesített (KYC 30 nap / fotó 30 nap / chat 6 hó /
+  GPS 7 nap / zárolt: 5 év) — a tájékoztató pontról pontra igaz
 - **Fuvarfotó-retenció (2026-07-16, PR #91)** — pickup/dropoff fotók: 30 nap
   a lezárás után auto-törlés (napi job); vitás/admin-zárolt fuvarnál 5 év
   (`photo_retention_hold`, 049 migráció; vita-nyitás auto-zárol; admin:
