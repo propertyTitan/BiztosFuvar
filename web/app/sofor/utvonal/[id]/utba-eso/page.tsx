@@ -3,9 +3,9 @@
 // =====================================================================
 //  Útba eső fuvarok — egy konkrét útvonalhoz tartozó passzoló fuvarok.
 //
-//  A sofőr megy A → B → C, és a rendszer kilistázza azokat a feladott
+//  A szállító megy A → B → C, és a rendszer kilistázza azokat a feladott
 //  fuvarokat, amelyek pickup-ja és dropoff-ja az út mentén van.
-//  A sofőr innen átkattinthat a fuvar részleteire és licitálhat.
+//  A szállító innen átkattinthat a fuvar részleteire és licitálhat.
 // =====================================================================
 
 import { useEffect, useState } from 'react';

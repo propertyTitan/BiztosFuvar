@@ -1,7 +1,7 @@
 // A fix áras foglalás TELJES lezárási útja a UI-n át — a BUG-041 osztály
 // őre. A tesztelő legnagyobb fogása az volt, hogy a foglalás a fizetés
 // után UI nélkül maradt; ez a spec pontosan azt a felületet hajtja végig,
-// ami akkor hiányzott: sofőr felvétel-igazolás → kód-lezárás → a feladó
+// ami akkor hiányzott: szállító felvétel-igazolás → kód-lezárás → a feladó
 // "Kézbesítve" + értékelés.
 //
 // A setup (útvonal, foglalás, megerősítés, díj-fizetés) API-n megy — a
@@ -19,7 +19,7 @@ async function apiPost(token: string, path: string, body: unknown) {
   return res.json();
 }
 
-test('foglalás végrehajtása: sofőr pickup + kód-lezárás → feladó Kézbesítve + értékelés', async ({ browser }) => {
+test('foglalás végrehajtása: szállító pickup + kód-lezárás → feladó Kézbesítve + értékelés', async ({ browser }) => {
   const shipper = await createUser('shipper', 'Foglaló Flóra');
   const carrier = await createUser('carrier', 'Útvonal Ubul');
 
@@ -51,7 +51,7 @@ test('foglalás végrehajtása: sofőr pickup + kód-lezárás → feladó Kézb
   const carrierPage = await carrierCtx.newPage();
   await loginAs(carrierPage, carrier);
 
-  // --- 1. Sofőr: felvétel igazolása a foglaláson (a BUG-041 előtt ez a
+  // --- 1. Szállító: felvétel igazolása a foglaláson (a BUG-041 előtt ez a
   //        panel nem is létezett) ---
   await carrierPage.goto(`/sofor/utvonal/${route.id}`);
   await expect(carrierPage.getByText('Fuvar indítása').first()).toBeVisible({ timeout: 20_000 });
@@ -61,7 +61,7 @@ test('foglalás végrehajtása: sofőr pickup + kód-lezárás → feladó Kézb
   await carrierPage.getByRole('button', { name: /Felvétel igazolása/ }).click();
   await expect(carrierPage.getByText('Kézbesítés igazolása').first()).toBeVisible({ timeout: 20_000 });
 
-  // --- 2. Sofőr: kézbesítés a címzetti kóddal ---
+  // --- 2. Szállító: kézbesítés a címzetti kóddal ---
   await carrierPage.locator(`#${idPrefix}dropoff-photo`).setInputFiles({
     name: 'atadas.png', mimeType: 'image/png', buffer: TINY_PNG,
   });
@@ -75,7 +75,7 @@ test('foglalás végrehajtása: sofőr pickup + kód-lezárás → feladó Kézb
   await loginAs(shipperPage, shipper);
   await shipperPage.goto('/fuvarjaim?tab=foglalasaim');
   await expect(shipperPage.getByText(/Kézbesítve/).first()).toBeVisible({ timeout: 20_000 });
-  await expect(shipperPage.getByText(/készpénzben jár a sofőrnek/).first()).toBeVisible();
+  await expect(shipperPage.getByText(/készpénzben jár a szállítónak/).first()).toBeVisible();
 
   // --- 4. DB-végállapot ---
   const { rows: final } = await dbQuery(

@@ -1,7 +1,7 @@
 // Árfolyam szolgáltatás — MNB / EKB referencia árfolyam.
 //
 // A GoFuvar a licitálás pillanatában "befagyasztja" az EUR/HUF
-// árfolyamot, hogy se a feladó, se a sofőr ne veszítsen a
+// árfolyamot, hogy se a feladó, se a szállító ne veszítsen a
 // devizaingadozáson a licit és a kifizetés között.
 //
 // Az árfolyamot naponta egyszer frissítjük az EKB API-ból (ingyenes,

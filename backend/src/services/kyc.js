@@ -1,7 +1,7 @@
 // GoFuvar KYC & Jogosítvány kezelés.
 //
 // Flow:
-//   1) Sofőr feltölti a jogosítványt → kyc_documents (status: pending)
+//   1) Szállító feltölti a jogosítványt → kyc_documents (status: pending)
 //   2) Admin jóváhagyja → status: approved, lejárat mentve
 //   3) 30 nappal lejárat előtt → értesítés ("Frissítsd a jogosítványod!")
 //   4) 7 nappal előtt → utolsó figyelmeztetés
@@ -20,7 +20,7 @@ const KYC_FILE_RETENTION_DAYS = 30;
 
 /**
  * Jogosítvány feltöltés feldolgozása.
- * A lejárati dátumot manuálisan adja meg a sofőr (OCR opcionális).
+ * A lejárati dátumot manuálisan adja meg a szállító (OCR opcionális).
  */
 async function submitLicenseDocument({ userId, fileUrl, docNumber, fullName, expiryDate }) {
   const { rows } = await db.query(

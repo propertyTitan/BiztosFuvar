@@ -4,9 +4,9 @@
 //   1. `jobs:new` socket-broadcast (io.emit MINDEN kliensnek, vendégnek is)
 //      — a payload a KÍVÜLÁLLÓ nézetre scrubbolt kell legyen. A broadcast
 //      literálisan `scrubJobForUser(job, null)`-t hív, így azt teszteljük.
-//   2. `GET /route-bookings/:id` — a sofőr NEM kaphatja a tracking_token-t
+//   2. `GET /route-bookings/:id` — a szállító NEM kaphatja a tracking_token-t
 //      (azzal a publikus követőoldalról kiolvasható lenne a kód).
-//   3. a sofőr útvonalának foglalás-listája ugyanígy scrubbolt.
+//   3. a szállító útvonalának foglalás-listája ugyanígy scrubbolt.
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 
@@ -42,14 +42,14 @@ describe('jobs:new broadcast — kívülálló-scrub (PII + kód nem szivárog)'
     for (const field of FORBIDDEN_FOR_OUTSIDER) {
       expect(out, `"${field}" NEM mehet ki kívülállónak`).not.toHaveProperty(field);
     }
-    // A publikus mezők maradjanak (a lista így is használható a sofőrnek)
+    // A publikus mezők maradjanak (a lista így is használható a szállítónak)
     expect(out.id).toBe('j1');
     expect(out.title).toBe('Teszt');
     expect(out.pickup_address).toBe('Budapest');
     expect(out.suggested_price_huf).toBe(12000);
   });
 
-  it('a kijelölt sofőr sem kapja a kódot / tokent, de a címzett-kontaktot igen', () => {
+  it('a kijelölt szállító sem kapja a kódot / tokent, de a címzett-kontaktot igen', () => {
     const rawJob = {
       id: 'j2', shipper_id: 's1', carrier_id: 'c1',
       delivery_code: '111222', sender_delivery_code: '333444',
@@ -63,8 +63,8 @@ describe('jobs:new broadcast — kívülálló-scrub (PII + kód nem szivárog)'
   });
 });
 
-describe('Foglalás-végpontok — a sofőr nem juthat a tracking_token-hez', () => {
-  it('GET /route-bookings/:id: a sofőr válaszában nincs tracking_token / delivery_code', async () => {
+describe('Foglalás-végpontok — a szállító nem juthat a tracking_token-hez', () => {
+  it('GET /route-bookings/:id: a szállító válaszában nincs tracking_token / delivery_code', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
     const { booking } = await createBooking({ shipperId: shipper.id, carrierId: carrier.id, paid: true });
@@ -92,7 +92,7 @@ describe('Foglalás-végpontok — a sofőr nem juthat a tracking_token-hez', ()
     expect(typeof res.body.tracking_token).toBe('string');
   });
 
-  it('a sofőr útvonal-foglalás listája is scrubbolt (nincs token/kód)', async () => {
+  it('a szállító útvonal-foglalás listája is scrubbolt (nincs token/kód)', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
     const { booking, routeId } = await createBooking({ shipperId: shipper.id, carrierId: carrier.id, paid: true });
@@ -106,7 +106,7 @@ describe('Foglalás-végpontok — a sofőr nem juthat a tracking_token-hez', ()
     expect(row).toBeTruthy();
     expect(row.tracking_token).toBeUndefined();
     expect(row.delivery_code).toBeUndefined();
-    // A sofőrnek a kézbesítéshez kell a címzett elérhetősége — az marad
+    // A szállítónak a kézbesítéshez kell a címzett elérhetősége — az marad
     expect(row.recipient_phone).toBe('+36301112233');
   });
 });

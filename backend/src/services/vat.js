@@ -1,11 +1,11 @@
 // GoFuvar VAT Engine — európai ÁFA logika.
 //
 // A platform (GoFuvar Kft., HU székhelyű) a 10%-os jutalékról
-// állít ki számlát a SOFŐRNEK. Az adólogika a sofőr státuszától
+// állít ki számlát a SZÁLLÍTÓNAK. Az adólogika a szállító státuszától
 // és országától függ:
 //
 // ┌─────────────────────┬─────────────────────┬────────────────────────┐
-// │ Sofőr típusa        │ Ország              │ ÁFA kezelés            │
+// │ Szállító típusa        │ Ország              │ ÁFA kezelés            │
 // ├─────────────────────┼─────────────────────┼────────────────────────┤
 // │ Magánszemély        │ HU                  │ 27% HU ÁFA             │
 // │ Cég + HU adószám    │ HU                  │ 27% HU ÁFA             │
@@ -74,7 +74,7 @@ function parseTaxId(taxId) {
  * A fő ÁFA-meghatározó logika.
  *
  * @param {object} params
- * @param {string} params.buyerCountry    – a sofőr országa ('HU', 'DE', stb.)
+ * @param {string} params.buyerCountry    – a szállító országa ('HU', 'DE', stb.)
  * @param {string|null} params.buyerTaxId – az adószám (pl. 'DE123456789') vagy null
  * @param {boolean} params.buyerIsCompany – cég-e (true) vagy magánszemély (false)
  * @param {number} params.amount          – a nettó összeg (platform jutalék)

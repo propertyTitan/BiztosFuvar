@@ -1,4 +1,4 @@
-// Sofőri útvonal-hirdetések + feladói foglalások.
+// Szállítói útvonal-hirdetések + feladói foglalások.
 //
 // A fájl neve "carrierRoutes.js", hogy ne keveredjen össze az Express
 // "router" fogalmával. Az URL-ekben /carrier-routes és /route-bookings
@@ -31,7 +31,7 @@ const { uuidParam } = require('../middleware/validateParams');
 
 // Foglalás-scrub — a jobs.js `scrubJobForUser` mintájára. A `delivery_code`
 // és a `tracking_token` CSAK a feladóé/adminé: a publikus követőoldal a
-// tokenből kiírja az átvételi kódot, így ha a sofőr a tokenhez jutna, a
+// tokenből kiírja az átvételi kódot, így ha a szállító a tokenhez jutna, a
 // kódvédelmet megkerülhetné (a korábbi kód csak a `delivery_code`-ot vette
 // ki, a tokent bennhagyta — az volt a lyuk).
 function scrubBookingForUser(booking, user) {
@@ -39,8 +39,8 @@ function scrubBookingForUser(booking, user) {
   const isShipper = user?.sub === booking.shipper_id;
   const isAdmin = user?.role === 'admin';
   if (isAdmin || isShipper) return booking;
-  // Sofőr (vagy bárki más, aki idáig eljut): kód + token nélkül. A címzett
-  // elérhetőségét a sofőr látja (kézbesítéskor hívnia kell tudni), a
+  // Szállító (vagy bárki más, aki idáig eljut): kód + token nélkül. A címzett
+  // elérhetőségét a szállító látja (kézbesítéskor hívnia kell tudni), a
   // fizetési Barion-mezők a feladó oldalán relevánsak.
   const { delivery_code, tracking_token, ...rest } = booking;
   return rest;
@@ -79,11 +79,11 @@ async function attachPrices(routes) {
 }
 
 // =====================================================================
-//  SOFŐR – útvonal hirdetés
+//  SZÁLLÍTÓ – útvonal hirdetés
 // =====================================================================
 
 // POST /carrier-routes
-// Új útvonal létrehozása. Sofőr-only. A `prices` tömb minden elemében
+// Új útvonal létrehozása. Szállító-only. A `prices` tömb minden elemében
 // egy (size, price_huf) páros.
 router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const {
@@ -160,7 +160,7 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   }
 });
 
-// GET /carrier-routes/mine – a sofőr saját útvonalai (publikált + sablon + minden)
+// GET /carrier-routes/mine – a szállító saját útvonalai (publikált + sablon + minden)
 router.get('/carrier-routes/mine', authRequired, async (req, res) => {
   const { rows } = await db.query(
     `SELECT * FROM carrier_routes WHERE carrier_id = $1 ORDER BY is_template ASC, departure_at DESC`,
@@ -182,7 +182,7 @@ router.get('/carrier-routes', authRequired, async (req, res) => {
               WHERE status = 'open'
                 -- BUG-028: indulás után az útvonal tűnjön el a keresésből.
                 -- 1 óra türelmi idő marad a kicsit csúszó indulásokra (a
-                -- korábbi 12 óra alatt a feladók már elment sofőrökkel
+                -- korábbi 12 óra alatt a feladók már elment szállítókkal
                 -- próbáltak egyeztetni).
                 AND departure_at >= NOW() - INTERVAL '1 hour'`;
   const params = [];
@@ -216,7 +216,7 @@ router.get('/carrier-routes/:id', authRequired, async (req, res) => {
 
 // GET /carrier-routes/:id/along-jobs — "Útba eső fuvarok"
 // Az útvonal waypoint-jai mentén keresünk nyitott (bidding) fuvarokat,
-// amelyeket a sofőr felvehetne kitérő nélkül (vagy minimális kitérővel).
+// amelyeket a szállító felvehetne kitérő nélkül (vagy minimális kitérővel).
 router.get('/carrier-routes/:id/along-jobs', authRequired, async (req, res) => {
   const { rows } = await db.query(
     'SELECT carrier_id, waypoints, status FROM carrier_routes WHERE id = $1',
@@ -401,7 +401,7 @@ router.post(
     );
     if (!priceRows[0]) {
       return res.status(409).json({
-        error: `A sofőr nem szállít "${size}" méretű csomagot ezen az útvonalon.`,
+        error: `A szállító nem szállít "${size}" méretű csomagot ezen a járaton.`,
       });
     }
     const priceHuf = priceRows[0].price_huf;
@@ -429,12 +429,12 @@ router.post(
     );
     const booking = insertRows[0];
 
-    // Real-time értesítés a sofőrnek — KIZÁRÓLAG a sofőr saját szobájába
+    // Real-time értesítés a szállítónak — KIZÁRÓLAG a szállító saját szobájába
     // (`emitToUser`), NEM globálisan. A korábbi `emitGlobal('...:${carrier_id}')`
     // minden csatlakozott klienshez elment; a carrier_id a publikus
     // útvonal-listából megszerezhető, így bárki lehallgathatta az új foglalás
     // átvételi kódját, tracking tokenjét és a címzett PII-ját. A payload is
-    // minimális, nem-érzékeny (a részleteket a sofőr a REST-en, scrubbolva kéri le).
+    // minimális, nem-érzékeny (a részleteket a szállító a REST-en, scrubbolva kéri le).
     realtime.emitToUser(route.carrier_id, 'route-bookings:new', {
       booking_id: booking.id,
       route_id: booking.route_id,
@@ -445,7 +445,7 @@ router.post(
       created_at: booking.created_at,
     });
 
-    // Értesítés a sofőrnek: új foglalás érkezett (in-app + email)
+    // Értesítés a szállítónak: új foglalás érkezett (in-app + email)
     try {
       const { rows: partyRows } = await db.query(
         `SELECT s.full_name AS shipper_name,
@@ -525,7 +525,7 @@ router.get(
         ORDER BY b.created_at DESC`,
       [req.params.id],
     );
-    // A sofőr a saját útvonala foglalásait látja — de a `delivery_code` és a
+    // A szállító a saját útvonala foglalásait látja — de a `delivery_code` és a
     // `tracking_token` tőle is elrejtendő (kód-megkerülés elleni védelem).
     res.json(rows.map((b) => scrubBookingForUser(b, req.user)));
   },
@@ -558,12 +558,12 @@ router.get('/route-bookings/:id', authRequired, async (req, res) => {
   const b = rows[0];
   if (!b) return res.status(404).json({ error: 'Foglalás nem található' });
 
-  // Jogosultság: csak a foglalás feladója vagy a sofőr látja
+  // Jogosultság: csak a foglalás feladója vagy a szállító látja
   if (b.shipper_id !== req.user.sub && b.carrier_id !== req.user.sub && req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Nincs jogosultság' });
   }
 
-  // A sofőrtől a `delivery_code` ÉS a `tracking_token` is elrejtendő
+  // A szállítótől a `delivery_code` ÉS a `tracking_token` is elrejtendő
   // (a token → publikus követőoldal → kód-megkerülés). A scrub a
   // feladónak/adminnak mindent visszaad.
   res.json(scrubBookingForUser(b, req.user));
@@ -602,7 +602,7 @@ router.post(
       }
 
       // Kapcsolatfelvételi díj indítása (készpénzes modell: a fuvardíjat a
-      // feladó készpénzben adja a sofőrnek, a platform csak a díjat szedi)
+      // feladó készpénzben adja a szállítónak, a platform csak a díjat szedi)
       const feeHuf = calculateConnectionFee(b.price_huf);
       let barionRes = { paymentId: null, gatewayUrl: null };
       try {
@@ -637,7 +637,7 @@ router.post(
         barion_gateway_url: barionRes.gatewayUrl,
       });
 
-      // Értesítés a feladónak: a sofőr megerősítette a foglalást (in-app + email)
+      // Értesítés a feladónak: a szállító megerősítette a foglalást (in-app + email)
       try {
         const { rows: partyRows } = await db.query(
           `SELECT c.full_name AS carrier_name,
@@ -654,8 +654,8 @@ router.post(
         await createNotification({
           user_id: b.shipper_id,
           type: 'booking_confirmed',
-          title: '✅ A sofőr megerősítette a foglalásod!',
-          body: `${info.carrier_name || 'A sofőr'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat készpénzben adod a sofőrnek.`,
+          title: '✅ A szállító megerősítette a foglalásod!',
+          body: `${info.carrier_name || 'A szállító'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat készpénzben adod a szállítónak.`,
           link: `/dashboard/foglalasaim`,
         });
         if (info.shipper_email) {
@@ -695,7 +695,7 @@ router.post(
 //
 // Akkor hívjuk, amikor a feladó a "Fizetés Barionnal" gombra kattint.
 //   - Ha a foglaláshoz már tartozik `barion_gateway_url`, azt adjuk vissza.
-//   - Ha nincs (pl. régebbi kóddal erősítette meg a sofőr, amikor még nem
+//   - Ha nincs (pl. régebbi kóddal erősítette meg a szállító, amikor még nem
 //     volt Barion integráció), MOST hozzuk létre a reservation-t, eltároljuk
 //     a paymentId + gatewayUrl-t, és azt adjuk vissza.
 //
@@ -793,7 +793,7 @@ router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req,
 //
 // Mit csinál:
 //   1) `paid_at` beállítása NOW()-ra
-//   2) Értesítés küldése a SOFŐRnek (hirdetés létrehozója): "Péter
+//   2) Értesítés küldése a SZÁLLÍTÓnek (hirdetés létrehozója): "Péter
 //      kifizette a foglalását"
 //   3) Realtime event a feladónak, hogy a Foglalásaim oldala frissüljön
 //      és a Fizetés gomb helyén a "FIZETVE" címke megjelenjen
@@ -862,7 +862,7 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
     });
   }
 
-  // 1) Értesítés a sofőrnek (a hirdetés létrehozójának): in-app + email
+  // 1) Értesítés a szállítónak (a hirdetés létrehozójának): in-app + email
   try {
     await createNotification({
       user_id: b.carrier_id,
@@ -893,7 +893,7 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
     booking_id: b.id,
     paid_at: paidAt,
   });
-  // És a sofőrnek is, hogy a route részletek oldal frissüljön.
+  // És a szállítónak is, hogy a route részletek oldal frissüljön.
   realtime.emitToUser(b.carrier_id, 'route-booking:paid', {
     booking_id: b.id,
     paid_at: paidAt,
@@ -931,13 +931,13 @@ router.post(
     );
     realtime.emitGlobal(`route-bookings:rejected:${b.shipper_id}`, { booking_id: b.id });
 
-    // Értesítés a feladónak: sajnos a sofőr elutasította (in-app + email)
+    // Értesítés a feladónak: sajnos a szállító elutasította (in-app + email)
     try {
       await createNotification({
         user_id: b.shipper_id,
         type: 'booking_rejected',
-        title: '😕 A sofőr elutasította a foglalásod',
-        body: 'Sajnos a sofőr nem tudja vállalni ezt a csomagot. Keress másik útvonalat vagy fuvart.',
+        title: '😕 A szállító elutasította a foglalásod',
+        body: 'Sajnos a szállító nem tudja vállalni ezt a csomagot. Keress másik útvonalat vagy fuvart.',
         link: `/dashboard/foglalasaim`,
       });
     } catch (e) {
@@ -961,7 +961,7 @@ router.post(
 //
 // Fix áras foglalás lemondása. Bárki hívhatja, aki érdekelt fél:
 //   - a feladó (shipper_id = me) → lemondási díj ha már fizetett (8 000 Ft-ig 400 Ft, felette 5%)
-//   - a sofőr (route.carrier_id = me) → 100% refund a feladónak
+//   - a szállító (route.carrier_id = me) → 100% refund a feladónak
 //
 // Tiltott állapotok: in_progress, delivered, cancelled, rejected.
 router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
@@ -1026,8 +1026,8 @@ router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (r
         type: 'booking_cancelled',
         title: '❌ Foglalás lemondva',
         body: iAmShipper
-          ? `A feladó lemondta a foglalását a(z) "${b.route_title}" útvonalon.`
-          : `A sofőr lemondta a foglalásodat a(z) "${b.route_title}" útvonalon. Keress másik útvonalat vagy adj fel fuvart — ha már fizettél kapcsolatfelvételi díjat, jelezz a panasz@gofuvar.hu címen.`,
+          ? `A feladó lemondta a foglalását a(z) "${b.route_title}" járaton.`
+          : `A szállító lemondta a foglalásodat a(z) "${b.route_title}" járaton. Keress másik járatot vagy adj fel fuvart — ha már fizettél kapcsolatfelvételi díjat, jelezz a panasz@gofuvar.hu címen.`,
         link: iAmShipper ? `/sofor/utvonal/${b.route_id}` : `/dashboard/foglalasaim`,
       });
     } catch (e) {

@@ -158,7 +158,7 @@ async function sendBidReceivedEmail({ to, shipperName, jobTitle, jobId, carrierN
   const heading = '🎯 Új ajánlat a fuvarodra!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
-    <p><strong>${escapeHtml(carrierName) || 'Egy sofőr'}</strong> ajánlatot tett a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarodra.</p>
+    <p><strong>${escapeHtml(carrierName) || 'Egy szállító'}</strong> ajánlatot tett a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarodra.</p>
     <p style="font-size:24px;font-weight:800;color:#1e40af;margin:20px 0">${formatHuf(amountHuf)} Ft</p>
     <p>Nyisd meg a részleteket, hogy elfogadhasd vagy összehasonlíthasd más ajánlatokkal.</p>
   `;
@@ -175,7 +175,7 @@ async function sendBidReceivedEmail({ to, shipperName, jobTitle, jobId, carrierN
 }
 
 /**
- * Útvonal-figyelő találat: új fuvar a sofőr által figyelt útvonalon.
+ * Útvonal-figyelő találat: új fuvar a szállító által figyelt útvonalon.
  */
 async function sendLaneAlertEmail({ to, carrierName, jobTitle, jobId, routeLabel, priceHuf }) {
   const heading = '🎯 Új fuvar a figyelt útvonaladon!';
@@ -201,7 +201,7 @@ async function sendLaneAlertEmail({ to, carrierName, jobTitle, jobId, routeLabel
 }
 
 /**
- * A sofőr ajánlatát elfogadta a feladó.
+ * A szállító ajánlatát elfogadta a feladó.
  */
 async function sendBidAcceptedEmail({ to, carrierName, jobTitle, jobId, amountHuf }) {
   const heading = '🎉 Elfogadták az ajánlatodat!';
@@ -224,7 +224,7 @@ async function sendBidAcceptedEmail({ to, carrierName, jobTitle, jobId, amountHu
 }
 
 /**
- * A feladó kifizette a licites fuvart → a sofőr kap értesítést.
+ * A feladó kifizette a licites fuvart → a szállító kap értesítést.
  */
 async function sendJobPaidEmail({ to, carrierName, jobTitle, jobId, amountHuf, shipperName }) {
   const heading = '🤝 Indulhat a fuvar!';
@@ -261,7 +261,7 @@ async function sendJobPaidEmail({ to, carrierName, jobTitle, jobId, amountHuf, s
  * @param {string} [p.shipperName]
  * @param {string} p.jobTitle — a fuvar/foglalás címe
  * @param {number} p.feeHuf — a megfizetett kapcsolatfelvételi díj (bruttó Ft)
- * @param {number} [p.cashHuf] — a sofőrnek készpénzben járó fuvardíj
+ * @param {number} [p.cashHuf] — a szállítónak készpénzben járó fuvardíj
  * @param {string} [p.paidAtIso] — a fizetés időpontja (ISO string)
  * @param {string} [p.detailsPath] — a fuvar/foglalás oldala (pl. /dashboard/fuvar/<id>)
  */
@@ -280,21 +280,21 @@ async function sendFeeConfirmationEmail({
       ${formatHuf(feeHuf)} Ft <span style="font-size:13px;font-weight:400;color:#666">(bruttó, bevezető ár)</span>
     </p>
     <p style="font-size:13px;color:#666;margin:0 0 16px">Fizetés időpontja: ${escapeHtml(paidAtTxt)}</p>
-    <p>A szolgáltatás (a sofőr kapcsolatfelvételi adatainak átadása és a fuvar-folyamat
-    elindítása) a fizetéssel <strong>teljesült</strong> — a sofőr elérhetőségét a fuvar
+    <p>A szolgáltatás (a szállító kapcsolatfelvételi adatainak átadása és a fuvar-folyamat
+    elindítása) a fizetéssel <strong>teljesült</strong> — a szállító elérhetőségét a fuvar
     oldalán találod.</p>
     <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:16px 0;font-size:13px;line-height:1.6">
       <strong>A fizetéskor tett nyilatkozatod:</strong><br />
       „Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása) azonnali teljesítését,
       és tudomásul veszem, hogy a teljesítés után elállási jogomat elvesztem
       (45/2014. Korm. rendelet 29. § (1) a)). A díj nem visszatérítendő; ha a fuvar a
-      sofőr hibájából hiúsul meg, díjmentesen választhatok másik sofőrt ugyanerre a fuvarra."
+      szállító hibájából hiúsul meg, díjmentesen választhatok másik szállítót ugyanerre a fuvarra."
     </div>
     ${cashHuf ? `<p>💵 Emlékeztető: a fuvardíjat (<strong>${formatHuf(cashHuf)} Ft</strong>)
-    <strong>készpénzben</strong> fizeted közvetlenül a sofőrnek — a GoFuvar a fuvardíjat
+    <strong>készpénzben</strong> fizeted közvetlenül a szállítónak — a GoFuvar a fuvardíjat
     nem kezeli.</p>` : ''}
-    <p style="font-size:13px;color:#666">Ha a sofőr visszalép vagy nem elérhető, a fuvar
-    oldalán díjmentesen választhatsz másik sofőrt ugyanerre a fuvarra — a díj másik
+    <p style="font-size:13px;color:#666">Ha a szállító visszalép vagy nem elérhető, a fuvar
+    oldalán díjmentesen választhatsz másik szállítót ugyanerre a fuvarra — a díj másik
     fuvarra nem vihető át. A díjról a számlát külön küldjük. Részletek:
     <a href="${getWebBase()}/aszf">ÁSZF (4. és 6. pont)</a>.</p>
   `;
@@ -311,13 +311,13 @@ async function sendFeeConfirmationEmail({
 }
 
 /**
- * Új foglalás érkezett a sofőr egyik útvonalára.
+ * Új foglalás érkezett a szállító egyik járatára.
  */
 async function sendBookingReceivedEmail({ to, carrierName, routeTitle, routeId, shipperName, priceHuf }) {
   const heading = '📦 Új foglalás érkezett!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
-    <p><strong>${escapeHtml(shipperName) || 'Egy feladó'}</strong> foglalt helyet a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonaladra.</p>
+    <p><strong>${escapeHtml(shipperName) || 'Egy feladó'}</strong> foglalt helyet a(z) <strong>"${escapeHtml(routeTitle)}"</strong> járatodra.</p>
     <p style="font-size:24px;font-weight:800;color:#1e40af;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
     <p>Erősítsd meg a foglalást — a feladó a kapcsolatfelvételi díj megfizetése után látja az elérhetőségedet, a fuvardíjat készpénzben kapod tőle.</p>
   `;
@@ -334,15 +334,15 @@ async function sendBookingReceivedEmail({ to, carrierName, routeTitle, routeId, 
 }
 
 /**
- * A sofőr megerősítette a foglalást → feladó tud fizetni.
+ * A szállító megerősítette a foglalást → feladó tud fizetni.
  */
 async function sendBookingConfirmedEmail({ to, shipperName, routeTitle, bookingId, carrierName, priceHuf }) {
-  const heading = '✅ A sofőr megerősítette a foglalásod!';
+  const heading = '✅ A szállító megerősítette a foglalásod!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
-    <p><strong>${escapeHtml(carrierName) || 'A sofőr'}</strong> elfogadta a foglalásodat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonalon.</p>
+    <p><strong>${escapeHtml(carrierName) || 'A szállító'}</strong> elfogadta a foglalásodat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> járaton.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
-    <p>Most tudod megfizetni a kapcsolatfelvételi díjat — utána megkapod a sofőr elérhetőségét, a fuvardíjat pedig készpénzben adod át neki. A foglalásod a "Foglalásaim" menüpontban érhető el.</p>
+    <p>Most tudod megfizetni a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig készpénzben adod át neki. A foglalásod a "Foglalásaim" menüpontban érhető el.</p>
   `;
   return sendEmail({
     to,
@@ -357,13 +357,13 @@ async function sendBookingConfirmedEmail({ to, shipperName, routeTitle, bookingI
 }
 
 /**
- * A feladó kifizette a fix áras foglalást → sofőr kap értesítést.
+ * A feladó kifizette a fix áras foglalást → szállító kap értesítést.
  */
 async function sendBookingPaidEmail({ to, carrierName, routeTitle, bookingId, priceHuf, shipperName }) {
   const heading = '🤝 Indulhat a foglalás!';
   const bodyHtml = `
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
-    <p><strong>${escapeHtml(shipperName) || 'A feladó'}</strong> kifizette a kapcsolatfelvételi díjat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonaladra szóló foglaláshoz.</p>
+    <p><strong>${escapeHtml(shipperName) || 'A feladó'}</strong> kifizette a kapcsolatfelvételi díjat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> járatodra szóló foglaláshoz.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
     <p>A fuvardíjat <strong>készpénzben</strong> kapod a feladótól a csomag átadásakor/kézbesítésekor.</p>
   `;
@@ -378,11 +378,11 @@ async function sendBookingPaidEmail({ to, carrierName, routeTitle, bookingId, pr
  * Foglalás elutasítva — a feladó kap értesítést.
  */
 async function sendBookingRejectedEmail({ to, shipperName, routeTitle }) {
-  const heading = 'A sofőr elutasította a foglalásod';
+  const heading = 'A szállító elutasította a foglalásod';
   const bodyHtml = `
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
-    <p>Sajnáljuk, de a sofőr elutasította a foglalásodat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonalon. Nem volt pénzmozgás — semmit nem kell tenned.</p>
-    <p>Ne csüggedj! Nézz körül az "Útba eső sofőrök" menüpontban — rengeteg más útvonal közül választhatsz.</p>
+    <p>Sajnáljuk, de a szállító elutasította a foglalásodat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> útvonalon. Nem volt pénzmozgás — semmit nem kell tenned.</p>
+    <p>Ne csüggedj! Nézz körül az "Útba eső szállítók" menüpontban — rengeteg más útvonal közül választhatsz.</p>
   `;
   return sendEmail({
     to,
@@ -416,7 +416,7 @@ async function sendCancellationEmail({
   feeHuf,
   recipientIsShipper,
 }) {
-  const whoCancelled = cancelledByRole === 'shipper' ? 'a feladó' : 'a sofőr';
+  const whoCancelled = cancelledByRole === 'shipper' ? 'a feladó' : 'a szállító';
   const heading = '❌ Fuvar lemondva';
   let bodyHtml = `
     <p>Szia ${escapeHtml(recipientName) || 'GoFuvar felhasználó'}!</p>
@@ -425,7 +425,7 @@ async function sendCancellationEmail({
   `;
   if (recipientIsShipper) {
     bodyHtml += `
-      <p>Pénzmozgás nem történt a lemondással: a fuvardíj készpénzben járt volna a sofőrnek, így nincs mit visszatéríteni. Ha már fizettél kapcsolatfelvételi díjat, az a fuvarra érvényes marad — a fuvar oldalán díjmentesen választhatsz másik sofőrt a korábbi ajánlatok közül.</p>
+      <p>Pénzmozgás nem történt a lemondással: a fuvardíj készpénzben járt volna a szállítónak, így nincs mit visszatéríteni. Ha már fizettél kapcsolatfelvételi díjat, az a fuvarra érvényes marad — a fuvar oldalán díjmentesen választhatsz másik szállítót a korábbi ajánlatok közül.</p>
     `;
   }
   if (!recipientIsShipper) {
@@ -452,13 +452,13 @@ async function sendRecipientTrackingEmail({ to, recipientName, jobTitle, trackin
         <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:20px;text-align:center;margin:20px 0">
           <div style="font-size:13px;color:#666;margin-bottom:8px">Átvételi kód</div>
           <div style="font-size:36px;font-weight:800;letter-spacing:6px;font-family:monospace">${escapeHtml(deliveryCode)}</div>
-          <div style="font-size:12px;color:#666;margin-top:8px">Ezt a kódot add meg a sofőrnek amikor megérkezik</div>
+          <div style="font-size:12px;color:#666;margin-top:8px">Ezt a kódot add meg a szállítónak amikor megérkezik</div>
         </div>
         <a href="${escapeHtml(trackingUrl)}" style="display:block;text-align:center;background:#1e40af;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px">
           📍 Fuvar követése élőben
         </a>
         <p style="font-size:12px;color:#999;margin-top:20px;text-align:center">
-          Ezen az oldalon látod a sofőr pozícióját és a becsült érkezési időt.
+          Ezen az oldalon látod a szállító pozícióját és a becsült érkezési időt.
           Nem kell regisztrálnod a GoFuvar-ra.
         </p>
       </div>

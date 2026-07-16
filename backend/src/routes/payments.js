@@ -3,7 +3,7 @@
 // A teljes pénzügyi flow egyetlen fájlban:
 //   1) Webhook fogadás (idempotens — dupla hívás nem okoz dupla feldolgozást)
 //   2) Split kalkuláció (90/10)
-//   3) VAT kiszámítás a sofőr profiljából
+//   3) VAT kiszámítás a szállító profiljából
 //   4) Számla-adat előkészítés (invoice metadata)
 //   5) Admin log (payment_events tábla)
 //   6) Értesítések (push + in-app + email)
@@ -126,9 +126,9 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
   // === SUCCEEDED — Sikeres díj-fizetés ===
   // Készpénzes modell: a beérkezett összeg a KAPCSOLATFELVÉTELI DÍJ (a
   // platform saját bevétele, a feladó fizeti). A fuvardíj készpénzben megy
-  // a sofőrnek — arról a platform nem könyvel és nem számláz.
+  // a szállítónak — arról a platform nem könyvel és nem számláz.
   if (barionStatus === 'Succeeded') {
-    // 1) A díj teljes egészében a platformé; sofőr-kifizetés nincs.
+    // 1) A díj teljes egészében a platformé; szállító-kifizetés nincs.
     const platformFee = totalAmount;
     const carrierPayout = 0;
 
@@ -195,7 +195,7 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
     const summary = [
       `${d.shipper_name || '?'} (feladó)`,
       `kapcsolatfelvételi díj: ${platformFee} ${currency} (${vatLabel})`,
-      `fuvardíj (kápé, sofőrnek): ${d.accepted_price_huf || d.price_huf || '?'} ${currency}`,
+      `fuvardíj (kápé, szállítónak): ${d.accepted_price_huf || d.price_huf || '?'} ${currency}`,
       invoice ? `számla: ${invoice.id}` : null,
     ].filter(Boolean).join(' · ');
 
@@ -351,7 +351,7 @@ router.get('/payments/admin/log', authRequired, async (req, res) => {
 // ============================================================
 
 router.get('/jobs/:jobId/escrow', authRequired, async (req, res) => {
-  // IDOR-védelem: csak a fuvar fele (feladó / sofőr / admin) láthatja az
+  // IDOR-védelem: csak a fuvar fele (feladó / szállító / admin) láthatja az
   // escrow + Barion fizetési adatokat (összegek, barion_payment_id, gateway URL).
   const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
   if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
@@ -391,7 +391,7 @@ router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {
   if (!rows[0]) return res.json(null);
   const r = rows[0];
   // Készpénzes modell: a "payout" a kézbesítéskor készpénzben történik,
-  // a platform nem utal a sofőrnek. A mezők a UI kompatibilitás miatt
+  // a platform nem utal a szállítónak. A mezők a UI kompatibilitás miatt
   // maradnak: payout_ready = a fuvar lezárult (a kápé átadása esedékes).
   res.json({
     ...r,

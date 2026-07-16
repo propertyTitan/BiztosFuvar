@@ -96,7 +96,7 @@ async function cleanup() {
     // 4. KYC (admin-jóváhagyás szimulálva a prod DB-ben)
     await pool.query(`UPDATE users SET identity_kyc_status='verified', driver_kyc_status='verified' WHERE id = ANY($1)`, [[anna.id, bela.id]]);
     const carrierId = await insertVerifiedUser('carrier', 'carrier');
-    log('4) Anna + Béla KYC verified; teszt-sofőr létrehozva');
+    log('4) Anna + Béla KYC verified; teszt-szállító létrehozva');
 
     // 5. Béla teljesít: feladóként kifizeti az első díját (prod API, stub Barion)
     const belaJob = await insertAcceptedJob(bela.id, carrierId, 20000);

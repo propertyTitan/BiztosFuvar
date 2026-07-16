@@ -110,8 +110,8 @@ const html = `<!doctype html>
 
   <div class="left">
     <div class="badge">Magyarország közösségi fuvartőzsdéje</div>
-    <h1 class="display">Csomagod van?<br><span class="lite">Sofőröd is lesz.</span></h1>
-    <div class="sub">A sofőrök ajánlatot tesznek rá — te választasz.<br>Fotó bizonyíték · 6 jegyű átvételi kód</div>
+    <h1 class="display">Csomagod van?<br><span class="lite">Szállítód is lesz.</span></h1>
+    <div class="sub">A szállítók ajánlatot tesznek rá — te választasz.<br>Fotó bizonyíték · 6 jegyű átvételi kód</div>
   </div>
 
   <div class="footer">${LOGO_SVG}<span class="sep"></span><span class="url">gofuvar.hu</span></div>

@@ -1,6 +1,6 @@
 // Zöld / üzemanyag becslések.
 //
-// A GoFuvar modell eleve zöldebb egy dedikált futárnál: a sofőr ÚGYIS megy
+// A GoFuvar modell eleve zöldebb egy dedikált futárnál: a szállító ÚGYIS megy
 // A→B, a csomag egy MEGLÉVŐ úton utazik → nincs plusz jármű, nincs plusz
 // károsanyag (ezt erősíti a visszafuvar-matching is). Ez a helper ebből
 // csinál kézzelfogható, TÁJÉKOZTATÓ nagyságrendet — nem ígéret.

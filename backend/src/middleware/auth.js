@@ -77,7 +77,7 @@ async function requireDriverKYC(req, res, next) {
     const u = rows[0];
     if (!u) return res.status(401).json({ error: 'Felhasználó nem található' });
     // A személyi igazolvány (identity KYC) mindenkinek kötelező — aki ezt
-    // igazolta, jogosult MINDENRE (feladó és sofőr). A jogosítvány-követelmény
+    // igazolta, jogosult MINDENRE (feladó és szállító). A jogosítvány-követelmény
     // megszűnt (2026-07-07): a nem-motoros futárokat is engedjük.
     if (u.identity_kyc_status !== 'verified') {
       return res.status(403).json({
@@ -86,7 +86,7 @@ async function requireDriverKYC(req, res, next) {
         identity_kyc_status: u.identity_kyc_status,
       });
     }
-    // Sofőri egyszeri nyilatkozat: minden jogszabály + KRESZ betartása.
+    // Szállítói egyszeri nyilatkozat: minden jogszabály + KRESZ betartása.
     if (!u.driver_terms_accepted_at) {
       return res.status(403).json({
         error: 'A fuvarozás megkezdéséhez fogadd el a nyilatkozatot: minden vonatkozó jogszabályt és a KRESZ-t betartod.',

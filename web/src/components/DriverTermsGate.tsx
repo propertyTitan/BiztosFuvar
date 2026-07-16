@@ -5,7 +5,7 @@ import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 
 /**
- * Sofőri egyszeri nyilatkozat-kapu. A sofőr-mód első használatakor a
+ * Szállítói egyszeri nyilatkozat-kapu. A szállító-mód első használatakor a
  * felhasználónak el kell fogadnia, hogy minden vonatkozó jogszabályt és a
  * KRESZ-t betartja. Elfogadás után (driver_terms_accepted_at rögzül) többé
  * nem jelenik meg. A backend (requireDriverKYC) is megköveteli, tehát

@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
   title: 'Hozasd el – terméklinkből fuvar',
-  description: 'Vettél valamit online? Illeszd be a linket (IKEA, OBI, Jófogás…), és egy sofőr elhozza neked.',
+  description: 'Vettél valamit online? Illeszd be a linket (IKEA, OBI, Jófogás…), és egy szállító elhozza neked.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

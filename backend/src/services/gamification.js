@@ -1,7 +1,7 @@
 // GoFuvar Gamifikáció — szintrendszer, jelvények.
 //
-// A SOFŐRI jutalékmentes kupon (szintlépéskor + havi) EGYELŐRE KIKAPCSOLVA
-// (2026-07-05): a sofőr 100% készpénzt kap, sosem fizet kapcsolatfelvételi
+// A SZÁLLÍTÓI jutalékmentes kupon (szintlépéskor + havi) EGYELŐRE KIKAPCSOLVA
+// (2026-07-05): a szállító 100% készpénzt kap, sosem fizet kapcsolatfelvételi
 // díjat, így egy díj-elengedő kupon számára használhatatlan. A LEVELS[]
 // .monthlyVouchers config megmarad (dormant), a szint/jelvény rész él.
 // Kupont mostantól csak az ajánlói program oszt (services/referral.js), és
@@ -15,7 +15,7 @@ const { createNotification } = require('./notifications');
 const LEVELS = [
   { level: 1,  name: 'Kezdő',        icon: '🌱', minDeliveries: 0,  minRating: 0,   monthlyVouchers: 0 },
   { level: 2,  name: 'Újonc',        icon: '🚗', minDeliveries: 1,  minRating: 0,   monthlyVouchers: 0 },
-  { level: 3,  name: 'Profi Sofőr',  icon: '🚛', minDeliveries: 5,  minRating: 4.0, monthlyVouchers: 0 },
+  { level: 3,  name: 'Profi Szállító',  icon: '🚛', minDeliveries: 5,  minRating: 4.0, monthlyVouchers: 0 },
   { level: 4,  name: 'Megbízható',    icon: '⭐', minDeliveries: 10, minRating: 4.5, monthlyVouchers: 0 },
   { level: 5,  name: 'Diamant',      icon: '💎', minDeliveries: 25, minRating: 4.7, monthlyVouchers: 1 },
   { level: 6,  name: 'Mester',       icon: '🏆', minDeliveries: 50, minRating: 4.8, monthlyVouchers: 1 },
@@ -31,7 +31,7 @@ const BADGE_DEFS = [
   { id: 'first_delivery',  name: 'Első fuvar',       icon: '🏁', check: (s) => s.totalDeliveries >= 1 },
   { id: 'five_star',       name: '5 csillagos',      icon: '⭐', check: (s) => s.fiveStarCount >= 10 },
   { id: 'lightning',       name: 'Villámgyors',      icon: '⚡', check: (s) => s.totalDeliveries >= 5 }, // simplified
-  { id: 'eu_driver',       name: 'Európai sofőr',    icon: '🌍', check: (s) => s.countriesCount >= 2 },
+  { id: 'eu_driver',       name: 'Európai szállító',    icon: '🌍', check: (s) => s.countriesCount >= 2 },
   { id: 'communicator',    name: 'Kommunikátor',     icon: '💬', check: (s) => s.messageCount >= 50 },
   { id: 'heavyweight',     name: 'Nehézsúlyú',       icon: '🏋️', check: (s) => s.heavyDeliveries >= 10 },
   { id: 'night_owl',       name: 'Éjszakai bagoly',  icon: '🌙', check: (s) => s.nightDeliveries >= 5 },
@@ -41,7 +41,7 @@ const BADGE_DEFS = [
 ];
 
 /**
- * A sofőr szintjének újraszámolása a statisztikái alapján.
+ * A szállító szintjének újraszámolása a statisztikái alapján.
  * Ha szintet lépett, értesítést küld + ajándék voucher-t ad.
  *
  * @param {string} userId
@@ -89,7 +89,7 @@ async function recalcLevel(userId) {
   // Ha szintet lépett: ajándék voucher + értesítés
   if (leveledUp) {
     const lvlDef = LEVELS.find((l) => l.level === newLevel);
-    // Sofőri jutalékmentes kupon EGYELŐRE KIKAPCSOLVA (2026-07-05): a sofőr
+    // Szállítói jutalékmentes kupon EGYELŐRE KIKAPCSOLVA (2026-07-05): a szállító
     // 100% készpénzt kap, sosem fizet kapcsolatfelvételi díjat, így egy
     // díj-elengedő kupon számára használhatatlan. Csak szint + értesítés marad.
     await createNotification({
@@ -159,16 +159,16 @@ async function grantVoucher(userId, reason, validDays = 30, maxFeeHuf = null) {
  * Ez minden hónap 1-jén fut (cron job vagy manuális trigger).
  */
 async function grantMonthlyVouchers() {
-  // Sofőri havi jutalékmentes kupon EGYELŐRE KIKAPCSOLVA (2026-07-05): a
-  // sofőr 100% készpénzt kap, sosem fizet kapcsolatfelvételi díjat, így a
+  // Szállítói havi jutalékmentes kupon EGYELŐRE KIKAPCSOLVA (2026-07-05): a
+  // szállító 100% készpénzt kap, sosem fizet kapcsolatfelvételi díjat, így a
   // díj-elengedő kupon számára haszontalan. Visszakapcsoláshoz a korábbi,
   // LEVELS[].monthlyVouchers alapján osztó ciklus állítható vissza.
-  console.log('[gamification] Havi sofőri voucher-ek kikapcsolva — 0 db.');
+  console.log('[gamification] Havi szállítói voucher-ek kikapcsolva — 0 db.');
   return 0;
 }
 
 /**
- * Ellenőrzi, hogy a sofőrnek van-e felhasználható voucher-je.
+ * Ellenőrzi, hogy a szállítónak van-e felhasználható voucher-je.
  * Ha igen, felhasználja (used_at = NOW) és true-t ad vissza.
  */
 async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, feeHuf = null } = {}) {
@@ -199,7 +199,7 @@ async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, f
 }
 
 /**
- * Sofőr gamifikációs összesítője (a dashboard-hoz).
+ * Szállító gamifikációs összesítője (a dashboard-hoz).
  */
 async function getDriverGameStats(userId) {
   const [userRes, badgesRes, vouchersRes] = await Promise.all([

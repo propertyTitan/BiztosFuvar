@@ -32,7 +32,7 @@ export function photoUrl(url?: string | null): string {
   return `${BASE_URL}${cleaned.startsWith('/') ? '' : '/'}${cleaned}`;
 }
 
-// ---------- Carrier routes (új termék: sofőri útvonal-hirdetés) ----------
+// ---------- Carrier routes (új termék: szállítói útvonal-hirdetés) ----------
 
 export type Waypoint = {
   name: string;
@@ -136,7 +136,7 @@ export type Job = {
   paid_at?: string | null;
   /** A fuvarhoz rögzített kapcsolatfelvételi díj (bruttó Ft, bevezető ár). */
   connection_fee_huf?: number | null;
-  /** Hányszor lett a fuvar díjmentesen újranyitva (sofőr-csere). */
+  /** Hányszor lett a fuvar díjmentesen újranyitva (szállító-csere). */
   reopened_count?: number;
   /** A másik fél elérhetősége — CSAK a díj megfizetése után adja a backend. */
   contact?: {
@@ -152,7 +152,7 @@ export type Job = {
   instant_radius_km?: number | null;
   instant_expires_at?: string | null;
   instant_accepted_at?: string | null;
-  /** Bepakolás / cipelés infó — a sofőr számára kulcsfontosságú. */
+  /** Bepakolás / cipelés infó — a szállító számára kulcsfontosságú. */
   pickup_needs_carrying?: boolean;
   pickup_floor?: number | null;
   pickup_has_elevator?: boolean;
@@ -166,7 +166,7 @@ export type Job = {
   shipper_company_verified?: string | null;
   /** "Hozasd el" forrás-bolt (IKEA/OBI/Praktiker/Jófogás) — bolti átvétel jelvény. */
   source_store?: string | null;
-  /** "Hozasd el" termékkép URL-je (a hirdetés OG-előnézete) — a sofőr látja. */
+  /** "Hozasd el" termékkép URL-je (a hirdetés OG-előnézete) — a szállító látja. */
   source_image_url?: string | null;
 };
 
@@ -190,11 +190,11 @@ export type NewJobInput = {
   instant_radius_km?: number;
   /** Meddig fogadható el (percben, max 240). Alap: 30 perc. */
   instant_duration_minutes?: number;
-  /** A sofőrnek kell-e bepakolnia a felvételi helyen? */
+  /** A szállítónak kell-e bepakolnia a felvételi helyen? */
   pickup_needs_carrying?: boolean;
   pickup_floor?: number;
   pickup_has_elevator?: boolean;
-  /** A sofőrnek kell-e felvinnie a lerakodási helyen? */
+  /** A szállítónak kell-e felvinnie a lerakodási helyen? */
   dropoff_needs_carrying?: boolean;
   dropoff_floor?: number;
   dropoff_has_elevator?: boolean;
@@ -237,7 +237,7 @@ export type Bid = {
   // Sikertelen kézbesítés esetén történő visszaszállítás nyilatkozata
   return_policy?: 'included' | 'extra_fee' | 'no' | null;
   return_fee_huf?: number | null;
-  // A backend a licit mellé adja a sofőr adatait is (bids.js JOIN)
+  // A backend a licit mellé adja a szállító adatait is (bids.js JOIN)
   carrier_name?: string | null;
   rating_avg?: number | null;
   rating_count?: number | null;
@@ -333,7 +333,7 @@ export const api = {
     return request<(Job & { distance_to_pickup_km?: number })[]>(`/jobs?${qs.toString()}`);
   },
 
-  /** Azonnali fuvar elfogadása (első sofőr nyer, 409-et kap a többi). */
+  /** Azonnali fuvar elfogadása (első szállító nyer, 409-et kap a többi). */
   acceptInstantJob: (jobId: string) =>
     request<{
       ok: true;
@@ -343,7 +343,7 @@ export const api = {
       barion: { gateway_url: string | null; payment_id: string | null };
     }>(`/jobs/${jobId}/instant-accept`, { method: 'POST' }),
 
-  /** Visszafuvar-ajánlások a hívó sofőr összes aktív fuvarához. */
+  /** Visszafuvar-ajánlások a hívó szállító összes aktív fuvarához. */
   backhaulSuggestions: () =>
     request<{ groups: BackhaulGroup[] }>('/backhaul/suggestions'),
 
@@ -358,12 +358,12 @@ export const api = {
   /**
    * Saját fuvarok — két külön lista szemszögtől függően:
    * - as=posted   → amiket én adtam fel
-   * - as=assigned → amiket én teljesítek sofőrként
+   * - as=assigned → amiket én teljesítek szállítóként
    */
   myJobs: (as: 'posted' | 'assigned' = 'posted') =>
     request<Job[]>(`/jobs/mine/list?as=${as}`),
 
-  /** Sofőr licitet ad egy fuvarra. */
+  /** Szállító licitet ad egy fuvarra. */
   placeBid: (
     jobId: string,
     body: {
@@ -377,8 +377,8 @@ export const api = {
     request<Bid>(`/jobs/${jobId}/bids`, { method: 'POST', body: JSON.stringify(body) }),
 
   /**
-   * A bejelentkezett sofőr összes licitje a kapcsolódó fuvar alap mezőivel.
-   * A sofőr ebből látja: mire licitált, mi a licit + fuvar állapota,
+   * A bejelentkezett szállító összes licitje a kapcsolódó fuvar alap mezőivel.
+   * A szállító ebből látja: mire licitált, mi a licit + fuvar állapota,
    * és hogy az adott fuvart neki ítélték-e oda.
    */
   myBids: () =>
@@ -407,14 +407,14 @@ export const api = {
       { method: 'POST' },
     ),
 
-  /** Ellenajánlat a licit összegére (feladó vagy sofőr is teheti). */
+  /** Ellenajánlat a licit összegére (feladó vagy szállító is teheti). */
   counterBid: (bidId: string, amount: number) =>
     request<{ ok: true; counter_amount_huf: number; counter_by: string }>(
       `/bids/${bidId}/counter`,
       { method: 'POST', body: JSON.stringify({ amount }) },
     ),
 
-  /** A sofőr elfogadja a feladó ellenajánlatát → megállapodás. */
+  /** A szállító elfogadja a feladó ellenajánlatát → megállapodás. */
   acceptCounter: (bidId: string) =>
     request<{ ok: true; job_id: string; amount_huf: number }>(
       `/bids/${bidId}/accept-counter`,
@@ -442,7 +442,7 @@ export const api = {
   /**
    * Fotó feltöltés multipart/form-data-val.
    * - 'listing' típusnál a feladó tölt fel (nem kell GPS).
-   * - 'pickup' / 'dropoff' típusnál a sofőr tölt fel GPS-sel.
+   * - 'pickup' / 'dropoff' típusnál a szállító tölt fel GPS-sel.
    */
   uploadJobPhoto: async (
     jobId: string,
@@ -508,9 +508,9 @@ export const api = {
       platform_share_huf: number | null;
     } | null>(`/jobs/${jobId}/escrow`),
 
-  // ---------- Sofőri útvonal-hirdetés ----------
+  // ---------- Szállítói útvonal-hirdetés ----------
 
-  /** Új útvonal létrehozása (sofőr). */
+  /** Új útvonal létrehozása (szállító). */
   createCarrierRoute: (body: {
     title: string;
     description?: string;
@@ -528,7 +528,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  /** A sofőr saját útvonalai (sablonok + publikáltak + régiek). */
+  /** A szállító saját útvonalai (sablonok + publikáltak + régiek). */
   myCarrierRoutes: () => request<CarrierRoute[]>('/carrier-routes/mine'),
 
   /**
@@ -602,7 +602,7 @@ export const api = {
       body: JSON.stringify(body),
     }),
 
-  /** Egy adott útvonal beérkezett foglalásai (sofőr oldalon). */
+  /** Egy adott útvonal beérkezett foglalásai (szállító oldalon). */
   listRouteBookings: (routeId: string) =>
     request<RouteBooking[]>(`/carrier-routes/${routeId}/bookings`),
 
@@ -611,7 +611,7 @@ export const api = {
 
   getRouteBooking: (id: string) => request<RouteBooking>(`/route-bookings/${id}`),
 
-  /** Sofőr elfogadja a foglalást → Barion escrow lefoglalás. */
+  /** Szállító elfogadja a foglalást → Barion escrow lefoglalás. */
   confirmRouteBooking: (id: string) =>
     request<{ ok: true; booking_id: string; barion?: { gateway_url: string | null } }>(
       `/route-bookings/${id}/confirm`,
@@ -672,7 +672,7 @@ export const api = {
 
   /**
    * Licites fuvar lemondása. Pénzmozgás nincs (a fuvardíj készpénzes, a
-   * kapcsolatfelvételi díj nem visszatérítendő). Ha a SOFŐR mondja le,
+   * kapcsolatfelvételi díj nem visszatérítendő). Ha a SZÁLLÍTÓ mondja le,
    * a fuvar díjmentesen újranyílik (reopened: true).
    */
   cancelJob: (id: string, reason?: string) =>
@@ -682,7 +682,7 @@ export const api = {
     ),
 
   /**
-   * Sofőr-csere: a feladó újranyitja az elfogadott fuvart (a sofőr nem
+   * Szállító-csere: a feladó újranyitja az elfogadott fuvart (a szállító nem
    * elérhető / visszalépett). A korábbi licitek újra választhatók, a
    * befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad.
    */
@@ -790,7 +790,7 @@ export const api = {
   getMyProfile: () =>
     request<any>('/auth/me'),
 
-  /** Sofőri egyszeri nyilatkozat elfogadása (jogszabályok + KRESZ betartása). */
+  /** Szállítói egyszeri nyilatkozat elfogadása (jogszabályok + KRESZ betartása). */
   acceptDriverTerms: () =>
     request<{ ok: true; driver_terms_accepted_at: string }>('/auth/accept-driver-terms', { method: 'POST' }),
 
@@ -902,7 +902,7 @@ export const api = {
 
   myTowRequests: () => request<any[]>('/towing/my-requests'),
 
-  /** Sofőr bevétel és teljesítmény statisztikák. */
+  /** Szállító bevétel és teljesítmény statisztikák. */
   driverStats: () => request<any>('/driver-stats'),
 
   /** SOS vészjelzés küldése. */
@@ -1022,7 +1022,7 @@ export const api = {
       body: JSON.stringify({ answer }),
     }),
 
-  // ---------- Sofőr útvonal-figyelők (lane alerts) ----------
+  // ---------- Szállító útvonal-figyelők (lane alerts) ----------
 
   listCarrierAlerts: () => request<CarrierAlert[]>('/carrier-alerts'),
 

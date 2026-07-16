@@ -43,7 +43,7 @@ function FizetesStubContent() {
         if (bookingId) {
           const b = await api.getRouteBooking(bookingId);
           setData({
-            title: b.route_title || 'Sofőri útvonal',
+            title: b.route_title || 'Szállítói útvonal',
             feeHuf: b.connection_fee_huf || 0,
             cashHuf: b.price_huf,
             pickup: b.pickup_address,
@@ -192,7 +192,7 @@ function FizetesStubContent() {
                 {data.feeHuf.toLocaleString('hu-HU')} Ft
               </div>
               <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                A díj ellenében azonnal megkapod a sofőr elérhetőségét, és
+                A díj ellenében azonnal megkapod a szállító elérhetőségét, és
                 elindul a fuvar-folyamat (SMS-ek, átvételi kód, fotó-bizonyíték).
               </div>
             </div>
@@ -209,7 +209,7 @@ function FizetesStubContent() {
               💵 A fuvardíjat (
               <strong>{data.cashHuf.toLocaleString('hu-HU')} Ft</strong>
               ) NEM itt fizeted: azt <strong>készpénzben</strong> adod át a
-              sofőrnek.
+              szállítónak.
             </div>
 
             <div
@@ -286,7 +286,7 @@ function FizetesStubContent() {
             <div style={{ fontWeight: 700, fontSize: 18 }}>Sikeres fizetés!</div>
             <div className="muted" style={{ fontSize: 14, marginTop: 8 }}>
               {data.feeHuf.toLocaleString('hu-HU')} Ft kapcsolatfelvételi díj
-              megfizetve — a sofőr elérhetősége mostantól látható
+              megfizetve — a szállító elérhetősége mostantól látható
             </div>
             <div className="muted" style={{ fontSize: 12, marginTop: 12 }}>
               Visszairányítás…

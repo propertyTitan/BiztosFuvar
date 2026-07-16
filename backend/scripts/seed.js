@@ -1,5 +1,5 @@
 // Magyar mintaadatok – fejlesztéshez és bemutatóhoz.
-// Felhasználók: 2 feladó, 3 sofőr, 1 admin.
+// Felhasználók: 2 feladó, 3 szállító, 1 admin.
 // Fuvarok: Budapest ↔ Debrecen ↔ Szeged útvonalak (valós GPS koordináták).
 //
 // Futtatás:
@@ -31,7 +31,7 @@ const FELHASZNALOK = [
   // feladók
   { email: 'kovacs.peter@example.hu', full_name: 'Kovács Péter', role: 'shipper', phone: '+36301112233' },
   { email: 'nagy.eszter@example.hu',  full_name: 'Nagy Eszter',  role: 'shipper', phone: '+36302223344' },
-  // sofőrök
+  // szállítók
   { email: 'szabo.janos@example.hu',  full_name: 'Szabó János',  role: 'carrier', phone: '+36303334455',
     vehicle_type: 'kisteherautó (3,5 t)', vehicle_plate: 'ABC-123', is_verified: true },
   { email: 'toth.gabor@example.hu',   full_name: 'Tóth Gábor',   role: 'carrier', phone: '+36304445566',

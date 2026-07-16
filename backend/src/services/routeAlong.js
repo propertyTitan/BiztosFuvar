@@ -1,11 +1,11 @@
 // =====================================================================
 //  "Útba esik" matching — fuvarok keresése egy útvonal MENTÉN.
 //
-//  A sofőr megy A → B → C útvonalra. Keresünk olyan nyitott (bidding)
+//  A szállító megy A → B → C útvonalra. Keresünk olyan nyitott (bidding)
 //  fuvarokat, amelyek:
 //    - pickup-ja az útvonal BÁRMELYIK waypoint-ja közelében van,
 //    - dropoff-ja egy KÉSŐBBI waypoint közelében van,
-//    - tehát a csomag UGYANABBA az irányba halad mint a sofőr.
+//    - tehát a csomag UGYANABBA az irányba halad mint a szállító.
 //
 //  Pl. útvonal: Szeged → Kecskemét → Budapest
 //    → passzol: Szeged közeli pickup → Budapest közeli dropoff
@@ -15,7 +15,7 @@
 //
 //  A keresési sugár waypoint-onként 15 km — elég nagy, hogy a szomszédos
 //  településeket is lefedje, de nem túl nagy, hogy értelmetlen kitérőt
-//  kérjen a sofőrtől.
+//  kérjen a szállítótől.
 // =====================================================================
 
 const db = require('../db');
@@ -103,7 +103,7 @@ async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_
     if (bestDropoffWp < 0) continue;
 
     // "Kitérő km": pickup eltérés + dropoff eltérés a waypoint-tól.
-    // Minél kisebb, annál kevesebb extra út a sofőrnek.
+    // Minél kisebb, annál kevesebb extra út a szállítónak.
     const detourKm = +(bestPickupDist + bestDropoffDist).toFixed(2);
 
     results.push({

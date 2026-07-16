@@ -1,6 +1,6 @@
 'use client';
 
-// Sofőr: saját útvonalak listája.
+// Szállító: saját útvonalak listája.
 // - Nyitott (publikált), piszkozat, befejezett, törölt kategóriákra bontva
 // - Minden kártya mellett státusz-akciók: publikálás, lezárás, törlés
 import { useEffect, useState } from 'react';
@@ -148,13 +148,13 @@ export default function UtvonalaimOldal() {
   return (
     <div>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Útvonalaim</h1>
+        <h1>Járataim</h1>
         <Link className="btn" href="/sofor/uj-utvonal">
-          + Új útvonal hirdetése
+          + Új járat hirdetése
         </Link>
       </div>
       <p className="muted">
-        Itt láthatod a hirdetett útvonalaidat, a beérkezett foglalásokat, és be
+        Itt láthatod a hirdetett járataidat, a beérkezett foglalásokat, és be
         tudod állítani az állapotukat.
       </p>
 
@@ -168,9 +168,9 @@ export default function UtvonalaimOldal() {
       {!loading && !error && routes.length === 0 && (
         <EmptyState
           icon={<RouteIcon size={28} aria-hidden />}
-          title="Hirdesd meg az első útvonalad"
-          description="Ha úgyis mész valahová, hirdesd meg az utad fix áron — a feladók helyet foglalnak a csomagjuknak, te pedig megkeresed az üzemanyagod árát."
-          cta={<Link className="btn" href="/sofor/uj-utvonal">Új útvonal hirdetése</Link>}
+          title="Hirdesd meg az első járatod"
+          description="Ha úgyis mész valahová, hirdesd meg a járatod fix áron — a feladók helyet foglalnak a csomagjuknak, te pedig megkeresed az üzemanyagod árát."
+          cta={<Link className="btn" href="/sofor/uj-utvonal">Új járat hirdetése</Link>}
         />
       )}
 

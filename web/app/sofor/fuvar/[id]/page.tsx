@@ -1,11 +1,11 @@
 'use client';
 
-// Sofőr oldali fuvar részletek.
-// - Térkép a felvétel/lerakodás pontokkal és (ha van) élő sofőr pötty.
+// Szállító oldali fuvar részletek.
+// - Térkép a felvétel/lerakodás pontokkal és (ha van) élő szállító pötty.
 // - Csomag adatai (méret, súly, távolság).
 // - Hirdetési fotók (a feladó által feltöltött képek).
 // - Licit feladás: ár + opcionális érkezési idő + üzenet.
-// - Ha a sofőr már licitált, látja a licitjét és annak állapotát.
+// - Ha a szállító már licitált, látja a licitjét és annak állapotát.
 // - Ha a fuvar már az övé (accepted/in_progress), a CarrierTripPanel
 //   intézi a végrehajtást a weben: felvétel-fotó → in_progress,
 //   kézbesítés-fotó + 6 jegyű kód → delivered.
@@ -89,7 +89,7 @@ export default function SoforFuvarReszletek() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // `job:paid` realtime event — ha a feladó kifizette a fuvart, a sofőr
+  // `job:paid` realtime event — ha a feladó kifizette a fuvart, a szállító
   // azonnal lássa a FIZETVE címkét, ne kelljen manuálisan refreshelni.
   useEffect(() => {
     if (!me) return;
@@ -226,7 +226,7 @@ export default function SoforFuvarReszletek() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
           <span className={`pill ${STATUS_PILL[job.status] || 'pill-progress'}`}>{STATUS_LABEL[job.status] || job.status}</span>
           {/* Fizetés állapot — csak accepted+ státuszoknál érdekes.
-              A sofőr ebből látja, hogy a feladó már kifizette-e vagy sem. */}
+              A szállító ebből látja, hogy a feladó már kifizette-e vagy sem. */}
           {iAmTheCarrier && ['accepted', 'in_progress', 'delivered'].includes(job.status) && (
             job.paid_at ? (
               <span
@@ -330,7 +330,7 @@ export default function SoforFuvarReszletek() {
         </div>
       )}
 
-      {/* "Hozasd el" termékkép — a hirdetés előnézete, hogy a sofőr lássa
+      {/* "Hozasd el" termékkép — a hirdetés előnézete, hogy a szállító lássa
           MIT kell elhoznia. Hotlink a bolt CDN-jéről → törött kép esetén
           az egész kártyát elrejtjük. */}
       {job.source_image_url && (
@@ -407,7 +407,7 @@ export default function SoforFuvarReszletek() {
         )}
       </div>
 
-      {/* Bepakolás / cipelés infó — a sofőrnek fontos látnia */}
+      {/* Bepakolás / cipelés infó — a szállítónak fontos látnia */}
       {((job as any).pickup_needs_carrying || (job as any).dropoff_needs_carrying) && (
         <div className="card" style={{
           marginTop: 12,
@@ -452,7 +452,7 @@ export default function SoforFuvarReszletek() {
       )}
 
       {/* Saját poszt figyelmeztetés — ha a user a saját fuvarát nézi
-          a sofőr oldalról, ne hagyjuk licitálni. A feladói nézetet a
+          a szállító oldalról, ne hagyjuk licitálni. A feladói nézetet a
           dashboard/fuvar/[id] oldalon találja. */}
       {iAmTheShipper && (
         <div
@@ -762,7 +762,7 @@ export default function SoforFuvarReszletek() {
       {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
       <DisputeButton jobId={id} status={job.status} />
 
-      {/* Publikus Q&A — sofőrként itt kérdezhetek a feladótól */}
+      {/* Publikus Q&A — szállítóként itt kérdezhetek a feladótól */}
       <JobQuestions
         jobId={id}
         jobStatus={job.status}
@@ -785,7 +785,7 @@ export default function SoforFuvarReszletek() {
               }}
             >
               <span className="muted">
-                {b.carrier_id === me?.id ? 'Te' : 'Másik sofőr'}
+                {b.carrier_id === me?.id ? 'Te' : 'Másik szállító'}
                 {b.eta_minutes && ` · ~${b.eta_minutes} perc`}
               </span>
               <strong>{b.amount_huf.toLocaleString('hu-HU')} Ft</strong>

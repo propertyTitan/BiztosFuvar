@@ -42,27 +42,27 @@ export const metadata: Metadata = {
     template: '%s | GoFuvar',
   },
   description:
-    'Hirdess meg egy fuvart és a sofőrök ajánlatot tesznek rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. A fuvardíjat készpénzben fizeted a sofőrnek — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
+    'Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá, vagy foglalj helyet egy útba eső szállító induló járatán. A fuvardíjat készpénzben fizeted a szállítónak — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
   keywords: [
-    'fuvar', 'szállítás', 'csomag', 'költöztetés', 'sofőr', 'fuvartőzsde',
+    'fuvar', 'szállítás', 'csomag', 'költöztetés', 'szállító', 'fuvartőzsde',
     'GoFuvar', 'közösségi szállítás', 'árajánlat', 'fix áras fuvar',
     'készpénzes fuvar', 'Magyarország',
   ],
   metadataBase: new URL('https://gofuvar.hu'),
   openGraph: {
     title: 'GoFuvar – Közösségi fuvartőzsde',
-    description: 'Csomagod van? Sofőröd is lesz. Biztonságos fizetés, fotó bizonyíték, 6 jegyű átvételi kód.',
+    description: 'Csomagod van? Szállítód is lesz. Biztonságos fizetés, fotó bizonyíték, 6 jegyű átvételi kód.',
     type: 'website',
     locale: 'hu_HU',
     siteName: 'GoFuvar',
     // Megosztáskor (Facebook/Messenger — a fő marketing-csatorna!) ez a
     // kép jelenik meg a link mellett. 1200×630, Playwrighttal renderelve.
-    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'GoFuvar – Csomagod van? Sofőröd is lesz.' }],
+    images: [{ url: '/og-image.png', width: 1200, height: 630, alt: 'GoFuvar – Csomagod van? Szállítód is lesz.' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'GoFuvar – Közösségi fuvartőzsde',
-    description: 'Csomagod van? Sofőröd is lesz. Készpénzes fizetés a sofőrnek, 6 jegyű átvételi kód.',
+    description: 'Csomagod van? Szállítód is lesz. Készpénzes fizetés a szállítónak, 6 jegyű átvételi kód.',
     images: ['/og-image.png'],
   },
   manifest: '/manifest.webmanifest',

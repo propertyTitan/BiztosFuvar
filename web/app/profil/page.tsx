@@ -2,7 +2,7 @@
 
 // Profil oldal — a bejelentkezett user megnézheti és szerkesztheti a
 // saját adatait: név, telefon, jármű (opcionális), bemutatkozás.
-// Nincs "sofőr vs feladó" választás — bárki egyformán hozzáfér mindkét
+// Nincs "szállító vs feladó" választás — bárki egyformán hozzáfér mindkét
 // funkcióhoz, a jármű adatok opcionálisak.
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -267,7 +267,7 @@ export default function ProfilOldal() {
           <div className="card" style={{ marginTop: 16 }}>
             <h2 style={{ marginTop: 0 }}>🚛 Jármű (opcionális)</h2>
             <p className="muted" style={{ marginTop: 0 }}>
-              Ha sofőrként is tevékenykedsz, add meg a járműved adatait.
+              Ha szállítóként is tevékenykedsz, add meg a járműved adatait.
               Nem kötelező — bármikor hozzáadhatod később.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -292,8 +292,8 @@ export default function ProfilOldal() {
                 docType="id_card"
               />
               {/* Jogosítvány-feltöltés megszűnt (2026-07-07): a személyi
-                  igazolvány igazolása elég mindenhez (feladó ÉS sofőr).
-                  A sofőri KRESZ-nyilatkozat a sofőr-mód első használatakor. */}
+                  igazolvány igazolása elég mindenhez (feladó ÉS szállító).
+                  A szállítói KRESZ-nyilatkozat a szállító-mód első használatakor. */}
               {/* Céges verifikáció kikapcsolva (2026-07-05): a céges fiók
                   dokumentum-feltöltés nélkül működik, csak adószám + cégnév. */}
             </div>

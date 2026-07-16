@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CarrierTripPanel from './CarrierTripPanel';
 
-// Sofőri fuvar-panel: felvétel (fotó) és kézbesítés (fotó + 6 jegyű kód).
+// Szállítói fuvar-panel: felvétel (fotó) és kézbesítés (fotó + 6 jegyű kód).
 // A validáció hibaüzeneteit és a sikeres feltöltést teszteljük.
 const toast = { success: vi.fn(), error: vi.fn(), info: vi.fn() };
 vi.mock('./ToastProvider', () => ({ useToast: () => toast }));

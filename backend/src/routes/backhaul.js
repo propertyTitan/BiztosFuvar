@@ -2,11 +2,11 @@
 //  Visszafuvar (backhaul) végpontok.
 //
 //  GET  /backhaul/suggestions
-//       → A hívó sofőr összes aktív fuvarához kapcsolódó visszafuvar-
+//       → A hívó szállító összes aktív fuvarához kapcsolódó visszafuvar-
 //         ajánlatok. Használat: sofor/visszafuvar oldal.
 //
 //  GET  /backhaul/for-trip/:jobId
-//       → Csak egy konkrét fuvar (amit a sofőr már elvállalt) visszafuvar
+//       → Csak egy konkrét fuvar (amit a szállító már elvállalt) visszafuvar
 //         jelöltjei. Használat: fuvar részletek oldalon "Visszafele mit
 //         hozhatsz?" kártya.
 // =====================================================================
@@ -19,7 +19,7 @@ const { suggestionsForCarrier, findBackhaulCandidates } = require('../services/b
 const router = express.Router();
 
 // GET /backhaul/suggestions
-// A bejelentkezett sofőr összes aktív A→B fuvarára kiad egy ajánlás-listát.
+// A bejelentkezett szállító összes aktív A→B fuvarára kiad egy ajánlás-listát.
 // Üres tömb: nincs aktív fuvar, VAGY nincs passzoló jelölt egyikre sem.
 router.get('/backhaul/suggestions', authRequired, async (req, res) => {
   try {
@@ -32,8 +32,8 @@ router.get('/backhaul/suggestions', authRequired, async (req, res) => {
 });
 
 // GET /backhaul/for-trip/:jobId
-// Egy konkrét, a sofőr által birtokolt fuvarhoz (carrier_id = me) adja
-// vissza a visszafuvar jelölteket. Jogosultság: csak a sofőr látja, aki
+// Egy konkrét, a szállító által birtokolt fuvarhoz (carrier_id = me) adja
+// vissza a visszafuvar jelölteket. Jogosultság: csak a szállító látja, aki
 // az adott A→B fuvart már elvállalta.
 router.get('/backhaul/for-trip/:jobId', authRequired, async (req, res) => {
   const { rows } = await db.query(
@@ -48,7 +48,7 @@ router.get('/backhaul/for-trip/:jobId', authRequired, async (req, res) => {
   const trip = rows[0];
   if (!trip) return res.status(404).json({ error: 'Fuvar nem található' });
   if (trip.carrier_id !== req.user.sub) {
-    return res.status(403).json({ error: 'Csak a sofőrnek érhető el' });
+    return res.status(403).json({ error: 'Csak a szállítónak érhető el' });
   }
   if (!['accepted', 'in_progress'].includes(trip.status)) {
     return res.json({ candidates: [] });

@@ -10,7 +10,7 @@ function getJob(jobId, token) {
 }
 
 describe('Fuvar-adatok láthatósága (scrub)', () => {
-  it('a sofőr NEM látja a kódokat és a tracking tokent, a címzettet igen', async () => {
+  it('a szállító NEM látja a kódokat és a tracking tokent, a címzettet igen', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
     const job = await createJob({ shipperId: shipper.id, carrierId: carrier.id, paid: true });
@@ -113,7 +113,7 @@ describe('Fuvar-adatok láthatósága (scrub)', () => {
 });
 
 describe('Licitek láthatósága', () => {
-  it('egy sofőr csak a SAJÁT licitjét látja, a konkurensét nem', async () => {
+  it('egy szállító csak a SAJÁT licitjét látja, a konkurensét nem', async () => {
     const shipper = await createUser();
     const carrierA = await createUser({ role: 'carrier' });
     const carrierB = await createUser({ role: 'carrier' });

@@ -159,7 +159,7 @@ export function connectionFee(priceHuf: number): number {
   return 1000; // 50 000 Ft felett (2026-07-15: egyszerűsített sávok)
 }
 
-/** Sofőr-licit közvetlenül az API-n (a licit-űrlapot a 02-es teszt fedi). */
+/** Szállító-licit közvetlenül az API-n (a licit-űrlapot a 02-es teszt fedi). */
 export async function placeBid(carrier: E2EUser, jobId: string, amountHuf: number) {
   const res = await fetch(`${API_URL}/jobs/${jobId}/bids`, {
     method: 'POST',

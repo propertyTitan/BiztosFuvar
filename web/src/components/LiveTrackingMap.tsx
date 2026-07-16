@@ -4,7 +4,7 @@
 //  LiveTrackingMap – Google Maps + Socket.IO élő követés
 //  - Zöld marker: felvételi pont
 //  - Piros marker: lerakodási pont
-//  - PIROS PÖTTY: a sofőr aktuális helyzete (real-time mozog)
+//  - PIROS PÖTTY: a szállító aktuális helyzete (real-time mozog)
 //  - Útvonal: pickup → driver → dropoff polyline
 // =====================================================================
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -70,7 +70,7 @@ export default function LiveTrackingMap({ job }: Props) {
     [job],
   );
 
-  // Útvonal polyline – ha tudjuk a sofőr pozícióját, beszúrjuk középre
+  // Útvonal polyline – ha tudjuk a szállító pozícióját, beszúrjuk középre
   const path = useMemo(() => {
     const points = [{ lat: job.pickup_lat, lng: job.pickup_lng }];
     if (driver) points.push(driver);
@@ -141,7 +141,7 @@ export default function LiveTrackingMap({ job }: Props) {
           }}
           title={`Lerakodás: ${job.dropoff_address}`}
         />
-        {/* SOFŐR – piros pötty (real-time) */}
+        {/* SZÁLLÍTÓ – piros pötty (real-time) */}
         {driver && (
           <Marker
             position={driver}
@@ -154,7 +154,7 @@ export default function LiveTrackingMap({ job }: Props) {
               strokeColor: '#fff',
               strokeWeight: 3,
             }}
-            title="Sofőr aktuális pozíciója"
+            title="Szállító aktuális pozíciója"
           />
         )}
         <Polyline
@@ -166,7 +166,7 @@ export default function LiveTrackingMap({ job }: Props) {
             geodesic: true,
           }}
         />
-        {/* Sofőr nyomvonala – az utolsó N ping pirosan */}
+        {/* Szállító nyomvonala – az utolsó N ping pirosan */}
         {trail.length > 1 && (
           <Polyline
             path={trail}

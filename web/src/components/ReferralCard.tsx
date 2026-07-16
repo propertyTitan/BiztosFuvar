@@ -36,7 +36,7 @@ export default function ReferralCard() {
       <h2 style={{ marginTop: 0 }}>🎁 Hívd meg ismerőseidet</h2>
       <p className="muted" style={{ marginTop: 0 }}>
         Oszd meg a kódodat vagy a linkedet. Ha valaki vele regisztrál és
-        teljesíti az első fuvarját (feladóként vagy sofőrként), a következő
+        teljesíti az első fuvarját (feladóként vagy szállítóként), a következő
         feladásod kapcsolatfelvételi díját <strong>elengedjük</strong>.
       </p>
 

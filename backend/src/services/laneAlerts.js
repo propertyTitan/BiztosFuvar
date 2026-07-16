@@ -1,10 +1,10 @@
 // =====================================================================
-//  Sofőr útvonal-figyelők illesztése + értesítés.
+//  Szállító útvonal-figyelők illesztése + értesítés.
 //
 //  Új licitálható fuvar létrejöttekor a jobs.js fire-and-forget hívja a
 //  notifyMatchingAlerts(job)-ot. Minden aktív figyelőre megnézzük, hogy a
 //  fuvar illeszkedik-e (felvételi a sugáron belül, ha van cél akkor az is,
-//  ár/súly szűrő), és a sofőrnek EMAIL + in-app értesítést küldünk.
+//  ár/súly szűrő), és a szállítónak EMAIL + in-app értesítést küldünk.
 //  SMS-t SOHA nem küldünk innen (költség).
 // =====================================================================
 
@@ -34,7 +34,7 @@ function jobMatchesAlert(job, alert) {
     return false;
   }
 
-  // Súly-szűrő: a fuvar ne legyen nehezebb a sofőr maximumánál
+  // Súly-szűrő: a fuvar ne legyen nehezebb a szállító maximumánál
   if (alert.max_weight_kg != null && job.weight_kg != null
       && Number(job.weight_kg) > alert.max_weight_kg) {
     return false;
@@ -44,12 +44,12 @@ function jobMatchesAlert(job, alert) {
 }
 
 /**
- * Egy frissen létrehozott fuvarra illeszkedő összes figyelő sofőrének
+ * Egy frissen létrehozott fuvarra illeszkedő összes figyelő szállítóének
  * értesítés (email + in-app). Soha nem dob hibát — fire-and-forget.
  */
 async function notifyMatchingAlerts(job) {
   try {
-    // Aktív figyelők + a sofőr neve/emailje. A saját fuvarra ne szóljon.
+    // Aktív figyelők + a szállító neve/emailje. A saját fuvarra ne szóljon.
     const { rows: alerts } = await realDb.query(
       `SELECT a.*, u.email AS carrier_email, u.full_name AS carrier_name
          FROM carrier_alerts a
@@ -60,7 +60,7 @@ async function notifyMatchingAlerts(job) {
     );
     if (!alerts.length) return;
 
-    // Egy sofőr több figyelője is illeszkedhet — sofőrönként csak EGY értesítés.
+    // Egy szállító több figyelője is illeszkedhet — szállítónként csak EGY értesítés.
     const notifiedCarriers = new Set();
 
     for (const alert of alerts) {
@@ -93,7 +93,7 @@ async function notifyMatchingAlerts(job) {
     }
 
     if (notifiedCarriers.size > 0) {
-      console.log(`[laneAlerts] job ${job.id}: ${notifiedCarriers.size} sofőr értesítve`);
+      console.log(`[laneAlerts] job ${job.id}: ${notifiedCarriers.size} szállító értesítve`);
     }
   } catch (err) {
     console.error('[laneAlerts] notifyMatchingAlerts hiba:', err.message);

@@ -1,16 +1,16 @@
 // =====================================================================
 //  Visszafuvar-matching (backhaul) — a logisztika "szent grálja".
 //
-//  Ha egy sofőr már elvállalt egy A → B fuvart (vagy van egy útvonala
+//  Ha egy szállító már elvállalt egy A → B fuvart (vagy van egy útvonala
 //  A-ból B-be), a rendszer automatikusan kiajánlja neki az olyan
 //  feladott fuvarokat, amelyek:
-//     - pickup-ja a B közelében van (a sofőr ott lesz úgyis)
+//     - pickup-ja a B közelében van (a szállító ott lesz úgyis)
 //     - dropoff-ja az A közelében van (úgyis hazamegy)
 //
 //  Miért jó ez?
-//     - Sofőrnek: az üres visszaút kiestő bevétel. Egy visszafuvar
+//     - Szállítónak: az üres visszaút kiestő bevétel. Egy visszafuvar
 //       duplázza a jövedelmét ugyanarra a kilométerre.
-//     - Feladónak: olcsóbb árat kaphat (a sofőrnek az út eleve fix
+//     - Feladónak: olcsóbb árat kaphat (a szállítónak az út eleve fix
 //       költség, bármi plus bevétel).
 //     - Platformnak: több befejezett fuvar = több 10% jutalék.
 //
@@ -21,16 +21,16 @@
 const db = require('../db');
 const { distanceMeters } = require('../utils/geo');
 
-// Visszafuvar keresésnél mennyire lehet "eltérő" a pont a sofőr
+// Visszafuvar keresésnél mennyire lehet "eltérő" a pont a szállító
 // útvonalának végpontjaitól. 30 km jól kiszámolt default:
 //   - nagyvárosi környezetben (Budapest-agglomeráció) lefedi a környékbeli
 //     kerületeket,
 //   - vidéken kisebb városok között nincs túl sok "majdnem útba eső"
 //     false positive,
-//   - a sofőr megteheti a kitérőt 15-20 percnyi plusz vezetéssel.
+//   - a szállító megteheti a kitérőt 15-20 percnyi plusz vezetéssel.
 const DEFAULT_RADIUS_KM = 30;
 
-// Maximum hány visszafuvar ajánlatot listázunk egy sofőrnek egy lekérésre.
+// Maximum hány visszafuvar ajánlatot listázunk egy szállítónak egy lekérésre.
 const MAX_SUGGESTIONS = 50;
 
 /**
@@ -41,7 +41,7 @@ const MAX_SUGGESTIONS = 50;
  * @param {number}  params.originLng    A indulási pont longitude
  * @param {number}  params.destLat      B célpont latitude (az EREDETI fuvar dropoff)
  * @param {number}  params.destLng      B célpont longitude
- * @param {string}  params.carrierId    A sofőr user id (hogy kiszűrjük a saját fuvarait)
+ * @param {string}  params.carrierId    A szállító user id (hogy kiszűrjük a saját fuvarait)
  * @param {Date}    [params.earliestPickupAt] Legkorábbi pickup időpont (alap: most)
  * @param {number}  [params.radiusKm]   Keresési sugár km-ben (alap: 30)
  * @param {number}  [params.limit]      Max találat (alap: 50)
@@ -72,7 +72,7 @@ async function findBackhaulCandidates({
   const lngDegAtDest   = radiusKm / (111 * Math.max(0.1, Math.cos((destLat   * Math.PI) / 180)));
 
   // FONTOS a feltétel-sorrend:
-  //   - pickup B közelében (hiszen a sofőr B-ben van az első fuvar után)
+  //   - pickup B közelében (hiszen a szállító B-ben van az első fuvar után)
   //   - dropoff A közelében (így zár a kör, vissza a kiindulás közelébe)
   const { rows } = await db.query(
     `SELECT j.*,
@@ -105,7 +105,7 @@ async function findBackhaulCandidates({
   // A score a két távolság átlagából indul (minél kisebb, annál jobb),
   // normalizálva a keresési sugárral (0 = tökéletesen egybeesik, 1 = a
   // sugár határán). Ebből számolunk egy "0-100 illeszkedés" pontszámot,
-  // amit a sofőr UI-on megmutatunk.
+  // amit a szállító UI-on megmutatunk.
   const candidates = [];
   for (const j of rows) {
     const pickupFromB_m = distanceMeters(destLat,   destLng,   j.pickup_lat,  j.pickup_lng);
@@ -132,7 +132,7 @@ async function findBackhaulCandidates({
 }
 
 /**
- * A sofőr éppen aktív (accepted/in_progress) fuvaraira épülve keres
+ * A szállító éppen aktív (accepted/in_progress) fuvaraira épülve keres
  * visszafuvar-ajánlatokat. Ha nincs aktív fuvar, üres listát ad.
  * A válaszban minden "trip" a saját kandidátusaival jön vissza.
  *

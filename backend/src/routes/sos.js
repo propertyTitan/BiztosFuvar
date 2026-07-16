@@ -1,7 +1,7 @@
 // =====================================================================
 //  SOS vészhelyzet végpontok.
 //
-//  Bármelyik fél (feladó vagy sofőr) egy gombnyomással jelezhet
+//  Bármelyik fél (feladó vagy szállító) egy gombnyomással jelezhet
 //  vészhelyzetet. A rendszer logolja a GPS pozíciót, értesíti az
 //  admint, és opcionálisan a fuvar másik résztvevőjét is.
 // =====================================================================

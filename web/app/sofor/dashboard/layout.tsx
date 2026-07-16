@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Sofőr statisztikák',
+  title: 'Szállító statisztikák',
   description: 'Heti kereseted, teljesített fuvarjaid és értékeléseid egy helyen.',
 };
 

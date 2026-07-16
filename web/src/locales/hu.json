@@ -38,7 +38,7 @@
   "nav": {
     "home": "Főoldal",
     "biddableJobs": "Elérhető fuvarok",
-    "fixedRoutes": "Fix áras fuvarok",
+    "fixedRoutes": "Induló járatok",
     "myJobs": "Saját fuvarjaim",
     "myBookings": "Foglalásaim",
     "myListings": "Saját hirdetéseim",
@@ -80,7 +80,7 @@
     "noBids": "Még nincs ajánlat."
   },
   "routes": {
-    "title": "Útba eső sofőrök",
+    "title": "Útba eső szállítók",
     "newRoute": "Új útvonal hirdetés",
     "departure": "Indulás",
     "destination": "Cél",
@@ -104,7 +104,7 @@
   },
   "delivery": {
     "code": "Átvételi kód",
-    "codeHint": "Add át ezt a 6 jegyű kódot a sofőrnek az átvételkor. A sofőr ezzel zárja le a fuvart — nélküle nem kap fizetést.",
+    "codeHint": "Add át ezt a 6 jegyű kódot a szállítónak az átvételkor. A szállító ezzel zárja le a fuvart — nélküle nem kap fizetést.",
     "startJob": "FUVAR INDÍTÁSA",
     "startJobSub": "Felvételi fotó készítése",
     "closeJob": "FUVAR LEZÁRÁSA",
@@ -120,7 +120,7 @@
   },
   "review": {
     "title": "Értékelés",
-    "rateDriver": "Értékeld a sofőrt",
+    "rateDriver": "Értékeld a szállítót",
     "rateShipper": "Értékeld a feladót",
     "stars": "{count} csillag",
     "submitReview": "Értékelés küldése",
@@ -139,7 +139,7 @@
     "editProfile": "Profil szerkesztése",
     "personalInfo": "Személyes adatok",
     "vehicleSection": "Jármű (opcionális)",
-    "vehicleHint": "Ha sofőrként is tevékenykedsz, add meg a járműved adatait.",
+    "vehicleHint": "Ha szállítóként is tevékenykedsz, add meg a járműved adatait.",
     "bio": "Bemutatkozás",
     "memberSince": "Tag {date} óta",
     "completedJobs": "Sikeres fuvar",
@@ -157,7 +157,7 @@
     "noNotifications": "Még nincs értesítésed.",
     "newBid": "Új ajánlat érkezett",
     "bidAccepted": "Elfogadták az ajánlatodat!",
-    "bookingConfirmed": "A sofőr megerősítette a foglalásod!",
+    "bookingConfirmed": "A szállító megerősítette a foglalásod!",
     "paymentReceived": "Kifizették a fuvarodat!",
     "packageDelivered": "A csomagod megérkezett!",
     "newReview": "Új értékelés!"
@@ -172,13 +172,13 @@
   "landing": {
     "tagline": "Magyarország közösségi fuvartőzsdéje",
     "heroTitle": "Csomagod van?",
-    "heroHighlight": "Sofőröd is lesz.",
-    "heroSub": "Hirdess meg egy fuvart és a sofőrök ajánlatot tesznek rá — vagy foglalj helyet egy útba eső sofőr fix áras útvonalán.",
+    "heroHighlight": "Szállítód is lesz.",
+    "heroSub": "Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá — vagy foglalj helyet egy útba eső szállító fix áras útvonalán.",
     "cta": "Regisztráció / Belépés",
     "ctaFree": "Ingyenes regisztráció · Nincs havidíj",
     "howItWorks": "Hogyan működik?",
     "step1Title": "Hirdesd meg a fuvart",
-    "step2Title": "Válassz sofőrt",
+    "step2Title": "Válassz szállítót",
     "step3Title": "Kövesd és vedd át",
     "features": "Minden, ami a biztonságos fuvarhoz kell",
     "twoRoles": "Két szerepkör — egy platform",

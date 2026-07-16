@@ -138,7 +138,7 @@ export default function UjFuvar() {
   // a cím és a forrás-link előtöltődik, majd a kulcsot töröljük. A forrás-
   // boltot külön eltároljuk, hogy a fuvarra "Bolti átvétel" jelvény kerüljön.
   const [sourceStore, setSourceStore] = useState<string | null>(null);
-  // "Hozasd el" termékkép — a hirdetés OG-előnézeti képe, a sofőr ezt látja
+  // "Hozasd el" termékkép — a hirdetés OG-előnézeti képe, a szállító ezt látja
   const [sourceImage, setSourceImage] = useState<string | null>(null);
   useEffect(() => {
     try {
@@ -356,7 +356,7 @@ export default function UjFuvar() {
         {/* --- Fotók --- */}
         <h2 style={{ marginTop: 24 }}>Fotók a csomagról</h2>
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-          Opcionális, de erősen ajánlott. A sofőrök pontosabb ajánlatot adnak,
+          Opcionális, de erősen ajánlott. A szállítók pontosabb ajánlatot adnak,
           ha látják, mit kell szállítani. Max {MAX_PHOTO_COUNT} kép, fotónként
           legfeljebb {MAX_PHOTO_BYTES / 1024 / 1024} MB.
         </p>
@@ -466,7 +466,7 @@ export default function UjFuvar() {
               style={{ width: 18, height: 18 }}
             />
             <span style={{ fontSize: 14 }}>
-              A sofőrnek be kell pakolnia a csomagot a felvételi helyen?
+              A szállítónak be kell pakolnia a csomagot a felvételi helyen?
             </span>
           </label>
           {form.pickup_needs_carrying && (
@@ -508,7 +508,7 @@ export default function UjFuvar() {
               </div>
               {form.pickup_floor !== '0' && !form.pickup_has_elevator && (
                 <p style={{ fontSize: 12, color: '#FB8C00', marginTop: 8, marginBottom: 0 }}>
-                  ⚠ Lépcsőn kell cipelni — a sofőrnek lényeges információ!
+                  ⚠ Lépcsőn kell cipelni — a szállítónak lényeges információ!
                 </p>
               )}
             </div>
@@ -561,7 +561,7 @@ export default function UjFuvar() {
               style={{ width: 18, height: 18 }}
             />
             <span style={{ fontSize: 14 }}>
-              A sofőrnek fel kell vinnie a csomagot a lerakodási helyen?
+              A szállítónak fel kell vinnie a csomagot a lerakodási helyen?
             </span>
           </label>
           {form.dropoff_needs_carrying && (
@@ -603,7 +603,7 @@ export default function UjFuvar() {
               </div>
               {form.dropoff_floor !== '0' && !form.dropoff_has_elevator && (
                 <p style={{ fontSize: 12, color: '#FB8C00', marginTop: 8, marginBottom: 0 }}>
-                  ⚠ Lépcsőn kell cipelni — a sofőrnek lényeges információ!
+                  ⚠ Lépcsőn kell cipelni — a szállítónak lényeges információ!
                 </p>
               )}
             </div>
@@ -613,7 +613,7 @@ export default function UjFuvar() {
         {/* --- Csomag adatai --- */}
         <h2 style={{ marginTop: 24 }}>Csomag adatai</h2>
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-          Kötelező – a sofőr ezek alapján dönti el, belefér-e a járművébe,
+          Kötelező – a szállító ezek alapján dönti el, belefér-e a járművébe,
           és hogy a jármű össztömeg-korlátját nem lépi-e át.
         </p>
         <div className="grid-2">
@@ -689,7 +689,7 @@ export default function UjFuvar() {
           </p>
         )}
 
-        {/* --- Azonnali fuvar toggle — IDEIGLENESEN KIKAPCSOLVA (100+ sofőr után visszakapcsolni) ---
+        {/* --- Azonnali fuvar toggle — IDEIGLENESEN KIKAPCSOLVA (100+ szállító után visszakapcsolni) ---
         <div
           style={{
             marginTop: 24,
@@ -720,8 +720,8 @@ export default function UjFuvar() {
             <strong style={{ fontSize: 16 }}>⚡ Azonnali fuvar (nincs ajánlattétel)</strong>
           </div>
           <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
-            Fix áron adod fel, és az első sofőr, aki elvállalja, elviszi.
-            Push értesítés megy minden közeli sofőrnek. Sürgős / városi
+            Fix áron adod fel, és az első szállító, aki elvállalja, elviszi.
+            Push értesítés megy minden közeli szállítónak. Sürgős / városi
             last-mile eseteknek ideális.
           </p>
           {form.is_instant && (
@@ -777,7 +777,7 @@ export default function UjFuvar() {
           onChange={(e) =>
             set('suggested_price_huf', e.target.value === '' ? '' : Number(e.target.value))
           }
-          placeholder={form.is_instant ? 'pl. 12000 (a sofőr készpénzben, levonás nélkül kapja)' : 'pl. 65000'}
+          placeholder={form.is_instant ? 'pl. 12000 (a szállító készpénzben, levonás nélkül kapja)' : 'pl. 65000'}
           required
           style={missing(form.suggested_price_huf) ? redBorder : undefined}
         />
@@ -800,7 +800,7 @@ export default function UjFuvar() {
               </button>
             </div>
             <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-              Becslés a táv, súly és csomagméret alapján. A végső árat a sofőrök ajánlatai alakítják.
+              Becslés a táv, súly és csomagméret alapján. A végső árat a szállítók ajánlatai alakítják.
             </p>
           </div>
         )}
@@ -816,7 +816,7 @@ export default function UjFuvar() {
 
         {form.is_instant && (
           <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            Azonnali fuvarnál NINCS alkudozás: ezt fogja látni minden közeli sofőr,
+            Azonnali fuvarnál NINCS alkudozás: ezt fogja látni minden közeli szállító,
             és az első elfogadó nyer.
           </p>
         )}
@@ -835,7 +835,7 @@ export default function UjFuvar() {
           placeholder="pl. 50000"
         />
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-          Opcionális, de ajánlott. A sofőr ez alapján méri fel a felelősségét:
+          Opcionális, de ajánlott. A szállító ez alapján méri fel a felelősségét:
           egy 500.000 Ft-os tárgy szállítása más hozzáállást igényel, mint egy
           5.000 Ft-osé. Vitás esetben ez az összeg az irányadó.
         </p>
@@ -849,7 +849,7 @@ export default function UjFuvar() {
             <span style={{ fontSize: 14 }}>Számlát kérek erről a fuvarról</span>
           </label>
           <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            Ha számlát kérsz, a sofőr a fuvar lezárásakor számlát állít ki a teljes fuvardíjról.
+            Ha számlát kérsz, a szállító a fuvar lezárásakor számlát állít ki a teljes fuvardíjról.
           </p>
         </div>
 

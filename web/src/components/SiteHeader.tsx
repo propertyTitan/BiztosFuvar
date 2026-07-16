@@ -56,7 +56,7 @@ export default function SiteHeader() {
     };
   }, [user?.id, toast]);
 
-  // Aktív mód (Sofőr/Feladó) követése — a HomeHub mód-váltója írja a
+  // Aktív mód (Szállító/Feladó) követése — a HomeHub mód-váltója írja a
   // localStorage-t és eseményt szór (BUG-034: mindenhol látszódjon)
   const [activeMode, setActiveMode] = useState<'driver' | 'shipper' | null>(null);
   useEffect(() => {
@@ -127,7 +127,7 @@ export default function SiteHeader() {
             >
               {/* UI-ikon szabály: lucide, nem emoji (CLAUDE.md, PR #75) */}
               {activeMode === 'driver'
-                ? <><Truck size={13} /> Sofőr mód</>
+                ? <><Truck size={13} /> Szállító mód</>
                 : <><Package size={13} /> Feladó mód</>}
             </Link>
           )}
@@ -135,7 +135,7 @@ export default function SiteHeader() {
             <Home size={15} /> {t('nav.home')}
           </Link>
           {/* MÓD-ALAPÚ nav (2026-07-15, BUG-034 folytatás): feladó módban
-              ne sofőr-linkek látszódjanak — a linkek az aktív módot követik.
+              ne szállító-linkek látszódjanak — a linkek az aktív módot követik.
               (activeMode null = betöltés alatt → feladói alapértelmezés,
               ugyanaz, mint a HomeHub default módja) */}
           {activeMode === 'driver' ? (
@@ -144,7 +144,7 @@ export default function SiteHeader() {
                 <Target size={15} /> {t('nav.biddableJobs')}
               </Link>
               <Link href="/sofor/utvonalaim" style={navLinkStyle}>
-                <Route size={15} /> Útvonalaim
+                <Route size={15} /> Járataim
               </Link>
             </>
           ) : (
@@ -286,7 +286,7 @@ export default function SiteHeader() {
                       {activeMode === 'driver' ? (
                         <>
                           <DropdownItem href="/sofor/fuvarok" icon={<Target size={16} />} label={t('nav.biddableJobs')} onClick={() => setMenuOpen(false)} />
-                          <DropdownItem href="/sofor/utvonalaim" icon={<Route size={16} />} label="Útvonalaim" onClick={() => setMenuOpen(false)} />
+                          <DropdownItem href="/sofor/utvonalaim" icon={<Route size={16} />} label="Járataim" onClick={() => setMenuOpen(false)} />
                         </>
                       ) : (
                         <>

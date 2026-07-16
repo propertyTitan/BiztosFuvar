@@ -1,6 +1,6 @@
-// Jogosítvány-mentesség + sofőri KRESZ-nyilatkozat (2026-07-07):
+// Jogosítvány-mentesség + szállítói KRESZ-nyilatkozat (2026-07-07):
 // a jogosítvány többé nem kell; a személyi igazolvány (identity KYC) elég,
-// és a sofőri tevékenységhez egy egyszeri nyilatkozat kell.
+// és a szállítói tevékenységhez egy egyszeri nyilatkozat kell.
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 
@@ -13,8 +13,8 @@ function bid(jobId, token, amount = 12000) {
     .send({ amount_huf: amount, return_policy: 'included' });
 }
 
-describe('Sofőri nyilatkozat + jogosítvány-mentesség', () => {
-  it('igazolt + nyilatkozatot elfogadott sofőr licitálhat — JOGOSÍTVÁNY NÉLKÜL is', async () => {
+describe('Szállítói nyilatkozat + jogosítvány-mentesség', () => {
+  it('igazolt + nyilatkozatot elfogadott szállító licitálhat — JOGOSÍTVÁNY NÉLKÜL is', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' }); // identity verified + terms elfogadva (helper)
     // A jogosítvány szándékosan NEM verified — mégis mehet (nincs license-kapu)

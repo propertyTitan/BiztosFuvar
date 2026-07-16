@@ -16,19 +16,19 @@ import ProductPreview from '@/components/ProductPreview';
 
 const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; soon?: boolean }[] = [
   { icon: Gavel, tint: 'var(--primary)', title: 'Fuvarfeladás pár perc alatt',
-    desc: 'Hirdesd meg a csomagodat, és a sofőrök ajánlatot tesznek rá. Te döntöd el, melyik ajánlatot fogadod el.' },
-  { icon: Route, tint: '#7c3aed', title: 'Fix áras útvonalak',
-    desc: 'A sofőrök meghirdetik az útjukat fix áron. Foglalj helyet a csomagodnak egyetlen kattintással.' },
+    desc: 'Hirdesd meg a csomagodat, és a szállítók ajánlatot tesznek rá. Te döntöd el, melyik ajánlatot fogadod el.' },
+  { icon: Route, tint: '#7c3aed', title: 'Fix áras járatok',
+    desc: 'A szállítók meghirdetik a járatukat fix áron. Foglalj helyet a csomagodnak egyetlen kattintással.' },
   // Az élő GPS a mobilapppal érkezik — a launchkor még nincs, ezért
   // ŐSZINTÉN jelöljük: "Hamarosan" badge, jövő időben fogalmazva.
   { icon: MapPin, tint: '#db2777', title: 'Élő GPS követés', soon: true,
-    desc: 'A GoFuvar mobilalkalmazással érkezik: valós időben követheted majd a sofőröd pozícióját a térképen.' },
+    desc: 'A GoFuvar mobilalkalmazással érkezik: valós időben követheted majd a szállítód pozícióját a térképen.' },
   { icon: ShieldCheck, tint: 'var(--success)', title: 'Készpénzes fizetés, kis díj',
-    desc: 'A fuvardíjat készpénzben adod a sofőrnek — a platformnak csak egy kis kapcsolatfelvételi díjat fizetsz (bevezető áron már 500 Ft-tól).' },
+    desc: 'A fuvardíjat készpénzben adod a szállítónak — a platformnak csak egy kis kapcsolatfelvételi díjat fizetsz (bevezető áron már 500 Ft-tól).' },
   { icon: Camera, tint: '#0891b2', title: 'Fotó bizonyíték',
-    desc: 'A sofőr felvételi és lerakodási fotóval igazolja a csomag állapotát — vita esetén ez a bizonyíték.' },
+    desc: 'A szállító felvételi és lerakodási fotóval igazolja a csomag állapotát — vita esetén ez a bizonyíték.' },
   { icon: KeyRound, tint: 'var(--warning)', title: '6 jegyű átvételi kód',
-    desc: 'A lezáráshoz a sofőrnek be kell írnia a feladó 6 jegyű kódját. Nincs kód — nincs lezárt fuvar.' },
+    desc: 'A lezáráshoz a szállítónak be kell írnia a feladó 6 jegyű kódját. Nincs kód — nincs lezárt fuvar.' },
 ];
 
 // A fuvar útjának három állomása — a lépések az útvonal-fonálra fűződnek:
@@ -37,15 +37,15 @@ const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; s
 const STEPS = [
   { num: '1', title: 'Hirdesd meg a fuvart', dot: 'var(--primary)',
     desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.' },
-  { num: '2', title: 'Válassz sofőrt', dot: 'var(--primary)',
-    desc: 'Fogadd el a neked tetsző ajánlatot, vagy foglalj fix áras útvonalon. Egy kis kapcsolatfelvételi díj után azonnal megkapod a sofőr elérhetőségét.' },
+  { num: '2', title: 'Válassz szállítót', dot: 'var(--primary)',
+    desc: 'Fogadd el a neked tetsző ajánlatot, vagy foglalj egy induló járaton. Egy kis kapcsolatfelvételi díj után azonnal megkapod a szállító elérhetőségét.' },
   { num: '3', title: 'Vedd át a kóddal', dot: 'var(--success)',
-    desc: 'Felvételkor a címzett SMS-ben kapja az átvételi kódot és a sofőr számát. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat készpénzben rendezed a sofőrrel.' },
+    desc: 'Felvételkor a címzett SMS-ben kapja az átvételi kódot és a szállító számát. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat készpénzben rendezed a szállítóval.' },
 ];
 
 const TRUST = [
   { stat: '500 Ft-tól', label: 'kapcsolatfelvételi díj (bevezető ár)' },
-  { stat: '100%', label: 'a fuvardíjból a sofőré — készpénzben' },
+  { stat: '100%', label: 'a fuvardíjból a szállítóé — készpénzben' },
   { stat: '6 jegyű', label: 'kód zárja le az átadást' },
   { stat: '24/7', label: 'AI segéd válaszol' },
 ];
@@ -79,12 +79,12 @@ export default function LandingPage() {
           margin: '0 auto 6px', maxWidth: 720, letterSpacing: '-1.2px',
         }}>
           Csomagod van?{' '}
-          {/* nowrap: a "Sofőröd is lesz." egyben törjön új sorba, ne a közepén */}
+          {/* nowrap: a "Szállítód is lesz." egyben törjön új sorba, ne a közepén */}
           <span style={{
             background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
             WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
             whiteSpace: 'nowrap',
-          }}>Sofőröd is lesz.</span>
+          }}>Szállítód is lesz.</span>
         </h1>
         {/* A márka aláírása: A→B útvonal-vonal, betöltéskor megrajzolja
             magát (reduced-motion esetén azonnal kész). Kék pont = feladás,
@@ -107,8 +107,8 @@ export default function LandingPage() {
           fontSize: 'clamp(16px, 2vw, 20px)', color: 'var(--text-secondary)',
           maxWidth: 580, margin: '0 auto 32px', lineHeight: 1.5,
         }}>
-          Hirdess meg egy fuvart és a sofőrök ajánlatot tesznek rá — vagy foglalj
-          helyet egy útba eső sofőr fix áras útvonalán. Biztonságos fizetés,
+          Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá — vagy foglalj
+          helyet egy útba eső szállító induló járatán. Biztonságos fizetés,
           fotó bizonyíték, 6 jegyű átvételi kód.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -132,7 +132,7 @@ export default function LandingPage() {
         </div>
 
         {/* A termék maga: telefon-mockup, amin épp ajánlatok érkeznek —
-            a "Sofőröd is lesz." ígéret képileg beváltva */}
+            a "Szállítód is lesz." ígéret képileg beváltva */}
         <ProductPreview />
       </section>
 
@@ -149,7 +149,7 @@ export default function LandingPage() {
           <div style={{ flex: '1 1 240px' }}>
             <div style={{ fontWeight: 800, fontSize: 18 }}>Vettél valamit online? Hozasd el.</div>
             <div className="muted" style={{ fontSize: 14 }}>
-              IKEA, OBI, Praktiker vagy Jófogás link → pár kattintás, és egy sofőr elhozza.
+              IKEA, OBI, Praktiker vagy Jófogás link → pár kattintás, és egy szállító elhozza.
             </div>
           </div>
           <span className="btn" style={{ pointerEvents: 'none' }}>
@@ -203,7 +203,7 @@ export default function LandingPage() {
           Minden, ami a biztonságos fuvarhoz kell
         </h2>
         <p style={{ textAlign: 'center', color: 'var(--muted)', maxWidth: 520, margin: '0 auto 40px', lineHeight: 1.5 }}>
-          A GoFuvar nem csak összeköt feladót és sofőrt — végigkísér az egész
+          A GoFuvar nem csak összeköt feladót és szállítót — végigkísér az egész
           folyamaton a feladástól a kifizetésig.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 16 }}>
@@ -258,9 +258,9 @@ export default function LandingPage() {
             <Leaf size={26} aria-hidden /> Zöld, mert nem csinál felesleges utat
           </h2>
           <p style={{ textAlign: 'center', color: 'var(--text)', maxWidth: 620, margin: '0 auto 28px', lineHeight: 1.6 }}>
-            A csomagod egy <strong>meglévő úton</strong> utazik: a sofőr úgyis megy
+            A csomagod egy <strong>meglévő úton</strong> utazik: a szállító úgyis megy
             A-ból B-be. Nincs külön futárautó, nincs plusz károsanyag — egy hagyományos
-            kézbesítéshez képest a kibocsátás elmarad. A sofőr pedig egy úton, amit
+            kézbesítéshez képest a kibocsátás elmarad. A szállító pedig egy úton, amit
             amúgy is megtenne, egy fuvarral <strong>hasznot termel</strong>.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, maxWidth: 720, margin: '0 auto' }}>
@@ -318,9 +318,9 @@ export default function LandingPage() {
             </div>
             <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Feladó vagyok</h3>
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 16 }}>
-              <li>Hirdesd meg a fuvart — a sofőrök ajánlatot tesznek rá</li>
-              <li>Vagy foglalj helyet egy fix áras útvonalon</li>
-              <li>Kis díj után azonnal megkapod a sofőr elérhetőségét</li>
+              <li>Hirdesd meg a fuvart — a szállítók ajánlatot tesznek rá</li>
+              <li>Vagy foglalj helyet egy induló járaton</li>
+              <li>Kis díj után azonnal megkapod a szállító elérhetőségét</li>
               <li>Felvételkor a címzett SMS-ben kapja az átvételi kódot</li>
               <li>Add át a 6 jegyű kódot, a fuvardíjat kápéban rendezed</li>
             </ul>
@@ -332,11 +332,11 @@ export default function LandingPage() {
             <div style={{ display: 'inline-flex', padding: 12, borderRadius: 14, background: 'rgba(22,163,74,0.12)', marginBottom: 16 }}>
               <Truck size={26} color="var(--success-text)" />
             </div>
-            <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Sofőr vagyok</h3>
+            <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Szállító vagyok</h3>
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 16 }}>
               <li>Autó, bicikli, gyalog vagy tömegközlekedés — bármivel mehet</li>
               <li>Böngéssz az elérhető fuvarok között és tegyél ajánlatot</li>
-              <li>Vagy hirdesd meg az utadat fix árakkal</li>
+              <li>Vagy hirdesd meg a járatodat fix árakkal</li>
               <li>A fuvardíj 100%-a a tiéd, készpénzben — nincs levonás</li>
               <li>Igazold a felvételt és lerakodást fotóval</li>
               <li>Kérd az átvételi kódot → fuvar lezárva, a kápé a tiéd</li>

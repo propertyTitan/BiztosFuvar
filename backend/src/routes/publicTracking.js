@@ -4,7 +4,7 @@
 //  A címzett SMS-ben kap egy linket: gofuvar.hu/nyomon-kovetes/<token>
 //  Ezen az oldalon látja:
 //    - Fuvar állapota (úton / megérkezett / lezárva)
-//    - Sofőr neve + jármű leírása
+//    - Szállító neve + jármű leírása
 //    - Élő pozíció (utolsó GPS ping)
 //    - Becsült érkezési idő
 //    - Az átvételi kód (!)

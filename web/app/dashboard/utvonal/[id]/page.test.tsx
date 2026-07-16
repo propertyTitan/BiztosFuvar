@@ -43,7 +43,7 @@ const route = {
   waypoints: [{ name: 'Szeged' }, { name: 'Budapest' }],
   vehicle_description: '',
   description: '',
-  prices: [{ size: 'S', price_huf: 3000 }], // a sofőr CSAK S-t vállalja
+  prices: [{ size: 'S', price_huf: 3000 }], // a szállító CSAK S-t vállalja
 };
 
 async function fillDims(container: HTMLElement, user: ReturnType<typeof userEvent.setup>, dims: [string, string, string, string]) {
@@ -80,12 +80,12 @@ describe('Foglalás-oldal — validáció', () => {
     expect(push).toHaveBeenCalledWith('/dashboard');
   });
 
-  it('a sofőr által nem vállalt méret (M) → hibaüzenet, nincs foglalás', async () => {
+  it('a szállító által nem vállalt méret (M) → hibaüzenet, nincs foglalás', async () => {
     const user = userEvent.setup();
     const { container } = render(<FeladoUtvonalReszletek />);
     await waitFor(() => expect(screen.getByText('Foglalás')).toBeInTheDocument());
 
-    await fillDims(container, user, ['50', '40', '30', '10']); // → M, de a sofőr csak S-t visz
+    await fillDims(container, user, ['50', '40', '30', '10']); // → M, de a szállító csak S-t visz
     const cimGombok = screen.getAllByText('mock-cim-megerosit');
     await user.click(cimGombok[0]);
     await user.click(cimGombok[1]);

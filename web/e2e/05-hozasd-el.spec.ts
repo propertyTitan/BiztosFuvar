@@ -1,5 +1,5 @@
 // "Hozasd el": terméklink → OG-előnézet → fuvar-előtöltés → a termékkép
-// eljut a sofőrig. A backend /link-preview hívását a böngészőben elfogjuk
+// eljut a szállítóig. A backend /link-preview hívását a böngészőben elfogjuk
 // és determinisztikus IKEA-választ adunk — a teszt így nem függ külső
 // weboldal elérhetőségétől, de a teljes web-oldali flow-t végigjárja.
 import { test, expect } from '@playwright/test';
@@ -10,7 +10,7 @@ import {
 const PRODUCT_URL = 'https://www.ikea.com/hu/hu/p/billy-konyvespolc-feher-00263850/';
 const PRODUCT_IMAGE = 'https://www.ikea.com/hu/hu/images/products/billy-konyvespolc-feher.jpg';
 
-test('terméklink előnézete előtölti a feladást, a kép a sofőrig jut', async ({ page }) => {
+test('terméklink előnézete előtölti a feladást, a kép a szállítóig jut', async ({ page }) => {
   const shipper = await createUser('shipper', 'Feladó Ferenc');
   await loginAs(page, shipper);
 
@@ -66,8 +66,8 @@ test('terméklink előnézete előtölti a feladást, a kép a sofőrig jut', as
   const row = await getJobRow(createdJob.id);
   expect(row.source_image_url).toBe(PRODUCT_IMAGE);
 
-  // ---- 4. A sofőr a fuvar oldalán látja a termékképet ----
-  const carrier = await createUser('carrier', 'Sofőr Sándor');
+  // ---- 4. A szállító a fuvar oldalán látja a termékképet ----
+  const carrier = await createUser('carrier', 'Szállító Sándor');
   await setJobAccepted(createdJob.id, carrier.id, { paid: true, priceHuf: 12000 });
 
   const carrierPage = await page.context().browser()!.newPage();

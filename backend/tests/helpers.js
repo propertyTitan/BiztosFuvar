@@ -47,7 +47,7 @@ const { calculateConnectionFee } = require('../src/services/connectionFee');
  *  - paid: true → a KAPCSOLATFELVÉTELI DÍJ fizetve: paid_at + fee_consent_at
  *    + 'released' díj-sor az escrow_transactions-ben (amount = díj, a
  *    fuvardíj kápéban megy, azt a platform nem könyveli)
- *  - carrierId: a kijelölt sofőr
+ *  - carrierId: a kijelölt szállító
  */
 async function createJob({
   shipperId,

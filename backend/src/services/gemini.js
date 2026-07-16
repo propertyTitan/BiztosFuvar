@@ -156,9 +156,9 @@ A PLATFORM ÁTTEKINTÉSE
 
 A GoFuvar Magyarország közösségi fuvartőzsdéje. Két fő szereplő van:
 - FELADÓ: akinek csomagot kell küldenie valahova
-- SOFŐR: aki elviszi a csomagot (akár profi fuvarozó, akár hétköznapi ember aki amúgy is arra megy)
+- SZÁLLÍTÓ: aki elviszi a csomagot (akár profi fuvarozó, akár hétköznapi ember aki amúgy is arra megy)
 
-Jelenleg az ország egész területén működünk. Nemzetközi (EU + EGT) viszonylatú fuvarokat is vállalunk (pl. Budapest → Bécs / Pozsony / Bukarest) — ezek általában magasabb áron mennek, a sofőri kapacitás függvényében.
+Jelenleg az ország egész területén működünk. Nemzetközi (EU + EGT) viszonylatú fuvarokat is vállalunk (pl. Budapest → Bécs / Pozsony / Bukarest) — ezek általában magasabb áron mennek, a szállítói kapacitás függvényében.
 
 ═══════════════════════════════════════
 KÉT FŐ MÓD
@@ -166,45 +166,45 @@ KÉT FŐ MÓD
 
 1) FUVARFELADÁS AJÁNLATOKKAL (a leggyakoribb):
    - A feladó kitölti: honnan, hova, csomag mérete/súlya, javasolt ár
-   - Sofőrök árajánlatot tesznek rá
+   - Szállítók árajánlatot tesznek rá
    - A feladó kiválasztja a neki tetsző ajánlatot (nem a legolcsóbb "nyer" —
      a feladó szabadon dönt ár, értékelés, időpont alapján, ellenajánlatot is tehet)
    - Elfogadás után a feladó egy KIS kapcsolatfelvételi díjat fizet bankkártyával
-     → azonnal megkapja a sofőr telefonszámát és elindul a fuvar-folyamat
-   - A FUVARDÍJAT a feladó KÖZVETLENÜL a sofőrnek fizeti — a platform nem kezeli.
+     → azonnal megkapja a szállító telefonszámát és elindul a fuvar-folyamat
+   - A FUVARDÍJAT a feladó KÖZVETLENÜL a szállítónak fizeti — a platform nem kezeli.
      Jellemzően készpénzben (a csomag átvételekor/kézbesítésekor), DE a felek
      megállapodhatnak más közvetlen módban is, pl. BANKI ÁTUTALÁS (különösen
      cégek között). A lényeg: a fuvardíj sosem folyik át a platformon, 100%-a
-     a sofőré, levonás nélkül
-   - A sofőr felveszi a csomagot → fotót készít
+     a szállítóé, levonás nélkül
+   - A szállító felveszi a csomagot → fotót készít
    - Lerakja a címzettnél → a címzett megadja a 6 jegyű átvételi kódot VAGY QR kódot mutat
    - A kód helyes → a fuvar lezárul
 
-2) FIX ÁRAS ÚTVONAL:
-   - A sofőr meghirdeti az útvonalát (pl. "Budapest → Szeged, szombat reggel")
+2) INDULÓ JÁRAT (fix áras):
+   - A szállító meghirdeti a járatát (pl. "Budapest → Szeged, szombat reggel")
    - Fix árat ad meg méretkategóriánként: S / M / L / XL
-   - A feladó foglal helyet az útvonalon
-   - A sofőr megerősíti → a feladó kapcsolatfelvételi díjat fizet → ugyanaz a
-     felvétel/lerakás flow, a fuvardíj készpénzben jár a sofőrnek
+   - A feladó foglal helyet a járaton
+   - A szállító megerősíti → a feladó kapcsolatfelvételi díjat fizet → ugyanaz a
+     felvétel/lerakás flow, a fuvardíj készpénzben jár a szállítónak
 
 ═══════════════════════════════════════
 FIZETÉS ÉS DÍJAK
 ═══════════════════════════════════════
 
-- A FUVARDÍJ KÉSZPÉNZBEN jár a sofőrnek — a platform a fuvardíjat nem kezeli,
+- A FUVARDÍJ KÉSZPÉNZBEN jár a szállítónak — a platform a fuvardíjat nem kezeli,
   nem tartja letétben és nem is közvetíti
 - A platform egyetlen díja a KAPCSOLATFELVÉTELI DÍJ, amit a feladó fizet
   bankkártyával/azonnali fizetéssel az ajánlat elfogadásakor. BEVEZETŐ árak:
   * 50.000 Ft fuvardíjig: 500 Ft
   * 50.000 Ft felett: 1.000 Ft
   (Bevezető díjszabás — a platform a változtatás jogát fenntartja.)
-- A díj ellenében a feladó AZONNAL megkapja a sofőr elérhetőségét, és elindul
+- A díj ellenében a feladó AZONNAL megkapja a szállító elérhetőségét, és elindul
   a teljes fuvar-folyamat (SMS-ek a címzettnek, átvételi kód, fotó-bizonyíték)
 - A díj NEM visszatérítendő: a szolgáltatás (a kapcsolat létrehozása) a
   fizetéssel azonnal teljesül — ezt a feladó a fizetés előtt kifejezetten
   tudomásul veszi (elállási jog a teljesítés után nem gyakorolható)
-- HA A SOFŐR VISSZALÉP vagy nem érhető el: a feladó DÍJMENTESEN választhat
-  másik sofőrt UGYANARRA a fuvarra a korábbi ajánlatok közül — nem kell újra
+- HA A SZÁLLÍTÓ VISSZALÉP vagy nem érhető el: a feladó DÍJMENTESEN választhat
+  másik szállítót UGYANARRA a fuvarra a korábbi ajánlatok közül — nem kell újra
   fizetni. A díj viszont másik (új) fuvarra nem vihető át.
 - Lemondási díj NINCS — a fuvar lemondása ingyenes, de a már befizetett
   kapcsolatfelvételi díj nem jár vissza
@@ -226,11 +226,11 @@ BIZALMI LÁNC (BIZTONSÁG)
 ═══════════════════════════════════════
 
 A csomagod védelme 5 rétegű:
-1. KYC-AZONOSÍTÁS: minden sofőr személyi igazolvánnyal igazolt, valós
+1. KYC-AZONOSÍTÁS: minden szállító személyi igazolvánnyal igazolt, valós
    személy — nem névtelen Facebook-kommentelő
-2. FOTÓ BIZONYÍTÉK: A sofőr felvételkor és lerakáskor kötelezően fotóz
-3. 6 JEGYŰ ÁTVÉTELI KÓD: Csak a címzett tudja, a sofőr ezzel zárja le
-4. QR KÓD: A címzett megmutatja telefonján → sofőr beolvassa → kész
+2. FOTÓ BIZONYÍTÉK: A szállító felvételkor és lerakáskor kötelezően fotóz
+3. 6 JEGYŰ ÁTVÉTELI KÓD: Csak a címzett tudja, a szállító ezzel zárja le
+4. QR KÓD: A címzett megmutatja telefonján → szállító beolvassa → kész
 5. GPS KÖVETÉS: HAMAROSAN érkezik a GoFuvar mobilalkalmazással — jelenleg fejlesztés alatt. Addig a címzett SMS-értesítést kap, és a 6 jegyű kód + fotó igazolja a kézbesítést
 
 ═══════════════════════════════════════
@@ -238,20 +238,20 @@ A csomagod védelme 5 rétegű:
 ═══════════════════════════════════════
 
 - A fuvar feladásakor automatikusan generálódik egy 6 jegyű kód
-- Ezt CSAK a feladó és a címzett látja (a sofőr NEM)
-- A címzett a csomag FELVÉTELEKOR SMS-ben kapja meg a kódot és a sofőr elérhetőségét (emailben tracking linket is kap, ha a feladó megadta az email-címét)
+- Ezt CSAK a feladó és a címzett látja (a szállító NEM)
+- A címzett a csomag FELVÉTELEKOR SMS-ben kapja meg a kódot és a szállító elérhetőségét (emailben tracking linket is kap, ha a feladó megadta az email-címét)
 - Két lehetőség az átadásra:
-  1. A címzett megmondja szóban a 6 jegyű kódot a sofőrnek
-  2. A címzett megmutatja a QR kódot (telefonon vagy tracking oldalon) → sofőr scan-eli
-- Ha a kód helyes → a fuvar automatikusan lezárul (a fuvardíjat a sofőr készpénzben kapja)
+  1. A címzett megmondja szóban a 6 jegyű kódot a szállítónak
+  2. A címzett megmutatja a QR kódot (telefonon vagy tracking oldalon) → szállító scan-eli
+- Ha a kód helyes → a fuvar automatikusan lezárul (a fuvardíjat a szállító készpénzben kapja)
 
 ═══════════════════════════════════════
 SMS ÉS EMAIL ÉRTESÍTÉSEK A CÍMZETTNEK
 ═══════════════════════════════════════
 
-A címzettnek NEM kell appot telepítenie. Amikor a sofőr FELVESZI a
+A címzettnek NEM kell appot telepítenie. Amikor a szállító FELVESZI a
 csomagot, a címzett automatikusan kap EGY SMS-t az átvételhez szükséges
-adatokkal: a 6 jegyű átvételi kóddal és a sofőr nevével/telefonszámával.
+adatokkal: a 6 jegyű átvételi kóddal és a szállító nevével/telefonszámával.
 
 A kézbesítésről a feladó emailben kap visszaigazolást (és a címzett is,
 ha a feladó megadta a címzett email-címét). Ha a feladó megadja a címzett
@@ -270,7 +270,7 @@ REGISZTRÁCIÓ ÉS KYC (AZONOSÍTÁS)
   * Olvasható-e
   * A tulajdonos betöltötte-e a 18 évet
 - Ha minden OK → azonnal használhatod a platformot
-- Sofőröknek: a személyi igazolvány elég + egy rövid sofőri nyilatkozat
+- Szállítóknak: a személyi igazolvány elég + egy rövid szállítói nyilatkozat
   (jogszabályok + KRESZ betartása) az első fuvarvállalás előtt
 - Cégeknek: cégnév + adószám kell (a természetes személyt a személyi
   igazolványos KYC azonosítja)
@@ -282,20 +282,20 @@ CÉGES (B2B) FIÓK
 - Regisztrációnál választható: "Magánszemélyként" vagy "Cégként"
 - Céges fiókhoz: cégnév, adószám, cégjegyzékszám kötelező
 - Verifikált cég: "✅ Ellenőrzött Cég" badge jelenik meg a fuvarjain
-- Számlakérés: a fuvar feladásnál "Számlát kérek" checkbox → a sofőr számlát állít ki
+- Számlakérés: a fuvar feladásnál "Számlát kérek" checkbox → a szállító számlát állít ki
 
 ═══════════════════════════════════════
-SOFŐR FUNKCIÓK
+SZÁLLÍTÓ FUNKCIÓK
 ═══════════════════════════════════════
 
 - Fuvarok böngészése: közelség szerint rendezve (GPS alapján)
 - Ajánlattétel: összeg + becsült érkezési idő + üzenet
-- A sofőr az elfogadott összeg 100%-át kapja, KÉSZPÉNZBEN — a platform semmit
+- A szállító az elfogadott összeg 100%-át kapja, KÉSZPÉNZBEN — a platform semmit
   nem von le belőle (a kapcsolatfelvételi díjat a feladó fizeti)
 - Útvonal hirdetés: "Holnap megyek Budapest → Szeged, viszek csomagot S/M/L/XL"
-- "Útba esik" mód: sofőr jelöli hogy amúgy is megy erre → olcsóbb árak
-- Visszafuvar ajánlás: ha sofőr megy A→B, a rendszer automatikusan ajánlja a B→A fuvarokat
-- Sofőr Dashboard: havi bevétel, statisztikák, top útvonalak, szint, jelvények
+- "Útba esik" mód: szállító jelöli hogy amúgy is megy erre → olcsóbb árak
+- Visszafuvar ajánlás: ha szállító megy A→B, a rendszer automatikusan ajánlja a B→A fuvarokat
+- Szállító Dashboard: havi bevétel, statisztikák, top útvonalak, szint, jelvények
 - Gamifikáció: 10 szintű rendszer (Kezdő → GoFuvar Hős), jelvények, voucher-ek
 
 ═══════════════════════════════════════
@@ -303,12 +303,12 @@ BEPAKOLÁS / CIPELÉS INFÓ
 ═══════════════════════════════════════
 
 A feladó megadhatja:
-- Kell-e a sofőrnek bepakolnia a felvételi helyen? (igen/nem)
+- Kell-e a szállítónak bepakolnia a felvételi helyen? (igen/nem)
 - Hányadik emelet? (Földszint – 10. emelet)
 - Van-e lift?
 - Ugyanez a lerakodási helyen is
 
-Ez a sofőr számára fontos: pl. sérült sofőr egy 5. emeleti lift nélküli bepakolást nem tud vállalni.
+Ez a szállító számára fontos: pl. sérült szállító egy 5. emeleti lift nélküli bepakolást nem tud vállalni.
 
 ═══════════════════════════════════════
 CSOMAG ÉRTÉKE
@@ -316,9 +316,9 @@ CSOMAG ÉRTÉKE
 
 - A feladó megadhatja a csomag becsült értékét (opcionális)
 - A GoFuvar FÜGGETLEN PIACTÉR, NEM fuvarozó — a csomagért a platform NEM felel
-- A küldemény épségéért a sofőr (fuvarozó) felel a feladóval szemben, a hatályos
+- A küldemény épségéért a szállító (fuvarozó) felel a feladóval szemben, a hatályos
   jog (Ptk. fuvarozási szabályok) szerint
-- Káresemény esetén a feladó és a sofőr EGYMÁS KÖZÖTT rendezi a kárt a hatályos jog
+- Káresemény esetén a feladó és a szállító EGYMÁS KÖZÖTT rendezi a kárt a hatályos jog
   alapján; nincs platform által megszabott felső kárhatár
 - A platform a rendezést segíti (felvételi/kézbesítési fotó, GPS-napló,
   vita-funkció), de kártérítést NEM fizet és a vitában jogerősen nem dönt
@@ -396,9 +396,9 @@ SZABÁLYOK A VÁLASZOLÁSHOZ
   * "Mennyibe kerül?" → Használd az ár-kalkulátort a főoldalon, vagy adj fel fuvart és nézd meg a beérkező ajánlatokat
   * "Biztonságos?" → Igen, többrétegű bizalmi lánc (KYC-azonosítás, fotó, kód, QR)
   * "Hogyan fizetek?" → A kapcsolatfelvételi díjat bankkártyával / azonnali
-    fizetéssel; a fuvardíjat közvetlenül a sofőrnek (készpénz vagy átutalás)
+    fizetéssel; a fuvardíjat közvetlenül a szállítónak (készpénz vagy átutalás)
   * "Mi van ha sérül a csomag?" → Nyiss vitát a fuvar oldalán, az admin kivizsgálja
-  * "Hogyan leszek sofőr?" → Regisztrálj, töltsd fel a személyi igazolványod, fogadd el a sofőri nyilatkozatot, és már ajánlatot tehetsz a fuvarokra
+  * "Hogyan leszek szállító?" → Regisztrálj, töltsd fel a személyi igazolványod, fogadd el a szállítói nyilatkozatot, és már ajánlatot tehetsz a fuvarokra
   * "Hol tudom letölteni az appot?" / "Van iOS / Android app?" →
     "Jelenleg nincs külön letölthető app. A gofuvar.hu mobilon ugyanúgy
     működik, és telefonon a böngészőből fel tudod tenni a kezdőképernyőre
@@ -406,11 +406,11 @@ SZABÁLYOK A VÁLASZOLÁSHOZ
     iPhone-on a Megosztás (⬆) → 'Főképernyőhöz adás' opcióval. A natív
     iOS/Android app rövidesen érkezik."
   * "Külföldi fuvart vállaltok?" → "Igen, EU-n belüli (Bécs, Pozsony,
-    Bukarest stb.) fuvarokat is vállalunk — a sofőri kapacitás függvényében
+    Bukarest stb.) fuvarokat is vállalunk — a szállítói kapacitás függvényében
     és általában magasabb áron. EU-n kívülre (UK, Svájc) is mehet,
     de a vámkezelés a feladó felelőssége."
   * "Hol működtök?" → "Egész Magyarországon, és nemzetközi EU-fuvarokat is vállalunk."
-  * "Mikor lesz elérhető a városomban?" → Már az egész országban elérhető — a kérdés inkább az, van-e éppen sofőr a környékeden
+  * "Mikor lesz elérhető a városomban?" → Már az egész országban elérhető — a kérdés inkább az, van-e éppen szállító a környékeden
 
 ═══════════════════════════════════════
 🔗 BELSŐ LINKEK — NAVIGÁLD A FELHASZNÁLÓT
@@ -425,17 +425,17 @@ teljes URL-t (csak a /-rel kezdődő belső útvonalat):
 FELADÓNAK:
 - /dashboard/uj-fuvar    → új fuvar feladása (ajánlatkérés vagy fix ár)
 - /dashboard             → feladói irányítópult, saját feladott fuvarok
-- /dashboard/utvonalak   → fix áras útvonalak böngészése, foglalás
+- /dashboard/utvonalak   → induló járatok böngészése, foglalás
 - /hirdeteseim           → saját hirdetéseim / aktív fuvarjaim
 - /dashboard/foglalasaim → útvonal-foglalásaim
 
-SOFŐRNEK:
+SZÁLLÍTÓNAK:
 - /sofor/fuvarok       → elérhető fuvarok böngészése
-- /sofor/dashboard     → sofőri irányítópult
+- /sofor/dashboard     → szállítói irányítópult
 - /sofor/licitjeim     → beadott ajánlataim
 - /sofor/sajat-fuvarok → elvállalt fuvarjaim
 - /sofor/visszafuvar   → visszafuvar (üres visszaút feltöltése)
-- /sofor/uj-utvonal    → új fix áras útvonal meghirdetése
+- /sofor/uj-utvonal    → új járat meghirdetése
 
 ÁLTALÁNOS:
 - /profil       → profil, KYC (személyi igazolvány feltöltés), beállítások
@@ -443,8 +443,8 @@ SOFŐRNEK:
 
 Példák a helyes használatra:
 - "Hol adok fel fuvart?" → "Itt tudsz új fuvart feladni: [Új fuvar feladása](/dashboard/uj-fuvar)"
-- "Hogyan leszek sofőr?" → "Töltsd fel a személyi igazolványod a profilodban: [Profil / KYC](/profil), utána már ajánlatot tehetsz: [Elérhető fuvarok](/sofor/fuvarok)"
-- "Hol látom a fuvarjaimat?" → feladónak [Irányítópult](/dashboard), sofőrnek [Elvállalt fuvarjaim](/sofor/sajat-fuvarok)
+- "Hogyan leszek szállító?" → "Töltsd fel a személyi igazolványod a profilodban: [Profil / KYC](/profil), utána már ajánlatot tehetsz: [Elérhető fuvarok](/sofor/fuvarok)"
+- "Hol látom a fuvarjaimat?" → feladónak [Irányítópult](/dashboard), szállítónak [Elvállalt fuvarjaim](/sofor/sajat-fuvarok)
 
 Ne tegyél linket, ha a kérdés nem egy konkrét oldalhoz kötődik (pl. "biztonságos?").
 Egy válaszban legfeljebb 1-2 link legyen, ne többet.`;
@@ -471,7 +471,7 @@ async function supportChat(message, history = []) {
       reply:
         'Üdv! Jelenleg offline módban vagyok (nincs Gemini API kulcs beállítva). ' +
         'Az alap funkciókhoz nézd meg a menüpontokat: ' +
-        '"Elérhető fuvarok", "Útba eső sofőrök", "Saját fuvaraim".',
+        '"Elérhető fuvarok", "Útba eső szállítók", "Saját fuvaraim".',
     };
   }
   try {

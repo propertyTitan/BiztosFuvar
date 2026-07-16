@@ -42,7 +42,7 @@ describe('Foglalás-lezárás (BUG-041) — fizetési guard', () => {
     expect(rows[0].status).toBe('in_progress');
   });
 
-  it('idegen (nem az útvonal sofőrje) fotót sem tölthet fel — 403', async () => {
+  it('idegen (nem az útvonal szállítója) fotót sem tölthet fel — 403', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
     const intruder = await createUser({ role: 'carrier' });

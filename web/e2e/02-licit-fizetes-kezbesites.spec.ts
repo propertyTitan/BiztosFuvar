@@ -1,14 +1,14 @@
-// A teljes pénz-út két böngészőben (készpénzes modell): a sofőr licitál, a
+// A teljes pénz-út két böngészőben (készpénzes modell): a szállító licitál, a
 // feladó elfogad és kifizeti a kapcsolatfelvételi díjat (stub Barion, consent
-// checkboxszal), a sofőr felveszi és a címzett kódjával kézbesíti.
+// checkboxszal), a szállító felveszi és a címzett kódjával kézbesíti.
 // Közben a friss fizetési guard UI-ját is ellenőrizzük: fizetés előtt a
-// sofőr "Fizetésre vár" kártyát lát, nem tud munkát indítani.
+// szállító "Fizetésre vár" kártyát lát, nem tud munkát indítani.
 import { test, expect } from '@playwright/test';
 import { createUser, createJob, getDeliveryCode, getJobRow, loginAs, TINY_PNG } from './helpers';
 
 test('licit → elfogadás → fizetés → felvétel → kézbesítés kóddal', async ({ browser }) => {
   const shipper = await createUser('shipper', 'Feladó Ferenc');
-  const carrier = await createUser('carrier', 'Sofőr Sándor');
+  const carrier = await createUser('carrier', 'Szállító Sándor');
   const job = await createJob(shipper);
 
   const shipperCtx = await browser.newContext();
@@ -18,7 +18,7 @@ test('licit → elfogadás → fizetés → felvétel → kézbesítés kóddal'
   await loginAs(shipperPage, shipper);
   await loginAs(carrierPage, carrier);
 
-  // ---- 1. A sofőr licitál ----
+  // ---- 1. A szállító licitál ----
   await carrierPage.goto(`/sofor/fuvar/${job.id}`);
   await expect(carrierPage.getByText('E2E teszt fuvar — dobozok').first()).toBeVisible();
 
@@ -29,13 +29,13 @@ test('licit → elfogadás → fizetés → felvétel → kézbesítés kóddal'
 
   // ---- 2. A feladó látja és elfogadja a licitet ----
   await shipperPage.goto(`/dashboard/fuvar/${job.id}`);
-  await expect(shipperPage.getByText(/Sofőr Sándor/).first()).toBeVisible();
+  await expect(shipperPage.getByText(/Szállító Sándor/).first()).toBeVisible();
   await expect(shipperPage.getByText(/12\s?000/).first()).toBeVisible();
 
   await shipperPage.getByRole('button', { name: /^Elfogadom/ }).first().click();
   await expect(shipperPage.getByRole('button', { name: /Díj fizetése/ }).first()).toBeVisible({ timeout: 20_000 });
 
-  // ---- 3. Fizetés ELŐTT a sofőr nem tud munkát indítani ----
+  // ---- 3. Fizetés ELŐTT a szállító nem tud munkát indítani ----
   await carrierPage.goto(`/sofor/fuvar/${job.id}`);
   await expect(carrierPage.getByText(/Fizetésre vár/).first()).toBeVisible();
   await expect(carrierPage.getByRole('button', { name: /Felvétel igazolása/ })).toHaveCount(0);
@@ -59,9 +59,9 @@ test('licit → elfogadás → fizetés → felvétel → kézbesítés kóddal'
 
   // ---- 4/b. A díj után a kontakt felfedve mindkét félnek ----
   await shipperPage.goto(`/dashboard/fuvar/${job.id}`);
-  await expect(shipperPage.getByText(/A SOFŐR ELÉRHETŐSÉGE/).first()).toBeVisible({ timeout: 20_000 });
+  await expect(shipperPage.getByText(/A SZÁLLÍTÓ ELÉRHETŐSÉGE/).first()).toBeVisible({ timeout: 20_000 });
 
-  // ---- 5. A sofőr elindítja a fuvart (pickup fotó) ----
+  // ---- 5. A szállító elindítja a fuvart (pickup fotó) ----
   await carrierPage.goto(`/sofor/fuvar/${job.id}`);
   await expect(carrierPage.getByText(/Fuvar indítása/).first()).toBeVisible();
   await carrierPage.locator('#pickup-photo').setInputFiles({

@@ -38,11 +38,11 @@ function generateDeliveryCode() {
 /**
  * Egy job sort "tisztít meg" a kérő user szerepéhez.
  * A `delivery_code` CSAK a feladónak és az adminnak látható. Mindenki más
- * (köztük a kijelölt sofőr is) a `delivery_code: null` értéket kapja,
+ * (köztük a kijelölt szállító is) a `delivery_code: null` értéket kapja,
  * hogy ne tudja megkerülni az átadási kódot.
  *
  * A `tracking_token` szintén csak a feladóé/adminé: a publikus követőoldal
- * (amit a címzett SMS-ben kap) kiírja az átvételi kódot, így ha a sofőr
+ * (amit a címzett SMS-ben kap) kiírja az átvételi kódot, így ha a szállító
  * hozzájutna a tokenhez, a kódvédelmet teljesen megkerülhetné.
  * A címzett elérhetőségei (PII) és a Barion-azonosítók csak a fuvar
  * feleinek járnak — egy licitálgató kívülállónak nem.
@@ -61,11 +61,11 @@ function scrubJobForUser(job, user) {
     delivery_code, sender_delivery_code, tracking_token, ...rest
   } = job;
   if (user?.sub === job.carrier_id) {
-    // Kijelölt sofőr: kódok és token nélkül, de a címzett elérhetőségét
+    // Kijelölt szállító: kódok és token nélkül, de a címzett elérhetőségét
     // látja (kézbesítéskor hívnia kell tudni)
     return rest;
   }
-  // Kívülálló (pl. licitálni készülő vagy vesztes sofőr): címzett-PII,
+  // Kívülálló (pl. licitálni készülő vagy vesztes szállító): címzett-PII,
   // Barion-adatok ÉS a fizetési státusz sem jár (BUG-038: a vesztes
   // licitálók élőben látták a nyertes tranzakció "Fizetésre vár →
   // FIZETVE" állapotát — semmi közük hozzá).
@@ -78,7 +78,7 @@ function scrubJobForUser(job, user) {
 }
 
 // POST /jobs – bárki feladhat fuvart (a szerepkör szeparálást eltöröltük;
-// bárki egyaránt lehet feladó és sofőr is). Rate limit: percenként max 30
+// bárki egyaránt lehet feladó és szállító is). Rate limit: percenként max 30
 // írás a `writeRateLimit`-en keresztül — bőven elég normál használatra,
 // de botokat / spamet kilő.
 router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
@@ -120,7 +120,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
 
   // Forrás termékkép: CSAK ismert bolti kép-CDN-ek https-URL-jét fogadjuk el.
   // Így nem lehet a mezőn keresztül tetszőleges / tracking / kártékony képet
-  // beinjektálni, ami a sofőr böngészőjében töltődne be.
+  // beinjektálni, ami a szállító böngészőjében töltődne be.
   const ALLOWED_IMAGE_HOST_SUFFIXES = ['ikea.com', 'obi.hu', 'praktiker.hu', 'jofogas.hu'];
   let sourceImageClean = null;
   if (typeof source_image_url === 'string' && source_image_url.length <= 2000) {
@@ -175,7 +175,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
     });
   }
 
-  // Súly kötelező – a sofőr ez alapján tudja, befér-e a járműve össztömegébe
+  // Súly kötelező – a szállító ez alapján tudja, befér-e a járműve össztömegébe
   const weightKg = Number(weight_kg);
   if (!Number.isFinite(weightKg) || weightKg <= 0) {
     return res.status(400).json({
@@ -233,7 +233,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
 
   const distanceKm = +(distanceMeters(pickup_lat, pickup_lng, dropoff_lat, dropoff_lng) / 1000).toFixed(2);
 
-  // 6 jegyű átvételi kód: csak a feladó látja, a sofőrnek az átvevő mondja meg
+  // 6 jegyű átvételi kód: csak a feladó látja, a szállítónak az átvevő mondja meg
   const deliveryCode = generateDeliveryCode();
   // Feladó vészhelyzeti kód — eltérő a címzett kódjától
   let senderCode = generateDeliveryCode();
@@ -310,7 +310,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
   // A válaszban a kód látszik, mert a feladó most hozta létre a fuvart
   res.status(201).json(job);
 
-  // --- Sofőr útvonal-figyelők értesítése (email + in-app, SMS nincs) ---
+  // --- Szállító útvonal-figyelők értesítése (email + in-app, SMS nincs) ---
   // Fire-and-forget: a választ már elküldtük, ez nem foghatja meg a UI-t.
   setImmediate(() => {
     const { notifyMatchingAlerts } = require('../services/laneAlerts');
@@ -319,8 +319,8 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
 
   // --- Címzett értesítése (CSAK email) a tracking linkkel ---
   // SMS-MODELL (2026-07-13, user-döntés): a címzett EGYETLEN SMS-t kap, a
-  // csomag FELVÉTELEKOR (kód + sofőr elérhetősége — photos.js pickup ág).
-  // Feladáskor SMS nincs (sofőr sincs még); email mehet, az ingyen van.
+  // csomag FELVÉTELEKOR (kód + szállító elérhetősége — photos.js pickup ág).
+  // Feladáskor SMS nincs (szállító sincs még); email mehet, az ingyen van.
   if (recipient_email) {
     const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
     const trackingUrl = `${baseUrl}/nyomon-kovetes/${trackingToken}`;
@@ -361,23 +361,23 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
       });
   });
 
-  // --- Azonnali fuvar: közeli sofőrök push értesítése ---
+  // --- Azonnali fuvar: közeli szállítók push értesítése ---
   if (wantsInstant) {
     setImmediate(() => {
       notifyNearbyCarriersOfInstantJob(job).catch(() => {});
     });
   } else {
-    // --- Klasszikus fuvarhoz: visszafuvar-push a passzoló sofőröknek ---
+    // --- Klasszikus fuvarhoz: visszafuvar-push a passzoló szállítóknak ---
     // Az új fuvar pickup-ja lehet pont valakinek a visszaútja. Nézzük meg,
-    // van-e olyan aktív sofőr, akinek a jelenlegi (carrier_id=me) A→B
+    // van-e olyan aktív szállító, akinek a jelenlegi (carrier_id=me) A→B
     // fuvarához ez visszafuvar lenne, és push-oljuk neki. Fire-and-forget.
     setImmediate(async () => {
       try {
-        // Keresünk aktív sofőröket, akiknek a dropoff-ja közel van az új
+        // Keresünk aktív szállítókat, akiknek a dropoff-ja közel van az új
         // fuvar pickup-jához ÉS a pickup-juk közel van az új fuvar dropoff-
         // jához. Ezt egyetlen SQL-lel: a meglévő findBackhaulCandidates
         // fordítottját implementáljuk itt, mivel az új job mondja ki a
-        // "jelölt" állapotot, és mi a passzoló SOFŐRÖKET keressük.
+        // "jelölt" állapotot, és mi a passzoló SZÁLLÍTÓKAT keressük.
         const { rows: activeTrips } = await db.query(
           `SELECT DISTINCT carrier_id,
                   pickup_lat, pickup_lng,
@@ -417,7 +417,7 @@ router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, r
   }
 });
 
-// GET /jobs – nyitott fuvarok (sofőröknek), opcionálisan közelség alapján.
+// GET /jobs – nyitott fuvarok (szállítóknak), opcionálisan közelség alapján.
 // A saját feladások is megjelennek a listában — de a frontend letiltja
 // rajtuk a licit-akciót és "Saját poszt" címkével látja el őket, hogy
 // egyértelmű legyen. (A szerver oldali védelem a `POST /jobs/:id/bids`
@@ -568,7 +568,7 @@ router.get('/:id', authRequired, async (req, res) => {
 // GET /jobs/mine/list?as=posted|assigned – saját fuvarok
 //   as=posted   → amiket ÉN adtam fel (shipper_id = me)
 //   as=assigned → amiket ÉN teljesítek (carrier_id = me)
-// Régebben a role alapján volt szűrve, de mióta bárki lehet feladó ÉS sofőr is,
+// Régebben a role alapján volt szűrve, de mióta bárki lehet feladó ÉS szállító is,
 // az `as` paraméter dönti el, milyen szemszögből kérjük a listát.
 router.get('/mine/list', authRequired, async (req, res) => {
   const as = (req.query.as === 'assigned') ? 'assigned' : 'posted';
@@ -588,7 +588,7 @@ router.get('/mine/list', authRequired, async (req, res) => {
 //     vissza (idempotens).
 //   - Ha nincs, MOST hozzuk létre és eltároljuk.
 // A díj a megállapodott ár sávja szerint számolódik (connectionFee service);
-// a fuvardíj magát NEM itt fizetik — az készpénzben megy a sofőrnek.
+// a fuvardíj magát NEM itt fizetik — az készpénzben megy a szállítónak.
 router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
@@ -803,7 +803,7 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
     });
   }
 
-  // Értesítés a sofőrnek (a licitet nyert carrier): in-app + email
+  // Értesítés a szállítónak (a licitet nyert carrier): in-app + email
   if (j.carrier_id) {
     try {
       await createNotification({
@@ -841,13 +841,13 @@ router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateL
   res.json({ ok: true, paid_at: paidAt });
 });
 
-// A fuvar díjmentes újranyitása, amikor a KIVÁLASZTOTT SOFŐRREL hiúsul meg
-// a fuvar (a sofőr lemondja, vagy a feladó cseréli, mert nem elérhető).
+// A fuvar díjmentes újranyitása, amikor a KIVÁLASZTOTT SZÁLLÍTÓVAL hiúsul meg
+// a fuvar (a szállító lemondja, vagy a feladó cseréli, mert nem elérhető).
 // Készpénzes modell szabálya (ÁSZF): a kapcsolatfelvételi díj a FUVARRA
 // szól — újraválasztásnál nem kell újra fizetni, de másik fuvarra nem
 // vihető át. Mit csinál:
 //   - a fuvar vissza 'bidding'-re, carrier_id törölve
-//   - a meghiúsult sofőr licitje 'rejected'
+//   - a meghiúsult szállító licitje 'rejected'
 //   - az elfogadáskor tömegesen elutasított licitek vissza 'pending'-re,
 //     hogy a feladó választhasson közülük
 //   - paid_at + connection_fee_huf MARAD (a díj már teljesített kontakt-
@@ -882,7 +882,7 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
 //
 // Licites fuvar lemondása. Bárki hívhatja, aki érdekelt fél:
 //   - a feladó (shipper_id = me) VAGY
-//   - a kijelölt sofőr (carrier_id = me), ha már elfogadtuk a licitet.
+//   - a kijelölt szállító (carrier_id = me), ha már elfogadtuk a licitet.
 //
 // Készpénzes modell szabályai (2026-07-03):
 //   - Ha a fuvar már `in_progress`/`delivered`/`completed`/`cancelled` →
@@ -890,7 +890,7 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
 //   - Pénzmozgás NINCS: a platform nem kezeli a fuvardíjat, a
 //     kapcsolatfelvételi díj pedig nem visszatérítendő (ÁSZF + 45/2014.
 //     Korm. r. 29. § (1) a) — a szolgáltatás a kontakt-átadással teljesült).
-//   - Ha a SOFŐR mondja le az elfogadott fuvart → a fuvar NEM vész el:
+//   - Ha a SZÁLLÍTÓ mondja le az elfogadott fuvart → a fuvar NEM vész el:
 //     díjmentesen újranyílik, a feladó a korábbi ajánlatokból választhat.
 //   - Ha a FELADÓ mondja le → a fuvar 'cancelled'; a már befizetett díj
 //     nem jár vissza és másik fuvarra nem vihető át.
@@ -928,15 +928,15 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
   const cancelledByRole = iAmShipper ? 'shipper' : 'carrier';
   const paid = !!j.paid_at;
 
-  // === SOFŐR-LEMONDÁS elfogadott fuvaron → díjmentes újranyitás ===
+  // === SZÁLLÍTÓ-LEMONDÁS elfogadott fuvaron → díjmentes újranyitás ===
   if (iAmCarrier && j.status === 'accepted') {
     await reopenJobForNewDriver(j, { failedCarrierId: j.carrier_id, reason });
     try {
       await createNotification({
         user_id: j.shipper_id,
         type: 'job_reopened',
-        title: '🔁 A sofőr visszalépett — válassz másikat!',
-        body: `A sofőr lemondta a(z) "${j.title}" fuvart. A korábbi ajánlatok újra elérhetők — díjmentesen választhatsz másik sofőrt erre a fuvarra${paid ? ' (a befizetett kapcsolatfelvételi díjad erre a fuvarra érvényes marad)' : ''}.`,
+        title: '🔁 A szállító visszalépett — válassz másikat!',
+        body: `A szállító lemondta a(z) "${j.title}" fuvart. A korábbi ajánlatok újra elérhetők — díjmentesen választhatsz másik szállítót erre a fuvarra${paid ? ' (a befizetett kapcsolatfelvételi díjad erre a fuvarra érvényes marad)' : ''}.`,
         link: `/dashboard/fuvar/${j.id}`,
       });
     } catch (e) {
@@ -945,7 +945,7 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
     return res.json({ ok: true, status: 'bidding', reopened: true });
   }
 
-  // === FELADÓ-LEMONDÁS (vagy sofőr-lemondás nem-elfogadott állapotban) ===
+  // === FELADÓ-LEMONDÁS (vagy szállító-lemondás nem-elfogadott állapotban) ===
   await db.query(
     `UPDATE jobs
         SET status = 'cancelled',
@@ -982,7 +982,7 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
         title: '❌ Fuvar lemondva',
         body: iAmShipper
           ? `A feladó lemondta a(z) "${j.title}" fuvart.`
-          : `A sofőr lemondta a(z) "${j.title}" fuvart.`,
+          : `A szállító lemondta a(z) "${j.title}" fuvart.`,
         link: `/dashboard/fuvar/${j.id}`,
       });
     } catch (e) {
@@ -997,7 +997,7 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
           cancelledByRole,
           refundHuf: 0,
           feeHuf: 0,
-          recipientIsShipper: !iAmShipper, // a "másik" fél, szóval ha én sofőr vagyok, ő a feladó
+          recipientIsShipper: !iAmShipper, // a "másik" fél, szóval ha én szállító vagyok, ő a feladó
         }).catch((e) => console.warn('[email] job_cancelled hiba:', e.message));
       });
     }
@@ -1015,8 +1015,8 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
   });
 });
 
-// POST /jobs/:id/reopen — a FELADÓ sofőrt cserél az elfogadott fuvaron
-// (pl. a sofőr nem elérhető / nem jelent meg). Díjmentes: a befizetett
+// POST /jobs/:id/reopen — a FELADÓ szállítót cserél az elfogadott fuvaron
+// (pl. a szállító nem elérhető / nem jelent meg). Díjmentes: a befizetett
 // kapcsolatfelvételi díj erre a fuvarra érvényben marad, a korábbi licitek
 // újra választhatók. Csak 'accepted' állapotban (in_progress-től már a
 // vitarendezés a helyes út).
@@ -1032,26 +1032,26 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
   const j = rows[0];
   if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
   if (j.shipper_id !== req.user.sub) {
-    return res.status(403).json({ error: 'Csak a fuvar feladója cserélhet sofőrt' });
+    return res.status(403).json({ error: 'Csak a fuvar feladója cserélhet szállítót' });
   }
   if (j.status !== 'accepted') {
     return res.status(409).json({
       error: j.status === 'in_progress'
         ? 'A fuvar már folyamatban van — probléma esetén nyiss vitás esetet.'
-        : `Sofőr-csere csak elfogadott fuvaron lehetséges (státusz: ${j.status}).`,
+        : `Szállító-csere csak elfogadott fuvaron lehetséges (státusz: ${j.status}).`,
     });
   }
 
   const failedCarrierId = j.carrier_id;
   await reopenJobForNewDriver(j, { failedCarrierId, reason });
 
-  // A leváltott sofőr értesítése
+  // A leváltott szállító értesítése
   if (failedCarrierId) {
     try {
       await createNotification({
         user_id: failedCarrierId,
         type: 'job_reopened',
-        title: 'ℹ️ A feladó másik sofőrt választ',
+        title: 'ℹ️ A feladó másik szállítót választ',
         body: `A feladó újranyitotta a(z) "${j.title}" fuvart${reason ? ` (indok: ${reason})` : ''}. Az ajánlatod lezárult.`,
         link: `/sofor/licitjeim`,
       });
@@ -1066,14 +1066,14 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
 // POST /jobs/:id/instant-accept
 //
 // Azonnali fuvar elfogadása. Nincs licit — a feladó fix árat ad meg, a
-// jobs.suggested_price_huf lesz a végleges. Az ELSŐ sofőr, aki elhívja ezt
+// jobs.suggested_price_huf lesz a végleges. Az ELSŐ szállító, aki elhívja ezt
 // a végpontot, NYER, a többi 409-et kap.
 //
 // Ugyanazt csinálja, mint a licites elfogadás (escrow indítás, carrier_id
 // beállítás, notifikációk), csak bid sor nélkül.
 router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   // Jogosítvány-követelmény megszűnt (2026-07-07): a requireDriverKYC
-  // (személyi igazolvány + sofőri nyilatkozat) elég; a can_bid-kapu kivéve.
+  // (személyi igazolvány + szállítói nyilatkozat) elég; a can_bid-kapu kivéve.
 
   const client = await db.pool.connect();
   try {
@@ -1121,7 +1121,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
     const job = upd[0];
 
     // Ugyanaz a díj-flow, mint a licit elfogadásnál: kapcsolatfelvételi díj
-    // a feladótól; a fuvardíj készpénzben megy a sofőrnek.
+    // a feladótól; a fuvardíj készpénzben megy a szállítónak.
     const { rows: partyRows } = await client.query(
       `SELECT s.email AS shipper_email, s.full_name AS shipper_name,
               c.email AS carrier_email, c.full_name AS carrier_name
@@ -1168,7 +1168,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
     await client.query('COMMIT');
 
     // Realtime: szóljon a feladónak és a globális feednek is, hogy a többi
-    // sofőr UI-ja azonnal ki tudja venni a listából az azonnali fuvart.
+    // szállító UI-ja azonnal ki tudja venni a listából az azonnali fuvart.
     realtime.emitToUser(job.shipper_id, 'job:accepted', {
       job_id: job.id,
       carrier_id: job.carrier_id,
@@ -1186,8 +1186,8 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       await createNotification({
         user_id: job.shipper_id,
         type: 'instant_accepted',
-        title: '⚡ Sofőr vállalta az azonnali fuvart!',
-        body: `${parties.carrier_name || 'Egy sofőr'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat készpénzben adod a sofőrnek.`,
+        title: '⚡ Szállító vállalta az azonnali fuvart!',
+        body: `${parties.carrier_name || 'Egy szállító'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat készpénzben adod a szállítónak.`,
         link: `/dashboard/fuvar/${job.id}`,
       });
     } catch (e) {

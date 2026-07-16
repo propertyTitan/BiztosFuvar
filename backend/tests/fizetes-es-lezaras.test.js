@@ -1,6 +1,6 @@
 // A pénz-út üzleti szabályai (készpénzes modell): a kapcsolatfelvételi díj
 // megfizetése nélkül nem indul munka, a kézbesítési kód nem brute-force-olható,
-// lemondáskor nincs pénzmozgás, sofőr-lemondásnál a fuvar díjmentesen újranyílik.
+// lemondáskor nincs pénzmozgás, szállító-lemondásnál a fuvar díjmentesen újranyílik.
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 
@@ -216,7 +216,7 @@ describe('Kézbesítési kód — brute force védelem', () => {
     expect(jrows[0].status).toBe('cancelled');
   });
 
-  it('sofőri lemondás elfogadott fuvaron: díjmentes újranyitás, a díj megmarad a fuvaron', async () => {
+  it('szállítói lemondás elfogadott fuvaron: díjmentes újranyitás, a díj megmarad a fuvaron', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
     const job = await createJob({
@@ -243,7 +243,7 @@ describe('Kézbesítési kód — brute force védelem', () => {
     expect(rows[0].reopened_count).toBe(1);
   });
 
-  it('a feladó sofőrt cserélhet (reopen): a korábbi elutasított licitek visszaállnak pending-re', async () => {
+  it('a feladó szállítót cserélhet (reopen): a korábbi elutasított licitek visszaállnak pending-re', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
     const otherCarrier = await createUser({ role: 'carrier' });
@@ -269,11 +269,11 @@ describe('Kézbesítési kód — brute force védelem', () => {
       'SELECT carrier_id, status FROM bids WHERE job_id = $1 ORDER BY amount_huf', [job.id],
     );
     const byCarrier = Object.fromEntries(bids.map((b) => [b.carrier_id, b.status]));
-    expect(byCarrier[carrier.id]).toBe('rejected'); // a leváltott sofőr licitje lezárva
+    expect(byCarrier[carrier.id]).toBe('rejected'); // a leváltott szállító licitje lezárva
     expect(byCarrier[otherCarrier.id]).toBe('pending'); // a többi újra választható
   });
 
-  it('idegen (nem kijelölt) sofőr fotót sem tölthet fel — 403', async () => {
+  it('idegen (nem kijelölt) szállító fotót sem tölthet fel — 403', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
     const intruder = await createUser({ role: 'carrier' });

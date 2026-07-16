@@ -7,7 +7,7 @@
 //  Charts QR API 2019-ben leállt, törött képet adott).
 //
 //  A QR tartalom: gofuvar:deliver:<jobId>:<code>
-//  A sofőr appja ezt parse-olja, és a kódot automatikusan elküldi.
+//  A szállító appja ezt parse-olja, és a kódot automatikusan elküldi.
 // =====================================================================
 
 import { useEffect, useState } from 'react';
@@ -75,7 +75,7 @@ export default function QrCode({ jobId, deliveryCode, size = 220 }: Props) {
         {deliveryCode}
       </div>
       <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-        Mutasd meg vagy diktáld be a sofőrnek a kódot
+        Mutasd meg vagy diktáld be a szállítónak a kódot
       </div>
     </div>
   );

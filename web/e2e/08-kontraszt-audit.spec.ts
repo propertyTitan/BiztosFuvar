@@ -92,7 +92,7 @@ async function auditPage(page: import('@playwright/test').Page): Promise<Issue[]
 test('kontraszt-audit: light + dark módban minden fő oldalon 0 probléma', async ({ browser }) => {
   test.setTimeout(600_000);
   const shipper = await createUser('shipper', 'Feladó Ferenc');
-  const carrier = await createUser('carrier', 'Sofőr Sándor');
+  const carrier = await createUser('carrier', 'Szállító Sándor');
   const admin = await createUser('admin', 'Admin Aladár');
   const biddingJob = await createJob(shipper);
   await placeBid(carrier, biddingJob.id, 12000);

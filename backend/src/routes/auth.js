@@ -125,7 +125,7 @@ router.post('/register', registerRateLimit, async (req, res) => {
     account_type: rawAccountType, company_name, tax_id, company_reg_number,
     eu_vat_number, billing_address, ref,
   } = req.body || {};
-  // A role mező már opcionális — minden user lehet egyszerre feladó és sofőr is.
+  // A role mező már opcionális — minden user lehet egyszerre feladó és szállító is.
   // A DB-ben még tároljuk a legacy role mezőt, de a logika nem használja.
   // SECURITY: az 'admin' szerepet SOHA nem fogadjuk el a body-ból — különben
   // bárki adminná regisztrálhatná magát (a JWT a user.role-lal íródik alá, és
@@ -400,9 +400,9 @@ router.get('/me', authRequired, async (req, res) => {
   res.json(rows[0]);
 });
 
-// POST /auth/accept-driver-terms — a sofőri egyszeri nyilatkozat elfogadása:
+// POST /auth/accept-driver-terms — a szállítói egyszeri nyilatkozat elfogadása:
 // a felhasználó kijelenti, hogy minden vonatkozó jogszabályt és a KRESZ-t
-// betartja. Ezt a sofőr-mód első használatakor kell elfogadni; enélkül a
+// betartja. Ezt a szállító-mód első használatakor kell elfogadni; enélkül a
 // requireDriverKYC nem enged licitálni / útvonalat hirdetni. Idempotens.
 router.post('/accept-driver-terms', authRequired, async (req, res) => {
   const { rows } = await db.query(
@@ -497,7 +497,7 @@ router.get('/users/:id/profile', authRequired, async (req, res) => {
          FROM users WHERE id = $1`,
       [uid],
     ),
-    // Sofőrként befejezett fuvarok
+    // Szállítóként befejezett fuvarok
     db.query(
       `SELECT COUNT(*)::int AS c FROM jobs WHERE carrier_id = $1 AND status IN ('delivered','completed')`,
       [uid],
@@ -550,7 +550,7 @@ router.get('/admin/stats', authRequired, async (req, res) => {
   });
 });
 
-// GET /auth/me/driver-dashboard — a sofőr okos főoldalához MINDEN adat
+// GET /auth/me/driver-dashboard — a szállító okos főoldalához MINDEN adat
 // Egyetlen hívás: aktív fuvarok, várakozó licitek, heti kereset, közeli fuvarok száma.
 router.get('/me/driver-dashboard', authRequired, async (req, res) => {
   const uid = req.user.sub;

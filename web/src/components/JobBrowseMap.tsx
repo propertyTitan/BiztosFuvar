@@ -9,7 +9,7 @@
 //
 // Kattintásra egy InfoWindow jelenik meg a fuvar címével, árával, és egy
 // "Részletek →" linkkel a megfelelő detail oldalra (saját poszt → feladói
-// nézet, más fuvar → sofőri nézet).
+// nézet, más fuvar → szállítói nézet).
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, InfoWindow, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import Link from 'next/link';

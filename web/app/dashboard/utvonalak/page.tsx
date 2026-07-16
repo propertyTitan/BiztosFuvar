@@ -1,6 +1,6 @@
 'use client';
 
-// Feladó: sofőri útvonalak böngészése.
+// Feladó: szállítói útvonalak böngészése.
 // - Szöveges város szűrés (pl. "Kecskemét" → minden olyan útvonal, aminek
 //   a waypoints tömbjében szerepel ez a város)
 // - Kártyák: útvonal, indulás, méret-árak
@@ -61,9 +61,9 @@ export default function FeladoiUtvonalBongeszo() {
     <div>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
         <div>
-          <h1 style={{ marginBottom: 4 }}>Útba eső sofőrök</h1>
+          <h1 style={{ marginBottom: 4 }}>Útba eső szállítók</h1>
           <p className="muted" style={{ margin: 0 }}>
-            Sofőrök által meghirdetett útvonalak. Foglalj helyet a csomagod
+            Szállítók által meghirdetett induló járatok. Foglalj helyet a csomagod
             számára az útjukon, fix áron — nincs ajánlattétel.
           </p>
         </div>
@@ -78,7 +78,7 @@ export default function FeladoiUtvonalBongeszo() {
               textDecoration: 'none',
             }}
           >
-            Új útvonal hirdetése
+            Új járat hirdetése
           </Link>
         </div>
       </div>
@@ -191,9 +191,9 @@ export default function FeladoiUtvonalBongeszo() {
         <EmptyState
           icon={<RouteIcon size={28} aria-hidden />}
           title={appliedCity
-            ? `Most épp nincs útvonal „${appliedCity}" érintésével`
-            : 'Most épp nincs nyitott útvonal'}
-          description="Add fel a fuvarod hirdetésként — a sofőrök ajánlatot tesznek rá, és te választasz közülük."
+            ? `Most épp nincs járat „${appliedCity}" érintésével`
+            : 'Most épp nincs induló járat'}
+          description="Add fel a fuvarod hirdetésként — a szállítók ajánlatot tesznek rá, és te választasz közülük."
           cta={<Link className="btn" href="/dashboard/uj-fuvar">Fuvar feladása</Link>}
           secondaryCta={appliedCity
             ? <button type="button" className="btn btn-ghost" onClick={() => { setCity(''); load(''); }}>Szűrő törlése</button>
@@ -217,7 +217,7 @@ export default function FeladoiUtvonalBongeszo() {
         const last = r.waypoints[r.waypoints.length - 1]?.name || '?';
         const stops = r.waypoints.slice(1, -1);
         const isMine = !!me && r.carrier_id === me.id;
-        // A saját posztot a sofőri részletek oldalra visszük (ott van
+        // A saját posztot a szállítói részletek oldalra visszük (ott van
         // szerkesztés/publikálás), a többit a feladói foglalás oldalra.
         const href = isMine ? `/sofor/utvonal/${r.id}` : `/dashboard/utvonal/${r.id}`;
         return (
