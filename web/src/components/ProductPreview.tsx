@@ -79,15 +79,19 @@ export default function ProductPreview() {
           pointerEvents: 'none',
         }} />
 
-        {/* ── Telefon-keret ── */}
+        {/* ── Telefon-keret ──
+            Mai telefon-arány (~9:19,5, iPhone 15): a magasságot NEM a
+            tartalom adja, hanem fix aspect-ratio — anélkül a rövid tartalom
+            "iPhone 4-es" kockát csinált belőle (2026-07-16 user-jelzés). */}
         <div style={{
-          width: 296, borderRadius: 44, padding: 9,
+          width: 280, borderRadius: 46, padding: 9,
           background: '#0b1120',
           boxShadow: '0 0 0 1px rgba(148,163,184,0.18), 0 26px 60px rgba(2,6,23,0.35)',
         }}>
           <div style={{
-            borderRadius: 36, overflow: 'hidden', background: 'var(--bg)',
+            borderRadius: 38, overflow: 'hidden', background: 'var(--bg)',
             border: '1px solid var(--border)', position: 'relative',
+            aspectRatio: '9 / 19.5', display: 'flex', flexDirection: 'column',
           }}>
             {/* Dynamic island */}
             <div style={{
@@ -115,8 +119,9 @@ export default function ProductPreview() {
               </span>
             </div>
 
-            {/* Képernyő-tartalom */}
-            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {/* Képernyő-tartalom — flex:1: a maradék hely az app-háttér
+                (a fix telefon-arány miatt alul természetes üres tér marad) */}
+            <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
 
               {/* Fuvar-kártya a márka útvonal-motívumával */}
               <div style={{
@@ -159,17 +164,20 @@ export default function ProductPreview() {
               <Offer monogram="KP" name="Kovács P." rating="4,9" trips={132} price="9 500 Ft" />
               <Offer monogram="SA" name="Szabó A." rating="5,0" trips={78} price="10 200 Ft" />
               <Offer monogram="TG" name="Tóth G." rating="4,8" trips={214} price="8 900 Ft" arriving />
-              {/* Üres sáv: ide (és a kávára) ül a lebegő kód-chip, hogy
-                  ne takarjon ajánlatot */}
-              <div style={{ height: 34 }} />
             </div>
+
+            {/* iOS home indicator — modern telefon-jelzés az alsó kávánál */}
+            <div aria-hidden style={{
+              width: 96, height: 5, borderRadius: 999,
+              background: 'var(--border)', margin: '0 auto 8px', flexShrink: 0,
+            }} />
           </div>
         </div>
 
         {/* Lebegő átvételi kód-chip — a másik bizalmi USP (keskeny képernyőn
-            rejtve; az alsó üres sávra ül, ajánlatot nem takar) */}
+            rejtve; a magas telefon alsó üres zónájára ül, ajánlatot nem takar) */}
         <div className="pp-code-chip" style={{
-          position: 'absolute', right: -70, bottom: 8,
+          position: 'absolute', right: -70, bottom: 64,
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: 14, padding: '10px 14px', boxShadow: 'var(--shadow-lg)',
           transform: 'rotate(3deg)',
