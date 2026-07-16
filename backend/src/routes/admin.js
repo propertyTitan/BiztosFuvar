@@ -22,6 +22,28 @@ router.get('/admin/live', ...adminOnly, (req, res) => {
   res.json(realtime.getPresence());
 });
 
+// ===================== FOTÓ-MEGŐRZÉSI ZÁROLÁS =====================
+
+// PATCH /admin/photo-hold — fuvar vagy foglalás fotóinak zárolása/feloldása
+// (2026-07-16 retenció-szabály: alapból 30 nap; zárolva 5 év). A vita-nyitás
+// automatikusan zárol; ez a végpont az "admini utasítás" ága.
+// Body: { job_id? , booking_id?, hold: boolean }
+router.patch('/admin/photo-hold', ...adminOnly, async (req, res) => {
+  const { job_id, booking_id, hold } = req.body || {};
+  if (typeof hold !== 'boolean' || (!job_id && !booking_id)) {
+    return res.status(400).json({ error: 'Kell: hold (true/false) és job_id VAGY booking_id.' });
+  }
+  const table = job_id ? 'jobs' : 'route_bookings';
+  const id = job_id || booking_id;
+  const { rows } = await db.query(
+    `UPDATE ${table} SET photo_retention_hold = $1 WHERE id = $2 RETURNING id, photo_retention_hold`,
+    [hold, id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Nem található ilyen fuvar/foglalás.' });
+  console.log(`[admin] fotó-zárolás ${hold ? 'BE' : 'KI'}: ${table} ${id} (admin: ${req.user.sub})`);
+  res.json({ ok: true, entity: table, id: rows[0].id, photo_retention_hold: rows[0].photo_retention_hold });
+});
+
 // ===================== FELHASZNÁLÓK =====================
 
 // GET /admin/users — összes felhasználó

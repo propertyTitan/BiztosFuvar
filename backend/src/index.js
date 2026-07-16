@@ -183,4 +183,11 @@ if (process.env.DATABASE_URL) {
   setTimeout(() => { purgeOldKycFiles().catch(() => {}); }, 60 * 1000).unref();
   setInterval(() => { purgeOldKycFiles().catch(() => {}); }, DAY_MS).unref();
   console.log('[kyc-retention] napi okmány-fotó törlés ütemezve');
+
+  // Felvételi/lerakós fotók retenciója: alapból 30 nap a lezárás után,
+  // vitás/zárolt fuvarnál 5 év (2026-07-16 user-döntés).
+  const { purgeOldDeliveryPhotos } = require('./services/photoRetention');
+  setTimeout(() => { purgeOldDeliveryPhotos().catch(() => {}); }, 90 * 1000).unref();
+  setInterval(() => { purgeOldDeliveryPhotos().catch(() => {}); }, DAY_MS).unref();
+  console.log('[photo-retention] napi fuvarfotó-törlés ütemezve (30 nap / zárolt: 5 év)');
 }

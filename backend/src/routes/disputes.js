@@ -80,12 +80,15 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   );
   const dispute = inserted[0];
 
-  // Ha a fuvar/booking státuszát is "disputed"-re állítjuk
+  // Ha a fuvar/booking státuszát is "disputed"-re állítjuk.
+  // photo_retention_hold: vitás ügylet fotói 5 évig maradnak (a flag a
+  // vita lezárása UTÁN is bekapcsolva marad — bizonyíték a Ptk-s
+  // igényérvényesítéshez; photoRetention.js törli 5 év után).
   if (job_id) {
-    await db.query(`UPDATE jobs SET status = 'disputed', updated_at = NOW() WHERE id = $1`, [job_id]);
+    await db.query(`UPDATE jobs SET status = 'disputed', photo_retention_hold = TRUE, updated_at = NOW() WHERE id = $1`, [job_id]);
   }
   if (booking_id) {
-    await db.query(`UPDATE route_bookings SET status = 'disputed' WHERE id = $1`, [booking_id]);
+    await db.query(`UPDATE route_bookings SET status = 'disputed', photo_retention_hold = TRUE WHERE id = $1`, [booking_id]);
   }
 
   // Értesítés a másik félnek
