@@ -302,6 +302,14 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   változott: kód-belső nevek (bids, API-útvonalak, `?tab=licitjeim` URL) és
   az ÁSZF. Bónusz: a gemini.js chatbot-tudás elavult állításai javítva
   (jogosítvány-követelmény, „Barion escrow", cégkivonat, Budapest-only)
+- **Admin v2 — teljes értékű, füles panel (2026-07-17, PR #93)** — 6 fül
+  (hash-alapú, a #kyc értesítés-link él): Áttekintés / KYC / Felhasználók
+  (szerep+KYC inline szerkesztés, force-logout = token_version bump,
+  törlés) / Fuvarok (keresés+státusz-átállítás+ajánlatok+chat+fotó-zárolás+
+  törlés) / Járatok&foglalások / Viták (+"A felek chatje" gomb). Új backend:
+  GET /admin/messages (csak admin!), POST /admin/users/:id/force-logout,
+  GET /admin/jobs?search=. Veszélyes műveletek ConfirmDialog mögött.
+  ⚠️ E2E-tanulság: a 06-os admin-spec a /admin#kyc fülre navigál
 - **Chat + GPS retenció gépesítve (2026-07-17, PR #92)** — a photoRetention.js
   → `retention.js` (általános adat-retenció): chat-üzenetek a lezárás után
   6 hónappal törlődnek (zárolt ügyletnél 5 év — ugyanaz a hold flag, mint a
