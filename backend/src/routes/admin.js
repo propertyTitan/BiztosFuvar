@@ -114,16 +114,25 @@ router.get('/admin/jobs', ...adminOnly, async (req, res) => {
   if (status && !VALID_JOB_STATUSES.includes(status)) {
     return res.status(400).json({ error: `Érvénytelen státusz: "${status}".` });
   }
-  let sql = `SELECT j.*, s.full_name AS shipper_name, c.full_name AS carrier_name
+  const { search } = req.query;
+  let sql = `SELECT j.*, s.full_name AS shipper_name, s.email AS shipper_email,
+                    c.full_name AS carrier_name
                FROM jobs j
                JOIN users s ON s.id = j.shipper_id
           LEFT JOIN users c ON c.id = j.carrier_id`;
   const params = [];
+  const where = [];
   if (status) {
     params.push(status);
-    sql += ` WHERE j.status = $1`;
+    where.push(`j.status = $${params.length}`);
   }
-  sql += ` ORDER BY j.created_at DESC LIMIT ${Math.min(Number(limit), 200)}`;
+  if (search && String(search).trim()) {
+    params.push(`%${String(search).trim()}%`);
+    const i = params.length;
+    where.push(`(j.title ILIKE $${i} OR s.email ILIKE $${i} OR s.full_name ILIKE $${i} OR c.full_name ILIKE $${i} OR j.id::text ILIKE $${i})`);
+  }
+  if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
+  sql += ` ORDER BY j.created_at DESC LIMIT ${Math.min(Number(limit) || 50, 200)}`;
   const { rows } = await db.query(sql, params);
   res.json(rows);
 });
@@ -144,6 +153,37 @@ router.patch('/admin/jobs/:id', ...adminOnly, async (req, res) => {
   );
   if (!rows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
   res.json(rows[0]);
+});
+
+// POST /admin/users/:id/force-logout — azonnali kijelentkeztetés minden
+// eszközről: a token_version léptetése a user MINDEN kiadott JWT-jét
+// érvényteleníti (048-as session-invalidáció mechanizmus).
+router.post('/admin/users/:id/force-logout', ...adminOnly, async (req, res) => {
+  const { rows } = await db.query(
+    `UPDATE users SET token_version = COALESCE(token_version, 0) + 1
+      WHERE id = $1 RETURNING id, email`,
+    [req.params.id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'User nem található' });
+  console.log(`[admin] force-logout: ${rows[0].id} (admin: ${req.user.sub})`);
+  res.json({ ok: true });
+});
+
+// GET /admin/messages?job_id=|booking_id= — egy ügylet chatje (vitarendezési
+// bizonyíték). Csak admin — a normál /messages végpont a feleké.
+router.get('/admin/messages', ...adminOnly, async (req, res) => {
+  const { job_id, booking_id } = req.query;
+  if (!job_id && !booking_id) {
+    return res.status(400).json({ error: 'Kell: job_id vagy booking_id.' });
+  }
+  const { rows } = await db.query(
+    `SELECT m.id, m.body, m.created_at, m.sender_id, u.full_name AS sender_name
+       FROM messages m JOIN users u ON u.id = m.sender_id
+      WHERE ${job_id ? 'm.job_id = $1' : 'm.booking_id = $1'}
+      ORDER BY m.created_at ASC LIMIT 500`,
+    [job_id || booking_id],
+  );
+  res.json(rows);
 });
 
 // ===================== LICITEK =====================

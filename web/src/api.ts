@@ -785,6 +785,41 @@ export const api = {
   adminPaymentLog: (limit = 50) =>
     request<any[]>(`/payments/admin/log?limit=${limit}`),
 
+  // ---------- Admin: fuvarok / járatok / foglalások / userek ----------
+
+  adminJobs: (opts: { status?: string; search?: string; limit?: number } = {}) => {
+    const q = new URLSearchParams();
+    if (opts.status) q.set('status', opts.status);
+    if (opts.search) q.set('search', opts.search);
+    q.set('limit', String(opts.limit ?? 50));
+    return request<any[]>(`/admin/jobs?${q.toString()}`);
+  },
+  adminJobPatch: (id: string, status: string) =>
+    request<any>(`/admin/jobs/${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+  adminJobDelete: (id: string) =>
+    request<{ ok: boolean }>(`/admin/jobs/${id}`, { method: 'DELETE' }),
+  adminJobBids: (jobId: string) => request<any[]>(`/admin/bids/${jobId}`),
+  adminRoutes: (limit = 50) => request<any[]>(`/admin/routes?limit=${limit}`),
+  adminRouteDelete: (id: string) =>
+    request<{ ok: boolean }>(`/admin/routes/${id}`, { method: 'DELETE' }),
+  adminBookings: (limit = 50) => request<any[]>(`/admin/bookings?limit=${limit}`),
+  adminBookingDelete: (id: string) =>
+    request<{ ok: boolean }>(`/admin/bookings/${id}`, { method: 'DELETE' }),
+  adminUserPatch: (id: string, fields: Record<string, unknown>) =>
+    request<any>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(fields) }),
+  adminUserDelete: (id: string) =>
+    request<{ ok: boolean }>(`/admin/users/${id}`, { method: 'DELETE' }),
+  adminForceLogout: (id: string) =>
+    request<{ ok: boolean }>(`/admin/users/${id}/force-logout`, { method: 'POST' }),
+  adminPhotoHold: (entity: { job_id?: string; booking_id?: string }, hold: boolean) =>
+    request<{ ok: boolean; photo_retention_hold: boolean }>('/admin/photo-hold', {
+      method: 'PATCH', body: JSON.stringify({ ...entity, hold }),
+    }),
+  adminMessages: (entity: { job_id?: string; booking_id?: string }) => {
+    const q = entity.job_id ? `job_id=${entity.job_id}` : `booking_id=${entity.booking_id}`;
+    return request<Array<{ id: string; body: string; created_at: string; sender_id: string; sender_name: string }>>(`/admin/messages?${q}`);
+  },
+
   // ---------- Profile ----------
 
   getMyProfile: () =>

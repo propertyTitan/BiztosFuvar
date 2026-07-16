@@ -13,7 +13,7 @@ test('admin jóváhagyja a függő KYC-dokumentumot → a user verified lesz', a
   const admin = await createUser('admin', 'Admin Aladár');
 
   await loginAs(page, admin);
-  await page.goto('/admin');
+  await page.goto('/admin#kyc'); // KYC fül (admin v2: füles felület)
 
   // A függő dokumentum látszik a KYC szekcióban
   await expect(page.getByText(/KYC jóváhagyásra vár/).first()).toBeVisible();
