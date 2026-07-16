@@ -8,7 +8,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const { db, createUser } = require('./helpers');
-const { purgeOldDeliveryPhotos } = require('../src/services/photoRetention');
+const { purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings } = require('../src/services/retention');
 
 // data: URL — a deleteFile-nak nincs tároló-dolga vele, a sor-törlés a lényeg
 const DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
@@ -93,5 +93,69 @@ describe('Fuvar-fotó retenció (30 nap / zárolva 5 év)', () => {
     expect(res.status).toBe(201);
     const { rows } = await db.query('SELECT photo_retention_hold FROM jobs WHERE id = $1', [jobId]);
     expect(rows[0].photo_retention_hold).toBe(true);
+  });
+});
+
+describe('Chat-retenció (6 hónap / zárolva 5 év)', () => {
+  let shipper, carrier;
+  beforeAll(async () => {
+    shipper = await createUser();
+    carrier = await createUser('carrier');
+  });
+
+  async function insertMsg(jobId, senderId, ageDays = 0) {
+    const { rows } = await db.query(
+      `INSERT INTO messages (job_id, sender_id, body, created_at)
+       VALUES ($1,$2,'retenció teszt üzenet', NOW() - ($3 || ' days')::interval) RETURNING id`,
+      [jobId, senderId, ageDays],
+    );
+    return rows[0].id;
+  }
+  async function msgExists(id) {
+    const { rows } = await db.query('SELECT 1 FROM messages WHERE id = $1', [id]);
+    return rows.length > 0;
+  }
+
+  it('7 hónapja lezárt fuvar üzenete törlődik; 1 hónapos marad', async () => {
+    const oldJob = await insertJob({ shipperId: shipper.id, carrierId: carrier.id, status: 'completed', ageDays: 215 });
+    const freshJob = await insertJob({ shipperId: shipper.id, carrierId: carrier.id, status: 'completed', ageDays: 30 });
+    const mOld = await insertMsg(oldJob, shipper.id, 215);
+    const mFresh = await insertMsg(freshJob, carrier.id, 30);
+    await purgeOldChatMessages();
+    expect(await msgExists(mOld)).toBe(false);
+    expect(await msgExists(mFresh)).toBe(true);
+  });
+
+  it('zárolt (vitás) ügylet üzenete 7 hónap után is MARAD; 5+ éves zárolté törlődik', async () => {
+    const held = await insertJob({ shipperId: shipper.id, carrierId: carrier.id, status: 'disputed', ageDays: 215, hold: true });
+    const ancient = await insertJob({ shipperId: shipper.id, carrierId: carrier.id, status: 'completed', ageDays: 5 * 365 + 10, hold: true });
+    const mHeld = await insertMsg(held, shipper.id, 215);
+    const mAncient = await insertMsg(ancient, shipper.id, 5 * 365 + 10);
+    await purgeOldChatMessages();
+    expect(await msgExists(mHeld)).toBe(true);
+    expect(await msgExists(mAncient)).toBe(false);
+  });
+});
+
+describe('GPS-ping retenció (7 nap)', () => {
+  it('8 napos ping törlődik, 2 napos marad', async () => {
+    const shipper = await createUser();
+    const carrier = await createUser('carrier');
+    const jobId = await insertJob({ shipperId: shipper.id, carrierId: carrier.id, status: 'in_progress', ageDays: 10 });
+    const { rows: oldPing } = await db.query(
+      `INSERT INTO location_pings (job_id, carrier_id, lat, lng, recorded_at)
+       VALUES ($1,$2,47.5,19.0, NOW() - interval '8 days') RETURNING id`,
+      [jobId, carrier.id],
+    );
+    const { rows: freshPing } = await db.query(
+      `INSERT INTO location_pings (job_id, carrier_id, lat, lng, recorded_at)
+       VALUES ($1,$2,47.6,19.1, NOW() - interval '2 days') RETURNING id`,
+      [jobId, carrier.id],
+    );
+    await purgeOldLocationPings();
+    const { rows: o } = await db.query('SELECT 1 FROM location_pings WHERE id=$1', [oldPing[0].id]);
+    const { rows: f } = await db.query('SELECT 1 FROM location_pings WHERE id=$1', [freshPing[0].id]);
+    expect(o.length).toBe(0);
+    expect(f.length).toBe(1);
   });
 });
