@@ -498,6 +498,52 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   fordítás ~3/31 oldal volt) — az i18n-infra él, külföldi launchnál
   kész fordítással tér vissza
 
+### 🔴 Launch-kapu — adatvédelmi/jogi ellenőrzőlista (2026-07-18 felmérés)
+
+> **A launch-előkészítésnél (QVIK-élesítés környékén) ezt a listát KÖTELEZŐ
+> felhozni a usernek, és tételesen végigmenni rajta.** A 2026-07-18-i
+> jogi-adatvédelmi átvilágítás eredménye: az érdemi gyakorlat (retenció-
+> automatika, minimalizálás, privát KYC-bucket, scrub-tesztek) erős — a
+> FORMÁLIS jogi réteg hiányos, egy NAIH-vizsgálat ma találna hibát.
+
+1. **Gemini API számlázási szint — a legélesebb pont, perces ellenőrzés.**
+   A KYC-okmányfotók a Google AI Studio API-ra mennek (`GEMINI_API_KEY`,
+   `services/gemini.js`). INGYENES szinten a Google a beküldött tartalmat
+   termékfejlesztésre használhatja (emberi átnézéssel is) → okmányfotókra
+   jogilag tarthatatlan (a Google akkor nem „adatfeldolgozó", ahogy a
+   tájékoztató állítja); FIZETŐS (billing-engedélyezett) szinten nem
+   használják. Teendő: ellenőrizni, hogy a kulcs számlázós fiókhoz
+   tartozik-e; ha nem → billing bekapcsolása (nem kódmódosítás)
+2. **DPIA (adatvédelmi hatásvizsgálat, GDPR 35. cikk) — nincs, valószínűleg
+   kötelező.** Az AI-alapú okmányelemzés a NAIH DPIA-listája alapján jó
+   eséllyel köteles (új technológia + értékelés); az élő GPS (mobil-fázis)
+   biztosan az lesz — a mobil-launch előtt újra elő kell venni
+3. **GDPR 30. cikk nyilvántartás — nincs, kötelező.** A 250 fős kivétel NEM
+   áll fenn (az adatkezelés nem eseti — ez a core business);
+   NAIH-vizsgálatnál ezt kérik először, hiánya önmagában jogsértés
+4. **JSON-adatexport — a tájékoztató ígéri, de NINCS megépítve.** Az
+   érintetti jogoknál szerepel az adathordozhatóság „strukturált, géppel
+   olvasható (JSON)" kiadása, de export-végpont nem létezik. Vagy kis
+   végpont, vagy tudatos kézi folyamat (SQL-ből, 30 napos határidő!)
+5. **Érdekmérlegelési tesztek — nincsenek.** Jogos érdek jogalapú
+   kezelésekhez (doc_number_hash 5 éves csalásvédelmi megőrzése, stb.)
+   dokumentálni kell, kérésre elő kell tudni adni
+6. **Adatfeldolgozói szerződések (28. cikk) tételes ellenőrzése.** A
+   tájékoztató állítja, hogy mindenkivel van DPA; a nagy SaaS-eknél (Neon,
+   Cloudflare, Resend, Sentry, Google) a ToS/DPA általában fedi — a
+   **SeeMe-nél (magyar cég) külön ellenőrizendő**, van-e írásos DPA
+7. **Incidenskezelési terv — nincs.** 72 órás NAIH-bejelentési
+   kötelezettség adatvédelmi incidensnél; kell egy rövid terv-dokumentum
+8. *(Apróság)* **Sentry `beforeSend` minimális**: csak authorization+cookie
+   headert szed ki — request body / user-kontextus még vihet PII-t
+9. **Ügyvédi review** az AI-írta jogi szövegekre (Phase 6-on rajta van) —
+   ez a végső pecsét; addig „teljesen jogszerű" kijelentés NEM tehető
+
+Becsült munka: 1. pont perces; 2+3+5+7 együtt ~1 nap dokumentum-draft
+(Claude megírhatja, ügyvezető/ügyvéd átnézi); 4. pont kis végpont vagy
+folyamat-döntés. Kontextus: a 2026-07-18-i felmérés 8/10-re értékelte az
+adatvédelmi állapotot — a hiányzó 2 pont EZ a lista.
+
 ### 🟡 Várakozóban
 - **FIZETÉS: QVIK-re váltás (2026-07-08 döntés)** — a Barion drága; a
   kapcsolatfelvételi díjat **QVIK-kel** (magyar azonnali fizetés, QR /
@@ -692,6 +738,12 @@ git log --oneline -20
 2. **Kérdezd meg**: van-e konkrét feladat, vagy státusz-update kell
 3. Ha **QVIK-helyzet**: kérdezd meg, megjött-e a fizetés-elfogadási
    jogosultság (a Barion 2026-07-11 óta VÉGLEG elvetve — ne hozd fel)
+3/b. Ha **launch-előkészítés** zajlik (QVIK megjött / launch-dátum szóba
+   kerül): **KÖTELEZŐEN hozd fel a 6. szakasz 🔴 Launch-kapu adatvédelmi/
+   jogi ellenőrzőlistáját** és menj végig rajta a userrel (ő kérte,
+   2026-07-18) — plusz: robots.txt `Allow: /`-ra, számlázás (invoicing.js
+   stubon!), valódi pénzes QVIK-füstteszt, SeeMe-egyenleg, Gmail „Küldés
+   másként", szállító-toborzás ELŐBB mint feladói marketing
 4. Ha **Apple-helyzet**: D-U-N-S megérkezett-e, enrollment hol tart
 5. Ha **bug**: kérdezz konkrét reprodukálási lépést / screenshot / Sentry-link
 6. Ha **új feature**: győződj meg róla hogy nem ütközik a #5 üzleti döntésekkel
