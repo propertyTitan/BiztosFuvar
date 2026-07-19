@@ -587,11 +587,34 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    headert szed ki — request body / user-kontextus még vihet PII-t
 9. **Ügyvédi review** az AI-írta jogi szövegekre (Phase 6-on rajta van) —
    ez a végső pecsét; addig „teljesen jogszerű" kijelentés NEM tehető
+10. **DAC7 platformüzemeltetői kötelezettségek (2026-07-20-i jogi kutatás
+    során azonosítva)** — a GoFuvar az Aktv. (DAC7) szerint
+    platformüzemeltető, a szállítók „értékesítők" (személyi szolgáltatás:
+    fuvarozás — NINCS de minimis mentesség!). Teendők: (a) NAV
+    platformüzemeltetői BEJELENTKEZÉS (launch előtt tisztázni a határidőt);
+    (b) a szállítók ADÓAZONOSÍTÓ JELÉNEK gyűjtése (ma nem kérjük! — a
+    DAC7-átvilágításhoz kötelező: név, cím, születési dátum, adóazonosító);
+    (c) éves adatszolgáltatás a NAV-nak (első jelentés a launch-évet követő
+    január 31.). Az adatkezelési tájékoztató a DAC7-et már említi, de az
+    operatív oldal (regisztráció + adóazonosító-mező + jelentés) HIÁNYZIK.
+    Pozitívum: a DAC7 törvényi adatgyűjtési kötelezettsége egyben a
+    szállítói személyazonosítás (KYC) egyik jogalapja is (GDPR 6(1)(c))
+11. **Okmány-fotózás érdekmérlegelési teszt (a 5. pont konkretizálása,
+    2026-07-20)** — a NAIH-főszabály szerint okmányt másolni külön törvényi
+    felhatalmazás nélkül főszabály szerint tilos, MÉG HOZZÁJÁRULÁSSAL IS;
+    a mi jogalapunk a jogos érdek (távoli kontextusban a fénykép az
+    egyetlen működő azonosítás + biztonság/csalásmegelőzés) — ehhez ÍRÁSOS
+    érdekmérlegelési teszt KELL, amely rögzíti: miért nincs enyhébb mód,
+    és a garanciákat (30 napos törlés, privát bucket, emberi döntés, nincs
+    biometria). ⚠️ SZABÁLY: LAKCÍMKÁRTYÁT SOHA ne kérjünk (hátulján a
+    személyi azonosító — 1996. évi XX. tv. szerint csak törvényi
+    felhatalmazással kezelhető); csak személyi igazolvány
 
-Becsült munka: 1. pont perces; 2+3+5+7 együtt ~1 nap dokumentum-draft
+Becsült munka: 1. pont perces; 2+3+5+7+11 együtt ~1 nap dokumentum-draft
 (Claude megírhatja, ügyvezető/ügyvéd átnézi); 4. pont kis végpont vagy
-folyamat-döntés. Kontextus: a 2026-07-18-i felmérés 8/10-re értékelte az
-adatvédelmi állapotot — a hiányzó 2 pont EZ a lista.
+folyamat-döntés; 10. pont: kis fejlesztés (adóazonosító-mező) + NAV-ügyintézés.
+Kontextus: a 2026-07-18-i felmérés 8/10-re értékelte az adatvédelmi
+állapotot — a hiányzó 2 pont EZ a lista.
 
 ### 🟡 Várakozóban
 - **FIZETÉS: QVIK-re váltás (2026-07-08 döntés)** — a Barion drága; a
