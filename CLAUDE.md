@@ -172,7 +172,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 | Coverage | **Európa-szintű** (lat 34-71, lng -10..32) — magyar fő piac, EU mellesleg |
 | Csomag tilalom | NINCS hardcoded lista — a Feladó felelős hogy ellenőrizze a sofőr engedélyét speciális áruhoz (élő állat, gyógyszer, stb.) |
 | Sofőri KYC / biztosítás | **Jogosítvány NEM kell (2026-07-07)** — a személyi igazolvány (identity KYC) elég MINDENHEZ (feladó+sofőr); így a nem-motoros futárok (bringa, gyalog, tömegközlekedés) is mehetnek. Sofőri egyszeri **nyilatkozat** (jogszabályok + KRESZ betartása) a sofőr-mód első használatakor (`driver_terms_accepted_at`, `POST /auth/accept-driver-terms`, DriverTermsGate). Külön **KGFB-nyilatkozat NINCS** (a KGFB magyar jog szerint úgyis kötelező minden gépjárműre; az ÁSZF 3.4 általános „minden jogszabályt betart" kikötése fedi). Casco/CMR NEM kötelező. ⚠️ marketingben TILOS a „jogosítvány nem kell" (ne hívjuk fel rá a figyelmet) — csak pozitív „bármivel mehet". ÁSZF 3.2/3.4 + adatkezelés átírva. Jogosítvány-plumbing dormant. Kor: ÁSZF 3.1 = 18+ (16+ = ügyvéd-kérdés) |
-| Céges fiók (KYB) | **Adószám + cégnév KÖTELEZŐ (formátum-ellenőrzéssel), de NINCS dokumentum/fotó/admin-jóváhagyás (2026-07-05, PR #57)** — a régi company_verification kapu kivéve, a plumbing dormant. A természetes személyt az identity KYC védi. Jövőbeli olcsó win: NAV adószám-lekérdezés + "Ellenőrzött cég" jelvény (Option B), majd reputációs "Kiemelt fuvarozó" (uShip/Shiply-modell). Céges perszónák: költöztető cég, bútorbolt, fuvarozó |
+| Céges fiók (KYB) | **Adószám + cégnév KÖTELEZŐ (formátum-ellenőrzéssel), de NINCS dokumentum/fotó/admin-jóváhagyás (2026-07-05, PR #57)** — a régi company_verification kapu kivéve, a plumbing dormant. A természetes személyt az identity KYC védi. A NAV adószám-ellenőrzés + "Ellenőrzött cég" jelvény (Option B) **MEGÉPÍTVE (2026-07-19, PR #94) — csak a NAV technikai user env-jei hiányoznak** (aktiválás a ✅ listában); következő lépcső a reputációs "Kiemelt fuvarozó" (uShip/Shiply-modell). Céges perszónák: költöztető cég, bútorbolt, fuvarozó |
 | KYC retention | ✅ AKTÍV (2026-07-16-án ellenőrizve, a CLAUDE.md sokáig tévesen "nem aktív"-ként tartotta nyilván): a nyers okmányfotó a döntés (approved/rejected) után 30 nappal AUTOMATIKUSAN törlődik (napi job: `purgeOldKycFiles`, index.js ütemezi; pending-et nem bántja; a privát bucket kulcsait is kezeli). A metaadat (státusz + doc_number_hash csalásvédelemhez) marad — erre vonatkozik az 5 év a fiók-törlés után (ÁSZF). **Fuvar-fotók (pickup/dropoff, 2026-07-16 user-döntés, PR #91): alapból 30 nap a lezárás után, AUTOMATIKUS napi törléssel** (`retention.js` — 2026-07-17-én átnevezve, a chat+GPS purge is itt él); vitarendezés (a vita-nyitás auto-zárol: `photo_retention_hold=TRUE`, a vita lezárása után is marad) vagy admin-zárolás (`PATCH /admin/photo-hold`) esetén az érintett fuvar/foglalás fotói 5 évig, utána azok is törlődnek. 'listing' fotót nem érint. Adatkezelési 5. szakasz átírva. 049-es migráció |
 | GPS retention | ✅ GÉPESÍTVE (2026-07-17, PR #92): 7 nap után a nyers pingek auto-törlődnek (a job már él, pedig az élő GPS csak a mobil-fázisban indul — sosem gyűlhet) |
 | Chat retention | ✅ GÉPESÍTVE (2026-07-17, PR #92): 6 hónap a fuvar lezárása után auto-törlés; zárolt (vitás/admin-holdos) ügyletnél 5 év — ugyanaz a `photo_retention_hold` flag védi, mint a fotókat (egységes bizonyíték-zárolás) |
@@ -185,6 +185,26 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **NAV „Ellenőrzött cég" jelvény — TELJES implementáció, csak a NAV-kulcs
+  hiányzik (2026-07-19, PR #94)** — Online Számla 3.0 `queryTaxpayer`
+  (`services/navTaxpayer.js`: XML + SHA-512/SHA3-512 aláírás + válasz-parse +
+  cégnév-egyeztetés cégforma-normalizálással). Érvényes adószám + egyező
+  cégnév → `company_verification_status='verified'` AUTOMATIKUSAN (a PR #57
+  dormant plumbingja + a szállító-oldali jelvény-UI ezzel kelt életre);
+  név-eltérésnél 'pending' marad + a NAV szerinti hivatalos név mentve
+  (admin dönthet) → más cég adószámával nem lehet jelvényt szerezni.
+  Futás: céges regisztrációkor + cégadat-változáskor automatikusan, kézzel
+  a profil „Cég-ellenőrzés (NAV)" gombjával (`POST /auth/verify-company`,
+  5/óra/user; a gomb csak élesített integrációnál látszik —
+  `company_nav_available` a GET /auth/me-ben). Jelvény: ajánlat-kártya
+  (feladó látja a szállító cégnevét + jelvényét — B2B számlaképesség-jelzés),
+  publikus profil, saját profil. 050 migráció (nav_taxpayer_checked_at/
+  _name/_valid) — prodon LEFUTOTT. +15 backend teszt mockolt NAV-val.
+  **AKTIVÁLÁS (user-teendő, ~10 perc):** onlineszamla.nav.gov.hu →
+  cég-regisztráció (ügyvezető, ügyfélkapu) → technikai felhasználó
+  („Számlák lekérdezése" jog elég) → Railway env: `NAV_ONLINE_LOGIN` +
+  `NAV_ONLINE_PASSWORD` + `NAV_ONLINE_SIGNKEY` +
+  `NAV_ONLINE_TAXNUMBER=24750792` — kód-módosítás nem kell
 - Web app teljesen (gofuvar.hu)
 - Backend Railway-en, always-on
 - DB migrációk

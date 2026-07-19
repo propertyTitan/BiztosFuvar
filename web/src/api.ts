@@ -241,6 +241,10 @@ export type Bid = {
   carrier_name?: string | null;
   rating_avg?: number | null;
   rating_count?: number | null;
+  // Céges szállító ("Ellenőrzött cég" jelvény + számlaképesség jelzése)
+  carrier_account_type?: 'individual' | 'company' | null;
+  carrier_company_name?: string | null;
+  carrier_company_verified?: string | null;
   // Ellenajánlat (Vinted-stílusú alku)
   counter_amount_huf?: number | null;
   counter_by?: 'shipper' | 'carrier' | null;
@@ -828,6 +832,15 @@ export const api = {
   /** Szállítói egyszeri nyilatkozat elfogadása (jogszabályok + KRESZ betartása). */
   acceptDriverTerms: () =>
     request<{ ok: true; driver_terms_accepted_at: string }>('/auth/accept-driver-terms', { method: 'POST' }),
+
+  /** NAV adószám-ellenőrzés kézi indítása ("Ellenőrzött cég" jelvény). */
+  verifyCompany: () =>
+    request<{
+      status: 'verified' | 'name_mismatch' | 'invalid' | 'not_company'
+        | 'no_tax_id' | 'not_configured' | 'error';
+      nav_name?: string | null;
+      message?: string;
+    }>('/auth/verify-company', { method: 'POST' }),
 
   updateMyProfile: (data: {
     full_name?: string; phone?: string; vehicle_type?: string;

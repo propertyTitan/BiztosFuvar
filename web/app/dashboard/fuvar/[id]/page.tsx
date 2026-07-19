@@ -20,6 +20,7 @@ import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
 import QrCode from '@/components/QrCode';
 import Confetti from '@/components/Confetti';
+import CompanyVerifiedBadge from '@/components/CompanyVerifiedBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
 
@@ -765,6 +766,9 @@ export default function FuvarReszletek() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       {b.carrier_name || 'Szállító'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span>
+                      {b.carrier_account_type === 'company' && b.carrier_company_verified === 'verified' && (
+                        <CompanyVerifiedBadge small />
+                      )}
                       {freshBids[b.id] && (
                         <span style={{
                           background: 'var(--primary)', color: '#fff',
@@ -773,12 +777,15 @@ export default function FuvarReszletek() {
                         }}>Új</span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       {(b.rating_avg ?? 0) > 0 && (
                         <span style={{ fontSize: 12, color: 'var(--warning)', fontWeight: 600 }}>
                           <Star size={12} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {Number(b.rating_avg).toFixed(1)}
                           {(b.rating_count ?? 0) > 0 && <span className="muted"> ({b.rating_count})</span>}
                         </span>
+                      )}
+                      {b.carrier_account_type === 'company' && b.carrier_company_name && (
+                        <span className="muted" style={{ fontSize: 12 }}>{b.carrier_company_name}</span>
                       )}
                       {b.eta_minutes && <span className="muted" style={{ fontSize: 12 }}>~{b.eta_minutes} perc</span>}
                     </div>

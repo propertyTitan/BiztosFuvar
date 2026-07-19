@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
+import CompanyVerifiedBadge from '@/components/CompanyVerifiedBadge';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -61,7 +62,15 @@ export default function PublikusProfil() {
           </div>
         )}
         <div>
-          <h1 style={{ margin: 0 }}>{profile.full_name}</h1>
+          <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            {profile.full_name}
+            {profile.account_type === 'company' && profile.company_verification_status === 'verified' && (
+              <CompanyVerifiedBadge />
+            )}
+          </h1>
+          {profile.account_type === 'company' && profile.company_name && (
+            <p className="muted" style={{ margin: '2px 0 0', fontWeight: 600 }}>{profile.company_name}</p>
+          )}
           <p className="muted" style={{ margin: '4px 0' }}>Tag {memberSince} óta</p>
           <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
             {profile.rating_count > 0 && (

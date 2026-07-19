@@ -294,8 +294,15 @@ export default function ProfilOldal() {
               {/* Jogosítvány-feltöltés megszűnt (2026-07-07): a személyi
                   igazolvány igazolása elég mindenhez (feladó ÉS szállító).
                   A szállítói KRESZ-nyilatkozat a szállító-mód első használatakor. */}
-              {/* Céges verifikáció kikapcsolva (2026-07-05): a céges fiók
-                  dokumentum-feltöltés nélkül működik, csak adószám + cégnév. */}
+              {/* Céges dokumentum-verifikáció kikapcsolva (2026-07-05): a céges
+                  fiók dokumentum-feltöltés nélkül működik. Helyette NAV
+                  adószám-ellenőrzés ("Ellenőrzött cég" jelvény) — a gomb csak
+                  akkor látszik, ha a NAV-integráció élesítve van a backendben. */}
+              {profile.account_type === 'company' && (
+                <CompanyVerifyRow profile={profile} onVerified={() => {
+                  window.dispatchEvent(new Event('gofuvar:kyc-updated'));
+                }} />
+              )}
             </div>
           </div>
 
@@ -520,6 +527,90 @@ function KycStatusRow({ label, status, docType }: { label: string; status?: stri
         >
           📄 Feltöltöm most
         </button>
+      )}
+    </div>
+  );
+}
+
+// Céges fiók NAV adószám-ellenőrzése ("Ellenőrzött cég" jelvény).
+// Amíg a NAV-integráció nincs élesítve (company_nav_available=false),
+// csak a státuszt mutatja, gomb nélkül — élesítés után a gomb magától
+// megjelenik, frontend-módosítás nem kell.
+function CompanyVerifyRow({ profile, onVerified }: { profile: any; onVerified: () => void }) {
+  const toast = useToast();
+  const [checking, setChecking] = useState(false);
+  const isVerified = profile.company_verification_status === 'verified';
+
+  const runCheck = async () => {
+    setChecking(true);
+    try {
+      const r = await api.verifyCompany();
+      if (r.status === 'verified') {
+        toast.success('A céged adószámát a NAV igazolta — megkaptad az „Ellenőrzött cég" jelvényt!');
+        onVerified();
+      } else if (r.status === 'name_mismatch') {
+        toast.info(`Az adószám érvényes, de a NAV szerinti cégnév eltér (${r.nav_name || 'ismeretlen'}). Ellenőrizd a profilban megadott cégnevet, vagy az ügyfélszolgálat kézzel jóváhagyja.`);
+      } else if (r.status === 'invalid') {
+        toast.error('A megadott adószámot a NAV nem találja érvényesként — ellenőrizd, jól írtad-e be.');
+      } else if (r.status === 'no_tax_id') {
+        toast.error('Előbb add meg az adószámod a profilodban.');
+      } else if (r.status === 'not_configured') {
+        toast.info('Az automatikus NAV-ellenőrzés hamarosan elérhető.');
+      } else {
+        toast.error('Az ellenőrzés most nem sikerült — próbáld később.');
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Az ellenőrzés most nem sikerült — próbáld később.');
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 8,
+        flexWrap: 'wrap',
+        padding: '10px 14px',
+        borderRadius: 8,
+        background: isVerified ? 'rgba(46,125,50,0.1)' : 'rgba(255,255,255,0.05)',
+        border: `1px solid ${isVerified ? 'var(--success)' : 'var(--border)'}`,
+      }}
+    >
+      <span style={{ fontSize: 14, fontWeight: 600 }}>
+        Cég-ellenőrzés (NAV)
+        {profile.nav_taxpayer_name && (
+          <span className="muted" style={{ display: 'block', fontSize: 12, fontWeight: 400 }}>
+            NAV szerint: {profile.nav_taxpayer_name}
+          </span>
+        )}
+      </span>
+      {isVerified ? (
+        <span style={{ color: 'var(--success-text)', fontWeight: 700, fontSize: 13 }}>✅ Ellenőrzött cég</span>
+      ) : profile.company_nav_available ? (
+        <button
+          type="button"
+          onClick={runCheck}
+          disabled={checking}
+          style={{
+            background: 'var(--primary)',
+            color: '#fff',
+            border: 'none',
+            borderRadius: 6,
+            padding: '6px 14px',
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: checking ? 'wait' : 'pointer',
+            opacity: checking ? 0.7 : 1,
+          }}
+        >
+          {checking ? 'Ellenőrzés…' : 'Ellenőrzés indítása'}
+        </button>
+      ) : (
+        <span className="muted" style={{ fontSize: 13 }}>Automatikus ellenőrzés hamarosan</span>
       )}
     </div>
   );
