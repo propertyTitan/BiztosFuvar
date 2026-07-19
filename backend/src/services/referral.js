@@ -11,8 +11,11 @@
 // Amelyik előbb bekövetkezik. Userenként EGYSZER (referral_reward_granted_at).
 //
 // Visszaélés-védelem:
-//   1) a meghívott identity-KYC-ja legyen 'verified' (valós igazolvány) —
-//      kamu fiókokat drága gyártani,
+//   1) a teljesítés maga a drága művelet: feladónál az első díj TÉNYLEGES
+//      banki kifizetése, szállítónál a KYC-kapus licit + lezárt fuvar —
+//      kamu fiókokkal nem farmolható (2026-07-19 óta a feladónak nincs
+//      KYC-ja, ott a fizetés a feltétel; a szállítói úton a KYC-ellenőrzés
+//      megmaradt),
 //   2) userenként egyetlen jutalom (atomi guard),
 //   3) az ajánlónak havi plafon (REFERRAL_MONTHLY_CAP) a tömeges farmolás ellen.
 
@@ -103,7 +106,10 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
     if (!u) return;
     if (!u.referred_by) return;                         // nem meghívott
     if (u.referral_reward_granted_at) return;           // már jutalmazott
-    if (u.identity_kyc_status !== 'verified') return;   // KYC-feltétel
+    // KYC-feltétel csak a szállítói úton (2026-07-19: a feladónak nincs
+    // KYC-ja — nála az első díj TÉNYLEGES banki megfizetése az erősebb
+    // visszaélés-védelem; a szállító a licit-kapu miatt úgyis 'verified').
+    if (ctx.role !== 'shipper' && u.identity_kyc_status !== 'verified') return;
     if (u.referred_by === userId) return;               // önmagára-ajánlás védőháló
 
     // Atomi guard: csak az első kérés nyer, dupla jutalom kizárva.

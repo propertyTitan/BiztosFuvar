@@ -45,6 +45,12 @@ function requireRole(...roles) {
   };
 }
 
+// ⚠️ 2026-07-19 (user-döntés): a FELADÓI útvonalakról ez a kapu KIKERÜLT —
+// a feladónak nem kell személyi igazolvány (a kapcsolatfelvételi díj banki
+// megfizetése a de facto azonosítás; iparági minta: Shiply/uShip). A
+// middleware megmarad KOCKÁZAT-ALAPÚ eszköznek (progressive KYC): nagy
+// értékű fuvar / vita / visszaélés-gyanú esetén bármely útvonalra
+// visszatehető. A szállítói kapu (requireDriverKYC) változatlan.
 async function requireIdentityKYC(req, res, next) {
   try {
     const { rows } = await db.query(

@@ -263,17 +263,20 @@ REGISZTRÁCIÓ ÉS KYC (AZONOSÍTÁS)
 ═══════════════════════════════════════
 
 - Regisztráció: email + jelszó + név (30 másodperc)
-- Regisztráció után AZONNAL böngészhetsz és kitöltheted az űrlapokat
-- Az első fuvar feladásakor / ajánlattételnél kéri a rendszer a személyi igazolvány feltöltését
-- AI (mesterséges intelligencia) 3 másodperc alatt ellenőrzi:
+- FELADÓKÉNT NEM KELL SZEMÉLYI IGAZOLVÁNY: az email megerősítése után
+  azonnal feladhatsz fuvart — okmány-feltöltés nélkül. (A platform
+  kockázat-alapon, pl. visszaélés-gyanú esetén kérhet azonosítást.)
+- SZÁLLÍTÓKNAK kötelező az azonosítás: személyi igazolvány feltöltése +
+  egy rövid szállítói nyilatkozat (jogszabályok + KRESZ betartása) az
+  első ajánlattétel előtt
+- A szállítói okmányt AI (mesterséges intelligencia) 3 másodperc alatt
+  előellenőrzi:
   * Valódi személyi igazolvány-e (nem macskafotó)
   * Olvasható-e
   * A tulajdonos betöltötte-e a 18 évet
-- Ha minden OK → azonnal használhatod a platformot
-- Szállítóknak: a személyi igazolvány elég + egy rövid szállítói nyilatkozat
-  (jogszabályok + KRESZ betartása) az első fuvarvállalás előtt
-- Cégeknek: cégnév + adószám kell (a természetes személyt a személyi
-  igazolványos KYC azonosítja)
+- Ha minden OK → mehet az ajánlattétel
+- Cégeknek: cégnév + adószám kell (szállító cégnél a természetes személyt
+  a személyi igazolványos KYC azonosítja)
 
 ═══════════════════════════════════════
 CÉGES (B2B) FIÓK
