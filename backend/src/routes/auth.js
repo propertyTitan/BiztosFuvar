@@ -6,7 +6,8 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
-const { loginRateLimit, registerRateLimit, writeRateLimit } = require('../middleware/rateLimit');
+const { loginRateLimit, registerRateLimit, writeRateLimit, createRateLimit } = require('../middleware/rateLimit');
+const navTaxpayer = require('../services/navTaxpayer');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
 const { getOrCreateReferralCode, resolveReferrerId } = require('../services/referral');
 const { saveFile, savePrivateFile, getSignedPrivateUrl } = require('../services/storage');
@@ -204,6 +205,13 @@ router.post('/register', registerRateLimit, async (req, res) => {
     // Saját ajánlói kód generálása (a válasz előtt, hogy azonnal megosztható).
     await getOrCreateReferralCode(user.id).catch((e) => console.warn('[referral] kód-gen hiba:', e.message));
 
+    // Céges fióknál NAV adószám-ellenőrzés a háttérben ("Ellenőrzött cég"
+    // jelvény) — best-effort, a regisztrációt sosem akasztja meg; ha a
+    // NAV-integráció nincs konfigurálva, csendben kimarad.
+    if (accountType === 'company' && navTaxpayer.isConfigured()) {
+      navTaxpayer.verifyCompanyUser(user.id).catch(() => {});
+    }
+
     // Email küldés — best-effort, soha nem akasztjuk meg vele a registert
     sendEmailVerificationEmail({
       to: normEmail,
@@ -391,13 +399,17 @@ router.get('/me', authRequired, async (req, res) => {
             avatar_url, bio, rating_avg, rating_count, created_at,
             account_type, identity_kyc_status, driver_kyc_status, company_verification_status,
             company_name, tax_id, company_reg_number, eu_vat_number, billing_address,
+            nav_taxpayer_checked_at, nav_taxpayer_name, nav_taxpayer_valid,
             driver_terms_accepted_at,
             email_verified
        FROM users WHERE id = $1`,
     [req.user.sub],
   );
   if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
-  res.json(rows[0]);
+  // company_nav_available: a profil-oldal ebből tudja, mutasson-e
+  // "NAV-ellenőrzés indítása" gombot (amíg a NAV-integráció nincs élesítve,
+  // a gomb rejtve marad).
+  res.json({ ...rows[0], company_nav_available: navTaxpayer.isConfigured() });
 });
 
 // POST /auth/accept-driver-terms — a szállítói egyszeri nyilatkozat elfogadása:
@@ -463,9 +475,11 @@ router.patch('/me', authRequired, async (req, res) => {
   // Ha bármelyik számlázási/cég mező változik, a cég-ellenőrzés visszaáll
   // 'pending'-re — így valós formátumú, de hamis adószámmal sem lehet
   // 'verified' céggé válni (a middleware a 'verified'-et követeli meg a
-  // céges/fordított-ÁFA kezeléshez). Admin újra jóváhagyja.
+  // céges/fordított-ÁFA kezeléshez). A NAV-ellenőrzés (lent) automatikusan
+  // újrafuttatja; ha az nem elérhető / nem egyértelmű, admin hagyja jóvá.
   const COMPANY_FIELDS = ['company_name', 'tax_id', 'company_reg_number', 'eu_vat_number', 'billing_address'];
-  if (COMPANY_FIELDS.some((f) => req.body[f] !== undefined)) {
+  const companyFieldsChanged = COMPANY_FIELDS.some((f) => req.body[f] !== undefined);
+  if (companyFieldsChanged) {
     updates.push(`company_verification_status = 'pending'`);
   }
 
@@ -484,8 +498,31 @@ router.patch('/me', authRequired, async (req, res) => {
     values,
   );
   if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+
+  // Cégadat-változásnál a NAV-ellenőrzés automatikus újrafuttatása a
+  // háttérben (a 'pending' beállítása után) — best-effort.
+  if (companyFieldsChanged && rows[0].account_type === 'company' && navTaxpayer.isConfigured()) {
+    navTaxpayer.verifyCompanyUser(req.user.sub).catch(() => {});
+  }
+
   res.json(rows[0]);
 });
+
+// POST /auth/verify-company — NAV adószám-ellenőrzés kézi indítása
+// ("Ellenőrzött cég" jelvény). A profil-oldal gombja hívja; a NAV-ot
+// kímélendő userenként óránként max 5 próbálkozás.
+router.post(
+  '/verify-company',
+  authRequired,
+  createRateLimit({
+    windowMs: 60 * 60 * 1000, max: 5, keyBy: 'user', name: 'nav-verify',
+    message: 'Túl sok cég-ellenőrzési kérés — próbáld újra egy óra múlva.',
+  }),
+  async (req, res) => {
+    const result = await navTaxpayer.verifyCompanyUser(req.user.sub);
+    res.json(result);
+  },
+);
 
 // GET /auth/users/:id/profile — publikus profil + statisztikák
 router.get('/users/:id/profile', authRequired, async (req, res) => {
@@ -493,7 +530,8 @@ router.get('/users/:id/profile', authRequired, async (req, res) => {
   const [userRes, jobsDone, routesDone, reviewsRes] = await Promise.all([
     db.query(
       `SELECT id, full_name, avatar_url, bio, vehicle_type, vehicle_plate,
-              rating_avg, rating_count, trust_score, is_verified_carrier, created_at
+              rating_avg, rating_count, trust_score, is_verified_carrier, created_at,
+              account_type, company_name, company_verification_status
          FROM users WHERE id = $1`,
       [uid],
     ),

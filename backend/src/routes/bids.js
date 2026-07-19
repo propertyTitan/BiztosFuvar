@@ -214,7 +214,10 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
             u.full_name AS carrier_name, u.avatar_url AS carrier_avatar,
             u.rating_avg, u.rating_count,
             u.trust_score, u.is_verified_carrier,
-            u.vehicle_type AS carrier_vehicle
+            u.vehicle_type AS carrier_vehicle,
+            u.account_type AS carrier_account_type,
+            u.company_name AS carrier_company_name,
+            u.company_verification_status AS carrier_company_verified
        FROM bids b JOIN users u ON u.id = b.carrier_id
       WHERE b.job_id = $1 ${seeAll ? '' : 'AND b.carrier_id = $2'}
       ORDER BY b.amount_huf ASC`,
