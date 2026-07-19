@@ -1,11 +1,12 @@
 // GoFuvar VAT Engine — európai ÁFA logika.
 //
-// A platform (GoFuvar Kft., HU székhelyű) a 10%-os jutalékról
-// állít ki számlát a SZÁLLÍTÓNAK. Az adólogika a szállító státuszától
-// és országától függ:
+// A platform (Tiszta Hód Kft., HU székhelyű) a KAPCSOLATFELVÉTELI DÍJRÓL
+// állít ki számlát a díjat fizető FELADÓNAK (készpénzes modell, 2026-07-03 —
+// a fuvardíjat a platform nem kezeli, arról nem számláz). Az adólogika a
+// vevő (feladó) státuszától és országától függ:
 //
 // ┌─────────────────────┬─────────────────────┬────────────────────────┐
-// │ Szállító típusa        │ Ország              │ ÁFA kezelés            │
+// │ Vevő típusa         │ Ország              │ ÁFA kezelés            │
 // ├─────────────────────┼─────────────────────┼────────────────────────┤
 // │ Magánszemély        │ HU                  │ 27% HU ÁFA             │
 // │ Cég + HU adószám    │ HU                  │ 27% HU ÁFA             │
@@ -74,10 +75,14 @@ function parseTaxId(taxId) {
  * A fő ÁFA-meghatározó logika.
  *
  * @param {object} params
- * @param {string} params.buyerCountry    – a szállító országa ('HU', 'DE', stb.)
+ * @param {string} params.buyerCountry    – a vevő országa ('HU', 'DE', stb.)
  * @param {string|null} params.buyerTaxId – az adószám (pl. 'DE123456789') vagy null
  * @param {boolean} params.buyerIsCompany – cég-e (true) vagy magánszemély (false)
- * @param {number} params.amount          – a nettó összeg (platform jutalék)
+ * @param {number} params.amount          – az összeg; alapból NETTÓ, de
+ *   amountIsGross:true esetén BRUTTÓ (a kapcsolatfelvételi díj kommunikált
+ *   500/1000 Ft ára bruttó — a számlán a nettó ebből visszafelé számolódik,
+ *   így a számla végösszege PONTOSAN a terhelt összeg)
+ * @param {boolean} [params.amountIsGross=false]
  * @param {string} params.currency        – 'HUF' | 'EUR'
  *
  * @returns {Promise<{
@@ -92,20 +97,35 @@ function parseTaxId(taxId) {
  *   viesValidation?: object   – a VIES ellenőrzés eredménye (ha volt)
  * }>}
  */
-async function computeVat({ buyerCountry, buyerTaxId, buyerIsCompany, amount, currency }) {
-  const net = Math.round(amount);
+async function computeVat({ buyerCountry, buyerTaxId, buyerIsCompany, amount, amountIsGross = false, currency }) {
   const country = (buyerCountry || PLATFORM_COUNTRY).toUpperCase();
   const isEU = country in EU_VAT_RATES;
   const isDomestic = country === PLATFORM_COUNTRY;
 
+  // Nettó/ÁFA/bruttó felbontás az adott kulccsal. amountIsGross esetén az
+  // összeg BRUTTÓ (a ténylegesen terhelt ár), a nettó visszafelé számolódik
+  // — így a számla végösszege mindig egyenlő a fizetett összeggel.
+  const split = (ratePercent) => {
+    const rounded = Math.round(amount);
+    if (ratePercent === 0) {
+      return { net: rounded, vat: 0, gross: rounded };
+    }
+    if (amountIsGross) {
+      const net = Math.round(rounded / (1 + ratePercent / 100));
+      return { net, vat: rounded - net, gross: rounded };
+    }
+    const vat = Math.round(rounded * ratePercent / 100);
+    return { net: rounded, vat, gross: rounded + vat };
+  };
+
   // 1) Belföldi (HU) tranzakció → mindig 27% HU ÁFA
   if (isDomestic) {
-    const vatAmount = Math.round(net * PLATFORM_VAT_RATE / 100);
+    const a = split(PLATFORM_VAT_RATE);
     return {
       vatRate: PLATFORM_VAT_RATE / 100,
-      vatAmount,
-      grossAmount: net + vatAmount,
-      netAmount: net,
+      vatAmount: a.vat,
+      grossAmount: a.gross,
+      netAmount: a.net,
       isReverseCharge: false,
       vatCountry: 'HU',
       legalNote: 'Az ÁFA a magyar adójog szerint kerül felszámításra (27%).',
@@ -119,11 +139,12 @@ async function computeVat({ buyerCountry, buyerTaxId, buyerIsCompany, amount, cu
     if (parsed) {
       const vies = await validateVatId(parsed.country, parsed.number);
       if (vies.valid) {
+        const a = split(0);
         return {
           vatRate: 0,
           vatAmount: 0,
-          grossAmount: net,
-          netAmount: net,
+          grossAmount: a.gross,
+          netAmount: a.net,
           isReverseCharge: true,
           vatCountry: country,
           legalNote: `Közösségen belüli szolgáltatás – fordított adózás (reverse charge). Vevő adószáma: ${parsed.full}`,
@@ -141,26 +162,27 @@ async function computeVat({ buyerCountry, buyerTaxId, buyerIsCompany, amount, cu
   //    de a fuvarszervezés nem digitális szolgáltatás, hanem közvetítés,
   //    így a szolgáltató székhelye szerinti ÁFA érvényes — 27% HU)
   if (isEU && !buyerIsCompany) {
-    const vatAmount = Math.round(net * PLATFORM_VAT_RATE / 100);
+    const a = split(PLATFORM_VAT_RATE);
     return {
       vatRate: PLATFORM_VAT_RATE / 100,
-      vatAmount,
-      grossAmount: net + vatAmount,
-      netAmount: net,
+      vatAmount: a.vat,
+      grossAmount: a.gross,
+      netAmount: a.net,
       isReverseCharge: false,
       vatCountry: 'HU',
-      legalNote: `ÁFA a szolgáltató (GoFuvar Kft.) székhelye szerint: ${PLATFORM_VAT_RATE}% HU ÁFA.`,
-      legalNoteEn: `VAT applied per supplier (GoFuvar Kft.) registered office: ${PLATFORM_VAT_RATE}% HU VAT.`,
+      legalNote: `ÁFA a szolgáltató (Tiszta Hód Kft.) székhelye szerint: ${PLATFORM_VAT_RATE}% HU ÁFA.`,
+      legalNoteEn: `VAT applied per supplier (Tiszta Hód Kft.) registered office: ${PLATFORM_VAT_RATE}% HU VAT.`,
     };
   }
 
   // 4) Nem EU-s ország → ÁFA-mentes export szolgáltatás
   if (!isEU) {
+    const a = split(0);
     return {
       vatRate: 0,
       vatAmount: 0,
-      grossAmount: net,
-      netAmount: net,
+      grossAmount: a.gross,
+      netAmount: a.net,
       isReverseCharge: false,
       vatCountry: country,
       legalNote: 'Közösségen kívüli szolgáltatás – ÁFA-mentes (Áfa tv. 37.§).',
@@ -169,12 +191,12 @@ async function computeVat({ buyerCountry, buyerTaxId, buyerIsCompany, amount, cu
   }
 
   // Fallback: 27% HU ÁFA (biztonsági háló)
-  const vatAmount = Math.round(net * PLATFORM_VAT_RATE / 100);
+  const a = split(PLATFORM_VAT_RATE);
   return {
     vatRate: PLATFORM_VAT_RATE / 100,
-    vatAmount,
-    grossAmount: net + vatAmount,
-    netAmount: net,
+    vatAmount: a.vat,
+    grossAmount: a.gross,
+    netAmount: a.net,
     isReverseCharge: false,
     vatCountry: 'HU',
     legalNote: `ÁFA: ${PLATFORM_VAT_RATE}% (HU).`,

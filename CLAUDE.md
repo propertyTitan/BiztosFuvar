@@ -185,6 +185,25 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Számlázz.hu számla-integráció — TELJES implementáció, csak az
+  Agent-kulcs hiányzik (2026-07-19, PR #95)** — a kapcsolatfelvételi díjról
+  automatikus e-számla a feladónak a díj-fizetés webhookjában
+  (`services/szamlazzHu.js`: Számla Agent XML API + cím-szétbontás +
+  áfakulcs-térkép HU 27 / EU fordított EUFAD37 / 3. ország HO); a számlát a
+  Számlázz.hu emaili ki a vevőnek, PDF-et nem tárolunk (minden számla a
+  Számlázz.hu fiókban). **KRITIKUS javítás vele: a díj BRUTTÓ árként
+  számlázódik** (computeVat `amountIsGross`: 500 Ft = nettó 394 + ÁFA 106 —
+  a motor eddig nettónak vette volna, és az első éles számla 635 Ft-ról
+  szólt volna!). Elavult "GoFuvar Kft."/Barion/„Áfa tv. 37.§" szövegek
+  javítva. Kudarc-ág: 'failed' invoices-sor, a fizetést sosem akasztja;
+  kulcs nélkül stub. +11 teszt. **AKTIVÁLÁS (user-teendő, a regisztráció
+  2026-07-19-én folyamatban):** (1) Számlázz.hu fiók → Beállítások →
+  Számla Agent kulcs; (2) a fiókba NAV Online Számla technikai user
+  bekötése (adatszolgáltatáshoz kötelező — ugyanaz jó, ami a PR #94-es
+  NAV-cégellenőrzéshez készül); (3) Railway env:
+  `INVOICE_PROVIDER=szamlazz_hu` + `SZAMLAZZ_AGENT_KEY`; opcionális:
+  `SZAMLAZZ_E_INVOICE=false`, `SZAMLAZZ_INVOICE_PREFIX`, `COMPANY_BANK` +
+  `COMPANY_BANK_ACCOUNT`
 - **NAV „Ellenőrzött cég" jelvény — TELJES implementáció, csak a NAV-kulcs
   hiányzik (2026-07-19, PR #94)** — Online Számla 3.0 `queryTaxpayer`
   (`services/navTaxpayer.js`: XML + SHA-512/SHA3-512 aláírás + válasz-parse +
@@ -614,7 +633,9 @@ adatvédelmi állapotot — a hiányzó 2 pont EZ a lista.
   port 465, user: resend, jelszó: a Resend API-kulcs + "válasz ugyanarról
   a címről" pipa). A bejövő irány már ÉLES (lásd ✅ lista)
 - ~~SeeMe.hu — API kulcs Railway env-be~~ → ✅ ÉLES (2026-07-13, lásd a ✅ listát)
-- **Számlázz.hu / Billingo** — előfizetés + API kulcs (nem launch-blokker)
+- ~~Számlázz.hu / Billingo~~ → **a kód KÉSZ (PR #95, ✅ lista)** — már csak:
+  Számlázz.hu regisztráció (2026-07-19-én folyamatban) + Agent-kulcs + NAV
+  technikai user a fiókba + env-ek (aktiválási checklist a ✅ bejegyzésben)
 - **Tesztelői visszakérdezések** (a 2. körből elhalasztva): BUG-005 — hol
   látott fejléc-avatart (a fejlécben monogram van); BUG-033 — melyik 4
   különböző feliratú menüpont visz ugyanoda. Termék-/design-döntést vár:
@@ -779,8 +800,9 @@ git log --oneline -20
 3/b. Ha **launch-előkészítés** zajlik (QVIK megjött / launch-dátum szóba
    kerül): **KÖTELEZŐEN hozd fel a 6. szakasz 🔴 Launch-kapu adatvédelmi/
    jogi ellenőrzőlistáját** és menj végig rajta a userrel (ő kérte,
-   2026-07-18) — plusz: robots.txt `Allow: /`-ra, számlázás (invoicing.js
-   stubon!), valódi pénzes QVIK-füstteszt, SeeMe-egyenleg, Gmail „Küldés
+   2026-07-18) — plusz: robots.txt `Allow: /`-ra, számlázás-aktiválás
+   (a kód KÉSZ, PR #95 — `SZAMLAZZ_AGENT_KEY` + `INVOICE_PROVIDER=szamlazz_hu`
+   env kell), valódi pénzes QVIK-füstteszt, SeeMe-egyenleg, Gmail „Küldés
    másként", szállító-toborzás ELŐBB mint feladói marketing
 4. Ha **Apple-helyzet**: D-U-N-S megérkezett-e, enrollment hol tart
 5. Ha **bug**: kérdezz konkrét reprodukálási lépést / screenshot / Sentry-link
