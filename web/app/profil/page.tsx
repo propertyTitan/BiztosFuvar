@@ -285,9 +285,13 @@ export default function ProfilOldal() {
           {/* KYC státusz kártya */}
           <div className="card" style={{ marginTop: 16 }}>
             <h2 style={{ marginTop: 0 }}>🛡️ Azonosítás (KYC)</h2>
+            <p className="muted" style={{ margin: '0 0 12px', fontSize: 13 }}>
+              Fuvar-feladáshoz nem kell okmány — a személyazonosítás a
+              szállító-módhoz (fuvarvállaláshoz) szükséges.
+            </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <KycStatusRow
-                label="Személyi igazolvány"
+                label="Személyi igazolvány (szállító-módhoz)"
                 status={profile.identity_kyc_status}
                 docType="id_card"
               />

@@ -165,9 +165,10 @@ export default function HomeHub() {
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
                 <span style={{ fontSize: 36, flexShrink: 0 }}>🛡️</span>
                 <div>
-                  <strong style={{ fontSize: 16 }}>Szállítóként is szükséges az azonosítás!</strong>
+                  <strong style={{ fontSize: 16 }}>A fuvarvállaláshoz azonosítás szükséges</strong>
                   <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
-                    Ahhoz, hogy fuvart vállalhass vagy útvonalat hirdethess, szükséged van:
+                    Ahhoz, hogy fuvart vállalhass vagy járatot hirdethess, szükséged van
+                    (fuvar-feladáshoz nem kell okmány):
                   </p>
                   <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
                     <li><strong>Személyi igazolvány</strong> fotója (mindkét oldal)</li>
@@ -369,81 +370,9 @@ export default function HomeHub() {
             </p>
           </div>
 
-          {/* KYC tájékoztató — első belépéskor */}
-          {kycCardVisible && (
-            <div
-              style={{
-                marginBottom: 20,
-                padding: 20,
-                borderRadius: 12,
-                background: 'linear-gradient(135deg, rgba(59,130,246,0.12), rgba(139,92,246,0.12))',
-                border: '1px solid rgba(59,130,246,0.3)',
-              }}
-            >
-              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 36, flexShrink: 0 }}>🛡️</span>
-                <div>
-                  <strong style={{ fontSize: 16 }}>Üdvözlünk a GoFuvar-on!</strong>
-                  <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
-                    Ahhoz, hogy fuvart adhass fel vagy fuvart vállalhass, szükség van az
-                    <strong> azonosításodra (KYC)</strong>. Ez egy egyszeri, gyors lépés:
-                  </p>
-                  <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
-                    <li><strong>Feladóként:</strong> személyi igazolvány fotója (mindkét oldal)</li>
-                    <li><strong>Szállítóként:</strong> személyi igazolvány + egy rövid nyilatkozat</li>
-                    <li><strong>Cégként:</strong> a fentiek + adószám</li>
-                  </ul>
-                  <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.6 }}>
-                    Addig is nyugodtan böngészd a platformot, töltsd ki a fuvar adatait —
-                    a dokumentum feltöltést majd a feladás pillanatában kérjük tőled.
-                  </p>
-                  <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
-                        setShowKycWelcome(false);
-                        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
-                          detail: { code: 'IDENTITY_KYC_REQUIRED' },
-                        }));
-                      }}
-                      style={{
-                        padding: '10px 22px',
-                        borderRadius: 8,
-                        border: 'none',
-                        background: 'var(--success-strong)',
-                        color: '#fff',
-                        fontWeight: 700,
-                        fontSize: 14,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Megcsinálom most!
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
-                        setShowKycWelcome(false);
-                      }}
-                      style={{
-                        padding: '10px 22px',
-                        borderRadius: 8,
-                        border: '1px solid var(--border)',
-                        background: 'transparent',
-                        color: 'var(--text)',
-                        fontWeight: 600,
-                        fontSize: 14,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      Később
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Feladó módban NINCS KYC-kártya (2026-07-19, user-döntés): a
+              feladónak nem kell személyi igazolvány — az azonosítás-felhívás
+              csak a szállító módban él (ott kötelező). */}
 
           {/* Fő CTA: hirdetés feladás */}
           <div style={{

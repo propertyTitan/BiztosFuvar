@@ -3,7 +3,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired, requireIdentityKYC, requireDriverKYC } = require('../middleware/auth');
+const { authRequired, requireDriverKYC } = require('../middleware/auth');
 const { reviewJobDescription } = require('../services/gemini');
 const { distanceMeters } = require('../utils/geo');
 const { maskEmail } = require('../utils/mask');
@@ -82,7 +82,11 @@ function scrubJobForUser(job, user) {
 // bárki egyaránt lehet feladó és szállító is). Rate limit: percenként max 30
 // írás a `writeRateLimit`-en keresztül — bőven elég normál használatra,
 // de botokat / spamet kilő.
-router.post('/', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
+// FELADÓI KYC KIVÉVE (2026-07-19, user-döntés): a feladónak nem kell
+// személyi igazolvány — a spam ellen a kapcsolatfelvételi díj véd (aki
+// fizet, az nem bot), az azonosítást a banki fizetés adja (QVIK/kártya).
+// A szállítói oldal kapuja (requireDriverKYC a licitnél) változatlan.
+router.post('/', authRequired, writeRateLimit, async (req, res) => {
   const {
     title, description,
     pickup_address, pickup_lat, pickup_lng,
@@ -590,7 +594,8 @@ router.get('/mine/list', authRequired, async (req, res) => {
 //   - Ha nincs, MOST hozzuk létre és eltároljuk.
 // A díj a megállapodott ár sávja szerint számolódik (connectionFee service);
 // a fuvardíj magát NEM itt fizetik — az készpénzben megy a szállítónak.
-router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
+// Feladói KYC-kapu kivéve (2026-07-19) — a fizetés maga az azonosítás.
+router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             e.barion_gateway_url,
@@ -726,7 +731,7 @@ router.post('/:id/pay', authRequired, requireIdentityKYC, writeRateLimit, async 
 //      megléte kötelező (45/2014. 29. § (1) a) — a /pay rögzíti)
 //   2) `paid_at` beállítása, a díj-sor 'released'
 //   3) Értesítés + díj-visszaigazoló email a feladónak
-router.post('/:id/confirm-payment', authRequired, requireIdentityKYC, writeRateLimit, async (req, res) => {
+router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             s.full_name AS shipper_name,

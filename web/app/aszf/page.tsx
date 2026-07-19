@@ -66,11 +66,15 @@ export default function AszfPage() {
         személyek és jogi személyek számára engedélyezett.
       </p>
       <p>
-        <strong>3.2.</strong> A tranzakciók megkezdése a személyazonosság (KYC) igazolásához kötött:
-        minden Felhasználónak a Személyi igazolvány igazolása szükséges. A sofőri (fuvarozói)
-        tevékenységhez a Felhasználó ezen felül elfogadja a jelen ÁSZF 3.4. pontja szerinti sofőri
-        nyilatkozatot (minden vonatkozó jogszabály és a KRESZ betartása). Céges fiók esetén az
-        Adószám megadása is szükséges.
+        <strong>3.2.</strong> A Feladóként történő használathoz a regisztráció és az e-mail-cím
+        megerősítése elegendő; személyazonosító okmány igazolása alapesetben nem szükséges. A
+        Sofőrként (a Platform felületein: Szállítóként) végzett tevékenység megkezdése a
+        személyazonosság (KYC) igazolásához kötött: a Sofőr a Személyi igazolványát igazolja, és
+        elfogadja a jelen ÁSZF 3.4. pontja szerinti sofőri nyilatkozatot (minden vonatkozó
+        jogszabály és a KRESZ betartása). A Szolgáltató fenntartja a jogot, hogy kockázati alapon —
+        így különösen kiemelt értékű fuvar, vitarendezés vagy visszaélés gyanúja esetén — a
+        Feladótól is kérje a személyazonosság igazolását; ennek megtagadása esetén az érintett
+        tranzakció vagy fiók felfüggeszthető. Céges fiók esetén az Adószám megadása is szükséges.
       </p>
 
       <h3 style={{ marginTop: 24 }}>3.3. A Feladó felelőssége az áru jogszerű feladhatóságáért</h3>

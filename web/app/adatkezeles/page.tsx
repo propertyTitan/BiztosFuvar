@@ -42,9 +42,11 @@ export default function AdatkezelesPage() {
           <strong>Azonosító adatok:</strong> Név, e-mail, telefonszám.
         </li>
         <li>
-          <strong>KYC adatok:</strong> Személyi igazolvány, és céges fiók esetén adószám
-          (Biztonság, jogi megfelelés). A KYC dokumentumok fotója nyers formában a hitelesítés
-          ideje alatt kerül tárolásra.
+          <strong>KYC adatok:</strong> Személyi igazolvány — a Szállítóként (fuvarozóként)
+          tevékenykedő felhasználóknál kötelező, Feladónál kizárólag kockázat-alapú ellenőrzés
+          esetén (pl. visszaélés gyanúja, vitarendezés) kerül bekérésre —, valamint céges fiók
+          esetén adószám (Biztonság, jogi megfelelés). A KYC dokumentumok fotója nyers formában a
+          hitelesítés ideje alatt kerül tárolásra.
         </li>
         <li>
           <strong>Tranzakciós adatok:</strong> Számlázási adatok, Barion fizetési azonosító
