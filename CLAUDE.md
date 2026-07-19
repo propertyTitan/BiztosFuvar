@@ -590,6 +590,24 @@ adatvédelmi állapotot — a hiányzó 2 pont EZ a lista.
   kedvezmény** (pl. kártyával 650/1.690/2.690/4.290, QVIK-kel a kommunikált
   500/1.490/2.490/3.990) — a QVIK a default/kiemelt opció a fizetőoldalon.
   EUR-sávoknál egyszerűbb: a kártyaköltség eleve beárazva.
+- **FIZETÉS-ELFOGADÁS ÁLLÁS (2026-07-19, user-info): a CIB-bel (a cég
+  számlavezető bankja) az egyeztetés MEGTÖRTÉNT, véglegesítés a család
+  nyaralása UTÁN.** A CIB ajánlata: **bankkártyás elfogadás 1,6%
+  jutalékkal** (jó ár; 500/1000 Ft-os díjnál mindössze 8-16 Ft/tranzakció).
+  Következmények, ha megköttetik: (1) a kártyás láb megnyitja a nem-magyar
+  (diaszpóra-) feladókat — a „csak magyar bankappos QVIK" korlát oldódik,
+  a 2027-es Stripe-kérdés valószínűleg okafogyott; (2) 1,6%-nál a fenti
+  kettős árazás (kártya-listaár + QVIK-kedvezmény) valószínűleg felesleges
+  bonyolítás — egyszerűbb az egységes 500/1000 és a 8-16 Ft-ot elnyelni
+  (döntés véglegesítéskor); (3) a `paymentProvider.js` absztrakció kész —
+  CIB vPOS providert kell írni (PAYMENT_PROVIDER=cib), amint API-doksi van.
+  **Kérdés-checklist a CIB-véglegesítéshez**: QVIK fizetési kérelem
+  elfogadás kereskedőként + annak díja; vPOS API + AZONNALI webhook/callback
+  a fizetés-visszaigazolásra (a kontakt-felfedéshez gépi, másodperces
+  visszajelzés KELL); van-e fix havi díj / tranzakciónkénti fix díj /
+  minimum forgalom a 1,6% mellett; kiutalási ütem (bank-direkt = azonnal a
+  CIB-számlára?); nemzetközi kártyák + Apple Pay / Google Pay; teszt-
+  környezet és dokumentáció elérhetősége
 - **D-U-N-S szám** — Apple-enrollment-flow indítása apukán át (Apple Developer fiók)
 - **Gmail "Küldés másként" megerősítése** — a user állítja be, hogy a
   gmailből info@gofuvar.hu néven válaszolhasson (SMTP: smtp.resend.com,
