@@ -4,17 +4,20 @@
 // számla a díjat fizető FELADÓ részére (készpénzes modell, 2026-07-03 —
 // a fuvardíj maga a feladó és a szállító közt mozog, arról a platform nem
 // számláz). A számla:
-//   - Kétnyelvű (HU + a vevő nyelve, vagy EN fallback)
-//   - A VAT engine által meghatározott adómértékkel
+//   - A VAT engine által meghatározott adómértékkel — a díj BRUTTÓ árként
+//     kezelve (amountIsGross), így a számla végösszege PONTOSAN a terhelt
+//     500/1000 Ft
 //   - A kötelező jogi szövegekkel (reverse charge, ÁFA tv. hivatkozás)
-//   - STUB módban: konzolra logolja és PDF helyett NULL-t ad vissza
+//   - STUB módban: konzolra logolja + DB-be menti (external_system='stub')
 //
-// Konfigurálás .env-ben:
-//   INVOICE_PROVIDER=szamlazz_hu | billingo | stub
-//   SZAMLAZZ_AGENT_KEY=...
-//   BILLINGO_API_KEY=...
+// ÉLES PROVIDER: Számlázz.hu (services/szamlazzHu.js — a teljes Agent API
+// implementálva, élesítéshez csak a kulcs kell):
+//   INVOICE_PROVIDER=szamlazz_hu
+//   SZAMLAZZ_AGENT_KEY=<Számla Agent kulcs>
+// A Billingo-ág placeholder maradt (nem terv).
 
 const { computeVat } = require('./vat');
+const szamlazzHu = require('./szamlazzHu');
 const db = require('../db');
 
 function getProvider() {
@@ -37,19 +40,20 @@ function buildInvoiceData({
     legalTexts.push('Fordított adózás / Reverse charge mechanism applies (Art. 196, Council Directive 2006/112/EC)');
   }
   if (vatResult.vatCountry === 'HU' && vatResult.vatRate > 0) {
-    legalTexts.push(`ÁFA: ${Math.round(vatResult.vatRate * 100)}% (Áfa tv. 37.§) / VAT: ${Math.round(vatResult.vatRate * 100)}% (Hungarian VAT Act §37)`);
+    legalTexts.push(`ÁFA: ${Math.round(vatResult.vatRate * 100)}% / VAT: ${Math.round(vatResult.vatRate * 100)}% (Hungarian VAT)`);
   }
   if (vatResult.vatRate === 0 && !vatResult.isReverseCharge) {
     legalTexts.push('ÁFA-mentes szolgáltatás / VAT exempt service');
   }
 
   return {
-    // Kibocsátó (mindig GoFuvar)
+    // Kibocsátó — a platform üzemeltetője (a Számlázz.hu a fiók cégadataiból
+    // dolgozik, ez a blokk a stub/DB-napló számára van)
     seller: {
-      name: 'GoFuvar Kft.',
-      taxId: process.env.COMPANY_TAX_ID || '12345678-2-42',
-      address: process.env.COMPANY_ADDRESS || '1234 Budapest, Példa utca 1.',
-      bankAccount: process.env.COMPANY_BANK_ACCOUNT || 'HU12 1234 5678 9012 3456 7890 0000',
+      name: 'Tiszta Hód Kft.',
+      taxId: process.env.COMPANY_TAX_ID || '24750792-2-06',
+      address: process.env.COMPANY_ADDRESS || '6800 Hódmezővásárhely, Szántó Kovács János utca 144.',
+      bankAccount: process.env.COMPANY_BANK_ACCOUNT || '',
     },
     // Vevő (a díjat fizető feladó)
     buyer: {
@@ -87,7 +91,7 @@ function buildInvoiceData({
     bookingId: bookingId || null,
     issueDate: new Date().toISOString().slice(0, 10),
     dueDate: new Date(Date.now() + 8 * 86400000).toISOString().slice(0, 10), // +8 nap
-    paymentMethod: 'Barion online fizetés / Barion online payment',
+    paymentMethod: lang === 'hu' ? 'Online fizetés' : 'Online payment',
   };
 }
 
@@ -104,7 +108,7 @@ function buildInvoiceData({
 async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, currency, buyerUserId }) {
   // Vevő adatainak lekérdezése
   const { rows: userRows } = await db.query(
-    `SELECT id, full_name, company_name, tax_id, billing_address, billing_country, locale
+    `SELECT id, full_name, email, company_name, tax_id, billing_address, billing_country, locale
        FROM users WHERE id = $1`,
     [buyerUserId],
   );
@@ -114,12 +118,14 @@ async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, curre
     return null;
   }
 
-  // VAT kiszámítása
+  // VAT kiszámítása — a díj BRUTTÓ ár (a kommunikált 500/1000 Ft pontosan
+  // annyi, amennyi terhelődik), a nettó visszafelé számolódik
   const vatResult = await computeVat({
     buyerCountry: buyerUser.billing_country || 'HU',
     buyerTaxId: buyerUser.tax_id,
     buyerIsCompany: !!(buyerUser.company_name || buyerUser.tax_id),
     amount: platformFee,
+    amountIsGross: true,
     currency,
   });
 
@@ -130,7 +136,11 @@ async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, curre
     locale: buyerUser.locale || 'hu',
   });
 
-  const provider = getProvider();
+  let provider = getProvider();
+  if (provider === 'szamlazz_hu' && !szamlazzHu.isConfigured()) {
+    console.warn('[invoicing] INVOICE_PROVIDER=szamlazz_hu, de a SZAMLAZZ_AGENT_KEY hiányzik — stub módban futok');
+    provider = 'stub';
+  }
 
   // === STUB MÓD ===
   if (provider === 'stub') {
@@ -164,10 +174,54 @@ async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, curre
 
   // === SZÁMLÁZZ.HU ===
   if (provider === 'szamlazz_hu') {
-    // TODO: Számlázz.hu Agent XML API hívás
-    // https://docs.szamlazz.hu/
-    console.log('[invoicing] Számlázz.hu integráció hamarosan...');
-    return null;
+    const result = await szamlazzHu.issueInvoice(invoiceData, {
+      buyerEmail: buyerUser.email,
+      vatResult,
+      orderNumber: jobId || bookingId || '',
+    });
+
+    if (!result.ok) {
+      // A számla-kudarc nem akaszthatja meg a fizetés-feldolgozást — a
+      // 'failed' sor a nyoma, ebből lehet kézzel pótolni (Számlázz.hu fiók).
+      console.error('[invoicing] Számlázz.hu kiállítás sikertelen:', result.error);
+      const { rows: inv } = await db.query(
+        `INSERT INTO invoices (
+           job_id, booking_id, buyer_user_id, buyer_name, buyer_tax_id,
+           buyer_address, buyer_country, currency, net_amount, vat_rate,
+           vat_amount, gross_amount, is_reverse_charge, external_system,
+           status
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'szamlazz_hu','failed')
+         RETURNING *`,
+        [
+          jobId || null, bookingId || null, buyerUserId,
+          invoiceData.buyer.name, invoiceData.buyer.taxId,
+          invoiceData.buyer.address, invoiceData.buyer.country,
+          currency, vatResult.netAmount, vatResult.vatRate,
+          vatResult.vatAmount, vatResult.grossAmount, vatResult.isReverseCharge,
+        ],
+      );
+      return inv[0];
+    }
+
+    console.log(`[invoicing] Számlázz.hu számla kiállítva: ${result.invoiceNumber}`);
+    const { rows: inv } = await db.query(
+      `INSERT INTO invoices (
+         job_id, booking_id, buyer_user_id, buyer_name, buyer_tax_id,
+         buyer_address, buyer_country, currency, net_amount, vat_rate,
+         vat_amount, gross_amount, is_reverse_charge, external_system,
+         invoice_number, status
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'szamlazz_hu',$14,'sent')
+       RETURNING *`,
+      [
+        jobId || null, bookingId || null, buyerUserId,
+        invoiceData.buyer.name, invoiceData.buyer.taxId,
+        invoiceData.buyer.address, invoiceData.buyer.country,
+        currency, vatResult.netAmount, vatResult.vatRate,
+        vatResult.vatAmount, vatResult.grossAmount, vatResult.isReverseCharge,
+        result.invoiceNumber,
+      ],
+    );
+    return inv[0];
   }
 
   // === BILLINGO ===

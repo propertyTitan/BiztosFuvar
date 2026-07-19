@@ -139,11 +139,14 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       [d.shipper_id],
     );
     const shipper = shipperRows[0] || {};
+    // A díj BRUTTÓ ár (a terhelt 500/1000 Ft) — a nettó visszafelé számolódik,
+    // így a naplózott ÁFA-bontás egyezik a számlával (invoicing.js ugyanígy).
     const vatResult = await computeVat({
       buyerCountry: shipper.billing_country || 'HU',
       buyerTaxId: shipper.tax_id,
       buyerIsCompany: !!(shipper.company_name || shipper.tax_id),
       amount: platformFee,
+      amountIsGross: true,
       currency,
     });
 
