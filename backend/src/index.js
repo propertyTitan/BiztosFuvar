@@ -7,17 +7,14 @@ require('dotenv').config();
 // kell hívni, hogy az auto-instrumentation a HTTP/Express-t is befogja.
 if (process.env.SENTRY_DSN) {
   const Sentry = require('@sentry/node');
+  // PII-szűrés: request body eldobása + token-paraméterek kitakarása +
+  // auth-fejlécek törlése (részletek: utils/sentryScrub.js)
+  const { scrubSentryEvent } = require('./utils/sentryScrub');
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
     tracesSampleRate: 0.1,
-    beforeSend(event) {
-      if (event.request?.headers) {
-        delete event.request.headers.authorization;
-        delete event.request.headers.cookie;
-      }
-      return event;
-    },
+    beforeSend: scrubSentryEvent,
   });
   console.log('[sentry] aktív');
 }

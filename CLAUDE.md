@@ -593,8 +593,14 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    `docs/adatvedelem/incidenskezelesi-terv.md`), ügyvezetői jóváhagyásra
    vár.** 72 órás NAIH-bejelentési lépéssor, kockázat-szintek, szerep-
    mátrix, érintett-értesítési sablon, incidens-napló-kötelezettség
-8. *(Apróság)* **Sentry `beforeSend` minimális**: csak authorization+cookie
-   headert szed ki — request body / user-kontextus még vihet PII-t
+8. ~~Sentry `beforeSend` minimális~~ → **JAVÍTVA (2026-07-22, PR #98)**:
+   közös scrub (`backend/src/utils/sentryScrub.js` +
+   `web/src/lib/sentryScrub.ts`) mindhárom Sentry-initben (backend, web
+   kliens, web szerver — utóbbin EDDIG SEMMILYEN szűrés nem volt!):
+   request body egészében eldobva, URL/query/breadcrumb token-paraméterek
+   kitakarva (jelszó-reset + email-verify élő tokenjei!, /tracking és
+   /nyomon-kovetes útvonal-tokenek), auth/cookie fejlécek törölve.
+   +16 teszt. A scrub sosem dob (hibánál az eredeti eseményt engedi át)
 9. **Ügyvédi review** az AI-írta jogi szövegekre (Phase 6-on rajta van,
    a 4 új dokumentumra IS kiterjed) — ez a végső pecsét; addig „teljesen
    jogszerű" kijelentés NEM tehető
