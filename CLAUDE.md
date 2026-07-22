@@ -563,30 +563,40 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
    tájékoztató állítja); FIZETŐS (billing-engedélyezett) szinten nem
    használják. Teendő: ellenőrizni, hogy a kulcs számlázós fiókhoz
    tartozik-e; ha nem → billing bekapcsolása (nem kódmódosítás)
-2. **DPIA (adatvédelmi hatásvizsgálat, GDPR 35. cikk) — nincs, valószínűleg
-   kötelező.** Az AI-alapú okmányelemzés a NAIH DPIA-listája alapján jó
-   eséllyel köteles (új technológia + értékelés); az élő GPS (mobil-fázis)
-   biztosan az lesz — a mobil-launch előtt újra elő kell venni
-3. **GDPR 30. cikk nyilvántartás — nincs, kötelező.** A 250 fős kivétel NEM
-   áll fenn (az adatkezelés nem eseti — ez a core business);
-   NAIH-vizsgálatnál ezt kérik először, hiánya önmagában jogsértés
+2. ~~DPIA (adatvédelmi hatásvizsgálat, GDPR 35. cikk)~~ → **MEGÍRVA
+   (2026-07-20, `docs/adatvedelem/dpia-kyc.md`), ügyvezetői jóváhagyásra
+   vár.** Az AI-alapú okmányelemzésre; 8 azonosított kockázat +
+   intézkedés (a Gemini-fizetős-szint a maradék-kockázat feltétele —
+   lásd 1. pont); az élő GPS (mobil-fázis) előtt KIEGÉSZÍTŐ DPIA kell,
+   ez a dokumentum azt külön jelzi
+3. ~~GDPR 30. cikk nyilvántartás~~ → **MEGÍRVA (2026-07-20,
+   `docs/adatvedelem/gdpr-30-cikk-nyilvantartas.md`), ügyvezetői
+   jóváhagyásra vár.** 13 adatkezelési tevékenység tételesen (cél,
+   jogalap, adatkör, címzettek, megőrzés, TOM) — minden bevezetéskor
+   frissítendő (élő GPS és DAC7 még placeholder-sorként szerepel, mert
+   nem élesek)
 4. **JSON-adatexport — a tájékoztató ígéri, de NINCS megépítve.** Az
    érintetti jogoknál szerepel az adathordozhatóság „strukturált, géppel
    olvasható (JSON)" kiadása, de export-végpont nem létezik. Vagy kis
    végpont, vagy tudatos kézi folyamat (SQL-ből, 30 napos határidő!)
-5. **Érdekmérlegelési tesztek — nincsenek.** Jogos érdek jogalapú
-   kezelésekhez (doc_number_hash 5 éves csalásvédelmi megőrzése, stb.)
-   dokumentálni kell, kérésre elő kell tudni adni
+5. ~~Érdekmérlegelési tesztek~~ → **MEGÍRVA (2026-07-20,
+   `docs/adatvedelem/erdekmerlegelesi-tesztek.md`), ügyvezetői
+   jóváhagyásra vár.** 3 teszt: szállítói okmány-azonosítás (I.),
+   doc_number_hash 5 éves csalásvédelmi megőrzés (II.), fotó/chat
+   bizonyíték-zárolás vitás ügyleteknél (III.) — lásd 11. pont is
 6. **Adatfeldolgozói szerződések (28. cikk) tételes ellenőrzése.** A
    tájékoztató állítja, hogy mindenkivel van DPA; a nagy SaaS-eknél (Neon,
    Cloudflare, Resend, Sentry, Google) a ToS/DPA általában fedi — a
    **SeeMe-nél (magyar cég) külön ellenőrizendő**, van-e írásos DPA
-7. **Incidenskezelési terv — nincs.** 72 órás NAIH-bejelentési
-   kötelezettség adatvédelmi incidensnél; kell egy rövid terv-dokumentum
+7. ~~Incidenskezelési terv~~ → **MEGÍRVA (2026-07-20,
+   `docs/adatvedelem/incidenskezelesi-terv.md`), ügyvezetői jóváhagyásra
+   vár.** 72 órás NAIH-bejelentési lépéssor, kockázat-szintek, szerep-
+   mátrix, érintett-értesítési sablon, incidens-napló-kötelezettség
 8. *(Apróság)* **Sentry `beforeSend` minimális**: csak authorization+cookie
    headert szed ki — request body / user-kontextus még vihet PII-t
-9. **Ügyvédi review** az AI-írta jogi szövegekre (Phase 6-on rajta van) —
-   ez a végső pecsét; addig „teljesen jogszerű" kijelentés NEM tehető
+9. **Ügyvédi review** az AI-írta jogi szövegekre (Phase 6-on rajta van,
+   a 4 új dokumentumra IS kiterjed) — ez a végső pecsét; addig „teljesen
+   jogszerű" kijelentés NEM tehető
 10. **DAC7 platformüzemeltetői kötelezettségek (2026-07-20-i jogi kutatás
     során azonosítva)** — a GoFuvar az Aktv. (DAC7) szerint
     platformüzemeltető, a szállítók „értékesítők" (személyi szolgáltatás:
@@ -599,22 +609,25 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
     operatív oldal (regisztráció + adóazonosító-mező + jelentés) HIÁNYZIK.
     Pozitívum: a DAC7 törvényi adatgyűjtési kötelezettsége egyben a
     szállítói személyazonosítás (KYC) egyik jogalapja is (GDPR 6(1)(c))
-11. **Okmány-fotózás érdekmérlegelési teszt (a 5. pont konkretizálása,
-    2026-07-20)** — a NAIH-főszabály szerint okmányt másolni külön törvényi
-    felhatalmazás nélkül főszabály szerint tilos, MÉG HOZZÁJÁRULÁSSAL IS;
-    a mi jogalapunk a jogos érdek (távoli kontextusban a fénykép az
-    egyetlen működő azonosítás + biztonság/csalásmegelőzés) — ehhez ÍRÁSOS
-    érdekmérlegelési teszt KELL, amely rögzíti: miért nincs enyhébb mód,
-    és a garanciákat (30 napos törlés, privát bucket, emberi döntés, nincs
-    biometria). ⚠️ SZABÁLY: LAKCÍMKÁRTYÁT SOHA ne kérjünk (hátulján a
+11. ~~Okmány-fotózás érdekmérlegelési teszt~~ → **MEGÍRVA, lásd 5. pont**
+    (`docs/adatvedelem/erdekmerlegelesi-tesztek.md` I. teszt) — a
+    NAIH-főszabály szerint okmányt másolni külön törvényi felhatalmazás
+    nélkül főszabály szerint tilos, MÉG HOZZÁJÁRULÁSSAL IS; a jogalap a
+    jogos érdek (távoli kontextusban a fénykép az egyetlen működő
+    azonosítás), a teszt rögzíti miért nincs enyhébb mód + a garanciákat
+    (30 napos törlés, privát bucket, emberi döntés, nincs biometria).
+    ⚠️ SZABÁLY (VÁLTOZATLAN): LAKCÍMKÁRTYÁT SOHA ne kérjünk (hátulján a
     személyi azonosító — 1996. évi XX. tv. szerint csak törvényi
     felhatalmazással kezelhető); csak személyi igazolvány
 
-Becsült munka: 1. pont perces; 2+3+5+7+11 együtt ~1 nap dokumentum-draft
-(Claude megírhatja, ügyvezető/ügyvéd átnézi); 4. pont kis végpont vagy
-folyamat-döntés; 10. pont: kis fejlesztés (adóazonosító-mező) + NAV-ügyintézés.
-Kontextus: a 2026-07-18-i felmérés 8/10-re értékelte az adatvédelmi
-állapotot — a hiányzó 2 pont EZ a lista.
+**Állapot (2026-07-20 után):** a 2+3+5+7+11 pontok dokumentum-szinten
+KÉSZEK (`docs/adatvedelem/`, lásd az ottani README-t) — ügyvezetői
+jóváhagyásra (aláírás/dátum a dokumentumok záradékában) és a tervezett
+ügyvédi review-ra várnak, utána tekinthetők lezártnak. Élesben nem
+változtatnak semmit — belső, nem publikus anyagok. Maradék munka:
+1. pont (perces ellenőrzés), 4. pont (kis végpont/folyamat-döntés),
+6. pont (SeeMe DPA-ellenőrzés), 10. pont (adóazonosító-mező +
+NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
 
 ### 🟡 Várakozóban
 - **FIZETÉS: QVIK-re váltás (2026-07-08 döntés)** — a Barion drága; a
