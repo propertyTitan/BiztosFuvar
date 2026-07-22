@@ -555,14 +555,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > automatika, minimalizálás, privát KYC-bucket, scrub-tesztek) erős — a
 > FORMÁLIS jogi réteg hiányos, egy NAIH-vizsgálat ma találna hibát.
 
-1. **Gemini API számlázási szint — a legélesebb pont, perces ellenőrzés.**
-   A KYC-okmányfotók a Google AI Studio API-ra mennek (`GEMINI_API_KEY`,
-   `services/gemini.js`). INGYENES szinten a Google a beküldött tartalmat
-   termékfejlesztésre használhatja (emberi átnézéssel is) → okmányfotókra
-   jogilag tarthatatlan (a Google akkor nem „adatfeldolgozó", ahogy a
-   tájékoztató állítja); FIZETŐS (billing-engedélyezett) szinten nem
-   használják. Teendő: ellenőrizni, hogy a kulcs számlázós fiókhoz
-   tartozik-e; ha nem → billing bekapcsolása (nem kódmódosítás)
+1. ~~Gemini API számlázási szint~~ → **ELLENŐRIZVE, RENDBEN (2026-07-22,
+   user megerősítette)** — a KYC-okmányfotók a Google AI Studio API-ra
+   mennek (`GEMINI_API_KEY`, `services/gemini.js`). A projekt a Google
+   Cloud Console Billingjén havonta VÁLTOZÓ, valódi díjat mutat (pl.
+   $0,03) → ez csak fizetős (pay-as-you-go, billing-engedélyezett)
+   projektnél lehetséges (ingyenes szinten sosem keletkezik számlázott
+   tétel). Fizetős szinten a Google NEM használja a beküldött tartalmat
+   termékfejlesztésre → a KYC-okmányfotókra ez jogilag rendben van, a
+   dpia-kyc.md 2. kockázatának feltétele teljesül
 2. ~~DPIA (adatvédelmi hatásvizsgálat, GDPR 35. cikk)~~ → **MEGÍRVA
    (2026-07-20, `docs/adatvedelem/dpia-kyc.md`), ügyvezetői jóváhagyásra
    vár.** Az AI-alapú okmányelemzésre; 8 azonosított kockázat +

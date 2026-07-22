@@ -94,7 +94,7 @@ Skála: valószínűség/súlyosság — alacsony (A), közepes (K), magas (M).
 | # | Kockázat | Val. | Súly. | Kezelés | Maradék |
 |---|---|---|---|---|---|
 | 1 | Jogosulatlan hozzáférés a tárolt okmányfotókhoz (adatlopás) | A | M | Privát bucket, nincs publikus URL, rövid élettartamú aláírt linkek, admin-jog + force-logout mechanizmus, 30 napos tárolás (kis támadási felület), CI-őrzött adatszivárgás-tesztek | A |
-| 2 | A Google a beküldött okmányképet saját (modellfejlesztési) célra használja | K* | M | *CSAK az ingyenes API-szinten áll fenn. **KÖTELEZŐ intézkedés: számlázás-engedélyezett (fizetős) Gemini API használata**, ahol a beküldött tartalom nem használható fejlesztésre; az állapot ellenőrzése a launch-kapu checklist 1. pontja | A (fizetős szinten) |
+| 2 | A Google a beküldött okmányképet saját (modellfejlesztési) célra használja | A* | M | *CSAK az ingyenes API-szinten állna fenn — 2026-07-22-én ELLENŐRIZVE: a Google Cloud Console Billing havonta változó, valódi díjat mutat, ami kizárólag számlázás-engedélyezett (fizetős) projektnél lehetséges; ott a beküldött tartalom nem használható fejlesztésre | A |
 | 3 | Téves AI-kiolvasás → jogosulatlan elutasítás vagy téves életkor-megállapítás | K | K | Az AI csak előszűr; minden döntés emberi; elutasítás indoklással + újrapróbálkozás lehetősége; panasz-csatorna (panasz@gofuvar.hu) | A |
 | 4 | Túltárolás (a törlés elmarad) | A | M | Automatizált napi törlő-job (kézi lépés nincs); a retenció-logika automata teszttel fedett | A |
 | 5 | Funkció-elcsúszás (az okmányadatok más célra használata) | A | K | Célhoz kötöttség a tájékoztatóban; a kód az okmányadatot kizárólag a KYC-folyamatban használja; új cél = új jogalap + e DPIA felülvizsgálata | A |
@@ -118,8 +118,8 @@ Skála: valószínűség/súlyosság — alacsony (A), közepes (K), magas (M).
 
 ### 5.2 Kötelező teendők az élesítés előtt/során
 
-1. **Gemini API számlázás-engedélyezett (fizetős) szint ellenőrzése** —
-   a 2. kockázat kezelésének feltétele (launch-kapu checklist 1. pont).
+1. ~~Gemini API számlázás-engedélyezett (fizetős) szint ellenőrzése~~ →
+   **KÉSZ (2026-07-22)**, lásd 2. kockázat.
 2. Az érdekmérlegelési tesztek és e DPIA **ügyvezetői jóváhagyása**.
 3. A tervezett **ügyvédi review** kiterjesztése e dokumentumokra.
 
@@ -136,10 +136,11 @@ Az azonosított kockázatok a felsorolt intézkedésekkel **alacsony maradék
 kockázati szintre** szoríthatók; a 35. cikk (7) szerinti szempontok
 (rendszerezett leírás, szükségesség-arányosság, kockázatok, intézkedések)
 teljesülnek. A GDPR 36. cikk szerinti **előzetes NAIH-konzultáció nem
-szükséges**, mert magas maradék kockázat nem áll fenn — feltéve, hogy az
-5.2/1. pont (fizetős Gemini-szint) teljesül. Ha az nem teljesíthető, a
-Gemini-előszűrést fel kell függeszteni (a KYC tisztán kézi jóváhagyással
-is működőképes).
+szükséges**, mert magas maradék kockázat nem áll fenn — a 2. kockázat
+egyetlen feltétele (fizetős Gemini-szint) 2026-07-22-én igazoltan
+teljesül. Ha ez a jövőben megváltozna (pl. a kulcs új, számlázás nélküli
+projektre kerülne), a Gemini-előszűrést azonnal fel kell függeszteni (a
+KYC tisztán kézi jóváhagyással is működőképes).
 
 ```
 Kelt: Hódmezővásárhely, 2026. ___________
