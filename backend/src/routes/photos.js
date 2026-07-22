@@ -17,6 +17,7 @@ const { createNotification } = require('../services/notifications');
 const { sendEmail } = require('../services/email');
 const { saveFile } = require('../services/storage');
 const { maybeGrantReferralReward } = require('../services/referral');
+const { markTaxDataRequestedIfNeeded } = require('../services/dac7');
 const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
@@ -245,6 +246,10 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     // Ajánlói jutalom-trigger: a szállító most zárta le a fuvarját → ha ő egy
     // meghívott, és ez az első teljesített fuvarja, az ajánlója kupont kap.
     maybeGrantReferralReward(job.carrier_id, { role: 'carrier', jobId }).catch(() => {});
+
+    // DAC7-trigger: az első teljesített fuvarral a magánszemély szállító
+    // jelentendővé válik → adóazonosító-bekérés indul (idempotens).
+    markTaxDataRequestedIfNeeded(job.carrier_id).catch(() => {});
 
     // Értesítés a FELADÓNAK: a csomagod megérkezett!
     try {
@@ -519,6 +524,9 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     // fuvardíjat a szállító készpénzben kapja.
     realtime.emitToUser(booking.shipper_id, 'route-booking:delivered', { booking_id: bookingId, photo });
     realtime.emitToUser(booking.carrier_id, 'route-booking:delivered', { booking_id: bookingId, photo });
+
+    // DAC7-trigger: a foglalás-teljesítés is jelentendővé tesz (idempotens).
+    markTaxDataRequestedIfNeeded(booking.carrier_id).catch(() => {});
 
     // Értesítések (in-app + SMS) — fire-and-forget
     createNotification({

@@ -12,6 +12,7 @@ import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
 import ReferralCard from '@/components/ReferralCard';
+import TaxDataCard from '@/components/TaxDataCard';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -309,6 +310,12 @@ export default function ProfilOldal() {
               )}
             </div>
           </div>
+
+          {/* DAC7 adóazonosító-bekérés — csak akkor látszik, ha a backend
+              már kérte (első teljesített fuvar után) és még nincs megadva */}
+          <TaxDataCard profile={profile} onSaved={() => {
+            window.dispatchEvent(new Event('gofuvar:kyc-updated'));
+          }} />
 
           <ReferralCard />
 

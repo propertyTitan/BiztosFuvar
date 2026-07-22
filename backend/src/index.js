@@ -187,4 +187,11 @@ if (process.env.DATABASE_URL) {
   setTimeout(() => { runDailyRetention().catch(() => {}); }, 90 * 1000).unref();
   setInterval(() => { runDailyRetention().catch(() => {}); }, DAY_MS).unref();
   console.log('[retention] napi adat-retenció ütemezve (fotó 30 nap / chat 6 hó / GPS 7 nap; zárolt: 5 év)');
+
+  // DAC7: adóazonosító-emlékeztetők (21 naponta, max 2; 60 nap után a
+  // requireDriverKYC kapu blokkol) — napi kör.
+  const { runDailyDac7Reminders } = require('./services/dac7');
+  setTimeout(() => { runDailyDac7Reminders().catch(() => {}); }, 120 * 1000).unref();
+  setInterval(() => { runDailyDac7Reminders().catch(() => {}); }, DAY_MS).unref();
+  console.log('[dac7] napi adóazonosító-emlékeztető kör ütemezve');
 }

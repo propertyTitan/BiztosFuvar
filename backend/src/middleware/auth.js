@@ -77,13 +77,16 @@ async function requireIdentityKYC(req, res, next) {
 async function requireDriverKYC(req, res, next) {
   try {
     const { rows } = await db.query(
-      `SELECT identity_kyc_status, driver_terms_accepted_at FROM users WHERE id = $1`,
+      `SELECT identity_kyc_status, driver_terms_accepted_at,
+              account_type, personal_tax_id, tax_data_requested_at,
+              tax_data_reminder_count
+         FROM users WHERE id = $1`,
       [req.user.sub],
     );
     const u = rows[0];
     if (!u) return res.status(401).json({ error: 'Felhasználó nem található' });
-    // A személyi igazolvány (identity KYC) mindenkinek kötelező — aki ezt
-    // igazolta, jogosult MINDENRE (feladó és szállító). A jogosítvány-követelmény
+    // A személyi igazolvány (identity KYC) a SZÁLLÍTÓI tevékenységhez kötelező
+    // (2026-07-19 óta a feladónak nem kell). A jogosítvány-követelmény
     // megszűnt (2026-07-07): a nem-motoros futárokat is engedjük.
     if (u.identity_kyc_status !== 'verified') {
       return res.status(403).json({
@@ -97,6 +100,20 @@ async function requireDriverKYC(req, res, next) {
       return res.status(403).json({
         error: 'A fuvarozás megkezdéséhez fogadd el a nyilatkozatot: minden vonatkozó jogszabályt és a KRESZ-t betartod.',
         code: 'DRIVER_TERMS_REQUIRED',
+      });
+    }
+    // DAC7-kikényszerítés (Aktv.): ha a magánszemély szállító az adóazonosító-
+    // bekérés után 2 emlékeztető + 60 nap elteltével sem adta meg az adatait,
+    // az ÚJ ajánlattétel/járat-hirdetés blokkolódik, amíg meg nem adja.
+    // (A folyamatban lévő fuvarjait ez nem érinti — csak az újakat.)
+    // Lusta require: a dac7 → notifications → middleware/auth körkörös
+    // betöltést kerüli el (futáskor már minden modul kész).
+    const { computeTaxDataState } = require('../services/dac7');
+    const taxState = computeTaxDataState(u);
+    if (taxState.blocked) {
+      return res.status(403).json({
+        error: 'Jogszabályi kötelezettség (DAC7) miatt add meg az adóazonosító jeled a profilodon — utána azonnal folytathatod az ajánlattételt.',
+        code: 'TAX_DATA_REQUIRED',
       });
     }
     next();
