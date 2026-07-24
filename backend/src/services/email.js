@@ -513,6 +513,49 @@ async function sendPasswordResetEmail({ to, fullName, resetUrl }) {
   });
 }
 
+/**
+ * DAC7 adóazonosító-bekérő / emlékeztető a magánszemély SZÁLLÍTÓNAK.
+ * reminderNo: 0 = első kérés (az első teljesített fuvar után),
+ * 1 = első emlékeztető, 2 = utolsó emlékeztető (blokkolás-figyelmeztetéssel).
+ */
+async function sendTaxDataRequestEmail({ to, name, deadline, reminderNo = 0 }) {
+  const deadlineStr = deadline instanceof Date ? deadline.toLocaleDateString('hu-HU') : String(deadline || '');
+  const heading = reminderNo === 0
+    ? '🧾 Egy adat még hiányzik: adóazonosító jel'
+    : (reminderNo >= 2 ? '🧾 Utolsó emlékeztető: adóazonosító jel' : '🧾 Emlékeztető: adóazonosító jel');
+  const intro = reminderNo === 0
+    ? `<p>Gratulálunk az első teljesített fuvarodhoz! 🎉</p>
+       <p>A GoFuvar mint platformüzemeltető <strong>jogszabályi kötelezettség</strong> (az EU DAC7-irányelve, itthon az Aktv.) alapján köteles a szállítók adóügyi adatait rögzíteni és évente a NAV felé jelenteni.</p>`
+    : `<p>Korábban kértük, hogy add meg az adóügyi adataidat — ez még nem történt meg.</p>`;
+  const consequence = reminderNo >= 2
+    ? `<p style="color:#b45309"><strong>Fontos:</strong> ha <strong>${escapeHtml(deadlineStr)}</strong>-ig nem adod meg, a jogszabály alapján az új ajánlattételi lehetőségedet fel kell függesztenünk, amíg az adat meg nem érkezik.</p>`
+    : `<p>Határidő: <strong>${escapeHtml(deadlineStr)}</strong>.</p>`;
+  const bodyHtml = `
+    <p>Szia ${escapeHtml(name) || 'GoFuvar szállító'}!</p>
+    ${intro}
+    <p>Amit kérünk a profilodon megadni (2 perc):</p>
+    <ul>
+      <li><strong>Adóazonosító jel</strong> (a 8-cal kezdődő, 10 jegyű szám az adókártyádról)</li>
+      <li><strong>Születési dátum</strong></li>
+      <li><strong>Lakcím</strong></li>
+    </ul>
+    ${consequence}
+    <p style="font-size:13px;color:#6b7280">Az adatokat kizárólag a törvényi adatszolgáltatáshoz használjuk, és az adatkezelési tájékoztatónk szerint védjük. A fuvardíjad adózása ettől független — a platform nem von le semmit, csak jelent.</p>
+  `;
+  return sendEmail({
+    to,
+    subject: reminderNo >= 2
+      ? 'Utolsó emlékeztető: adóazonosító jel megadása szükséges'
+      : 'Adóazonosító jel megadása szükséges (jogszabályi kötelezettség)',
+    html: wrapHtml({
+      heading,
+      bodyHtml,
+      ctaText: 'Megadom a profilomon',
+      ctaHref: `${getWebBase()}/profil`,
+    }),
+  });
+}
+
 module.exports = {
   sendEmail,
   sendBidReceivedEmail,
@@ -528,5 +571,6 @@ module.exports = {
   sendRecipientTrackingEmail,
   sendEmailVerificationEmail,
   sendPasswordResetEmail,
+  sendTaxDataRequestEmail,
   isStub,
 };

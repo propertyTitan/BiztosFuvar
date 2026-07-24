@@ -833,6 +833,10 @@ export const api = {
   acceptDriverTerms: () =>
     request<{ ok: true; driver_terms_accepted_at: string }>('/auth/accept-driver-terms', { method: 'POST' }),
 
+  /** DAC7 adóügyi adatok megadása (magánszemély szállító, adóazonosító jel). */
+  saveTaxData: (body: { personal_tax_id: string; birth_date: string; address: string }) =>
+    request<{ ok: true }>('/auth/tax-data', { method: 'POST', body: JSON.stringify(body) }),
+
   /** NAV adószám-ellenőrzés kézi indítása ("Ellenőrzött cég" jelvény). */
   verifyCompany: () =>
     request<{

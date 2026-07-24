@@ -12,7 +12,7 @@ import { useTranslation, formatPrice } from '@/lib/i18n';
 import {
   FileText, Route as RouteIcon, ShoppingBag, Target, BarChart3, Tag,
   Truck, RefreshCw, Plus, ClipboardList, Package, Bell, User as UserIcon,
-  BadgeCheck, Star, Ticket, MapPin, Flag, Camera,
+  BadgeCheck, Star, Ticket, MapPin, Flag, Camera, Receipt,
 } from 'lucide-react';
 
 type Mode = 'driver' | 'shipper';
@@ -30,6 +30,9 @@ export default function HomeHub() {
   // (akkor sem, ha a flag hiányzik — pl. másik gépen/úton verifikált);
   // nem-verifikáltnak addig látszik, amíg el nem rejti.
   const [kycStatus, setKycStatus] = useState<string | null>(null);
+  // DAC7: az első teljesített fuvar után a backend adóazonosítót kér — a
+  // szállító-módban erre banner figyelmeztet (a form a profilon van)
+  const [taxData, setTaxData] = useState<any>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -40,7 +43,11 @@ export default function HomeHub() {
     let cancelled = false;
     const checkKyc = () => {
       api.getMyProfile()
-        .then((p: any) => { if (!cancelled) setKycStatus(p?.identity_kyc_status || 'none'); })
+        .then((p: any) => {
+          if (cancelled) return;
+          setKycStatus(p?.identity_kyc_status || 'none');
+          setTaxData(p?.tax_data || null);
+        })
         .catch(() => {});
     };
     checkKyc();
@@ -150,6 +157,36 @@ export default function HomeHub() {
             </div>
             )}
           </div>
+
+          {/* DAC7: adóazonosító-bekérés banner (az első teljesített fuvar
+              után; a kitöltő űrlap a profilon) */}
+          {taxData?.needed && (
+            <Link
+              href="/profil"
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                marginBottom: 20, padding: '14px 18px', borderRadius: 12,
+                textDecoration: 'none', color: 'inherit',
+                background: taxData.blocked ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)',
+                border: `1px solid ${taxData.blocked ? 'var(--danger)' : 'var(--warning)'}`,
+              }}
+            >
+              <Receipt size={22} style={{ flexShrink: 0 }} />
+              <div>
+                <strong style={{ fontSize: 14 }}>
+                  {taxData.blocked
+                    ? 'Az ajánlattételed felfüggesztve — add meg az adóazonosító jeled'
+                    : 'Add meg az adóazonosító jeled a profilodon'}
+                </strong>
+                <div className="muted" style={{ fontSize: 13 }}>
+                  Jogszabályi kötelezettség (DAC7)
+                  {taxData.deadline && !taxData.blocked
+                    ? ` — határidő: ${new Date(taxData.deadline).toLocaleDateString('hu-HU')}`
+                    : ''} · Kattints a megadáshoz
+                </div>
+              </div>
+            </Link>
+          )}
 
           {/* KYC tájékoztató — szállító módban is, első belépéskor */}
           {kycCardVisible && (

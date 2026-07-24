@@ -401,6 +401,8 @@ router.get('/me', authRequired, async (req, res) => {
             company_name, tax_id, company_reg_number, eu_vat_number, billing_address,
             nav_taxpayer_checked_at, nav_taxpayer_name, nav_taxpayer_valid,
             driver_terms_accepted_at,
+            personal_tax_id, birth_date,
+            tax_data_requested_at, tax_data_reminder_count,
             email_verified
        FROM users WHERE id = $1`,
     [req.user.sub],
@@ -408,8 +410,14 @@ router.get('/me', authRequired, async (req, res) => {
   if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
   // company_nav_available: a profil-oldal ebből tudja, mutasson-e
   // "NAV-ellenőrzés indítása" gombot (amíg a NAV-integráció nincs élesítve,
-  // a gomb rejtve marad).
-  res.json({ ...rows[0], company_nav_available: navTaxpayer.isConfigured() });
+  // a gomb rejtve marad). tax_data: a DAC7-kártya állapota (kell-e még
+  // adóazonosító, blokkolt-e már az ajánlattétel, mi a határidő).
+  const { computeTaxDataState } = require('../services/dac7');
+  res.json({
+    ...rows[0],
+    company_nav_available: navTaxpayer.isConfigured(),
+    tax_data: computeTaxDataState(rows[0]),
+  });
 });
 
 // POST /auth/accept-driver-terms — a szállítói egyszeri nyilatkozat elfogadása:
@@ -523,6 +531,46 @@ router.post(
     res.json(result);
   },
 );
+
+// POST /auth/tax-data — DAC7 adóügyi adatok megadása (magánszemély szállító).
+// A profil DAC7-kártyája hívja; az adóazonosító jelet ellenőrző összeggel
+// validáljuk. Cégnek nem kell (nála az adószám a TIN — már gyűjtjük).
+router.post('/tax-data', authRequired, writeRateLimit, async (req, res) => {
+  const { validatePersonalTaxId } = require('../services/dac7');
+  const { personal_tax_id, birth_date, address } = req.body || {};
+
+  const { rows: userRows } = await db.query(
+    `SELECT account_type FROM users WHERE id = $1`, [req.user.sub],
+  );
+  if (!userRows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+  if (userRows[0].account_type === 'company') {
+    return res.status(400).json({ error: 'Céges fióknál az adószám az adóügyi azonosító — külön adóazonosító jel nem szükséges.' });
+  }
+
+  const cleanTaxId = String(personal_tax_id ?? '').replace(/\s/g, '');
+  if (!validatePersonalTaxId(cleanTaxId)) {
+    return res.status(400).json({ error: 'Érvénytelen adóazonosító jel — 8-cal kezdődő, 10 számjegyű szám (az adókártyádon találod).' });
+  }
+  // Születési dátum: valós, múltbeli dátum, 18+ (a KYC ezt már igazolta,
+  // itt az elgépelést szűrjük).
+  const bd = new Date(String(birth_date ?? ''));
+  const age = (Date.now() - bd.getTime()) / (365.25 * 86400000);
+  if (Number.isNaN(bd.getTime()) || bd.getFullYear() < 1900 || age < 18 || age > 120) {
+    return res.status(400).json({ error: 'Érvénytelen születési dátum.' });
+  }
+  const cleanAddress = typeof address === 'string' ? address.trim() : '';
+  if (cleanAddress.length < 5 || cleanAddress.length > 300) {
+    return res.status(400).json({ error: 'Add meg a lakcímed (irányítószám, település, utca, házszám).' });
+  }
+
+  await db.query(
+    `UPDATE users SET personal_tax_id = $1, birth_date = $2, billing_address = $3,
+            updated_at = NOW()
+      WHERE id = $4`,
+    [cleanTaxId, bd.toISOString().slice(0, 10), cleanAddress, req.user.sub],
+  );
+  res.json({ ok: true });
+});
 
 // GET /auth/users/:id/profile — publikus profil + statisztikák
 router.get('/users/:id/profile', authRequired, async (req, res) => {

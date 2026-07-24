@@ -604,18 +604,26 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 9. **Ügyvédi review** az AI-írta jogi szövegekre (Phase 6-on rajta van,
    a 4 új dokumentumra IS kiterjed) — ez a végső pecsét; addig „teljesen
    jogszerű" kijelentés NEM tehető
-10. **DAC7 platformüzemeltetői kötelezettségek (2026-07-20-i jogi kutatás
-    során azonosítva)** — a GoFuvar az Aktv. (DAC7) szerint
-    platformüzemeltető, a szállítók „értékesítők" (személyi szolgáltatás:
-    fuvarozás — NINCS de minimis mentesség!). Teendők: (a) NAV
-    platformüzemeltetői BEJELENTKEZÉS (launch előtt tisztázni a határidőt);
-    (b) a szállítók ADÓAZONOSÍTÓ JELÉNEK gyűjtése (ma nem kérjük! — a
-    DAC7-átvilágításhoz kötelező: név, cím, születési dátum, adóazonosító);
-    (c) éves adatszolgáltatás a NAV-nak (első jelentés a launch-évet követő
-    január 31.). Az adatkezelési tájékoztató a DAC7-et már említi, de az
-    operatív oldal (regisztráció + adóazonosító-mező + jelentés) HIÁNYZIK.
-    Pozitívum: a DAC7 törvényi adatgyűjtési kötelezettsége egyben a
-    szállítói személyazonosítás (KYC) egyik jogalapja is (GDPR 6(1)(c))
+10. **DAC7 platformüzemeltetői kötelezettségek** — a GoFuvar az Aktv.
+    (DAC7) szerint platformüzemeltető, a szállítók „értékesítők" (személyi
+    szolgáltatás: fuvarozás — NINCS de minimis mentesség: 1 teljesített
+    fuvar is jelentendővé tesz!). Állás:
+    (b) ~~adóazonosító-gyűjtés~~ → **MEGÉPÍTVE (2026-07-22, PR #99,
+    Vinted-minta)**: magánszemély szállítótól az ELSŐ teljesített fuvar
+    után kérjük (adóazonosító jel checksum-validálva + születési dátum +
+    lakcím; profil-kártya + HomeHub-banner + email), 21 naponta max 2
+    emlékeztető (napi job), 2 emlékeztető + 60 nap után az új ajánlattétel
+    blokkolva (TAX_DATA_REQUIRED a requireDriverKYC-ben) — a megadás
+    azonnal felold; cégnél az adószám a TIN (már gyűjtött, nem érintett);
+    051 migráció (prodon lefutott).
+    MÉG NYITOTT: (a) NAV platformüzemeltetői BEJELENTKEZÉS (user-teendő,
+    ügyfélkapu; a kötelezettség keletkezésétől 45 nap — gyakorlatban a
+    launch körül); (c) éves adatszolgáltatás a NAV-nak (első jelentés a
+    launch-évet követő január 31. — a jelentés-generálót addig kell
+    megépíteni, az adatok már gyűlnek). Szankció: 2 M Ft-ig, felhívás
+    után 5 M Ft-ig terjedő mulasztási bírság. Pozitívum: a DAC7 törvényi
+    adatgyűjtési kötelezettsége egyben a szállítói KYC egyik jogalapja is
+    (GDPR 6(1)(c))
 11. ~~Okmány-fotózás érdekmérlegelési teszt~~ → **MEGÍRVA, lásd 5. pont**
     (`docs/adatvedelem/erdekmerlegelesi-tesztek.md` I. teszt) — a
     NAIH-főszabály szerint okmányt másolni külön törvényi felhatalmazás
