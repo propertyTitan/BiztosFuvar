@@ -10,6 +10,23 @@ import {
 const PRODUCT_URL = 'https://www.ikea.com/hu/hu/p/billy-konyvespolc-feher-00263850/';
 const PRODUCT_IMAGE = 'https://www.ikea.com/hu/hu/images/products/billy-konyvespolc-feher.jpg';
 
+// Tesztelői észrevétel (2026-08-04): belépés nélkül is végig lehetett menni a
+// „Hozasd el" eszközön, hogy aztán a feladásnál derüljön ki, hogy be kell lépni.
+// A marketing-szöveg (SEO) marad publikus, az ESZKÖZ viszont belépéshez kötött.
+test('belépés nélkül a Hozasd el eszköz zárva, a landing-szöveg látszik', async ({ page }) => {
+  await page.goto('/hozasd-el');
+
+  // A SEO/marketing tartalom változatlanul kint van
+  await expect(page.getByRole('heading', { name: /Hozasd el/ })).toBeVisible();
+
+  // …de az eszköz helyén belépés-kapu áll
+  await expect(page.getByText('A feladáshoz belépés kell')).toBeVisible();
+  await expect(page.getByPlaceholder(/ikea\.com/)).toHaveCount(0);
+
+  await page.getByRole('link', { name: 'Belépés' }).first().click();
+  await page.waitForURL(/bejelentkezes/);
+});
+
 test('terméklink előnézete előtölti a feladást, a kép a szállítóig jut', async ({ page }) => {
   const shipper = await createUser('shipper', 'Feladó Ferenc');
   await loginAs(page, shipper);
@@ -46,7 +63,9 @@ test('terméklink előnézete előtölti a feladást, a kép a szállítóig jut
   await page.waitForFunction(() => Boolean((window as any).google?.maps?.places), null, {
     timeout: 30_000,
   });
-  const addressInputs = page.getByPlaceholder('Kezdd el beírni a címet…');
+  // A címmezők placeholdere a házszám-kötelezettség óta a várt formátumot
+  // mutatja („pl. Budapest, Váci út 1.") — a közös prefixre szűrünk.
+  const addressInputs = page.getByPlaceholder(/^pl\. (Budapest|Szeged)/);
   await selectAddress(page, addressInputs.first(), 'Budapest, Váci út 1');
   await selectAddress(page, addressInputs.nth(1), 'Szeged, Kossuth Lajos sugárút 1');
   await page.getByPlaceholder('pl. 120').fill('80');

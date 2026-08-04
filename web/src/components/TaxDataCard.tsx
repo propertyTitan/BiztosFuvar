@@ -21,6 +21,12 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
   if (!state?.needed) return null;
 
   const blocked = Boolean(state.blocked);
+  // Születési dátum: jövőbeli dátum nyilván érvénytelen, és a platformot csak
+  // 18 év felett lehet szállítóként használni (ÁSZF 3.1) — a naptár ezt a két
+  // korlátot mutatja is. Alsó korlát egy józan ész szerinti 1900.
+  const maxBirthDate = new Date(
+    Date.UTC(new Date().getUTCFullYear() - 18, new Date().getUTCMonth(), new Date().getUTCDate()),
+  ).toISOString().slice(0, 10);
   const deadline = state.deadline
     ? new Date(state.deadline).toLocaleDateString('hu-HU')
     : null;
@@ -91,6 +97,9 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
             className="input"
             type="date"
             value={birthDate}
+            min="1900-01-01"
+            max={maxBirthDate}
+            title="Jövőbeli dátum nem adható meg. Szállítóként 18 éves kortól használható a platform."
             onChange={(e) => setBirthDate(e.target.value)}
             required
             style={{ marginTop: 4 }}

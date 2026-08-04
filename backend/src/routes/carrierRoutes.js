@@ -101,6 +101,21 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   if (titleClean.length < 3 || titleClean.length > 100) {
     return res.status(400).json({ error: 'Az útvonal neve 3–100 karakter legyen (nem állhat csak szóközből).' });
   }
+  // Indulás időpontja: érvényes dátum, és NEM a múltban (tesztelői észrevétel,
+  // 2026-08-04). Múltbeli járatra foglalni sem lehetne, a listázás is kiszűrné
+  // — a felvitelt ezért itt is elutasítjuk, ne csak a böngésző `min` attribútuma.
+  // Kis (5 perces) türelmi ablak: az űrlap kitöltése közben ne fusson ki az
+  // épp beírt „most induló" időpont.
+  const departureDate = new Date(departure_at);
+  if (Number.isNaN(departureDate.getTime())) {
+    return res.status(400).json({ error: 'Az indulás időpontja érvénytelen.' });
+  }
+  if (departureDate.getTime() < Date.now() - 5 * 60 * 1000) {
+    return res.status(400).json({
+      error: 'Az indulás időpontja nem lehet a múltban — válassz jövőbeli időpontot.',
+      code: 'DEPARTURE_IN_PAST',
+    });
+  }
   if (!Array.isArray(waypoints) || waypoints.length < 2) {
     return res.status(400).json({ error: 'Legalább egy kiindulópont és egy célpont szükséges (waypoints)' });
   }
@@ -268,6 +283,22 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
     title, description, departure_at, waypoints, vehicle_description, prices, status,
     is_ride_along,
   } = req.body || {};
+
+  // Ha az időpontot MÓDOSÍTJÁK, az új érték nem mutathat a múltba. (Egy régi,
+  // már elindult járat változatlanul hagyott időpontja nem gond — az itt nem
+  // is kerül a body-ba.)
+  if (departure_at !== undefined) {
+    const d = new Date(departure_at);
+    if (Number.isNaN(d.getTime())) {
+      return res.status(400).json({ error: 'Az indulás időpontja érvénytelen.' });
+    }
+    if (d.getTime() < Date.now() - 5 * 60 * 1000) {
+      return res.status(400).json({
+        error: 'Az indulás időpontja nem lehet a múltban — válassz jövőbeli időpontot.',
+        code: 'DEPARTURE_IN_PAST',
+      });
+    }
+  }
 
   const client = await db.pool.connect();
   try {

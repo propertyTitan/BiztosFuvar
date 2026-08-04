@@ -185,6 +185,32 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Tesztelői kör: űrlap-validációk (2026-08-04)** — 5 észrevétel javítva:
+  (1) **múltbeli dátum tiltva** (járat-hirdetés `min` + JS-ellenőrzés +
+  BACKEND kényszerítés `DEPARTURE_IN_PAST` a POST-on ÉS a PATCH-en; járat-
+  kereső dátumszűrők `min`=ma és „Eddig" ≥ „Ettől"; DAC7 születési dátum
+  max = 18 éve); (2) **/hozasd-el eszköz belépéshez kötve** — a SEO/landing
+  szöveg publikus marad, az eszköz helyén „A feladáshoz belépés kell" kártya
+  (user-döntés: SEO-érték megtartása); a /dashboard/uj-fuvar is kapott
+  auth-kaput; (3) **szám-mezők**: negatív BE SEM ÍRHATÓ (beviteli szűrés),
+  tört cm/Ft látható hibaüzenetet kap (`web/src/lib/formValidation.ts`;
+  ⚠️ a tizedest NEM dobjuk el némán — a 12,5 cm-ből 125 cm lenne!), minden
+  mezőn `title` tooltip + mezőnkénti magyar hibaüzenet, `noValidate` a
+  formon (a natív buborék a böngésző nyelvén szólt és elnyomta a sajátunkat);
+  Enter a szövegmezőkben már nem küldi el az űrlapot; (4) **házszámig pontos
+  cím kötelező** a felvétel/lerakodás pontnál (user-döntés) —
+  `AddressAutocomplete requirePrecise`: ország/megye/település/irányítószám
+  elutasítva. ⚠️ KRITIKUS TANULSÁG: a Places legördülő magyar címeknél a
+  gyakorlatban SOHA nem kínál házszámos javaslatot (mérve: „Budapest, Váci
+  út 1" → mind a 10 javaslat utca vagy POI; a `types:['address']` szűrés sem
+  segít) — ezért a komponens a BEGÉPELT szöveget a **Geocoderrel** oldja fel
+  mentőágként (az pontosan visszaadja a street_number-t). Enélkül a szabály
+  minden feladást blokkolt volna; (5) **ha más veszi át**: „Nem én veszem át
+  a csomagot" checkbox → a címzett neve + telefonszáma KÖTELEZŐ (backend is:
+  `RECIPIENT_INCOMPLETE` / `RECIPIENT_PHONE_INVALID`; bármelyik címzett-mező
+  kitöltése kiváltja). +63 teszt (30 web unit + 18 backend + 1 E2E a
+  hozasd-el kapura; a régi uj-utvonal teszt fix múltbeli dátumát relatívra
+  írtuk, hogy ne rohadjon el)
 - **Feladói KYC-mentesség (2026-07-19, PR #96)** — a feladónak NEM kell
   személyi igazolvány: a `requireIdentityKYC` kapu kivéve a POST /jobs +
   /pay + /confirm-payment útvonalakról (a Járat-foglaláson sosem volt);
@@ -735,12 +761,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **85 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **250 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
-   - **28 web unit** (Vitest, `web-tests.yml`) — benne a
+   - **73 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **44 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **159 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
@@ -753,7 +779,7 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
      - **scrub-ALLOWLIST**: kívülálló pontosan a felsorolt publikus
        job-mezőket kaphatja — új DB-oszlop = a teszt elhasal, tudatos
        döntés kell (a paid_at-szivárgás osztálya ellen)
-   - **13 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+   - **18 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"

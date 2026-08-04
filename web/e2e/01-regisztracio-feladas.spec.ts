@@ -33,7 +33,9 @@ test('fuvar feladása — valódi Google Places cím-kereséssel', async ({ page
     timeout: 30_000,
   });
 
-  const addressInputs = page.getByPlaceholder('Kezdd el beírni a címet…');
+  // A címmezők placeholdere a házszám-kötelezettség óta a várt formátumot
+  // mutatja („pl. Budapest, Váci út 1.") — a közös prefixre szűrünk.
+  const addressInputs = page.getByPlaceholder(/^pl\. (Budapest|Szeged)/);
   await selectAddress(page, addressInputs.first(), 'Budapest, Váci út 1');
   await selectAddress(page, addressInputs.nth(1), 'Szeged, Kossuth Lajos sugárút 1');
 

@@ -170,6 +170,14 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
       error: 'A csomag mérete kötelező: hosszúság, szélesség és magasság (cm), mind pozitív szám',
     });
   }
+  // Tört centiméter nincs (tesztelői észrevétel, 2026-08-04) — a szállítónak
+  // a 120,5 cm sem mond mást, mint a 121, viszont a méret-besorolás és a
+  // térfogat kerekítése körül fölösleges bizonytalanságot szül.
+  if (!Number.isInteger(L) || !Number.isInteger(W) || !Number.isInteger(H)) {
+    return res.status(400).json({
+      error: 'A csomag méretét egész centiméterben add meg (tört érték nem adható meg).',
+    });
+  }
   // Felső korlát: efölött a volume_m3 (NUMERIC(8,2)) túlcsordulna a DB-ben és
   // 500-as szerverhiba lenne. 2000 cm = 20 m / oldal bőven elég bármilyen
   // valós csomaghoz; ennél nagyobb szám valószínűleg elgépelés vagy rossz egység.
@@ -210,6 +218,37 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
     return res.status(400).json({
       error: 'A megadott csomagérték irreálisan magas (legfeljebb 100 000 000 Ft).',
     });
+  }
+  // Forint = egész szám (a DB-oszlop is INTEGER, a tört úgyis csonkolódna)
+  if (priceNum != null && !Number.isInteger(priceNum)) {
+    return res.status(400).json({ error: 'A fuvardíjat kerek forintösszegben add meg.' });
+  }
+  if (declaredNum != null && !Number.isInteger(declaredNum)) {
+    return res.status(400).json({ error: 'A csomag értékét kerek forintösszegben add meg.' });
+  }
+
+  // Címzett: ha MÁS veszi át (bármelyik címzett-mező ki van töltve), akkor a
+  // NÉV és a TELEFONSZÁM együtt kötelező (tesztelői észrevétel, 2026-08-04).
+  // Enélkül a szállító a címen áll egy névvel, akit nem tud felhívni — és a
+  // felvételkori SMS (átvételi kód) sem tud kimenni.
+  const recipientName = typeof recipient_name === 'string' ? recipient_name.trim() : '';
+  const recipientPhone = typeof recipient_phone === 'string' ? recipient_phone.trim() : '';
+  const recipientEmail = typeof recipient_email === 'string' ? recipient_email.trim() : '';
+  const hasAnyRecipient = Boolean(recipientName || recipientPhone || recipientEmail);
+  if (hasAnyRecipient && (!recipientName || !recipientPhone)) {
+    return res.status(400).json({
+      error: 'Ha más veszi át a csomagot, a címzett neve ÉS telefonszáma is kötelező.',
+      code: 'RECIPIENT_INCOMPLETE',
+    });
+  }
+  if (recipientPhone) {
+    const digits = recipientPhone.replace(/\D/g, '');
+    if (/[a-zA-Z]/.test(recipientPhone) || digits.length < 9 || digits.length > 15) {
+      return res.status(400).json({
+        error: 'A címzett telefonszáma érvénytelen (add meg körzetszámmal, pl. +36 30 123 4567).',
+        code: 'RECIPIENT_PHONE_INVALID',
+      });
+    }
   }
 
   // --- Azonnali fuvar (is_instant) validáció ---
@@ -294,7 +333,7 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
       pCarry, pFloor, pLift,
       dCarry, dFloor, dLift,
       declaredValueClean, !!invoice_requested,
-      recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
+      recipientName || null, recipientPhone || null, recipientEmail || null, trackingToken,
       senderCode, sourceStoreClean, sourceImageClean,
     ],
   );
@@ -326,18 +365,18 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
   // SMS-MODELL (2026-07-13, user-döntés): a címzett EGYETLEN SMS-t kap, a
   // csomag FELVÉTELEKOR (kód + szállító elérhetősége — photos.js pickup ág).
   // Feladáskor SMS nincs (szállító sincs még); email mehet, az ingyen van.
-  if (recipient_email) {
+  if (recipientEmail) {
     const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
     const trackingUrl = `${baseUrl}/nyomon-kovetes/${trackingToken}`;
 
     setImmediate(async () => {
       // Email küldés (ha van email + Resend API kulcs)
-      if (recipient_email) {
+      if (recipientEmail) {
         try {
           const { sendRecipientTrackingEmail } = require('../services/email');
           await sendRecipientTrackingEmail({
-            to: recipient_email,
-            recipientName: recipient_name,
+            to: recipientEmail,
+            recipientName: recipientName,
             jobTitle: title,
             trackingUrl,
             deliveryCode,

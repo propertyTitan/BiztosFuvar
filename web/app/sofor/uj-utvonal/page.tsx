@@ -89,6 +89,32 @@ function UjUtvonalContent() {
     }));
   }
 
+  // --- Indulási időpont: a múlt tiltva ---------------------------------
+  // A `min` attribútum a natív dátumválasztóban is elszürkíti a múltat, a
+  // JS-ellenőrzés pedig a kézzel begépelt / beillesztett értéket fogja meg.
+  // Szerkesztésnél egy MÁR ELINDULT járat időpontját nem tekintjük hibának
+  // (különben a régi járatot nem lehetne menteni) — csak azt tiltjuk, hogy
+  // valaki a múltba állítsa át.
+  const [minDeparture, setMinDeparture] = useState('');
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setMinDeparture(
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+        `T${pad(d.getHours())}:${pad(d.getMinutes())}`,
+      );
+    };
+    tick();
+    // percenként frissítjük, hogy egy sokáig nyitva hagyott űrlapon se
+    // csússzon el a korlát
+    const t = setInterval(tick, 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  const departureInPast =
+    departureLocal.length > 0 && new Date(departureLocal).getTime() < Date.now();
+
   function autoTitle() {
     if (waypoints.length < 2) return '';
     return `${waypoints[0].name} → ${waypoints[waypoints.length - 1].name}`;
@@ -100,6 +126,7 @@ function UjUtvonalContent() {
   if (title.trim().length === 0) missingFields.push('Megnevezés');
   if (waypoints.length < 2) missingFields.push('Legalább 2 város (indulás és cél)');
   if (departureLocal.length === 0) missingFields.push('Indulás időpontja');
+  else if (departureInPast) missingFields.push('Jövőbeli indulási időpont (a megadott időpont már elmúlt)');
   if (!Object.values(sizes).some((s) => s.enabled && Number(s.price) > 0)) {
     missingFields.push('Legalább egy csomagméret bepipálva, megadott árral');
   }
@@ -189,9 +216,17 @@ function UjUtvonalContent() {
           className="input"
           type="datetime-local"
           value={departureLocal}
+          min={minDeparture}
+          title="Csak jövőbeli időpont adható meg — múltbeli indulásra nem lehet járatot hirdetni."
           onChange={(e) => setDepartureLocal(e.target.value)}
           required
         />
+        {departureInPast && (
+          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 4 }}>
+            Ez az időpont már elmúlt. Válassz jövőbeli indulást — múltbeli
+            járatot nem lehet meghirdetni.
+          </p>
+        )}
 
         <label>Jármű rövid leírása (opcionális)</label>
         <input

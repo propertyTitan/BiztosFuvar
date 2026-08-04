@@ -4,11 +4,13 @@
 // A felhasználó bemásol egy IKEA / OBI / Praktiker / Jófogás terméklinket,
 // élő előnézetet kap (kép + cím), és egy kattintással a feladás-flow-ba lép,
 // ahol a cím és a forrás-link már elő van töltve.
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Link2, ArrowRight, Check, ShoppingBag, Leaf, ShieldCheck } from 'lucide-react';
+import { Link2, ArrowRight, Check, ShoppingBag, Leaf, ShieldCheck, Lock } from 'lucide-react';
 import { api } from '@/api';
 import { useToast } from '@/components/ToastProvider';
+import { useCurrentUser } from '@/lib/auth';
 
 type Preview = {
   ok: boolean; source: string; url: string;
@@ -18,9 +20,17 @@ type Preview = {
 export default function HozasdElTool() {
   const router = useRouter();
   const toast = useToast();
+  const me = useCurrentUser();
+  const [mounted, setMounted] = useState(false);
   const [url, setUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
+
+  // A useCurrentUser az első renderen mindig null (localStorage-olvasás a
+  // useEffect-ben) — a kapu csak mountolás után dönt, különben a belépett
+  // usernek is felvillanna a „belépés szükséges" doboz.
+  useEffect(() => { setMounted(true); }, []);
+  const loggedIn = mounted && !!me;
 
   async function loadPreview() {
     const u = url.trim();
@@ -71,7 +81,34 @@ export default function HozasdElTool() {
         </p>
       </section>
 
-      {/* Beillesztő eszköz */}
+      {/* Beillesztő eszköz — CSAK belépve. A marketing-szöveg és a SEO-tartalom
+          publikus marad, de az eszköz zsákutca lenne belépés nélkül: a feladás
+          (/dashboard/uj-fuvar) úgyis bejelentkezést követel. */}
+      {!loggedIn ? (
+        <div className="card" style={{ textAlign: 'center', padding: 28 }}>
+          <div
+            style={{
+              width: 48, height: 48, borderRadius: '50%', margin: '0 auto 12px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(37,99,235,0.10)',
+            }}
+          >
+            <Lock size={22} color="var(--primary)" strokeWidth={2.2} />
+          </div>
+          <div style={{ fontWeight: 800, fontSize: 18 }}>A feladáshoz belépés kell</div>
+          <p className="muted" style={{ fontSize: 14, margin: '8px auto 18px', maxWidth: 420 }}>
+            {mounted
+              ? 'Jelentkezz be, és utána be tudod illeszteni a terméklinket — a cím és a termékadatok automatikusan előtöltődnek a fuvarfeladásban. A regisztráció ingyenes.'
+              : ' '}
+          </p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link className="btn" href="/bejelentkezes">Belépés</Link>
+            <Link className="btn btn-secondary" href="/bejelentkezes?mode=register">
+              Regisztráció
+            </Link>
+          </div>
+        </div>
+      ) : (
       <div className="card">
         <label style={{ marginTop: 0 }}>Hirdetés linkje</label>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -128,6 +165,7 @@ export default function HozasdElTool() {
           </div>
         )}
       </div>
+      )}
 
       {/* Miért jó */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 16 }}>

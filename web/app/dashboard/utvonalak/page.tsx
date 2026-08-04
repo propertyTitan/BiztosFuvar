@@ -29,6 +29,11 @@ export default function FeladoiUtvonalBongeszo() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  // Múltbeli dátumra keresni értelmetlen: a backend úgyis csak a még el nem
+  // indult járatokat adja vissza (departure_at >= NOW() - 1 óra). A `min`
+  // ezt a naptárban is elszürkíti, a záró dátum pedig nem lehet a kezdő előtt.
+  const today = new Date().toISOString().slice(0, 10);
+
   // A `dates` felülbírálással a "Törlés" gomb azonnal üres szűrőkkel kérdez
   // le — a state-ből olvasás ott stale closure miatt a régi dátumokkal menne.
   async function load(filterCity?: string, dates?: { from: string; to: string }) {
@@ -148,7 +153,13 @@ export default function FeladoiUtvonalBongeszo() {
               className="input"
               type="date"
               value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+              min={today}
+              title="Csak a mai vagy későbbi dátum — múltbeli járat már nem foglalható."
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                // ha a záró dátum ezzel a múltba kerülne, húzzuk utána
+                if (toDate && e.target.value && toDate < e.target.value) setToDate(e.target.value);
+              }}
               style={{ width: 150 }}
             />
           </div>
@@ -158,6 +169,8 @@ export default function FeladoiUtvonalBongeszo() {
               className="input"
               type="date"
               value={toDate}
+              min={fromDate || today}
+              title="Csak a mai vagy későbbi dátum, és nem lehet korábbi az „Ettől” dátumnál."
               onChange={(e) => setToDate(e.target.value)}
               style={{ width: 150 }}
             />
