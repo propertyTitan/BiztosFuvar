@@ -203,6 +203,7 @@ AiChatWidget, CookieConsentBanner, header/footer).
 | `ChatBox`, `DisputeButton`, `ReviewBox`, `JobQuestions` | fuvar-interakciók |
 | `PriceCalculator`, `PriceComparison`, `CoverageModal` | árazás, coverage |
 | `EmailVerifyBanner`, `InstallPromptBanner`, `TestModeBanner` | állapot-bannerek |
+| `ThemeToggle` | világos/sötét/rendszer téma-kapcsoló a fejlécben (logika: `lib/theme.ts`) |
 | `CarrierTripPanel` | sofőri aktív-fuvar panel (felvétel/lezárás) |
 
 ### 2.4 Lib — `web/src/lib/`
@@ -235,7 +236,7 @@ Az `expo: ~54.0.0` pin SDK 52 deps-szel **szándékos** — ne piszkáld.
 | KYC-hez | `services/kyc.js` + `services/gemini.js` (backend) / `KycModal.tsx` (web) |
 | egy frontend-hívás formátumához | `web/src/api.ts` (egyetlen híd) |
 | authz "ki láthatja ezt a fuvart" | `utils/jobAccess.js` → `getJobParty` |
-| dark-mode szín-bug | `web/app/globals.css` → `body, body * { color: var(--text) }` felülírja mindent; inline `color` kell explicit |
+| dark-mode szín-bug | `web/app/globals.css` → `[data-theme='dark'] body, … body * { color: var(--text) }` felülírja mindent; inline `color` kell explicit. A témát a `<html data-theme>` vezérli (`web/src/lib/theme.ts` + a layout.tsx `<head>`-jébe tett boot-szkript), **nem** a `prefers-color-scheme` media query |
 | üzleti számhoz (díj, plafon) | `backend/src/services/connectionFee.js` (díjsávok) + `backend/src/constants.js` + CLAUDE.md #5 (NE írd felül egyoldalúan) |
 | séma / új mező | `backend/db/migrations/` (új számozott fájl) |
 

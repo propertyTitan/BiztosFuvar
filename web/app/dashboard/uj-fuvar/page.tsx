@@ -16,6 +16,12 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 import { useToast } from '@/components/ToastProvider';
+import { useCurrentUser } from '@/lib/auth';
+import {
+  MAX_DIM_CM, MAX_WEIGHT_KG,
+  intFieldError, moneyFieldError, weightFieldError,
+  sanitizeNumericInput, parseNumericInput, phoneError,
+} from '@/lib/formValidation';
 
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB – egyezik a backend limittel
 const MAX_PHOTO_COUNT = 8;
@@ -66,6 +72,8 @@ type FormState = {
   dropoff_floor: string;
   dropoff_has_elevator: boolean;
   invoice_requested: boolean;
+  /** „Nem én veszem át" — ilyenkor a címzett neve + telefonszáma KÖTELEZŐ. */
+  other_recipient: boolean;
   recipient_name: string;
   recipient_phone: string;
   recipient_email: string;
@@ -98,6 +106,7 @@ const initialForm: FormState = {
   dropoff_floor: '0',
   dropoff_has_elevator: false,
   invoice_requested: false,
+  other_recipient: false,
   recipient_name: '',
   recipient_phone: '',
   recipient_email: '',
@@ -106,15 +115,49 @@ const initialForm: FormState = {
 const REQ = { color: 'var(--danger-text)', fontWeight: 700 } as const;
 const redBorder = { border: '2px solid var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.15)' } as const;
 
+/** Egy mező alatti piros hibaüzenet — csak akkor, ha van mit mondani. */
+function FieldError({ children }: { children: string | null }) {
+  if (!children) return null;
+  return (
+    <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, margin: '4px 0 0' }}>
+      {children}
+    </p>
+  );
+}
+
 export default function UjFuvar() {
   const router = useRouter();
   const toast = useToast();
+  const me = useCurrentUser();
+  const [mounted, setMounted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [photos, setPhotos] = useState<File[]>([]);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
+  // Cím-pontatlanság (csak várost/országot választott a legördülőből)
+  const [pickupImprecise, setPickupImprecise] = useState('');
+  const [dropoffImprecise, setDropoffImprecise] = useState('');
+  // A szám-mezők NYERS szövege. Miért kell külön a `form` számai mellé:
+  //  (1) a „12," köztes gépelési állapot ne tűnjön el a mezőből;
+  //  (2) ha valaki egész mezőbe tizedest ír, azt LÁSSA és hibaüzenetet
+  //      kapjon rá — ne csendben 12,5 cm-ből 125 cm legyen.
+  type NumKey = 'length_cm' | 'width_cm' | 'height_cm' | 'weight_kg'
+    | 'suggested_price_huf' | 'declared_value_huf';
+  const [raw, setRaw] = useState<Record<NumKey, string>>({
+    length_cm: '', width_cm: '', height_cm: '', weight_kg: '',
+    suggested_price_huf: '', declared_value_huf: '',
+  });
+
+  /** Szám-mező onChange: szűrt nyers szöveg + belőle származtatott érték. */
+  function setNumeric(key: NumKey, input: string) {
+    const s = sanitizeNumericInput(input);
+    setRaw((prev) => ({ ...prev, [key]: s }));
+    setForm((prev) => ({ ...prev, [key]: parseNumericInput(s) }));
+  }
+
+  useEffect(() => { setMounted(true); }, []);
 
   function missing(filled: unknown): boolean {
     if (!tried) return false;
@@ -122,6 +165,26 @@ export default function UjFuvar() {
     if (typeof filled === 'number') return false;
     return !filled;
   }
+
+  // --- Mezőnkénti hibák ---------------------------------------------------
+  // Mindig kiszámoljuk (a submit-tiltáshoz kell), de csak submit-próba után
+  // MUTATJUK meg — hogy ne kiabáljunk a userre gépelés közben.
+  const errors = {
+    title: form.title.trim() ? null : 'Kérjük, töltsd ki: Megnevezés.',
+    length: intFieldError(form.length_cm, { label: 'Hosszúság (cm)', max: MAX_DIM_CM }),
+    width: intFieldError(form.width_cm, { label: 'Szélesség (cm)', max: MAX_DIM_CM }),
+    height: intFieldError(form.height_cm, { label: 'Magasság (cm)', max: MAX_DIM_CM }),
+    weight: weightFieldError(form.weight_kg),
+    price: moneyFieldError(form.suggested_price_huf, { label: 'Fuvardíj (Ft)' }),
+    declared: moneyFieldError(form.declared_value_huf, {
+      label: 'Becsült érték (Ft)', required: false, min: 0,
+    }),
+    recipientName: form.other_recipient && !form.recipient_name.trim()
+      ? 'Kérjük, töltsd ki: Címzett neve.'
+      : null,
+    recipientPhone: form.other_recipient ? phoneError(form.recipient_phone) : null,
+  };
+  const show = (key: keyof typeof errors) => (tried ? errors[key] : null);
 
   // Előnézeti URL-ek a kiválasztott képekhez. Memoizáljuk, mert a URL.createObjectURL
   // memória-leak-et okozhat, ha minden renderre új URL-t generálunk.
@@ -194,12 +257,9 @@ export default function UjFuvar() {
       : null;
 
   const canSubmit =
-    form.title.trim() &&
+    Object.values(errors).every((e) => e === null) &&
     form.pickup_confirmed &&
-    form.dropoff_confirmed &&
-    form.length_cm && form.width_cm && form.height_cm &&
-    form.weight_kg &&
-    form.suggested_price_huf;
+    form.dropoff_confirmed;
 
   // --- Okos ár-tartomány ---
   // Amint a felvételi+lerakodási pont megvan és van súly+méret, lekérünk egy
@@ -249,7 +309,16 @@ export default function UjFuvar() {
     e.preventDefault();
     setTried(true);
     if (!canSubmit) {
-      toast.error('Hiányzó mezők', 'Kérlek töltsd ki az összes kötelező (*) mezőt.');
+      // A konkrét okot mondjuk meg, ne csak azt, hogy „valami hiányzik".
+      const firstProblem =
+        Object.values(errors).find((e) => e !== null) ||
+        (!form.pickup_confirmed
+          ? 'A felvétel helyét válaszd ki a legördülő listából, házszámmal együtt.'
+          : null) ||
+        (!form.dropoff_confirmed
+          ? 'A lerakodás helyét válaszd ki a legördülő listából, házszámmal együtt.'
+          : null);
+      toast.error('Hiányzó vagy hibás mező', firstProblem || 'Nézd át a pirossal jelölt mezőket.');
       return;
     }
     setSubmitting(true);
@@ -324,6 +393,22 @@ export default function UjFuvar() {
     }
   }
 
+  // --- Belépés-kapu -------------------------------------------------------
+  // A useCurrentUser az első renderen mindig null-t ad (localStorage-olvasás
+  // a useEffect-ben) — ezért előbb a mounted flaget várjuk meg, különben
+  // minden belépett usert is kidobnánk.
+  if (!mounted) {
+    return (
+      <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--muted)' }}>
+        Betöltés…
+      </div>
+    );
+  }
+  if (!me) {
+    router.push('/bejelentkezes');
+    return null;
+  }
+
   return (
     <div style={{ maxWidth: 720 }}>
       <h1>Új fuvar feladása</h1>
@@ -332,7 +417,25 @@ export default function UjFuvar() {
         és az AI ellenőrzi a leírást.
       </p>
 
-      <form className="card" onSubmit={onSubmit}>
+      {/* noValidate: a natív böngésző-buborék („Please fill out this field")
+          a böngésző nyelvén szól, és megállítja a submitot MIELŐTT a saját,
+          konkrétabb magyar üzeneteink megjelenhetnének. A `required` a
+          mezőkön marad (akadálymentesség), de a validációt mi vezetjük. */}
+      <form
+        className="card"
+        onSubmit={onSubmit}
+        noValidate
+        // Enter egy szövegmezőben NE küldje el az űrlapot: a cím-
+        // autocomplete legördülőjéből Enterrel választani természetes
+        // mozdulat, és korábban ilyenkor a fél űrlap kipirosodott.
+        // A feladás a gombbal megy (a textarea sortörése érintetlen).
+        onKeyDown={(e) => {
+          const el = e.target as HTMLElement;
+          if (e.key === 'Enter' && el.tagName === 'INPUT' && (el as HTMLInputElement).type !== 'checkbox') {
+            e.preventDefault();
+          }
+        }}
+      >
         <label htmlFor="uj-cim">Megnevezés <span style={REQ}>*</span></label>
         <input
           id="uj-cim"
@@ -341,8 +444,9 @@ export default function UjFuvar() {
           onChange={(e) => set('title', e.target.value)}
           placeholder="Pl. Költöztetés Budapest → Debrecen"
           required
-          style={missing(form.title) ? redBorder : undefined}
+          style={show('title') ? redBorder : undefined}
         />
+        <FieldError>{show('title')}</FieldError>
 
         <label>Részletes leírás</label>
         <textarea
@@ -423,17 +527,21 @@ export default function UjFuvar() {
         <h2 style={{ marginTop: 24 }}>Felvétel helye <span style={REQ}>*</span></h2>
         <div style={missing(form.pickup_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
         <AddressAutocomplete
-          label="Cím (kezdd el beírni, majd válassz a listából)"
+          label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
+          placeholder="pl. Budapest, Váci út 1."
           value={form.pickup_address}
-          onChange={(addr, lat, lng) =>
+          requirePrecise
+          onImprecise={setPickupImprecise}
+          onChange={(addr, lat, lng) => {
+            setPickupImprecise('');
             setForm((f) => ({
               ...f,
               pickup_address: addr,
               pickup_lat: lat,
               pickup_lng: lng,
               pickup_confirmed: true,
-            }))
-          }
+            }));
+          }}
           onTextChange={(text) =>
             setForm((f) => ({
               ...f,
@@ -449,7 +557,12 @@ export default function UjFuvar() {
             ✓ Koordináta: {form.pickup_lat.toFixed(5)}, {form.pickup_lng!.toFixed(5)}
           </p>
         )}
-        {!form.pickup_confirmed && form.pickup_address && (
+        {pickupImprecise && (
+          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
+            {pickupImprecise}
+          </p>
+        )}
+        {!form.pickup_confirmed && form.pickup_address && !pickupImprecise && (
           <p style={{ color: 'var(--warning)', fontSize: 12, marginTop: 6 }}>
             ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
           </p>
@@ -519,17 +632,21 @@ export default function UjFuvar() {
         <h2 style={{ marginTop: 24 }}>Lerakodás helye <span style={REQ}>*</span></h2>
         <div style={missing(form.dropoff_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
         <AddressAutocomplete
-          label="Cím (kezdd el beírni, majd válassz a listából)"
+          label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
+          placeholder="pl. Szeged, Kossuth Lajos sugárút 1."
           value={form.dropoff_address}
-          onChange={(addr, lat, lng) =>
+          requirePrecise
+          onImprecise={setDropoffImprecise}
+          onChange={(addr, lat, lng) => {
+            setDropoffImprecise('');
             setForm((f) => ({
               ...f,
               dropoff_address: addr,
               dropoff_lat: lat,
               dropoff_lng: lng,
               dropoff_confirmed: true,
-            }))
-          }
+            }));
+          }}
           onTextChange={(text) =>
             setForm((f) => ({
               ...f,
@@ -544,7 +661,12 @@ export default function UjFuvar() {
             ✓ Koordináta: {form.dropoff_lat.toFixed(5)}, {form.dropoff_lng!.toFixed(5)}
           </p>
         )}
-        {!form.dropoff_confirmed && form.dropoff_address && (
+        {dropoffImprecise && (
+          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
+            {dropoffImprecise}
+          </p>
+        )}
+        {!form.dropoff_confirmed && form.dropoff_address && !dropoffImprecise && (
           <p style={{ color: 'var(--warning)', fontSize: 12, marginTop: 6 }}>
             ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
           </p>
@@ -614,7 +736,9 @@ export default function UjFuvar() {
         <h2 style={{ marginTop: 24 }}>Csomag adatai</h2>
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
           Kötelező – a szállító ezek alapján dönti el, belefér-e a járművébe,
-          és hogy a jármű össztömeg-korlátját nem lépi-e át.
+          és hogy a jármű össztömeg-korlátját nem lépi-e át. A méreteket
+          <strong> egész centiméterben</strong> add meg (tört és negatív érték
+          nem adható meg); a súly lehet tizedes (pl. 12,5 kg).
         </p>
         <div className="grid-2">
           <div>
@@ -622,65 +746,73 @@ export default function UjFuvar() {
             <input
               id="uj-hossz"
               className="input"
-              type="number"
-              min={1}
-              value={form.length_cm}
-              onChange={(e) =>
-                set('length_cm', e.target.value === '' ? '' : Number(e.target.value))
-              }
+              // type="text" + inputMode: a mínuszjel és a tizedespont így be
+              // sem írható (a type="number" a köztes „12-” / „12.” állapotra
+              // ÜRES value-t ad, ami kitörölné a mezőt gépelés közben).
+              type="text"
+              inputMode="numeric"
+              title={`Egész szám centiméterben, 1 és ${MAX_DIM_CM} között. Tört és negatív érték nem adható meg.`}
+              value={raw.length_cm}
+              onChange={(e) => setNumeric('length_cm', e.target.value)}
               placeholder="pl. 120"
               required
-              style={missing(form.length_cm) ? redBorder : undefined}
+              style={show('length') ? redBorder : undefined}
             />
+            <FieldError>{show('length')}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-szelesseg">Szélesség (cm) <span style={REQ}>*</span></label>
             <input
               id="uj-szelesseg"
               className="input"
-              type="number"
-              min={1}
-              value={form.width_cm}
-              onChange={(e) =>
-                set('width_cm', e.target.value === '' ? '' : Number(e.target.value))
-              }
+              // type="text" + inputMode: a mínuszjel és a tizedespont így be
+              // sem írható (a type="number" a köztes „12-” / „12.” állapotra
+              // ÜRES value-t ad, ami kitörölné a mezőt gépelés közben).
+              type="text"
+              inputMode="numeric"
+              title={`Egész szám centiméterben, 1 és ${MAX_DIM_CM} között. Tört és negatív érték nem adható meg.`}
+              value={raw.width_cm}
+              onChange={(e) => setNumeric('width_cm', e.target.value)}
               placeholder="pl. 80"
               required
-              style={missing(form.width_cm) ? redBorder : undefined}
+              style={show('width') ? redBorder : undefined}
             />
+            <FieldError>{show('width')}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-magassag">Magasság (cm) <span style={REQ}>*</span></label>
             <input
               id="uj-magassag"
               className="input"
-              type="number"
-              min={1}
-              value={form.height_cm}
-              onChange={(e) =>
-                set('height_cm', e.target.value === '' ? '' : Number(e.target.value))
-              }
+              // type="text" + inputMode: a mínuszjel és a tizedespont így be
+              // sem írható (a type="number" a köztes „12-” / „12.” állapotra
+              // ÜRES value-t ad, ami kitörölné a mezőt gépelés közben).
+              type="text"
+              inputMode="numeric"
+              title={`Egész szám centiméterben, 1 és ${MAX_DIM_CM} között. Tört és negatív érték nem adható meg.`}
+              value={raw.height_cm}
+              onChange={(e) => setNumeric('height_cm', e.target.value)}
               placeholder="pl. 100"
               required
-              style={missing(form.height_cm) ? redBorder : undefined}
+              style={show('height') ? redBorder : undefined}
             />
+            <FieldError>{show('height')}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-suly">Súly (kg) <span style={REQ}>*</span></label>
             <input
               id="uj-suly"
               className="input"
-              type="number"
-              min={1}
-              step="0.1"
-              value={form.weight_kg}
-              onChange={(e) =>
-                set('weight_kg', e.target.value === '' ? '' : Number(e.target.value))
-              }
+              type="text"
+              inputMode="decimal"
+              title={`0-nál nagyobb súly kilogrammban, legfeljebb ${MAX_WEIGHT_KG.toLocaleString('hu-HU')} kg. Tizedes érték megengedett (pl. 12,5), negatív nem.`}
+              value={raw.weight_kg}
+              onChange={(e) => setNumeric('weight_kg', e.target.value)}
               placeholder="pl. 350"
               required
-              style={missing(form.weight_kg) ? redBorder : undefined}
+              style={show('weight') ? redBorder : undefined}
             />
+            <FieldError>{show('weight')}</FieldError>
           </div>
         </div>
         {volumeM3 != null && (
@@ -771,16 +903,16 @@ export default function UjFuvar() {
         <input
           id="uj-ar"
           className="input"
-          type="number"
-          min={1}
-          value={form.suggested_price_huf}
-          onChange={(e) =>
-            set('suggested_price_huf', e.target.value === '' ? '' : Number(e.target.value))
-          }
+          type="text"
+          inputMode="numeric"
+          title="Kerek forintösszeg. Negatív és tört (filléres) érték nem adható meg."
+          value={raw.suggested_price_huf}
+          onChange={(e) => setNumeric('suggested_price_huf', e.target.value)}
           placeholder={form.is_instant ? 'pl. 12000 (a szállító készpénzben, levonás nélkül kapja)' : 'pl. 65000'}
           required
-          style={missing(form.suggested_price_huf) ? redBorder : undefined}
+          style={show('price') ? redBorder : undefined}
         />
+        <FieldError>{show('price')}</FieldError>
 
         {/* Okos ár-tartomány — horgony a feladónak */}
         {estimate && (
@@ -826,14 +958,15 @@ export default function UjFuvar() {
         <label>Becsült érték (Ft)</label>
         <input
           className="input"
-          type="number"
-          min={0}
-          value={form.declared_value_huf}
-          onChange={(e) =>
-            set('declared_value_huf', e.target.value === '' ? '' : Number(e.target.value))
-          }
+          type="text"
+          inputMode="numeric"
+          title="Kerek forintösszeg. Negatív és tört (filléres) érték nem adható meg."
+          value={raw.declared_value_huf}
+          onChange={(e) => setNumeric('declared_value_huf', e.target.value)}
           placeholder="pl. 50000"
+          style={show('declared') ? redBorder : undefined}
         />
+        <FieldError>{show('declared')}</FieldError>
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
           Opcionális, de ajánlott. A szállító ez alapján méri fel a felelősségét:
           egy 500.000 Ft-os tárgy szállítása más hozzáállást igényel, mint egy
@@ -854,45 +987,91 @@ export default function UjFuvar() {
         </div>
 
         {/* --- Címzett adatai --- */}
-        <h2 style={{ marginTop: 24 }}>Címzett adatai</h2>
-        <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-          Ha nem te veszed át a csomagot, add meg a címzett adatait.
-          Automatikus értesítést kap a tracking linkkel és az átvételi kóddal.
-        </p>
-        <div className="grid-2">
-          <div>
-            <label>Címzett neve</label>
-            <input
-              className="input"
-              value={form.recipient_name}
-              onChange={(e) => set('recipient_name', e.target.value)}
-              placeholder="pl. Kiss Anna"
-            />
-          </div>
-          <div>
-            <label>Címzett telefonszáma</label>
-            <input
-              className="input"
-              type="tel"
-              value={form.recipient_phone}
-              onChange={(e) => set('recipient_phone', e.target.value)}
-              placeholder="+36 30 123 4567"
-            />
-          </div>
-        </div>
-        <div>
-          <label>Címzett email (opcionális)</label>
+        <h2 style={{ marginTop: 24 }}>Átvétel</h2>
+        <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
           <input
-            className="input"
-            type="email"
-            value={form.recipient_email}
-            onChange={(e) => set('recipient_email', e.target.value)}
-            placeholder="anna@email.hu"
+            type="checkbox"
+            checked={form.other_recipient}
+            onChange={(e) => {
+              const on = e.target.checked;
+              setForm((f) => ({
+                ...f,
+                other_recipient: on,
+                // kikapcsoláskor ne maradjon bent egy félig kitöltött címzett
+                ...(on ? {} : { recipient_name: '', recipient_phone: '', recipient_email: '' }),
+              }));
+            }}
+            style={{ width: 18, height: 18 }}
           />
-          <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-            Ha megadod, a címzett emailben kapja a követési linket + QR kódot.
-          </p>
-        </div>
+          <span style={{ fontSize: 14 }}>
+            <strong>Nem én veszem át a csomagot</strong> — más címzett veszi át
+          </span>
+        </label>
+
+        {form.other_recipient && (
+          <div
+            style={{
+              marginTop: 12,
+              marginLeft: 28,
+              padding: 12,
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+            }}
+          >
+            <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+              A címzett neve és telefonszáma <strong>kötelező</strong>: a szállítónak
+              tudnia kell, kit keressen és kit hívhat, ha nem talál senkit a címen.
+              A címzett SMS-t kap a felvételkor az átvételi kóddal.
+            </p>
+            <div className="grid-2">
+              <div>
+                <label htmlFor="uj-cimzett-nev">Címzett neve <span style={REQ}>*</span></label>
+                <input
+                  id="uj-cimzett-nev"
+                  className="input"
+                  autoComplete="name"
+                  value={form.recipient_name}
+                  onChange={(e) => set('recipient_name', e.target.value)}
+                  placeholder="pl. Kiss Anna"
+                  required
+                  style={show('recipientName') ? redBorder : undefined}
+                />
+                <FieldError>{show('recipientName')}</FieldError>
+              </div>
+              <div>
+                <label htmlFor="uj-cimzett-tel">Címzett telefonszáma <span style={REQ}>*</span></label>
+                <input
+                  id="uj-cimzett-tel"
+                  className="input"
+                  type="tel"
+                  autoComplete="tel"
+                  title="A szállító ezen a számon éri el a címzettet. Nemzetközi formátum is jó: +36 30 123 4567"
+                  value={form.recipient_phone}
+                  onChange={(e) => set('recipient_phone', e.target.value)}
+                  placeholder="+36 30 123 4567"
+                  required
+                  style={show('recipientPhone') ? redBorder : undefined}
+                />
+                <FieldError>{show('recipientPhone')}</FieldError>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="uj-cimzett-email">Címzett email (opcionális)</label>
+              <input
+                id="uj-cimzett-email"
+                className="input"
+                type="email"
+                autoComplete="email"
+                value={form.recipient_email}
+                onChange={(e) => set('recipient_email', e.target.value)}
+                placeholder="anna@email.hu"
+              />
+              <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+                Ha megadod, a címzett emailben is kapja a követési linket + QR kódot.
+              </p>
+            </div>
+          </div>
+        )}
 
         {error && <p style={{ color: 'var(--danger-text)', marginTop: 16 }}>{error}</p>}
         {uploadProgress && (

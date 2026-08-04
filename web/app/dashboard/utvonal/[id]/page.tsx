@@ -37,6 +37,9 @@ export default function FeladoUtvonalReszletek() {
   const [dropoffConfirmed, setDropoffConfirmed] = useState(false);
 
   const [notes, setNotes] = useState('');
+  // Cím-pontatlanság: csak várost/országot választott a legördülőből
+  const [pickupImprecise, setPickupImprecise] = useState('');
+  const [dropoffImprecise, setDropoffImprecise] = useState('');
 
   useEffect(() => {
     api.getCarrierRoute(id)
@@ -207,7 +210,18 @@ export default function FeladoUtvonalReszletek() {
       {/* Foglalás form — saját posztnál nem jelenítjük meg, hogy el se
           lehessen kezdeni a foglalást. A backend is 403-mal utasítja el. */}
       {!isMine && (
-      <form className="card" onSubmit={submit}>
+      <form
+        className="card"
+        onSubmit={submit}
+        // Enter a cím-autocomplete legördülőjéből választáskor ne küldje el
+        // a foglalást (ugyanaz a megfontolás, mint az új fuvar űrlapnál).
+        onKeyDown={(e) => {
+          const el = e.target as HTMLElement;
+          if (e.key === 'Enter' && el.tagName === 'INPUT' && (el as HTMLInputElement).type !== 'checkbox') {
+            e.preventDefault();
+          }
+        }}
+      >
         <h2 style={{ marginTop: 0 }}>Foglalás</h2>
 
         <h3>Csomagod adatai</h3>
@@ -258,9 +272,13 @@ export default function FeladoUtvonalReszletek() {
 
         <h3 style={{ marginTop: 24 }}>Felvétel helye</h3>
         <AddressAutocomplete
-          label="Cím"
+          label="Pontos cím utcával és házszámmal"
+          placeholder="pl. Budapest, Váci út 1."
           value={pickupAddr}
+          requirePrecise
+          onImprecise={setPickupImprecise}
           onChange={(addr, lat, lng) => {
+            setPickupImprecise('');
             setPickupAddr(addr);
             setPickupLat(lat);
             setPickupLng(lng);
@@ -272,15 +290,22 @@ export default function FeladoUtvonalReszletek() {
           }}
           required
         />
-        {!pickupConfirmed && pickupAddr && (
+        {pickupImprecise && (
+          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12 }}>{pickupImprecise}</p>
+        )}
+        {!pickupConfirmed && pickupAddr && !pickupImprecise && (
           <p style={{ color: 'var(--warning)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
         )}
 
         <h3 style={{ marginTop: 24 }}>Lerakodás helye</h3>
         <AddressAutocomplete
-          label="Cím"
+          label="Pontos cím utcával és házszámmal"
+          placeholder="pl. Szeged, Kossuth Lajos sugárút 1."
           value={dropoffAddr}
+          requirePrecise
+          onImprecise={setDropoffImprecise}
           onChange={(addr, lat, lng) => {
+            setDropoffImprecise('');
             setDropoffAddr(addr);
             setDropoffLat(lat);
             setDropoffLng(lng);
@@ -292,7 +317,10 @@ export default function FeladoUtvonalReszletek() {
           }}
           required
         />
-        {!dropoffConfirmed && dropoffAddr && (
+        {dropoffImprecise && (
+          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12 }}>{dropoffImprecise}</p>
+        )}
+        {!dropoffConfirmed && dropoffAddr && !dropoffImprecise && (
           <p style={{ color: 'var(--warning)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
         )}
 

@@ -133,6 +133,11 @@ test('kontraszt-audit: light + dark módban minden fő oldalon 0 probléma', asy
       for (const route of plan.routes) {
         await page.goto(route, { waitUntil: 'domcontentloaded' }).catch(() => page.goto(route, { waitUntil: 'domcontentloaded' }));
         await page.waitForTimeout(1200);
+        // A téma 2026-08-04 óta a <html data-theme>-en múlik (boot-szkript),
+        // nem közvetlenül a colorScheme media query-n. Ha a szkript elromlana,
+        // ez az audit NÉMÁN kétszer a világos témát nézné át — ezért itt
+        // ellenőrizzük, hogy tényleg a kért téma van érvényben.
+        await expect(page.locator('html')).toHaveAttribute('data-theme', scheme);
         const issues = await auditPage(page);
         if (issues.length) report[`[${scheme}] ${plan.user ? plan.user.role : 'anon'} ${route}`] = issues;
       }
