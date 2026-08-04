@@ -60,77 +60,99 @@
   --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Dark mode ── */
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* #3b82f6 helyett #2563eb: a fehér gomb-/pill-szöveg kontrasztja így
-       4.55:1 (AA), a régin csak 3.7 volt */
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --primary-light: #60a5fa;
-    --primary-subtle: #1e3a5f;
-    --primary-text: #60a5fa;
-    --success-strong: #166534;
-    --success-text: #4ade80;
-    --danger-text: #f87171;
-    --danger-strong: #b91c1c;
-    --bg: #0c1222;
-    --surface: #162032;
-    --surface-hover: #1e293b;
-    --text: #ffffff;
-    --text-secondary: #e2e8f0;
-    --muted: #94a3b8;
-    --border: #1e3a5f;
-    --border-hover: #334155;
-    --success: #22c55e;
-    --success-light: #14532d;
-    --danger: #ef4444;
-    --danger-light: #450a0a;
-    --warning: #fbbf24;
-    --warning-light: #451a03;
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-    --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
-    color-scheme: dark;
-  }
-  body, body * { color: var(--text); }
-  .muted, label, .site-footer { color: var(--muted) !important; }
-  .price { color: var(--primary-light) !important; }
-  .site-header, .site-header * { color: #fff !important; }
-  .site-header {
-    background: rgba(12, 18, 34, 0.95) !important;
-    border-bottom-color: var(--border) !important;
-    box-shadow: 0 1px 12px rgba(0, 0, 0, 0.35) !important;
-  }
-  /* !important: az alap logo-szabályok a fájlban KÉSŐBB jönnek (azonos
-     specificitás → az nyerne) — a dark-váltásnak itt kell felülütnie */
-  .site-header .logo-light { display: none !important; }
-  .site-header .logo-dark { display: block !important; }
-  .card { background: var(--surface) !important; border-color: var(--border) !important; }
-  input, select, textarea, .input {
-    background: var(--surface) !important;
-    color: var(--text) !important;
-    border-color: var(--border) !important;
-  }
-  input::placeholder, textarea::placeholder { color: var(--muted) !important; }
-  .btn { color: #fff !important; }
-  .btn-secondary {
-    background: var(--surface) !important;
-    color: var(--text) !important;
-    border-color: var(--border) !important;
-  }
-  /* Pills dark mode-ban: élénk, telített háttér + tiszta fehér szöveg,
-     hogy messziről is olvasható legyen. !important a base szabály felülírásához. */
-  /* Hátterek úgy megválasztva, hogy a fehér szöveg 4.5:1 felett legyen
-     (a korábbi amber #f59e0b fehérrel csak 2.1:1 volt) */
-  .pill-bidding   { background: #2563eb !important; color: #ffffff !important; }
-  .pill-accepted  { background: #b45309 !important; color: #ffffff !important; }
-  .pill-progress  { background: #2563eb !important; color: #ffffff !important; }
-  .pill-delivered { background: #166534 !important; color: #ffffff !important; }
-  .pill-cancelled { background: #dc2626 !important; color: #ffffff !important; }
-  .own-post-card { background: #422006 !important; border-color: #a16207 !important; }
-  .own-post-card, .own-post-card * { color: #fef3c7 !important; }
+/* ── Dark mode ──
+   A témát a <html data-theme="light|dark"> attribútum vezérli, NEM közvetlenül
+   a `prefers-color-scheme` media query. Miért: a tesztelő kérésére a user maga
+   is válthat (fejléc-kapcsoló), egy media query-t viszont JS-ből nem lehet
+   felülbírálni.
+   A rendszer-beállítás továbbra is az ALAPÉRTELMEZÉS: a layout.tsx <head>-jébe
+   tett, festés ELŐTT futó szkript állítja be a data-theme-et a mentett választás
+   vagy — ha nincs — az OS-preferencia szerint, így nincs világos villanás sötét
+   témán. A döntési logika egyetlen helye: `src/lib/theme.ts`.
+   (Következmény: kikapcsolt JS mellett a világos téma marad — az alkalmazás
+   amúgy is JS-függő SPA.) */
+:root[data-theme='dark'] {
+  /* #3b82f6 helyett #2563eb: a fehér gomb-/pill-szöveg kontrasztja így
+     4.55:1 (AA), a régin csak 3.7 volt */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: #60a5fa;
+  --primary-subtle: #1e3a5f;
+  --primary-text: #60a5fa;
+  --success-strong: #166534;
+  --success-text: #4ade80;
+  --danger-text: #f87171;
+  --danger-strong: #b91c1c;
+  --bg: #0c1222;
+  --surface: #162032;
+  --surface-hover: #1e293b;
+  --text: #ffffff;
+  --text-secondary: #e2e8f0;
+  --muted: #94a3b8;
+  --border: #1e3a5f;
+  --border-hover: #334155;
+  --success: #22c55e;
+  --success-light: #14532d;
+  --danger: #ef4444;
+  --danger-light: #450a0a;
+  --warning: #fbbf24;
+  --warning-light: #451a03;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
+  color-scheme: dark;
 }
+/* Világos téma kényszerítve (a user így választott, akkor is, ha az OS sötét):
+   a color-scheme-et is vissza kell állítani, különben a natív vezérlők
+   (görgetősáv, dátumválasztó, select) sötétek maradnának. */
+:root[data-theme='light'] { color-scheme: light; }
+
+[data-theme='dark'] body, [data-theme='dark'] body * { color: var(--text); }
+[data-theme='dark'] .muted,
+[data-theme='dark'] label,
+[data-theme='dark'] .site-footer { color: var(--muted) !important; }
+[data-theme='dark'] .price { color: var(--primary-light) !important; }
+[data-theme='dark'] .site-header,
+[data-theme='dark'] .site-header * { color: #fff !important; }
+[data-theme='dark'] .site-header {
+  background: rgba(12, 18, 34, 0.95) !important;
+  border-bottom-color: var(--border) !important;
+  box-shadow: 0 1px 12px rgba(0, 0, 0, 0.35) !important;
+}
+/* !important: az alap logo-szabályok a fájlban KÉSŐBB jönnek (a
+   [data-theme] prefix ugyan magasabb specificitású, de a display-t
+   inline stílus sosem adhatja meg — lásd SiteHeader komment) */
+[data-theme='dark'] .site-header .logo-light { display: none !important; }
+[data-theme='dark'] .site-header .logo-dark { display: block !important; }
+[data-theme='dark'] .card { background: var(--surface) !important; border-color: var(--border) !important; }
+[data-theme='dark'] input,
+[data-theme='dark'] select,
+[data-theme='dark'] textarea,
+[data-theme='dark'] .input {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+[data-theme='dark'] input::placeholder,
+[data-theme='dark'] textarea::placeholder { color: var(--muted) !important; }
+[data-theme='dark'] .btn { color: #fff !important; }
+[data-theme='dark'] .btn-secondary {
+  background: var(--surface) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+/* Pills dark mode-ban: élénk, telített háttér + tiszta fehér szöveg,
+   hogy messziről is olvasható legyen. !important a base szabály felülírásához.
+   Hátterek úgy megválasztva, hogy a fehér szöveg 4.5:1 felett legyen
+   (a korábbi amber #f59e0b fehérrel csak 2.1:1 volt) */
+[data-theme='dark'] .pill-bidding   { background: #2563eb !important; color: #ffffff !important; }
+[data-theme='dark'] .pill-accepted  { background: #b45309 !important; color: #ffffff !important; }
+[data-theme='dark'] .pill-progress  { background: #2563eb !important; color: #ffffff !important; }
+[data-theme='dark'] .pill-delivered { background: #166534 !important; color: #ffffff !important; }
+[data-theme='dark'] .pill-cancelled { background: #dc2626 !important; color: #ffffff !important; }
+[data-theme='dark'] .own-post-card { background: #422006 !important; border-color: #a16207 !important; }
+[data-theme='dark'] .own-post-card,
+[data-theme='dark'] .own-post-card * { color: #fef3c7 !important; }
 
 /* ── Reset & Base ── */
 *, *::before, *::after { box-sizing: border-box; }

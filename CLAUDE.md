@@ -185,6 +185,22 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Téma-kapcsoló: világos / sötét / rendszer (2026-08-04, tesztelői kérés)** —
+  a fejlécben ikon-gomb (nap / hold / monitor), belépés nélkül is elérhető,
+  körbelépteti a három állapotot. ⚠️ ARCHITEKTÚRA-VÁLTÁS: a dark mode NEM a
+  `@media (prefers-color-scheme: dark)`-on ül többé (azt JS-ből nem lehet
+  felülbírálni), hanem a **`<html data-theme="light|dark">`** attribútumon —
+  a globals.css minden dark szabálya `[data-theme='dark']` prefixet kapott.
+  A rendszer-beállítás MARADT az alapértelmezés (és „rendszer" módban élőben
+  követi az OS-váltást is). A villanás ellen a `layout.tsx` <head>-jébe tett,
+  festés előtt futó inline szkript állítja be az attribútumot
+  (`THEME_BOOT_SCRIPT`); ez szándékosan duplikálja a `src/lib/theme.ts`
+  logikáját (bundle-ból importálva már késő lenne) — a `theme.test.ts`
+  LEFUTTATJA a szkriptet, hogy a két példány ne csúszhasson szét. A választás
+  a `gofuvar_theme` localStorage-kulcsban él; „rendszer" = nincs bejegyzés.
+  Bónusz: a 08-kontraszt-audit E2E mostantól ellenőrzi, hogy tényleg a kért
+  téma van érvényben — enélkül a boot-szkript elromlásakor NÉMÁN kétszer a
+  világos témát auditálta volna. +17 teszt (14 unit + 3 E2E)
 - **Tesztelői kör: űrlap-validációk (2026-08-04)** — 5 észrevétel javítva:
   (1) **múltbeli dátum tiltva** (járat-hirdetés `min` + JS-ellenőrzés +
   BACKEND kényszerítés `DEPARTURE_IN_PAST` a POST-on ÉS a PATCH-en; járat-
@@ -761,9 +777,9 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **250 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **267 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
-   - **73 web unit** (Vitest, `web-tests.yml`) — benne a
+   - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
    - **159 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
@@ -779,7 +795,7 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
      - **scrub-ALLOWLIST**: kívülálló pontosan a felsorolt publikus
        job-mezőket kaphatja — új DB-oszlop = a teszt elhasal, tudatos
        döntés kell (a paid_at-szivárgás osztálya ellen)
-   - **18 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+   - **21 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"

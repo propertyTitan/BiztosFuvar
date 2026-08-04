@@ -19,6 +19,7 @@ import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
 import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
+import ThemeToggle from '@/components/ThemeToggle';
 import { useTranslation } from '@/lib/i18n';
 
 export default function SiteHeader() {
@@ -162,6 +163,10 @@ export default function SiteHeader() {
 
       {/* ── Jobb oldal: értesítés + profil dropdown ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {/* Téma-kapcsoló — belépés nélkül is elérhető (tesztelői kérés):
+            világos → sötét → rendszer. Ikon-only, hogy mobilon is elférjen. */}
+        <ThemeToggle compact />
+
         {!user && (
           <Link
             href="/bejelentkezes"

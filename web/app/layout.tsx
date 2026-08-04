@@ -16,6 +16,7 @@ import KycModalProvider from '@/components/KycModalProvider';
 import CoverageModal from '@/components/CoverageModal';
 import TestModeBanner from '@/components/TestModeBanner';
 import { I18nProvider } from '@/lib/i18n';
+import { THEME_BOOT_SCRIPT } from '@/lib/theme';
 
 // Inter önállóan, layout-shift nélkül (a globals.css @import helyett).
 const inter = Inter({
@@ -90,6 +91,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="hu" className={`${inter.variable} ${bricolage.variable}`}>
       <head>
+        {/* Téma-beállítás a legelső festés ELŐTT: a mentett választás (vagy
+            annak híján az OS-preferencia) rákerül a <html data-theme>-re.
+            Muszáj inline, blokkoló szkriptnek lennie — a React-hidratálás
+            után futtatva egy pillanatra a rossz téma villanna fel. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
         {/* iOS Safari PWA-támogatás (a Next.js metadata API nem mindig
             generálja ezeket konzisztensen, ezért explicit kihúzzuk) */}
         <meta name="apple-mobile-web-app-capable" content="yes" />
