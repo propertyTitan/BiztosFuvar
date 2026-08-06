@@ -7,6 +7,7 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
+const { requireText } = require('../utils/text');
 const realtime = require('../realtime');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { createNotification } = require('../services/notifications');
@@ -47,7 +48,8 @@ async function checkAccess(req, jobId, bookingId) {
 // POST /messages – üzenet küldése
 router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
   const { job_id, booking_id, body } = req.body || {};
-  if (!body || !body.trim()) {
+  const bodyCheck = requireText(body, { label: 'Az üzenet', min: 1, max: 5000 });
+  if (!bodyCheck.ok) {
     return res.status(400).json({ error: 'Üres üzenet' });
   }
   if (!job_id && !booking_id) {
@@ -63,7 +65,7 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
     `INSERT INTO messages (job_id, booking_id, sender_id, body)
      VALUES ($1, $2, $3, $4)
      RETURNING *`,
-    [access.jobId, access.bookingId, req.user.sub, body.trim()],
+    [access.jobId, access.bookingId, req.user.sub, bodyCheck.value],
   );
   const msg = rows[0];
 
@@ -110,7 +112,7 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
         user_id: access.otherUserId,
         type: 'chat_message',
         title: `💬 Új üzenet – ${senderName}`,
-        body: body.trim().slice(0, 100),
+        body: bodyCheck.value.slice(0, 100),
         link: notifLink,
       });
     } catch {}

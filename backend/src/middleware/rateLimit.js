@@ -122,8 +122,21 @@ const globalRateLimit = createRateLimit({
   message: 'Túl sok kérés érkezett erről az IP-ről.',
 });
 
+/**
+ * CSAK TESZTHEZ: a számláló-vödrök ürítése.
+ *
+ * Az „hülyebiztos" adversarial-matrix suite több ezer kérést lő ki néhány
+ * másodperc alatt, és a globális 300/perc IP-limit után MINDEN válasz 429
+ * lenne — a teszt így némán zöld maradna, miközben valójában semmit nem
+ * ellenőrizne. Éles kódútra nem hat: sehol nem hívjuk.
+ */
+function __resetRateLimitsForTests() {
+  store.clear();
+}
+
 module.exports = {
   createRateLimit,
+  __resetRateLimitsForTests,
   loginRateLimit,
   registerRateLimit,
   writeRateLimit,

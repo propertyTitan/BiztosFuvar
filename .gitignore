@@ -24,3 +24,8 @@ web/playwright-report/
 web/test-results/
 .vercel
 .env*
+
+# AI felderítő tesztelő kimenete (web/scripts/ai-tesztelo.mjs) — munkatermék,
+# minden futás felülírja; a valós találatokból determinisztikus teszt lesz
+ai-teszt-jelentes.md
+web/ai-teszt-jelentes.md

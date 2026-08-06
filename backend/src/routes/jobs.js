@@ -351,8 +351,16 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
 
   console.log(`[delivery-code] job ${job.id}: átvételi kód generálva (feladó: ${maskEmail(req.user.email)})`);
 
-  // A válaszban a kód látszik, mert a feladó most hozta létre a fuvart
-  res.status(201).json(job);
+  // A válasz UGYANAZON a scrubon megy át, mint minden GET (2026-08-06, az
+  // adversarial-matrix találata). Korábban a nyers sort adtuk vissza, így a
+  // feladó EGYETLEN helyen — épp a létrehozáskor — megkapta a CÍMZETT
+  // átvételi kódját is, holott a `scrubJobForUser` mindenhol máshol
+  // szándékosan elveszi tőle. Ez pont azt a garanciát gyengítette, amiért a
+  // kód van: ha a feladó ismeri, továbbadhatja a szállítónak, aki így a
+  // címzett nélkül is „kézbesítettre" zárhatná a fuvart („más veszi át" flow).
+  // A feladó a saját vészhelyzeti kódját (`sender_delivery_code`) és a
+  // tracking tokent továbbra is megkapja.
+  res.status(201).json(scrubJobForUser(job, req.user));
 
   // --- Szállító útvonal-figyelők értesítése (email + in-app, SMS nincs) ---
   // Fire-and-forget: a választ már elküldtük, ez nem foghatja meg a UI-t.

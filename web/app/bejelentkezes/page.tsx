@@ -274,7 +274,9 @@ function BejelentkezesContent() {
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Pl. GoFuvar Kft."
+                  // NEM „GoFuvar Kft." — nincs ilyen cég (az üzemeltető a
+                  // Tiszta Hód Kft.), és a példa azt sugallná, hogy van.
+                  placeholder="Pl. Példa Kereskedelmi Kft."
                   required
                 />
                 <label>Adószám <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>*</span></label>

@@ -185,6 +185,53 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **„Hülyebiztos" adversarial matrix + AI felderítő tesztelő (2026-08-06)** —
+  a tesztelői alapelv gépesítve: *a user el fogja rontani*. Három új réteg:
+  **(1) `backend/tests/hulyebiztos-matrix.test.js`** — nem egy-egy hibát őriz,
+  hanem NÉGY egyetemes szabályt, amit egyetlen végpont sem szeghet meg
+  (SZ1 soha 500 / SZ2 ami zárt az zárt / SZ3 ami titok az titok / SZ4 nincs
+  belső részlet a válaszban). A végpont-listát FUTÁSIDŐBEN az Express
+  router-stackből olvassa (`tests/routeInventory.js`), és a
+  `tests/routeManifest.js`-hez méri: **új végpont manifest nélkül = piros
+  build** — nem lehet véletlenül kapuzatlan végpontot élesíteni (126 végpont
+  besorolva; publikushoz kötelező írásos indok). Támadások: token nélkül /
+  idegen userrel / admin-jog nélkül minden végpontra, 11-féle szemét a
+  path-paraméterbe, 16-féle mutáció minden body-mezőbe, dupla-kattintás
+  pénz-invariánsok. **5 valódi hibát talált azonnal** (lásd lent).
+  **(2) `web/e2e/13-szovegor.spec.ts`** — a CLAUDE.md szöveg-szabályai
+  (nincs „GoFuvar Kft.", nincs „letét", nincs „licit", nincs app-ígéret,
+  nincs „jogosítvány" a marketingben) a MEGJELENÍTETT szövegen ellenőrizve
+  12 marketing-oldalon. Ezek eddig többször visszacsúsztak, mert semmilyen
+  teszt nem fogta őket. A jogi oldalak szándékosan kimaradnak (ott a tagadó
+  szerkezet legitim: „a fuvardíjat nem tartja letétben").
+  **(3) `web/e2e/14-konzol-tisztasag.spec.ts`** — a fő oldalak betöltése ne
+  írjon hibát/React-figyelmeztetést a konzolra.
+  ⚠️ **`web/scripts/ai-tesztelo.mjs`** — LLM-vezérelt felderítő böngésző-
+  ügynök (Claude vagy Gemini; `ANTHROPIC_API_KEY` vagy a meglévő
+  `GEMINI_API_KEY`). NEM CI-eszköz: lassú, fizetős, nem determinisztikus, és
+  a találatait EMBERNEK kell triázsolnia. Az értéke az ÚJ hibaosztály
+  megtalálása — amit talál, abból determinisztikus tesztet írunk. A benne
+  lévő passzív műszer (konzol-hiba, 5xx, elakadt kérés) LLM nélkül is mér.
+  Élesbe SOSEM megy (`ELES_ENGEDELY` nélkül megtagadja: adatot hozna létre).
+  Használat: `cd web && node scripts/ai-tesztelo.mjs`;
+  szerepek: `SZEMELY=rosszindulatu|zavarodott|turelmetlen`.
+  **A megtalált és javított hibák:** (a) a `POST /jobs` válasza a NYERS sort
+  adta vissza, így a feladó EGYETLEN helyen — épp a létrehozáskor — megkapta
+  a CÍMZETT átvételi kódját, holott a `scrubJobForUser` mindenhol máshol
+  elveszi tőle (a kód-garanciát gyengítette a „más veszi át" flow-ban);
+  (b) null-bájt bármelyik path-paraméterben → Postgres UTF8-hiba → 500
+  (központi szűrő az `index.js`-ben zárja az egész osztályt);
+  (c) a szerepkör a JWT payloadból jött, nem a DB-ből → egy lefokozott admin
+  a token lejártáig (1 nap) admin maradt; most az `authRequired` a DB-ből
+  olvassa (a lekérdezés a token_version miatt amúgy is lefut);
+  (d) `.trim()` típus-ellenőrzés nélkül 4 végponton (vita, üzenet, kérdés,
+  válasz) → nem-string mezőre 500; közös `utils/text.js` (`requireText`)
+  zárja az osztályt; (e) hibás/csonka JSON-test → 500 „Szerverhiba" 400
+  helyett — élesben ez MINDEN megszakadt mobil-kérésnél hamis Sentry-riasztás
+  lett volna. Ráadásként az AI-tesztelő passzív műszere elkapta, hogy a
+  téma-kapcsoló (PR #100) React-hidratálási figyelmeztetést írt minden
+  oldalbetöltésnél (`suppressHydrationWarning` a `<html>`-en; a 14-es spec
+  őrzi — ellenőrizve, hogy a javítás nélkül tényleg piros)
 - **Téma-kapcsoló: világos / sötét / rendszer (2026-08-04, tesztelői kérés)** —
   a fejlécben ikon-gomb (nap / hold / monitor), belépés nélkül is elérhető,
   körbelépteti a három állapotot. ⚠️ ARCHITEKTÚRA-VÁLTÁS: a dark mode NEM a
@@ -777,12 +824,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **267 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **301 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **159 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **175 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
@@ -795,7 +842,7 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
      - **scrub-ALLOWLIST**: kívülálló pontosan a felsorolt publikus
        job-mezőket kaphatja — új DB-oszlop = a teszt elhasal, tudatos
        döntés kell (a paid_at-szivárgás osztálya ellen)
-   - **21 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+   - **39 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"

@@ -68,6 +68,44 @@ app.use(
 );
 app.use(express.json({ limit: '2mb' }));
 
+// ── NULL-bájt szűrő (2026-08-06, az adversarial-matrix találata) ──
+// A Postgres UTF8 oszlopba nem tud 0x00-t írni és lekérdezni sem: a driver
+// „invalid byte sequence for encoding UTF8: 0x00" hibát dob, amiből nyers
+// 500-as „Szerverhiba" lett — bármely végponton, ahol a paraméter a DB-ig
+// eljut (pl. GET /auth/users/<%00>/profile). Ez a szűrő EGY helyen zárja le
+// az egész osztályt: null-bájtot tartalmazó kérés soha nem jut a DB-ig.
+// Külön haszon: a null-bájt klasszikus szűrő-megkerülési trükk is
+// (a validáció a bájt előtti részt látja, a tároló a mögöttit).
+const NULL_BYTE = '\u0000'; // explicit escape — literális NUL-bájt a forrásban láthatatlan és törékeny
+function hasNullByte(value, depth = 0) {
+  if (depth > 6) return false; // mély/körkörös struktúra ellen
+  if (typeof value === 'string') return value.includes(NULL_BYTE);
+  if (Array.isArray(value)) return value.some((v) => hasNullByte(v, depth + 1));
+  if (value && typeof value === 'object') {
+    return Object.entries(value).some(
+      ([k, v]) => hasNullByte(k, depth + 1) || hasNullByte(v, depth + 1),
+    );
+  }
+  return false;
+}
+app.use((req, res, next) => {
+  // A req.url a NYERS (még kódolt) útvonal — a %00 dekódolás után válik
+  // veszélyessé, ezért mindkét alakot nézzük.
+  let decodedUrl = req.url;
+  try { decodedUrl = decodeURIComponent(req.url); } catch { /* hibás %-escape */ }
+  if (
+    decodedUrl.includes(NULL_BYTE) ||
+    hasNullByte(req.query) ||
+    hasNullByte(req.body)
+  ) {
+    return res.status(400).json({
+      error: 'A kérés érvénytelen karaktert tartalmaz.',
+      code: 'INVALID_CHARACTER',
+    });
+  }
+  next();
+});
+
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
 
 // Publikus: szolgáltatási zónák (térkép szürkítéshez)
@@ -130,6 +168,24 @@ app.use((err, _req, res, _next) => {
   //   22003 = numeric_value_out_of_range (túl nagy szám az oszlophoz)
   if (err && (err.code === '22P02' || err.code === '22003')) {
     return res.status(400).json({ error: 'Érvénytelen azonosító vagy formátum.' });
+  }
+
+  // Hibás vagy túl nagy kérés-TEST (2026-08-06, az adversarial-matrix
+  // találata). A body-parser ilyenkor SyntaxError-t dob, amiből eddig nyers
+  // 500 „Szerverhiba" lett — pedig a hiba a kérésben van, nem nálunk.
+  // Élesben ez NEM elméleti: egy megszakadt mobil-kapcsolat csonka JSON-t
+  // küld, a user „Szerverhibát" lát, és a Sentry is riaszt rá feleslegesen.
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) {
+    return res.status(400).json({
+      error: 'A kérés hibás formátumú. Próbáld újra.',
+      code: 'MALFORMED_BODY',
+    });
+  }
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'A küldött adat túl nagy.',
+      code: 'PAYLOAD_TOO_LARGE',
+    });
   }
   console.error('[error]', err);
   if (Sentry) Sentry.captureException(err);

@@ -8,6 +8,7 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
+const { requireText } = require('../utils/text');
 const { createNotification } = require('../services/notifications');
 const realtime = require('../realtime');
 const { writeRateLimit } = require('../middleware/rateLimit');
@@ -18,8 +19,11 @@ const router = express.Router();
 // POST /disputes — vita megnyitása
 router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   const { job_id, booking_id, description, evidence_url } = req.body || {};
-  if (!description || !description.trim()) {
-    return res.status(400).json({ error: 'A vita leírása kötelező.' });
+  // requireText: nem-string érték (szám, tömb, objektum) korábban 500-zal
+  // szállt el a .trim()-en — most rendes 400-at kap a kliens.
+  const descriptionCheck = requireText(description, { label: 'A vita leírása', min: 1, max: 5000 });
+  if (!descriptionCheck.ok) {
+    return res.status(400).json({ error: descriptionCheck.error });
   }
   if (!job_id && !booking_id) {
     return res.status(400).json({ error: 'Adj meg egy fuvar (job_id) vagy foglalás (booking_id) azonosítót.' });
@@ -76,7 +80,7 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
     `INSERT INTO disputes (job_id, booking_id, opened_by, against_user, description, evidence_url)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [job_id || null, booking_id || null, req.user.sub, againstUser, description.trim(), evidence_url || null],
+    [job_id || null, booking_id || null, req.user.sub, againstUser, descriptionCheck.value, evidence_url || null],
   );
   const dispute = inserted[0];
 
