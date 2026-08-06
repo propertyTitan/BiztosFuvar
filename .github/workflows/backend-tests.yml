@@ -4,9 +4,11 @@ name: Backend tesztek
 # PR-en és main-re pusholáskor lefutnak. Az embedded-postgres a CI-ban is
 # maga tölti le a Postgres binárist — nincs szükség Docker service-re.
 on:
-  # Kézi indítás (Actions fül → Run workflow). 2026-08-06: egy PR-en a
-  # path-szűrős automatikus trigger nem indult el — enélkül nem volt mód
-  # kézzel újrafuttatni a CI-t, csak üres commit pusholásával.
+  # Kézi indítás (Actions fül → Run workflow).
+  # 2026-08-06-án egy GitHub Actions szolgáltatás-kiesés alatt a workflow-k
+  # el sem indultak („some workflow runs are failing to start" — githubstatus
+  # incidens, kritikus). Kiesés vagy elmaradt trigger után enélkül csak üres
+  # commit pusholásával lehetett újrafuttatni a CI-t.
   workflow_dispatch:
   pull_request:
     paths:
