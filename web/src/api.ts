@@ -164,6 +164,12 @@ export type Job = {
   shipper_account_type?: 'individual' | 'company';
   shipper_company_name?: string | null;
   shipper_company_verified?: string | null;
+  /** Címzett-adatok — a backend CSAK az ügylet feleinek adja vissza
+   *  (kívülállónál a scrubJobForUser kiszedi). Ha egyik sincs kitöltve,
+   *  a feladó maga veszi át a csomagot. */
+  recipient_name?: string | null;
+  recipient_phone?: string | null;
+  recipient_email?: string | null;
   /** "Hozasd el" forrás-bolt (IKEA/OBI/Praktiker/Jófogás) — bolti átvétel jelvény. */
   source_store?: string | null;
   /** "Hozasd el" termékkép URL-je (a hirdetés OG-előnézete) — a szállító látja. */
