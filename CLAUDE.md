@@ -218,7 +218,21 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   **A megtalált és javított hibák:** (a) a `POST /jobs` válasza a NYERS sort
   adta vissza, így a feladó EGYETLEN helyen — épp a létrehozáskor — megkapta
   a CÍMZETT átvételi kódját, holott a `scrubJobForUser` mindenhol máshol
-  elveszi tőle (a kód-garanciát gyengítette a „más veszi át" flow-ban);
+  elveszi tőle (a kód-garanciát gyengítette a „más veszi át" flow-ban).
+  ⚠️ A feladó VÉSZHELYZETI kódja (`sender_delivery_code`) ÉRINTETLEN: azt
+  továbbra is megkapja, a backend elfogadja a lezáráskor, és naplózza, hogy
+  ezzel zárult (`closed_by_code_type='sender_emergency'`) — csak a CÍMZETT
+  kódját vettük el tőle. Ennek kapcsán derült ki (2026-08-06), hogy a
+  feladói kód-kártya SZÖVEGE félrevezető volt, ha nincs külön címzett (a
+  „Nem én veszem át" checkbox óta ez az ALAPESET): a riasztó „🆘 Vészhelyzeti
+  kód (csak ha a címzett nem elérhető!)" kártya jelent meg azzal, hogy „a
+  címzett SMS-ben megkapta" — pedig nincs címzett. A normál kódot QR-ral
+  mutató ág pedig HALOTT KÓD volt (feltétele: `delivery_code &&
+  !sender_delivery_code` — sosem teljesülhetett), vagyis a feladó a saját
+  QR-kódját SOSEM látta. A kártya mostantól alkalmazkodik: van címzett →
+  vészhelyzeti keret; nincs címzett → „🔐 Átvételi kódod" + QR. Őrzi:
+  `web/e2e/15-atveteli-kod-feladonak.spec.ts` (azt is, hogy a CÍMZETT kódja
+  sehol nem jelenik meg a feladónak);
   (b) null-bájt bármelyik path-paraméterben → Postgres UTF8-hiba → 500
   (központi szűrő az `index.js`-ben zárja az egész osztályt);
   (c) a szerepkör a JWT payloadból jött, nem a DB-ből → egy lefokozott admin
@@ -824,7 +838,7 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **301 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **303 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
@@ -842,7 +856,7 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
      - **scrub-ALLOWLIST**: kívülálló pontosan a felsorolt publikus
        job-mezőket kaphatja — új DB-oszlop = a teszt elhasal, tudatos
        döntés kell (a paid_at-szivárgás osztálya ellen)
-   - **39 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+   - **41 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"
