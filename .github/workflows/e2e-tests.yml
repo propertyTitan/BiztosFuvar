@@ -4,6 +4,10 @@ name: E2E tesztek (Playwright)
 # A Google Maps kulcs repo-secret (kliens-oldali, NEXT_PUBLIC_ kulcs — a prod
 # bundle-ben amúgy is látható), a cím-keresés teszt valódi Places-szel megy.
 on:
+  # Kézi indítás (Actions fül → Run workflow). 2026-08-06: egy PR-en a
+  # path-szűrős automatikus trigger nem indult el — enélkül nem volt mód
+  # kézzel újrafuttatni a CI-t, csak üres commit pusholásával.
+  workflow_dispatch:
   pull_request:
     paths:
       - 'web/**'
