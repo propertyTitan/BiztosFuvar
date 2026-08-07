@@ -185,6 +185,28 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Szerep-lefedettség: a feladói ÉS a szállítói felület minden végpontja
+  (2026-08-07)** — a „mindkét oldal teljesen tesztelve van?" kérdésre nem
+  tippeltünk, hanem MÉRTÜNK: műszereztük a teszt-appot, és rögzítettük,
+  melyik végponton fut le valaha SIKERES hívás. Az eredmény kijózanító volt:
+  a 126-ból csak **42**. A többit a jogosultság-batteryk csak hibaágon
+  „érintették" (401/403) — egy 401 viszont nem bizonyítja, hogy a végpont a
+  helyes választ adja annak, akinek szabad. `tests/szerep-lefedettseg.test.js`
+  (37 teszt) mostantól MINDEN végpontot a jogosult szereplővel hív meg:
+  publikus felület, közös (profil/értesítés/chat/KYC), **feladói** (fuvarjaim,
+  ajánlat-kezelés, ellenajánlat, kérdés-válasz, járat-böngészés és foglalás,
+  viták, értékelés, SOS), **szállítói** (elérhető fuvarok, ajánlataim,
+  járat-CRUD + státusz + útba eső, visszafuvar, útvonal-figyelő teljes
+  életciklusa, statisztika/dashboard, foglalás-kezelés, azonnali fuvar,
+  élő pozíció, DAC7 adóazonosító), mentős flow, admin felület, fiók-törlés.
+  ⚠️ **ÖNVÉDŐ LEFEDETTSÉG-ŐR**: a fájl végén álló teszt elhasal, ha új
+  végpont kerül a rendszerbe, amit itt senki nem hív le sikeresen — és nincs
+  rá írásos indok a `KIVETELEK` listában (jelenleg 6 tétel, mind indokolt:
+  külső HTTP, PSP-webhook, email-tokenes ág, NAV-kulcs, élesben tiltott
+  végpont). A lista elavulását is figyeli. **Találat:** a
+  `src/routes/favorites.js` (kedvencek) LÉTEZIK, de SOSEM lett bekötve az
+  index.js-be, és a frontend sem hívja — halott kód; a CODEMAP élő
+  funkcióként listázta, ez javítva. Döntést igényel: mountoljuk vagy töröljük
 - **„Teljes út" életciklus-mátrix (2026-08-07, user-kérés: „mindent fedjen
   le, a futásidő nem izgat")** — `backend/tests/teljes-ut.test.js`, 156 teszt.
   Amit egyik korábbi réteg sem fedett: a hülyebiztos-matrix EGY kérést
@@ -891,12 +913,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **459 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **496 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **331 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **368 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
