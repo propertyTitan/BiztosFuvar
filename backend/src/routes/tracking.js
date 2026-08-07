@@ -35,6 +35,17 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
   if (!job) return res.status(404).json({ error: 'Fuvar nem található' });
   if (job.carrier_id !== req.user.sub) return res.status(403).json({ error: 'Nincs jogosultság' });
 
+  // LEZÁRT FUVARRA NINCS POZÍCIÓ (2026-08-07, a teljes-út mátrix találata).
+  // Korábban a kézbesített és a LEMONDOTT fuvarra is lehetett pozíciót
+  // küldeni: értelmetlen szemétadat, ami ráadásul a GDPR-adattakarékosság
+  // ellen megy — élő helyadatot gyűjtöttünk olyan fuvarhoz, ami már nem él.
+  if (['delivered', 'completed', 'cancelled'].includes(job.status)) {
+    return res.status(409).json({
+      error: 'Ez a fuvar már lezárult — nem fogadunk hozzá pozíciót.',
+      code: 'JOB_CLOSED',
+    });
+  }
+
   await db.query(
     `INSERT INTO location_pings (job_id, carrier_id, lat, lng, speed_kmh)
      VALUES ($1,$2,$3,$4,$5)`,

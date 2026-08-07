@@ -185,6 +185,33 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **„Teljes út" életciklus-mátrix (2026-08-07, user-kérés: „mindent fedjen
+  le, a futásidő nem izgat")** — `backend/tests/teljes-ut.test.js`, 156 teszt.
+  Amit egyik korábbi réteg sem fedett: a hülyebiztos-matrix EGY kérést
+  vizsgál, az E2E a boldog utat járja — de azt SENKI nem nézte, hogy egy
+  fuvar ÉLETÚTJÁNAK MINDEN PONTJÁN ki mit tehet. Felépítés: (1) a boldog
+  ösvény végigjárása invariáns-ellenőrzésekkel (kontakt CSAK fizetés után,
+  rossz kóddal nincs lezárás, pontosan egy díj-sor); (2) **ÁLLAPOT ×
+  SZEREPLŐ × MŰVELET teljes mátrix** a fuvar-ágra (7 állapot × 5 szereplő ×
+  12 művelet) és a **járat-foglalás ágra** (8 állapot × 5 szereplő ×
+  8 művelet) — az elvárás-tábla egyben a rendszer írott szabálykönyve;
+  (3) kereszt-szennyeződés (másik fuvar kódja/ajánlata); (4) félbehagyott
+  utak (otthagyott fizetés, szállító-csere, dupla kattintás).
+  ⚠️ Minden mátrix-cella SAJÁT, FRISS fuvart kap → sorrend-független.
+  **Talált és javított hibák:** (a) **kézbesíteni lehetett felvétel nélkül**
+  — a szállító átugorhatta a felvételi fotót és egyből lezárhatta a fuvart,
+  így a felvételkori állapotról semmilyen bizonyíték nem keletkezett (a
+  fotó-bizonyíték hirdetett bizalmi réteg!); érdekes módon a JÁRAT-ágon ez a
+  guard MEGVOLT — a két folyamat csúszott szét, most a fuvar-ág is kapott
+  `PICKUP_REQUIRED_FIRST`-öt; (b) **lezárt fuvarra is lehetett GPS-pozíciót
+  küldeni** (kézbesített ÉS lemondott fuvarra is) — értelmetlen szemétadat,
+  ami a GDPR-adattakarékosság ellen megy; most 409 `JOB_CLOSED`.
+  ⚠️ **NYITOTT KÉRDÉS, döntést igényel:** a `disputed` állapot EGYIRÁNYÚ
+  UTCA — a vita lezárása (`PATCH /disputes/:id`) NEM állítja vissza a fuvar
+  státuszát, az örökre `disputed` marad. Ezért a vitás állapotot NEM lehetett
+  „befagyasztani" (az örökre beragasztaná a fuvart), és emiatt vita alatt
+  jelenleg lemondani is lehet. A helyes megoldás a vita-életciklus
+  kiegészítése (feloldáskor vissza a korábbi státuszba) — ez terméki döntés
 - **QR kód kivezetve — csak a 6 jegyű PIN marad (2026-08-06, user-döntés)** —
   „csak bonyolítja az esetet". Technikailag is helyes volt a döntés: a QR
   SOSEM működött végig — olvasó SEHOL nem volt a rendszerben (a
@@ -864,12 +891,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **303 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **459 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **175 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **331 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,

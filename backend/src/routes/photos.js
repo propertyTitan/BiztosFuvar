@@ -103,6 +103,19 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     });
   }
 
+  // SORREND-GUARD (2026-08-07, a teljes-út mátrix találata): kézbesíteni
+  // CSAK megtörtént felvétel után lehet. Enélkül a szállító átugorhatta a
+  // felvételi fotót, és egyből lezárhatta a fuvart „kézbesítve"-ként — így a
+  // felvételkori állapotról SEMMILYEN bizonyíték nem keletkezett, pedig a
+  // fotó-bizonyíték a platform egyik hirdetett bizalmi rétege. Vitánál épp
+  // ez a fotó mutatná meg, milyen állapotban vette át a csomagot.
+  if (kind === 'dropoff' && job.status !== 'in_progress') {
+    return res.status(409).json({
+      error: 'Előbb töltsd fel a felvételi fotót — kézbesíteni csak elindított fuvarnál lehet.',
+      code: 'PICKUP_REQUIRED_FIRST',
+    });
+  }
+
   // DROPOFF → átvételi kód kötelező, a feladó által generált kóddal kell egyezzen.
   // Ha nem egyezik: 403, NEM mentünk fotót, NEM állítunk státuszt.
   if (kind === 'dropoff') {
