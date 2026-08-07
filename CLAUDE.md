@@ -185,6 +185,40 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Teszt-minőség: audit, lefedettség-padló, fizetési webhook, mutációs
+  tesztelés (2026-08-07)** — a „mit mondana egy tapasztalt fejlesztő" kérdésre
+  mérésekkel válaszoltunk. **(1) Függőség-audit** (`scripts/fuggoseg-audit.js`,
+  CI-ban): a mérés 3 magas (backend) és 6 magas (web) ÉLES sérülékenységet
+  talált; `npm audit fix`-szel a backend 3→0, a web 6→2 (a maradék kettő —
+  next, postcss — Next.js 14→16 fő verzióugrást igényel, ezért ÍRÁSOS
+  INDOKLÁSSAL elfogadva; az őr az elavulást is figyeli). Csak production
+  függőségre és csak high/critical szintre kapuz — dev-eszközre kapuzni
+  hozzászoktatna a piros buildhez. **(2) Lefedettség-padló**
+  (`scripts/lefedettseg-or.js`, CI-ban): ⚠️ a vitest saját `thresholds`-a
+  NEM használható kapuként — kiírja a sértést, de NULLA kóddal lép ki
+  (lemérve: 99%-os küszöbbel is zöld maradt a build). Saját őr olvassa a
+  json-summary riportot, és véd az ELAVULT riport ellen is (magam estem bele).
+  Jelenleg 74,3% sor / 61,9% elágazás. **(3) Fizetési webhook** (+13 teszt):
+  a pénz-út legkritikusabb pontja addig kivételként szerepelt. Most őrzi a
+  sikeres fizetést, az idempotenciát (ugyanaz kétszer, tíz párhuzamos), az
+  ismeretlen/idegen azonosítót, a sikertelen státuszokat — és a két
+  legfontosabbat: HAMISÍTOTT „Succeeded" POST nem fizet ki semmit (a kód a
+  PSP-től olvassa vissza az állapotot), illetve PSP-hiba esetén NEM
+  könyvelünk, hanem 5xx-szel újrapróbálást kérünk. **(4) Mutációs tesztelés**
+  (Stryker, `npm run test:mutation`, NEM CI-eszköz — ~1 óra, egyszálú, mert
+  a teszt-DB fix porton indul): 836 mutáns a pénz-/biztonsági magon,
+  **39,5% pontszám**. A connectionFee 100%, a contactGuard 10% —
+  ⚠️ **ez vezetett a legfájóbb eddigi hibához**: a chat (`POST /messages`)
+  SOHA nem alkalmazta a kapcsolat-szivárgás szűrőt, csak a kérdés-válasz
+  felület. A CLAUDE.md üzleti szabályként rögzítette és a jobs.js kommentje
+  is állította, hogy szűr — de meg sem volt írva. Mivel a platform egyetlen
+  bevétele a kapcsolatfelvételi díj, a felek a chatben elküldött
+  telefonszámmal teljesen megkerülhették volna. Javítva (a szűrés CSAK a díj
+  kifizetése ELŐTT fut — utána a kontakt jogosan jár), +15 teszt valós
+  megkerülési trükkökkel. ⚠️ TANULSÁG: a 16-os oldal-lefedettségi spec
+  404-heurisztikája a puszta „404" sztringre illesztett, ami a véletlen
+  6 jegyű átvételi PIN-ben is előfordul („548404") — a valódi 404-oldal
+  címsoraira cserélve
 - **Űrlap-hibaüzenetek böngészőben (2026-08-07)** — az utolsó rés a
   lefedettségben. A rossz értékek kezelését eddig KÉT helyen őriztük
   (backend: 16-féle szemét minden mezőbe; web logika: 20 unit teszt a
@@ -960,12 +994,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **558 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **586 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **374 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **402 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
