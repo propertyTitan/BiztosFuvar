@@ -89,7 +89,6 @@ Top-level fájlok:
 | `driverStats.js` | sofőr statisztikák, gamifikáció |
 | `admin.js` | admin CRUD panel (role === 'admin') |
 | `jobQuestions.js` | fuvar alatti kérdés-válasz |
-| `favorites.js` | kedvencek — ⚠️ **NINCS BEKÖTVE** az index.js-be, a frontend sem hívja: halott kód (2026-08-07-én mérve). Vagy mountold, vagy töröld |
 | `ai.js` | `/ai/chat` (Gemini chatbot), KYC dokumentum-feldolgozás |
 
 ### 1.3 Services — `backend/src/services/` (16 fájl)

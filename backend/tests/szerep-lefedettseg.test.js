@@ -286,10 +286,6 @@ describe('Feladói felület: minden funkció lefut', () => {
   });
 
   it('SOS-jelzés', async () => {
-    // MEGJEGYZÉS: a „kedvencek" (favorites) végpontok NEM szerepelnek itt,
-    // mert a `src/routes/favorites.js` NINCS bekötve az index.js-be — a
-    // funkció halott kód, a frontend sem hívja. Ha egyszer élesedik, ide
-    // kell felvenni (a lefedettség-őr amúgy is szólna érte).
     await sikeres('POST /sos', request(app).post('/sos').set(auth(V.felado.token))
       .send({ job_id: V.uton.id, kind: 'other', message: 'Segítség kell.' }));
     await sikeres('GET /sos/mine', request(app).get('/sos/mine').set(auth(V.felado.token)));

@@ -204,9 +204,12 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   rá írásos indok a `KIVETELEK` listában (jelenleg 6 tétel, mind indokolt:
   külső HTTP, PSP-webhook, email-tokenes ág, NAV-kulcs, élesben tiltott
   végpont). A lista elavulását is figyeli. **Találat:** a
-  `src/routes/favorites.js` (kedvencek) LÉTEZIK, de SOSEM lett bekötve az
-  index.js-be, és a frontend sem hívja — halott kód; a CODEMAP élő
-  funkcióként listázta, ez javítva. Döntést igényel: mountoljuk vagy töröljük
+  `src/routes/favorites.js` (kedvenc szállítók) LÉTEZETT, de SOSEM lett
+  bekötve az index.js-be, és a frontend sem hívta — halott kód, ami a
+  kódtérképen élő funkciónak látszott. **User-döntés (2026-08-07): TÖRÖLVE**
+  — a route-fájl és a `favorite_drivers` tábla is (052-es migráció; az éles
+  táblában 0 sor volt, és nem is keletkezhetett adat, mert a végpontok
+  elérhetetlenek voltak)
 - **„Teljes út" életciklus-mátrix (2026-08-07, user-kérés: „mindent fedjen
   le, a futásidő nem izgat")** — `backend/tests/teljes-ut.test.js`, 156 teszt.
   Amit egyik korábbi réteg sem fedett: a hülyebiztos-matrix EGY kérést
