@@ -185,6 +185,154 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Szerep-lefedettség: a feladói ÉS a szállítói felület minden végpontja
+  (2026-08-07)** — a „mindkét oldal teljesen tesztelve van?" kérdésre nem
+  tippeltünk, hanem MÉRTÜNK: műszereztük a teszt-appot, és rögzítettük,
+  melyik végponton fut le valaha SIKERES hívás. Az eredmény kijózanító volt:
+  a 126-ból csak **42**. A többit a jogosultság-batteryk csak hibaágon
+  „érintették" (401/403) — egy 401 viszont nem bizonyítja, hogy a végpont a
+  helyes választ adja annak, akinek szabad. `tests/szerep-lefedettseg.test.js`
+  (37 teszt) mostantól MINDEN végpontot a jogosult szereplővel hív meg:
+  publikus felület, közös (profil/értesítés/chat/KYC), **feladói** (fuvarjaim,
+  ajánlat-kezelés, ellenajánlat, kérdés-válasz, járat-böngészés és foglalás,
+  viták, értékelés, SOS), **szállítói** (elérhető fuvarok, ajánlataim,
+  járat-CRUD + státusz + útba eső, visszafuvar, útvonal-figyelő teljes
+  életciklusa, statisztika/dashboard, foglalás-kezelés, azonnali fuvar,
+  élő pozíció, DAC7 adóazonosító), mentős flow, admin felület, fiók-törlés.
+  ⚠️ **ÖNVÉDŐ LEFEDETTSÉG-ŐR**: a fájl végén álló teszt elhasal, ha új
+  végpont kerül a rendszerbe, amit itt senki nem hív le sikeresen — és nincs
+  rá írásos indok a `KIVETELEK` listában (jelenleg 6 tétel, mind indokolt:
+  külső HTTP, PSP-webhook, email-tokenes ág, NAV-kulcs, élesben tiltott
+  végpont). A lista elavulását is figyeli. **Találat:** a
+  `src/routes/favorites.js` (kedvenc szállítók) LÉTEZETT, de SOSEM lett
+  bekötve az index.js-be, és a frontend sem hívta — halott kód, ami a
+  kódtérképen élő funkciónak látszott. **User-döntés (2026-08-07): TÖRÖLVE**
+  — a route-fájl és a `favorite_drivers` tábla is (052-es migráció; az éles
+  táblában 0 sor volt, és nem is keletkezhetett adat, mert a végpontok
+  elérhetetlenek voltak)
+- **„Teljes út" életciklus-mátrix (2026-08-07, user-kérés: „mindent fedjen
+  le, a futásidő nem izgat")** — `backend/tests/teljes-ut.test.js`, 156 teszt.
+  Amit egyik korábbi réteg sem fedett: a hülyebiztos-matrix EGY kérést
+  vizsgál, az E2E a boldog utat járja — de azt SENKI nem nézte, hogy egy
+  fuvar ÉLETÚTJÁNAK MINDEN PONTJÁN ki mit tehet. Felépítés: (1) a boldog
+  ösvény végigjárása invariáns-ellenőrzésekkel (kontakt CSAK fizetés után,
+  rossz kóddal nincs lezárás, pontosan egy díj-sor); (2) **ÁLLAPOT ×
+  SZEREPLŐ × MŰVELET teljes mátrix** a fuvar-ágra (7 állapot × 5 szereplő ×
+  12 művelet) és a **járat-foglalás ágra** (8 állapot × 5 szereplő ×
+  8 művelet) — az elvárás-tábla egyben a rendszer írott szabálykönyve;
+  (3) kereszt-szennyeződés (másik fuvar kódja/ajánlata); (4) félbehagyott
+  utak (otthagyott fizetés, szállító-csere, dupla kattintás).
+  ⚠️ Minden mátrix-cella SAJÁT, FRISS fuvart kap → sorrend-független.
+  **Talált és javított hibák:** (a) **kézbesíteni lehetett felvétel nélkül**
+  — a szállító átugorhatta a felvételi fotót és egyből lezárhatta a fuvart,
+  így a felvételkori állapotról semmilyen bizonyíték nem keletkezett (a
+  fotó-bizonyíték hirdetett bizalmi réteg!); érdekes módon a JÁRAT-ágon ez a
+  guard MEGVOLT — a két folyamat csúszott szét, most a fuvar-ág is kapott
+  `PICKUP_REQUIRED_FIRST`-öt; (b) **lezárt fuvarra is lehetett GPS-pozíciót
+  küldeni** (kézbesített ÉS lemondott fuvarra is) — értelmetlen szemétadat,
+  ami a GDPR-adattakarékosság ellen megy; most 409 `JOB_CLOSED`.
+  ✅ **RENDEZVE (2026-08-07, user-döntés):** a `disputed` addig EGYIRÁNYÚ
+  UTCA volt — a vita lezárása nem állította vissza a fuvar státuszát, az
+  örökre `disputed` maradt. Az 053-as migráció bevezette a
+  `status_before_dispute` oszlopot (jobs + route_bookings): a vita
+  megnyitása elteszi az akkori státuszt, a lezárása (`resolved_*`/`closed`)
+  visszaállítja, majd üríti. Ettől a `disputed` átmeneti állapot lett, és
+  ezért lehetett szigorítani is: **vita alatt NEM lehet lemondani** (nem
+  lehet lemondással kimenekülni a vita alól). ⚠️ A fizikai út viszont
+  SZÁNDÉKOSAN folytatódhat: ha a vita megnyitásakor a csomag már úton volt,
+  a szállító KÉZBESÍTHET — különben beragadna a címzett kapujában egy nyitott
+  vita miatt. Ilyenkor a `disputed` státusz MARAD (egy fotó nem tüntetheti el
+  a vitát), csak a `delivered_at` és a „hova térünk vissza" érték áll
+  'delivered'-re. A `photo_retention_hold` a lezárás után is bekapcsolva
+  marad (5 éves bizonyíték-őrzés). +6 teszt a vita életciklusára, a foglalási
+  ágra is
+- **QR kód kivezetve — csak a 6 jegyű PIN marad (2026-08-06, user-döntés)** —
+  „csak bonyolítja az esetet". Technikailag is helyes volt a döntés: a QR
+  SOSEM működött végig — olvasó SEHOL nem volt a rendszerben (a
+  `parseQrContent` helpert semmi nem hívta), a szállító mindig kézzel gépelte
+  be a kódot. A QR tehát dísz volt, ami két úton gondolkodtatta el a
+  felhasználót ott, ahol egy sem kellett volna. Törölve: `QrCode.tsx`,
+  `backend/src/utils/qr.js`, a `qrcode` npm-függőség. Helyette
+  `web/src/components/DeliveryPin.tsx` (nagy, tagolt, színes kártyán is
+  olvasható — a régi QR-komponens a `var(--text)`-et használta, ami a kék
+  háttéren gyenge kontrasztot adott). Szöveg-átvezetés: nyomon-követő oldal,
+  fuvar-részletek, új fuvar űrlap, a címzett „mindjárt érkezik" emailje, és a
+  chatbot-tudás (a bizalmi lánc 5 → 4 rétegű). ⚠️ SZÖVEG-SZABÁLY: „QR" a
+  felületen TILOS — a szövegőr (13-as spec) őrzi. A QVIK fizetési QR MÁS
+  fogalom (a bankappban), az marad
+- **Teszt-harness stabilizálás (2026-08-06)** — a backend-suite kb. minden
+  8-12. TELJES futásán elbukott egy VÉLETLENSZERŰ teszt „socket hang up"-pal.
+  Nem alkalmazás-hiba: a supertest a `request(expressApp)` alakban MINDEN
+  hívásra új szervert nyit egy efemer porton — a hülyebiztos-matrix ~1500
+  plusz kérése ezt láthatóvá tette (a hiba régi tesztet is eltalált, nem csak
+  az újat). Javítás: a `tests/helpers.js` egyetlen, MÁR FIGYELŐ szervert
+  exportál `app` néven (`unref()`-fel), így a supertest csak csatlakozik.
+  A route-leltárnak kell a nyers Express példány is → `expressApp` külön
+  exportálva. Igazolás: 0 bukás 15 teljes futásból (előtte ~1/10).
+  Ráadás: a matrix `fire()` helpere transzport-hibára egyszer újrapróbál, de
+  KÉTSZERI elszállásnál elbukik — a néma retry-ciklus pont az a hamis zöld
+  lenne, ami ellen a suite szól
+- **„Hülyebiztos" adversarial matrix + AI felderítő tesztelő (2026-08-06)** —
+  a tesztelői alapelv gépesítve: *a user el fogja rontani*. Három új réteg:
+  **(1) `backend/tests/hulyebiztos-matrix.test.js`** — nem egy-egy hibát őriz,
+  hanem NÉGY egyetemes szabályt, amit egyetlen végpont sem szeghet meg
+  (SZ1 soha 500 / SZ2 ami zárt az zárt / SZ3 ami titok az titok / SZ4 nincs
+  belső részlet a válaszban). A végpont-listát FUTÁSIDŐBEN az Express
+  router-stackből olvassa (`tests/routeInventory.js`), és a
+  `tests/routeManifest.js`-hez méri: **új végpont manifest nélkül = piros
+  build** — nem lehet véletlenül kapuzatlan végpontot élesíteni (126 végpont
+  besorolva; publikushoz kötelező írásos indok). Támadások: token nélkül /
+  idegen userrel / admin-jog nélkül minden végpontra, 11-féle szemét a
+  path-paraméterbe, 16-féle mutáció minden body-mezőbe, dupla-kattintás
+  pénz-invariánsok. **5 valódi hibát talált azonnal** (lásd lent).
+  **(2) `web/e2e/13-szovegor.spec.ts`** — a CLAUDE.md szöveg-szabályai
+  (nincs „GoFuvar Kft.", nincs „letét", nincs „licit", nincs app-ígéret,
+  nincs „jogosítvány" a marketingben) a MEGJELENÍTETT szövegen ellenőrizve
+  12 marketing-oldalon. Ezek eddig többször visszacsúsztak, mert semmilyen
+  teszt nem fogta őket. A jogi oldalak szándékosan kimaradnak (ott a tagadó
+  szerkezet legitim: „a fuvardíjat nem tartja letétben").
+  **(3) `web/e2e/14-konzol-tisztasag.spec.ts`** — a fő oldalak betöltése ne
+  írjon hibát/React-figyelmeztetést a konzolra.
+  ⚠️ **`web/scripts/ai-tesztelo.mjs`** — LLM-vezérelt felderítő böngésző-
+  ügynök (Claude vagy Gemini; `ANTHROPIC_API_KEY` vagy a meglévő
+  `GEMINI_API_KEY`). NEM CI-eszköz: lassú, fizetős, nem determinisztikus, és
+  a találatait EMBERNEK kell triázsolnia. Az értéke az ÚJ hibaosztály
+  megtalálása — amit talál, abból determinisztikus tesztet írunk. A benne
+  lévő passzív műszer (konzol-hiba, 5xx, elakadt kérés) LLM nélkül is mér.
+  Élesbe SOSEM megy (`ELES_ENGEDELY` nélkül megtagadja: adatot hozna létre).
+  Használat: `cd web && node scripts/ai-tesztelo.mjs`;
+  szerepek: `SZEMELY=rosszindulatu|zavarodott|turelmetlen`.
+  **A megtalált és javított hibák:** (a) a `POST /jobs` válasza a NYERS sort
+  adta vissza, így a feladó EGYETLEN helyen — épp a létrehozáskor — megkapta
+  a CÍMZETT átvételi kódját, holott a `scrubJobForUser` mindenhol máshol
+  elveszi tőle (a kód-garanciát gyengítette a „más veszi át" flow-ban).
+  ⚠️ A feladó VÉSZHELYZETI kódja (`sender_delivery_code`) ÉRINTETLEN: azt
+  továbbra is megkapja, a backend elfogadja a lezáráskor, és naplózza, hogy
+  ezzel zárult (`closed_by_code_type='sender_emergency'`) — csak a CÍMZETT
+  kódját vettük el tőle. Ennek kapcsán derült ki (2026-08-06), hogy a
+  feladói kód-kártya SZÖVEGE félrevezető volt, ha nincs külön címzett (a
+  „Nem én veszem át" checkbox óta ez az ALAPESET): a riasztó „🆘 Vészhelyzeti
+  kód (csak ha a címzett nem elérhető!)" kártya jelent meg azzal, hogy „a
+  címzett SMS-ben megkapta" — pedig nincs címzett. A normál kódot QR-ral
+  mutató ág pedig HALOTT KÓD volt (feltétele: `delivery_code &&
+  !sender_delivery_code` — sosem teljesülhetett), vagyis a feladó a saját
+  QR-kódját SOSEM látta. A kártya mostantól alkalmazkodik: van címzett →
+  vészhelyzeti keret; nincs címzett → „🔐 Átvételi kódod" + QR. Őrzi:
+  `web/e2e/15-atveteli-kod-feladonak.spec.ts` (azt is, hogy a CÍMZETT kódja
+  sehol nem jelenik meg a feladónak);
+  (b) null-bájt bármelyik path-paraméterben → Postgres UTF8-hiba → 500
+  (központi szűrő az `index.js`-ben zárja az egész osztályt);
+  (c) a szerepkör a JWT payloadból jött, nem a DB-ből → egy lefokozott admin
+  a token lejártáig (1 nap) admin maradt; most az `authRequired` a DB-ből
+  olvassa (a lekérdezés a token_version miatt amúgy is lefut);
+  (d) `.trim()` típus-ellenőrzés nélkül 4 végponton (vita, üzenet, kérdés,
+  válasz) → nem-string mezőre 500; közös `utils/text.js` (`requireText`)
+  zárja az osztályt; (e) hibás/csonka JSON-test → 500 „Szerverhiba" 400
+  helyett — élesben ez MINDEN megszakadt mobil-kérésnél hamis Sentry-riasztás
+  lett volna. Ráadásként az AI-tesztelő passzív műszere elkapta, hogy a
+  téma-kapcsoló (PR #100) React-hidratálási figyelmeztetést írt minden
+  oldalbetöltésnél (`suppressHydrationWarning` a `<html>`-en; a 14-es spec
+  őrzi — ellenőrizve, hogy a javítás nélkül tényleg piros)
 - **Téma-kapcsoló: világos / sötét / rendszer (2026-08-04, tesztelői kérés)** —
   a fejlécben ikon-gomb (nap / hold / monitor), belépés nélkül is elérhető,
   körbelépteti a három állapotot. ⚠️ ARCHITEKTÚRA-VÁLTÁS: a dark mode NEM a
@@ -777,12 +925,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **267 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **502 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **159 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **374 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
@@ -795,7 +943,7 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
      - **scrub-ALLOWLIST**: kívülálló pontosan a felsorolt publikus
        job-mezőket kaphatja — új DB-oszlop = a teszt elhasal, tudatos
        döntés kell (a paid_at-szivárgás osztálya ellen)
-   - **21 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+   - **41 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"

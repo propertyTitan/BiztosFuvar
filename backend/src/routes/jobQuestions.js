@@ -14,6 +14,7 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
+const { requireText } = require('../utils/text');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { detectContactLeak } = require('../utils/contactGuard');
 const { uuidParam } = require('../middleware/validateParams');
@@ -53,11 +54,9 @@ router.get('/jobs/:jobId/questions', authRequired, async (req, res) => {
 // POST /jobs/:jobId/questions — új kérdés
 router.post('/jobs/:jobId/questions', authRequired, writeRateLimit, async (req, res) => {
   const { question } = req.body || {};
-  if (!question || !question.trim() || question.trim().length < 5) {
-    return res.status(400).json({ error: 'A kérdés minimum 5 karakter legyen.' });
-  }
-  if (question.length > 500) {
-    return res.status(400).json({ error: 'A kérdés maximum 500 karakter lehet.' });
+  const questionCheck = requireText(question, { label: 'A kérdés', min: 5, max: 500 });
+  if (!questionCheck.ok) {
+    return res.status(400).json({ error: questionCheck.error });
   }
 
   // Telefon/email-szűrés
@@ -89,7 +88,7 @@ router.post('/jobs/:jobId/questions', authRequired, writeRateLimit, async (req, 
       `INSERT INTO job_questions (job_id, asker_id, question)
        VALUES ($1, $2, $3)
        RETURNING *`,
-      [req.params.jobId, req.user.sub, question.trim()],
+      [req.params.jobId, req.user.sub, questionCheck.value],
     );
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -101,11 +100,9 @@ router.post('/jobs/:jobId/questions', authRequired, writeRateLimit, async (req, 
 // POST /questions/:id/answer — válasz (csak a feladó)
 router.post('/questions/:id/answer', authRequired, writeRateLimit, async (req, res) => {
   const { answer } = req.body || {};
-  if (!answer || !answer.trim() || answer.trim().length < 1) {
-    return res.status(400).json({ error: 'A válasz nem lehet üres.' });
-  }
-  if (answer.length > 1000) {
-    return res.status(400).json({ error: 'A válasz maximum 1000 karakter lehet.' });
+  const answerCheck = requireText(answer, { label: 'A válasz', min: 1, max: 1000 });
+  if (!answerCheck.ok) {
+    return res.status(400).json({ error: answerCheck.error });
   }
 
   const leak = detectContactLeak(answer);
@@ -133,7 +130,7 @@ router.post('/questions/:id/answer', authRequired, writeRateLimit, async (req, r
           SET answer = $1, answered_by = $2, answered_at = NOW()
         WHERE id = $3
         RETURNING *`,
-      [answer.trim(), req.user.sub, req.params.id],
+      [answerCheck.value, req.user.sub, req.params.id],
     );
     res.json(rows[0]);
   } catch (err) {

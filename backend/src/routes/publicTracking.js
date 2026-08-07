@@ -8,7 +8,6 @@
 //    - Élő pozíció (utolsó GPS ping)
 //    - Becsült érkezési idő
 //    - Az átvételi kód (!)
-//    - QR kód (!)
 // =====================================================================
 
 const express = require('express');

@@ -89,7 +89,6 @@ Top-level fájlok:
 | `driverStats.js` | sofőr statisztikák, gamifikáció |
 | `admin.js` | admin CRUD panel (role === 'admin') |
 | `jobQuestions.js` | fuvar alatti kérdés-válasz |
-| `favorites.js` | kedvencek |
 | `ai.js` | `/ai/chat` (Gemini chatbot), KYC dokumentum-feldolgozás |
 
 ### 1.3 Services — `backend/src/services/` (16 fájl)
@@ -130,6 +129,7 @@ Top-level fájlok:
 | `geo.js` | távolság, koordináta-számítás |
 | `contactGuard.js` | kcontakt-adat szivárgás szűrése chatben |
 | `qr.js` | QR-kód generálás (átvételi kód) |
+| `text.js` | `requireText` — szöveges body-mezők típus-biztos ellenőrzése (nem-string → 4xx, nem 500) |
 
 ### 1.6 Adatbázis — `backend/db/`
 
@@ -239,6 +239,8 @@ Az `expo: ~54.0.0` pin SDK 52 deps-szel **szándékos** — ne piszkáld.
 | dark-mode szín-bug | `web/app/globals.css` → `[data-theme='dark'] body, … body * { color: var(--text) }` felülírja mindent; inline `color` kell explicit. A témát a `<html data-theme>` vezérli (`web/src/lib/theme.ts` + a layout.tsx `<head>`-jébe tett boot-szkript), **nem** a `prefers-color-scheme` media query |
 | üzleti számhoz (díj, plafon) | `backend/src/services/connectionFee.js` (díjsávok) + `backend/src/constants.js` + CLAUDE.md #5 (NE írd felül egyoldalúan) |
 | séma / új mező | `backend/db/migrations/` (új számozott fájl) |
+| ÚJ VÉGPONT felvétele | a `backend/tests/routeManifest.js`-be IS vedd fel (hozzáférési szint), különben a hülyebiztos-matrix pirosra váltja a buildet |
+| „mért 500-azik a végpont?” | `cd backend && npm test -- hulyebiztos` — a matrix megmondja, melyik input dönti le |
 
 ---
 

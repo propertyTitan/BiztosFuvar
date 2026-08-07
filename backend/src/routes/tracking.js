@@ -35,6 +35,17 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
   if (!job) return res.status(404).json({ error: 'Fuvar nem található' });
   if (job.carrier_id !== req.user.sub) return res.status(403).json({ error: 'Nincs jogosultság' });
 
+  // LEZÁRT FUVARRA NINCS POZÍCIÓ (2026-08-07, a teljes-út mátrix találata).
+  // Korábban a kézbesített és a LEMONDOTT fuvarra is lehetett pozíciót
+  // küldeni: értelmetlen szemétadat, ami ráadásul a GDPR-adattakarékosság
+  // ellen megy — élő helyadatot gyűjtöttünk olyan fuvarhoz, ami már nem él.
+  if (['delivered', 'completed', 'cancelled'].includes(job.status)) {
+    return res.status(409).json({
+      error: 'Ez a fuvar már lezárult — nem fogadunk hozzá pozíciót.',
+      code: 'JOB_CLOSED',
+    });
+  }
+
   await db.query(
     `INSERT INTO location_pings (job_id, carrier_id, lat, lng, speed_kmh)
      VALUES ($1,$2,$3,$4,$5)`,
@@ -118,7 +129,7 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
               sendEmail({
                 to: job.recipient_email,
                 subject: '📍 A szállító egy saroknyira van!',
-                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p><strong>A szállító mindjárt megérkezik!</strong></p>${job.carrier_name ? `<p>🚗 <strong>${job.carrier_name}</strong>${job.carrier_phone ? ` — <a href="tel:${job.carrier_phone}" style="font-size:18px;font-weight:700">${job.carrier_phone}</a>` : ''}</p>` : ''}<p>Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a kódot mondd meg a szállítónak, vagy mutasd meg a QR kódot a tracking oldalon.</p>`,
+                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p><strong>A szállító mindjárt megérkezik!</strong></p>${job.carrier_name ? `<p>🚗 <strong>${job.carrier_name}</strong>${job.carrier_phone ? ` — <a href="tel:${job.carrier_phone}" style="font-size:18px;font-weight:700">${job.carrier_phone}</a>` : ''}</p>` : ''}<p>Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a PIN-t mondd meg a szállítónak az átvételkor.</p>`,
               }).catch(() => {});
             }
           }

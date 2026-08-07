@@ -174,6 +174,18 @@ export async function placeBid(carrier: E2EUser, jobId: string, amountHuf: numbe
  *  formázott cím megjelenése igazolja (irányítószám/ország a gépelt
  *  szövegben nincs) — csak ekkor kapott koordinátát az űrlap. */
 export async function selectAddress(page: Page, input: Locator, query: string) {
+  // A siker jele a „✓ Koordináta" sor: az CSAK akkor jelenik meg, ha az
+  // űrlap ténylegesen megerősítettnek tekinti a címet.
+  //
+  // ⚠️ Korábban a mező SZÖVEGÉRE vártunk egy laza regexszel
+  // (/\d{4}|Hungary/) — de az az utca-szintű javaslatra is illeszkedett
+  // („Váci út, Budapest, Hungary"), így a helper visszatért, MIELŐTT a
+  // házszámot feloldó Geocoder-mentőág végzett volna. A teszt ilyenkor
+  // megerősítetlen címmel ment tovább, a Küldés gomb nem indított kérést,
+  // és 30 mp múlva timeoutolt — látszólag „Google Places flake"-ként.
+  const megerositettek = page.getByText(/✓ Koordináta/);
+  const elotte = await megerositettek.count();
+
   for (let attempt = 0; attempt < 3; attempt += 1) {
     await input.click();
     await input.fill('');
@@ -182,7 +194,10 @@ export async function selectAddress(page: Page, input: Locator, query: string) {
       await expect(page.locator('.pac-item:visible').first()).toBeVisible({ timeout: 7_000 });
       await input.press('ArrowDown');
       await input.press('Enter');
-      await expect(input).toHaveValue(/(\d{4}|Magyarország|Hungary)/, { timeout: 7_000 });
+      // A Geocoder-mentőág aszinkron — bőven adunk neki időt
+      await expect
+        .poll(() => megerositettek.count(), { timeout: 15_000 })
+        .toBeGreaterThan(elotte);
       return;
     } catch {
       // újrapróbáljuk — hideg dev-szervernél az első próbán még akadozhat

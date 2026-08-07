@@ -73,7 +73,11 @@ function scrubJobForUser(job, user) {
     recipient_name, recipient_phone, recipient_email,
     barion_payment_id, barion_gateway_url,
     paid_at, fee_consent_at, connection_fee_huf,
-    photo_retention_hold, ...publicFields
+    photo_retention_hold,
+    // Belső könyvelés: hova álljon vissza a fuvar a vita lezárásakor.
+    // Kívülállóra nem tartozik (nem is tud vitás fuvart böngészni).
+    status_before_dispute,
+    ...publicFields
   } = rest;
   return publicFields;
 }
@@ -351,8 +355,16 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
 
   console.log(`[delivery-code] job ${job.id}: átvételi kód generálva (feladó: ${maskEmail(req.user.email)})`);
 
-  // A válaszban a kód látszik, mert a feladó most hozta létre a fuvart
-  res.status(201).json(job);
+  // A válasz UGYANAZON a scrubon megy át, mint minden GET (2026-08-06, az
+  // adversarial-matrix találata). Korábban a nyers sort adtuk vissza, így a
+  // feladó EGYETLEN helyen — épp a létrehozáskor — megkapta a CÍMZETT
+  // átvételi kódját is, holott a `scrubJobForUser` mindenhol máshol
+  // szándékosan elveszi tőle. Ez pont azt a garanciát gyengítette, amiért a
+  // kód van: ha a feladó ismeri, továbbadhatja a szállítónak, aki így a
+  // címzett nélkül is „kézbesítettre" zárhatná a fuvart („más veszi át" flow).
+  // A feladó a saját vészhelyzeti kódját (`sender_delivery_code`) és a
+  // tracking tokent továbbra is megkapja.
+  res.status(201).json(scrubJobForUser(job, req.user));
 
   // --- Szállító útvonal-figyelők értesítése (email + in-app, SMS nincs) ---
   // Fire-and-forget: a választ már elküldtük, ez nem foghatja meg a UI-t.
@@ -960,13 +972,20 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
     return res.status(403).json({ error: 'Nincs jogosultság a lemondáshoz' });
   }
 
-  const blockedStatuses = ['in_progress', 'delivered', 'completed', 'cancelled'];
+  // 'disputed' is blokkolt (2026-08-07): amíg nyitott vita van, a fuvart nem
+  // lehet lemondással „kimenteni" alóla — előbb a vitát kell rendezni. Ez a
+  // szigorítás CSAK azért biztonságos, mert a vita már feloldható: a lezárása
+  // visszaállítja a korábbi státuszt (053-as migráció). Enélkül a lemondás
+  // tiltása véglegesen beragasztotta volna a fuvart.
+  const blockedStatuses = ['in_progress', 'delivered', 'completed', 'cancelled', 'disputed'];
   if (blockedStatuses.includes(j.status)) {
     return res.status(409).json({
       error:
         j.status === 'cancelled'
           ? 'Ez a fuvar már le van mondva.'
-          : `Ez a fuvar már nem mondható le (státusz: ${j.status}). Vitás esetben nyiss egy reklamációt.`,
+          : j.status === 'disputed'
+            ? 'Ezen a fuvaron nyitott vita van — előbb azt kell rendezni. Az ügyintézés lezárása után a fuvar visszakerül a korábbi állapotába.'
+            : `Ez a fuvar már nem mondható le (státusz: ${j.status}). Vitás esetben nyiss egy reklamációt.`,
     });
   }
 

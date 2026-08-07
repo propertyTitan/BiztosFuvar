@@ -19,7 +19,10 @@ async function authRequired(req, res, next) {
     // token_version-jével. Jelszó-reset (token_version++) után a régi token
     // itt bukik el. A `tv ?? 0` a migráció előtt kiadott tokeneket 0-ként
     // kezeli (zökkenőmentes bevezetés).
-    const { rows } = await db.query('SELECT token_version FROM users WHERE id = $1', [payload.sub]);
+    const { rows } = await db.query(
+      'SELECT token_version, role FROM users WHERE id = $1',
+      [payload.sub],
+    );
     if (!rows[0]) return res.status(401).json({ error: 'Érvénytelen token' });
     if ((rows[0].token_version ?? 0) !== (payload.tv ?? 0)) {
       return res.status(401).json({
@@ -27,7 +30,12 @@ async function authRequired(req, res, next) {
         code: 'SESSION_INVALIDATED',
       });
     }
-    req.user = payload;
+    // A SZEREPKÖR A DB-BŐL JÖN, nem a tokenből (2026-08-06, az
+    // adversarial-matrix találata). Korábban a `requireRole` a JWT payload
+    // `role` mezőjében hitt: egy lefokozott admin a token lejártáig (1 nap)
+    // megtartotta az admin-jogát, pedig a DB-ben már nem volt az. A lekérdezés
+    // amúgy is lefut a token_version miatt, tehát ez nem kerül plusz körbe.
+    req.user = { ...payload, role: rows[0].role };
     next();
   } catch (err) {
     // DB-hiba NEM jelent érvénytelen tokent (pl. Neon cold start) — továbbadjuk

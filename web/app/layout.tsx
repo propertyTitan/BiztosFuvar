@@ -89,7 +89,17 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="hu" className={`${inter.variable} ${bricolage.variable}`}>
+    // suppressHydrationWarning: a téma-boot szkript a hidratálás ELŐTT ráírja
+    // a `data-theme` attribútumot a <html>-re, amit a szerver nem renderelt
+    // (nem is tudhatja, mit választott a user). React ezt eltérésnek látja és
+    // minden oldalbetöltésnél konzol-figyelmeztetést ír. Csak EZT az egy
+    // elemet némítja — a gyerekelemek hidratálás-ellenőrzése érintetlen.
+    // (Ugyanez a next-themes bevett megoldása.)
+    <html
+      lang="hu"
+      suppressHydrationWarning
+      className={`${inter.variable} ${bricolage.variable}`}
+    >
       <head>
         {/* Téma-beállítás a legelső festés ELŐTT: a mentett választás (vagy
             annak híján az OS-preferencia) rákerül a <html data-theme>-re.

@@ -177,7 +177,7 @@ KÉT FŐ MÓD
      cégek között). A lényeg: a fuvardíj sosem folyik át a platformon, 100%-a
      a szállítóé, levonás nélkül
    - A szállító felveszi a csomagot → fotót készít
-   - Lerakja a címzettnél → a címzett megadja a 6 jegyű átvételi kódot VAGY QR kódot mutat
+   - Lerakja a címzettnél → a címzett bediktálja a 6 jegyű átvételi PIN-t
    - A kód helyes → a fuvar lezárul
 
 2) INDULÓ JÁRAT (fix áras):
@@ -225,24 +225,22 @@ Ha a csomag XL-be sem fér → nem adható fel a platformon.
 BIZALMI LÁNC (BIZTONSÁG)
 ═══════════════════════════════════════
 
-A csomagod védelme 5 rétegű:
+A csomagod védelme 4 rétegű:
 1. KYC-AZONOSÍTÁS: minden szállító személyi igazolvánnyal igazolt, valós
    személy — nem névtelen Facebook-kommentelő
 2. FOTÓ BIZONYÍTÉK: A szállító felvételkor és lerakáskor kötelezően fotóz
-3. 6 JEGYŰ ÁTVÉTELI KÓD: Csak a címzett tudja, a szállító ezzel zárja le
-4. QR KÓD: A címzett megmutatja telefonján → szállító beolvassa → kész
-5. GPS KÖVETÉS: HAMAROSAN érkezik a GoFuvar mobilalkalmazással — jelenleg fejlesztés alatt. Addig a címzett SMS-értesítést kap, és a 6 jegyű kód + fotó igazolja a kézbesítést
+3. 6 JEGYŰ ÁTVÉTELI PIN: Csak a címzett tudja, a szállító ezzel zárja le
+4. GPS KÖVETÉS: HAMAROSAN érkezik a GoFuvar mobilalkalmazással — jelenleg fejlesztés alatt. Addig a címzett SMS-értesítést kap, és a 6 jegyű kód + fotó igazolja a kézbesítést
 
 ═══════════════════════════════════════
-ÁTVÉTELI KÓD ÉS QR KÓD
+ÁTVÉTELI PIN
 ═══════════════════════════════════════
 
 - A fuvar feladásakor automatikusan generálódik egy 6 jegyű kód
 - Ezt CSAK a feladó és a címzett látja (a szállító NEM)
 - A címzett a csomag FELVÉTELEKOR SMS-ben kapja meg a kódot és a szállító elérhetőségét (emailben tracking linket is kap, ha a feladó megadta az email-címét)
-- Két lehetőség az átadásra:
-  1. A címzett megmondja szóban a 6 jegyű kódot a szállítónak
-  2. A címzett megmutatja a QR kódot (telefonon vagy tracking oldalon) → szállító scan-eli
+- Az átadás: a címzett bediktálja a 6 jegyű PIN-t a szállítónak (QR kód NINCS,
+  2026-08-06-i döntés: fölöslegesen bonyolította a folyamatot)
 - Ha a kód helyes → a fuvar automatikusan lezárul (a fuvardíjat a szállító készpénzben kapja)
 
 ═══════════════════════════════════════
@@ -397,7 +395,7 @@ SZABÁLYOK A VÁLASZOLÁSHOZ
 - Ha a felhasználó dühös/csalódott: legyél empátiás, ajánld fel a panasz@gofuvar.hu címet
 - Népszerű kérdések amikre TUDSZ válaszolni:
   * "Mennyibe kerül?" → Használd az ár-kalkulátort a főoldalon, vagy adj fel fuvart és nézd meg a beérkező ajánlatokat
-  * "Biztonságos?" → Igen, többrétegű bizalmi lánc (KYC-azonosítás, fotó, kód, QR)
+  * "Biztonságos?" → Igen, többrétegű bizalmi lánc (KYC-azonosítás, fotó, 6 jegyű PIN)
   * "Hogyan fizetek?" → A kapcsolatfelvételi díjat bankkártyával / azonnali
     fizetéssel; a fuvardíjat közvetlenül a szállítónak (készpénz vagy átutalás)
   * "Mi van ha sérül a csomag?" → Nyiss vitát a fuvar oldalán, az admin kivizsgálja

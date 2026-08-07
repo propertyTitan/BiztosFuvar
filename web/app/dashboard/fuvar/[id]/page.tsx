@@ -18,7 +18,7 @@ import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
-import QrCode from '@/components/QrCode';
+import DeliveryPin from '@/components/DeliveryPin';
 import Confetti from '@/components/Confetti';
 import CompanyVerifiedBadge from '@/components/CompanyVerifiedBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -247,68 +247,77 @@ export default function FuvarReszletek() {
         <LiveTrackingMap job={job} />
       </div>
 
-      {/* Vészhelyzeti kód — a feladó látja (a címzett kód SMS-ben megy) */}
-      {(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
-        <div
-          className="card"
-          style={{
-            marginTop: 16,
-            background: 'linear-gradient(135deg, #92400e 0%, #b45309 100%)',
-            color: '#fff',
-            border: 'none',
-          }}
-        >
-          <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 8 }}>
-            🆘 Vészhelyzeti kód (csak ha a címzett nem elérhető!)
-          </div>
+      {/* Átvételi kód a feladónak.
+          KÉT ESET, és korábban csak az egyikre volt jó szöveg:
+          (1) MÁS veszi át → ez egy VÉSZHELYZETI kód: csak akkor adható a
+              szállítónak, ha a címzett nem elérhető. A backend elfogadja, és
+              naplózza, hogy ezzel zárult (photos.js: 'sender_emergency').
+          (2) A FELADÓ veszi át (nincs címzett megadva) → ez egyszerűen AZ
+              átvételi kódja, semmi vészhelyzet. A „Nem én veszem át"
+              checkbox bevezetése óta ez az ALAPESET.
+          Korábban a (2) esetben is a riasztó piros „🆘 Vészhelyzeti kód"
+          kártya jelent meg azzal a szöveggel, hogy „a címzett SMS-ben
+          megkapta" — pedig nincs is címzett. A normál kódot mutató ág pedig
+          halott kód volt: a scrub a feladótól MINDIG elveszi a címzett
+          `delivery_code`-ját, a `sender_delivery_code` viszont mindig
+          létezik, így a feltétele sosem teljesült. */}
+      {(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (() => {
+        const vanCimzett = Boolean(job.recipient_name || job.recipient_phone);
+        const kod = (job as any).sender_delivery_code as string;
+        return (
           <div
+            className="card"
             style={{
-              fontSize: 36,
-              fontWeight: 800,
-              letterSpacing: '0.15em',
-              fontFamily: 'monospace',
-              textAlign: 'center',
-              padding: '12px 0',
+              marginTop: 16,
+              background: vanCimzett
+                ? 'linear-gradient(135deg, #92400e 0%, #b45309 100%)'
+                : 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
+              color: '#fff',
+              border: 'none',
+              textAlign: vanCimzett ? undefined : 'center',
             }}
           >
-            {(job as any).sender_delivery_code}
-          </div>
-          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 8, lineHeight: 1.5 }}>
-            ⚠️ Ezt a kódot <strong>CSAK</strong> akkor add meg a szállítónak, ha a címzett
-            nem elérhető és te engedélyezed a lerakást. A rendszer logolja, hogy
-            ez a vészhelyzeti kóddal zárult le.
-          </div>
-          <div style={{
-            marginTop: 12, padding: '8px 12px', borderRadius: 8,
-            background: 'rgba(255,255,255,0.15)', fontSize: 12,
-          }}>
-            📱 A címzett az átvételi kódot SMS-ben és emailben kapta meg.
-            A QR kódot a tracking linken látja.
-          </div>
-        </div>
-      )}
+            <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 8 }}>
+              {vanCimzett
+                ? '🆘 Vészhelyzeti kód (csak ha a címzett nem elérhető!)'
+                : '🔐 Átvételi kódod'}
+            </div>
 
-      {/* Ha NINCS címzett megadva — a feladó saját maga veszi át, a normál kód jelenik meg */}
-      {job.delivery_code && !(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (
-        <div
-          className="card"
-          style={{
-            marginTop: 16,
-            background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
-            color: '#fff',
-            border: 'none',
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 16 }}>
-            🔐 Átvételi kód & QR
+            {vanCimzett ? (
+              <div
+                style={{
+                  fontSize: 36, fontWeight: 800, letterSpacing: '0.15em',
+                  fontFamily: 'monospace', textAlign: 'center', padding: '12px 0',
+                }}
+              >
+                {kod}
+              </div>
+            ) : (
+              <DeliveryPin code={kod} />
+            )}
+
+            {vanCimzett ? (
+              <>
+                <div style={{ fontSize: 13, opacity: 0.9, marginTop: 8, lineHeight: 1.5 }}>
+                  ⚠️ Ezt a kódot <strong>CSAK</strong> akkor add meg a szállítónak, ha a címzett
+                  nem elérhető és te engedélyezed a lerakást. A rendszer logolja, hogy
+                  ez a vészhelyzeti kóddal zárult le.
+                </div>
+                <div style={{
+                  marginTop: 12, padding: '8px 12px', borderRadius: 8,
+                  background: 'rgba(255,255,255,0.15)', fontSize: 12,
+                }}>
+                  📱 A címzett a saját átvételi kódját SMS-ben és emailben kapta meg.
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 13, opacity: 0.9, marginTop: 16 }}>
+                Te veszed át a csomagot — diktáld be ezt a PIN-t a szállítónak.
+              </div>
+            )}
           </div>
-          <QrCode jobId={job.id} deliveryCode={job.delivery_code} size={200} />
-          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 16 }}>
-            Mutasd meg a szállítónak a QR kódot vagy diktáld a 6 jegyű kódot.
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Figyelmeztetés ha vészhelyzeti kóddal zárult */}
       {job.status === 'delivered' && (job as any).closed_by_code_type === 'sender_emergency' && (

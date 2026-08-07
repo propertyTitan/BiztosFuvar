@@ -8,6 +8,7 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
+const { requireText } = require('../utils/text');
 const { createNotification } = require('../services/notifications');
 const realtime = require('../realtime');
 const { writeRateLimit } = require('../middleware/rateLimit');
@@ -18,8 +19,11 @@ const router = express.Router();
 // POST /disputes — vita megnyitása
 router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   const { job_id, booking_id, description, evidence_url } = req.body || {};
-  if (!description || !description.trim()) {
-    return res.status(400).json({ error: 'A vita leírása kötelező.' });
+  // requireText: nem-string érték (szám, tömb, objektum) korábban 500-zal
+  // szállt el a .trim()-en — most rendes 400-at kap a kliens.
+  const descriptionCheck = requireText(description, { label: 'A vita leírása', min: 1, max: 5000 });
+  if (!descriptionCheck.ok) {
+    return res.status(400).json({ error: descriptionCheck.error });
   }
   if (!job_id && !booking_id) {
     return res.status(400).json({ error: 'Adj meg egy fuvar (job_id) vagy foglalás (booking_id) azonosítót.' });
@@ -76,7 +80,7 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
     `INSERT INTO disputes (job_id, booking_id, opened_by, against_user, description, evidence_url)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [job_id || null, booking_id || null, req.user.sub, againstUser, description.trim(), evidence_url || null],
+    [job_id || null, booking_id || null, req.user.sub, againstUser, descriptionCheck.value, evidence_url || null],
   );
   const dispute = inserted[0];
 
@@ -84,11 +88,30 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   // photo_retention_hold: vitás ügylet fotói 5 évig maradnak (a flag a
   // vita lezárása UTÁN is bekapcsolva marad — bizonyíték a Ptk-s
   // igényérvényesítéshez; photoRetention.js törli 5 év után).
+  // A vita ELŐTTI státuszt eltesszük, hogy a lezárásakor vissza tudjunk
+  // állni rá (053-as migráció). Enélkül a `disputed` egyirányú utca volt.
+  // A `status <> 'disputed'` feltétel véd a felülírástól, ha valamiért
+  // mégis kétszer futna le.
   if (job_id) {
-    await db.query(`UPDATE jobs SET status = 'disputed', photo_retention_hold = TRUE, updated_at = NOW() WHERE id = $1`, [job_id]);
+    await db.query(
+      `UPDATE jobs
+          SET status_before_dispute = CASE WHEN status <> 'disputed' THEN status ELSE status_before_dispute END,
+              status = 'disputed',
+              photo_retention_hold = TRUE,
+              updated_at = NOW()
+        WHERE id = $1`,
+      [job_id],
+    );
   }
   if (booking_id) {
-    await db.query(`UPDATE route_bookings SET status = 'disputed', photo_retention_hold = TRUE WHERE id = $1`, [booking_id]);
+    await db.query(
+      `UPDATE route_bookings
+          SET status_before_dispute = CASE WHEN status <> 'disputed' THEN status ELSE status_before_dispute END,
+              status = 'disputed',
+              photo_retention_hold = TRUE
+        WHERE id = $1`,
+      [booking_id],
+    );
   }
 
   // Értesítés a másik félnek
@@ -210,6 +233,33 @@ router.patch('/disputes/:id', authRequired, writeRateLimit, async (req, res) => 
   );
   if (!rows[0]) return res.status(404).json({ error: 'Vita nem található' });
   const d = rows[0];
+
+  // A VITA LEZÁRÁSAKOR visszaállítjuk a fuvar/foglalás státuszát arra, ami a
+  // vita előtt volt (053-as migráció). Korábban ez elmaradt, és a fuvar
+  // örökre 'disputed' maradt — akkor is, ha az admin úgy döntött, nincs
+  // teendő. A `photo_retention_hold` SZÁNDÉKOSAN bekapcsolva marad: a vitás
+  // ügylet fotói a lezárás után is 5 évig kellenek (Ptk-s igényérvényesítés).
+  if (isResolved) {
+    if (d.job_id) {
+      await db.query(
+        `UPDATE jobs
+            SET status = COALESCE(status_before_dispute, status),
+                status_before_dispute = NULL,
+                updated_at = NOW()
+          WHERE id = $1 AND status = 'disputed'`,
+        [d.job_id],
+      );
+    }
+    if (d.booking_id) {
+      await db.query(
+        `UPDATE route_bookings
+            SET status = COALESCE(status_before_dispute, status),
+                status_before_dispute = NULL
+          WHERE id = $1 AND status = 'disputed'`,
+        [d.booking_id],
+      );
+    }
+  }
 
   // Notifikáció mindkét félnek
   const users = [d.opened_by, d.against_user].filter(Boolean);
