@@ -247,10 +247,11 @@ const SZABALYOK = {
     'ajánlatot elfogad': [],
     'ellenajánlatot tesz': [],
     'díjat fizet': [],
-    // ⚠️ NYITOTT KÉRDÉS (2026-08-07): vita alatt LEHET lemondani. Nem
-    // egyértelműen hiba (a vita-sor megmarad, az admin utána is dönthet),
-    // de össze kell rakni a vita-életciklussal — lásd a megjegyzést lentebb.
-    'lemond': ['felado', 'szallito'],
+    // Vita alatt NEM lehet lemondással kimenteni a fuvart a vita alól —
+    // előbb az ügyintézést kell lezárni. Ez a szigorítás azért biztonságos,
+    // mert a vita már FELOLDHATÓ: a lezárása visszaállítja a korábbi
+    // státuszt (053-as migráció).
+    'lemond': [],
     'szállítót cserél': [],
     // Vita alatt fotót feltölteni SZÁNDÉKOSAN lehet: ez bizonyíték-gyűjtés.
     // A státuszt nem billenti el (a tranzíció csak 'accepted'-ből indul).
@@ -433,6 +434,151 @@ describe('2. Az út minden állomásán: ki mit tehet', () => {
       }
     });
   }
+});
+
+// =====================================================================
+//  2/b. A VITA ÉLETCIKLUSA — a 'disputed' nem egyirányú utca
+// =====================================================================
+describe('2/b. Vita: megnyitás, folytatás, lezárás', () => {
+  /** Vita nyitása a fuvarra, majd lezárása adminként. */
+  async function vitatLezar(jobId, admin) {
+    const { rows } = await db.query('SELECT id FROM disputes WHERE job_id = $1', [jobId]);
+    return request(app).patch(`/disputes/${rows[0].id}`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ status: 'resolved_no_action', resolution_note: 'Nincs teendő.' });
+  }
+
+  it('a vita lezárása VISSZAÁLLÍTJA a fuvar korábbi státuszát', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const admin = await createUser({ role: 'admin' });
+    const job = await createJob({
+      shipperId: felado.id, carrierId: szallito.id, status: 'in_progress', paid: true,
+    });
+
+    await request(app).post('/disputes').set('Authorization', `Bearer ${felado.token}`)
+      .send({ job_id: job.id, reason: 'damaged', description: 'Sérült.' });
+    let { rows } = await db.query('SELECT status, status_before_dispute FROM jobs WHERE id = $1', [job.id]);
+    expect(rows[0].status).toBe('disputed');
+    expect(rows[0].status_before_dispute, 'nem tettük el a vita előtti státuszt').toBe('in_progress');
+
+    const lezaras = await vitatLezar(job.id, admin);
+    expect(lezaras.status, JSON.stringify(lezaras.body)).toBeLessThan(400);
+
+    ({ rows } = await db.query('SELECT status, status_before_dispute FROM jobs WHERE id = $1', [job.id]));
+    expect(
+      rows[0].status,
+      'A vita lezárása után a fuvar BERAGADT „disputed"-ban — pedig vissza kellett volna állnia.',
+    ).toBe('in_progress');
+    expect(rows[0].status_before_dispute, 'a mentett státusz nem ürült ki').toBeNull();
+  });
+
+  it('kézbesített fuvarra nyitott vita lezárása után marad kézbesített', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const admin = await createUser({ role: 'admin' });
+    const job = await createJob({
+      shipperId: felado.id, carrierId: szallito.id, status: 'delivered', paid: true,
+    });
+
+    await request(app).post('/disputes').set('Authorization', `Bearer ${felado.token}`)
+      .send({ job_id: job.id, reason: 'damaged', description: 'Utólag derült ki.' });
+    await vitatLezar(job.id, admin);
+
+    const { rows } = await db.query('SELECT status FROM jobs WHERE id = $1', [job.id]);
+    expect(rows[0].status).toBe('delivered');
+  });
+
+  it('vita alatt a szállító KÉZBESÍTHET — a vita nem ragasztja be a kapuban', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const admin = await createUser({ role: 'admin' });
+    const job = await createJob({
+      shipperId: felado.id, carrierId: szallito.id, status: 'in_progress', paid: true,
+      deliveryCode: '424242',
+    });
+
+    await request(app).post('/disputes').set('Authorization', `Bearer ${felado.token}`)
+      .send({ job_id: job.id, reason: 'late', description: 'Késik.' });
+
+    const kezbesites = await request(app).post(`/jobs/${job.id}/photos`)
+      .set('Authorization', `Bearer ${szallito.token}`)
+      .field('kind', 'dropoff').field('delivery_code', '424242')
+      .attach('file', TINY_PNG, 'd.png');
+    expect(
+      kezbesites.status,
+      `A szállító nem tudott kézbesíteni nyitott vita mellett: ${JSON.stringify(kezbesites.body)}`,
+    ).toBeLessThan(400);
+
+    // A vita LÁTHATÓ marad — egy fotó nem tüntetheti el
+    let { rows } = await db.query(
+      'SELECT status, status_before_dispute, delivered_at FROM jobs WHERE id = $1', [job.id]);
+    expect(rows[0].status, 'a kézbesítés némán eltüntette a vitát!').toBe('disputed');
+    expect(rows[0].delivered_at).toBeTruthy();
+
+    // …a lezárás után viszont a helyes végállapotba kerül
+    await vitatLezar(job.id, admin);
+    ({ rows } = await db.query('SELECT status FROM jobs WHERE id = $1', [job.id]));
+    expect(rows[0].status).toBe('delivered');
+  });
+
+  it('vita alatt nem lehet lemondással kimenekülni', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const job = await createJob({
+      shipperId: felado.id, carrierId: szallito.id, status: 'accepted', paid: true,
+    });
+    await request(app).post('/disputes').set('Authorization', `Bearer ${felado.token}`)
+      .send({ job_id: job.id, reason: 'other', description: 'Valami baj van.' });
+
+    const lemondas = await request(app).post(`/jobs/${job.id}/cancel`)
+      .set('Authorization', `Bearer ${felado.token}`).send({});
+    expect(lemondas.status, 'Vita alatt le lehetett mondani a fuvart!').toBe(409);
+    expect(lemondas.body.error).toMatch(/nyitott vita/i);
+  });
+
+  it('a foglalási ág ugyanígy viselkedik', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const admin = await createUser({ role: 'admin' });
+    const { booking } = await createBooking({
+      shipperId: felado.id, carrierId: szallito.id, status: 'in_progress', paid: true,
+    });
+
+    await request(app).post('/disputes').set('Authorization', `Bearer ${felado.token}`)
+      .send({ booking_id: booking.id, reason: 'damaged', description: 'Sérült.' });
+    let { rows } = await db.query(
+      'SELECT status, status_before_dispute FROM route_bookings WHERE id = $1', [booking.id]);
+    expect(rows[0].status).toBe('disputed');
+    expect(rows[0].status_before_dispute).toBe('in_progress');
+
+    const { rows: vita } = await db.query(
+      'SELECT id FROM disputes WHERE booking_id = $1', [booking.id]);
+    await request(app).patch(`/disputes/${vita[0].id}`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ status: 'resolved_no_action', resolution_note: 'Rendezve.' });
+
+    ({ rows } = await db.query('SELECT status FROM route_bookings WHERE id = $1', [booking.id]));
+    expect(rows[0].status).toBe('in_progress');
+  });
+
+  it('a bizonyíték-zárolás a vita lezárása UTÁN is megmarad', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const admin = await createUser({ role: 'admin' });
+    const job = await createJob({
+      shipperId: felado.id, carrierId: szallito.id, status: 'delivered', paid: true,
+    });
+    await request(app).post('/disputes').set('Authorization', `Bearer ${felado.token}`)
+      .send({ job_id: job.id, reason: 'damaged', description: 'Sérült.' });
+    await vitatLezar(job.id, admin);
+
+    const { rows } = await db.query('SELECT photo_retention_hold FROM jobs WHERE id = $1', [job.id]);
+    expect(
+      rows[0].photo_retention_hold,
+      'A vita lezárása feloldotta a bizonyíték-zárolást — a fotóknak 5 évig maradniuk kell.',
+    ).toBe(true);
+  });
 });
 
 // =====================================================================

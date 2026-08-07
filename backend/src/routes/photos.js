@@ -109,7 +109,12 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   // felvételkori állapotról SEMMILYEN bizonyíték nem keletkezett, pedig a
   // fotó-bizonyíték a platform egyik hirdetett bizalmi rétege. Vitánál épp
   // ez a fotó mutatná meg, milyen állapotban vette át a csomagot.
-  if (kind === 'dropoff' && job.status !== 'in_progress') {
+  // Vita alatt is folytatódhat a fizikai út: ha a vita megnyitásakor a
+  // csomag már úton volt, a szállító kézbesíthet. Ellenkező esetben a
+  // szállító beragadna a címzett kapujában egy nyitott vita miatt.
+  const utonVolt = job.status === 'in_progress'
+    || (job.status === 'disputed' && job.status_before_dispute === 'in_progress');
+  if (kind === 'dropoff' && !utonVolt) {
     return res.status(409).json({
       error: 'Előbb töltsd fel a felvételi fotót — kézbesíteni csak elindított fuvarnál lehet.',
       code: 'PICKUP_REQUIRED_FIRST',
@@ -199,6 +204,15 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   // Workflow tranzíciók
   const validation = { ok: true };
 
+  // Vita alatt a fizikai lépés megtörténik, de a 'disputed' státusz MARAD
+  // (különben egy fotó-feltöltés némán eltüntetné a vitát). Helyette azt
+  // léptetjük, hogy a vita lezárásakor hova térjen vissza a fuvar.
+  if (kind === 'pickup' && job.status === 'disputed' && job.status_before_dispute === 'accepted') {
+    await db.query(
+      `UPDATE jobs SET status_before_dispute = 'in_progress', updated_at = NOW() WHERE id = $1`,
+      [jobId],
+    );
+  }
   if (kind === 'pickup' && job.status === 'accepted') {
     await db.query(`UPDATE jobs SET status = 'in_progress', updated_at = NOW() WHERE id = $1`, [jobId]);
     realtime.emitToJob(jobId, 'job:picked_up', { job_id: jobId, photo });
@@ -234,6 +248,22 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
         console.warn('[sms] pickup ertesites hiba:', e.message);
       }
     });
+  }
+
+  // Vita alatti kézbesítés: a fizikai átadás megtörtént, de a 'disputed'
+  // státusz MARAD (a vitát egy fotó nem tüntetheti el). A `delivered_at`-ot
+  // rögzítjük, és a „hova térünk vissza" értéket 'delivered'-re állítjuk —
+  // így a vita lezárásakor a fuvar a helyes végállapotba kerül.
+  if (kind === 'dropoff' && job.status === 'disputed') {
+    await db.query(
+      `UPDATE jobs
+          SET delivered_at = COALESCE(delivered_at, NOW()),
+              status_before_dispute = 'delivered',
+              closed_by_code_type = COALESCE(closed_by_code_type, $2),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [jobId, req._closedByCodeType || 'recipient'],
+    );
   }
 
   if (kind === 'dropoff' && job.status === 'in_progress') {

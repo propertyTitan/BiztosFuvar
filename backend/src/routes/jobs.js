@@ -73,7 +73,11 @@ function scrubJobForUser(job, user) {
     recipient_name, recipient_phone, recipient_email,
     barion_payment_id, barion_gateway_url,
     paid_at, fee_consent_at, connection_fee_huf,
-    photo_retention_hold, ...publicFields
+    photo_retention_hold,
+    // Belső könyvelés: hova álljon vissza a fuvar a vita lezárásakor.
+    // Kívülállóra nem tartozik (nem is tud vitás fuvart böngészni).
+    status_before_dispute,
+    ...publicFields
   } = rest;
   return publicFields;
 }
@@ -968,13 +972,20 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
     return res.status(403).json({ error: 'Nincs jogosultság a lemondáshoz' });
   }
 
-  const blockedStatuses = ['in_progress', 'delivered', 'completed', 'cancelled'];
+  // 'disputed' is blokkolt (2026-08-07): amíg nyitott vita van, a fuvart nem
+  // lehet lemondással „kimenteni" alóla — előbb a vitát kell rendezni. Ez a
+  // szigorítás CSAK azért biztonságos, mert a vita már feloldható: a lezárása
+  // visszaállítja a korábbi státuszt (053-as migráció). Enélkül a lemondás
+  // tiltása véglegesen beragasztotta volna a fuvart.
+  const blockedStatuses = ['in_progress', 'delivered', 'completed', 'cancelled', 'disputed'];
   if (blockedStatuses.includes(j.status)) {
     return res.status(409).json({
       error:
         j.status === 'cancelled'
           ? 'Ez a fuvar már le van mondva.'
-          : `Ez a fuvar már nem mondható le (státusz: ${j.status}). Vitás esetben nyiss egy reklamációt.`,
+          : j.status === 'disputed'
+            ? 'Ezen a fuvaron nyitott vita van — előbb azt kell rendezni. Az ügyintézés lezárása után a fuvar visszakerül a korábbi állapotába.'
+            : `Ez a fuvar már nem mondható le (státusz: ${j.status}). Vitás esetben nyiss egy reklamációt.`,
     });
   }
 

@@ -231,12 +231,21 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   `PICKUP_REQUIRED_FIRST`-öt; (b) **lezárt fuvarra is lehetett GPS-pozíciót
   küldeni** (kézbesített ÉS lemondott fuvarra is) — értelmetlen szemétadat,
   ami a GDPR-adattakarékosság ellen megy; most 409 `JOB_CLOSED`.
-  ⚠️ **NYITOTT KÉRDÉS, döntést igényel:** a `disputed` állapot EGYIRÁNYÚ
-  UTCA — a vita lezárása (`PATCH /disputes/:id`) NEM állítja vissza a fuvar
-  státuszát, az örökre `disputed` marad. Ezért a vitás állapotot NEM lehetett
-  „befagyasztani" (az örökre beragasztaná a fuvart), és emiatt vita alatt
-  jelenleg lemondani is lehet. A helyes megoldás a vita-életciklus
-  kiegészítése (feloldáskor vissza a korábbi státuszba) — ez terméki döntés
+  ✅ **RENDEZVE (2026-08-07, user-döntés):** a `disputed` addig EGYIRÁNYÚ
+  UTCA volt — a vita lezárása nem állította vissza a fuvar státuszát, az
+  örökre `disputed` maradt. Az 053-as migráció bevezette a
+  `status_before_dispute` oszlopot (jobs + route_bookings): a vita
+  megnyitása elteszi az akkori státuszt, a lezárása (`resolved_*`/`closed`)
+  visszaállítja, majd üríti. Ettől a `disputed` átmeneti állapot lett, és
+  ezért lehetett szigorítani is: **vita alatt NEM lehet lemondani** (nem
+  lehet lemondással kimenekülni a vita alól). ⚠️ A fizikai út viszont
+  SZÁNDÉKOSAN folytatódhat: ha a vita megnyitásakor a csomag már úton volt,
+  a szállító KÉZBESÍTHET — különben beragadna a címzett kapujában egy nyitott
+  vita miatt. Ilyenkor a `disputed` státusz MARAD (egy fotó nem tüntetheti el
+  a vitát), csak a `delivered_at` és a „hova térünk vissza" érték áll
+  'delivered'-re. A `photo_retention_hold` a lezárás után is bekapcsolva
+  marad (5 éves bizonyíték-őrzés). +6 teszt a vita életciklusára, a foglalási
+  ágra is
 - **QR kód kivezetve — csak a 6 jegyű PIN marad (2026-08-06, user-döntés)** —
   „csak bonyolítja az esetet". Technikailag is helyes volt a döntés: a QR
   SOSEM működött végig — olvasó SEHOL nem volt a rendszerben (a
@@ -916,12 +925,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **496 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **502 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **368 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **374 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
