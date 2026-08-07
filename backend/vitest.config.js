@@ -15,5 +15,16 @@ module.exports = defineConfig({
     fileParallelism: false,
     testTimeout: 30_000,
     hookTimeout: 120_000,
+    // ── Lefedettség ──
+    // ⚠️ A vitest saját `thresholds` beállítását SZÁNDÉKOSAN nem használjuk:
+    // kiírja ugyan, hogy „does not meet global threshold", de NULLA
+    // kilépési kóddal végez — vagyis CI-kapuként használhatatlan lenne
+    // (lemérve: a build zöld maradt egy 99%-os küszöbbel is). A tényleges
+    // kapu a `scripts/lefedettseg-or.js`, ami a json-summary riportot olvassa.
+    coverage: {
+      provider: 'v8',
+      include: ['src/**'],
+      reporter: ['text-summary', 'json-summary'],
+    },
   },
 });

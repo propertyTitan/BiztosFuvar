@@ -35,5 +35,8 @@ jobs:
       - name: Függőségek telepítése
         run: npm install
 
+      - name: Függőség-audit (éles függőségek, magas/kritikus)
+        run: node ../scripts/fuggoseg-audit.js .
+
       - name: Tesztek futtatása
         run: npm test

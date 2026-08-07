@@ -29,3 +29,10 @@ web/test-results/
 # minden futás felülírja; a valós találatokból determinisztikus teszt lesz
 ai-teszt-jelentes.md
 web/ai-teszt-jelentes.md
+
+# Lefedettségi riport (minden futás újragenerálja)
+coverage/
+
+# Mutációs tesztelés (Stryker) — ideiglenes másolat és riport
+.stryker-tmp/
+backend/reports/

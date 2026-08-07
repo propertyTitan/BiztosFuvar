@@ -235,11 +235,14 @@ async function ellenorizOldalt(page: Page, oldal: Oldal) {
   }
 
   // 5. Nem a 404-oldalon kötöttünk ki (kivéve ha ezt vártuk)
+  //
+  // ⚠️ A puszta „404" sztringre NEM szabad illeszteni: az oldalakon vannak
+  // véletlen 6 jegyű számok (átvételi PIN), és egy „548404" kódra a teszt
+  // lebegett — ez élesben is előjött. Az app/not-found.tsx valódi
+  // címsoraira szűrünk helyette, ami egyértelmű.
   if (!oldal.varhatoAtiranyitas) {
-    expect(
-      /Ez az oldal nem található|404/.test(torzs) && !/nem található fuvar/i.test(torzs),
-      `${cel} — a 404-oldalra futott`,
-    ).toBe(false);
+    const negyszaznegyes = /Az oldal nem található|Másik mód szükséges/.test(torzs);
+    expect(negyszaznegyes, `${cel} — a 404-oldalra futott`).toBe(false);
   }
 }
 

@@ -8,6 +8,7 @@ const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { requireText } = require('../utils/text');
+const { detectContactLeak } = require('../utils/contactGuard');
 const realtime = require('../realtime');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { createNotification } = require('../services/notifications');
@@ -21,17 +22,20 @@ const router = express.Router();
 async function checkAccess(req, jobId, bookingId) {
   if (jobId) {
     const { rows } = await db.query(
-      'SELECT shipper_id, carrier_id FROM jobs WHERE id = $1',
+      'SELECT shipper_id, carrier_id, paid_at FROM jobs WHERE id = $1',
       [jobId],
     );
     const j = rows[0];
     if (!j) return null;
     if (j.shipper_id !== req.user.sub && j.carrier_id !== req.user.sub) return null;
-    return { jobId, bookingId: null, otherUserId: j.shipper_id === req.user.sub ? j.carrier_id : j.shipper_id };
+    return {
+      jobId, bookingId: null, paidAt: j.paid_at,
+      otherUserId: j.shipper_id === req.user.sub ? j.carrier_id : j.shipper_id,
+    };
   }
   if (bookingId) {
     const { rows } = await db.query(
-      `SELECT b.shipper_id, r.carrier_id
+      `SELECT b.shipper_id, b.paid_at, r.carrier_id
          FROM route_bookings b
          JOIN carrier_routes r ON r.id = b.route_id
         WHERE b.id = $1`,
@@ -40,7 +44,10 @@ async function checkAccess(req, jobId, bookingId) {
     const b = rows[0];
     if (!b) return null;
     if (b.shipper_id !== req.user.sub && b.carrier_id !== req.user.sub) return null;
-    return { jobId: null, bookingId, otherUserId: b.shipper_id === req.user.sub ? b.carrier_id : b.shipper_id };
+    return {
+      jobId: null, bookingId, paidAt: b.paid_at,
+      otherUserId: b.shipper_id === req.user.sub ? b.carrier_id : b.shipper_id,
+    };
   }
   return null;
 }
@@ -59,6 +66,24 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
   const access = await checkAccess(req, job_id, booking_id);
   if (!access) {
     return res.status(403).json({ error: 'Nincs jogosultságod üzenetet küldeni ezen a fuvaron.' });
+  }
+
+  // ── KAPCSOLAT-SZIVÁRGÁS SZŰRŐ (anti-bypass) ──
+  // A platform EGYETLEN bevétele a kapcsolatfelvételi díj, és a felek
+  // pontosan úgy kerülnék meg, hogy itt, a chatben küldik el egymásnak a
+  // telefonszámukat, majd platformon kívül intézik a fuvart.
+  //
+  // ⚠️ 2026-08-07: ez az üzleti szabály a CLAUDE.md-ben rögzítve volt, a
+  // jobs.js kommentje is ÁLLÍTOTTA, hogy „a chatben a contactGuard szűri a
+  // számokat" — de a chatben SOHA nem volt megírva; csak a kérdés-válasz
+  // felületen. A mutációs tesztelés bukkant rá (a contactGuard 10%-os
+  // pontszáma vezetett ide).
+  //
+  // CSAK a díj kifizetése ELŐTT szűrünk: utána a felek jogosan ismerik
+  // egymás elérhetőségét, ott a szűrés csak zavarna.
+  if (!access.paidAt) {
+    const leak = detectContactLeak(bodyCheck.value);
+    if (leak) return res.status(400).json({ error: leak, code: 'CONTACT_LEAK' });
   }
 
   const { rows } = await db.query(
