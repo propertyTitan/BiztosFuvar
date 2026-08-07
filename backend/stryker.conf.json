@@ -1,0 +1,52 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "vitest",
+  "reporters": [
+    "clear-text",
+    "progress",
+    "json"
+  ],
+  "coverageAnalysis": "perTest",
+  "concurrency": 1,
+  "timeoutMS": 120000,
+  "jsonReporter": {
+    "fileName": "reports/mutation.json"
+  },
+  "mutate": [
+    "src/services/connectionFee.js",
+    "src/services/dac7.js",
+    "src/services/vat.js",
+    "src/utils/text.js",
+    "src/utils/contactGuard.js",
+    "src/utils/coverage.js",
+    "src/utils/mask.js",
+    "src/utils/sentryScrub.js",
+    "src/utils/imageSniff.js",
+    "src/utils/jobAccess.js",
+    "src/middleware/auth.js",
+    "src/middleware/rateLimit.js"
+  ],
+  "vitest": {
+    "configFile": "vitest.config.js",
+    "related": false
+  },
+  "_megjegyzes": [
+    "MUTÁCIÓS TESZTELÉS — „a tesztek tényleg fognak-e hibát?\"",
+    "",
+    "Futtatás: npm run test:mutation  (~1 óra, NEM CI-eszköz)",
+    "",
+    "Miért concurrency=1: a teszt-DB fix porton (54331) indul a globalSetup-ból,",
+    "párhuzamos worker-ek ütköznének rajta.",
+    "",
+    "Miért vitest.related=false: a tesztek CommonJS require-rel érik el a",
+    "forrást, amit a vitest --related nem tud bekövetni; enélkül „No tests found\".",
+    "",
+    "Miért csak ez a 12 fájl: a teljes src/ napokig futna. Ezek a pénz-, ",
+    "biztonsági és validációs mag — itt éri meg a legtöbbet.",
+    "",
+    "2026-08-07 első mérés: 836 mutáns, 39,5% pontszám. A connectionFee 100%,",
+    "a contactGuard 10% volt — utóbbi vezetett a chat-szűrő hiányának",
+    "felfedezéséhez (lásd tests/kapcsolat-szivargas.test.js)."
+  ]
+}

@@ -32,3 +32,7 @@ web/ai-teszt-jelentes.md
 
 # Lefedettségi riport (minden futás újragenerálja)
 coverage/
+
+# Mutációs tesztelés (Stryker) — ideiglenes másolat és riport
+.stryker-tmp/
+backend/reports/
