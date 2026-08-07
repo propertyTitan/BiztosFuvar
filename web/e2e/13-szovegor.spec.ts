@@ -61,6 +61,10 @@ const TILTOTT: Rule[] = [
     miert: 'PR #63: a szállító ad ajánlatot, a feladó dönt — nem a feladó szabja az árat.',
   },
   {
+    pattern: /\bQR\b/i,
+    miert: 'A QR kód 2026-08-06-án kikerült (user-döntés) — csak a 6 jegyű PIN van.',
+  },
+  {
     pattern: /(app\s*store|google\s*play)/i,
     miert: 'NINCS mobilapp — app-ígéret tilos (CLAUDE.md, PR #62).',
   },

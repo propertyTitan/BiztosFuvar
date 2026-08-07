@@ -185,6 +185,32 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **QR kód kivezetve — csak a 6 jegyű PIN marad (2026-08-06, user-döntés)** —
+  „csak bonyolítja az esetet". Technikailag is helyes volt a döntés: a QR
+  SOSEM működött végig — olvasó SEHOL nem volt a rendszerben (a
+  `parseQrContent` helpert semmi nem hívta), a szállító mindig kézzel gépelte
+  be a kódot. A QR tehát dísz volt, ami két úton gondolkodtatta el a
+  felhasználót ott, ahol egy sem kellett volna. Törölve: `QrCode.tsx`,
+  `backend/src/utils/qr.js`, a `qrcode` npm-függőség. Helyette
+  `web/src/components/DeliveryPin.tsx` (nagy, tagolt, színes kártyán is
+  olvasható — a régi QR-komponens a `var(--text)`-et használta, ami a kék
+  háttéren gyenge kontrasztot adott). Szöveg-átvezetés: nyomon-követő oldal,
+  fuvar-részletek, új fuvar űrlap, a címzett „mindjárt érkezik" emailje, és a
+  chatbot-tudás (a bizalmi lánc 5 → 4 rétegű). ⚠️ SZÖVEG-SZABÁLY: „QR" a
+  felületen TILOS — a szövegőr (13-as spec) őrzi. A QVIK fizetési QR MÁS
+  fogalom (a bankappban), az marad
+- **Teszt-harness stabilizálás (2026-08-06)** — a backend-suite kb. minden
+  8-12. TELJES futásán elbukott egy VÉLETLENSZERŰ teszt „socket hang up"-pal.
+  Nem alkalmazás-hiba: a supertest a `request(expressApp)` alakban MINDEN
+  hívásra új szervert nyit egy efemer porton — a hülyebiztos-matrix ~1500
+  plusz kérése ezt láthatóvá tette (a hiba régi tesztet is eltalált, nem csak
+  az újat). Javítás: a `tests/helpers.js` egyetlen, MÁR FIGYELŐ szervert
+  exportál `app` néven (`unref()`-fel), így a supertest csak csatlakozik.
+  A route-leltárnak kell a nyers Express példány is → `expressApp` külön
+  exportálva. Igazolás: 0 bukás 15 teljes futásból (előtte ~1/10).
+  Ráadás: a matrix `fire()` helpere transzport-hibára egyszer újrapróbál, de
+  KÉTSZERI elszállásnál elbukik — a néma retry-ciklus pont az a hamis zöld
+  lenne, ami ellen a suite szól
 - **„Hülyebiztos" adversarial matrix + AI felderítő tesztelő (2026-08-06)** —
   a tesztelői alapelv gépesítve: *a user el fogja rontani*. Három új réteg:
   **(1) `backend/tests/hulyebiztos-matrix.test.js`** — nem egy-egy hibát őriz,

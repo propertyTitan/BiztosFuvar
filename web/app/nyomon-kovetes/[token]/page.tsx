@@ -5,12 +5,12 @@
 //  Nem kell bejelentkezés, nem kell app. Egy link és kész.
 //
 //  URL: /nyomon-kovetes/<tracking_token>
-//  Mutatja: állapot, szállító neve, GPS pozíció, ETA, átvételi kód, QR kód.
+//  Mutatja: állapot, szállító neve, GPS pozíció, ETA, átvételi PIN.
 // =====================================================================
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import QrCode from '@/components/QrCode';
+import DeliveryPin from '@/components/DeliveryPin';
 import { Loading, EmptyState } from '@/components/StateView';
 import { SearchX } from 'lucide-react';
 
@@ -159,7 +159,7 @@ export default function PublicTrackingPage() {
         </div>
       )}
 
-      {/* Átvételi kód + QR */}
+      {/* Átvételi PIN (QR kikerült — user-döntés, 2026-08-06) */}
       {data.delivery_code && !['cancelled', 'completed'].includes(data.status) && (
         <div
           style={{
@@ -172,9 +172,12 @@ export default function PublicTrackingPage() {
           }}
         >
           <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 12 }}>
-            🔐 Átvételi kód — mutasd meg a szállítónak
+            🔐 Átvételi PIN — diktáld be a szállítónak
           </div>
-          <QrCode jobId={data.id} deliveryCode={data.delivery_code} size={180} />
+          <DeliveryPin
+            code={data.delivery_code}
+            hint="Diktáld be ezt a 6 jegyű PIN-t a szállítónak az átvételkor."
+          />
         </div>
       )}
 

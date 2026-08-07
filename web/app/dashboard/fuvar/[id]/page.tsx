@@ -18,7 +18,7 @@ import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
-import QrCode from '@/components/QrCode';
+import DeliveryPin from '@/components/DeliveryPin';
 import Confetti from '@/components/Confetti';
 import CompanyVerifiedBadge from '@/components/CompanyVerifiedBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -293,7 +293,7 @@ export default function FuvarReszletek() {
                 {kod}
               </div>
             ) : (
-              <QrCode jobId={job.id} deliveryCode={kod} size={200} />
+              <DeliveryPin code={kod} />
             )}
 
             {vanCimzett ? (
@@ -308,13 +308,11 @@ export default function FuvarReszletek() {
                   background: 'rgba(255,255,255,0.15)', fontSize: 12,
                 }}>
                   📱 A címzett a saját átvételi kódját SMS-ben és emailben kapta meg.
-                  A QR kódot a követési linken látja.
                 </div>
               </>
             ) : (
               <div style={{ fontSize: 13, opacity: 0.9, marginTop: 16 }}>
-                Te veszed át a csomagot: mutasd meg a szállítónak a QR kódot,
-                vagy diktáld be a 6 jegyű kódot.
+                Te veszed át a csomagot — diktáld be ezt a PIN-t a szállítónak.
               </div>
             )}
           </div>

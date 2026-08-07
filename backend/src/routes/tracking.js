@@ -118,7 +118,7 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
               sendEmail({
                 to: job.recipient_email,
                 subject: '📍 A szállító egy saroknyira van!',
-                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p><strong>A szállító mindjárt megérkezik!</strong></p>${job.carrier_name ? `<p>🚗 <strong>${job.carrier_name}</strong>${job.carrier_phone ? ` — <a href="tel:${job.carrier_phone}" style="font-size:18px;font-weight:700">${job.carrier_phone}</a>` : ''}</p>` : ''}<p>Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a kódot mondd meg a szállítónak, vagy mutasd meg a QR kódot a tracking oldalon.</p>`,
+                html: `<p>Szia${job.recipient_name ? ` ${job.recipient_name}` : ''}!</p><p><strong>A szállító mindjárt megérkezik!</strong></p>${job.carrier_name ? `<p>🚗 <strong>${job.carrier_name}</strong>${job.carrier_phone ? ` — <a href="tel:${job.carrier_phone}" style="font-size:18px;font-weight:700">${job.carrier_phone}</a>` : ''}</p>` : ''}<p>Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a PIN-t mondd meg a szállítónak az átvételkor.</p>`,
               }).catch(() => {});
             }
           }

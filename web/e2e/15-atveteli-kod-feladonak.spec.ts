@@ -58,6 +58,8 @@ test('a FELADÓ veszi át → normál átvételi kód, nincs vészhelyzet-szöve
 
   await expect(page.getByText(/Átvételi kódod/i)).toBeVisible();
   await expect(page.getByText(/Te veszed át a csomagot/i)).toBeVisible();
+  // QR kód SEHOL — user-döntés (2026-08-06): csak a PIN marad
+  await expect(page.getByAltText(/QR/i)).toHaveCount(0);
 
   // Nincs címzett — a riasztó vészhelyzet-szöveg félrevezető lenne
   await expect(page.getByText(/Vészhelyzeti kód/i)).toHaveCount(0);

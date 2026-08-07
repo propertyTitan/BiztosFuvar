@@ -1067,7 +1067,7 @@ export default function UjFuvar() {
                 placeholder="anna@email.hu"
               />
               <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                Ha megadod, a címzett emailben is kapja a követési linket + QR kódot.
+                Ha megadod, a címzett emailben is kapja a követési linket.
               </p>
             </div>
           </div>
