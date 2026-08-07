@@ -37,5 +37,13 @@ jobs:
       - name: Függőségek telepítése
         run: npm install
 
-      - name: Tesztek futtatása
-        run: npm test
+      - name: Függőség-audit (éles függőségek, magas/kritikus)
+        run: node ../scripts/fuggoseg-audit.js .
+
+      - name: Tesztek futtatása lefedettséggel
+        run: npm run test:coverage
+
+      # Külön lépés: a vitest a küszöb-sértést kiírja, de NULLA kóddal lép ki
+      # (lemérve) — ez a szkript az, ami tényleg elbuktatja a buildet.
+      - name: Lefedettség-őr (nem csúszhat vissza)
+        run: node ../scripts/lefedettseg-or.js .

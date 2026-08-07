@@ -10,7 +10,8 @@
     "db:init": "node scripts/init-db.js",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.670.0",
@@ -28,6 +29,7 @@
     "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.10",
     "embedded-postgres": "^18.4.0-beta.17",
     "supertest": "^7.2.2",
     "vitest": "^4.1.9"
