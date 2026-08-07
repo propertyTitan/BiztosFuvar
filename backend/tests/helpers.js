@@ -7,7 +7,24 @@ const crypto = require('crypto');
 // Az env-setup.js már beállította a teszt-DATABASE_URL-t, így ezek a
 // require-ok biztosan a teszt-DB-re kötnek.
 const db = require('../src/db');
-const { app } = require('../src/index');
+const { app: expressApp } = require('../src/index');
+
+// ── EGY közös, élő HTTP-szerver az összes teszthez ────────────────────
+// A supertest `request(expressApp)` alakban MINDEN EGYES híváshoz új
+// szervert nyit egy efemer porton, majd lezárja. A teljes készlet több ezer
+// kérést lő ki (a hülyebiztos-matrix egymaga ~1500-at), és ilyen mennyiségnél
+// a szerver-nyitás/zárás ciklus időnként „socket hang up"-pal elszáll —
+// véletlenszerű teszten, kb. minden 12. teljes futáskor. Nem az alkalmazás
+// hibája (a végpontok önmagukban ezerszer is hibátlanul válaszolnak), hanem
+// a teszt-harness erőforrás-zaja.
+//
+// Ha viszont egy MÁR FIGYELŐ szervert adunk át, a supertest nem nyit újat,
+// csak csatlakozik — így a suite egyetlen szerverrel dolgozik.
+// `unref()`: ne tartsa életben a process-t a futás végén.
+const http = require('http');
+const app = http.createServer(expressApp);
+app.listen(0);
+app.unref();
 
 let seq = 0;
 
@@ -147,4 +164,9 @@ const TINY_PNG = Buffer.from(
   'base64',
 );
 
-module.exports = { db, app, createUser, createJob, createBooking, uniqueEmail, TINY_PNG };
+// `app`        → a FIGYELŐ szerver (ezt kapja a supertest)
+// `expressApp` → a nyers Express példány (a route-leltárnak kell, ami a
+//                router-stacket járja be — a szerver-objektumon az nincs)
+module.exports = {
+  db, app, expressApp, createUser, createJob, createBooking, uniqueEmail, TINY_PNG,
+};
