@@ -93,6 +93,49 @@ describe('Admin user-törlés: biztonsági guardok', () => {
     expect(res.status).toBe(404);
   });
 
+  it('járat-törlés: nem törölhető, ha aktív FIZETETT foglalás van rajta', async () => {
+    const a = await admin();
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const { booking, routeId } = await createBooking({
+      shipperId: felado.id, carrierId: szallito.id, status: 'in_progress', paid: true,
+    });
+
+    const blokk = await request(app).delete(`/admin/routes/${routeId}`).set('Authorization', `Bearer ${a.token}`);
+    expect(blokk.status, 'a járatot törölni lehetett aktív fizetett foglalással (adatvesztés!)').toBe(409);
+    expect(blokk.body.code).toBe('HAS_ACTIVE_PAID');
+
+    // a foglalás megvan
+    const { rows } = await db.query('SELECT 1 FROM route_bookings WHERE id = $1', [booking.id]);
+    expect(rows.length).toBe(1);
+  });
+
+  it('fuvar-törlés: aktív fizetett fuvar nem, terminál fizetett igen', async () => {
+    const a = await admin();
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+
+    const aktiv = await createJob({ shipperId: felado.id, carrierId: szallito.id, status: 'in_progress', paid: true });
+    const blokk = await request(app).delete(`/admin/jobs/${aktiv.id}`).set('Authorization', `Bearer ${a.token}`);
+    expect(blokk.status).toBe(409);
+
+    const lezart = await createJob({ shipperId: felado.id, carrierId: szallito.id, status: 'delivered', paid: true });
+    const ok = await request(app).delete(`/admin/jobs/${lezart.id}`).set('Authorization', `Bearer ${a.token}`);
+    expect(ok.status, JSON.stringify(ok.body)).toBe(200);
+  });
+
+  it('foglalás-törlés: aktív fizetett foglalás nem törölhető', async () => {
+    const a = await admin();
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const { booking } = await createBooking({
+      shipperId: felado.id, carrierId: szallito.id, status: 'in_progress', paid: true,
+    });
+    const res = await request(app).delete(`/admin/bookings/${booking.id}`).set('Authorization', `Bearer ${a.token}`);
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('HAS_ACTIVE_PAID');
+  });
+
   it('a fuvar-ág védett: szállító törlésekor a feladó fuvarja MEGMARAD (carrier_id NULL)', async () => {
     // Ez a SET NULL kaszkádot igazolja: egy LEZÁRT fuvarnál a szállító
     // törölhető, és a feladó fuvara nem tűnik el, csak elveszti a szállítót.
