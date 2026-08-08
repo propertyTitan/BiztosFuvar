@@ -185,6 +185,20 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **CIB-fizetésre felkészítés + provider fail-loud (2026-08-08, user-döntés:
+  a launch NEM QVIK, hanem CIB kártyás vPOS)** — a `paymentProvider.js`
+  korábban `name() === 'qvik' ? qvik : barion` volt: MINDEN nem-'qvik' érték
+  (köztük a launch `cib`-je ÉS bármelyik elgépelés) CSENDBEN visszaesett
+  Barionra → kulcs nélkül stub → az oldal „élesben" futott volna, de NULLA
+  díjat szedett volna be, és a confirm-payment guardok kinyíltak volna. Ez a
+  launch legveszélyesebb NÉMA hibája lett volna. Három védelem: (1) `cib.js`
+  skeleton a CIB vPOS-hoz (a qvik.js mintájára); (2) explicit provider-térkép
+  `{barion,qvik,cib}` + fail-loud: ismeretlen `PAYMENT_PROVIDER` → HANGOS
+  hiba, nem néma Barion-visszaesés; (3) boot-ellenőrzés az index.js-ben:
+  ÉLES (production) futás + stub provider → prominens hiba a logban („nulla
+  díj, guard nyitva"). +9 teszt. AKTIVÁLÁS: `PAYMENT_PROVIDER=cib` +
+  `CIB_API_KEY`/`CIB_MERCHANT_ID`/`CIB_BASE_URL` + a cib.js két TODO-ja +
+  `/payments/cib/callback`
 - **Részletes átvizsgálás 2. kör — foglalás-fizetés provider-hiba (2026-08-08)** —
   ⚠️ LAUNCH-KRITIKUS: a foglalási (Járat) ág a fuvar-ággal ellentétben
   KÖZVETLENÜL a barion-t hívta (`barion.startFeePayment` + a confirm-payment
@@ -969,7 +983,19 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
   27–291. sorát javasolt közös `confirmFeePayment` helperbe kiszervezni).
   **2026-07-11 user-döntés: a Barion VÉGLEG ELVETVE** ("meguntam a velük lévő
   harcot") — a Barion-kód csak dormant maradvány, NEM élesítendő; Barion-
-  szerződés és Barion Pixel okafogyott. Launch-fizetés = QVIK. ⚠️ Következmény:
+  szerződés és Barion Pixel okafogyott.
+  ⚠️⚠️ **2026-08-08 user-döntés: a launch-fizetés NEM QVIK, hanem a CIB
+  bankkártyás vPOS** (a cég számlavezető bankja; ~1,6% jutalék, kártyás láb →
+  a diaszpóra-feladók is fizethetnek). A `paymentProvider.js` mostantól
+  `barion | qvik | cib`-et ismer; a `PAYMENT_PROVIDER=cib` + `CIB_API_KEY` +
+  `CIB_MERCHANT_ID` + `CIB_BASE_URL` env-ekkel vált élesre, a `cib.js`
+  skeleton (vPOS init + státusz-visszaolvasás) kitöltése után + egy
+  `/payments/cib/callback` bekötésével. ⚠️ Az alábbi QVIK-specifikus
+  szöveg (magyar bankappos korlát, QVIK-kedvezményes kettős árazás)
+  a CIB-nél OKAFOGYOTT — a kártyás láb nem-magyar feladót is kiszolgál, és
+  1,6%-nál az egységes 500/1000 valószínűleg felesleges kettős árazás nélkül
+  is megy (lásd 🟡 CIB-véglegesítés). Az itt lentebb maradt QVIK-szöveg
+  történeti. ⚠️ Következmény:
   a QVIK HUF-os, magyar bankappos fizetés → a kapcsolatfelvételi díjat csak
   magyar bankszámlás feladó tudja fizetni (a folyosó-fuvarok diaszpóra-
   feladóinak többségénél ez OK; nem-magyar feladóhoz később kártyás
@@ -1045,12 +1071,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **619 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **628 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **435 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **444 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,

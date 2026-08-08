@@ -213,6 +213,40 @@ process.on('uncaughtException', (err) => {
 
 // Teszt alatt (vitest/supertest) az app-ot importáljuk, de a szerver nem
 // figyel porton — csak közvetlen indításnál (node src/index.js) listen-elünk.
+// ── FIZETÉS-KONFIG boot-ellenőrzés (2026-08-08) ──
+// Két néma katasztrófát fog el a launchnál:
+//  (1) rossz/ismeretlen PAYMENT_PROVIDER (pl. elgépelés) → a paymentProvider
+//      most már HANGOSAN hibázik híváskor, de itt boot-időben is jelezzük,
+//      hogy ne az első fizetésnél derüljön ki;
+//  (2) ÉLES (production) futás mellett STUB provider → az oldal „élesben"
+//      futna, de NULLA díjat szedne be, és a confirm-payment guardok nyitva.
+//      Ez a launch legveszélyesebb néma hibája — ezért kiabálunk érte.
+(function checkPaymentConfig() {
+  try {
+    const paymentProvider = require('./services/paymentProvider');
+    const providerName = paymentProvider.name();
+    if (!paymentProvider.providers.includes(providerName)) {
+      console.error(
+        `[FIZETÉS] ⚠️ ISMERETLEN PAYMENT_PROVIDER="${providerName}". `
+        + `Támogatott: ${paymentProvider.providers.join(', ')}. A díjfizetés HIBÁZNI FOG.`,
+      );
+      return;
+    }
+    if (process.env.NODE_ENV === 'production' && paymentProvider.isStub()) {
+      console.error(
+        `[FIZETÉS] ⚠️⚠️ FIGYELEM: éles (production) futás, de a(z) "${providerName}" `
+        + 'provider STUB módban van (nincs beállítva a szolgáltató kulcsa). '
+        + 'A kapcsolatfelvételi díj NEM szedődik be, és a kézi fizetés-nyugtázás nyitva! '
+        + 'Állítsd be a provider kulcsait, mielőtt éles forgalmat engedsz.',
+      );
+    } else {
+      console.log(`[FIZETÉS] provider: ${providerName}${paymentProvider.isStub() ? ' (stub/teszt mód)' : ' (éles)'}`);
+    }
+  } catch (err) {
+    console.error('[FIZETÉS] konfig-ellenőrzés hiba:', err.message);
+  }
+})();
+
 const port = parseInt(process.env.PORT || '4000', 10);
 if (require.main === module) {
   server.listen(port, () => {
