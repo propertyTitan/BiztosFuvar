@@ -29,20 +29,34 @@ const router = express.Router();
 const adminOnly = [authRequired, requireRole('admin')];
 
 // A körüzenet cél-szűrői. Admint sosem célzunk (mi magunk vagyunk azok).
+//
+// ⚠️ 2026-08-08 átvizsgálás-találat: a "carriers" eredetileg `role='carrier'`
+// volt — de a web-regisztráció SOSEM ad carrier szerepet (mindenki 'shipper'-
+// ként jön létre, és kliens-oldali mód-váltással lesz szállító). A szállítói
+// működés valódi jele a `driver_terms_accepted_at` (a szállító-mód első
+// használatakor kötelező nyilatkozat). A "shippers" ugyanezért nem a role:
+// az, aki TÉNYLEGESEN adott már fel fuvart.
 const BROADCAST_TARGETS = {
   all: `role <> 'admin'`,
-  shippers: `role = 'shipper'`,
-  carriers: `role = 'carrier'`,
+  shippers: `role <> 'admin' AND EXISTS (SELECT 1 FROM jobs j WHERE j.shipper_id = users.id)`,
+  carriers: `role <> 'admin' AND (role = 'carrier' OR driver_terms_accepted_at IS NOT NULL)`,
   company: `account_type = 'company' AND role <> 'admin'`,
 };
 
-/** Van-e a usernek megnyitott válasz-csatornája (kapott-e direct üzenetet)? */
-async function hasOpenChannel(userId) {
+/**
+ * Válaszolhat-e a user az adminnak: kapott-e KÖZVETLEN üzenetet, ÉS a
+ * csatornát nem zárta le az admin (admin_channel_closed_at).
+ */
+async function canUserReply(userId) {
   const { rows } = await db.query(
-    `SELECT 1 FROM admin_messages WHERE user_id = $1 AND kind = 'direct' LIMIT 1`,
+    `SELECT (u.admin_channel_closed_at IS NULL) AS nyitva,
+            EXISTS (SELECT 1 FROM admin_messages m
+                     WHERE m.user_id = u.id AND m.kind = 'direct') AS van_direct
+       FROM users u WHERE u.id = $1`,
     [userId],
   );
-  return rows.length > 0;
+  if (!rows[0]) return { canReply: false, closed: false };
+  return { canReply: rows[0].van_direct && rows[0].nyitva, closed: !rows[0].nyitva };
 }
 
 /** Email-küldés az admin-üzenetről — sosem dobhat, a fő tranzakciót nem akasztja. */
@@ -50,6 +64,26 @@ function queueMessageEmail({ to, name, bodyText }) {
   setImmediate(() => {
     sendAdminMessageEmail({ to, name, bodyText }).catch(() => {});
   });
+}
+
+/**
+ * Körüzenet-email hiba a Sentrybe (az sms.js reportSmsFailure mintájára).
+ * A háttér-kiküldés fire-and-forget — ha csendben hal el, az admin azt
+ * hiszi, mindenki megkapta. A log mellett riasztás is jár.
+ */
+function reportBroadcastEmailFailure(broadcastId, err, sentCount, totalCount) {
+  console.error(`[admin-dm] körüzenet-email hiba (${sentCount}/${totalCount} után):`, err.message);
+  if (!process.env.SENTRY_DSN) return;
+  try {
+    const Sentry = require('@sentry/node');
+    Sentry.captureMessage('Körüzenet-email kiküldés megszakadt', {
+      level: 'error',
+      tags: { broadcast_id: String(broadcastId) },
+      extra: { sent: sentCount, total: totalCount, error: err.message },
+    });
+  } catch (_) {
+    // A riasztás hibája sosem érintheti a fő folyamatot.
+  }
 }
 
 // ===================== ADMIN OLDAL =====================
@@ -77,7 +111,7 @@ router.get('/admin/dm/threads', ...adminOnly, async (req, res) => {
 // Mellékhatás: a user válaszait olvasottra állítja (az admin most látta őket).
 router.get('/admin/dm/with/:userId', ...adminOnly, async (req, res) => {
   const { rows: userRows } = await db.query(
-    'SELECT id, full_name, email FROM users WHERE id = $1',
+    'SELECT id, full_name, email, admin_channel_closed_at FROM users WHERE id = $1',
     [req.params.userId],
   );
   if (!userRows[0]) return res.status(404).json({ error: 'Nincs ilyen felhasználó.' });
@@ -189,9 +223,14 @@ router.post('/admin/dm/broadcast', ...adminOnly, writeRateLimit, async (req, res
   }
 
   // Email-példányok HÁTTÉRBEN, ütemezve (Resend limit + a kérés ne várjon).
+  // ⚠️ ISMERT KORLÁT: a sor csak memóriában él — ha a folyamat a kiküldés
+  // közben újraindul (deploy), a maradék email elveszik. Launch-méretnél
+  // (percek alatt végez) ez vállalt kockázat; nagy tábornál perzisztens
+  // outbox kell. A megszakadás legalább HANGOS: Sentry-riasztás megy róla.
   if (sendEmailToo && inserted.length > 0) {
     const ids = inserted.map((r) => r.user_id);
     setImmediate(async () => {
+      let sent = 0;
       try {
         const { rows: recipients } = await db.query(
           'SELECT email, full_name FROM users WHERE id = ANY($1)',
@@ -199,11 +238,12 @@ router.post('/admin/dm/broadcast', ...adminOnly, writeRateLimit, async (req, res
         );
         for (const r of recipients) {
           await sendAdminMessageEmail({ to: r.email, name: r.full_name, bodyText: bodyCheck.value });
+          sent += 1;
           await new Promise((ok) => setTimeout(ok, 600)); // ~100 email/perc
         }
         console.log(`[admin-dm] körüzenet-email kiment: ${recipients.length} címzett`);
       } catch (err) {
-        console.error('[admin-dm] körüzenet-email hiba:', err.message);
+        reportBroadcastEmailFailure(broadcastId, err, sent, ids.length);
       }
     });
   }
@@ -224,14 +264,41 @@ router.get('/admin/dm/broadcasts', ...adminOnly, async (req, res) => {
   res.json(rows);
 });
 
+// PATCH /admin/dm/channel — a user válasz-csatornájának lezárása/megnyitása.
+// Body: { user_id, closed: boolean }. Lezárva a user nem írhat (403
+// CHANNEL_CLOSED), az admin továbbra is igen; bármikor visszanyitható.
+router.patch('/admin/dm/channel', ...adminOnly, async (req, res) => {
+  const { user_id, closed } = req.body || {};
+  if (typeof closed !== 'boolean' || !user_id) {
+    return res.status(400).json({ error: 'Kell: user_id és closed (true/false).' });
+  }
+  const { rows } = await db.query(
+    `UPDATE users SET admin_channel_closed_at = ${closed ? 'NOW()' : 'NULL'}
+      WHERE id = $1 RETURNING id, admin_channel_closed_at`,
+    [user_id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Nincs ilyen felhasználó.' });
+  console.log(`[admin-dm] csatorna ${closed ? 'LEZÁRVA' : 'megnyitva'}: user ${user_id} (admin: ${req.user.sub})`);
+  res.json({ ok: true, user_id: rows[0].id, closed: !!rows[0].admin_channel_closed_at });
+});
+
 // ===================== FELHASZNÁLÓI OLDAL =====================
 
 // GET /me/admin-messages — a saját szálam az adminnal + válaszolhatok-e.
-// Mellékhatás: az admin üzenetei olvasottra állnak (a user most látta őket).
+// Mellékhatás: az admin üzenetei olvasottra állnak (a user most látta őket),
+// ÉS a hozzájuk tartozó harang-értesítések is — különben aki közvetlen
+// linkről (pl. emailből) érkezik ide, annak a harang-badge sosem aludna ki
+// (2026-08-08 átvizsgálás-találat).
 router.get('/me/admin-messages', authRequired, async (req, res) => {
   await db.query(
     `UPDATE admin_messages SET read_at = NOW()
       WHERE user_id = $1 AND sender = 'admin' AND read_at IS NULL`,
+    [req.user.sub],
+  );
+  await db.query(
+    `UPDATE notifications SET read_at = NOW()
+      WHERE user_id = $1 AND read_at IS NULL
+        AND type IN ('admin_message', 'admin_broadcast')`,
     [req.user.sub],
   );
   const { rows } = await db.query(
@@ -242,20 +309,25 @@ router.get('/me/admin-messages', authRequired, async (req, res) => {
       LIMIT 500`,
     [req.user.sub],
   );
-  res.json({ messages: rows, can_reply: await hasOpenChannel(req.user.sub) });
+  const { canReply } = await canUserReply(req.user.sub);
+  res.json({ messages: rows, can_reply: canReply });
 });
 
 // POST /me/admin-messages — válasz az adminnak.
-// CSAK akkor, ha az admin már írt közvetlen üzenetet (különben 403) —
-// ez a "maguktól ne tudjanak írni" szabály kényszerítése.
+// CSAK akkor, ha az admin már írt közvetlen üzenetet ÉS nem zárta le a
+// csatornát (különben 403) — ez a "maguktól ne tudjanak írni" szabály
+// kényszerítése.
 router.post('/me/admin-messages', authRequired, writeRateLimit, async (req, res) => {
   const bodyCheck = requireText(req.body?.body, { label: 'Az üzenet', min: 1, max: 5000 });
   if (!bodyCheck.ok) return res.status(400).json({ error: 'Üres üzenet.' });
 
-  if (!(await hasOpenChannel(req.user.sub))) {
+  const { canReply, closed } = await canUserReply(req.user.sub);
+  if (!canReply) {
     return res.status(403).json({
-      error: 'Válaszolni akkor tudsz, ha a GoFuvar csapata közvetlen üzenetet küldött neked.',
-      code: 'NO_CHANNEL',
+      error: closed
+        ? 'Ezt a beszélgetést a GoFuvar csapata lezárta.'
+        : 'Válaszolni akkor tudsz, ha a GoFuvar csapata közvetlen üzenetet küldött neked.',
+      code: closed ? 'CHANNEL_CLOSED' : 'NO_CHANNEL',
     });
   }
 

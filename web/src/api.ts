@@ -846,12 +846,18 @@ export const api = {
   /** Egy szál teljes tartalma (megnyitása a user válaszait olvasottra állítja). */
   adminDmThread: (userId: string) =>
     request<{
-      user: { id: string; full_name: string | null; email: string };
+      user: { id: string; full_name: string | null; email: string; admin_channel_closed_at: string | null };
       messages: Array<{
         id: string; sender: 'admin' | 'user'; kind: string; body: string;
         created_at: string; read_at: string | null; admin_name: string | null;
       }>;
     }>(`/admin/dm/with/${userId}`),
+
+  /** A user válasz-csatornájának lezárása/megnyitása (némítás). */
+  adminDmChannel: (userId: string, closed: boolean) =>
+    request<{ ok: boolean; user_id: string; closed: boolean }>('/admin/dm/channel', {
+      method: 'PATCH', body: JSON.stringify({ user_id: userId, closed }),
+    }),
 
   /** Közvetlen üzenet egy felhasználónak (ez nyitja meg a válasz-csatornáját). */
   adminDmSend: (userId: string, body: string, sendEmail: boolean) =>

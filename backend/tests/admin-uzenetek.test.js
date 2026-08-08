@@ -12,8 +12,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser } = require('./helpers');
+const { app, db, createUser, createJob } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
+const { purgeOldAdminMessages } = require('../src/services/retention');
 
 const auth = (t) => ({ Authorization: `Bearer ${t}` });
 
@@ -23,6 +24,9 @@ async function ujVilag() {
   const admin = await createUser({ role: 'admin' });
   const felado = await createUser({ role: 'shipper' });
   const szallito = await createUser({ role: 'carrier' });
+  // A helper minden verified usernek beállítja a driver_terms_accepted_at-ot
+  // — a "tiszta feladó" fixture-höz ezt kivesszük (élesben a feladónak nincs)
+  await db.query('UPDATE users SET driver_terms_accepted_at = NULL WHERE id = $1', [felado.id]);
   return { admin, felado, szallito };
 }
 
@@ -177,10 +181,43 @@ describe('Körüzenet-célzás', () => {
     expect(szallitoSzal.body.messages).toHaveLength(1);
     const feladoSzal = await request(app).get('/me/admin-messages').set(auth(felado.token));
     expect(feladoSzal.body.messages).toHaveLength(0);
+    // Az admin driver_terms-e ki van töltve (helper) — a role<>'admin' guard
+    // nélkül ő is címzett lenne. Ez az assert őrzi az admin-kizárást.
     const { rows } = await db.query(
       'SELECT * FROM admin_messages WHERE user_id = $1', [admin.id],
     );
     expect(rows).toHaveLength(0);
+  });
+
+  it('P2-regresszió: a shipper-szerepű, de szállító-módot használó user IS carrier-címzett', async () => {
+    // A web-regisztráció SOSEM ad carrier role-t — mindenki 'shipper'-ként
+    // jön létre, és a driver_terms_accepted_at jelzi a tényleges szállítói
+    // működést. A role-alapú célzás ezt a többséget kihagyta volna.
+    const { admin } = await ujVilag();
+    const modvalto = await createUser({ role: 'shipper' }); // driver_terms a helperből kitöltve
+
+    await request(app)
+      .post('/admin/dm/broadcast').set(auth(admin.token))
+      .send({ body: 'Szállítói hír a mód-váltóknak is.', target: 'carriers' });
+
+    const szal = await request(app).get('/me/admin-messages').set(auth(modvalto.token));
+    expect(szal.body.messages).toHaveLength(1);
+  });
+
+  it('shippers-célzás = aki TÉNYLEGESEN adott már fel fuvart', async () => {
+    const { admin, felado, szallito } = await ujVilag();
+    await createJob({ shipperId: felado.id, status: 'bidding' });
+
+    await request(app)
+      .post('/admin/dm/broadcast').set(auth(admin.token))
+      .send({ body: 'Feladói hír.', target: 'shippers' });
+
+    const feladoSzal = await request(app).get('/me/admin-messages').set(auth(felado.token));
+    expect(feladoSzal.body.messages).toHaveLength(1);
+    // A szállítónak nincs feladott fuvarja → nem címzett (hiába 'shipper'
+    // szerepű minden web-regisztráló — a role itt semmit nem jelent)
+    const szallitoSzal = await request(app).get('/me/admin-messages').set(auth(szallito.token));
+    expect(szallitoSzal.body.messages).toHaveLength(0);
   });
 
   it('company-célzás csak a céges fiókoknak megy', async () => {
@@ -270,5 +307,112 @@ describe('GET /admin/users/:id — teljes részletnézet', () => {
     const civil = await request(app)
       .get(`/admin/users/${szallito.id}`).set(auth(felado.token));
     expect(civil.status).toBe(403);
+  });
+});
+
+describe('Csatorna lezárása (némítás)', () => {
+  it('lezárva a user nem írhat (CHANNEL_CLOSED), visszanyitva újra igen — az admin végig írhat', async () => {
+    const { admin, felado } = await ujVilag();
+    await request(app)
+      .post(`/admin/dm/with/${felado.id}`).set(auth(admin.token))
+      .send({ body: 'Nyitó üzenet.' });
+
+    // Lezárás
+    const zaras = await request(app)
+      .patch('/admin/dm/channel').set(auth(admin.token))
+      .send({ user_id: felado.id, closed: true });
+    expect(zaras.status).toBe(200);
+    expect(zaras.body.closed).toBe(true);
+
+    // A user nem írhat, és a can_reply is false
+    const szal = await request(app).get('/me/admin-messages').set(auth(felado.token));
+    expect(szal.body.can_reply).toBe(false);
+    const valasz = await request(app)
+      .post('/me/admin-messages').set(auth(felado.token)).send({ body: 'Hahó?' });
+    expect(valasz.status).toBe(403);
+    expect(valasz.body.code).toBe('CHANNEL_CLOSED');
+
+    // Az admin lezárt csatornán is írhat
+    const adminIr = await request(app)
+      .post(`/admin/dm/with/${felado.id}`).set(auth(admin.token))
+      .send({ body: 'Ezt lezárt csatornán küldöm.' });
+    expect(adminIr.status).toBe(201);
+
+    // Visszanyitás → a user újra válaszolhat
+    await request(app)
+      .patch('/admin/dm/channel').set(auth(admin.token))
+      .send({ user_id: felado.id, closed: false });
+    const ujra = await request(app)
+      .post('/me/admin-messages').set(auth(felado.token)).send({ body: 'Újra tudok írni!' });
+    expect(ujra.status).toBe(201);
+  });
+
+  it('rossz body → 400, nem létező user → 404', async () => {
+    const { admin } = await ujVilag();
+    for (const rossz of [{}, { user_id: admin.id }, { closed: true }, { user_id: admin.id, closed: 'igen' }]) {
+      __resetRateLimitsForTests();
+      const res = await request(app)
+        .patch('/admin/dm/channel').set(auth(admin.token)).send(rossz);
+      expect(res.status).toBe(400);
+    }
+    const nincs = await request(app)
+      .patch('/admin/dm/channel').set(auth(admin.token))
+      .send({ user_id: '00000000-0000-0000-0000-000000000000', closed: true });
+    expect(nincs.status).toBe(404);
+  });
+});
+
+describe('Harang-badge: a szál megnyitása az értesítést is olvasottra állítja', () => {
+  it('közvetlen linkes érkezésnél sem marad égve a badge', async () => {
+    const { admin, felado } = await ujVilag();
+    await request(app)
+      .post(`/admin/dm/with/${felado.id}`).set(auth(admin.token))
+      .send({ body: 'Badge-teszt.' });
+
+    // Az értesítés még olvasatlan
+    let { rows } = await db.query(
+      `SELECT read_at FROM notifications WHERE user_id = $1 AND type = 'admin_message'`,
+      [felado.id],
+    );
+    expect(rows[0].read_at).toBeNull();
+
+    // A user megnyitja a szálát (mintha email-linkről jönne, az
+    // értesítés-listát kihagyva) → az értesítés is olvasottra áll
+    await request(app).get('/me/admin-messages').set(auth(felado.token));
+    ({ rows } = await db.query(
+      `SELECT read_at FROM notifications WHERE user_id = $1 AND type = 'admin_message'`,
+      [felado.id],
+    ));
+    expect(rows[0].read_at).not.toBeNull();
+  });
+});
+
+describe('Retenció: 3 év után az admin-levelezés törlődik', () => {
+  it('a régi üzenet és körüzenet-napló megy, a friss marad', async () => {
+    const { admin, felado } = await ujVilag();
+    // Friss + antedatált üzenet ugyanabban a szálban
+    await db.query(
+      `INSERT INTO admin_messages (user_id, sender, admin_id, kind, body, created_at)
+       VALUES ($1, 'admin', $2, 'direct', 'friss', NOW()),
+              ($1, 'admin', $2, 'direct', 'őskövület', NOW() - interval '4 years')`,
+      [felado.id, admin.id],
+    );
+    await db.query(
+      `INSERT INTO admin_broadcasts (admin_id, target, body, created_at)
+       VALUES ($1, 'all', 'régi közlemény', NOW() - interval '4 years')`,
+      [admin.id],
+    );
+
+    const torolt = await purgeOldAdminMessages();
+    expect(torolt).toBeGreaterThanOrEqual(2);
+
+    const { rows } = await db.query(
+      'SELECT body FROM admin_messages WHERE user_id = $1', [felado.id],
+    );
+    expect(rows.map((r) => r.body)).toEqual(['friss']);
+    const { rows: bc } = await db.query(
+      `SELECT * FROM admin_broadcasts WHERE body = 'régi közlemény'`,
+    );
+    expect(bc).toHaveLength(0);
   });
 });

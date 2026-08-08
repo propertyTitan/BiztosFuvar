@@ -11,6 +11,11 @@
 //     "bizonyíték-megőrzés": fotó + chat együtt).
 //   GPS-PINGEK (2026-07-17): 7 nap után törlődnek (rögzítéstől — az élő
 //     GPS a mobil-fázisban indul, de a job már most él, így sosem gyűlhet).
+//   ADMIN-ÜZENETEK (2026-08-08): az admin ↔ user levelezés a küldéstől
+//     számított 3 ÉV után törlődik (a fogyasztóvédelmi panasz-megőrzés
+//     3 éves mércéjéhez igazítva — Fgytv. 17/A. §; a csatornán panasz is
+//     érkezhet). A körüzenet-napló (admin_broadcasts) ugyanennyi.
+//     Fiók-törléskor a user szála azonnal megy (FK CASCADE).
 //
 // Naponta fut (index.js: runDailyRetention). Soha nem dob.
 
@@ -19,6 +24,7 @@ const { deleteFile } = require('./storage');
 
 const DEFAULT_RETENTION_DAYS = 30;
 const HOLD_RETENTION_YEARS = 5;
+const ADMIN_DM_RETENTION_YEARS = 3;
 
 // Terminális státuszok — csak lezárt ügylet fotóját törölhetjük
 const JOB_TERMINAL = ['delivered', 'completed', 'cancelled'];
@@ -147,15 +153,44 @@ async function purgeOldLocationPings() {
   }
 }
 
+/**
+ * 3 évnél régebbi admin ↔ user üzenetek + körüzenet-napló törlése.
+ * (2026-08-08: a feature-rel együtt gépesítve, hogy a "minden adattípus
+ * életciklusa gépesített" állítás igaz maradjon.)
+ * @returns {Promise<number>} a törölt sorok száma
+ */
+async function purgeOldAdminMessages() {
+  try {
+    const { rowCount: msgs } = await db.query(
+      `DELETE FROM admin_messages WHERE created_at < NOW() - ($1 || ' years')::interval`,
+      [ADMIN_DM_RETENTION_YEARS],
+    );
+    const { rowCount: bcs } = await db.query(
+      `DELETE FROM admin_broadcasts WHERE created_at < NOW() - ($1 || ' years')::interval`,
+      [ADMIN_DM_RETENTION_YEARS],
+    );
+    const purged = (msgs || 0) + (bcs || 0);
+    if (purged > 0) {
+      console.log(`[retention] ${purged} admin-üzenet/körüzenet törölve (>${ADMIN_DM_RETENTION_YEARS} év)`);
+    }
+    return purged;
+  } catch (err) {
+    console.error('[retention] admin-üzenet purge hiba:', err.message);
+    return 0;
+  }
+}
+
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
   await purgeOldDeliveryPhotos();
   await purgeOldChatMessages();
   await purgeOldLocationPings();
+  await purgeOldAdminMessages();
 }
 
 module.exports = {
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
-  runDailyRetention,
+  purgeOldAdminMessages, runDailyRetention,
   DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS, CHAT_RETENTION_MONTHS, GPS_RETENTION_DAYS,
+  ADMIN_DM_RETENTION_YEARS,
 };

@@ -88,7 +88,7 @@ Top-level fájlok:
 | `towing.js` | "mentős" roadside-assistance flow — **nincs jutalék wire-olva** (lásd memory) |
 | `driverStats.js` | sofőr statisztikák, gamifikáció |
 | `admin.js` | admin CRUD panel (role === 'admin') + `GET /admin/users/:id` teljes user-részletnézet (DAC7 + titkok NÉLKÜL) |
-| `adminMessages.js` | admin ↔ user üzenetek: közvetlen üzenet + körüzenet (`/admin/dm/*`) és a user oldala (`/me/admin-messages`). Szabály: a user CSAK akkor válaszolhat, ha kapott 'direct' üzenetet — a körüzenet nem nyit csatornát |
+| `adminMessages.js` | admin ↔ user üzenetek: közvetlen üzenet + körüzenet (`/admin/dm/*`) és a user oldala (`/me/admin-messages`). Szabály: a user CSAK akkor válaszolhat, ha kapott 'direct' üzenetet — a körüzenet nem nyit csatornát; az admin le is zárhatja (`PATCH /admin/dm/channel` → 403 CHANNEL_CLOSED). ⚠️ Körüzenet-célzás: NEM a `role` (a web-regisztráció mindenkit 'shipper'-nek vesz fel!) — szállító = driver_terms VAGY carrier-role, feladó = van feladott fuvarja |
 | `jobQuestions.js` | fuvar alatti kérdés-válasz |
 | `ai.js` | `/ai/chat` (Gemini chatbot), KYC dokumentum-feldolgozás |
 

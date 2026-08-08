@@ -185,6 +185,28 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Admin-üzenetküldés utólagos átvizsgálásának javítás-köre (2026-08-08)**
+  — a friss feature-t „külsős csapat" szemmel átnézve 8 hibát találtunk és
+  javítottunk. A legfontosabb (P2): a körüzenet „Szállítók" célzása a
+  `role='carrier'`-en ült, de a WEB-REGISZTRÁCIÓ SOSEM AD carrier szerepet
+  (mindenki 'shipper'-ként jön létre; prod-adattal bizonyítva: 16 shipper /
+  1 carrier) → a célzás mostantól `role='carrier' OR
+  driver_terms_accepted_at IS NOT NULL`, a „Feladók" pedig „adott már fel
+  fuvart" (EXISTS jobs). ⚠️ TANULSÁG: a `users.role` a web-flow-ban NEM
+  szegmentálásra való — a tényleges működés jele a driver_terms /
+  jobs-előzmény. Továbbá: (2) admin-levelezés RETENCIÓJA (3 év, napi job a
+  retention.js-ben — Fgytv. 17/A. § panasz-mércéhez igazítva; adatkezelési
+  tájékoztató 5. szakasz + 30. cikk nyilvántartás 11. pont frissítve);
+  (3) harang-badge fix: a /uzenetek megnyitása a notification-sorokat is
+  olvasottra állítja (email-linkes érkezésnél égve maradt volna);
+  (4) csatorna-lezárás (055-ös migráció: `admin_channel_closed_at`; a
+  szál-modalban Lezárás/Megnyitás gomb; zárva a user 403 CHANNEL_CLOSED-ot
+  kap, az admin írhat); (5) az admin Üzenetek fül élőben frissül
+  (socket `admin-dm:new`); (6) körüzenet-email megszakadás → Sentry-riasztás
+  (sms.js mintájára; a memóriabeli sor deploy-veszteség ISMERT korlát,
+  kommentelve); (7) „Üzenetek" menüpont a fejléc-dropdownban; (8) fontSize
+  10→11 design-szabály. +6 backend teszt (P2-regresszió őrrel) + 3 új
+  browser-E2E (18-as spec: composer/modal/válasz/körüzenet-dialógus)
 - **Admin ↔ user üzenetküldés + teljes user-részletnézet (2026-08-08,
   user-kérés)** — három új képesség az adminon: (1) **közvetlen üzenet** egy
   felhasználónak (Felhasználók fül boríték-gombja / Üzenetek fül szálai;

@@ -164,16 +164,27 @@ intézkedések (közös lista a dokumentum végén).
 
 ## 11. Ügyfélszolgálat és panaszkezelés
 
-- **Cél**: megkeresések, panaszok, viták kezelése (info@ / panasz@)
-- **Jogalap**: SZERZ + JK (Fgytv. panaszkezelés) + JÉ (vitarendezés)
+- **Cél**: megkeresések, panaszok, viták kezelése (info@ / panasz@),
+  valamint a platformon belüli kapcsolattartás az üzemeltető és a
+  felhasználó között (admin-üzenetek: közvetlen üzenet + közlemény,
+  2026-08-08-tól)
+- **Jogalap**: SZERZ + JK (Fgytv. panaszkezelés) + JÉ (vitarendezés,
+  a szolgáltatással kapcsolatos tájékoztatás)
 - **Adatkategóriák**: a megkeresés tartalma, levelezés, a kapcsolódó
-  ügylet adatai
+  ügylet adatai; platformon belüli admin-üzenetváltás tartalma és
+  olvasási időpontja
 - **Címzettek/feldolgozók**: ImprovMX (bejövő e-mail-továbbítás),
-  Google (Gmail-postafiók a megválaszoláshoz), Resend (kimenő)
+  Google (Gmail-postafiók a megválaszoláshoz), Resend (kimenő e-mail,
+  az admin-üzenet e-mail-másolatát is beleértve), Neon (DB — az
+  admin-üzenetek tárolása)
 - **Harmadik országba továbbítás**: Google (SCC)
-- **Törlés**: a panasz-ügyek a Fgytv. szerinti 3 évig; egyéb levelezés
-  az ügy lezárása után észszerű ideig
-- **TOM**: közös lista
+- **Törlés**: a panasz-ügyek a Fgytv. szerinti 3 évig; a platformon
+  belüli admin-üzenetváltás a küldéstől számított 3 év után
+  AUTOMATIKUSAN törlődik (napi retenciós job), fiók-törléskor azonnal;
+  egyéb levelezés az ügy lezárása után észszerű ideig
+- **TOM**: közös lista + a felhasználó a csatornán csak akkor írhat,
+  ha az üzemeltető közvetlen üzenetet küldött neki (spam-/abúzus-védelem,
+  lezárható csatorna)
 
 ## 12. Hibafigyelés és naplózás
 
