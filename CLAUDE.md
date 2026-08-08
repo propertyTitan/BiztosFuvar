@@ -185,6 +185,23 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **A leggyengébb két modul felhozva (2026-08-07)** — a mutációs mérés
+  `mask.js` 3% és `rateLimit.js` 23% pontszámát célzottan javítottuk.
+  Eredmény: **mask.js 3% → 97%**, **rateLimit.js 23% → 59%** (együtt
+  17,5% → 69,8%), +24 teszt. Mindkettő CSENDES garanciát véd: a maszkolás
+  azt, hogy a Railway-logba ne kerüljön teljes e-mail/telefonszám
+  (adattakarékosság a naplókra is vonatkozik), a rate limit pedig a
+  brute-force és spam elleni első védvonal. A tesztek szándékosan a
+  HATÁROKAT feszegetik (pont a limiten, eggyel fölötte, ablak-forduló), mert
+  a mutáció épp ott mutatott vakságot. ⚠️ Külön értékes: az ÉLES limiterek
+  konfigurációját (kulcsolás, max, ablak) addig SEMMI nem őrizte — ha valaki
+  a `writeRateLimit`-et user-alapúról IP-alapúra állítja, egy irodából/mobil-
+  hálózatról érkező felhasználók kizárnák egymást, és egyetlen teszt sem
+  szólt volna. ⚠️ SZÁNDÉKOSAN NEM hajszoltuk 100%-ra: a maradék 30 túlélő
+  többsége „egyenértékű mutáns" (belső vödör-név, felhasználói szöveg,
+  process-kilépési apróság) — megölésükhöz pontos szöveg-egyezésre kellene
+  tesztelni, ami minden szöveg-változtatásnál pirosra váltana, valódi haszon
+  nélkül. Ez a csökkenő hozadék határa
 - **Teszt-minőség: audit, lefedettség-padló, fizetési webhook, mutációs
   tesztelés (2026-08-07)** — a „mit mondana egy tapasztalt fejlesztő" kérdésre
   mérésekkel válaszoltunk. **(1) Függőség-audit** (`scripts/fuggoseg-audit.js`,
@@ -994,12 +1011,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **586 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **610 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **402 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **426 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
