@@ -67,7 +67,43 @@ router.get('/admin/users', ...adminOnly, async (req, res) => {
 
 // DELETE /admin/users/:id — felhasználó törlése
 router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
-  await db.query('DELETE FROM users WHERE id = $1', [req.params.id]);
+  const targetId = req.params.id;
+
+  // (1) Ön-törlés tiltása — az admin ne zárja ki magát véletlenül.
+  if (targetId === req.user.sub) {
+    return res.status(400).json({ error: 'Saját admin-fiókodat nem törölheted.' });
+  }
+
+  // (2) Aktív, FIZETETT ügylet védelme (2026-08-08, átvizsgálás).
+  // A user törlése kaszkádol: a jobs.carrier_id SET NULL (a feladó fuvarja
+  // megmarad), DE a carrier_routes.carrier_id CASCADE → a route_bookings.route_id
+  // CASCADE, vagyis egy szállító törlése MÁS feladók fizetett foglalásait is
+  // törölné. Egy folyamatban lévő, KIFIZETETT ügyletet ne lehessen egy
+  // fiók-törléssel megsemmisíteni — előbb le kell zárni (kézbesítés / lemondás
+  // / vita). Terminál vagy fizetetlen ügyletnél a törlés szabad.
+  const { rows: aktiv } = await db.query(
+    `SELECT
+       (SELECT COUNT(*) FROM jobs
+          WHERE (shipper_id = $1 OR carrier_id = $1)
+            AND paid_at IS NOT NULL
+            AND status NOT IN ('delivered', 'completed', 'cancelled'))
+     + (SELECT COUNT(*) FROM route_bookings b
+          JOIN carrier_routes r ON r.id = b.route_id
+          WHERE (b.shipper_id = $1 OR r.carrier_id = $1)
+            AND b.paid_at IS NOT NULL
+            AND b.status NOT IN ('delivered', 'cancelled', 'rejected')) AS n`,
+    [targetId],
+  );
+  if (Number(aktiv[0]?.n || 0) > 0) {
+    return res.status(409).json({
+      error: 'Ez a felhasználó folyamatban lévő, kifizetett ügyletben szerepel. '
+        + 'Előbb zárd le (kézbesítés / lemondás / vita), utána törölhető.',
+      code: 'USER_HAS_ACTIVE_PAID',
+    });
+  }
+
+  const del = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [targetId]);
+  if (del.rowCount === 0) return res.status(404).json({ error: 'Felhasználó nem található' });
   res.json({ ok: true });
 });
 

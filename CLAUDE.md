@@ -185,6 +185,19 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Admin user-törlés adatvesztés-védelem (2026-08-08, átvizsgálás)** — az
+  admin user-törlés csupasz `DELETE FROM users` volt, guard nélkül. Két gond:
+  (1) az admin véletlenül törölhette SAJÁT MAGÁT; (2) egy szállító törlése a
+  `carrier_routes.carrier_id` CASCADE → `route_bookings.route_id` CASCADE
+  láncon át MÁS feladók FIZETETT, folyamatban lévő foglalásait is
+  megsemmisítette volna (a fuvar-ág ettől védett: `jobs.carrier_id` ON DELETE
+  SET NULL — a feladó fuvarja megmarad; a foglalási ág volt aszimmetrikusan
+  fragilis). Guard: ön-törlés tiltva; aktív + fizetett ügyletben (job VAGY
+  booking, bármelyik oldalon) lévő user nem törölhető (`USER_HAS_ACTIVE_PAID`,
+  409) — előbb le kell zárni. Terminál/fizetetlen ügyletnél a törlés szabad.
+  +6 teszt. ⚠️ A copy-átvezetés (QVIK→CIB) tiszta: a UI SOSEM nevezte meg a
+  providert, a chatbot már „bankkártyával" fizetést ír (CIB-helyes) — nincs
+  átírandó felhasználói szöveg
 - **CIB-fizetésre felkészítés + provider fail-loud (2026-08-08, user-döntés:
   a launch NEM QVIK, hanem CIB kártyás vPOS)** — a `paymentProvider.js`
   korábban `name() === 'qvik' ? qvik : barion` volt: MINDEN nem-'qvik' érték
@@ -1071,12 +1084,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **628 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **634 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **444 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **450 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
