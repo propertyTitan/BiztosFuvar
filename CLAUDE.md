@@ -660,6 +660,19 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   kápé-flow (licit + foglalás + reopen + consent + kontakt-kapuzás) a prod
   API-n, jelölt tesztadatokkal, auto-takarítással. Deploy után:
   `cd backend && node scripts/eles-fustteszt.js`
+- **Terheléses teszt (k6, 2026-08-08)**: `backend/scripts/load-teszt.js`
+  (orchestrator: prod DB setup + `k6 run load-teszt.k6.js` + auto-takarítás;
+  `brew install k6` kell). Négy szakasz szekvenciálisan: cold-start, publikus
+  böngészés (4 rps, a limit ALATT — valós latencia), auth-GET (regisztrációs
+  tokennel), rate-limit-próba (55 rps burst → a 429-védelmet igazolja).
+  ⚠️ A backend globális limitje **300 kérés/perc/IP** (= 5 rps) — egy IP-ről
+  a valós kapacitást csak a limit ALATT lehet mérni; a limit FÖLÖTT a 429 az
+  ELVÁRT (nem hiba). ELSŐ ÉLES FUTÁS (2026-08-08): **0 db 5xx**, böngészés
+  p50 ~243 ms / p95 ~578 ms, Neon cold-start ~1,6 mp, a rate-limit védelem
+  igazoltan fékez. ⚠️ NE `| head`-eld a kimenetét (SIGPIPE megölheti a
+  takarítás előtt) — fájlba írasd. Következő szint (később): terhelés
+  EMELÉSE a Railway-plafonig (több gépről/IP-ről, hogy a 300/perc limitet
+  megkerüld), és a valódi pénzes CIB-út mérése aktiváláskor
 - **Ajánlói program ÉLES (2026-07-05, PR #58)** — egyoldalú referral: aki a
   linkjén (`?ref=KÓD`) hoz egy usert, ÉS az teljesíti az első fuvarját
   (feladóként az első díj kifizetése, VAGY sofőrként a fuvar lezárása), az
