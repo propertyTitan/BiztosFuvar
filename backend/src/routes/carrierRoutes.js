@@ -8,7 +8,14 @@ const crypto = require('crypto');
 const db = require('../db');
 const { authRequired, requireDriverKYC } = require('../middleware/auth');
 const { PACKAGE_SIZES, classifyPackage } = require('../constants');
-const barion = require('../services/barion');
+// ⚠️ 2026-08-08: a foglalási (Járat) ág EDDIG közvetlenül a barion-t hívta,
+// pedig a launch QVIK-re vált (Barion elvetve). Következmény lett volna:
+// (1) a foglalás-díj a stub Barionra ment volna, nem valódi QVIK-re → a díj
+// nem szedődik be; (2) a confirm-payment guard `barion.isStub()`-ot nézett,
+// ami QVIK-launchkor TRUE → a kézi nyugtázás fizetés nélkül fizetettnek
+// jelölhetett volna egy foglalást. A fuvar-ág (jobs.js) már a paymentProvider
+// absztrakciót használja — a foglalási ág is ide igazítva.
+const paymentProvider = require('../services/paymentProvider');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
@@ -637,7 +644,7 @@ router.post(
       const feeHuf = calculateConnectionFee(b.price_huf);
       let barionRes = { paymentId: null, gatewayUrl: null };
       try {
-        barionRes = await barion.startFeePayment({
+        barionRes = await paymentProvider.startFeePayment({
           jobId: b.id, // itt a booking id-t használjuk
           feeHuf,
           shipperEmail: b.shipper_email,
@@ -785,7 +792,7 @@ router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req,
   const feeHuf = b.connection_fee_huf || calculateConnectionFee(b.price_huf);
   let barionRes;
   try {
-    barionRes = await barion.startFeePayment({
+    barionRes = await paymentProvider.startFeePayment({
       jobId: b.id,
       feeHuf,
       shipperEmail: b.shipper_email,
@@ -856,11 +863,13 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
     return res.json({ ok: true, already_paid: true, paid_at: b.paid_at });
   }
 
-  // Éles Barion mellett a webhook a fizetés hiteles forrása — a kézi
-  // nyugtázás csak stub (teszt) módban él.
-  if (!barion.isStub()) {
+  // Éles fizetés mellett a webhook a hiteles forrás — a kézi nyugtázás csak
+  // stub (teszt) módban él. Az AKTÍV providert nézzük (paymentProvider), nem
+  // konkrétan a barion-t: QVIK-launchkor a barion.isStub() tévesen true lenne,
+  // és kinyitná ezt a fizetés-megkerülő ágat.
+  if (!paymentProvider.isStub()) {
     return res.status(409).json({
-      error: 'A fizetést a Barion igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
+      error: 'A fizetést a fizetésszolgáltató igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
     });
   }
 
