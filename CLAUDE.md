@@ -185,6 +185,20 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Részletes átvizsgálás 2. kör — foglalás-fizetés provider-hiba (2026-08-08)** —
+  ⚠️ LAUNCH-KRITIKUS: a foglalási (Járat) ág a fuvar-ággal ellentétben
+  KÖZVETLENÜL a barion-t hívta (`barion.startFeePayment` + a confirm-payment
+  guard `barion.isStub()`-ot nézett), NEM a `paymentProvider` absztrakciót.
+  Mivel a launch QVIK-re vált (Barion elvetve), a `barion.isStub()` TRUE lett
+  volna → (1) a foglalás-díj a stub Barionra ment volna, nem valódi QVIK-re
+  (a Járat-díj nem szedődik be), (2) a confirm-payment guard KIKAPCSOL →
+  bárki fizetés nélkül fizetettnek jelölheti a saját foglalását. A hiba
+  LAPPANGÓ volt (most minden stub), de pont a QVIK-átállásnál aktiválódott
+  volna. Javítva: a foglalási ág is a `paymentProvider`-t használja (mind a
+  3 hívás). +3 teszt, a hibás guardon igazoltan piros. Az SSRF-felület
+  (link-preview host-allowlist, geocode/vat/barion fix hoszt + kódolt param)
+  és a tároló-kulcsok (random hex név + regex-validált kiterjesztés, nincs
+  path-traversal) ELLENŐRIZVE ÉS RENDBEN
 - **Részletes átvizsgálás — kupon double-spend javítva (2026-08-08)** —
   profi-csapat stílusú, modulonkénti kézi átolvasás valós hibát keresve. A fő
   találat: a `useVoucherIfAvailable` (gamification.js) külön SELECT + UPDATE
@@ -944,7 +958,9 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
   request-to-pay, ~0,4–0,8% díj, azonnali jóváírás, nincs chargeback) szedjük.
   **ELŐKÉSZÍTVE + MERGELVE (PR #69, 2026-07-09; a qvik-callback a prodon él):**
   `services/paymentProvider.js` absztrakció
-  (a `PAYMENT_PROVIDER` env váltja: barion|qvik; a jobs/bids ezen megy),
+  (a `PAYMENT_PROVIDER` env váltja: barion|qvik; a jobs/bids ÉS a
+  route-bookings/Járat-fizetés is ezen megy — utóbbi 2026-08-08-án
+  igazítva ide, addig tévesen közvetlenül a barion-t hívta),
   `services/qvik.js` stub + dokumentált TODO-k, `/payments/qvik/callback`
   route-skeleton. **AKTIVÁLÁS amikor megjön a jogosultság:** (1) töltsd ki a
   `qvik.js` `startFeePayment`+`getPaymentState`-jét a PSP API-jával; (2) állítsd
@@ -1029,12 +1045,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **616 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **619 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **432 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **435 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
