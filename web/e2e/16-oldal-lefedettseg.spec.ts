@@ -106,6 +106,7 @@ const OLDALAK: Oldal[] = [
   { minta: '/profil', url: () => '/profil', szereplo: 'felado' },
   { minta: '/profil/[id]', url: (F) => `/profil/${F.szallito.id}`, szereplo: 'felado' },
   { minta: '/ertesitesek', url: () => '/ertesitesek', szereplo: 'felado' },
+  { minta: '/uzenetek', url: () => '/uzenetek', szereplo: 'felado' },
   { minta: '/ai-chat', url: () => '/ai-chat', szereplo: 'felado' },
   { minta: '/fuvarjaim', url: () => '/fuvarjaim', szereplo: 'felado' },
   { minta: '/hirdeteseim', url: () => '/hirdeteseim', szereplo: 'felado' },

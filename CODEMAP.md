@@ -61,7 +61,7 @@ Top-level fájlok:
 - `/jobs`  → `routes/jobs.js`
 - minden más → `/` (bids, photos, tracking, reviews, payments, carrierRoutes,
   notifications, ai, disputes, messages, backhaul, sos, towing, driverStats,
-  admin, jobQuestions, calculator, publicTracking)
+  admin, adminMessages, jobQuestions, calculator, publicTracking)
 
 > Ezért ha egy endpointot keresel és nem találod a prefix alapján: a legtöbb
 > route a `/`-en ül, a konkrét utat a route-fájlban kell megnézni
@@ -87,7 +87,8 @@ Top-level fájlok:
 | `calculator.js` | ár-kalkulátor (nyilvános) |
 | `towing.js` | "mentős" roadside-assistance flow — **nincs jutalék wire-olva** (lásd memory) |
 | `driverStats.js` | sofőr statisztikák, gamifikáció |
-| `admin.js` | admin CRUD panel (role === 'admin') |
+| `admin.js` | admin CRUD panel (role === 'admin') + `GET /admin/users/:id` teljes user-részletnézet (DAC7 + titkok NÉLKÜL) |
+| `adminMessages.js` | admin ↔ user üzenetek: közvetlen üzenet + körüzenet (`/admin/dm/*`) és a user oldala (`/me/admin-messages`). Szabály: a user CSAK akkor válaszolhat, ha kapott 'direct' üzenetet — a körüzenet nem nyit csatornát |
 | `jobQuestions.js` | fuvar alatti kérdés-válasz |
 | `ai.js` | `/ai/chat` (Gemini chatbot), KYC dokumentum-feldolgozás |
 
@@ -188,6 +189,7 @@ AiChatWidget, CookieConsentBanner, header/footer).
 **Mentős — `mentes/`:** `page`, `regisztracio`, `beerkezett`
 
 **Egyéb:** `admin` (CRUD panel), `profil` + `profil/[id]`, `ertesitesek`,
+`uzenetek` (a GoFuvar csapatának üzenetei; válasz csak megnyitott csatornánál),
 `nyomon-kovetes/[token]` (nyilvános követés), `fizetes-stub`, `ai-chat`
 
 ### 2.3 Komponensek — `web/src/components/` (kiemeltek)

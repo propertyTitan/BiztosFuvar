@@ -830,6 +830,65 @@ export const api = {
     return request<Array<{ id: string; body: string; created_at: string; sender_id: string; sender_name: string }>>(`/admin/messages?${q}`);
   },
 
+  // ---------- Admin: teljes user-részletnézet + üzenetküldés ----------
+
+  /** Egy felhasználó teljes profilja (DAC7-adatok és titkok nélkül). */
+  adminUserDetail: (id: string) => request<any>(`/admin/users/${id}`),
+
+  /** Admin ↔ user üzenet-szálak listája (utolsó üzenet + olvasatlan válaszok). */
+  adminDmThreads: () =>
+    request<Array<{
+      user_id: string; full_name: string | null; email: string; role: string;
+      last_message_at: string; last_body: string; last_sender: 'admin' | 'user';
+      unread_count: number;
+    }>>('/admin/dm/threads'),
+
+  /** Egy szál teljes tartalma (megnyitása a user válaszait olvasottra állítja). */
+  adminDmThread: (userId: string) =>
+    request<{
+      user: { id: string; full_name: string | null; email: string };
+      messages: Array<{
+        id: string; sender: 'admin' | 'user'; kind: string; body: string;
+        created_at: string; read_at: string | null; admin_name: string | null;
+      }>;
+    }>(`/admin/dm/with/${userId}`),
+
+  /** Közvetlen üzenet egy felhasználónak (ez nyitja meg a válasz-csatornáját). */
+  adminDmSend: (userId: string, body: string, sendEmail: boolean) =>
+    request<any>(`/admin/dm/with/${userId}`, {
+      method: 'POST', body: JSON.stringify({ body, send_email: sendEmail }),
+    }),
+
+  /** Körüzenet a célcsoportnak — NEM nyit válasz-csatornát. */
+  adminDmBroadcast: (opts: { body: string; target: 'all' | 'shippers' | 'carriers' | 'company'; sendEmail: boolean }) =>
+    request<{ ok: boolean; broadcast_id: string; recipient_count: number; email_queued: boolean }>(
+      '/admin/dm/broadcast',
+      { method: 'POST', body: JSON.stringify({ body: opts.body, target: opts.target, send_email: opts.sendEmail }) },
+    ),
+
+  /** Korábbi körüzenetek naplója. */
+  adminDmBroadcasts: () =>
+    request<Array<{
+      id: string; target: string; body: string; recipient_count: number;
+      email_sent: boolean; created_at: string; admin_name: string | null;
+    }>>('/admin/dm/broadcasts'),
+
+  // ---------- Üzenetek a GoFuvartól (felhasználói oldal) ----------
+
+  /** A saját szálam az adminnal; a megnyitás olvasottra állítja az üzeneteket. */
+  myAdminMessages: () =>
+    request<{
+      messages: Array<{
+        id: string; sender: 'admin' | 'user'; kind: string; body: string;
+        created_at: string; read_at: string | null;
+      }>;
+      can_reply: boolean;
+    }>('/me/admin-messages'),
+
+  /** Válasz az adminnak — csak megnyitott csatornánál (403 NO_CHANNEL egyébként). */
+  replyAdminMessage: (body: string) =>
+    request<any>('/me/admin-messages', { method: 'POST', body: JSON.stringify({ body }) }),
+
   // ---------- Profile ----------
 
   getMyProfile: () =>
