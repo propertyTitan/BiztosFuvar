@@ -185,6 +185,24 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Részletes átvizsgálás — kupon double-spend javítva (2026-08-08)** —
+  profi-csapat stílusú, modulonkénti kézi átolvasás valós hibát keresve. A fő
+  találat: a `useVoucherIfAvailable` (gamification.js) külön SELECT + UPDATE
+  volt, zárolás nélkül → egy ajánlói kuponnal PÁRHUZAMOS fizetéssel több
+  fuvar díja is elengedhető volt (bizonyítva: 8 egyidejű beváltásból 7-8
+  sikerült egy kuponra). Javítva egyetlen atomi UPDATE-tel
+  (`FOR UPDATE SKIP LOCKED`), +6 teszt. ⚠️ TANULSÁG: az első reprodukciós
+  próba 2 szálon „átment" (hamis zöld) — versenyteszthez elég szál kell (8).
+  A többi kritikus út ELLENŐRIZVE ÉS RENDBEN: ajánlat-elfogadás
+  (`FOR UPDATE`), azonnali fuvar és mentős elfogadás (guarded UPDATE +
+  rowCount), jelszó-reset (hash + lejárat + egyszer-használat + token_version
+  bump), értékelés-duplikáció (DB UNIQUE), rating-aggregáció (forrásból
+  újraszámol, nincs drift), retenció-törlés (a `photo_retention_hold` zárolt
+  vitás bizonyítékot 5 évig őrzi), fizetési webhook (korábbról). ⚠️ NYITOTT
+  DÖNTÉS a usernek: a referral havi plafon (5) elérésekor a meghívott
+  „granted"-re áll, de az ajánló kupon nélkül marad, és NINCS újrapróba —
+  a 6.+ ajánlás jutalma véglegesen elveszik. Ez policy-kérdés (deferred
+  reward vs. hard cap), nem javítottam egyoldalúan
 - **A leggyengébb két modul felhozva (2026-08-07)** — a mutációs mérés
   `mask.js` 3% és `rateLimit.js` 23% pontszámát célzottan javítottuk.
   Eredmény: **mask.js 3% → 97%**, **rateLimit.js 23% → 59%** (együtt
@@ -1011,12 +1029,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **610 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **616 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **426 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **432 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,
