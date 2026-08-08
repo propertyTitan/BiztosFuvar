@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Home, Target, Route, User, Truck, Shield,
-  Bell, BellRing, Bot, LogOut, ChevronDown, Package, Plus,
+  Bell, BellRing, Bot, LogOut, ChevronDown, Package, Plus, Mail,
 } from 'lucide-react';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 import { api } from '@/api';
@@ -302,6 +302,7 @@ export default function SiteHeader() {
                     </div>
                     <DropdownItem href="/profil" icon={<User size={16} />} label={t('nav.profile')} onClick={() => setMenuOpen(false)} />
                     <DropdownItem href="/fuvarjaim" icon={<Truck size={16} />} label="Fuvarjaim" onClick={() => setMenuOpen(false)} />
+                    <DropdownItem href="/uzenetek" icon={<Mail size={16} />} label="Üzenetek" onClick={() => setMenuOpen(false)} />
                     <DropdownItem href="/sofor/ertesitok" icon={<BellRing size={16} />} label="Útvonal-figyelők" onClick={() => setMenuOpen(false)} />
                     <DropdownItem href="/ai-chat" icon={<Bot size={16} />} label={t('nav.aiAssistant')} onClick={() => setMenuOpen(false)} />
 

@@ -158,6 +158,13 @@ export default function AdatkezelesPage() {
           Az Értékelések (Trust Score) a profil részeként a fiók élettartamáig megmaradnak.
         </li>
         <li>
+          <strong>A GoFuvar csapatával váltott üzenetek</strong> (a Platform üzemeltetője által
+          küldött értesítések, közlemények és az ezekre adott válaszaid): a küldéstől számított{' '}
+          <strong>3 évig</strong> (a fogyasztói panaszkezelés megőrzési kötelezettségéhez igazodva —
+          Fgytv. 17/A. §), utána automatikusan törlésre kerülnek. A fiók törlésekor ezek az
+          üzenetek azonnal törlődnek.
+        </li>
+        <li>
           <strong>GPS ping adatok:</strong> Az aktív fuvar befejezését követő 7 napig tároljuk
           nyers formában, majd töröljük. Aggregált, nem-személyazonosító statisztikák tovább megőrződhetnek.
         </li>

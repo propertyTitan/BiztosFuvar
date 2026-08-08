@@ -652,6 +652,11 @@ describe('Admin felület: minden nézet és művelet lefut', () => {
       .send({ body: 'Rendszer-közlemény: minden működik.', target: 'all' }));
     await sikeres('GET /admin/dm/broadcasts',
       request(app).get('/admin/dm/broadcasts').set(auth(V.admin.token)));
+
+    // Csatorna lezárása + visszanyitása
+    await sikeres('PATCH /admin/dm/channel', request(app)
+      .patch('/admin/dm/channel').set(auth(V.admin.token))
+      .send({ user_id: V.felado.id, closed: false }));
   });
 });
 

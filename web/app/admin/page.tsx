@@ -15,9 +15,10 @@
 //   #vitak         — nyitott/lezárt viták, döntés, a felek chatje
 //
 // Csak admin role látja; a veszélyes műveletek ConfirmDialog mögött.
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, photoUrl } from '@/api';
+import { getSocket } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -140,6 +141,25 @@ export default function AdminPanel() {
   const [userDetail, setUserDetail] = useState<any | null>(null);
   const [userDetailLoading, setUserDetailLoading] = useState(false);
 
+  // A nyitott szál user-id-ja a socket-handler számára (stale closure ellen)
+  const dmThreadRef = useRef<string | null>(null);
+  useEffect(() => { dmThreadRef.current = dmThread?.user.id ?? null; }, [dmThread]);
+
+  // Élő frissítés: user-válasz érkezésekor a szál-lista (és a nyitott szál)
+  // magától frissül — nem csak fül-váltásra (2026-08-08 átvizsgálás-találat)
+  useEffect(() => {
+    if (!me || me.role !== 'admin') return;
+    const socket = getSocket();
+    const onDm = (msg: any) => {
+      api.adminDmThreads().then(setDmThreads).catch(() => {});
+      if (msg?.user_id && msg.user_id === dmThreadRef.current) {
+        api.adminDmThread(msg.user_id).then(setDmThread).catch(() => {});
+      }
+    };
+    socket.on('admin-dm:new', onDm);
+    return () => { socket.off('admin-dm:new', onDm); };
+  }, [me]);
+
   // Dialógusok
   const [decision, setDecision] = useState<{ id: string; mode: 'no_action' | 'refund' } | null>(null);
   const [kycReject, setKycReject] = useState<{ id: string; name: string } | null>(null);
@@ -185,12 +205,12 @@ export default function AdminPanel() {
     if (!me || me.role !== 'admin') return;
     if (tab === 'fuvarok' && jobs === null) loadJobs();
     if (tab === 'jaratok' && routes === null) loadRoutesBookings();
-    if (tab === 'uzenetek') {
-      // Fülre lépéskor frissítjük a szálakat (badge + lista), a naplót lustán
-      api.adminDmThreads().then(setDmThreads).catch(() => {});
-      if (dmBroadcasts === null) {
-        api.adminDmBroadcasts().then(setDmBroadcasts).catch(() => {});
-      }
+    if (tab === 'uzenetek' && dmBroadcasts === null) {
+      // A szálakat a loadCore + a socket tartja frissen — itt csak a
+      // körüzenet-napló töltődik lustán. (A fülre-lépéskori plusz
+      // szál-fetch felesleges re-rendert okozott, ami a kattintás alatt
+      // cserélte a listát — az E2E ezen bukott el.)
+      api.adminDmBroadcasts().then(setDmBroadcasts).catch(() => {});
     }
   }, [tab, me]);
 
@@ -340,6 +360,17 @@ export default function AdminPanel() {
     try {
       setUserDetail(await api.adminUserDetail(id));
     } catch (e: any) { toast.error('Hiba', e.message); } finally { setUserDetailLoading(false); }
+  }
+
+  async function toggleChannel() {
+    if (!dmThread) return;
+    const zarva = !!dmThread.user.admin_channel_closed_at;
+    try {
+      await api.adminDmChannel(dmThread.user.id, !zarva);
+      toast.success(!zarva ? 'Csatorna lezárva' : 'Csatorna megnyitva',
+        !zarva ? 'A felhasználó nem tud több választ küldeni; te továbbra is írhatsz.' : 'A felhasználó újra válaszolhat.');
+      setDmThread(await api.adminDmThread(dmThread.user.id));
+    } catch (e: any) { toast.error('Hiba', e.message); }
   }
 
   async function doDelete() {
@@ -676,11 +707,11 @@ export default function AdminPanel() {
           <div className="card">
             <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <label htmlFor="bc-target" style={{ fontSize: 13, fontWeight: 700 }}>Címzettek:</label>
-              <select id="bc-target" className="input" style={{ width: 180, marginTop: 0 }}
+              <select id="bc-target" className="input" style={{ width: 280, marginTop: 0 }}
                 value={bcTarget} onChange={(e) => setBcTarget(e.target.value as any)}>
                 <option value="all">Mindenki</option>
-                <option value="shippers">Feladók</option>
-                <option value="carriers">Szállítók</option>
+                <option value="shippers">Feladók (adott már fel fuvart)</option>
+                <option value="carriers">Szállítók (szállító-módot használ)</option>
                 <option value="company">Céges fiókok</option>
               </select>
               <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
@@ -1042,9 +1073,25 @@ export default function AdminPanel() {
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Mail size={18} /> {dmThread.user.full_name || dmThread.user.email}
               </h3>
-              <button className="btn btn-ghost" style={{ padding: '4px 10px' }} onClick={() => setDmThread(null)}>Bezárás</button>
+              <div className="row" style={{ gap: 6 }}>
+                <button className="btn btn-ghost" style={{ padding: '4px 10px', fontSize: 12 }}
+                  title={dmThread.user.admin_channel_closed_at
+                    ? 'A csatorna zárva: a felhasználó nem tud válaszolni. Kattints a megnyitáshoz.'
+                    : 'Csatorna lezárása: a felhasználó nem tud több választ küldeni (te írhatsz).'}
+                  onClick={toggleChannel}>
+                  {dmThread.user.admin_channel_closed_at
+                    ? <><Unlock size={13} /> Megnyitás</>
+                    : <><Lock size={13} /> Lezárás</>}
+                </button>
+                <button className="btn btn-ghost" style={{ padding: '4px 10px' }} onClick={() => setDmThread(null)}>Bezárás</button>
+              </div>
             </div>
-            <div className="muted" style={{ fontSize: 12 }}>{dmThread.user.email}</div>
+            <div className="muted" style={{ fontSize: 12 }}>
+              {dmThread.user.email}
+              {dmThread.user.admin_channel_closed_at && (
+                <span style={{ color: 'var(--warning)', fontWeight: 700, marginLeft: 8 }}>· Csatorna lezárva</span>
+              )}
+            </div>
 
             <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', flex: 1, minHeight: 60 }}>
               {dmThread.messages.length === 0 && (
@@ -1069,7 +1116,7 @@ export default function AdminPanel() {
                   </div>
                   <div style={{ fontSize: 14, marginTop: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.body}</div>
                   {m.sender === 'admin' && m.kind === 'direct' && (
-                    <div style={{ fontSize: 10, opacity: 0.75, marginTop: 2, textAlign: 'right' }}>
+                    <div style={{ fontSize: 11, opacity: 0.75, marginTop: 2, textAlign: 'right' }}>
                       {m.read_at ? `Elolvasva: ${new Date(m.read_at).toLocaleString('hu-HU')}` : 'Még nem olvasta'}
                     </div>
                   )}

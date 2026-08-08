@@ -61,6 +61,7 @@ const ROUTE_MANIFEST = {
   'POST /admin/dm/with/:userId': { access: 'admin' },
   'POST /admin/dm/broadcast': { access: 'admin' },
   'GET /admin/dm/broadcasts': { access: 'admin' },
+  'PATCH /admin/dm/channel': { access: 'admin' },
   'PATCH /admin/photo-hold': { access: 'admin' },
   'PATCH /admin/coverage/:zoneId': { access: 'admin' },
   'GET /payments/admin/log': { access: 'admin' },
