@@ -5,7 +5,10 @@
 // Fülek (hash-alapú, így az értesítések #kyc linkje továbbra is él):
 //   #attekintes    — élő jelenlét, statisztikák, fizetési napló
 //   #kyc           — KYC kézi jóváhagyás (kép-előnézettel)
-//   #felhasznalok  — aktivitás + szerep/KYC szerkesztés, kiléptetés, törlés
+//   #felhasznalok  — aktivitás + szerep/KYC szerkesztés, teljes részletnézet,
+//                    közvetlen üzenet, kiléptetés, törlés
+//   #uzenetek      — körüzenet + admin ↔ user szálak (a user csak akkor
+//                    válaszolhat, ha közvetlen üzenetet kapott)
 //   #fuvarok       — keresés/szűrés, státusz-átállítás, ajánlatok, chat,
 //                    fotó-zárolás (retenció), törlés
 //   #jaratok       — járatok + foglalások (törlés, fotó-zárolás)
@@ -22,19 +25,27 @@ import { Loading, ListSkeleton, EmptyState } from '@/components/StateView';
 import {
   LayoutDashboard, IdCard, Users as UsersIcon, Package, Route as RouteIcon,
   Scale, Banknote, Lock, Unlock, LogOut, Trash2, MessageSquare, Search,
-  ShieldCheck, CircleDot, RefreshCw,
+  ShieldCheck, CircleDot, RefreshCw, Mail, Megaphone, Info, Send,
 } from 'lucide-react';
 
-type TabId = 'attekintes' | 'kyc' | 'felhasznalok' | 'fuvarok' | 'jaratok' | 'vitak';
+type TabId = 'attekintes' | 'kyc' | 'felhasznalok' | 'uzenetek' | 'fuvarok' | 'jaratok' | 'vitak';
 
 const TABS: Array<{ id: TabId; label: string; icon: typeof LayoutDashboard }> = [
   { id: 'attekintes', label: 'Áttekintés', icon: LayoutDashboard },
   { id: 'kyc', label: 'KYC', icon: IdCard },
   { id: 'felhasznalok', label: 'Felhasználók', icon: UsersIcon },
+  { id: 'uzenetek', label: 'Üzenetek', icon: Mail },
   { id: 'fuvarok', label: 'Fuvarok', icon: Package },
   { id: 'jaratok', label: 'Járatok & foglalások', icon: RouteIcon },
   { id: 'vitak', label: 'Viták', icon: Scale },
 ];
+
+const BROADCAST_TARGET_LABEL: Record<string, string> = {
+  all: 'Mindenki',
+  shippers: 'Feladók',
+  carriers: 'Szállítók',
+  company: 'Céges fiókok',
+};
 
 const JOB_STATUSES = ['pending', 'bidding', 'accepted', 'in_progress', 'delivered', 'completed', 'disputed', 'cancelled'];
 const JOB_STATUS_LABEL: Record<string, string> = {
@@ -112,6 +123,23 @@ export default function AdminPanel() {
   // Chat-néző (vitákhoz + fuvarokhoz)
   const [chatView, setChatView] = useState<{ title: string; messages: any[] } | null>(null);
 
+  // Üzenetek fül: szálak (eager — a fül-badge-hez kell) + körüzenet-napló (lusta)
+  const [dmThreads, setDmThreads] = useState<Awaited<ReturnType<typeof api.adminDmThreads>>>([]);
+  const [dmBroadcasts, setDmBroadcasts] = useState<any[] | null>(null);
+  const [dmThread, setDmThread] = useState<Awaited<ReturnType<typeof api.adminDmThread>> | null>(null);
+  const [dmDraft, setDmDraft] = useState('');
+  const [dmSendEmail, setDmSendEmail] = useState(false);
+  const [dmBusy, setDmBusy] = useState(false);
+  const [bcTarget, setBcTarget] = useState<'all' | 'shippers' | 'carriers' | 'company'>('all');
+  const [bcBody, setBcBody] = useState('');
+  const [bcEmail, setBcEmail] = useState(false);
+  const [bcConfirm, setBcConfirm] = useState(false);
+  const [bcBusy, setBcBusy] = useState(false);
+
+  // Teljes user-részletnézet (Felhasználók fül „Részletek" gombja)
+  const [userDetail, setUserDetail] = useState<any | null>(null);
+  const [userDetailLoading, setUserDetailLoading] = useState(false);
+
   // Dialógusok
   const [decision, setDecision] = useState<{ id: string; mode: 'no_action' | 'refund' } | null>(null);
   const [kycReject, setKycReject] = useState<{ id: string; name: string } | null>(null);
@@ -157,16 +185,23 @@ export default function AdminPanel() {
     if (!me || me.role !== 'admin') return;
     if (tab === 'fuvarok' && jobs === null) loadJobs();
     if (tab === 'jaratok' && routes === null) loadRoutesBookings();
+    if (tab === 'uzenetek') {
+      // Fülre lépéskor frissítjük a szálakat (badge + lista), a naplót lustán
+      api.adminDmThreads().then(setDmThreads).catch(() => {});
+      if (dmBroadcasts === null) {
+        api.adminDmBroadcasts().then(setDmBroadcasts).catch(() => {});
+      }
+    }
   }, [tab, me]);
 
   async function loadCore() {
     setLoading(true);
     try {
-      const [s, d, pl, u, k] = await Promise.all([
+      const [s, d, pl, u, k, t] = await Promise.all([
         api.adminStats(), api.allDisputes(), api.adminPaymentLog(30),
-        api.adminUsers(), api.adminKycDocuments('pending'),
+        api.adminUsers(), api.adminKycDocuments('pending'), api.adminDmThreads(),
       ]);
-      setStats(s); setDisputes(d); setPaymentLog(pl); setUsers(u); setKycDocs(k);
+      setStats(s); setDisputes(d); setPaymentLog(pl); setUsers(u); setKycDocs(k); setDmThreads(t);
     } catch (e: any) {
       toast.error('Hiba', e.message);
     } finally {
@@ -266,6 +301,47 @@ export default function AdminPanel() {
     } catch (e: any) { toast.error('Hiba', e.message); }
   }
 
+  // ─── Admin ↔ user üzenetek ───
+  async function openDmThread(userId: string) {
+    try {
+      setDmDraft(''); setDmSendEmail(false);
+      setDmThread(await api.adminDmThread(userId));
+      // A megnyitás olvasottra állította a válaszokat → badge frissítés
+      api.adminDmThreads().then(setDmThreads).catch(() => {});
+    } catch (e: any) { toast.error('Hiba', e.message); }
+  }
+
+  async function sendDm() {
+    if (!dmThread || !dmDraft.trim() || dmBusy) return;
+    setDmBusy(true);
+    try {
+      await api.adminDmSend(dmThread.user.id, dmDraft.trim(), dmSendEmail);
+      toast.success('Üzenet elküldve', dmSendEmail ? 'In-app értesítés + email ment ki.' : 'A felhasználó in-app értesítést kapott.');
+      setDmDraft('');
+      setDmThread(await api.adminDmThread(dmThread.user.id));
+      api.adminDmThreads().then(setDmThreads).catch(() => {});
+    } catch (e: any) { toast.error('Hiba', e.message); } finally { setDmBusy(false); }
+  }
+
+  async function sendBroadcast() {
+    if (!bcBody.trim() || bcBusy) return;
+    setBcBusy(true);
+    try {
+      const r = await api.adminDmBroadcast({ body: bcBody.trim(), target: bcTarget, sendEmail: bcEmail });
+      toast.success('Körüzenet kiment', `${r.recipient_count} címzett (${BROADCAST_TARGET_LABEL[bcTarget]})${r.email_queued ? ' + email a háttérben' : ''}.`);
+      setBcBody(''); setBcEmail(false);
+      api.adminDmBroadcasts().then(setDmBroadcasts).catch(() => {});
+      api.adminDmThreads().then(setDmThreads).catch(() => {});
+    } catch (e: any) { toast.error('Hiba', e.message); } finally { setBcBusy(false); }
+  }
+
+  async function openUserDetail(id: string) {
+    setUserDetailLoading(true);
+    try {
+      setUserDetail(await api.adminUserDetail(id));
+    } catch (e: any) { toast.error('Hiba', e.message); } finally { setUserDetailLoading(false); }
+  }
+
   async function doDelete() {
     if (!confirmDelete) return;
     const { kind, id } = confirmDelete;
@@ -287,7 +363,10 @@ export default function AdminPanel() {
   if (loading) return <Loading />;
 
   // Fül-jelvények: hol vár teendő
-  const badge: Partial<Record<TabId, number>> = { kyc: kycDocs.length, vitak: openDisputes.length };
+  const unreadReplies = dmThreads.reduce((sum, t) => sum + (t.unread_count || 0), 0);
+  const badge: Partial<Record<TabId, number>> = {
+    kyc: kycDocs.length, vitak: openDisputes.length, uzenetek: unreadReplies,
+  };
 
   return (
     <div>
@@ -552,6 +631,20 @@ export default function AdminPanel() {
                         </td>
                         <td style={{ padding: '8px 10px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <button className="btn btn-ghost" style={{ padding: '5px 9px', fontSize: 12 }}
+                            title="Teljes profil megnyitása (regisztrációs + céges + aktivitás-adatok)"
+                            onClick={() => openUserDetail(u.id)}>
+                            <Info size={13} />
+                          </button>{' '}
+                          {u.role !== 'admin' && (
+                            <>
+                              <button className="btn btn-ghost" style={{ padding: '5px 9px', fontSize: 12 }}
+                                title="Üzenet küldése a felhasználónak"
+                                onClick={() => openDmThread(u.id)}>
+                                <Mail size={13} />
+                              </button>{' '}
+                            </>
+                          )}
+                          <button className="btn btn-ghost" style={{ padding: '5px 9px', fontSize: 12 }}
                             title="Kijelentkeztetés minden eszközről (token-érvénytelenítés)"
                             onClick={() => forceLogout(u.id, u.full_name || u.email)}>
                             <LogOut size={13} />
@@ -572,6 +665,109 @@ export default function AdminPanel() {
               A szerep/KYC legördülők azonnal mentenek. A zöld pont = éppen online.
             </p>
           </div>
+        </>
+      )}
+
+      {/* ═══════════ ÜZENETEK ═══════════ */}
+      {tab === 'uzenetek' && (
+        <>
+          {/* Körüzenet-küldő */}
+          <SectionTitle icon={<Megaphone size={20} />}>Körüzenet</SectionTitle>
+          <div className="card">
+            <div className="row" style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <label htmlFor="bc-target" style={{ fontSize: 13, fontWeight: 700 }}>Címzettek:</label>
+              <select id="bc-target" className="input" style={{ width: 180, marginTop: 0 }}
+                value={bcTarget} onChange={(e) => setBcTarget(e.target.value as any)}>
+                <option value="all">Mindenki</option>
+                <option value="shippers">Feladók</option>
+                <option value="carriers">Szállítók</option>
+                <option value="company">Céges fiókok</option>
+              </select>
+              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                <input type="checkbox" checked={bcEmail} onChange={(e) => setBcEmail(e.target.checked)} />
+                Email-ben is menjen
+              </label>
+            </div>
+            <textarea className="input" rows={3} maxLength={5000} style={{ marginTop: 10 }}
+              placeholder="A közlemény szövege… (in-app értesítésként mindenki megkapja)"
+              value={bcBody} onChange={(e) => setBcBody(e.target.value)} />
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 10, flexWrap: 'wrap', gap: 8 }}>
+              <p className="muted" style={{ fontSize: 11, margin: 0 }}>
+                A körüzenetre a felhasználók NEM tudnak válaszolni — a válasz-csatornát
+                csak a közvetlen üzenet nyitja meg.
+              </p>
+              <button className="btn" disabled={bcBusy || !bcBody.trim()} onClick={() => setBcConfirm(true)}>
+                <Megaphone size={14} /> {bcBusy ? 'Küldés…' : 'Körüzenet küldése'}
+              </button>
+            </div>
+          </div>
+
+          {/* Szálak */}
+          <SectionTitle icon={<Mail size={20} />}>
+            Beszélgetések {unreadReplies > 0 ? `(${unreadReplies} olvasatlan válasz)` : ''}
+          </SectionTitle>
+          {dmThreads.length === 0 ? (
+            <EmptyState
+              icon={<Mail size={28} aria-hidden />}
+              title="Még nincs beszélgetés"
+              description="A Felhasználók fül boríték-gombjával tudsz üzenetet küldeni valakinek — a szál itt jelenik meg."
+            />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {dmThreads.map((t) => (
+                <button key={t.user_id} type="button" onClick={() => openDmThread(t.user_id)}
+                  className="card"
+                  style={{
+                    padding: 12, marginBottom: 0, textAlign: 'left', cursor: 'pointer',
+                    width: '100%', font: 'inherit', color: 'inherit',
+                    borderLeft: t.unread_count > 0 ? '4px solid var(--primary)' : '4px solid transparent',
+                  }}>
+                  <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>
+                        {t.full_name || t.email}
+                        {t.unread_count > 0 && (
+                          <span style={{
+                            background: 'var(--danger-strong)', color: '#fff', fontSize: 11,
+                            fontWeight: 800, borderRadius: 999, padding: '1px 7px', marginLeft: 8,
+                          }}>{t.unread_count}</span>
+                        )}
+                      </div>
+                      <div className="muted" style={{
+                        fontSize: 12, marginTop: 2, whiteSpace: 'nowrap',
+                        overflow: 'hidden', textOverflow: 'ellipsis',
+                      }}>
+                        {t.last_sender === 'user' ? 'Ő: ' : 'Te: '}{t.last_body}
+                      </div>
+                    </div>
+                    <div className="muted" style={{ fontSize: 11, flexShrink: 0 }}>{fmtWhen(t.last_message_at)}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Körüzenet-napló */}
+          <SectionTitle icon={<CircleDot size={18} />}>Korábbi körüzenetek</SectionTitle>
+          {dmBroadcasts === null ? <ListSkeleton rows={2} /> : dmBroadcasts.length === 0 ? (
+            <div className="card"><p className="muted" style={{ margin: 0 }}>Még nem küldtél körüzenetet.</p></div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {dmBroadcasts.map((b) => (
+                <div key={b.id} className="card" style={{ padding: 12, marginBottom: 0 }}>
+                  <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span className="pill" style={{ fontWeight: 700, fontSize: 11 }}>
+                      {BROADCAST_TARGET_LABEL[b.target] || b.target}
+                    </span>
+                    <span className="muted" style={{ fontSize: 12 }}>
+                      {b.recipient_count} címzett{b.email_sent ? ' + email' : ''} · {new Date(b.created_at).toLocaleString('hu-HU')}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 14, marginTop: 6, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{b.body}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
 
@@ -832,7 +1028,182 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {/* ─── Admin ↔ user üzenet-szál panel ─── */}
+      {dmThread && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setDmThread(null); }}
+        >
+          <div className="card" style={{ maxWidth: 560, width: '100%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', margin: 0 }}>
+            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Mail size={18} /> {dmThread.user.full_name || dmThread.user.email}
+              </h3>
+              <button className="btn btn-ghost" style={{ padding: '4px 10px' }} onClick={() => setDmThread(null)}>Bezárás</button>
+            </div>
+            <div className="muted" style={{ fontSize: 12 }}>{dmThread.user.email}</div>
+
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', flex: 1, minHeight: 60 }}>
+              {dmThread.messages.length === 0 && (
+                <p className="muted" style={{ margin: 0 }}>
+                  Még nincs üzenet — az első közvetlen üzeneteddel nyílik meg a beszélgetés
+                  (utána a felhasználó válaszolni is tud).
+                </p>
+              )}
+              {dmThread.messages.map((m) => (
+                <div key={m.id} style={{
+                  alignSelf: m.sender === 'admin' ? 'flex-end' : 'flex-start',
+                  maxWidth: '85%',
+                  background: m.sender === 'admin' ? 'var(--primary)' : 'var(--surface-hover)',
+                  color: m.sender === 'admin' ? '#fff' : 'var(--text)',
+                  borderRadius: 12, padding: '8px 12px',
+                }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, display: 'flex', gap: 6, alignItems: 'center' }}>
+                    {m.sender === 'admin'
+                      ? <>{m.kind === 'broadcast' ? <Megaphone size={11} aria-hidden /> : null}{m.admin_name || 'Admin'}{m.kind === 'broadcast' ? ' (körüzenet)' : ''}</>
+                      : (dmThread.user.full_name || 'Felhasználó')}
+                    <span style={{ fontWeight: 400, opacity: 0.75 }}>{new Date(m.created_at).toLocaleString('hu-HU')}</span>
+                  </div>
+                  <div style={{ fontSize: 14, marginTop: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{m.body}</div>
+                  {m.sender === 'admin' && m.kind === 'direct' && (
+                    <div style={{ fontSize: 10, opacity: 0.75, marginTop: 2, textAlign: 'right' }}>
+                      {m.read_at ? `Elolvasva: ${new Date(m.read_at).toLocaleString('hu-HU')}` : 'Még nem olvasta'}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+              <textarea className="input" rows={3} maxLength={5000}
+                placeholder="Üzenet a felhasználónak… (in-app értesítést kap róla)"
+                value={dmDraft} onChange={(e) => setDmDraft(e.target.value)} />
+              <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', marginTop: 8, flexWrap: 'wrap', gap: 8 }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                  <input type="checkbox" checked={dmSendEmail} onChange={(e) => setDmSendEmail(e.target.checked)} />
+                  Email-ben is menjen
+                </label>
+                <button className="btn" disabled={dmBusy || !dmDraft.trim()} onClick={sendDm}>
+                  <Send size={14} /> {dmBusy ? 'Küldés…' : 'Küldés'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Teljes user-részletnézet panel ─── */}
+      {(userDetail || userDetailLoading) && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9000, background: 'rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) { setUserDetail(null); setUserDetailLoading(false); } }}
+        >
+          <div className="card" style={{ maxWidth: 640, width: '100%', maxHeight: '85vh', overflowY: 'auto', margin: 0 }}>
+            {userDetailLoading || !userDetail ? <ListSkeleton rows={6} /> : (
+              <>
+                <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Info size={18} /> {userDetail.full_name || userDetail.email}
+                  </h3>
+                  <button className="btn btn-ghost" style={{ padding: '4px 10px' }} onClick={() => setUserDetail(null)}>Bezárás</button>
+                </div>
+
+                {([
+                  ['Fiók', [
+                    ['Email', userDetail.email],
+                    ['Email megerősítve', userDetail.email_verified ? 'igen' : 'NEM'],
+                    ['Telefon', userDetail.phone],
+                    ['Szerep', userDetail.role],
+                    ['Fiók-típus', userDetail.account_type === 'company' ? 'céges' : 'magánszemély'],
+                    ['Regisztrált', userDetail.created_at ? new Date(userDetail.created_at).toLocaleString('hu-HU') : null],
+                    ['Bio', userDetail.bio],
+                  ]],
+                  ['Céges / számlázási', [
+                    ['Cégnév', userDetail.company_name],
+                    ['Adószám', userDetail.tax_id],
+                    ['Cégjegyzékszám', userDetail.company_reg_number],
+                    ['EU VAT', userDetail.eu_vat_number],
+                    ['Számlázási cím', userDetail.billing_address],
+                    ['Ország', userDetail.billing_country],
+                    ['Cég-ellenőrzés', userDetail.company_verification_status],
+                    ['NAV szerinti név', userDetail.nav_taxpayer_name],
+                    ['NAV adószám érvényes', userDetail.nav_taxpayer_valid == null ? null : (userDetail.nav_taxpayer_valid ? 'igen' : 'NEM')],
+                  ]],
+                  ['Szállítói profil', [
+                    ['Személyi KYC', userDetail.identity_kyc_status],
+                    ['Szállítói KYC', userDetail.driver_kyc_status],
+                    ['Szállítói nyilatkozat', userDetail.driver_terms_accepted_at ? new Date(userDetail.driver_terms_accepted_at).toLocaleDateString('hu-HU') : null],
+                    ['Jármű', userDetail.vehicle_type],
+                    ['Rendszám', userDetail.vehicle_plate],
+                    ['Szint', userDetail.level_name || userDetail.level],
+                    ['Értékelés', userDetail.rating_count ? `${Number(userDetail.rating_avg).toFixed(1)} (${userDetail.rating_count} db)` : null],
+                    ['Trust score', userDetail.trust_score],
+                    ['DAC7 adóadat', userDetail.has_tax_data ? 'megadva' : (userDetail.tax_data_requested_at ? 'BEKÉRVE, hiányzik' : 'nem kellett még')],
+                  ]],
+                  ['Forgalom', [
+                    ['Feladott fuvar', userDetail.jobs_as_shipper],
+                    ['Szállított fuvar', userDetail.jobs_as_carrier],
+                    ['Foglalása (feladóként)', userDetail.bookings_as_shipper],
+                    ['Meghirdetett járat', userDetail.routes_as_carrier],
+                    ['Vitában érintett', userDetail.dispute_count],
+                  ]],
+                  ['Ajánlói program', [
+                    ['Saját kód', userDetail.referral_code],
+                    ['Őt ajánlotta', userDetail.referred_by ? `${userDetail.referred_by_name || '—'} (${userDetail.referred_by_email || userDetail.referred_by})` : null],
+                    ['Jutalmat kapott', userDetail.referral_reward_granted_at ? new Date(userDetail.referral_reward_granted_at).toLocaleDateString('hu-HU') : null],
+                  ]],
+                  ['Aktivitás', [
+                    ['Utolsó belépés', userDetail.last_login_at ? new Date(userDetail.last_login_at).toLocaleString('hu-HU') : 'soha'],
+                    ['Belépések', userDetail.login_count],
+                    ['Utoljára aktív', userDetail.last_seen_at ? fmtWhen(userDetail.last_seen_at) : null],
+                    ['Összes aktív idő', fmtActive(userDetail.total_active_seconds)],
+                  ]],
+                ] as Array<[string, Array<[string, any]>]>).map(([cim, sorok]) => {
+                  const kitoltott = sorok.filter(([, v]) => v !== null && v !== undefined && v !== '' && v !== '—');
+                  if (kitoltott.length === 0) return null;
+                  return (
+                    <div key={cim} style={{ marginTop: 14 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--muted)' }}>{cim}</div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginTop: 6 }}>
+                        <tbody>
+                          {kitoltott.map(([label, ertek]) => (
+                            <tr key={label} style={{ borderBottom: '1px solid var(--border)' }}>
+                              <td className="muted" style={{ padding: '5px 8px 5px 0', width: 180, verticalAlign: 'top' }}>{label}</td>
+                              <td style={{ padding: '5px 0', fontWeight: 600, overflowWrap: 'anywhere' }}>{String(ertek)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
+
+                <p className="muted" style={{ fontSize: 11, marginTop: 14, marginBottom: 0 }}>
+                  A DAC7-adatokat (adóazonosító jel, születési dátum) adat-minimalizálás miatt
+                  itt nem jelenítjük meg — csak a megadás ténye látszik.
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ─── Dialógusok ─── */}
+      <ConfirmDialog
+        open={bcConfirm}
+        title={`Körüzenet — ${BROADCAST_TARGET_LABEL[bcTarget]}`}
+        message={`A közlemény azonnal kimegy minden címzettnek in-app értesítésként${bcEmail ? ' ÉS emailben' : ''}. A körüzenetre a felhasználók nem tudnak válaszolni. Biztos küldöd?`}
+        confirmLabel="Küldés"
+        onConfirm={() => { setBcConfirm(false); sendBroadcast(); }}
+        onClose={() => setBcConfirm(false)}
+      />
+
       <ConfirmDialog
         open={!!decision}
         title={decision?.mode === 'refund' ? 'Visszatérítés a feladónak' : 'Vita lezárása — nincs teendő'}

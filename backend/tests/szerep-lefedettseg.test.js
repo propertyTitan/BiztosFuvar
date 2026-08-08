@@ -625,6 +625,34 @@ describe('Admin felület: minden nézet és művelet lefut', () => {
     await sikeres('DELETE /admin/jobs/:id',
       request(app).delete(`/admin/jobs/${j.id}`).set(auth(V.admin.token)));
   });
+
+  it('user-részletnézet és admin ↔ user üzenetküldés', async () => {
+    await sikeres('GET /admin/users/:id', request(app)
+      .get(`/admin/users/${V.felado.id}`).set(auth(V.admin.token)));
+
+    // Admin ír a feladónak (ez nyitja meg a válasz-csatornát)…
+    await sikeres('POST /admin/dm/with/:userId', request(app)
+      .post(`/admin/dm/with/${V.felado.id}`).set(auth(V.admin.token))
+      .send({ body: 'Szia! Minden rendben a fiókoddal.' }));
+    // …a feladó elolvassa és válaszol…
+    await sikeres('GET /me/admin-messages',
+      request(app).get('/me/admin-messages').set(auth(V.felado.token)));
+    await sikeres('POST /me/admin-messages', request(app)
+      .post('/me/admin-messages').set(auth(V.felado.token))
+      .send({ body: 'Köszönöm a tájékoztatást!' }));
+    // …az admin a szál-listában és a szálban is látja.
+    await sikeres('GET /admin/dm/threads',
+      request(app).get('/admin/dm/threads').set(auth(V.admin.token)));
+    await sikeres('GET /admin/dm/with/:userId', request(app)
+      .get(`/admin/dm/with/${V.felado.id}`).set(auth(V.admin.token)));
+
+    // Körüzenet + napló
+    await sikeres('POST /admin/dm/broadcast', request(app)
+      .post('/admin/dm/broadcast').set(auth(V.admin.token))
+      .send({ body: 'Rendszer-közlemény: minden működik.', target: 'all' }));
+    await sikeres('GET /admin/dm/broadcasts',
+      request(app).get('/admin/dm/broadcasts').set(auth(V.admin.token)));
+  });
 });
 
 // =====================================================================

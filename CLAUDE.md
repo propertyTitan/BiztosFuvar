@@ -185,6 +185,22 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Admin ↔ user üzenetküldés + teljes user-részletnézet (2026-08-08,
+  user-kérés)** — három új képesség az adminon: (1) **közvetlen üzenet** egy
+  felhasználónak (Felhasználók fül boríték-gombja / Üzenetek fül szálai;
+  in-app értesítés + opcionális email); (2) **körüzenet** célcsoportnak
+  (mindenki / feladók / szállítók / céges fiókok; email opcióval — a
+  körüzenet-emailek HÁTTÉRBEN, ütemezve mennek a Resend-limit miatt);
+  (3) **teljes user-részletnézet** (`GET /admin/users/:id`, Info-gomb):
+  céges/számlázási adatok, email_verified, NAV-eredmény, jármű, referral,
+  forgalmi számok — a DAC7-adat (adóazonosító, születési dátum) SZÁNDÉKOSAN
+  nem jelenik meg (adat-minimalizálás), csak a megadás ténye (has_tax_data).
+  ⚠️ FŐ SZABÁLY (user-döntés): a felhasználó MAGÁTÓL NEM írhat az adminnak
+  — a válasz-csatorna CSAK közvetlen ('direct') üzenettől nyílik meg, a
+  körüzenet NEM nyitja (különben az első körüzenet után mindenki írhatna;
+  403 NO_CHANNEL). User-oldal: `/uzenetek` (élő socket-frissítés,
+  olvasás-visszajelzés mindkét irányban). 054-es migráció (admin_messages +
+  admin_broadcasts). +13 backend teszt + szerep-lefedettség + oldal-leltár
 - **Admin user-törlés adatvesztés-védelem (2026-08-08, átvizsgálás)** — az
   admin user-törlés csupasz `DELETE FROM users` volt, guard nélkül. Két gond:
   (1) az admin véletlenül törölhette SAJÁT MAGÁT; (2) egy szállító törlése a

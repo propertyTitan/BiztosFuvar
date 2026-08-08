@@ -103,6 +103,50 @@ router.get('/admin/users', ...adminOnly, async (req, res) => {
   res.json(rows);
 });
 
+// GET /admin/users/:id — EGY felhasználó teljes profilja (részletnézet).
+//
+// Ami SZÁNDÉKOSAN kimarad (adat-minimalizálás, 2026-08-08 user-döntés):
+//  - DAC7-adatok (personal_tax_id, birth_date) — csak a NAV-jelentéshez
+//    kellenek, az admin-felületen elég a "megadta-e" tény (has_tax_data);
+//  - titkok (password_hash, token-hash-ek).
+router.get('/admin/users/:id', ...adminOnly, async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT u.id, u.email, u.email_verified, u.full_name, u.phone, u.role,
+            u.account_type, u.locale, u.bio, u.avatar_url,
+            u.created_at, u.updated_at,
+            -- céges / számlázási adatok
+            u.company_name, u.tax_id, u.company_reg_number, u.eu_vat_number,
+            u.billing_address, u.billing_country, u.company_verification_status,
+            u.nav_taxpayer_checked_at, u.nav_taxpayer_name, u.nav_taxpayer_valid,
+            -- szállítói profil
+            u.vehicle_type, u.vehicle_plate, u.service_categories,
+            u.identity_kyc_status, u.driver_kyc_status, u.driver_terms_accepted_at,
+            u.is_tow_driver, u.tow_services, u.tow_vehicle_description,
+            u.level, u.level_name, u.total_deliveries,
+            u.rating_avg, u.rating_count, u.trust_score,
+            -- aktivitás
+            u.last_login_at, u.login_count, u.last_seen_at, u.total_active_seconds,
+            -- ajánlói program
+            u.referral_code, u.referred_by, u.referral_reward_granted_at,
+            ref.full_name AS referred_by_name, ref.email AS referred_by_email,
+            -- DAC7: csak a TÉNY, nem az adat
+            (u.personal_tax_id IS NOT NULL) AS has_tax_data,
+            u.tax_data_requested_at,
+            -- forgalmi számok
+            (SELECT COUNT(*)::int FROM jobs j WHERE j.shipper_id = u.id) AS jobs_as_shipper,
+            (SELECT COUNT(*)::int FROM jobs j WHERE j.carrier_id = u.id) AS jobs_as_carrier,
+            (SELECT COUNT(*)::int FROM route_bookings b WHERE b.shipper_id = u.id) AS bookings_as_shipper,
+            (SELECT COUNT(*)::int FROM carrier_routes r WHERE r.carrier_id = u.id) AS routes_as_carrier,
+            (SELECT COUNT(*)::int FROM disputes d WHERE d.opened_by = u.id OR d.against_user = u.id) AS dispute_count
+       FROM users u
+       LEFT JOIN users ref ON ref.id = u.referred_by
+      WHERE u.id = $1`,
+    [req.params.id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: 'Nincs ilyen felhasználó.' });
+  res.json(rows[0]);
+});
+
 // DELETE /admin/users/:id — felhasználó törlése
 router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
   const targetId = req.params.id;

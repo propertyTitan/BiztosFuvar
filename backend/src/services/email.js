@@ -556,6 +556,30 @@ async function sendTaxDataRequestEmail({ to, name, deadline, reminderNo = 0 }) {
   });
 }
 
+/**
+ * Admin-üzenet a felhasználónak (közvetlen VAGY körüzenet email-mása).
+ * A body sortöréseit megőrizzük; a tartalom user-vezérelt szempontból az
+ * ADMIN szövege, de az escape a biztonsági alapszabály miatt így is jár.
+ */
+async function sendAdminMessageEmail({ to, name, bodyText }) {
+  const bodyHtml = `
+    <p>Szia ${escapeHtml(name) || 'GoFuvar felhasználó'}!</p>
+    <p>Üzeneted érkezett a GoFuvar csapatától:</p>
+    <div style="background:#f8fafc;border-left:4px solid #1e40af;border-radius:8px;padding:14px 16px;margin:16px 0;white-space:pre-wrap">${escapeHtml(bodyText)}</div>
+    <p style="font-size:13px;color:#6b7280">Az üzenetet a GoFuvar felületén, az „Üzenetek" oldalon is megtalálod.</p>
+  `;
+  return sendEmail({
+    to,
+    subject: 'Üzenet a GoFuvar csapatától',
+    html: wrapHtml({
+      heading: '📩 Üzenet a GoFuvar csapatától',
+      bodyHtml,
+      ctaText: 'Megnyitom az üzenetet',
+      ctaHref: `${getWebBase()}/uzenetek`,
+    }),
+  });
+}
+
 module.exports = {
   sendEmail,
   sendBidReceivedEmail,
@@ -572,5 +596,6 @@ module.exports = {
   sendEmailVerificationEmail,
   sendPasswordResetEmail,
   sendTaxDataRequestEmail,
+  sendAdminMessageEmail,
   isStub,
 };
