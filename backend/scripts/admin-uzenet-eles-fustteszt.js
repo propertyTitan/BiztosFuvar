@@ -135,6 +135,34 @@ async function main() {
         && !('birth_date' in (reszlet.json || {}))
         && !('password_hash' in (reszlet.json || {})),
       `status=${reszlet.status}`);
+
+    // ===== 6. Harang-badge fix (PR #114): a szál-megnyitás az értesítést is olvasta =====
+    const { rows: notifKesobb } = await db.query(
+      `SELECT read_at FROM notifications WHERE user_id = $1 AND type = 'admin_message'`, [cel.id],
+    );
+    check('Badge-fix: a /uzenetek megnyitása a notification-sort is olvasottra állította',
+      notifKesobb.length === 1 && notifKesobb[0].read_at !== null,
+      notifKesobb[0]?.read_at ? 'read_at megvan' : 'read_at HIÁNYZIK');
+
+    // ===== 7. Csatorna-lezárás (PR #114): zárva 403, visszanyitva megy =====
+    const zaras = await api('PATCH', '/admin/dm/channel', {
+      token: admin.token, body: { user_id: cel.id, closed: true },
+    });
+    const zartValasz = await api('POST', '/me/admin-messages', {
+      token: cel.token, body: { body: 'Zárt csatornán próbálkozom.' },
+    });
+    check('Csatorna lezárva: a user válasza 403 CHANNEL_CLOSED',
+      zaras.status === 200 && zartValasz.status === 403 && zartValasz.json?.code === 'CHANNEL_CLOSED',
+      `${zaras.status}/${zartValasz.status}/${zartValasz.json?.code}`);
+
+    const nyitas = await api('PATCH', '/admin/dm/channel', {
+      token: admin.token, body: { user_id: cel.id, closed: false },
+    });
+    const ujraValasz = await api('POST', '/me/admin-messages', {
+      token: cel.token, body: { body: `Visszanyitva megy (${RUN_ID}).` },
+    });
+    check('Csatorna visszanyitva: a válasz újra megy',
+      nyitas.status === 200 && ujraValasz.status === 201, `${nyitas.status}/${ujraValasz.status}`);
   } finally {
     // ===== TAKARÍTÁS — csak a script által létrehozott sorok =====
     console.log('\n--- Takarítás a prod DB-ben ---');
