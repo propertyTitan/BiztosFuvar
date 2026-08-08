@@ -175,27 +175,38 @@ async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, f
   // A legkorábban lejáró, még érvényes és a díj-plafonnak megfelelő kupont
   // használjuk fel. A max_fee_huf plafon (ajánlói kuponoknál) kizárja a
   // magas díjú feladásokat; NULL plafon = bármekkora díjra jó (szint-kupon).
+  //
+  // ⚠️ ATOMI beváltás (2026-08-08): korábban külön SELECT + UPDATE volt,
+  // zárolás nélkül és `used_at IS NULL` guard nélkül az UPDATE-en. Ez
+  // DOUBLE-SPEND-et engedett: két párhuzamos /pay ugyanazt a kupont látta
+  // szabadnak, és MINDKÉT fuvar díja elengedődött (bizonyítva: 8 egyidejű
+  // beváltásból 7-8 sikerült egyetlen kuponra). A bevétel szivárgott.
+  //
+  // Megoldás: EGYETLEN utasítás. A belső SELECT `FOR UPDATE SKIP LOCKED`
+  // kizárólagosan lefoglal egy szabad kupont; a párhuzamos kérések a zárolt
+  // sort ÁTUGORJÁK, és vagy egy MÁSIK szabad kupont kapnak, vagy semmit —
+  // így egy kupon garantáltan csak egyszer fogyhat, és a többkuponos eset
+  // is helyesen működik.
   const { rows } = await db.query(
-    `SELECT id FROM fee_vouchers
-      WHERE user_id = $1
-        AND used_at IS NULL
-        AND valid_from <= CURRENT_DATE
-        AND valid_until >= CURRENT_DATE
-        AND (max_fee_huf IS NULL OR $2::int IS NULL OR max_fee_huf >= $2::int)
-      ORDER BY valid_until ASC
-      LIMIT 1`,
-    [userId, feeHuf],
-  );
-  if (!rows[0]) return false;
-  await db.query(
     `UPDATE fee_vouchers
         SET used_at = NOW(),
-            used_on_job = $2,
-            used_on_booking = $3
-      WHERE id = $1`,
-    [rows[0].id, jobId || null, bookingId || null],
+            used_on_job = $3,
+            used_on_booking = $4
+      WHERE id = (
+        SELECT id FROM fee_vouchers
+         WHERE user_id = $1
+           AND used_at IS NULL
+           AND valid_from <= CURRENT_DATE
+           AND valid_until >= CURRENT_DATE
+           AND (max_fee_huf IS NULL OR $2::int IS NULL OR max_fee_huf >= $2::int)
+         ORDER BY valid_until ASC
+         LIMIT 1
+         FOR UPDATE SKIP LOCKED
+      )
+      RETURNING id`,
+    [userId, feeHuf, jobId || null, bookingId || null],
   );
-  return true;
+  return rows.length > 0;
 }
 
 /**
