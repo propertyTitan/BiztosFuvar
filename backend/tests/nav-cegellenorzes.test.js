@@ -100,6 +100,29 @@ describe('Cégnév-normalizálás és egyeztetés', () => {
   it('túl rövid megkülönböztető név nem adhat egyezést', () => {
     expect(nav.companyNamesMatch('Kft.', 'TISZTA HÓD KFT.', null)).toBe(false);
   });
+
+  // ── Audit 3. kör (2026-08-09): a részleges (substring) egyezés kizárva ──
+  // A jelvény ígérete az, hogy a KIÍRT cégnév egyezik a NAV nyilvántartásával.
+  // A korábbi `includes()` mindkét irányban tévedett, és mindkettő valódi
+  // félrevezetés: a feladó a szállító nevét látja „Ellenőrzött cég" jelvénnyel.
+  it('a hivatalos név RÉSZLETE nem elég (szűkítés)', () => {
+    expect(
+      nav.companyNamesMatch('Hód Kft.', 'TISZTA HÓD KORLÁTOLT FELELŐSSÉGŰ TÁRSASÁG', null),
+      'egy létező cég adószámához a név egy darabjával is járt volna a jelvény',
+    ).toBe(false);
+  });
+
+  it('a hivatalos névhez TOLDOTT szó sem elég (bővítés)', () => {
+    expect(
+      nav.companyNamesMatch('Tiszta Hód Szállítmányozás Kft.', 'TISZTA HÓD KFT.', null),
+      'a hivatalos név köré tetszőleges toldalékot lehetett volna írni',
+    ).toBe(false);
+  });
+
+  it('a szavak sorrendje és a cégforma-írásmód viszont nem számít', () => {
+    expect(nav.companyNamesMatch('Hód Tiszta Kft.', 'TISZTA HÓD KFT.', null)).toBe(true);
+    expect(nav.companyNamesMatch('Tiszta-Hód Kft', 'Tiszta Hód Korlátolt Felelősségű Társaság', null)).toBe(true);
+  });
 });
 
 describe('NAV kérés-összeállítás', () => {

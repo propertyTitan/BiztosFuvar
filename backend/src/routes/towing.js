@@ -159,7 +159,7 @@ router.post('/towing/:id/cancel', authRequired, writeRateLimit, async (req, res)
     }).catch(() => {});
   }
 
-  realtime.emitGlobal('towing:cancelled', { tow_id: rows[0].id });
+  realtime.emitToFeed('towing:cancelled', { tow_id: rows[0].id });
   res.json({ ok: true });
 });
 
@@ -328,7 +328,7 @@ router.post('/towing/:id/accept', authRequired, writeRateLimit, async (req, res)
     responder_vehicle: responder.tow_vehicle_description,
     estimated_price_huf: towReq.estimated_price_huf,
   });
-  realtime.emitGlobal('towing:taken', { tow_id: towReq.id });
+  realtime.emitToFeed('towing:taken', { tow_id: towReq.id });
 
   res.json({
     ok: true,
@@ -441,14 +441,21 @@ async function notifyNearbyTowDrivers(towReq) {
     }).catch(() => {});
   }
 
-  // Globális event a mentős UI-nak
-  realtime.emitGlobal('towing:new', {
+  // Event a mentős UI-nak. ⚠️ 2026-08-09 (audit 3. kör): `emitGlobal` →
+  // `emitToFeed`, ÉS a helyadat KÖZELÍTŐ. Eddig a bajba jutott PONTOS
+  // GPS-koordinátája + címe minden csatlakozott sockethez kiment — a be nem
+  // jelentkezett vendégekhez is. Ez ugyanaz a szivárgás, amit a REST-listán
+  // a `scrubTowRequestForList` már zárt (#126): sérülékeny helyzetben lévő
+  // ember (egyedül, éjszaka, elakadva) pontos helye nem közadat. A pontos
+  // hely az elvállalás UTÁN, a REST-válaszban jár.
+  realtime.emitToFeed('towing:new', {
     tow_id: towReq.id,
     issue_type: towReq.issue_type,
     vehicle_type: towReq.vehicle_type,
-    lat: towReq.lat,
-    lng: towReq.lng,
-    address: towReq.address,
+    // ~1 km-re kerekített hely (a listás scrubbal azonos felbontás)
+    lat: Math.round(towReq.lat * 100) / 100,
+    lng: Math.round(towReq.lng * 100) / 100,
+    approximate: true,
     search_radius_km: radiusKm,
     expires_at: towReq.expires_at,
   });

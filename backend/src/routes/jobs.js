@@ -363,14 +363,14 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
 
   const job = rows[0];
 
-  // A real-time `jobs:new` MINDEN csatlakozott kliensnek megy (io.emit),
-  // beleértve a be nem jelentkezett vendégeket is — ezért a payloadot a
-  // KÍVÜLÁLLÓ nézetére kell scrubbolni. A korábbi `{ delivery_code, ...rest }`
-  // csak a kódot vette ki, de bennhagyta a címzett PII-ját (név/telefon/email),
-  // a `tracking_token`-t (amivel a publikus követőoldalról kiolvasható lett
-  // volna a kód) és a `sender_delivery_code`-ot. A `scrubJobForUser(job, null)`
-  // ugyanazt a határt adja, mint a REST kívülálló-ág.
-  realtime.emitGlobal('jobs:new', scrubJobForUser(job, null));
+  // A real-time `jobs:new` a piactér-feedbe megy: a payload a KÍVÜLÁLLÓ
+  // nézetére scrubbolt sor (`scrubJobForUser(job, null)` — ugyanaz a határ,
+  // mint a REST kívülálló-ág: nincs benne kód, címzett-PII, tracking token).
+  // ⚠️ 2026-08-09: `emitGlobal` → `emitToFeed`. A scrubbolt sor is tartalmazza
+  // a PONTOS felvételi/lerakodási címet és GPS-t (a böngészéshez kell) —
+  // ezt eddig a be nem jelentkezett vendég-socketek is megkapták, vagyis
+  // fiók nélkül, élőben lehetett címeket learatni.
+  realtime.emitToFeed('jobs:new', scrubJobForUser(job, null));
 
   console.log(`[delivery-code] job ${job.id}: átvételi kód generálva (feladó: ${maskEmail(req.user.email)})`);
 
@@ -745,7 +745,9 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
         link: `/sofor/fuvar/${j.id}`,
       }).catch(() => {});
     }
-    // A meghívott→ajánló jutalom-trigger (a feladó teljesítette az első díját).
+    // A meghívott→ajánló jutalom-trigger. ⚠️ Kuponos (0 Ft-os) feladás
+    // önmagában NEM teljesítés — a referral.js ellenőrzi, volt-e valaha
+    // ténylegesen megfizetett (>0 Ft) díja a feladónak.
     maybeGrantReferralReward(j.shipper_id, { role: 'shipper', jobId: j.id }).catch(() => {});
     return res.json({ ok: true, paid_via_voucher: true, fee_huf: 0, gateway_url: null });
   }
@@ -829,11 +831,14 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
     return res.json({ ok: true, already_paid: true, paid_at: j.paid_at });
   }
 
-  // Éles Barion mellett a webhook a fizetés hiteles forrása — ezt a
-  // kézi nyugtázást csak stub (teszt) módban engedjük.
-  if (!paymentProvider.isStub()) {
+  // Éles fizetés mellett a webhook a fizetés hiteles forrása — ezt a kézi
+  // nyugtázást csak stub (teszt) módban engedjük. ⚠️ 2026-08-09 (audit 3.
+  // kör): a feltétel `manualConfirmAllowed()`, nem a puszta `isStub()` —
+  // különben egy elfelejtett provider-kulcs ÉLESBEN is kinyitná ezt az ágat
+  // (bárki fizetés nélkül „fizetettnek" jelölhetné a saját fuvarát).
+  if (!paymentProvider.manualConfirmAllowed()) {
     return res.status(409).json({
-      error: 'A fizetést a Barion igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
+      error: 'A fizetést a fizetésszolgáltató igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
     });
   }
 
@@ -951,7 +956,7 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
     [j.id, failedCarrierId || '00000000-0000-0000-0000-000000000000'],
   );
   realtime.emitToJob(j.id, 'job:reopened', { job_id: j.id, reason: reason || null });
-  realtime.emitGlobal('jobs:reopened', { job_id: j.id });
+  realtime.emitToFeed('jobs:reopened', { job_id: j.id });
 }
 
 // POST /jobs/:id/cancel
@@ -1086,7 +1091,7 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
     }
   }
 
-  realtime.emitGlobal('jobs:cancelled', { job_id: j.id, cancelled_by: cancelledByRole });
+  realtime.emitToFeed('jobs:cancelled', { job_id: j.id, cancelled_by: cancelledByRole });
 
   res.json({
     ok: true,
@@ -1273,7 +1278,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       barion_gateway_url: barionRes.gatewayUrl,
       is_instant: true,
     });
-    realtime.emitGlobal('jobs:instant-taken', {
+    realtime.emitToFeed('jobs:instant-taken', {
       job_id: job.id,
       carrier_id: job.carrier_id,
     });

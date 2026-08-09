@@ -131,8 +131,24 @@ app.get('/coverage/zones', (_req, res) => {
   res.json(getAllZones());
 });
 
+// ⚠️ A `uploads/private/` almappa (KYC-okmányok disk-fallbackja) SOHA nem
+// szolgálható ki statikusan (2026-08-09, audit 3. kör). Eddig az express.static
+// hitelesítés nélkül kiadta — élesben egy R2-kiesés is idesodorhatott egy
+// személyi igazolvány fotót. Olvasni csak az aláírt /private-files/ úton lehet.
+app.use('/uploads/private', (_req, res) => res.status(404).json({ error: 'Nem található' }));
+
 // Statikus fájl-kiszolgálás a feltöltött fotókhoz — a limiter MÖGÖTT
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// Privát fájl (KYC disk-fallback) olvasása ALÁÍRT, lejáró linkkel — az R2
+// presigned URL megfelelője dev/teszt módban. Aláírás nélkül nincs hozzáférés.
+app.get('/private-files/:name', (req, res) => {
+  const { resolvePrivateDiskFile } = require('./services/storage');
+  const r = resolvePrivateDiskFile(req.params.name, req.query.exp, req.query.sig);
+  if (!r.ok) return res.status(r.reason === 'expired' ? 410 : 404).json({ error: 'Nem található vagy lejárt link' });
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.sendFile(r.filepath);
+});
 
 app.use('/', calculatorRoutes);
 app.use('/', publicTrackingRoutes);
@@ -239,12 +255,26 @@ process.on('uncaughtException', (err) => {
       );
       return;
     }
-    if (process.env.NODE_ENV === 'production' && paymentProvider.isStub()) {
+    if (paymentProvider.isUnsafeStub()) {
+      // HARD-FAIL (2026-08-09, audit 3. kör). Korábban ez csak egy log-sor
+      // volt — egy elfelejtett env-változó tehát némán elindította az éles
+      // szervert nulla-díjas, kézi-nyugtázásra nyitott állapotban. Inkább ne
+      // induljon el: a leállt deploy 2 perc alatt észrevehető, a némán ingyen
+      // működő platform hetekig nem.
       console.error(
-        `[FIZETÉS] ⚠️⚠️ FIGYELEM: éles (production) futás, de a(z) "${providerName}" `
+        `[FIZETÉS] ⛔ LEÁLLÁS: éles (production) futás, de a(z) "${providerName}" `
         + 'provider STUB módban van (nincs beállítva a szolgáltató kulcsa). '
-        + 'A kapcsolatfelvételi díj NEM szedődik be, és a kézi fizetés-nyugtázás nyitva! '
-        + 'Állítsd be a provider kulcsait, mielőtt éles forgalmat engedsz.',
+        + 'Így a kapcsolatfelvételi díj NEM szedődne be, és a kézi fizetés-nyugtázás nyitva lenne. '
+        + 'Tedd be a provider kulcsait (pl. CIB_API_KEY / CIB_MERCHANT_ID / CIB_BASE_URL). '
+        + 'Ha ez SZÁNDÉKOS (fizetés nélküli demó/staging), állítsd be: ALLOW_STUB_PAYMENTS=true',
+      );
+      // Csak a valódi szerverindítást állítjuk le; teszt/import közben (ahol
+      // az app-ot csak require-öljük) a hangos log elég.
+      if (require.main === module) process.exit(1);
+    } else if (process.env.NODE_ENV === 'production' && paymentProvider.isStub()) {
+      console.error(
+        `[FIZETÉS] ⚠️ ALLOW_STUB_PAYMENTS=true mellett éles futás STUB providerrel ("${providerName}") — `
+        + 'a díj NEM szedődik be. Ez csak demó/staging példányon lehet szándékos.',
       );
     } else {
       console.log(`[FIZETÉS] provider: ${providerName}${paymentProvider.isStub() ? ' (stub/teszt mód)' : ' (éles)'}`);

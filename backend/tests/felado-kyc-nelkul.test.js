@@ -65,7 +65,12 @@ describe('Feladó KYC nélkül', () => {
     const invitee = await createUser({ kyc: 'pending' });
     await db.query('UPDATE users SET referred_by = $1 WHERE id = $2', [referrer.id, invitee.id]);
 
-    await maybeGrantReferralReward(invitee.id, { role: 'shipper', jobId: null });
+    // A feltétel a TÉNYLEGESEN megfizetett (>0 Ft) díj — KYC nélkül is elég.
+    // (2026-08-09 óta a guard ezt kéri: a 0 Ft-os, kuponos „fizetés" nem
+    //  számít teljesítésnek — lásd referral-kupon-lanc.test.js)
+    const job = await createJob({ shipperId: invitee.id, status: 'accepted', paid: true });
+
+    await maybeGrantReferralReward(invitee.id, { role: 'shipper', jobId: job.id });
 
     const { rows } = await db.query(
       'SELECT referral_reward_granted_at FROM users WHERE id = $1', [invitee.id],

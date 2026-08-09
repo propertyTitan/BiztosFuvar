@@ -55,6 +55,27 @@ async function runPaymentReminders() {
     for (const j of rows) {
       const reminderNo = (j.payment_reminder_count || 0) + 1;
       try {
+        // ── ATOMI CLAIM a küldés ELŐTT (2026-08-09, audit 3. kör) ──
+        // A számláló korábban a küldés UTÁN nőtt, a fenti SELECT alapján.
+        // Két egyidejű kör (Railway újraindítás/deploy-átfedés, vagy két
+        // példány) ugyanazt a sort kiolvasta, és a feladó KÉT azonos
+        // emlékeztetőt kapott — a fizetés-sürgetés spammé válik, épp a
+        // legérzékenyebb ponton. A feltételes UPDATE-et csak egy kör nyeri
+        // meg (`payment_reminder_count` = amit láttunk), a másik kihagyja.
+        // A `paid_at IS NULL` újraellenőrzése a közben megtörtént fizetés
+        // esetét is zárja.
+        const claim = await db.query(
+          `UPDATE jobs
+              SET payment_reminder_count = $1, last_payment_reminder_at = NOW()
+            WHERE id = $2
+              AND payment_reminder_count = $3
+              AND paid_at IS NULL
+              AND status = 'accepted'
+            RETURNING id`,
+          [reminderNo, j.id, j.payment_reminder_count || 0],
+        );
+        if (claim.rowCount === 0) continue;
+
         await createNotification({
           user_id: j.shipper_id,
           type: 'payment_reminder',
@@ -73,15 +94,13 @@ async function runPaymentReminders() {
             reminderNo,
           });
         }
-        // A számláló + időbélyeg csak SIKERES kézbesítés-kísérlet után nő,
-        // hogy egy átmeneti hiba ne "égessen el" egy emlékeztetőt.
-        await db.query(
-          `UPDATE jobs SET payment_reminder_count = $1, last_payment_reminder_at = NOW() WHERE id = $2`,
-          [reminderNo, j.id],
-        );
         sent += 1;
       } catch (err) {
-        console.error(`[payment-reminder] fuvar ${j.id} hiba:`, err.message);
+        // A számláló már megnőtt (claim), ezért egy megszakadt email-küldés
+        // „elhasznál" egy emlékeztetőt. Ez a tudatos csere: egy kimaradt
+        // emlékeztető olcsóbb, mint egy duplán kiküldött. A hiba a logban
+        // (és a fuvar a következő körben már a következő fokozatot kapja).
+        console.error(`[payment-reminder] fuvar ${j.id} hiba (az emlékeztető elhasználva):`, err.message);
       }
     }
     if (sent > 0) console.log(`[payment-reminder] ${sent} fizetési emlékeztető elküldve`);

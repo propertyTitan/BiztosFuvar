@@ -185,6 +185,68 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **A 2. audit-kör MARADÉK-listája LEDOLGOZVA — 9 tétel (2026-08-09,
+  user-kérés: „folytassuk a hibák kijavításával")** — a keresztvalidált
+  maradék mind javítva, +41 teszt (backend **556/556**). Tételesen:
+  **(1) STUB-FIZETÉS ÉLESBEN = LEÁLLÁS** — eddig csak boot-figyelmeztetés
+  volt: egy elfelejtett CIB-kulcs némán elindította volna az éles szervert
+  nulla-díjas módban, ahol a `/confirm-payment` NYITVA van (bárki fizetés
+  nélkül fizetettnek jelölheti a saját fuvarát) és a webhook a nyers
+  body-nak hisz. Most: `paymentProvider.isUnsafeStub()` + boot hard-fail
+  (`process.exit(1)`) + a kézi nyugtázás `manualConfirmAllowed()`-en (mindkét
+  ág: fuvar ÉS foglalás) + a callback 503. Vész-kapcsoló: `ALLOW_STUB_PAYMENTS=true`
+  (demó/staging). **(2) PRIVÁT KYC-FÁJL a webgyökérben** — az express.static
+  a `uploads/private`-ot is kiszolgálta, ÉS az R2-hiba csendben diskre esett:
+  élesben egy R2-kiesés a SZEMÉLYI IGAZOLVÁNY fotóját a publikus fájl-útra
+  tehette. Most: a `/uploads/private` mindig 404, élesben nincs csendes
+  fallback (a feltöltés inkább hibázik), a dev-fallback olvasása HMAC-aláírt,
+  lejáró `/private-files/…` linken megy (a presigned R2-URL megfelelője).
+  **(3) PIACTÉR-FEED szoba** — a `jobs:new`/`jobs:new-instant`/`towing:new`/
+  `routes:new` `io.emit`-tel MINDEN sockethez ment, a be nem jelentkezett
+  vendégekhez is: fiók nélkül, böngészőkonzolból élőben lehetett PONTOS
+  címeket és GPS-t learatni (a mentés-kérésnél a bajba jutott helyzetét).
+  Új `feed` szoba (`emitToFeed`), amibe csak hitelesített kapcsolat léphet be
+  (`feed:join`); a web `subscribeFeed()`-del lép be. A `towing:new` ráadásul
+  már csak ~1 km-re kerekített helyet ad (a REST-scrubbal azonos felbontás).
+  **(4) FIZETÉSI GATEWAY-LINK szivárgás** — a `route-bookings:confirmed:<id>`
+  globálisan ment: az esemény NEVÉBE írt user-id nem szűr senkit, a fizetési
+  link mindenkihez kiment. Most `emitToUser` a címzett szobájába.
+  **(5) DUPLA SZÁMLA** — a webhook nem tranzakcionális, az `invoices`-on nem
+  volt UNIQUE: két párhuzamos PSP-retry KÉT valódi adóügyi számlát állított
+  volna ki ugyanarról a díjról (sztornóval javítható). Most claim-sor a külső
+  hívás ELŐTT + 057-es migráció (partial UNIQUE, a 'failed' sorok kimaradnak,
+  hogy lehessen újrapróbálni) — **a prodon lefutott**. **(6) EMLÉKEZTETŐ-
+  SPAM** — a `payment_reminder_count` a küldés UTÁN nőtt: két egyidejű kör
+  duplán sürgette a feladót; most atomi claim (feltételes UPDATE) a küldés
+  előtt. **(7) ÖNFENNTARTÓ KUPON-LÁNC** — az ajánlói jutalom a `paid_at`-on
+  ült, amit a KUPONOS (0 Ft-os) feladás is beállít: minden új fiók a kapott
+  kuponnal „fizetve" újabb kupont termelt, nulla bevételből. A feltétel
+  mostantól TÉNYLEGES (>0 Ft) díjfizetés, a szolgáltatásban (nem a hívóban).
+  **(8) NAV-JELVÉNY substring** — az „Ellenőrzött cég" `includes()`-szel
+  egyeztetett: a hivatalos név egy DARABJÁVAL („Hód Kft.") és tetszőlegesen
+  TOLDOTT névvel („Tiszta Hód Szállítmányozás") is járt a jelvény. Most
+  szóhalmaz-egyezés (sorrend és cégforma-írásmód továbbra sem számít).
+  **(9) KYC vak auto-approve** — az AI `valid:true`-ja azonnal 'verified'-et
+  adott. Az automatizmus marad, de 4 kockázati jel emberhez terel
+  (`services/kycReview.js`): 0.85 alatti bizalom, az okmány nevének eltérése
+  a fióktól, másolat/képernyőfotó-gyanú (új AI-mezők: `holder_name`,
+  `likely_copy`), és az olvashatatlan okmányszám (enélkül az „egy okmány =
+  egy fiók" védelem némán kimaradt). A KycModal mostantól „Ellenőrzés alatt"
+  állapotot mutat (eddig a pending is „elutasítva"-ként jelent meg — fölösleges
+  újrapróbálkozásra késztetett).
+  ⚠️ **MELLÉKTALÁLAT, fontos: a teszt-suite ÉLES kulcsokkal futott.** Az
+  `env-setup.js` `delete`-tel törölte a külső kulcsokat, csakhogy az
+  `index.js` első sora `require('dotenv').config()`, ami a `.env`-ből
+  VISSZATÖLTI, ami épp nem létezik. Lemérve: az R2- és a Gemini-kulcs ÉLT →
+  a fájl-feltöltő tesztek valódi objektumokat írtak az ÉLES bucketekbe (a
+  privát KYC-bucketbe is!), a KYC-tesztek valódi, fizetős AI-hívásokat
+  indíthattak. Javítva (üres string, nem `delete`) + `teszt-kornyezet.test.js`
+  őr, ami elhasal, ha bármelyik éles kulcs újra beszivárog.
+  ⚠️ **MARADÉK**: (a) **report/block hiánya (T&S/DSA)** — termék-feature,
+  külön kör; (b) **üzleti döntést vár**: az ajánlói kupon 1.000 Ft-os
+  plafonja nagyobb lehet a kiváltó díjnál (500 Ft) → a több-fiókos farmolás
+  elvi haszna pozitív; a technikai gátak (havi 5-ös plafon, valódi fizetés)
+  megvannak, a kupon-érték a user döntése.
 - **2. BIZTONSÁGI AUDIT-KÖR (4 új ügynök) — a kontakt-szűrő TELJESSÉ tétele
   (2026-08-09, user-kérés: „merge után új mély audit")** — a friss main-en
   (mind az 5 aznapi PR-rel) újra futott 4 ügynök, MÁS hangolással: regresszió-
@@ -204,16 +266,12 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   (`kontakt-szuro-teljesseg.test.js`). Backend 515/515. ⚠️ A regresszió-ügynök
   IGAZOLTA: a mai 5 PR egyébként tiszta (nincs törött hívó, körkörös import,
   boot-hiba; a Barion-törlés és a scrub/tracking/R2 javítások szilárdak).
-  ⚠️ MARADÉK (keresztvalidált, következő körök): **stub-fizetés prodban csak
-  soft boot-warning** (hard-fail kell: kulcs nélküli éles indulásnál a
-  confirm-payment + callback nyitva), **dupla-számla verseny** a
-  `confirmFeePayment`-ben (nem tranzakcionális + nincs UNIQUE az invoices-on),
-  **emitGlobal anonim helyadat-szivárgás** (`jobs:new`/`jobs:new-instant`/
-  `towing:new` pontos cím+GPS vendég sockethez → hitelesített `feed` szoba),
-  2 db `route-bookings` emitGlobal (gateway-URL), paymentReminders nem-atomi
-  számláló, KYC-AI vak auto-approve, NAV-jelvény substring-match, privát-KYC
-  disk-fallback publikus kiszolgálása, referral 0 Ft-os kuponos trigger +
-  önreferral-arbitrázs, nincs report/block (T&S/DSA)
+  ✅ A kör MARADÉK-listája (stub-fizetés hard-fail, dupla-számla verseny,
+  emitGlobal helyadat-szivárgás, route-bookings gateway-URL, paymentReminders
+  számláló, KYC-AI auto-approve, NAV substring, privát-KYC disk-fallback,
+  referral 0 Ft-os trigger) **2026-08-09-én LEDOLGOZVA** — lásd a lista
+  legelső bejegyzését. Nyitva maradt: **report/block (T&S/DSA)** mint
+  termék-feature, és a referral kupon-érték üzleti kérdése.
 - **Mentős-kapu — a segélyszolgálat (towing) végpont-biztonsága (2026-08-09,
   adatvédelem 2. csomag, user: „csináld meg, de maradjon kikapcsolva")** — a
   towing-flow a FELÜLETRŐL kikapcsolva, de a végpontok éltek, és a biztonsági
@@ -1331,12 +1389,12 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **636 teszt fut CI-ben minden
+8. Vercel + Railway automatikusan deployol; **739 teszt fut CI-ben minden
    PR-en és main-pushon** (~3 perc összesen):
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **453 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **556 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,

@@ -112,6 +112,30 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
     if (ctx.role !== 'shipper' && u.identity_kyc_status !== 'verified') return;
     if (u.referred_by === userId) return;               // önmagára-ajánlás védőháló
 
+    // ⚠️ A FELADÓI ÚTON A TÉNYLEGES, PÉNZBELI DÍJFIZETÉS A FELTÉTEL
+    // (2026-08-09, audit 3. kör). A trigger eddig a `paid_at` beállásán ült,
+    // csakhogy azt a KUPONOS (0 Ft-os) feladás is beállítja — vagyis egy
+    // kapott ajánlói kupon beváltása MAGA IS jutalmat termelt. Ebből
+    // önfenntartó lánc épül: minden új fiók a kapott kuponnal „fizet", és
+    // ezzel újabb kupont vált ki az ajánlójának — egyetlen forint bevétel
+    // nélkül. A feltételt itt ellenőrizzük (nem a hívó oldalon), hogy egy
+    // későbbi új fizetési út se tudja kikerülni.
+    if (ctx.role === 'shipper') {
+      const { rows: paidRows } = await db.query(
+        `SELECT 1 FROM jobs
+           WHERE shipper_id = $1 AND paid_at IS NOT NULL AND COALESCE(connection_fee_huf, 0) > 0
+         UNION ALL
+         SELECT 1 FROM route_bookings
+           WHERE shipper_id = $1 AND paid_at IS NOT NULL AND COALESCE(connection_fee_huf, 0) > 0
+         LIMIT 1`,
+        [userId],
+      );
+      if (paidRows.length === 0) {
+        console.log(`[referral] kupon-fizetés (0 Ft) nem számít teljesítésnek — jutalom kihagyva (user=${userId})`);
+        return;
+      }
+    }
+
     // Atomi guard: csak az első kérés nyer, dupla jutalom kizárva.
     const claim = await db.query(
       `UPDATE users SET referral_reward_granted_at = NOW()

@@ -568,8 +568,21 @@ Elemezd a képet és válaszolj SZIGORÚAN JSON formátumban:
   "birth_date": string|null,
   "underage": boolean|null,
   "document_number": string|null,
+  "holder_name": string|null,
+  "likely_copy": boolean,
   "reason": string
 }
+
+FONTOS — TULAJDONOS NEVE:
+- Olvasd ki az okmány tulajdonosának TELJES nevét a "holder_name" mezőbe
+  (pontosan úgy, ahogy az okmányon szerepel). Ha nem olvasható → null.
+
+FONTOS — MÁSOLAT-GYANÚ:
+- "likely_copy": true, ha a kép láthatóan NEM az eredeti okmányról készült:
+  képernyőfotó, monitorról/telefonról fényképezett kép, fénymásolat,
+  nyomtatott másolat, vagy szerkesztésre utaló jelek (moiré, pixelrács,
+  levágott/beillesztett mezők, egyenetlen betűtípus).
+- Ha az eredeti okmányról készült fotónak látszik → false.
 
 FONTOS — DOKUMENTUM SZÁM:
 - Olvasd ki az okmány számát/azonosítóját (személyi szám, jogosítvány szám, stb.)
@@ -601,6 +614,8 @@ ${birthDateInstruction}
       underage: isUnderage,
       birthDate: parsed.birth_date || null,
       documentNumber: parsed.document_number || null,
+      holderName: parsed.holder_name || null,
+      likelyCopy: parsed.likely_copy === true,
       readable: parsed.readable !== false,
     };
   } catch (err) {

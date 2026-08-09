@@ -105,9 +105,11 @@ async function notifyNearbyCarriersOfInstantJob(job) {
         link: `/sofor/fuvar/${job.id}`,
       }).catch(() => {});
     }
-    // Globális "jobs:new-instant" event is, hogy a sofor/fuvarok oldalon
+    // "jobs:new-instant" a piactér-feedbe, hogy a sofor/fuvarok oldalon
     // azonnal villogjon az új instant job (ne kelljen refresh).
-    realtime.emitGlobal('jobs:new-instant', {
+    // ⚠️ 2026-08-09: `emitGlobal` → `emitToFeed` — a payload pontos címet és
+    // GPS-t tartalmaz, ezt csak hitelesített kapcsolat kaphatja.
+    realtime.emitToFeed('jobs:new-instant', {
       job_id: job.id,
       title: job.title,
       pickup_address: job.pickup_address,

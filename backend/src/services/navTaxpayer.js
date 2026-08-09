@@ -205,13 +205,31 @@ function distinctivePart(raw) {
     .join(' ');
 }
 
+// ⚠️ 2026-08-09 (audit 3. kör): a korábbi feltétel `nav.includes(user) ||
+// user.includes(nav)` volt — RÉSZLEGES egyezésre is adta az „Ellenőrzött cég"
+// jelvényt. Két irányban tévedett:
+//   1) szűkítéssel: „Hód" beírásával a „Tiszta Hód Kft." adószámához is jár a
+//      jelvény, vagyis a megjelenített cégnév nem az, amit a NAV igazol;
+//   2) bővítéssel: „Tiszta Hód Szállítmányozás" is átment, mert TARTALMAZZA a
+//      hivatalos nevet — így egy létező cég adószáma mellé tetszőleges
+//      toldalékkal lehetett hitelesnek látszó nevet írni.
+// A jelvény ígérete az, hogy a KIÍRT név egyezik a NAV nyilvántartásával,
+// ezért most SZÓHALMAZ-egyezést kérünk (sorrendtől és cégforma-szavaktól
+// függetlenül, de szó nem hiányozhat és nem jöhet hozzá). Eltérésnél a hívó
+// 'name_mismatch'-et kap: nem blokkol, csak az admin dönt róla.
+function tokenSet(raw) {
+  return new Set(distinctivePart(raw).split(' ').filter(Boolean));
+}
+
 function companyNamesMatch(userName, navName, navShortName) {
-  const user = distinctivePart(userName);
-  if (user.length < 3) return false;
+  const user = tokenSet(userName);
+  if (distinctivePart(userName).length < 3 || user.size === 0) return false;
   return [navName, navShortName].some((candidate) => {
-    const nav = distinctivePart(candidate);
-    if (nav.length < 3) return false;
-    return nav === user || nav.includes(user) || user.includes(nav);
+    const nav = tokenSet(candidate);
+    if (distinctivePart(candidate).length < 3 || nav.size === 0) return false;
+    if (nav.size !== user.size) return false;
+    for (const w of user) if (!nav.has(w)) return false;
+    return true;
   });
 }
 

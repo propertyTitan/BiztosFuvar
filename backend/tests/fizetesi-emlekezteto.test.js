@@ -107,3 +107,37 @@ describe('Fizetetlen-fuvar emlékeztető célzása', () => {
     expect(await reminderCount(job.id)).toBe(1); // nem nőtt: még nincs 48h
   });
 });
+
+// ── Audit 3. kör (2026-08-09): a számláló ATOMI ────────────────────────
+// A számláló korábban a küldés UTÁN nőtt, a kör elején kiolvasott lista
+// alapján. Két egyidejű futás (deploy-átfedés, két példány, kézi indítás)
+// ugyanazt a sort látta, és a feladó KÉT azonos emlékeztetőt kapott — a
+// fizetés-sürgetés spammé válik, épp a legérzékenyebb ponton.
+describe('Párhuzamos futás: egy emlékeztető, nem kettő', () => {
+  it('négy egyszerre induló kör összesen EGY emlékeztetőt küld', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const job = await acceptedJob({ shipperId: felado.id, carrierId: szallito.id, agoHours: 30 });
+
+    await Promise.all([
+      runPaymentReminders(), runPaymentReminders(),
+      runPaymentReminders(), runPaymentReminders(),
+    ]);
+
+    expect(await reminderCount(job.id), 'a számláló többször nőtt — dupla küldés történt').toBe(1);
+    expect(await notifCount(felado.id), 'a feladó több azonos emlékeztetőt kapott').toBe(1);
+  });
+
+  it('a közben kifizetett fuvar már nem kap emlékeztetőt (verseny a fizetéssel)', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const job = await acceptedJob({ shipperId: felado.id, carrierId: szallito.id, agoHours: 30 });
+
+    // A kör elindul, de közben megérkezik a fizetés → a claim már nem talál sort
+    await db.query('UPDATE jobs SET paid_at = NOW() WHERE id = $1', [job.id]);
+    await runPaymentReminders();
+
+    expect(await reminderCount(job.id)).toBe(0);
+    expect(await notifCount(felado.id)).toBe(0);
+  });
+});

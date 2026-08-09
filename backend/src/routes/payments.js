@@ -272,6 +272,16 @@ async function handleProviderCallback(req, res) {
   const PaymentId = req.body?.PaymentId || req.body?.paymentId || req.body?.transactionId;
   if (!PaymentId) return res.status(400).json({ error: 'Missing PaymentId' });
 
+  // ⚠️ ÉLES FUTÁS + STUB PROVIDER (elfelejtett kulcs) → a lenti visszaolvasás
+  // kimaradna, és a callback a NYERS BODY-nak hinne: egy hamisított
+  // `{"PaymentId":"…","Status":"Succeeded"}` POST fizetés nélkül felfedné a
+  // kontaktot. Ilyen állapotban semmit nem dolgozunk fel (a boot amúgy is
+  // leáll — ez a második védvonal, ha valaki felülbírálja).
+  if (paymentProvider.isUnsafeStub()) {
+    console.error('[fee-webhook] ⛔ ELDOBVA: éles futás stub providerrel — a callback nem dolgozható fel hitelesen.');
+    return res.status(503).json({ error: 'A fizetés-feldolgozás nem elérhető (hibás szolgáltató-konfiguráció).' });
+  }
+
   let status = req.body?.Status || req.body?.status || 'Unknown';
   if (!paymentProvider.isStub()) {
     try {

@@ -39,7 +39,7 @@ export default function KycModal() {
   const [kycType, setKycType] = useState<KycType>(null);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadResult, setUploadResult] = useState<'verified' | 'rejected' | 'underage' | null>(null);
+  const [uploadResult, setUploadResult] = useState<'verified' | 'rejected' | 'underage' | 'pending' | null>(null);
   const [aiReason, setAiReason] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -87,6 +87,12 @@ export default function KycModal() {
       } else if (res.underage) {
         setUploadResult('underage' as any);
         setAiReason(res.ai_reason || 'A születési dátumod alapján 18 év alatti vagy.');
+      } else if (res.status === 'pending') {
+        // Kézi (admin) ellenőrzésre került — NEM elutasítás. Eddig ez az ág
+        // is „A dokumentum nem felel meg, próbáld újra" üzenetet kapott, ami
+        // fölösleges újrapróbálkozásra késztette a felhasználót.
+        setUploadResult('pending' as any);
+        setAiReason(res.ai_reason || 'A dokumentumodat kollégánk ellenőrzi.');
       } else {
         setUploadResult('rejected');
         setAiReason(res.ai_reason || 'A dokumentum nem felel meg. Kérjük próbáld újra.');
@@ -187,6 +193,27 @@ export default function KycModal() {
               a rendszer 18 év alatti felhasználót észlelt. Az adminisztrátorok
               értesítve lettek, és manuálisan ellenőrzik a dokumentumodat.
               Amíg a jóváhagyás meg nem történik, a platform funkciói korlátozottak.
+            </p>
+          </div>
+        ) : uploadResult === 'pending' ? (
+          <div
+            style={{
+              background: 'var(--warning-light)',
+              color: '#92400e',
+              borderRadius: 8,
+              padding: '16px 16px',
+              fontSize: 14,
+              textAlign: 'center',
+              lineHeight: 1.6,
+            }}
+          >
+            <div style={{ fontSize: 36, marginBottom: 8 }}>⏳</div>
+            <strong style={{ color: '#92400e' }}>Ellenőrzés alatt</strong>
+            <p style={{ margin: '8px 0 0', color: '#92400e' }}>
+              {aiReason || 'A dokumentumodat kollégánk ellenőrzi.'}
+            </p>
+            <p style={{ margin: '8px 0 0', color: '#92400e' }}>
+              Nem kell újra feltöltened — értesítést kapsz, amint megvan a döntés.
             </p>
           </div>
         ) : uploadResult === 'verified' ? (
