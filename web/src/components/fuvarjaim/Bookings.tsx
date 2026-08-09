@@ -18,7 +18,7 @@ import { CalendarCheck, Calendar, MapPin, Flag, Truck, BadgeCheck, CheckCircle2,
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Szállítói megerősítésre vár',
-  confirmed: 'Elfogadva – fizess Barionnal',
+  confirmed: 'Elfogadva – fizetésre vár',
   rejected: 'Szállító elutasította',
   in_progress: 'Úton',
   delivered: 'Átadva',

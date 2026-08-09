@@ -93,7 +93,7 @@
     "availableCapacity": "Available capacity"
   },
   "payment": {
-    "payWithBarion": "Pay with Barion",
+    "payWithBarion": "Pay by card",
     "paid": "PAID",
     "awaitingPayment": "Awaiting payment",
     "paymentStarting": "Starting payment…",
