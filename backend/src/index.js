@@ -107,27 +107,32 @@ app.use((req, res, next) => {
   next();
 });
 
+// A /health az EGYETLEN, ami szándékosan a rate limiter ELŐTT van: a
+// loadbalancer/monitoring health check-jeit nem szabad korlátozni.
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
 
-// Publikus: szolgáltatási zónák (térkép szürkítéshez)
+const publicTrackingRoutes = require('./routes/publicTracking');
+const linkPreviewRoutes = require('./routes/linkPreview');
+const path = require('path');
+
+// Globális, IP-alapú rate limit: 300 kérés / perc / IP. Második védelmi
+// vonal a per-endpoint limitek után — spike-ok, botok ellen védekezik.
+// ⚠️ MINDEN publikus (auth nélküli) végpont a limiter UTÁN jön, hogy rájuk
+// is vonatkozzon. Korábban a /coverage/zones és az /uploads static
+// tévedésből a limiter ELÉ csúszott (a /health mellé), így korlátlanul
+// hívható volt — a k6 load-teszt találta meg (2026-08-09). Csak a /health
+// maradhat elöl (fent). Ha ide új publikus végpont kerül, a
+// `publikus-vegpont-ratelimit.test.js` őrzi, hogy a limiter mögé essen.
+app.use(globalRateLimit);
+
+// Publikus: szolgáltatási zónák (térkép szürkítéshez) — a limiter MÖGÖTT
 app.get('/coverage/zones', (_req, res) => {
   const { getAllZones } = require('./utils/coverage');
   res.json(getAllZones());
 });
-const publicTrackingRoutes = require('./routes/publicTracking');
-const linkPreviewRoutes = require('./routes/linkPreview');
 
-// Statikus fájl-kiszolgálás a feltöltött fotókhoz
-const path = require('path');
+// Statikus fájl-kiszolgálás a feltöltött fotókhoz — a limiter MÖGÖTT
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
-
-// Globális, IP-alapú rate limit: 300 kérés / perc / IP. Második védelmi
-// vonal a per-endpoint limitek után — spike-ok, botok ellen védekezik.
-// A /health végpontra szándékosan nem alkalmazzuk, hogy a loadbalancer
-// health check-jeit ne korlátozza.
-// A publikus (auth nélküli) végpontok — kalkulátor, címzett-követés —
-// szándékosan a limiter UTÁN jönnek, hogy rájuk is vonatkozzon.
-app.use(globalRateLimit);
 
 app.use('/', calculatorRoutes);
 app.use('/', publicTrackingRoutes);
