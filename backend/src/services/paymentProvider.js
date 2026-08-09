@@ -13,7 +13,6 @@
 //   - /payments/qvik/callback   (payments.js — skeleton)
 //   - /payments/cib/callback    (integrációkor bekötendő)
 
-const barion = require('./barion');
 const qvik = require('./qvik');
 const cib = require('./cib');
 
@@ -24,12 +23,14 @@ const cib = require('./cib');
 // volna be, ÉS a confirm-payment guardok kinyíltak volna (isStub true). Ez a
 // térkép + a lenti fail-loud ezt zárja: ismeretlen provider → hangos hiba,
 // nem néma bevétel-kiesés.
-const PROVIDERS = { barion, qvik, cib };
+const PROVIDERS = { qvik, cib };
 
-// Alapértelmezés: barion (dev/teszt stub). Csak akkor „vált", ha az env
-// EXPLICITEN mást állít be — és akkor annak érvényes providernek kell lennie.
+// Alapértelmezés: CIB (a launch fizetése; kulcs nélkül stub — dev/teszt).
+// A Barion 2026-08-09-én VÉGLEG törölve (user-döntés + biztonsági audit).
+// Csak akkor „vált", ha az env EXPLICITEN mást állít be (qvik) — és akkor
+// annak érvényes providernek kell lennie (különben a lenti fail-loud hibáz).
 function name() {
-  return (process.env.PAYMENT_PROVIDER || 'barion').toLowerCase();
+  return (process.env.PAYMENT_PROVIDER || 'cib').toLowerCase();
 }
 
 function active() {

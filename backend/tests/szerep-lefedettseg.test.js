@@ -681,8 +681,8 @@ describe('Lefedettség-őr', () => {
    */
   const KIVETELEK = {
     'GET /link-preview': 'valódi külső HTTP-kérést igényel (IKEA/OBI oldal); a web E2E mockolja',
-    'POST /payments/barion/callback': 'PSP szerver-szerver webhook aláírt kéréssel; a Barion dormant (QVIK-re váltottunk)',
-    'POST /payments/qvik/callback': 'PSP szerver-szerver webhook; a QVIK-integráció még stub, élesítéskor kap éles tesztet',
+    'POST /payments/cib/callback': 'PSP szerver-szerver webhook (CIB vPOS, a launch fizetése); a hamisítás-védelmet a fizetes-webhook suite fedi (mockolt PSP-visszaolvasás)',
+    'POST /payments/qvik/callback': 'PSP szerver-szerver webhook (QVIK, dormant); élesítéskor kap éles tesztet',
     'POST /auth/reset-password': 'a jelszó-reset tokent email-ben küldjük; a token-ágat a session-invalidacio suite fedi',
     'POST /auth/verify-company': 'NAV Online Számla technikai user kell hozzá; a nav-cegellenorzes suite mockolt NAV-val fedi',
     'POST /jobs/:id/confirm-payment': 'élesben TILTOTT (a webhook a hiteles forrás); a fizetes-es-lezaras suite fedi a tiltást',

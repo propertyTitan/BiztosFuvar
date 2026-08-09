@@ -7,7 +7,6 @@
 //   lemondási díj NINCS; a kapcsolatfelvételi díj nem visszatérítendő
 import { describe, it, expect } from 'vitest';
 
-const barion = require('../src/services/barion');
 const { calculateConnectionFee, CONNECTION_FEE_TIERS } = require('../src/services/connectionFee');
 
 describe('Kapcsolatfelvételi díj (sávos, bevezető ár — ÁSZF 4.1)', () => {
@@ -31,14 +30,3 @@ describe('Kapcsolatfelvételi díj (sávos, bevezető ár — ÁSZF 4.1)', () =>
   });
 });
 
-describe('Lemondás (ÁSZF 5.1): nincs lemondási díj, nincs visszatérítés', () => {
-  it('a settlement mindig { fee: 0, refund: 0 } — a platform nem kezel fuvardíjat', () => {
-    expect(barion.computeCancellationSettlement({
-      totalHuf: 20000, paid: true, cancelledByRole: 'shipper',
-    })).toEqual({ fee: 0, refund: 0 });
-    expect(barion.computeCancellationSettlement({
-      totalHuf: 20000, paid: true, cancelledByRole: 'carrier',
-    })).toEqual({ fee: 0, refund: 0 });
-    expect(barion.computeCancellationSettlement()).toEqual({ fee: 0, refund: 0 });
-  });
-});

@@ -1,19 +1,23 @@
-// GoFuvar Payment Processing — Barion Webhook + Escrow + Split + Invoice.
+// GoFuvar Payment Processing — provider-független díj-webhook + számla.
 //
 // A teljes pénzügyi flow egyetlen fájlban:
 //   1) Webhook fogadás (idempotens — dupla hívás nem okoz dupla feldolgozást)
-//   2) Split kalkuláció (90/10)
-//   3) VAT kiszámítás a szállító profiljából
-//   4) Számla-adat előkészítés (invoice metadata)
-//   5) Admin log (payment_events tábla)
-//   6) Értesítések (push + in-app + email)
+//   2) VAT kiszámítás a feladó profiljából (a díjat a feladó fizeti)
+//   3) Számla-adat előkészítés (invoice metadata)
+//   4) Admin log (payment_events tábla)
+//   5) Értesítések (push + in-app + email)
+//
+// ⚠️ 2026-08-09 (biztonsági audit + user-döntés): a BARION VÉGLEG TÖRÖLVE.
+// A díj-webhook feldolgozója (`confirmFeePayment`) PROVIDER-FÜGGETLEN, és a
+// hívó callback MÁR VISSZAELLENŐRZÖTT státuszt ad át (nem a nyers body-t) —
+// így nincs "body-trust" rés. Az aktív provider a CIB vPOS (a callback
+// bekötésekor); a stub (kulcs nélküli) mód dev/teszthez, valódi pénz nélkül.
 const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { createNotification } = require('../services/notifications');
 const { computeVat } = require('../services/vat');
 const { generatePlatformFeeInvoice } = require('../services/invoicing');
-const barion = require('../services/barion');
 const paymentProvider = require('../services/paymentProvider');
 const realtime = require('../realtime');
 const { getJobParty } = require('../utils/jobAccess');
@@ -22,64 +26,31 @@ const { maybeGrantReferralReward } = require('../services/referral');
 const router = express.Router();
 
 // ============================================================
-// BARION WEBHOOK — Idempotens Payment State Handler
+// PROVIDER-FÜGGETLEN DÍJ-FIZETÉS MEGERŐSÍTÉS (közös webhook-mag)
+//
+// A `verifiedStatus` a hívó callback által MÁR VISSZAOLVASOTT PSP-státusz
+// (nem a nyers webhook-body) — így egy hamisított "Succeeded" POST
+// hatástalan. Idempotens: a (payment_id, status) UNIQUE + a `processed`
+// flag véd a dupla feldolgozás ellen. Sose dob — `{ http, body }`-t ad
+// vissza, amit a hívó route továbbít.
 // ============================================================
-
-router.post('/payments/barion/callback', express.json(), async (req, res) => {
-  const { PaymentId } = req.body || {};
-  let barionStatus = req.body.Status || 'Unknown';
-
-  console.log(`[barion] webhook: PaymentId=${PaymentId}, Status=${barionStatus}`);
-
-  if (!PaymentId) {
-    return res.status(400).json({ error: 'Missing PaymentId' });
-  }
-
-  // ⚠️ 2026-08-09 BIZTONSÁGI GUARD (audit + user-döntés): ez a callback CSAK
-  // akkor dolgozhat fel fizetést, ha a barion az AKTÍV provider. A launch
-  // CIB-re vált (PAYMENT_PROVIDER=cib, barion kulcs NÉLKÜL → barion.isStub()
-  // örökre true), és enélkül a lenti body-visszaolvasás KIMARADNA → egy
-  // hamisított {"Status":"Succeeded"} POST beállítaná a paid_at-ot és
-  // felfedné a kontaktot fizetés nélkül. Inert, ha nem barion az aktív
-  // provider. (A Barion TELJES eltávolítása külön, gondos refaktor — a
-  // webhook-logika provider-független `confirmFeePayment` helperbe szervezve.)
-  if (paymentProvider.name() !== 'barion') {
-    console.warn(`[barion] callback ELUTASÍTVA — az aktív provider "${paymentProvider.name()}", nem barion.`);
-    return res.status(410).json({ ok: false, ignored: true, reason: 'barion is not the active payment provider' });
-  }
-
-  // A webhook body-jának NEM hiszünk: éles módban a tényleges státuszt a
-  // Bariontól olvassuk vissza, így egy hamisított 'Succeeded' POST hatástalan.
-  // (Stub módban nincs külső fél, marad a body — ott nincs valódi pénzmozgás.)
-  if (!barion.isStub()) {
-    try {
-      const state = await barion.getPaymentState(PaymentId);
-      barionStatus = state?.Status || 'Unknown';
-    } catch (err) {
-      console.error('[barion] GetPaymentState hiba a webhooknál:', err.message);
-      return res.status(502).json({ error: 'Barion állapot-ellenőrzés sikertelen' });
-    }
-  }
+async function confirmFeePayment(PaymentId, verifiedStatus) {
+  const status = verifiedStatus || 'Unknown';
 
   // === IDEMPOTENCY CHECK ===
-  // Ha ezt a PaymentId + Status kombinációt már feldolgoztuk, kihagyjuk.
-  // A UNIQUE constraint (payment_id, status) biztosítja DB szinten is.
   try {
     const { rows: existing } = await db.query(
-      `SELECT id, processed FROM payment_events
-        WHERE payment_id = $1 AND status = $2`,
-      [PaymentId, barionStatus],
+      `SELECT id, processed FROM payment_events WHERE payment_id = $1 AND status = $2`,
+      [PaymentId, status],
     );
     if (existing.length > 0 && existing[0].processed) {
-      console.log(`[barion] SKIP: ${PaymentId}/${barionStatus} már feldolgozva (idempotent)`);
-      return res.json({ ok: true, skipped: true });
+      console.log(`[fee-webhook] SKIP: ${PaymentId}/${status} már feldolgozva (idempotent)`);
+      return { http: 200, body: { ok: true, skipped: true } };
     }
   } catch {}
 
-  // === ENTITÁS KERESÉSE ===
-  // Megkeressük melyik fuvarhoz vagy foglaláshoz tartozik a PaymentId
-  let entity = null; // { type: 'job' | 'booking', data: {...} }
-
+  // === ENTITÁS KERESÉSE (fuvar VAGY foglalás a payment-id alapján) ===
+  let entity = null;
   const { rows: escrowRows } = await db.query(
     `SELECT et.*,
             j.id AS job_id, j.shipper_id, j.carrier_id, j.title,
@@ -95,9 +66,7 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       WHERE et.barion_payment_id = $1`,
     [PaymentId],
   );
-  if (escrowRows[0]) {
-    entity = { type: 'job', data: escrowRows[0] };
-  }
+  if (escrowRows[0]) entity = { type: 'job', data: escrowRows[0] };
 
   if (!entity) {
     const { rows: bookingRows } = await db.query(
@@ -114,20 +83,17 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
         WHERE b.barion_payment_id = $1`,
       [PaymentId],
     );
-    if (bookingRows[0]) {
-      entity = { type: 'booking', data: bookingRows[0] };
-    }
+    if (bookingRows[0]) entity = { type: 'booking', data: bookingRows[0] };
   }
 
   if (!entity) {
-    console.warn(`[barion] PaymentId nem található: ${PaymentId}`);
-    // Még így is mentjük az event-et az audithoz
+    console.warn(`[fee-webhook] PaymentId nem található: ${PaymentId}`);
     await logPaymentEvent({
-      paymentId: PaymentId, status: barionStatus, eventType: 'webhook',
+      paymentId: PaymentId, status, eventType: 'webhook',
       summary: `Ismeretlen PaymentId: ${PaymentId}`,
       processed: false,
     });
-    return res.json({ ok: true, unknown: true });
+    return { http: 200, body: { ok: true, unknown: true } };
   }
 
   const d = entity.data;
@@ -141,20 +107,16 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
   // Készpénzes modell: a beérkezett összeg a KAPCSOLATFELVÉTELI DÍJ (a
   // platform saját bevétele, a feladó fizeti). A fuvardíj készpénzben megy
   // a szállítónak — arról a platform nem könyvel és nem számláz.
-  if (barionStatus === 'Succeeded') {
-    // 1) A díj teljes egészében a platformé; szállító-kifizetés nincs.
+  if (status === 'Succeeded') {
     const platformFee = totalAmount;
     const carrierPayout = 0;
 
-    // 2) VAT kiszámítás a díjat fizető FELADÓ profilja alapján
     const { rows: shipperRows } = await db.query(
       `SELECT billing_country, tax_id, company_name, email, full_name
          FROM users WHERE id = $1`,
       [d.shipper_id],
     );
     const shipper = shipperRows[0] || {};
-    // A díj BRUTTÓ ár (a terhelt 500/1000 Ft) — a nettó visszafelé számolódik,
-    // így a naplózott ÁFA-bontás egyezik a számlával (invoicing.js ugyanígy).
     const vatResult = await computeVat({
       buyerCountry: shipper.billing_country || 'HU',
       buyerTaxId: shipper.tax_id,
@@ -164,16 +126,13 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       currency,
     });
 
-    // 3) paid_at beállítás (idempotens — csak ha még nincs) + a díj-sor
-    //    lezárása: a szolgáltatás (kontakt-átadás) teljesült, 'released'.
     if (entity.type === 'job') {
       await db.query(
         `UPDATE jobs SET paid_at = NOW() WHERE id = $1 AND paid_at IS NULL`,
         [d.job_id],
       );
       await db.query(
-        `UPDATE escrow_transactions
-            SET status = 'released', released_at = NOW()
+        `UPDATE escrow_transactions SET status = 'released', released_at = NOW()
           WHERE job_id = $1 AND status = 'held'`,
         [d.job_id],
       );
@@ -184,14 +143,13 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       );
     }
 
-    // Ajánlói jutalom-trigger: a feladó kifizette az első kapcsolatfelvételi
-    // díját (éles webhook-út) → ha meghívott, az ajánlója kupont kap.
+    // Ajánlói jutalom-trigger: a feladó kifizette az első díját (éles út).
     maybeGrantReferralReward(d.shipper_id, {
       role: 'shipper',
       jobId: entity.type === 'job' ? d.job_id : null,
     }).catch(() => {});
 
-    // 4) Számla-előkészítés a FELADÓNAK (invoice metadata) — STUB is menti
+    // Számla-előkészítés a FELADÓNAK (STUB is menti a metaadatot)
     let invoice = null;
     try {
       invoice = await generatePlatformFeeInvoice({
@@ -205,7 +163,6 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       console.error('[invoicing] Számla generálás hiba:', err.message);
     }
 
-    // 5) Admin-barát összefoglaló szöveg
     const vatLabel = vatResult.isReverseCharge
       ? 'ford. adózás'
       : `${Math.round(vatResult.vatRate * 100)}% ÁFA`;
@@ -216,9 +173,8 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       invoice ? `számla: ${invoice.id}` : null,
     ].filter(Boolean).join(' · ');
 
-    // 6) Payment event log (idempotency + audit)
     await logPaymentEvent({
-      paymentId: PaymentId, status: barionStatus, eventType: 'webhook',
+      paymentId: PaymentId, status, eventType: 'webhook',
       jobId: entity.type === 'job' ? d.job_id : null,
       bookingId: entity.type === 'booking' ? d.id : null,
       totalAmount, currency, platformFee, carrierPayout,
@@ -230,7 +186,7 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       processed: true,
     });
 
-    // 7) Értesítések: a kontakt felfedve, indulhat a fuvar
+    // Értesítések: a kontakt felfedve, indulhat a fuvar
     if (d.carrier_id) {
       await createNotification({
         user_id: d.carrier_id,
@@ -249,8 +205,7 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       });
     }
 
-    // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §) —
-    // éles Barion-fizetésnél ez a webhook a fizetés hiteles forrása.
+    // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §)
     if (shipper.email) {
       const { sendFeeConfirmationEmail } = require('../services/email');
       setImmediate(() => {
@@ -266,83 +221,80 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
       });
     }
 
-    console.log(`[barion] ✅ SUCCEEDED: ${summary}`);
+    console.log(`[fee-webhook] ✅ SUCCEEDED: ${summary}`);
   }
 
   // === CANCELED / EXPIRED ===
-  if (barionStatus === 'Canceled' || barionStatus === 'Expired') {
+  if (status === 'Canceled' || status === 'Expired') {
     await logPaymentEvent({
-      paymentId: PaymentId, status: barionStatus, eventType: 'webhook',
+      paymentId: PaymentId, status, eventType: 'webhook',
       jobId: entity.type === 'job' ? d.job_id : null,
       bookingId: entity.type === 'booking' ? d.id : null,
       totalAmount, currency,
-      summary: `${barionStatus}: "${title}" — ${totalAmount} ${currency}`,
+      summary: `${status}: "${title}" — ${totalAmount} ${currency}`,
       processed: true,
     });
-
     if (d.shipper_id) {
       await createNotification({
         user_id: d.shipper_id,
         type: 'payment_failed',
         title: '⚠️ Fizetés megszakadt',
-        body: `A(z) "${title}" fizetése nem sikerült (${barionStatus}). Próbáld újra.`,
+        body: `A(z) "${title}" fizetése nem sikerült (${status}). Próbáld újra.`,
         link: entity.type === 'job' ? `/dashboard/fuvar/${d.job_id}` : `/dashboard/foglalasaim`,
       }).catch(() => {});
     }
-
-    console.log(`[barion] ❌ ${barionStatus}: "${title}"`);
+    console.log(`[fee-webhook] ❌ ${status}: "${title}"`);
   }
 
   // === EGYÉB STÁTUSZOK (Prepared, Started, stb.) — csak logoljuk ===
-  if (!['Succeeded', 'Canceled', 'Expired'].includes(barionStatus)) {
+  if (!['Succeeded', 'Canceled', 'Expired'].includes(status)) {
     await logPaymentEvent({
-      paymentId: PaymentId, status: barionStatus, eventType: 'webhook',
+      paymentId: PaymentId, status, eventType: 'webhook',
       jobId: entity.type === 'job' ? d.job_id : null,
       bookingId: entity.type === 'booking' ? d.id : null,
-      summary: `${barionStatus}: "${title}"`,
+      summary: `${status}: "${title}"`,
       processed: true,
     });
   }
 
-  res.json({ ok: true });
-});
+  return { http: 200, body: { ok: true } };
+}
 
 // ============================================================
-// QVIK callback — SKELETON (integrációkor kitöltendő)
+// PROVIDER-CALLBACKEK — a PSP ide POST-ol a fizetés eredményével.
+//
+// BIZTONSÁG: a státuszt SOHA nem a body-ból hisszük el, hanem — éles
+// (nem-stub) módban — a PSP-től olvassuk vissza (`getPaymentState`), így
+// egy hamisított "Succeeded" POST hatástalan. A visszaolvasott, HITELES
+// státusz megy a közös `confirmFeePayment`-be.
 // ============================================================
-//
-// A QVIK-PSP ide POST-ol, amikor a feladó jóváhagyta az azonnali utalást.
-// A route MÁR REGISZTRÁLVA van, hogy a PSP-nél beállítható legyen a callback
-// URL-je (`${API_BASE_URL}/payments/qvik/callback`). A valódi logika TODO.
-//
-// INTEGRÁCIÓS TEENDŐ (amikor megvan a QVIK-jogosultság):
-//   1) A body-ból kiolvasni a payment/reference azonosítót (PSP-formátum).
-//   2) A státuszt NEM a body-ból hinni, hanem `qvik.getPaymentState(id)`-val
-//      visszaellenőrizni (mint a Barionnál — hamisított POST ellen).
-//   3) 'Succeeded' esetén a fizetés-megerősítés UGYANAZ, mint a Barion-
-//      callbackben (fentebb, 27–291. sor): paid_at beállítása, escrow-sor
-//      'released', VAT + számla (generatePlatformFeeInvoice), értesítés +
-//      díj-visszaigazoló email, és a maybeGrantReferralReward trigger.
-//      → Javasolt: a Barion-callback e részét integrációkor közös helperbe
-//        (`confirmFeePayment(entityType, id)`) kiszervezni, és mindkét
-//        callback azt hívja (nulla duplikáció).
-//   4) Idempotencia: payment_events (payment_id, status) UNIQUE — ugyanúgy.
-const qvik = require('../services/qvik');
-router.post('/payments/qvik/callback', express.json(), async (req, res) => {
-  console.log('[qvik] callback (skeleton) — body:', JSON.stringify(req.body || {}).slice(0, 200));
-  // Amíg nincs bekötve, csak nyugtázunk, hogy a PSP ne ismételgesse.
-  // (Éles integrációnál ide jön a fenti 1–4. lépés.)
-  if (!qvik.isStub()) {
-    // A valódi feldolgozás helye — lásd a fenti INTEGRÁCIÓS TEENDŐ-t.
-    console.warn('[qvik] callback beérkezett, de a feldolgozás még nincs bekötve (TODO).');
+async function handleProviderCallback(req, res) {
+  const PaymentId = req.body?.PaymentId || req.body?.paymentId || req.body?.transactionId;
+  if (!PaymentId) return res.status(400).json({ error: 'Missing PaymentId' });
+
+  let status = req.body?.Status || req.body?.status || 'Unknown';
+  if (!paymentProvider.isStub()) {
+    try {
+      const state = await paymentProvider.getPaymentState(PaymentId);
+      status = state?.Status || state?.status || 'Unknown';
+    } catch (err) {
+      console.error('[fee-webhook] getPaymentState hiba:', err.message);
+      return res.status(502).json({ error: 'Fizetés-állapot ellenőrzés sikertelen' });
+    }
   }
-  res.json({ ok: true, note: 'qvik callback skeleton — feldolgozás integrációkor' });
-});
+
+  const r = await confirmFeePayment(PaymentId, status);
+  return res.status(r.http).json(r.body);
+}
+
+// CIB vPOS (a launch fizetése) + QVIK (dormant, ha valaha bekötjük).
+// A régi /payments/barion/callback SZÁNDÉKOSAN megszűnt (Barion törölve).
+router.post('/payments/cib/callback', express.json(), handleProviderCallback);
+router.post('/payments/qvik/callback', express.json(), handleProviderCallback);
 
 // ============================================================
 // ADMIN — Fizetési napló
 // ============================================================
-
 router.get('/payments/admin/log', authRequired, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Csak admin' });
@@ -358,18 +310,15 @@ router.get('/payments/admin/log', authRequired, async (req, res) => {
   LEFT JOIN carrier_routes r ON r.id = rb.route_id
       ORDER BY pe.created_at DESC
       LIMIT $1 OFFSET $2`,
-    [Math.min(Number(limit), 200), Number(offset)],
+    [Math.min(Number(limit) || 50, 200), Number(offset) || 0],
   );
   res.json(rows);
 });
 
 // ============================================================
-// ESCROW & PAYOUT STATUS
+// ESCROW & PAYOUT STATUS (a fuvar felének, IDOR-védett)
 // ============================================================
-
 router.get('/jobs/:jobId/escrow', authRequired, async (req, res) => {
-  // IDOR-védelem: csak a fuvar fele (feladó / szállító / admin) láthatja az
-  // escrow + Barion fizetési adatokat (összegek, barion_payment_id, gateway URL).
   const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
   if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
   if (!isParty) return res.status(403).json({ error: 'Nincs jogosultság ehhez a fuvarhoz.' });
@@ -385,7 +334,6 @@ router.get('/jobs/:jobId/escrow', authRequired, async (req, res) => {
 });
 
 router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {
-  // IDOR-védelem: csak a fuvar fele láthatja a kifizetési státuszt.
   const access = await getJobParty(req.params.jobId, req.user);
   if (access.notFound) return res.status(404).json({ error: 'Fuvar nem található' });
   if (!access.isParty) return res.status(403).json({ error: 'Nincs jogosultság ehhez a fuvarhoz.' });
@@ -407,9 +355,7 @@ router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {
   );
   if (!rows[0]) return res.json(null);
   const r = rows[0];
-  // Készpénzes modell: a "payout" a kézbesítéskor készpénzben történik,
-  // a platform nem utal a szállítónak. A mezők a UI kompatibilitás miatt
-  // maradnak: payout_ready = a fuvar lezárult (a kápé átadása esedékes).
+  // Készpénzes modell: a "payout" a kézbesítéskor készpénzben történik.
   res.json({
     ...r,
     cash_payment: true,
@@ -422,7 +368,6 @@ router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {
 // ============================================================
 // HELPER
 // ============================================================
-
 async function logPaymentEvent({
   paymentId, status, eventType,
   jobId, bookingId,

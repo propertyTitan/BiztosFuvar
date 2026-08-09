@@ -25,10 +25,10 @@ afterEach(() => {
 });
 
 describe('paymentProvider: melyik provider oldódik fel', () => {
-  it('alapból (env nélkül) barion, és teszt-módban stub', () => {
+  it('alapból (env nélkül) cib (a Barion törölve), és teszt-módban stub', () => {
     delete process.env.PAYMENT_PROVIDER;
-    expect(paymentProvider.name()).toBe('barion');
-    expect(paymentProvider.isStub()).toBe(true); // nincs Barion-kulcs a tesztben
+    expect(paymentProvider.name()).toBe('cib');
+    expect(paymentProvider.isStub()).toBe(true); // nincs CIB-kulcs a tesztben
   });
 
   it('PAYMENT_PROVIDER=cib → a CIB providert használja', () => {
@@ -55,8 +55,9 @@ describe('paymentProvider: melyik provider oldódik fel', () => {
     expect(() => paymentProvider.isStub()).toThrow(/Ismeretlen PAYMENT_PROVIDER/i);
   });
 
-  it('a támogatott providerek listája stabil és tartalmazza a CIB-et', () => {
-    expect(paymentProvider.providers).toEqual(expect.arrayContaining(['barion', 'qvik', 'cib']));
+  it('a támogatott providerek: qvik + cib (a barion törölve)', () => {
+    expect(paymentProvider.providers).toEqual(expect.arrayContaining(['qvik', 'cib']));
+    expect(paymentProvider.providers).not.toContain('barion');
   });
 });
 

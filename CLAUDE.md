@@ -185,6 +185,29 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **BARION VÉGLEG TÖRÖLVE + a fizetési webhook provider-független (2026-08-09,
+  user-döntés: „töröld a picsába")** — a webhook body-trust rés gyökér-oka a
+  Barion-callback volt; a teljes eltávolítással a rés MEGSZŰNIK, nem foltozás.
+  Törölve: `services/barion.js` (a dormant escrow-fn-ekkel:
+  reservePayment/finishReservation/cancelReservation/refundPayment/
+  computeCancellationSettlement — sehol nem hívottak), a `/payments/barion/
+  callback` route, a `photos.js` elavult barion-importja. A `paymentProvider.js`
+  mostantól `{qvik, cib}` (barion nélkül), **default → `cib`** (a launch
+  fizetése; kulcs nélkül stub). A webhook-logika PROVIDER-FÜGGETLEN
+  `confirmFeePayment(PaymentId, verifiedStatus)` helperbe szervezve
+  (payments.js) — a hívó `handleProviderCallback` a `paymentProvider`-rel
+  olvassa vissza a HITELES státuszt (nem a body-t), és a `/payments/cib/
+  callback` + `/payments/qvik/callback` erre épül → nincs body-trust rés,
+  nulla duplikáció. Tesztek: a fizetes-webhook a cib-callbackre + cib-mockra
+  átírva (a hamisítás-védelem így a valós launch-konfigot fedi), a
+  webhook-barion-guard teszt törölve (tárgytalan), a provider-tesztek
+  default→cib + „a törölt barion HANGOS hiba" (fail-loud), a dijak-teszt
+  dormant lemondás-blokkja törölve, routeManifest + szerep-lefedettség
+  cib/qvik-re. Backend 502/502. ⚠️ MARADT (nem rés, követő-munka): a
+  `barion_payment_id`/`barion_gateway_url` DB-OSZLOPNEVEK (a CIB payment-id-ja
+  is ezekbe megy — átnevezés külön migráció + 15 fájl), + pár kód-KOMMENT
+  említi még a Bariont (kozmetika). ⚠️ USER-TEENDŐ: a Railway prod env-ből a
+  BARION_* változók törölhetők (a kód már nem olvassa)
 - **Barion-webhook body-trust rés zárva (2026-08-09, audit 2. csomag)** — a
   `/payments/barion/callback` a `barion.isStub()`-ot nézte, ami a launch
   CIB-konfigban (PAYMENT_PROVIDER=cib, barion kulcs nélkül) örökre `true` →

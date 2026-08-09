@@ -51,7 +51,8 @@ async function fizetesreVaroFuvar({ priceHuf = 15000 } = {}) {
   return { felado, szallito, job, paymentId, dij };
 }
 
-const webhook = (body) => request(app).post('/payments/barion/callback').send(body);
+// A Barion törölve (2026-08-09) — a webhook a provider-független CIB-callbackre megy.
+const webhook = (body) => request(app).post('/payments/cib/callback').send(body);
 
 /** Hány díj-sor van, és milyen állapotban.
  *  (Az `escrow_transactions.job_id` UNIQUE — a dupla terhelés ellen tehát
@@ -207,13 +208,14 @@ describe('Fizetési webhook: a hamisítás elleni védelem', () => {
   it('éles módban a státuszt a PSP-től olvassa vissza, nem a body-ból hiszi', async () => {
     // A támadó „Succeeded"-et POST-ol, de a PSP szerint a fizetés MEGSZAKADT.
     // A kódnak a PSP-t kell hinnie, különben ingyen adnánk a szolgáltatást.
-    const barion = require('../src/services/barion');
-    const eredetiIsStub = barion.isStub;
-    const eredetiGetState = barion.getPaymentState;
+    // A CIB az aktív provider (a default a Barion törlése óta) — azt mockoljuk.
+    const cib = require('../src/services/cib');
+    const eredetiIsStub = cib.isStub;
+    const eredetiGetState = cib.getPaymentState;
 
     const { job, paymentId } = await fizetesreVaroFuvar();
-    barion.isStub = () => false;                       // „éles" mód
-    barion.getPaymentState = async () => ({ Status: 'Canceled' });  // a PSP igazsága
+    cib.isStub = () => false;                       // „éles" mód
+    cib.getPaymentState = async () => ({ Status: 'Canceled' });  // a PSP igazsága
 
     try {
       const res = await webhook({ PaymentId: paymentId, Status: 'Succeeded' });
@@ -225,19 +227,19 @@ describe('Fizetési webhook: a hamisítás elleni védelem', () => {
         'HAMISÍTOTT „Succeeded" POST kifizette a fuvart — a kód a body-nak hitt, nem a PSP-nek!',
       ).toBeNull();
     } finally {
-      barion.isStub = eredetiIsStub;
-      barion.getPaymentState = eredetiGetState;
+      cib.isStub = eredetiIsStub;
+      cib.getPaymentState = eredetiGetState;
     }
   });
 
   it('ha a PSP nem elérhető, NEM könyvelünk — inkább újrapróbálást kérünk', async () => {
-    const barion = require('../src/services/barion');
-    const eredetiIsStub = barion.isStub;
-    const eredetiGetState = barion.getPaymentState;
+    const cib = require('../src/services/cib');
+    const eredetiIsStub = cib.isStub;
+    const eredetiGetState = cib.getPaymentState;
 
     const { job, paymentId } = await fizetesreVaroFuvar();
-    barion.isStub = () => false;
-    barion.getPaymentState = async () => { throw new Error('hálózati hiba'); };
+    cib.isStub = () => false;
+    cib.getPaymentState = async () => { throw new Error('hálózati hiba'); };
 
     try {
       const res = await webhook({ PaymentId: paymentId, Status: 'Succeeded' });
@@ -247,8 +249,8 @@ describe('Fizetési webhook: a hamisítás elleni védelem', () => {
       const { rows } = await db.query('SELECT paid_at FROM jobs WHERE id = $1', [job.id]);
       expect(rows[0].paid_at, 'Ellenőrizetlen állapottal könyveltünk!').toBeNull();
     } finally {
-      barion.isStub = eredetiIsStub;
-      barion.getPaymentState = eredetiGetState;
+      cib.isStub = eredetiIsStub;
+      cib.getPaymentState = eredetiGetState;
     }
   });
 });

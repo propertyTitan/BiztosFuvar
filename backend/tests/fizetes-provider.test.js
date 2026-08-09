@@ -11,13 +11,19 @@ afterEach(() => {
 });
 
 describe('paymentProvider absztrakció', () => {
-  it('default = barion, stub gateway-t ad (nincs POS-kulcs)', async () => {
+  it('default = cib (a Barion törölve), stub gateway-t ad (nincs kulcs)', async () => {
     delete process.env.PAYMENT_PROVIDER;
-    expect(paymentProvider.name()).toBe('barion');
+    expect(paymentProvider.name()).toBe('cib');
     expect(paymentProvider.isStub()).toBe(true);
     const r = await paymentProvider.startFeePayment({ jobId: 'x', feeHuf: 500, shipperEmail: 'a@b.hu' });
     expect(r.stub).toBe(true);
     expect(String(r.gatewayUrl)).toContain('stub:');
+  });
+
+  it('a törölt "barion" provider ismeretlen → HANGOS hiba (nem néma visszaesés)', () => {
+    process.env.PAYMENT_PROVIDER = 'barion';
+    expect(() => paymentProvider.active()).toThrow(/Ismeretlen PAYMENT_PROVIDER/);
+    delete process.env.PAYMENT_PROVIDER;
   });
 
   it('PAYMENT_PROVIDER=qvik → QVIK-re vált, QVIK-stub gateway-t ad', async () => {
