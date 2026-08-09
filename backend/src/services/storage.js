@@ -238,8 +238,16 @@ function resolvePrivateDiskFile(name, exp, sig) {
   }
   if (expNum < Math.floor(Date.now() / 1000)) return { ok: false, reason: 'expired' };
   const expected = privateDiskSignature(name, String(exp));
-  if (typeof sig !== 'string' || sig.length !== expected.length) return { ok: false, reason: 'bad_signature' };
-  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return { ok: false, reason: 'bad_signature' };
+  // ⚠️ ALAK-ellenőrzés, nem hossz-ellenőrzés (2026-08-09, audit 2. kör).
+  // A `sig.length` KARAKTERBEN számol, a `timingSafeEqual` viszont BÁJTBAN:
+  // 32 többbájtos karakter (pl. „éééé…") átment az első kapun, majd a
+  // `timingSafeEqual` RangeError-t dobott → 500 „Szerverhiba" hitelesítés
+  // nélkül, felesleges Sentry-riasztással. Az aláírás mindig 32 hex jegy,
+  // ezért a mintaellenőrzés egyszerre szigorúbb és biztonságos.
+  if (typeof sig !== 'string' || !/^[a-f0-9]{32}$/.test(sig)) return { ok: false, reason: 'bad_signature' };
+  if (!crypto.timingSafeEqual(Buffer.from(sig, 'utf8'), Buffer.from(expected, 'utf8'))) {
+    return { ok: false, reason: 'bad_signature' };
+  }
   const filepath = path.join(PRIVATE_DIR, name);
   if (!filepath.startsWith(PRIVATE_DIR) || !fs.existsSync(filepath)) return { ok: false, reason: 'not_found' };
   return { ok: true, filepath };
