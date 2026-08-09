@@ -176,8 +176,14 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
     const vatLabel = vatResult.isReverseCharge
       ? 'ford. adózás'
       : `${Math.round(vatResult.vatRate * 100)}% ÁFA`;
+    // ⚠️ NÉV NÉLKÜL (2026-08-09, adatvédelmi audit 3. kör). A napló korábban a
+    // feladó TELJES NEVÉT szövegben tárolta — miközben az azonosító mezők
+    // (shipper_id/carrier_id) fiók-törléskor NULL-ra állnak. Vagyis a törölt
+    // felhasználó neve határidő nélkül bennmaradt a `summary`-ban: ugyanaz a
+    // hibaosztály, amit az R2-fájloknál javítottunk, csak adatbázisban.
+    // Az adminnak az azonosító elég — amíg a fiók él, onnan kikereshető.
     const summary = [
-      `${d.shipper_name || '?'} (feladó)`,
+      `feladó: ${d.shipper_id || '?'}`,
       `kapcsolatfelvételi díj: ${platformFee} ${currency} (${vatLabel})`,
       `fuvardíj (kápé, szállítónak): ${d.accepted_price_huf || d.price_huf || '?'} ${currency}`,
       invoice ? `számla: ${invoice.id}` : null,

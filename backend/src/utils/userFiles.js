@@ -73,4 +73,55 @@ async function purgeUserFiles(userId, opts = {}) {
   return deleted;
 }
 
-module.exports = { purgeUserFiles, collectUserFileKeys };
+/**
+ * Egy FUVARHOZ / JÁRATHOZ / FOGLALÁSHOZ tartozó tárolt fájlok kulcsai.
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit 3. kör): az admin fuvar-, járat- és
+ * foglalás-törlése ugyanabba a hibába futott, amit a fiók-törlésnél már
+ * javítottunk — a `photos.job_id`/`booking_id` CASCADE elviszi a DB-sort, az
+ * R2-objektum viszont marad, és mivel a napi purge a DB-sorokból olvassa a
+ * kulcsokat, SOHA többé nem éri el. Örök árva fájl, benne a felvételi/
+ * kézbesítési fotóval és annak GPS-koordinátájával.
+ *
+ * A járat törlése a foglalásain át kaszkádol, ezért ott a hozzá tartozó
+ * összes foglalás fotóját is össze kell szedni.
+ *
+ * @param {'job'|'booking'|'route'} tipus
+ * @param {string} id
+ * @returns {Promise<string[]>}
+ */
+async function collectEntityFileKeys(tipus, id) {
+  const sql = {
+    job: 'SELECT url FROM photos WHERE job_id = $1 AND url IS NOT NULL',
+    booking: 'SELECT url FROM photos WHERE booking_id = $1 AND url IS NOT NULL',
+    route: `SELECT p.url FROM photos p
+              JOIN route_bookings b ON b.id = p.booking_id
+             WHERE b.route_id = $1 AND p.url IS NOT NULL`,
+  }[tipus];
+  if (!sql) return [];
+  try {
+    const { rows } = await db.query(sql, [id]);
+    return rows.map((r) => r.url).filter(Boolean);
+  } catch (err) {
+    console.error('[entity-files] kulcs-gyűjtés hiba:', err.message);
+    return [];
+  }
+}
+
+/** A megadott kulcsok törlése a tárolóból. Sose dob. */
+async function purgeFileKeys(keys) {
+  let deleted = 0;
+  for (const key of keys || []) {
+    try {
+      if (await storage.deleteFile(key)) deleted += 1;
+    } catch (err) {
+      console.error('[entity-files] törlés hiba:', err.message);
+    }
+  }
+  if (deleted > 0) console.log(`[entity-files] ${deleted} tárolt fájl törölve`);
+  return deleted;
+}
+
+module.exports = {
+  purgeUserFiles, collectUserFileKeys, collectEntityFileKeys, purgeFileKeys,
+};
