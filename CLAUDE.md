@@ -685,6 +685,21 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   takarítás előtt) — fájlba írasd. Következő szint (később): terhelés
   EMELÉSE a Railway-plafonig (több gépről/IP-ről, hogy a 300/perc limitet
   megkerüld), és a valódi pénzes CIB-út mérése aktiváláskor
+- **Plafon-teszt (k6, 2026-08-09)**: `backend/scripts/plafon-teszt.k6.js`
+  (`k6 run`, nincs DB-setup). A `/health` SZÁNDÉKOSAN limiter-mentes (a
+  limiter előtt), ezért rajta a Railway Hobby konténer NYERS HTTP/event-loop
+  kapacitása mérhető terhelés-védelem nélkül. Rámpa 50→2000 req/s,
+  szintenként külön mérve. ⚠️ A PROD konténert stresszeli — CSAK launch
+  előtt (~0 user), éles forgalomban SOHA. EREDMÉNY (2026-08-09, egy
+  IP-ről/gépről mérve): **~500 req/s-ig stabil** (p95 ~250 ms, ~0 hiba),
+  **~590-690 req/s a kiszolgálható maximum**, 1000 req/s-től a kérések fele
+  timeout (a konténer sorba állít, p95 ~9-10 mp). ⚠️ Ez a NYERS plafon —
+  a DB-t érintő végpontok (Neon-kör minden kérésnél) ennek TÖREDÉKÉT bírják
+  (~50-150 req/s becsült). A launch base-case (~300 fuvar/HÓ) ehhez képest
+  elenyésző → a konténer bőven elég; az első valódi szűk keresztmetszet nem
+  a throughput, hanem a Neon cold-start (~1,6 mp alvás után) és a
+  rate limit. A ~500-600-as plafon részben KLIENS-oldali is lehet (egy
+  gépről/lakossági netről) — tiszta szerver-plafonhoz több gépről kéne mérni
 - **Ajánlói program ÉLES (2026-07-05, PR #58)** — egyoldalú referral: aki a
   linkjén (`?ref=KÓD`) hoz egy usert, ÉS az teljesíti az első fuvarját
   (feladóként az első díj kifizetése, VAGY sofőrként a fuvar lezárása), az
