@@ -27,6 +27,41 @@ const realtime = require('../realtime');
 
 const router = express.Router();
 
+// =====================================================================
+//  ⛔ A FUNKCIÓ ALAPBÓL KI VAN KAPCSOLVA (2026-08-09, audit 2. kör)
+//
+//  A segélyszolgálat-flow a FELÜLETRŐL régóta dormant (a `/mentes/*` oldalak
+//  nincsenek belinkelve), a VÉGPONTOK viszont élesen be voltak kötve — és a
+//  pénz-integritási audit itt találta meg a legnagyobb bevétel-kockázatot:
+//
+//    a towing-ág SEHOL nem szed kapcsolatfelvételi díjat, elvállaláskor
+//    viszont a bajba jutott AZONNAL megkapja a mentős TELJES NEVÉT és
+//    TELEFONSZÁMÁT (towing.js: az `accept` értesítése és a my-requests).
+//
+//  Vagyis egy KYC-s szállító egyszer regisztrál mentősként, és onnantól
+//  minden fuvarát ezen a csatornán intézheti: a platform egyetlen bevétele
+//  (500/1.000 Ft × minden fuvar) megkerülhető. A funkció bekapcsolása előtt
+//  ezt a díj-kérdést meg kell oldani.
+//
+//  Amíg a `TOWING_ENABLED` env nincs `true`-ra állítva, minden /towing/*
+//  végpont 503-at ad. A teszt-környezet bekapcsolja (tests/env-setup.js),
+//  hogy a meglévő biztonsági tesztek továbbra is fussanak — így a védelem
+//  nem „elrothadó" holt kód, hanem élesztéskor azonnal ellenőrzött.
+// =====================================================================
+function towingEnabled() {
+  return String(process.env.TOWING_ENABLED || '').toLowerCase() === 'true';
+}
+
+router.use('/towing', (req, res, next) => {
+  if (!towingEnabled()) {
+    return res.status(503).json({
+      error: 'A segélyszolgálat-funkció jelenleg nem elérhető.',
+      code: 'TOWING_DISABLED',
+    });
+  }
+  return next();
+});
+
 // A bajba jutott ÉRZÉKENY adata (teljes telefonszám + PONTOS GPS) csak az
 // ELVÁLLALÁS UTÁN jár a mentősnek — a keresési listában elég a KÖZELÍTŐ hely
 // (~1 km-re kerekítve, hogy lássa, merre van) + a probléma-típus + a
