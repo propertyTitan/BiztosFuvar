@@ -134,6 +134,10 @@ function wrapHtml({ heading, bodyHtml, ctaText, ctaHref }) {
             <td style="padding:20px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;font-size:12px;color:#64748b">
               Ezt az üzenetet automatikusan küldte a GoFuvar. Ha nem te végezted ezt a műveletet, kérjük vedd fel velünk a kapcsolatot.
               <br><br>
+              Adatkezelő: <strong>Tiszta Hód Kft.</strong> (6800 Hódmezővásárhely, Szántó Kovács János utca 144.) ·
+              <a href="${getWebBase()}/adatkezeles" style="color:#64748b">Adatkezelési tájékoztató</a> ·
+              <a href="mailto:info@gofuvar.hu" style="color:#64748b">info@gofuvar.hu</a>
+              <br><br>
               © GoFuvar
             </td>
           </tr>
@@ -489,12 +493,29 @@ async function sendRecipientTrackingEmail({ to, recipientName, jobTitle, trackin
           <div style="font-size:12px;color:#666;margin-top:8px">Ezt a kódot add meg a szállítónak amikor megérkezik</div>
         </div>
         <a href="${escapeHtml(trackingUrl)}" style="display:block;text-align:center;background:#1e40af;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px">
-          📍 Fuvar követése élőben
+          📍 Küldemény követése
         </a>
         <p style="font-size:12px;color:#999;margin-top:20px;text-align:center">
-          Ezen az oldalon látod a szállító pozícióját és a becsült érkezési időt.
-          Nem kell regisztrálnod a GoFuvar-ra.
+          Ezen az oldalon követheted a küldemény állapotát. Nem kell regisztrálnod a GoFuvarra.
         </p>
+        <!-- GDPR 14. cikk — a címzett NEM felhasználó: tőle nem kaptunk adatot,
+             és semmilyen dokumentumot nem fogadott el. Ezért neki külön meg kell
+             mondani, KI kezeli az adatait, HONNAN vannak, MEDDIG tartjuk meg, és
+             hogyan tiltakozhat. (2026-08-09 adatvédelmi audit: eddig egyik
+             kötelező elem sem szerepelt sem az e-mailben, sem az SMS-ben.) -->
+        <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;line-height:1.6;color:#94a3b8">
+          <strong>Honnan tudjuk az elérhetőségedet?</strong> A csomag feladója adta meg,
+          hogy értesíteni tudjunk az érkezésről. Az adataidat (név, telefonszám, e-mail-cím,
+          szállítási cím) kizárólag ennek a küldeménynek a kézbesítéséhez használjuk,
+          és a fuvar lezárása után töröljük.
+          <br><br>
+          Adatkezelő: <strong>Tiszta Hód Kft.</strong> (6800 Hódmezővásárhely, Szántó Kovács
+          János utca 144.) ·
+          <a href="${getWebBase()}/adatkezeles#cimzett" style="color:#94a3b8">Adatkezelési tájékoztató</a>
+          <br>
+          Ha nem szeretnéd, hogy kezeljük az adataidat, vagy nem te vagy a címzett, írj az
+          <a href="mailto:info@gofuvar.hu" style="color:#94a3b8">info@gofuvar.hu</a> címre.
+        </div>
       </div>
     `,
   });

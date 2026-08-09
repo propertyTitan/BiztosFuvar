@@ -91,6 +91,8 @@ function scrubJobForUser(job, user) {
     status_before_dispute,
     // Belső könyvelés: a feladó fizetési emlékeztetőinek száma/ideje.
     payment_reminder_count, last_payment_reminder_at,
+    // Belső könyvelés: mikor futott le a személyes adatok anonimizálása.
+    anonymized_at,
     ...publicFields
   } = rest;
 

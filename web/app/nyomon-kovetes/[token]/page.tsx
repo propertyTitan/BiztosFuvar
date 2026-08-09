@@ -196,8 +196,47 @@ export default function PublicTrackingPage() {
         </div>
       )}
 
+      {/* ── Címzetti adatkezelési tájékoztatás (GDPR 14. cikk) ──
+          Ezt az oldalt tipikusan olyan ember nyitja meg, aki NEM felhasználó:
+          nem regisztrált, nem fogadott el semmit, és az adatait a feladó adta
+          meg. Neki külön meg kell mondani, ki kezeli az adatait, honnan
+          vannak, meddig tartjuk meg, és hogyan tiltakozhat. (2026-08-09
+          adatvédelmi audit: eddig egyik kötelező elem sem szerepelt sehol.) */}
+      <details
+        style={{
+          marginTop: 28,
+          fontSize: 12,
+          color: 'var(--muted)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          padding: '10px 14px',
+        }}
+      >
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>
+          Honnan tudjuk az adataidat?
+        </summary>
+        <div style={{ marginTop: 10, lineHeight: 1.6 }}>
+          <p style={{ margin: '0 0 8px' }}>
+            Az elérhetőségedet a <strong>csomag feladója</strong> adta meg, hogy értesíteni
+            tudjunk az érkezésről. A nevedet, telefonszámodat, e-mail-címedet és a
+            szállítási címet kizárólag ennek a küldeménynek a kézbesítéséhez használjuk,
+            és a fuvar lezárása után töröljük. Nem küldünk neked hírlevelet, és nem kell
+            regisztrálnod.
+          </p>
+          <p style={{ margin: '0 0 8px' }}>
+            Adatkezelő: <strong>Tiszta Hód Kft.</strong> (6800 Hódmezővásárhely, Szántó
+            Kovács János utca 144.) —{' '}
+            <a href="/adatkezeles#cimzett">részletes adatkezelési tájékoztató</a>.
+          </p>
+          <p style={{ margin: 0 }}>
+            Ha nem te vagy a címzett, vagy nem szeretnéd, hogy kezeljük az adataidat, írj
+            az <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a> címre — töröljük őket.
+          </p>
+        </div>
+      </details>
+
       {/* Footer */}
-      <div style={{ textAlign: 'center', marginTop: 32, fontSize: 12, opacity: 0.5 }}>
+      <div style={{ textAlign: 'center', marginTop: 24, fontSize: 12, opacity: 0.5 }}>
         🚛 Ha fuvar kell, akkor GoFuvar.
       </div>
     </div>
