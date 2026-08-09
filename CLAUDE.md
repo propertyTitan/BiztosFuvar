@@ -185,6 +185,27 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Biztonsági mélyaudit (4 adverzariális ügynök) — 1. csomag: KRITIKUS
+  PII/kontakt-szivárgások (2026-08-09, user-kérés)** — a user "golyóálló"
+  biztonságot kért; 4 ügynök (PII/adatvédelem, hozzáférés-vezérlés,
+  injection, pénz-integritás) auditálta a rendszert. JÓ HÍR: az input-védelem
+  golyóálló (SQLi/SSRF/path/XSS/mass-assignment mind ellenállt), az IDOR/
+  authz-csontozat erős. HÁROM KRITIKUS, keresztvalidált szivárgás javítva
+  (mind a "koronaékszereket" — átvételi kód + címzett-telefon + tracking
+  token — adta ki fizetés nélkül): (1) a publikus `/tracking/:token`
+  (publicTracking.js) a szállító telefonját + a kódot paid_at NÉLKÜL adta →
+  a feladó a saját tokenjével kiolvasta = PROVIDER-FÜGGETLEN díj-megkerülés,
+  MOST élt; gate paid_at mögé (a legitim címzett post-pay kapja a linket).
+  (2) `GET /carrier-routes/:id/along-jobs` (carrierRoutes.js) és (3) a
+  `/backhaul/*` (backhaul.js) SCRUB NÉLKÜL adták a nyers `SELECT j.*` sort →
+  a szállító a járat "útba eső fuvarjaiból"/visszafuvar-ajánlásaiból learatta
+  a kódot+PII-t; scrubJobForUser map mindkettőn. +4 teszt. Backend 502/502.
+  ⚠️ MARADÉK (külön PR-ek jönnek): a Barion-webhook body-trust
+  (payments.js:40 — CIB-launchkor auth nélküli fizetés-megkerülés,
+  keresztvalidált), socket-role a JWT-ből (realtime.js), rate-limit
+  hamisítható XFF-kulcs, fiók-törlés R2-árvák, mentős-kapu, currency-
+  arbitrázs, 2 db 500-on-input. A pénz-integritás pontszám a webhook-fix-ig
+  alacsony marad
 - **Fizetési visszahozó háló — a több-ügynökös átvizsgálás #1 TERMÉK-találata
   (2026-08-09, user-kérés)** — a megállapodás (accepted) után, de a
   kapcsolatfelvételi díj kifizetése ELŐTT a tranzakció védtelen volt (a
