@@ -185,6 +185,25 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Adatvédelmi kör 1. csomag — a GDPR-„elfeledtetés" valódivá tétele
+  (2026-08-09, user-prioritás: az adatvédelem min. 9/10)** — a biztonsági
+  audit adatvédelmi találatai: (1) **FIÓK-TÖRLÉS R2-TAKARÍTÁS** — a törlés
+  eddig CSAK a DB-sorokat vitte (CASCADE), az R2-objektumok (köztük a
+  SZEMÉLYI IGAZOLVÁNY fotója!) bennragadtak, és a napi purge-jobok a
+  törölt sorokból már nem érték el őket → örök árva fájl, a GDPR 17. cikk
+  megsértése. Új `utils/userFiles.js:purgeUserFiles` a DB-CASCADE ELŐTT
+  törli a KYC-okmányt + avatart + fuvar-fotókat a tárolóból; bekötve a
+  self-delete (auth.js) ÉS az admin-törlés (admin.js) ágába. (2) **Publikus
+  profil rendszám kivéve** — a `vehicle_plate` (GDPR szerint személyes adat)
+  bárki által lekérhető volt kontaktus/ügylet nélkül; a jármű TÍPUSA marad
+  (döntéshez hasznos, nem azonosít). (3) **KYC-értesítés PII-minimalizálás**
+  — a 18-alatti + kézi-review admin-notif eddig a teljes e-mailt + születési
+  dátumot írta a notif-body-ba (a notifications táblában határidő nélkül); a
+  jogosult admin a KYC-panelen látja, a notif-ból kivéve. +3 teszt (a KYC-fotó
+  törlődik a self + admin ágon). Backend 505/505. ⚠️ MARADÉK adatvédelmi
+  tételek (következő csomag a 9+ pontig): mentős-kapu (bajba jutott telefon/
+  GPS elfogadás nélkül), socket-broadcast cím anonim hallgatóhoz, + a formális
+  jogi réteg (ügyvédi review — a launch-kapu lista)
 - **BARION VÉGLEG TÖRÖLVE + a fizetési webhook provider-független (2026-08-09,
   user-döntés: „töröld a picsába")** — a webhook body-trust rés gyökér-oka a
   Barion-callback volt; a teljes eltávolítással a rés MEGSZŰNIK, nem foltozás.

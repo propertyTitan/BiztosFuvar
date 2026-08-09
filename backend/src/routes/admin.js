@@ -10,6 +10,7 @@ const db = require('../db');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { userHasBlockingDealings } = require('../utils/activePaid');
+const { purgeUserFiles } = require('../utils/userFiles');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -171,6 +172,10 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
       code: 'USER_HAS_ACTIVE_PAID',
     });
   }
+
+  // A tárolt fájlok (KYC-okmány, avatar, fotók) törlése a DB-CASCADE ELŐTT
+  // (GDPR 17. cikk — különben az R2-objektumok örökre árván maradnának).
+  await purgeUserFiles(targetId);
 
   const del = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [targetId]);
   if (del.rowCount === 0) return res.status(404).json({ error: 'Felhasználó nem található' });
