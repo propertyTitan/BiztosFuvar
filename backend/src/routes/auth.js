@@ -742,7 +742,7 @@ router.get('/me/driver-dashboard', authRequired, async (req, res) => {
 });
 
 // GET /auth/referral — az ajánlói programom: kód, link, eddigi sikeres
-// ajánlások száma, és hány felhasználható ingyen-feladás kupon vár.
+// ajánlások száma, és hány felhasználható ingyenes kapcsolatfelvétel vár.
 router.get('/referral', authRequired, async (req, res) => {
   const uid = req.user.sub;
   const code = await getOrCreateReferralCode(uid);

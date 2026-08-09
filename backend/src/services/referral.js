@@ -1,9 +1,9 @@
 // Ajánlói program (referral) — egyoldalú modell (2026-07-05, user döntése).
 //
 // Aki a saját linkjén (?ref=KÓD) keresztül hoz egy új felhasználót, ÉS az
-// teljesíti az első fuvarját, az AJÁNLÓ kap egy "ingyen feladás" kupont
-// (fee_vouchers, reason='referral'), ami egy kapcsolatfelvételi díjat
-// elenged — a REFERRAL_VOUCHER_MAX_FEE_HUF plafonig.
+// teljesíti az első fuvarját, az AJÁNLÓ kap EGY INGYENES KAPCSOLATFELVÉTELT
+// (fee_vouchers, reason='referral'): a következő feladása kapcsolatfelvételi
+// díja elmarad, bármelyik díjsávba esik — de csak egyetlen feladásra.
 //
 // "Teljesítés" = a meghívott
 //   - feladóként: kifizette az első kapcsolatfelvételi díját (paid_at), VAGY
@@ -24,11 +24,18 @@ const { grantVoucher } = require('./gamification');
 const { createNotification } = require('./notifications');
 
 // ---- Konfig (egy helyen hangolható) ----
-// A kupon a legfeljebb ~100.000 Ft értékű feladás díját (2.490 Ft-os sáv és
-// alatta) fedezi teljesen; efölött nem alkalmazható (költség-plafon).
-// Az egyszerűsített díjsávokkal (2026-07-15: 500/1000) a max díj 1 000 Ft —
-// a kupon-plafon ezt fedi. (A korábban kiosztott 2490-es kuponok érvényesek.)
-const REFERRAL_VOUCHER_MAX_FEE_HUF = 1000;
+// A jutalom NEM pénzérték, hanem EGY INGYENES KAPCSOLATFELVÉTEL (user-döntés,
+// 2026-08-09). Bármelyik díjsávra érvényes — az 500 Ft-osra és az 1.000
+// Ft-osra is —, de EGYSZER váltható be (a `used_at` fogyasztja el).
+//
+// Ezért a kupon díj-plafonja NULL = nincs Ft-korlát. Korábban 1.000 Ft volt,
+// ami ugyan a mai két sávot lefedte, de pénzben határozta meg a jutalmat —
+// így egy díjsáv-változás némán „elvágta" volna az ajánlói jutalmat a felső
+// sávban. A jutalom a SZOLGÁLTATÁS (egy feladás kapcsolatfelvétele), nem egy
+// forintösszeg. A költség így is korlátos: kuponnal legfeljebb a mindenkori
+// legmagasabb díjsávnyi bevételről mondunk le, ajánlásonként egyszer, a havi
+// plafon (REFERRAL_MONTHLY_CAP) alatt.
+const REFERRAL_VOUCHER_MAX_FEE_HUF = null;
 // Meddig érvényes a kapott kupon.
 const REFERRAL_VOUCHER_VALID_DAYS = 60;
 // Egy ajánló legfeljebb ennyi jutalmat szerezhet naptári hónaponként.
@@ -87,7 +94,7 @@ async function resolveReferrerId(code) {
 
 /**
  * A trigger: ha a `userId` egy meghívott, aki most teljesítette az első
- * fuvarját, az ajánlója kap egy ingyen-feladás kupont. Idempotens és
+ * fuvarját, az ajánlója kap egy ingyenes kapcsolatfelvételt. Idempotens és
  * self-guardolt — több helyről is nyugodtan hívható (fizetés, kézbesítés).
  * Sose dob hibát (best-effort), hogy az eredeti tranzakciót ne akassza meg.
  *
@@ -165,8 +172,8 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
     await createNotification({
       user_id: referrerId,
       type: 'referral_reward',
-      title: '🎉 Ingyen feladást kaptál!',
-      body: 'Akit meghívtál, teljesítette az első fuvarját — a következő feladásod kapcsolatfelvételi díját elengedjük. Nézd meg a "Fizetés" lépésnél.',
+      title: '🎉 Ingyenes kapcsolatfelvételt kaptál!',
+      body: 'Akit meghívtál, teljesítette az első fuvarját — a következő feladásodnál a kapcsolatfelvételi díj elmarad, akármekkora is a fuvar. Egy feladásra érvényes; a "Fizetés" lépésnél automatikusan beváltjuk.',
       link: '/dashboard',
     }).catch(() => {});
   } catch (err) {

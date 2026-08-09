@@ -856,7 +856,7 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
   const paidAt = upd[0].paid_at;
 
   // Ajánlói jutalom-trigger: a feladó most fizette az első kapcsolatfelvételi
-  // díját → ha ő egy meghívott, az ajánlója kap egy ingyen-feladás kupont.
+  // díját → ha ő egy meghívott, az ajánlója kap egy ingyenes kapcsolatfelvételt.
   maybeGrantReferralReward(j.shipper_id, { role: 'shipper', jobId: j.id }).catch(() => {});
 
   // A díj beérkezett és a szolgáltatás (kontakt-átadás) azonnal teljesül —

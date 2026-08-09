@@ -36,8 +36,10 @@ export default function ReferralCard() {
       <h2 style={{ marginTop: 0 }}>🎁 Hívd meg ismerőseidet</h2>
       <p className="muted" style={{ marginTop: 0 }}>
         Oszd meg a kódodat vagy a linkedet. Ha valaki vele regisztrál és
-        teljesíti az első fuvarját (feladóként vagy szállítóként), a következő
-        feladásod kapcsolatfelvételi díját <strong>elengedjük</strong>.
+        teljesíti az első fuvarját (feladóként vagy szállítóként), kapsz egy{' '}
+        <strong>ingyenes kapcsolatfelvételt</strong>: a következő feladásodnál
+        elmarad a díj — akármekkora a fuvar. Egy feladásra érvényes, a fizetési
+        lépésnél magától beváltjuk.
       </p>
 
       {/* Ajánlói kód — verbális/üzenetben megosztható, kézzel is beírható a
@@ -73,7 +75,7 @@ export default function ReferralCard() {
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 14 }}>
         <span>Meghívottak: <strong>{info.totalReferred}</strong></span>
         <span>Teljesített: <strong>{info.completedReferred}</strong></span>
-        <span>Ingyen feladás kupon: <strong>{info.availableVouchers}</strong></span>
+        <span>Ingyenes kapcsolatfelvétel: <strong>{info.availableVouchers}</strong></span>
       </div>
     </div>
   );

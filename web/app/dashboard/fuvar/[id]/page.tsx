@@ -90,8 +90,8 @@ export default function FuvarReszletek() {
     try {
       const r = await api.payJob(id, feeConsent);
       if (r.paid_via_voucher) {
-        // Ingyen feladás kupon fedezte a díjat — nincs Barion-fizetés.
-        toast.success('Ingyen feladás! 🎉', 'A kuponod fedezte a kapcsolatfelvételi díjat — a kapcsolat megnyílt.');
+        // Ajánlói jutalom fedezte a díjat — nincs bankkártyás fizetés.
+        toast.success('Ingyenes kapcsolatfelvétel! 🎉', 'Az ajánlói jutalmadat felhasználtuk — a kapcsolatfelvételi díj elmaradt, a kapcsolat megnyílt.');
         router.refresh();
       } else if (r.is_stub) {
         router.push(`/fizetes-stub?job=${id}`);
