@@ -184,6 +184,8 @@ export default function AdatkezelesPage() {
           automatikusan törlődnek: a címzett elérhetősége, az átvételi kód és a
           követő-link megszűnik, a cím pedig településre rövidül. Maga a fuvar ténye
           (időpont, ár, értékelés) statisztikai és elszámolási célból megmarad.
+          A szállítót nem találó, elhagyott fuvarhirdetés <strong>1 év</strong> után
+          automatikusan lezárul, és onnantól ugyanez a rend vonatkozik rá.
           Ugyanekkor törlődik <strong>a fuvarhoz érkezett árajánlatok üzenete</strong> és
           a fuvar <strong>nyilvános kérdés-válasz szála</strong> is — ezek ugyanarról a
           küldeményről szólnak, mint a fuvar leírása. Vitatott ügyletnél a bizonyítékok —
