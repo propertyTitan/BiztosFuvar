@@ -6,6 +6,7 @@ const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
+const { detectContactLeak } = require('../utils/contactGuard');
 
 const router = express.Router();
 
@@ -31,6 +32,13 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
   if (!job_id && !booking_id) {
     return res.status(400).json({ error: 'Adj meg egy fuvar (job_id) vagy foglalás (booking_id) azonosítót.' });
   }
+  // Kapcsolat-szivárgás szűrés a nyilvános értékelés-kommenten (2026-08-09,
+  // 2. audit-kör F7). Az értékelés a publikus profilon TARTÓSAN látszik
+  // mindenkinek — egy telefonszám itt állandó „platformon kívül hívj" hirdetés
+  // lenne a jövőbeli feladóknak. Egy értékelésben sosem indokolt elérhetőség,
+  // ezért itt (a vitával ellentétben) fizetés után is szűrünk.
+  const commentLeak = detectContactLeak(comment);
+  if (commentLeak) return res.status(400).json({ error: commentLeak, code: 'CONTACT_LEAK' });
 
   let revieweeId = null;
   let entityTitle = '';
