@@ -166,7 +166,26 @@ export default function AdatkezelesPage() {
         </li>
         <li>
           <strong>GPS ping adatok:</strong> Az aktív fuvar befejezését követő 7 napig tároljuk
-          nyers formában, majd töröljük. Aggregált, nem-személyazonosító statisztikák tovább megőrződhetnek.
+          nyers formában, majd töröljük. Ugyanez vonatkozik a Szállító legutóbb ismert
+          pozíciójára is. Aggregált, nem-személyazonosító statisztikák tovább megőrződhetnek.
+        </li>
+        <li>
+          <strong>Fuvar- és foglalási adatok:</strong> a fuvar lezárását követő{' '}
+          <strong>3 évig</strong> (polgári jogi elévülés), utána a személyes adatok
+          automatikusan törlődnek: a címzett elérhetősége, az átvételi kód és a
+          követő-link megszűnik, a cím pedig településre rövidül. Maga a fuvar ténye
+          (időpont, ár, értékelés) statisztikai és elszámolási célból megmarad.
+          Vitatott ügyletnél a bizonyítékok — a fotókkal és a beszélgetéssel együtt —
+          5 évig megőrződnek.
+        </li>
+        <li>
+          <strong>Vészjelzés (SOS) és mentés-kérés:</strong> a pontos helyadat, a
+          szabad szöveges leírás és a rendszám <strong>7 nap</strong> után törlődik; a
+          jelzés ténye (időpont, típus) további <strong>1 évig</strong> marad meg
+          esetleges igényérvényesítés miatt, ezt követően a bejegyzés is törlődik.
+        </li>
+        <li>
+          <strong>Értesítések:</strong> 6 hónap után automatikusan törlődnek.
         </li>
         <li>
           <strong>File-hozzáférési audit log:</strong> 1 évig (incidens-vizsgálat és NAIH-bejelentés
