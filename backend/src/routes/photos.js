@@ -12,7 +12,6 @@ const multer = require('multer');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const realtime = require('../realtime');
-const barion = require('../services/barion');
 const { createNotification } = require('../services/notifications');
 const { sendEmail } = require('../services/email');
 const { saveFile } = require('../services/storage');

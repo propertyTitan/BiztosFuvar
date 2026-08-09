@@ -33,8 +33,8 @@ const ROUTE_MANIFEST = {
   'POST /auth/login': { access: 'public', why: 'belépés' },
   'POST /auth/forgot-password': { access: 'public', why: 'jelszó-emlékeztető kérése' },
   'POST /auth/reset-password': { access: 'public', why: 'jelszó-visszaállítás a token birtokában' },
-  'POST /payments/barion/callback': { access: 'public', why: 'PSP szerver-szerver webhook (dormant); a hitelesítés a szolgáltatónál' },
-  'POST /payments/qvik/callback': { access: 'public', why: 'PSP szerver-szerver webhook; a hitelesítés a szolgáltatónál' },
+  'POST /payments/cib/callback': { access: 'public', why: 'PSP szerver-szerver webhook (CIB vPOS, a launch fizetése); a státuszt a PSP-től olvassuk vissza, nem a body-ból' },
+  'POST /payments/qvik/callback': { access: 'public', why: 'PSP szerver-szerver webhook (QVIK, dormant); a státuszt a PSP-től olvassuk vissza' },
 
   // ── Admin-only ──────────────────────────────────────────────────────
   'GET /auth/admin/stats': { access: 'admin' },
