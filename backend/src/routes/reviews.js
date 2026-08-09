@@ -180,6 +180,13 @@ router.post('/jobs/:jobId/reviews', authRequired, writeRateLimit, async (req, re
   if (!stars || stars < 1 || stars > 5) {
     return res.status(400).json({ error: '1-5 közötti pontszám' });
   }
+  // ⚠️ A KAPCSOLAT-SZŰRŐ ITT IS FUT (2026-08-09, audit). A fő `POST /reviews`
+  // a 2. audit-kör óta szűr, ez a visszafelé kompatibilis ág viszont
+  // duplikálja a logikát — és a szűrés kimaradt belőle. Az értékelés-komment
+  // TARTÓSAN, mindenkinek látszik a publikus profilon: egy „hívj közvetlenül:
+  // 06 30…" szöveggel a díj (a platform egyetlen bevétele) megkerülhető volt.
+  const legacyLeak = detectContactLeak(comment);
+  if (legacyLeak) return res.status(400).json({ error: legacyLeak, code: 'CONTACT_LEAK' });
   const { rows: jobRows } = await db.query(
     'SELECT shipper_id, carrier_id, title, status FROM jobs WHERE id = $1',
     [job_id],

@@ -76,6 +76,11 @@ function scrubJobForUser(job, user) {
   // Barion-adatok ÉS a fizetési státusz sem jár (BUG-038: a vesztes
   // licitálók élőben látták a nyertes tranzakció "Fizetésre vár →
   // FIZETVE" állapotát — semmi közük hozzá).
+  // ⚠️ Ha a fuvar MÁR NEM a nyitott piactéren van (elkelt / úton / lezárult),
+  // a PONTOS cím és GPS sem jár kívülállónak (2026-08-09): a böngészéshez
+  // szükséges pontosság csak addig indokolt, amíg a fuvar elvállalható.
+  // Ilyenkor településre kerekítünk (~1 km-es koordináta), a mentős-lista
+  // scrubjának mintájára.
   const {
     recipient_name, recipient_phone, recipient_email,
     barion_payment_id, barion_gateway_url,
@@ -88,7 +93,34 @@ function scrubJobForUser(job, user) {
     payment_reminder_count, last_payment_reminder_at,
     ...publicFields
   } = rest;
+
+  if (!NYITOTT_STATUSZOK.includes(job.status)) return kozelitoHely(publicFields);
   return publicFields;
+}
+
+/**
+ * A pontos címet településre, a koordinátát ~1 km-re kerekíti.
+ * Kívülállónak elkelt/lezárt fuvarnál ennyi elég ahhoz, hogy lássa a
+ * piac irányait (statisztika, „mennyire aktív az útvonalam"), de a
+ * konkrét lakcímek nem gyűjthetők ki belőle.
+ */
+function kozelitoHely(job) {
+  const telepules = (cim) => {
+    if (!cim || typeof cim !== 'string') return cim;
+    // „Budapest, Váci út 1." → „Budapest"; „6800 Hódmezővásárhely, …" → „6800 Hódmezővásárhely"
+    return cim.split(',')[0].trim().slice(0, 60);
+  };
+  const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 100) / 100);
+  return {
+    ...job,
+    pickup_address: telepules(job.pickup_address),
+    dropoff_address: telepules(job.dropoff_address),
+    pickup_lat: kerekit(job.pickup_lat),
+    pickup_lng: kerekit(job.pickup_lng),
+    dropoff_lat: kerekit(job.dropoff_lat),
+    dropoff_lng: kerekit(job.dropoff_lng),
+    approximate_location: true,
+  };
 }
 
 // POST /jobs – bárki feladhat fuvart (a szerepkör szeparálást eltöröltük;
@@ -512,6 +544,11 @@ const VALID_JOB_STATUSES = [
   'delivered', 'completed', 'disputed', 'cancelled',
 ];
 
+// A NYITOTT piactér: itt a pontos felvételi/lerakodási cím maga a szolgáltatás
+// (a szállító ez alapján dönt, elvállalja-e). Minden MÁS státusz már egy
+// konkrét két fél közötti ügylet — ahhoz kívülállónak semmi köze.
+const NYITOTT_STATUSZOK = ['bidding', 'pending'];
+
 router.get('/', authRequired, async (req, res) => {
   const {
     status = 'bidding', lat, lng, radius_km,
@@ -529,6 +566,19 @@ router.get('/', authRequired, async (req, res) => {
   JOIN users u ON u.id = j.shipper_id
   WHERE j.status = $1`;
   const params = [status];
+
+  // ⚠️ HATÓKÖR-SZABÁLY (2026-08-09, audit — két ügynök is megtalálta).
+  // A lista eddig CSAK bejelentkezést kért, a státuszt viszont a kliens
+  // választotta: `?status=delivered` a LEZÁRT fuvarokat adta vissza, teljes
+  // felvételi ÉS lerakodási címmel (magánszemélyek otthona), GPS-szel,
+  // feladó-azonosítóval. A 200-as limit város-párokra és ársávokra szeletelve
+  // megkerülhető volt, a `shipper_id`-ből pedig a publikus profil → NÉV +
+  // OTTHONI CÍM párosítás. Egy eldobható e-mailes fiók elég volt hozzá.
+  // A nyitott piactéren kívül tehát CSAK a saját ügyletek látszanak.
+  if (!NYITOTT_STATUSZOK.includes(status) && req.user.role !== 'admin') {
+    params.push(req.user.sub);
+    sql += ` AND (j.shipper_id = $${params.length} OR j.carrier_id = $${params.length})`;
+  }
 
   if (min_price) {
     params.push(Number(min_price));
