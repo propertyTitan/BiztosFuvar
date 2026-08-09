@@ -291,4 +291,11 @@ if (process.env.DATABASE_URL) {
   setTimeout(() => { runDailyDac7Reminders().catch(() => {}); }, 120 * 1000).unref();
   setInterval(() => { runDailyDac7Reminders().catch(() => {}); }, DAY_MS).unref();
   console.log('[dac7] napi adóazonosító-emlékeztető kör ütemezve');
+
+  // Fizetetlen-fuvar emlékeztető: az accepted+fizetetlen fuvarra 24h/48h
+  // után (max 2×). A platform bevétele ezen a lépcsőn akad el a leggyakrabban.
+  const { runPaymentReminders } = require('./services/paymentReminders');
+  setTimeout(() => { runPaymentReminders().catch(() => {}); }, 150 * 1000).unref();
+  setInterval(() => { runPaymentReminders().catch(() => {}); }, DAY_MS).unref();
+  console.log('[payment-reminder] napi fizetetlen-fuvar emlékeztető kör ütemezve');
 }

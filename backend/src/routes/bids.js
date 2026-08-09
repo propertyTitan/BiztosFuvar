@@ -6,7 +6,7 @@ const realtime = require('../realtime');
 const paymentProvider = require('../services/paymentProvider');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
-const { sendBidReceivedEmail, sendBidAcceptedEmail } = require('../services/email');
+const { sendBidReceivedEmail, sendBidAcceptedEmail, sendPaymentDueEmail } = require('../services/email');
 const { convertEurToHuf, convertHufToEur, freezeExchangeRate } = require('../services/exchange');
 const { getJobParty } = require('../utils/jobAccess');
 const { calculateConnectionFee } = require('../services/connectionFee');
@@ -324,8 +324,13 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
 async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
   try {
     const { rows } = await db.query(
-      `SELECT j.title, c.full_name AS carrier_name, c.email AS carrier_email
-         FROM jobs j JOIN users c ON c.id = $2 WHERE j.id = $1`,
+      `SELECT j.title, j.shipper_id,
+              c.full_name AS carrier_name, c.email AS carrier_email,
+              s.full_name AS shipper_name, s.email AS shipper_email
+         FROM jobs j
+         JOIN users c ON c.id = $2
+         JOIN users s ON s.id = j.shipper_id
+        WHERE j.id = $1`,
       [bid.job_id, bid.carrier_id],
     );
     const info = rows[0] || {};
@@ -350,15 +355,32 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
         }).catch((e) => console.warn('[email] bid_accepted hiba:', e.message));
       });
     }
-    // Ha a szállító fogadta el a feladó ellenajánlatát, a feladót kell fizetésre szólítani
+    // Ha a szállító fogadta el a feladó ellenajánlatát, a FELADÓT kell
+    // fizetésre szólítani — ő a fizető, és jellemzően NINCS az oldalon (a
+    // szállító fogadott el). Eddig csak in-app notif ment, email NEM → a
+    // tranzakció a megállapodás pillanatában halt meg. Most email is megy
+    // (a platform bevétele ezen a lépcsőn múlik).
     if (acceptedBy === 'carrier') {
       await createNotification({
-        user_id: bid.shipper_id,
+        user_id: info.shipper_id || bid.shipper_id,
         type: 'counter_accepted',
         title: '✅ Elfogadták az ellenajánlatodat',
         body: `A szállító elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd meg a kapcsolatfelvételi díjat a folytatáshoz — a fuvardíjat készpénzben adod majd a szállítónak.`,
         link: `/dashboard/fuvar/${bid.job_id}`,
       });
+      if (info.shipper_email) {
+        setImmediate(() => {
+          sendPaymentDueEmail({
+            to: info.shipper_email,
+            shipperName: info.shipper_name,
+            jobTitle: info.title,
+            jobId: bid.job_id,
+            agreedPriceHuf: agreedPrice,
+            feeHuf: calculateConnectionFee(agreedPrice),
+            reminderNo: 0,
+          }).catch((e) => console.warn('[email] payment_due (deal) hiba:', e.message));
+        });
+      }
     }
   } catch (e) {
     console.warn('[notifications] deal_closed hiba:', e.message);
