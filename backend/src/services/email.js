@@ -224,6 +224,40 @@ async function sendBidAcceptedEmail({ to, carrierName, jobTitle, jobId, amountHu
 }
 
 /**
+ * Fizetésre szólítás a FELADÓNAK: megegyezés született (vagy a szállító
+ * elfogadta az ellenajánlatát), és a kapcsolatfelvételi díj még nincs
+ * kifizetve. Ugyanez a sablon szolgál a megállapodáskori azonnali
+ * értesítésre (reminderNo=0) ÉS a fizetetlen-emlékeztetőkre (1/2) —
+ * ez a lépcső a platform bevétele, és ma itt akad el a legtöbb tranzakció.
+ */
+async function sendPaymentDueEmail({ to, shipperName, jobTitle, jobId, agreedPriceHuf, feeHuf, reminderNo = 0 }) {
+  const heading = reminderNo === 0
+    ? '🤝 Megvan a megegyezés — egy lépés van hátra'
+    : (reminderNo >= 2 ? '⏰ Utolsó emlékeztető: a fuvarod fizetésre vár' : '⏰ Emlékeztető: a fuvarod fizetésre vár');
+  const intro = reminderNo === 0
+    ? `<p>A(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarra megszületett a megállapodás${agreedPriceHuf ? ` <strong>${formatHuf(agreedPriceHuf)} Ft</strong> fuvardíjon` : ''}!</p>`
+    : `<p>A(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarodon már megvan a megállapodás, de a kapcsolatfelvételi díj még nincs kifizetve — a szállító addig nem tud elindulni.</p>`;
+  const bodyHtml = `
+    <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
+    ${intro}
+    <p>Már csak a <strong>kapcsolatfelvételi díjat</strong> kell megfizetned${feeHuf ? ` (<strong>${formatHuf(feeHuf)} Ft</strong>)` : ''} — utána azonnal megkapjátok egymás elérhetőségét, és indulhat a fuvar. A fuvardíjat magát <strong>készpénzben</strong> adod majd a szállítónak, azt a platform nem kezeli.</p>
+    ${reminderNo >= 2 ? '<p style="color:#b45309">Ha nem fizeted meg a díjat, a megállapodás elévülhet, és a szállító másik fuvart vállalhat.</p>' : ''}
+  `;
+  return sendEmail({
+    to,
+    subject: reminderNo === 0
+      ? `Megegyezés: ${jobTitle} — fizesd a kapcsolatfelvételi díjat`
+      : `Emlékeztető: a(z) "${jobTitle}" fuvarod fizetésre vár`,
+    html: wrapHtml({
+      heading,
+      bodyHtml,
+      ctaText: 'Fizetés és folytatás',
+      ctaHref: `${getWebBase()}/dashboard/fuvar/${jobId}`,
+    }),
+  });
+}
+
+/**
  * A feladó kifizette a licites fuvart → a szállító kap értesítést.
  */
 async function sendJobPaidEmail({ to, carrierName, jobTitle, jobId, amountHuf, shipperName }) {
@@ -597,5 +631,6 @@ module.exports = {
   sendPasswordResetEmail,
   sendTaxDataRequestEmail,
   sendAdminMessageEmail,
+  sendPaymentDueEmail,
   isStub,
 };

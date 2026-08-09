@@ -185,6 +185,23 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Fizetési visszahozó háló — a több-ügynökös átvizsgálás #1 TERMÉK-találata
+  (2026-08-09, user-kérés)** — a megállapodás (accepted) után, de a
+  kapcsolatfelvételi díj kifizetése ELŐTT a tranzakció védtelen volt (a
+  platform bevétele ezen a lépcsőn akad el a leggyakrabban). Két rés zárva:
+  **(1)** a `notifyDealClosed` 'carrier' ágán (a szállító elfogadja a feladó
+  ellenajánlatát) a FELADÓ — a fizető, aki jellemzően nincs az oldalon —
+  eddig CSAK in-app értesítést kapott, emailt nem; most `sendPaymentDueEmail`
+  is megy (a query bővítve a feladó email-jével). **(2)** Új napi
+  `runPaymentReminders` job (`services/paymentReminders.js`, index.js
+  ütemezi): az accepted + `paid_at IS NULL` fuvarra 24h után az 1., +48h a 2.
+  emlékeztető (email + in-app), max 2×; a 056-os migráció a számláláshoz
+  (`payment_reminder_count` + `last_payment_reminder_at`, prodon lefutott).
+  ⚠️ a scrub-ALLOWLIST őr elkapta a 2 új oszlopot → a kívülálló-ágból kivéve
+  (belső könyvelés). +6 teszt (célzás: 24h/48h, max 2, fizetett/lezárt
+  kimarad). Backend 498/498. Következő javasolt lépcső (a termék-ügynök
+  listájából): fuvar-dátum mező (a web hiányzik, a backend kész) +
+  ár/„Azonosított szállító"-jelvény a döntési pontokra
 - **Díj-védelem csomag — a több-ügynökös átvizsgálás #1 találata (2026-08-09,
   user-kérés)** — a platform EGYETLEN bevételét (kapcsolatfelvételi díj) és
   az adatintegritást védő 4 guard, mind kód-igazolt réssel: **(1)

@@ -84,6 +84,8 @@ function scrubJobForUser(job, user) {
     // Belső könyvelés: hova álljon vissza a fuvar a vita lezárásakor.
     // Kívülállóra nem tartozik (nem is tud vitás fuvart böngészni).
     status_before_dispute,
+    // Belső könyvelés: a feladó fizetési emlékeztetőinek száma/ideje.
+    payment_reminder_count, last_payment_reminder_at,
     ...publicFields
   } = rest;
   return publicFields;
