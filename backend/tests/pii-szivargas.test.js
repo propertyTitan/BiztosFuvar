@@ -49,17 +49,24 @@ describe('jobs:new broadcast — kívülálló-scrub (PII + kód nem szivárog)'
     expect(out.suggested_price_huf).toBe(12000);
   });
 
-  it('a kijelölt szállító sem kapja a kódot / tokent, de a címzett-kontaktot igen', () => {
-    const rawJob = {
+  it('a kijelölt szállító sem kapja a kódot / tokent; a címzett-kontaktot CSAK fizetés után', () => {
+    const base = {
       id: 'j2', shipper_id: 's1', carrier_id: 'c1',
       delivery_code: '111222', sender_delivery_code: '333444',
-      tracking_token: 'TOK', recipient_phone: '+36301112233',
+      tracking_token: 'TOK', recipient_phone: '+36301112233', recipient_name: 'Címzett',
     };
-    const out = scrubJobForUser(rawJob, { sub: 'c1', role: 'carrier' });
-    expect(out).not.toHaveProperty('delivery_code');
-    expect(out).not.toHaveProperty('sender_delivery_code');
-    expect(out).not.toHaveProperty('tracking_token');
-    expect(out.recipient_phone).toBe('+36301112233'); // kézbesítéskor hívnia kell
+    // Fizetés ELŐTT (paid_at nincs): a szállító NEM láthatja a címzett
+    // elérhetőségét — különben a feladó saját magát adva címzettként a díj
+    // megkerülhető lenne (2026-08-09 díj-védelem).
+    const preFee = scrubJobForUser({ ...base }, { sub: 'c1', role: 'carrier' });
+    expect(preFee).not.toHaveProperty('delivery_code');
+    expect(preFee).not.toHaveProperty('sender_delivery_code');
+    expect(preFee).not.toHaveProperty('tracking_token');
+    expect(preFee.recipient_phone, 'fizetés előtt a címzett-kontakt zárt').toBeUndefined();
+    expect(preFee.recipient_name).toBeUndefined();
+    // Fizetés UTÁN (paid_at): a szállító megkapja (kézbesítéskor hívnia kell)
+    const postFee = scrubJobForUser({ ...base, paid_at: new Date() }, { sub: 'c1', role: 'carrier' });
+    expect(postFee.recipient_phone).toBe('+36301112233');
   });
 });
 

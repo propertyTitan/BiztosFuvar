@@ -62,4 +62,21 @@ function detectContactLeak(text) {
   return null;
 }
 
-module.exports = { detectContactLeak };
+/**
+ * Több szövegmezőt ellenőriz egyszerre; az ELSŐ szivárgás üzenetét adja
+ * vissza (vagy null-t, ha mind tiszta). A díj-megkerülés ellen a
+ * fizetés-ELŐTTI, a másik félhez eljutó szabad-szövegeknél használjuk
+ * (fuvar cím/leírás, ajánlat-üzenet, járat-leírás, foglalás-jegyzet,
+ * profil-mezők). A nem-string mezőket (undefined/null) átugorja.
+ * @param {Array<string|null|undefined>} texts
+ * @returns {string|null}
+ */
+function firstContactLeak(texts) {
+  for (const t of texts) {
+    const leak = detectContactLeak(t);
+    if (leak) return leak;
+  }
+  return null;
+}
+
+module.exports = { detectContactLeak, firstContactLeak };

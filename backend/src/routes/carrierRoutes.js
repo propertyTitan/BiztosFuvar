@@ -29,6 +29,7 @@ const {
   sendCancellationEmail,
   sendFeeConfirmationEmail,
 } = require('../services/email');
+const { firstContactLeak, detectContactLeak } = require('../utils/contactGuard');
 
 const router = express.Router();
 
@@ -47,10 +48,15 @@ function scrubBookingForUser(booking, user) {
   const isAdmin = user?.role === 'admin';
   if (isAdmin || isShipper) return booking;
   // Szállító (vagy bárki más, aki idáig eljut): kód + token nélkül. A címzett
-  // elérhetőségét a szállító látja (kézbesítéskor hívnia kell tudni), a
-  // fizetési Barion-mezők a feladó oldalán relevánsak.
+  // elérhetőségét (recipient_*) CSAK a feladó díjfizetése (paid_at) UTÁN
+  // látja — a kézbesítéskor akkor már hívnia kell tudni. Enélkül a díj
+  // megkerülhető: a feladó saját magát adja meg címzettként, és a szállító a
+  // foglalás megerősítésekor (fizetés előtt) kiolvassa a számát. (Ugyanaz a
+  // kapu, mint a fuvar-ág scrubJobForUser-ében.)
   const { delivery_code, tracking_token, ...rest } = booking;
-  return rest;
+  if (booking.paid_at) return rest;
+  const { recipient_name, recipient_phone, recipient_email, ...preFee } = rest;
+  return preFee;
 }
 router.param('id', uuidParam);
 
@@ -108,6 +114,11 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   if (titleClean.length < 3 || titleClean.length > 100) {
     return res.status(400).json({ error: 'Az útvonal neve 3–100 karakter legyen (nem állhat csak szóközből).' });
   }
+  // Kapcsolat-szivárgás védelem: a járat neve/leírása/jármű-leírása minden
+  // feladóhoz eljut a díjfizetés ELŐTT (járat-böngésző) — a díj megkerülése
+  // lenne itt telefonszámot/emailt megadni.
+  const routeLeak = firstContactLeak([titleClean, description, vehicle_description]);
+  if (routeLeak) return res.status(400).json({ error: routeLeak, code: 'CONTACT_LEAK' });
   // Indulás időpontja: érvényes dátum, és NEM a múltban (tesztelői észrevétel,
   // 2026-08-04). Múltbeli járatra foglalni sem lehetne, a listázás is kiszűrné
   // — a felvitelt ezért itt is elutasítjuk, ne csak a böngésző `min` attribútuma.
@@ -307,6 +318,11 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
     }
   }
 
+  // Kapcsolat-szivárgás védelem a szerkesztett szövegmezőkön (ugyanaz, mint a
+  // létrehozáskor — a járat a feladókhoz jut a díjfizetés előtt).
+  const routeEditLeak = firstContactLeak([title, description, vehicle_description]);
+  if (routeEditLeak) return res.status(400).json({ error: routeEditLeak, code: 'CONTACT_LEAK' });
+
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
@@ -410,6 +426,12 @@ router.post(
     if (!(L > 0 && W > 0 && H > 0 && kg > 0)) {
       return res.status(400).json({ error: 'A csomag méretei és súlya kötelezőek' });
     }
+
+    // Kapcsolat-szivárgás védelem: a foglalás jegyzete a szállítóhoz jut a
+    // megerősítéskor, a feladó díjfizetése ELŐTT (scrubBookingForUser) — a
+    // díj megkerülése lenne itt telefonszámot/emailt megadni.
+    const bookingLeak = detectContactLeak(notes);
+    if (bookingLeak) return res.status(400).json({ error: bookingLeak, code: 'CONTACT_LEAK' });
 
     // Csomag kategória besorolása
     const size = classifyPackage(L, W, H, kg);
@@ -1112,3 +1134,5 @@ router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (r
 });
 
 module.exports = router;
+// A díj-védelem tesztje unit-szinten ellenőrzi a recipient-kaput.
+module.exports.scrubBookingForUser = scrubBookingForUser;

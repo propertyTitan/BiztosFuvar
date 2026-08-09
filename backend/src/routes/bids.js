@@ -10,6 +10,7 @@ const { sendBidReceivedEmail, sendBidAcceptedEmail } = require('../services/emai
 const { convertEurToHuf, convertHufToEur, freezeExchangeRate } = require('../services/exchange');
 const { getJobParty } = require('../utils/jobAccess');
 const { calculateConnectionFee } = require('../services/connectionFee');
+const { detectContactLeak } = require('../utils/contactGuard');
 
 const router = express.Router();
 
@@ -134,6 +135,12 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
   if (!['pending', 'bidding'].includes(jobRows[0].status)) {
     return res.status(409).json({ error: 'A fuvarra már nem lehet ajánlatot tenni' });
   }
+
+  // Kapcsolat-szivárgás védelem: az ajánlat-üzenet a feladóhoz jut a
+  // díjfizetés ELŐTT (a bid-listán látja) — telefonszám/email itt a díj
+  // (a platform egyetlen bevétele) megkerülése lenne.
+  const bidLeak = detectContactLeak(message);
+  if (bidLeak) return res.status(400).json({ error: bidLeak, code: 'CONTACT_LEAK' });
 
   // Jogosítvány-követelmény megszűnt (2026-07-07): a személyi igazolvány +
   // a szállítói nyilatkozat (requireDriverKYC) elég; a can_bid/license-kapu kivéve.

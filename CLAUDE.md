@@ -185,6 +185,33 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Díj-védelem csomag — a több-ügynökös átvizsgálás #1 találata (2026-08-09,
+  user-kérés)** — a platform EGYETLEN bevételét (kapcsolatfelvételi díj) és
+  az adatintegritást védő 4 guard, mind kód-igazolt réssel: **(1)
+  kapcsolat-szivárgás szűrés MINDEN fizetés-előtti szabad-szövegen** — a
+  `detectContactLeak` eddig csak 2 csatornán futott (chat, Q&A), most a
+  `firstContactLeak` helperrel a beíró-pontokon: fuvar cím+leírás (jobs POST),
+  ajánlat-üzenet (bids), járat leírás+jármű-leírás (carrierRoutes POST+PATCH),
+  foglalás-jegyzet, profil bio+jármű+cégnév (auth PATCH /me + REGISZTRÁCIÓ is,
+  hogy a PATCH-kapu ne legyen megkerülhető). A telefon/rendszám legitim
+  mezők érintetlenek. **(2) A címzett-mezők (recipient_*) csak paid_at UTÁN a
+  szállítónak** — eddig a `carrier_id` az elfogadáskor beállt, a `paid_at`
+  viszont csak fizetéskor, így a kijelölt szállító a scrubJobForUser/
+  scrubBookingForUser carrier-ágán fizetés ELŐTT kiolvasta a recipient PII-t
+  → a feladó saját magát megadva címzettként a díj kikerülhető volt. Most
+  mindkét scrub kapuzza a recipient-et. **(3) Self-delete adatvesztés-guard**
+  — a `DELETE /auth/me` csak `jobs`-ot nézett ('accepted'/'in_progress'),
+  se foglalást, se disputed-et, se fizetettséget → egy user self-delete-tel
+  megsemmisíthette MÁS feladók fizetett foglalásait (CASCADE) és a vitás
+  ügylet 5 éves bizonyíték-zárolását. Új közös helper
+  `utils/activePaid.js:userHasBlockingDealings` (aktív+fizetett VAGY
+  disputed, job+booking, mindkét oldal), amit a self-delete ÉS az admin-
+  törlés is használ (a disputed-védelem így az adminra is kiterjedt).
+  **(4) Reopen-plafon** — a díjmentes újraválasztás korlátlanul ismételve
+  kontakt-aratás volt (1 díj → az összes ajánló telefonszáma); most 5
+  újranyitás a plafon (`REOPEN_LIMIT_REACHED`). +14 díj-védelem teszt + a
+  pii-szivargas teszt a helyes (kapuzott) viselkedésre frissítve.
+  Backend 492/492
 - **Ingyen skálázás-tuning: DB-pool 10→30 (2026-08-09, user-kérés)** — a
   k6 plafon-teszt kimutatta, hogy a DB-kötött végpontok fő szűk
   keresztmetszete a `pg.Pool` alapértelmezett 10-es `max`-ja volt. 30-ra

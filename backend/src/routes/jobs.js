@@ -17,6 +17,7 @@ const { findBackhaulCandidates } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const { useVoucherIfAvailable } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
+const { firstContactLeak } = require('../utils/contactGuard');
 
 const router = express.Router();
 
@@ -61,9 +62,15 @@ function scrubJobForUser(job, user) {
     delivery_code, sender_delivery_code, tracking_token, ...rest
   } = job;
   if (user?.sub === job.carrier_id) {
-    // Kijelölt szállító: kódok és token nélkül, de a címzett elérhetőségét
-    // látja (kézbesítéskor hívnia kell tudni)
-    return rest;
+    // Kijelölt szállító: kódok és token nélkül. A címzett elérhetőségét
+    // (recipient_*) CSAK a díj kifizetése (paid_at) UTÁN látja — a
+    // kézbesítéskor akkor már hívnia kell tudni. Enélkül a díj (a platform
+    // egyetlen bevétele) megkerülhető lenne: a feladó SAJÁT MAGÁT adja meg
+    // címzettként, elfogad egy ajánlatot (a carrier_id beáll, de paid_at
+    // még nincs), és a szállító kiolvassa a feladó számát a recipient-ből.
+    if (job.paid_at) return rest;
+    const { recipient_name, recipient_phone, recipient_email, ...carrierPreFee } = rest;
+    return carrierPreFee;
   }
   // Kívülálló (pl. licitálni készülő vagy vesztes szállító): címzett-PII,
   // Barion-adatok ÉS a fizetési státusz sem jár (BUG-038: a vesztes
@@ -155,6 +162,13 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
   if (titleClean.length < 3 || titleClean.length > 120) {
     return res.status(400).json({ error: 'A fuvar címe 3–120 karakter legyen (nem állhat csak szóközből).' });
   }
+
+  // Kapcsolat-szivárgás védelem: a cím és a leírás minden böngésző
+  // szállítóhoz eljut a díjfizetés ELŐTT (GET /jobs) — telefonszám/email
+  // itt a díj (a platform egyetlen bevétele) megkerülése lenne. A Gemini
+  // reviewJobDescription csak tájékoztató; ez a determinisztikus kapu.
+  const jobLeak = firstContactLeak([titleClean, description]);
+  if (jobLeak) return res.status(400).json({ error: jobLeak, code: 'CONTACT_LEAK' });
 
   // Szolgáltatási terület ellenőrzés: legalább az egyik pontnak (pickup vagy dropoff)
   // aktív zónában kell lennie. Így Budapest → vidék is működik.
@@ -1103,6 +1117,20 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
       error: j.status === 'in_progress'
         ? 'A fuvar már folyamatban van — probléma esetén nyiss vitás esetet.'
         : `Szállító-csere csak elfogadott fuvaron lehetséges (státusz: ${j.status}).`,
+    });
+  }
+
+  // Reopen-plafon (2026-08-09, csalás-átvizsgálás): a díjmentes újraválasztás
+  // korlátlanul ismételve KONTAKT-ARATÁSSÁ válna — egyetlen 500 Ft-os díjból
+  // (a paid_at a reopen során MEGMARAD) az összes ajánló telefonszáma
+  // begyűjthető: elfogad → kontakt felfedve → reopen → elfogad másikat → …
+  // 5 újranyitás bőven fedi a valós meghiúsulásokat; efölött ez visszaélés.
+  const REOPEN_LIMIT = 5;
+  if ((j.reopened_count || 0) >= REOPEN_LIMIT) {
+    return res.status(409).json({
+      error: 'Ezt a fuvart már túl sokszor újranyitottad. Ha nem találtál megfelelő '
+        + 'szállítót, adj fel új fuvart, vagy fordulj az ügyfélszolgálathoz.',
+      code: 'REOPEN_LIMIT_REACHED',
     });
   }
 
