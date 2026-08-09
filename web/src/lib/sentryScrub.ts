@@ -31,6 +31,22 @@ export function scrubUrlLike<T>(value: T): T {
   return out as unknown as T;
 }
 
+// A breadcrumb-adatok azon kulcsai, amelyekben URL vagy query string állhat.
+const URL_LIKE_KEY_RE = /(^|\.)(url|to|from|query|fragment|href|link)$/i;
+
+/**
+ * Breadcrumb-mező szűrése — szigorúbb, mint a saját kérésünké: a query
+ * stringet EGÉSZBEN eldobjuk, nem paraméterenként válogatunk.
+ */
+export function scrubBreadcrumbValue(value: string): string {
+  if (typeof value !== 'string' || !value) return value;
+  const out = value.replace(SENSITIVE_PATH_RE, `$1${REDACTED}`);
+  const q = out.indexOf('?');
+  if (q === 0) return REDACTED;
+  if (q > 0) return `${out.slice(0, q)}?${REDACTED}`;
+  return out;
+}
+
 /** Sentry beforeSend-kompatibilis esemény-szűrő (mutál + visszaad). */
 export function scrubSentryEvent<E extends Record<string, any>>(event: E): E {
   try {
@@ -47,12 +63,19 @@ export function scrubSentryEvent<E extends Record<string, any>>(event: E): E {
       req.query_string = scrubUrlLike(req.query_string);
       delete req.cookies;
     }
+    // Breadcrumb-ok: nem mezőnevet sorolunk fel (a backend-oldali szűrő ezen
+    // bukott el 2026-08-09-én — a `http.query` mezőt nem érte el), hanem
+    // MINDEN URL-jellegű kulcsot végigveszünk, és a query stringet EGÉSZBEN
+    // eldobjuk. A hibakereséshez a hívott végpont neve elég; a paraméterek
+    // (keresőszöveg, cím, token) nem tartoznak a Sentryre.
     if (Array.isArray(event?.breadcrumbs)) {
       for (const crumb of event.breadcrumbs) {
-        if (crumb?.data) {
-          crumb.data.url = scrubUrlLike(crumb.data.url);
-          if (typeof crumb.data.to === 'string') crumb.data.to = scrubUrlLike(crumb.data.to);
-          if (typeof crumb.data.from === 'string') crumb.data.from = scrubUrlLike(crumb.data.from);
+        if (crumb?.data && typeof crumb.data === 'object') {
+          for (const kulcs of Object.keys(crumb.data)) {
+            if (URL_LIKE_KEY_RE.test(kulcs) && typeof crumb.data[kulcs] === 'string') {
+              crumb.data[kulcs] = scrubBreadcrumbValue(crumb.data[kulcs]);
+            }
+          }
         }
       }
     }
