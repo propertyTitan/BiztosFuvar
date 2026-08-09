@@ -267,9 +267,58 @@ export default function AdatkezelesPage() {
         keresztül.
       </p>
 
+      {/* ── GDPR 14. cikk — a CÍMZETT nem felhasználó ──
+          A címzett adatait a feladó adja meg: ő maga soha nem lépett kapcsolatba
+          velünk, nem fogadott el semmit, és nincs fiókja. A 14. cikk szerint
+          neki külön tájékoztatás jár, méghozzá az adat megszerzésétől számított
+          ésszerű időn belül — a gyakorlatban az első üzenetünkkel. Ez a szakasz
+          az, amire a címzetti e-mail és a nyomon-követő oldal hivatkozik. */}
+      <h2 id="cimzett" style={{ marginTop: 32 }}>
+        7/A. Ha csomagot vársz (Címzett) — külön tájékoztatás
+      </h2>
+      <p>
+        Ha te <strong>nem regisztrált felhasználóként</strong> kaptál tőlünk SMS-t vagy
+        e-mailt egy érkező küldeményről, az alábbiak vonatkoznak rád. Neked nem kell
+        regisztrálnod, és nem kell semmit elfogadnod.
+      </p>
+      <ul>
+        <li>
+          <strong>Honnan vannak az adataid:</strong> a küldemény feladója adta meg őket a
+          fuvar feladásakor, hogy a kézbesítést egyeztetni tudjuk.
+        </li>
+        <li>
+          <strong>Milyen adatot kezelünk:</strong> neved, telefonszámod, e-mail-címed (ha a
+          feladó megadta), a szállítási cím, és a küldeményhez tartozó átvételi kód.
+        </li>
+        <li>
+          <strong>Miért:</strong> a fuvar teljesítéséhez fűződő jogos érdek (GDPR 6. cikk
+          (1) f) — enélkül a szállító nem tudna időben egyeztetni veled az átadásról.
+        </li>
+        <li>
+          <strong>Meddig:</strong> a fuvar lezárását követően az adataid a fuvar-adatokkal
+          együtt törlődnek. Marketing célra soha nem használjuk, és hírlevelet nem küldünk.
+        </li>
+        <li>
+          <strong>Kinek adjuk át:</strong> a küldeményt szállító személynek (a neved és a
+          telefonszámod, hogy fel tudjon hívni), valamint az SMS- és e-mail-küldő
+          szolgáltatónknak (lásd 4. pont).
+        </li>
+        <li>
+          <strong>Milyen jogaid vannak:</strong> ugyanazok, mint a felhasználóinknak
+          (8. pont) — hozzáférés, helyesbítés, törlés, tiltakozás. Mivel nincs fiókod, a
+          beazonosításhoz elég annak a küldeménynek az azonosítója vagy a követő-linked.
+        </li>
+      </ul>
+      <p>
+        <strong>Ha nem te vagy a címzett, vagy nem szeretnéd, hogy kezeljük az adataidat:</strong>{' '}
+        írj az <strong>info@gofuvar.hu</strong> címre, és töröljük őket. Ilyenkor a feladót
+        értesítjük, hogy a küldemény kézbesítését más módon kell egyeztetnie.
+      </p>
+
       <h2 style={{ marginTop: 32 }}>8. Az Érintettek Jogai és Eljárási Rend</h2>
       <p>
-        A GDPR 13—22. cikkei alapján a Felhasználót megilletik a következő jogok:
+        A GDPR 13—22. cikkei alapján a Felhasználót megilletik a következő jogok
+        (a Címzettre vonatkozó eltéréseket lásd a 7/A. pontban):
       </p>
       <ul>
         <li><strong>Hozzáférési jog:</strong> kérheti a róla tárolt adatok másolatát</li>
@@ -284,6 +333,8 @@ export default function AdatkezelesPage() {
         <strong>8.1. Hogyan kell egy kérést benyújtani:</strong> e-mail az{' '}
         <strong>info@gofuvar.hu</strong> címre, vagy postai levél a Szolgáltató székhelyére. A
         kérelemben tüntesd fel a regisztrációhoz használt e-mail címedet a beazonosítás érdekében.
+        Ha nincs fiókod (pl. csomagot vársz címzettként), a küldemény azonosítója vagy a
+        neked küldött követő-link is elegendő.
       </p>
       <p>
         <strong>8.2. Válaszadási határidő:</strong> az Adatkezelő minden megalapozott kérelmet

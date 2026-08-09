@@ -96,6 +96,13 @@ const NOTIFICATION_RETENTION_MONTHS = 6;
 // adatkezelési tájékoztató ígér („File-hozzáférési audit log: 1 évig”).
 const ADMIN_ACCESS_LOG_RETENTION_YEARS = 1;
 
+// A LEZÁRT FUVAR/FOGLALÁS személyes adatai ennyi idő után anonimizálódnak.
+// 3 év = az általános polgári jogi elévülés (Ptk. 6:22. §): eddig kell tudni
+// bizonyítani, ki mit vállalt. Utána a személyes adat már nem indokolt.
+// Zárolt (vitás vagy admin-holdos) ügyletnél 5 év — ugyanaz a `photo_retention_hold`
+// flag védi, mint a fotókat és a chatet: egységes bizonyíték-megőrzés.
+const JOB_PII_RETENTION_YEARS = 3;
+
 /**
  * Lejárt chat-üzenetek törlése: lezárt ügylet üzenetei 6 hónap után,
  * zárolt (vitás/admin-holdos) ügyletéi 5 év után.
@@ -266,6 +273,95 @@ async function purgeOldAdminAccessLog() {
   }
 }
 
+/**
+ * A lezárt fuvarok és foglalások SZEMÉLYES ADATAINAK anonimizálása.
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit, 2. kör): a `jobs` és a `route_bookings`
+ * táblának SEMMILYEN megőrzési ideje nem volt. A köré épült adatokat
+ * gépiesen töröltük (fotó 30 nap, chat 6 hónap, GPS 7 nap), de maga a
+ * fuvar-sor — benne a PONTOS felvételi és lerakodási címmel, a
+ * koordinátákkal, a címzett teljes elérhetőségével és a csomag deklarált
+ * értékével — ÖRÖKRE megmaradt. A tájékoztató hét adattípusra ad megőrzési
+ * időt; erre nem adott (GDPR 5. cikk (1) e).
+ *
+ * TÖRLÉS HELYETT ANONIMIZÁLÁS: a fuvar TÉNYE üzletileg kell (statisztika,
+ * értékelés-előzmény, elszámolás), a személyes adat viszont nem. Ezért a
+ * sor megmarad, de a PII-mezők ürülnek, a cím pedig településre rövidül.
+ * Ez egyben a „nem lehet visszaállítani" garanciát is adja — szemben egy
+ * soft-delete flaggel.
+ *
+ * @returns {Promise<number>} az anonimizált sorok száma
+ */
+async function anonymizeOldJobs() {
+  let db_count = 0;
+  try {
+    // A címből csak a település marad (az első vessző előtti rész), a
+    // koordináta ~1 km-re kerekítve — ugyanaz a felbontás, amit a kívülálló
+    // scrub ad az elkelt fuvarokra.
+    const { rowCount: jobs } = await db.query(
+      `UPDATE jobs
+          SET recipient_name  = NULL,
+              recipient_phone = NULL,
+              recipient_email = NULL,
+              delivery_code   = NULL,
+              sender_delivery_code = NULL,
+              tracking_token  = NULL,
+              pickup_address  = split_part(pickup_address, ',', 1),
+              dropoff_address = split_part(dropoff_address, ',', 1),
+              pickup_lat  = ROUND(pickup_lat::numeric, 2),
+              pickup_lng  = ROUND(pickup_lng::numeric, 2),
+              dropoff_lat = ROUND(dropoff_lat::numeric, 2),
+              dropoff_lng = ROUND(dropoff_lng::numeric, 2),
+              description = NULL,
+              cancel_reason = NULL,
+              anonymized_at = NOW()
+        WHERE anonymized_at IS NULL
+          AND status = ANY($1)
+          AND (
+            (photo_retention_hold = FALSE AND updated_at < NOW() - ($2 || ' years')::interval)
+            OR
+            (photo_retention_hold = TRUE  AND updated_at < NOW() - ($3 || ' years')::interval)
+          )`,
+      [JOB_TERMINAL, JOB_PII_RETENTION_YEARS, HOLD_RETENTION_YEARS],
+    );
+
+    const { rowCount: bookings } = await db.query(
+      `UPDATE route_bookings
+          SET recipient_name  = NULL,
+              recipient_phone = NULL,
+              recipient_email = NULL,
+              delivery_code   = NULL,
+              tracking_token  = NULL,
+              pickup_address  = split_part(pickup_address, ',', 1),
+              dropoff_address = split_part(dropoff_address, ',', 1),
+              pickup_lat  = ROUND(pickup_lat::numeric, 2),
+              pickup_lng  = ROUND(pickup_lng::numeric, 2),
+              dropoff_lat = ROUND(dropoff_lat::numeric, 2),
+              dropoff_lng = ROUND(dropoff_lng::numeric, 2),
+              notes = NULL,
+              anonymized_at = NOW()
+        WHERE anonymized_at IS NULL
+          AND status::text = ANY($1)
+          AND (
+            (photo_retention_hold = FALSE
+              AND COALESCE(delivered_at, created_at) < NOW() - ($2 || ' years')::interval)
+            OR
+            (photo_retention_hold = TRUE
+              AND COALESCE(delivered_at, created_at) < NOW() - ($3 || ' years')::interval)
+          )`,
+      [BOOKING_TERMINAL, JOB_PII_RETENTION_YEARS, HOLD_RETENTION_YEARS],
+    );
+
+    db_count = (jobs || 0) + (bookings || 0);
+    if (db_count > 0) {
+      console.log(`[retention] ${db_count} lezárt fuvar/foglalás személyes adata anonimizálva (>${JOB_PII_RETENTION_YEARS} év, zároltak: ${HOLD_RETENTION_YEARS} év)`);
+    }
+  } catch (err) {
+    console.error('[retention] fuvar-anonimizálás hiba:', err.message);
+  }
+  return db_count;
+}
+
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
   await purgeOldDeliveryPhotos();
@@ -275,12 +371,14 @@ async function runDailyRetention() {
   await purgeOldNotifications();
   await purgeOldAdminMessages();
   await purgeOldAdminAccessLog();
+  await anonymizeOldJobs();
 }
 
 module.exports = {
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
   purgeStaleLastKnownLocation, purgeOldNotifications,
-  purgeOldAdminMessages, purgeOldAdminAccessLog, runDailyRetention,
+  purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs, runDailyRetention,
+  JOB_PII_RETENTION_YEARS,
   ADMIN_ACCESS_LOG_RETENTION_YEARS,
   NOTIFICATION_RETENTION_MONTHS,
   DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS, CHAT_RETENTION_MONTHS, GPS_RETENTION_DAYS,
