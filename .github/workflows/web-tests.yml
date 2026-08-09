@@ -9,17 +9,13 @@ on:
   # commit pusholásával lehetett újrafuttatni a CI-t.
   workflow_dispatch:
   pull_request:
-    paths:
-      - 'web/**'
-      - '.github/workflows/web-tests.yml'
   push:
     branches: [main]
-    paths:
-      - 'web/**'
-      - '.github/workflows/web-tests.yml'
 
 jobs:
   test:
+    name: Web tesztek
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     defaults:
       run:
