@@ -26,28 +26,40 @@ router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
   // szövegét „🚨 A partnered segítséget kér!" címmel (in-app + push), és
   // minden admin egy hamis riasztást. Percenként 30 ilyen fért bele: a valódi
   // vészjelzések elvesztek volna a zajban.
+  let fizetett = false;
   if (job_id) {
     const { rows: j } = await db.query(
-      'SELECT 1 FROM jobs WHERE id = $1 AND (shipper_id = $2 OR carrier_id = $2)',
+      'SELECT paid_at FROM jobs WHERE id = $1 AND (shipper_id = $2 OR carrier_id = $2)',
       [job_id, req.user.sub],
     );
     if (!j.length) return res.status(403).json({ error: 'Nincs jogosultságod ehhez a fuvarhoz.' });
+    fizetett = !!j[0].paid_at;
   }
   if (booking_id) {
     const { rows: b } = await db.query(
-      `SELECT 1 FROM route_bookings rb
+      `SELECT rb.paid_at FROM route_bookings rb
          JOIN carrier_routes r ON r.id = rb.route_id
         WHERE rb.id = $1 AND (rb.shipper_id = $2 OR r.carrier_id = $2)`,
       [booking_id, req.user.sub],
     );
     if (!b.length) return res.status(403).json({ error: 'Nincs jogosultságod ehhez a foglaláshoz.' });
+    fizetett = !!b[0].paid_at;
   }
 
   // ── (2) KAPCSOLAT-SZIVÁRGÁS: az SOS-üzenet a MÁSIK FÉLHEZ jut el, és eddig
   // kimaradt a szűrésből (a 10 szűrt csatorna közül ez a 11.). Fizetés előtt
   // egy „Hívj: 06 30…" szövegű ál-vészjelzéssel a díj megkerülhető volt.
-  const leak = detectContactLeak(message);
-  if (leak) return res.status(400).json({ error: leak, code: 'CONTACT_LEAK' });
+  //
+  // ⚠️ CSAK FIZETÉS ELŐTT szűrünk (a chat mintája, messages.js). Az első
+  // verzió feltétel nélkül szűrt — vagyis egy MÁR KIFIZETETT fuvarnál a
+  // „elakadtam, hívj a 06…-on" vészjelzést 400-zal elutasította, és mivel a
+  // szűrés az INSERT előtt fut, a vészjelzés NYOMTALANUL elveszett. Egy
+  // vészhelyzeti funkciónál ez a lehető legrosszabb hibamód; a telefonszám
+  // ekkor már amúgy is jogosan ismert mindkét fél előtt.
+  if (!fizetett) {
+    const leak = detectContactLeak(message);
+    if (leak) return res.status(400).json({ error: leak, code: 'CONTACT_LEAK' });
+  }
 
   const { rows } = await db.query(
     `INSERT INTO sos_events (user_id, job_id, booking_id, lat, lng, message)
@@ -65,10 +77,12 @@ router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
   const sos = rows[0];
 
   // Admin értesítés
+  let adminIds = [];
   try {
     const { rows: admins } = await db.query(
       `SELECT id FROM users WHERE role = 'admin' LIMIT 10`,
     );
+    adminIds = admins.map((a) => a.id);
     const { rows: userInfo } = await db.query(
       `SELECT full_name, phone FROM users WHERE id = $1`,
       [req.user.sub],
@@ -123,9 +137,13 @@ router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
     }
   }
 
-  // Hitelesített feed (2026-08-09): egy vészjelzés ténye + a jelző user
-  // azonosítója nem való be nem jelentkezett vendég-sockethez.
-  realtime.emitToFeed('sos:new', {
+  // ⚠️ CSAK AZ ADMINOKNAK (2026-08-09, audit 2. kör). Az `emitGlobal` →
+  // `emitToFeed` váltás kizárta a vendégeket, de a `feed` szoba MINDEN
+  // bejelentkezett felhasználót jelent — vagyis idegen szállítók élőben
+  // látták, KI nyomott vészjelzést és melyik fuvaron (a user_id-ből a
+  // publikus profil megadja a nevet). A web egyébként sem hallgatja ezt az
+  // eseményt: tiszta szivárgás volt, haszon nélkül.
+  for (const adminId of adminIds) realtime.emitToUser(adminId, 'sos:new', {
     sos_id: sos.id,
     user_id: req.user.sub,
     job_id: job_id || null,

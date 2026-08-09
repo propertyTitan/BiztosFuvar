@@ -21,7 +21,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 
 const { app, uniqueEmail } = require('./helpers');
-const { detectContactLeak, MAX_SCAN_LENGTH } = require('../src/utils/contactGuard');
+const { detectContactLeak, MAX_INPUT_LENGTH } = require('../src/utils/contactGuard');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 
 beforeEach(() => { __resetRateLimitsForTests(); });
@@ -52,13 +52,44 @@ describe('Kapcsolat-szűrő: ReDoS-ellenállás', () => {
     expect(nagy).toBeLessThan(Math.max(kicsi * 5 + 50, 500));
   });
 
-  it('a szűrő csak az első MAX_SCAN_LENGTH karaktert vizsgálja', () => {
-    expect(MAX_SCAN_LENGTH).toBeLessThanOrEqual(5000);
-    const rejtett = `${'x'.repeat(MAX_SCAN_LENGTH + 100)}teszt@pelda.hu`;
-    // Tudatos kompromisszum: a plafonon TÚLI tartalmat nem nézzük — cserébe a
-    // szűrő nem használható fegyverként a szerver ellen. A hívók (requireText)
-    // amúgy is jóval rövidebb szövegeket engednek.
-    expect(detectContactLeak(rejtett)).toBeNull();
+  // ⚠️ EZ A TESZT KORÁBBAN A HIBÁT KODIFIKÁLTA (2026-08-09, ugyanaznap javítva).
+  // Azt írta elő, hogy a szűrő csak az első 2000 karaktert nézze — az a
+  // „védelem" viszont MAGÁT A SZŰRŐT kerülte meg: 2000 karakter töltelék után
+  // bármilyen telefonszám átment, vagyis egyetlen fuvar-leírással ki lehetett
+  // kerülni a platform egyetlen bevételét védő kaput. A szűrő mostantól a
+  // TELJES szöveget vizsgálja (a futásidő lineáris), a plafon pedig HIBÁT ad,
+  // nem csendes vágást.
+  it('a töltelék NEM rejti el a telefonszámot (a vágás nem kerülhető meg)', () => {
+    expect(
+      detectContactLeak(`${'A'.repeat(2100)} Hívj: +36 30 123 4567`),
+      'MEGKERÜLÉS: töltelék után átment a telefonszám!',
+    ).toBeTruthy();
+    expect(detectContactLeak(`${'A'.repeat(9000)} irj: teszt@pelda.hu`)).toBeTruthy();
+    expect(detectContactLeak(`${'A'.repeat(49000)} 06301234567`)).toBeTruthy();
+  });
+
+  it('a végső hossz-plafon fölött HIBÁT ad, nem „tisztát"', () => {
+    const tulHosszu = 'A'.repeat(MAX_INPUT_LENGTH + 10);
+    expect(detectContactLeak(tulHosszu)).toMatch(/hosszú/i);
+  });
+
+  it('a homoglif- és szeparátor-trükkök sem viszik át (mérve)', () => {
+    for (const t of ['O6 3O 123 45 67', '3O1234567', '06|30|123|4567', '06*30*123*4567']) {
+      expect(detectContactLeak(t), `ÁTMENT: ${t}`).toBeTruthy();
+    }
+  });
+
+  it('…de a legitim magyar szöveget nem blokkolja (hamis riasztás ellen)', () => {
+    for (const t of [
+      'Budapest, Váci út 1., 30 kg, 200x40x30 cm',
+      'Bosszúsan sok bútor, kanapé és polcok',
+      '2 db@1.500 Ft',
+      'doboz@3.2kg',
+      'Iskolai bútorok, 5 asztal 10 szék',
+      'IKEA Billy polcok, 12 db',
+    ]) {
+      expect(detectContactLeak(t), `HIBÁS BLOKK: ${t}`).toBeNull();
+    }
   });
 
   it('a felismerés VÁLTOZATLANUL működik a valós eseteken', () => {
