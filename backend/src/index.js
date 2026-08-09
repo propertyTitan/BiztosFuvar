@@ -256,26 +256,19 @@ process.on('uncaughtException', (err) => {
       return;
     }
     if (paymentProvider.isUnsafeStub()) {
-      // HARD-FAIL (2026-08-09, audit 3. kör). Korábban ez csak egy log-sor
-      // volt — egy elfelejtett env-változó tehát némán elindította az éles
-      // szervert nulla-díjas, kézi-nyugtázásra nyitott állapotban. Inkább ne
-      // induljon el: a leállt deploy 2 perc alatt észrevehető, a némán ingyen
-      // működő platform hetekig nem.
-      console.error(
-        `[FIZETÉS] ⛔ LEÁLLÁS: éles (production) futás, de a(z) "${providerName}" `
+      // BIZTONSÁGOS MÓD (2026-08-09, audit 3. kör). A szerver ELINDUL — a
+      // launch előtt a „prod + stub" a normál üzem (a platform még nem szed
+      // díjat), és egy boot-leállás itt csak annyit ért el, hogy az éles API
+      // újraindítási ciklusba került (502). Amit védeni kell, azt a futásidejű
+      // guard védi: kézi fizetés-nyugtázás ZÁRVA, a PSP-callback 503.
+      // A hiányzó kulcs nem tud némán elveszni: hangos log + Sentry.
+      const uzenet = `[FIZETÉS] ⚠️ BIZTONSÁGOS MÓD: éles (production) futás, de a(z) "${providerName}" `
         + 'provider STUB módban van (nincs beállítva a szolgáltató kulcsa). '
-        + 'Így a kapcsolatfelvételi díj NEM szedődne be, és a kézi fizetés-nyugtázás nyitva lenne. '
-        + 'Tedd be a provider kulcsait (pl. CIB_API_KEY / CIB_MERCHANT_ID / CIB_BASE_URL). '
-        + 'Ha ez SZÁNDÉKOS (fizetés nélküli demó/staging), állítsd be: ALLOW_STUB_PAYMENTS=true',
-      );
-      // Csak a valódi szerverindítást állítjuk le; teszt/import közben (ahol
-      // az app-ot csak require-öljük) a hangos log elég.
-      if (require.main === module) process.exit(1);
-    } else if (process.env.NODE_ENV === 'production' && paymentProvider.isStub()) {
-      console.error(
-        `[FIZETÉS] ⚠️ ALLOW_STUB_PAYMENTS=true mellett éles futás STUB providerrel ("${providerName}") — `
-        + 'a díj NEM szedődik be. Ez csak demó/staging példányon lehet szándékos.',
-      );
+        + 'A kapcsolatfelvételi díj NEM szedhető be — a kézi fizetés-nyugtázás és a '
+        + 'PSP-callback ezért ZÁRVA marad (fizetés nélkül senki nem juthat kontakthoz). '
+        + 'Élesítéshez: CIB_API_KEY / CIB_MERCHANT_ID / CIB_BASE_URL.';
+      console.error(uzenet);
+      if (Sentry) Sentry.captureMessage(uzenet, 'warning');
     } else {
       console.log(`[FIZETÉS] provider: ${providerName}${paymentProvider.isStub() ? ' (stub/teszt mód)' : ' (éles)'}`);
     }

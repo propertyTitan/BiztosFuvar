@@ -188,14 +188,23 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - **A 2. audit-kör MARADÉK-listája LEDOLGOZVA — 9 tétel (2026-08-09,
   user-kérés: „folytassuk a hibák kijavításával")** — a keresztvalidált
   maradék mind javítva, +41 teszt (backend **556/556**). Tételesen:
-  **(1) STUB-FIZETÉS ÉLESBEN = LEÁLLÁS** — eddig csak boot-figyelmeztetés
-  volt: egy elfelejtett CIB-kulcs némán elindította volna az éles szervert
-  nulla-díjas módban, ahol a `/confirm-payment` NYITVA van (bárki fizetés
-  nélkül fizetettnek jelölheti a saját fuvarát) és a webhook a nyers
-  body-nak hisz. Most: `paymentProvider.isUnsafeStub()` + boot hard-fail
-  (`process.exit(1)`) + a kézi nyugtázás `manualConfirmAllowed()`-en (mindkét
-  ág: fuvar ÉS foglalás) + a callback 503. Vész-kapcsoló: `ALLOW_STUB_PAYMENTS=true`
-  (demó/staging). **(2) PRIVÁT KYC-FÁJL a webgyökérben** — az express.static
+  **(1) STUB-FIZETÉS ÉLESBEN = BIZTONSÁGOS MÓD** — eddig csak boot-
+  figyelmeztetés volt: egy elfelejtett CIB-kulcs némán elindította volna az
+  éles szervert nulla-díjas módban, ahol a `/confirm-payment` NYITVA van
+  (bárki fizetés nélkül fizetettnek jelölheti a saját fuvarát) és a webhook a
+  nyers body-nak hisz. Most `paymentProvider.isUnsafeStub()` esetén a kézi
+  nyugtázás (`manualConfirmAllowed()`, mindkét ág: fuvar ÉS foglalás) és a
+  PSP-callback (503) ZÁRVA, a boot pedig hangosan figyelmeztet + Sentry.
+  ⚠️ **ÉLES TANULSÁG (ugyanaznap): a hard-fail (`process.exit`) NEM jó** —
+  kipróbálva: a Railway-en `NODE_ENV=production`, a CIB-kulcs pedig a
+  launchig NINCS, így a boot-exit újraindítási ciklusba tette az éles
+  backendet, az API ~10 percig 502-t adott (a `railway variables --set
+  ALLOW_STUB_PAYMENTS=true` állította helyre, majd a hotfix vette ki a
+  kapcsolót). A launch előtt a „prod + stub" a NORMÁL üzem, nem hiba —
+  ezért a védelem futásidejű, és SZÁNDÉKOSAN nincs env-kapcsoló a
+  feloldására (az elfelejtve maradna bekapcsolva pont a launchkor).
+  ⚠️ USER-TEENDŐ: a Railway env-ből az `ALLOW_STUB_PAYMENTS` törölhető —
+  a kód már nem olvassa. **(2) PRIVÁT KYC-FÁJL a webgyökérben** — az express.static
   a `uploads/private`-ot is kiszolgálta, ÉS az R2-hiba csendben diskre esett:
   élesben egy R2-kiesés a SZEMÉLYI IGAZOLVÁNY fotóját a publikus fájl-útra
   tehette. Most: a `/uploads/private` mindig 404, élesben nincs csendes
