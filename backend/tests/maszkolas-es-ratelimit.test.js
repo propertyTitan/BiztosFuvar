@@ -108,6 +108,9 @@ describe('rateLimit: a korlát pontosan ott van, ahol mondjuk', () => {
     let statusz = 200;
     let test = null;
     const req = {
+      // Az Express a `trust proxy` alapján ITT adja a megbízható kliens-IP-t;
+      // a limiter ezt olvassa (nem a nyers fejlécet — az hamisítható).
+      ip,
       headers: { 'x-forwarded-for': ip },
       socket: { remoteAddress: ip },
       user: userId ? { sub: userId } : undefined,
@@ -175,6 +178,7 @@ describe('rateLimit: kit korlátozunk — IP-t, usert vagy mindkettőt', () => {
 
   function futtat(limiter, ip, userId) {
     const req = {
+      ip,
       headers: { 'x-forwarded-for': ip },
       socket: { remoteAddress: ip },
       user: userId ? { sub: userId } : undefined,
@@ -212,13 +216,42 @@ describe('rateLimit: kit korlátozunk — IP-t, usert vagy mindkettőt', () => {
     expect(futtat(limiter, '1.1.1.1', 'user-B')).toBe(true);
   });
 
-  it('a proxy-fejléc ELSŐ IP-jét használjuk (a lánc többi tagja hamisítható)', () => {
+  // ⚠️ 2026-08-09 (audit): ez a teszt KORÁBBAN a HIBÁS viselkedést őrizte —
+  // azt írta elő, hogy a proxy-fejléc ELSŐ elemét használjuk kulcsként. Az
+  // viszont pont az, amit a KLIENS ír: kérésenként más értéket küldve a limit
+  // teljesen megkerülhető volt (mérve: 25 kérésből 0 db 429). A kulcsot
+  // mostantól az Express `req.ip`-je adja, amit a `trust proxy` beállítás
+  // alapján a MEGBÍZHATÓ hopból számol.
+  it('a kulcsot a megbízható kliens-IP adja, nem a nyers proxy-fejléc', () => {
     const limiter = createRateLimit({ windowMs: 60_000, max: 1, keyBy: 'ip', name: 'proxy' });
-    expect(futtat(limiter, '5.5.5.5, 10.0.0.1, 10.0.0.2')).toBe(true);
-    // Ugyanaz a valódi kliens, más proxy-lánccal → UGYANAZ a vödör
+    // Ugyanaz a valódi kliens (req.ip), akármit is írt a fejlécbe:
+    expect(futtat(limiter, '5.5.5.5')).toBe(true);
     expect(
-      futtat(limiter, '5.5.5.5, 172.16.0.9'),
-      'a lánc megváltoztatásával megkerülhető volt a korlát',
+      futtat(limiter, '5.5.5.5'),
+      'ugyanaz a kliens másodszor is átment',
+    ).toBe(false);
+    // Másik valódi kliens: külön vödör (különben egy proxy mögötti userek
+    // kizárnák egymást)
+    expect(futtat(limiter, '6.6.6.6')).toBe(true);
+  });
+
+  it('a nyers x-forwarded-for fejléc ÖNMAGÁBAN nem befolyásolja a kulcsot', () => {
+    const limiter = createRateLimit({ windowMs: 60_000, max: 1, keyBy: 'ip', name: 'xffk' });
+    const hamisitott = (ip, xff) => {
+      const req = {
+        ip,
+        headers: { 'x-forwarded-for': xff },
+        socket: { remoteAddress: ip },
+      };
+      let tovabb = false;
+      limiter(req, { setHeader() {}, status() { return this; }, json() { return this; } },
+        () => { tovabb = true; });
+      return tovabb;
+    };
+    expect(hamisitott('7.7.7.7', '1.1.1.1')).toBe(true);
+    expect(
+      hamisitott('7.7.7.7', '2.2.2.2'),
+      'A LIMIT MEGKERÜLHETŐ: a fejléc cseréje új vödröt nyitott ugyanannak a kliensnek!',
     ).toBe(false);
   });
 
