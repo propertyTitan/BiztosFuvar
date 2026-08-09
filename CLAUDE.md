@@ -185,6 +185,64 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **ADATVÉDELMI KÖR 3 — SÉMA-ALAPÚ audit (2026-08-09, PR #139-141)** — a user
+  jogos kifogása után („mennyire jó az adatvédelmünk, aztán minden új teszt
+  10/6-ot hoz valami kritikus hibával") a 3. kör NEM a kódot járta végig,
+  hanem az ADATOT: tábláról táblára, oszloponként. Ezért találta meg azt,
+  amit két kód-alapú kör nem. **Pontszám: 7,5/10** (előtte 7,0 és 6,5).
+  ⚠️ **A módszertani tanulság a fontosabb: két kód-alapú kör után is maradt
+  négy határidő nélkül őrzött adattípus — mert a kódot olvasva az látszik,
+  ami MEG VAN írva, nem az, ami HIÁNYZIK. A sémát olvasva fordítva.**
+  Tételesen: **(1) HIRDETÉSI FOTÓ** — a purge csak a pickup/dropoff képekre
+  futott, a `listing` viszont a FELADÓ lakásában készül, a PUBLIKUS bucketbe
+  megy, egyéves cache-sel, és a kívülállók is látják → ez volt a rendszer
+  leghosszabb ideig tartó, legszélesebb körű expozíciója (`PHOTO_KINDS` most
+  mind az 5 típus). **(2) ADMIN-TÖRLÉS R2-ÁRVÁK** — a fiók-törlésnél reggel
+  lezárt hibaosztály három végpontja kimaradt (`collectEntityFileKeys`).
+  **(3) `payment_events.summary`** a feladó TELJES NEVÉT tárolta szövegben,
+  míg az azonosító-oszlopok törléskor nullázódnak → most az id. **(4)
+  `deleted_accounts`** sózatlan, visszafejthető e-mail-lenyomatot őrzött
+  ÖRÖKRE — épp attól, aki a törlési jogát gyakorolta —, és SEMMI nem olvasta
+  (HMAC + 5 év; a 061-es migráció a prodon a 8 meglévő lenyomatot törölte,
+  a törlés ténye maradt). **(5) ÖT LEFEDETLEN TÁBLA** (PR #140, 062-es
+  migráció): a 060-as kör a fuvar SORÁT anonimizálja, de a fuvar KÖRÉ épült
+  szabad szöveg másik táblában él — `bids.message` + `job_questions` (mit
+  szállítunk, hogyan közelíthető meg a lakás, ki lesz otthon) most a fuvar
+  anonimizálásakor ürül; `carrier_routes` 3 év (sablon kivéve — a waypoints
+  sok soron át MOZGÁSPROFIL); `disputes` a LEZÁRÁS után 5 év (visszás volt:
+  a vita MIATT zároltunk 5 évre fotót/chatet, magára a vitára semmi nem
+  vonatkozott); `invoices` 8 év (Számv. tv. 169. § — itt a hosszú megőrzés
+  KÖTELEZETTSÉG, nem mulasztás, de utána elévül). **(6) ANONIMIZÁLÁS-
+  HIÁNYOK** (PR #141): a `title` (szintén user-írta szabad szöveg), az
+  `ai_description_notes` (a leírásból SZÁRMAZIK → ugyanazt a PII-t őrizte,
+  amit töröltünk), a `source_image_url` (a megmaradó shipper_id-vel: ki mit
+  vásárolt) és a lakás-adatok (emelet/lift). **(7) ADMIN-NAPLÓ**: csak az
+  EGY user részletnézete volt naplózva, miközben a `GET /admin/users` egy
+  kéréssel 200 ember elérhetőségét adja, a `GET /admin/jobs` pedig `j.*`-gal
+  a címzett adatait + átvételi kódot → a NAGYOBB hozzáférés hagyta a
+  KEVESEBB nyomot. **(8) ÁTLÁTHATÓSÁG**: a fiókhasználati mérés (belépések
+  száma, aktív idő — az admin-panel meg is jeleníti) hiányzott a
+  tájékoztatóból (GDPR 13.). Backend **650/650**, +18 teszt, mind igazoltan
+  piros a javítás nélkül (szándékos regressziókkal visszamérve).
+  ⚠️ **SAJÁT HIBÁK, tanulságnak**: (a) a 061-es migrációnál TIPPELTEM a sémát
+  (`created_at` helyett `deleted_at`, a hash-oszlop NOT NULL volt) — pont az
+  a hiba, ami ellen a kör szól; azóta minden mezőt lekérdezek ELŐTTE; (b) egy
+  SQL-kommentbe **backticket** írtam egy JS template literal belsejében → a
+  teljes backend nem indult volna (a suite fogta meg); (c) a `git add -A`
+  bevette a `.claude/worktrees/`-t — most gitignore-olt.
+  ⚠️ **MEGLÉVŐ TESZT MEGINT A HIBÁT KODIFIKÁLTA**: a foto-retencio azt írta
+  elő, hogy a purge NE érintse a `listing` fotót. Ez a MÁSODIK ilyen ma (az
+  első a rate-limit XFF volt) — a minta: „így működik" alapon rögzítünk
+  viselkedést, ahelyett hogy „így KELL működnie" alapon tennénk.
+  ⚠️ **MARADÉK a 9/10-hez**: (i) a **KYC-lenyomat 5 éves megőrzése** —
+  USER-DÖNTÉST igényel: vagy megépítjük a tényleges összevetést egy új
+  regisztrációval (csalásvédelem), vagy kivesszük az állítást a
+  dokumentumokból; (ii) **halott PII-séma törlése** (6 oszlop +
+  `kyc_documents.doc_number`/`full_name_on_doc` + 4 nem hívott függvény) —
+  destruktív, önálló, óvatos PR; (iii) **nyitott fuvar cím-pontossága**
+  (termékdöntés: a böngésző szállító mennyit lásson fizetés előtt);
+  (iv) a szöveg/jogi kör (ÁSZF + tájékoztató Barion→CIB, adatfeldolgozói
+  lista, DSA report/block) — a user ezt KÜLÖN körre halasztotta
 - **A 2. audit-kör MARADÉK-listája LEDOLGOZVA — 9 tétel (2026-08-09,
   user-kérés: „folytassuk a hibák kijavításával")** — a keresztvalidált
   maradék mind javítva, +41 teszt (backend **556/556**). Tételesen:
