@@ -15,6 +15,8 @@ const {
   sendEmailVerificationEmail,
   sendPasswordResetEmail,
 } = require('../services/email');
+const { firstContactLeak } = require('../utils/contactGuard');
+const { userHasBlockingDealings } = require('../utils/activePaid');
 
 // ---------- Helper a verifikációs / reset tokenekhez ----------
 // Egyszer használatos, kriptografikailag random token. A nyers token
@@ -157,6 +159,13 @@ router.post('/register', registerRateLimit, async (req, res) => {
   if (cleanedPlate === null) {
     return res.status(400).json({ error: 'Érvénytelen rendszám — 2–12 karakter, betű/szám/kötőjel.' });
   }
+
+  // Kapcsolat-szivárgás védelem már a regisztrációnál: a cégnév és a
+  // jármű-leírás a profilba kerül, amit a másik fél a díjfizetés előtt lát
+  // (ajánlat-kártya, publikus profil) — enélkül a PATCH /me-kapu megkerülhető
+  // lenne azzal, hogy a kontaktot rögtön a regisztrációkor írja be.
+  const regLeak = firstContactLeak([company_name, vehicle_type]);
+  if (regLeak) return res.status(400).json({ error: regLeak, code: 'CONTACT_LEAK' });
 
   const accountType = rawAccountType === 'company' ? 'company' : 'individual';
   if (accountType === 'company') {
@@ -468,6 +477,12 @@ router.patch('/me', authRequired, async (req, res) => {
   if (req.body.bio !== undefined && typeof req.body.bio === 'string' && req.body.bio.length > 1000) {
     return res.status(400).json({ error: 'A bemutatkozás legfeljebb 1000 karakter lehet.' });
   }
+  // Kapcsolat-szivárgás védelem: a bio / jármű-leírás / cégnév megjelenik az
+  // ajánlat-kártyán és a publikus profilon — a másik fél a díjfizetés ELŐTT
+  // látja, tehát a díj megkerülésének csatornája lenne telefonszámot/emailt
+  // beleírni. (A phone/vehicle_plate legitim mezők, azokat nem szűrjük.)
+  const profileLeak = firstContactLeak([req.body.bio, req.body.vehicle_type, req.body.company_name]);
+  if (profileLeak) return res.status(400).json({ error: profileLeak, code: 'CONTACT_LEAK' });
   const updates = [];
   const values = [];
   let idx = 1;
@@ -967,14 +982,17 @@ router.post('/push-token', authRequired, async (req, res) => {
 router.delete('/me', authRequired, async (req, res) => {
   const userId = req.user.sub;
 
-  // Ellenőrzés: van-e aktív fuvar (in_progress)
-  const { rows: active } = await db.query(
-    `SELECT id FROM jobs WHERE (shipper_id = $1 OR carrier_id = $1) AND status IN ('accepted', 'in_progress')`,
-    [userId],
-  );
-  if (active.length > 0) {
+  // Adatvesztés-védelem (2026-08-09): a self-delete kaszkádol (users →
+  // carrier_routes → route_bookings), így MÁS feladók kifizetett foglalásait
+  // is elvinné, és a vitás ügyletek 5 éves bizonyíték-zárolását kiürítené.
+  // Ugyanaz a guard, mint az admin-törlésnél (a korábbi verzió csak a saját
+  // 'accepted'/'in_progress' fuvarokat nézte — se foglalást, se disputed-et,
+  // se a fizetettséget). Előbb le kell zárni az ügyletet.
+  if (await userHasBlockingDealings(userId)) {
     return res.status(409).json({
-      error: 'Nem törölheted a fiókodat amíg aktív fuvarod van. Zárd le vagy mondd le a fuvarjaidat.',
+      error: 'Nem törölheted a fiókodat, amíg folyamatban lévő, kifizetett vagy vitatott '
+        + 'ügyleted van. Előbb zárd le (kézbesítés / lemondás / vita), utána törölhető.',
+      code: 'USER_HAS_ACTIVE_PAID',
     });
   }
 
