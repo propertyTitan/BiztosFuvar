@@ -1162,9 +1162,17 @@ router.delete('/me', authRequired, async (req, res) => {
     });
   }
 
-  // Email hash mentése az audit logba (nem az email maga — GDPR)
+  // Email-lenyomat az audit-naplóba (nem maga az e-mail — GDPR).
+  // ⚠️ HMAC, nem sima SHA-256 (2026-08-09, adatvédelmi audit 3. kör): az
+  // e-mail-címek tere felsorolható, ezért egy sózatlan hash egy jelöltlistával
+  // visszafejthető — vagyis pszeudonimizált, nem anonim adat. A szerver-oldali
+  // titokkal képzett lenyomat egy DB-szivárgásból önmagában nem fordítható
+  // vissza. A sor 5 év után a napi retenciós körben törlődik.
   const { rows: user } = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
-  const emailHash = crypto.createHash('sha256').update(user[0]?.email || '').digest('hex');
+  const emailHash = crypto
+    .createHmac('sha256', process.env.JWT_SECRET || 'dev-secret')
+    .update(user[0]?.email || '')
+    .digest('hex');
 
   // A törlendő fájlok kulcsai — MÉG a DB-sorok megléte mellett gyűjtjük ki.
   const fileKeys = await collectUserFileKeys(userId);
@@ -1179,8 +1187,8 @@ router.delete('/me', authRequired, async (req, res) => {
   try {
     await client.query('BEGIN');
     await client.query(
-      `INSERT INTO deleted_accounts (original_user_id, email_hash, reason)
-       VALUES ($1, $2, $3)`,
+      `INSERT INTO deleted_accounts (original_user_id, email_hash, reason, hash_algo)
+       VALUES ($1, $2, $3, 'hmac-sha256')`,
       [userId, emailHash, 'Felhasználó saját kérésére'],
     );
     // CASCADE törli: jobs, bids, photos, reviews, notifications, kyc_documents, stb.

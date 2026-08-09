@@ -27,6 +27,17 @@ const HOLD_RETENTION_YEARS = 5;
 const ADMIN_DM_RETENTION_YEARS = 3;
 
 // Terminális státuszok — csak lezárt ügylet fotóját törölhetjük
+// ⚠️ MINDEN fotótípus (2026-08-09, adatvédelmi audit 3. kör). A purge korábban
+// CSAK a 'pickup' és 'dropoff' képekre futott — a hirdetéshez feltöltött
+// ('listing') fotó tehát ÖRÖKRE megmaradt, ráadásul a PUBLIKUS bucketben,
+// egyéves immutable cache-sel. Ezt a FELADÓ tölti fel a saját lakásában
+// (bútor, doboz, a szoba belseje), és a kívülállók is látják — vagyis a
+// leghosszabb ideig tartó, legszélesebb körű expozíció volt a rendszerben,
+// miközben a tájékoztató 30 napot ígért a fuvar-fotókra.
+// A 'damage'/'document' ugyanígy: vitás ügyletnél a photo_retention_hold
+// úgyis 5 évig megvédi őket.
+const PHOTO_KINDS = ['listing', 'pickup', 'dropoff', 'damage', 'document'];
+
 const JOB_TERMINAL = ['delivered', 'completed', 'cancelled'];
 const BOOKING_TERMINAL = ['delivered', 'rejected', 'cancelled'];
 
@@ -42,7 +53,7 @@ async function purgeOldDeliveryPhotos() {
       `SELECT p.id, p.url
          FROM photos p
          JOIN jobs j ON j.id = p.job_id
-        WHERE p.kind IN ('pickup', 'dropoff')
+        WHERE p.kind = ANY($4)
           AND (
             (j.photo_retention_hold = FALSE
               AND j.status = ANY($1)
@@ -51,7 +62,7 @@ async function purgeOldDeliveryPhotos() {
             (j.photo_retention_hold = TRUE
               AND j.updated_at < NOW() - ($3 || ' years')::interval)
           )`,
-      [JOB_TERMINAL, DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS],
+      [JOB_TERMINAL, DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS, PHOTO_KINDS],
     );
 
     // --- Foglalás-fotók (route_bookings; nincs updated_at → delivered_at
@@ -60,7 +71,7 @@ async function purgeOldDeliveryPhotos() {
       `SELECT p.id, p.url
          FROM photos p
          JOIN route_bookings b ON b.id = p.booking_id
-        WHERE p.kind IN ('pickup', 'dropoff')
+        WHERE p.kind = ANY($4)
           AND (
             (b.photo_retention_hold = FALSE
               AND b.status::text = ANY($1)
@@ -69,7 +80,7 @@ async function purgeOldDeliveryPhotos() {
             (b.photo_retention_hold = TRUE
               AND COALESCE(b.delivered_at, b.created_at) < NOW() - ($3 || ' years')::interval)
           )`,
-      [BOOKING_TERMINAL, DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS],
+      [BOOKING_TERMINAL, DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS, PHOTO_KINDS],
     );
 
     for (const p of [...jobPhotos, ...bookingPhotos]) {
@@ -110,6 +121,10 @@ const JOB_PII_RETENTION_YEARS = 3;
 //    igényérvényesítés, baleset utáni bizonyítás), de már hely nélkül.
 const SOS_LOCATION_RETENTION_DAYS = 7;
 const SOS_EVENT_RETENTION_YEARS = 1;
+
+// A törölt fiókok audit-nyoma. 5 év = a polgári jogi igényérvényesítés
+// felső határa; utána a törlés ténye sem indokolt.
+const DELETED_ACCOUNT_RETENTION_YEARS = 5;
 
 /**
  * Lejárt chat-üzenetek törlése: lezárt ügylet üzenetei 6 hónap után,
@@ -426,6 +441,31 @@ async function purgeEmergencyLocations() {
   return erintett;
 }
 
+/**
+ * A törölt fiókok audit-nyomának elévülése.
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit 3. kör): a `deleted_accounts` táblára
+ * SEMMILYEN retenció nem vonatkozott, és a teljes kódbázisban egyetlen
+ * hivatkozás volt rá — maga az INSERT. Vagyis épp attól őriztünk határidő
+ * nélkül visszaazonosítható lenyomatot, aki a törlési jogát gyakorolta.
+ * @returns {Promise<number>}
+ */
+async function purgeOldDeletedAccounts() {
+  try {
+    const { rowCount } = await db.query(
+      `DELETE FROM deleted_accounts WHERE deleted_at < NOW() - ($1 || ' years')::interval`,
+      [DELETED_ACCOUNT_RETENTION_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} törölt-fiók audit-nyom elévült (>${DELETED_ACCOUNT_RETENTION_YEARS} év)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] törölt-fiók purge hiba:', err.message);
+    return 0;
+  }
+}
+
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
   await purgeOldDeliveryPhotos();
@@ -437,13 +477,15 @@ async function runDailyRetention() {
   await purgeOldAdminAccessLog();
   await anonymizeOldJobs();
   await purgeEmergencyLocations();
+  await purgeOldDeletedAccounts();
 }
 
 module.exports = {
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
   purgeStaleLastKnownLocation, purgeOldNotifications,
   purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs,
-  purgeEmergencyLocations, runDailyRetention,
+  purgeEmergencyLocations, purgeOldDeletedAccounts, runDailyRetention,
+  DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS,
   SOS_LOCATION_RETENTION_DAYS, SOS_EVENT_RETENTION_YEARS,
   JOB_PII_RETENTION_YEARS,
   ADMIN_ACCESS_LOG_RETENTION_YEARS,

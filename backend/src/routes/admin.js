@@ -10,7 +10,9 @@ const db = require('../db');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { userHasBlockingDealings } = require('../utils/activePaid');
-const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
+const {
+  purgeUserFiles, collectUserFileKeys, collectEntityFileKeys, purgeFileKeys,
+} = require('../utils/userFiles');
 const { logAdminAccess } = require('../utils/adminAudit');
 const { authRequired, requireRole } = require('../middleware/auth');
 
@@ -262,8 +264,11 @@ router.delete('/admin/jobs/:id', ...adminOnly, async (req, res) => {
   if (await jobIsActivePaid(req.params.id)) {
     return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
   }
+  // A tárolt fájlok kulcsai a DB-CASCADE ELŐTT (különben örök árvák lesznek).
+  const fajlKulcsok = await collectEntityFileKeys('job', req.params.id);
   const del = await db.query('DELETE FROM jobs WHERE id = $1 RETURNING id', [req.params.id]);
   if (del.rowCount === 0) return res.status(404).json({ error: 'Fuvar nem található' });
+  await purgeFileKeys(fajlKulcsok);
   res.json({ ok: true });
 });
 
@@ -351,8 +356,12 @@ router.delete('/admin/routes/:id', ...adminOnly, async (req, res) => {
   if (await routeHasActivePaidBooking(req.params.id)) {
     return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
   }
+  // A járat törlése a foglalásain át kaszkádol a fotókra — a kulcsokat előbb
+  // gyűjtjük ki, a tárolóból törlés a sikeres DB-törlés után.
+  const fajlKulcsok = await collectEntityFileKeys('route', req.params.id);
   const del = await db.query('DELETE FROM carrier_routes WHERE id = $1 RETURNING id', [req.params.id]);
   if (del.rowCount === 0) return res.status(404).json({ error: 'Járat nem található' });
+  await purgeFileKeys(fajlKulcsok);
   res.json({ ok: true });
 });
 
@@ -377,8 +386,10 @@ router.delete('/admin/bookings/:id', ...adminOnly, async (req, res) => {
   if (await bookingIsActivePaid(req.params.id)) {
     return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
   }
+  const fajlKulcsok = await collectEntityFileKeys('booking', req.params.id);
   const del = await db.query('DELETE FROM route_bookings WHERE id = $1 RETURNING id', [req.params.id]);
   if (del.rowCount === 0) return res.status(404).json({ error: 'Foglalás nem található' });
+  await purgeFileKeys(fajlKulcsok);
   res.json({ ok: true });
 });
 

@@ -2,7 +2,8 @@
 //   - lezárt fuvar pickup/dropoff fotója 30 nap után törlődik
 //   - vitás/zárolt fuvar fotója MARAD (5 évig; 5 év után az is törlődik)
 //   - friss lezárás (<30 nap) fotója marad
-//   - 'listing' fotót a purge nem érint
+//   - a 'listing' (hirdetési) fotó is elévül a lezárás után — 2026-08-09
+//     óta; a FUTÓ hirdetés fotóját viszont nem bántja
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createRequire } from 'module';
 
@@ -75,11 +76,29 @@ describe('Fuvar-fotó retenció (30 nap / zárolva 5 év)', () => {
     expect(await photoExists(pAncient)).toBe(false);
   });
 
-  it("a 'listing' fotót a purge nem érinti (csak pickup/dropoff)", async () => {
+  // ⚠️ EZ A TESZT KORÁBBAN A HIBÁT KODIFIKÁLTA (2026-08-09, séma-alapú audit).
+  // Azt írta elő, hogy a purge NE érintse a 'listing' fotót — csakhogy ezt a
+  // képet a FELADÓ tölti fel a saját lakásában (bútor, doboz, a szoba
+  // belseje), a PUBLIKUS bucketbe, egyéves immutable cache-sel, és a
+  // kívülállók is látják. Vagyis ez volt a rendszer leghosszabb ideig tartó,
+  // legszélesebb körű expozíciója — miközben a tájékoztató 30 napot ígért a
+  // fuvar-fotókra. A hirdetési fotó a fuvar LEZÁRÁSA után már semmit nem
+  // szolgál, tehát ugyanaz a szabály vonatkozik rá, mint a többire.
+  it("a LEZÁRT fuvar 'listing' fotója is elévül", async () => {
     const jobId = await insertJob({ shipperId: shipper.id, carrierId: carrier.id, status: 'completed', ageDays: 60 });
     const p = await insertPhoto(jobId, 'listing', shipper.id);
     await purgeOldDeliveryPhotos();
-    expect(await photoExists(p)).toBe(true);
+    expect(
+      await photoExists(p),
+      'a hirdetési fotó (a feladó lakásáról) örökre a publikus tárolóban maradt',
+    ).toBe(false);
+  });
+
+  it("a FUTÓ fuvar 'listing' fotóját nem bántja (a hirdetés még él)", async () => {
+    const jobId = await insertJob({ shipperId: shipper.id, carrierId: carrier.id, status: 'bidding', ageDays: 60 });
+    const p = await insertPhoto(jobId, 'listing', shipper.id);
+    await purgeOldDeliveryPhotos();
+    expect(await photoExists(p), 'egy FUTÓ hirdetés fotóját törölte').toBe(true);
   });
 
   it('a vita-nyitás automatikusan zárol (photo_retention_hold=TRUE)', async () => {
