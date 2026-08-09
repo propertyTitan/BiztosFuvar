@@ -18,15 +18,21 @@ const db = require('../db');
 const storage = require('../services/storage');
 
 /**
+ * A userhez tartozó összes tárolt fájl kulcsa/URL-je.
+ *
+ * ⚠️ Ezt a DB-törlés ELŐTT kell meghívni (utána a sorok már nincsenek meg),
+ * a tényleges törlést viszont a sikeres DB-törlés UTÁN végezzük (lásd
+ * `purgeUserFiles`) — a fájl-törlés visszafordíthatatlan, ezért nem futhat
+ * egy olyan tranzakció előtt, ami még elhasalhat.
+ *
  * @param {string} userId
- * @returns {Promise<number>} a törölt fájlok száma
+ * @returns {Promise<string[]>}
  */
-async function purgeUserFiles(userId) {
-  let deleted = 0;
+async function collectUserFileKeys(userId) {
   try {
-    // Minden fájl-URL, ami a userhez tartozik (a deleteFile kezeli a
-    // `private:<kulcs>` és a publikus URL-t is). A KYC-fotó státusztól
-    // függetlenül megy (pending is), a fiók-törléskor minden törlendő.
+    // A KYC-fotó státusztól függetlenül megy (pending is), fiók-törléskor
+    // minden törlendő. A `deleteFile` kezeli a `private:<kulcs>` és a
+    // publikus URL alakot is.
     const { rows } = await db.query(
       `SELECT file_url AS u FROM kyc_documents WHERE user_id = $1 AND file_url IS NOT NULL
        UNION ALL
@@ -35,8 +41,28 @@ async function purgeUserFiles(userId) {
        SELECT url FROM photos WHERE uploader_id = $1 AND url IS NOT NULL`,
       [userId],
     );
-    for (const r of rows) {
-      if (await storage.deleteFile(r.u)) deleted += 1;
+    return rows.map((r) => r.u).filter(Boolean);
+  } catch (err) {
+    console.error('[user-files] kulcs-gyűjtés hiba:', err.message);
+    return [];
+  }
+}
+
+/**
+ * A megadott (vagy a userhez tartozó) fájlok törlése a tárolóból.
+ * Sose dob — a hívó tranzakcióját nem akaszthatja meg.
+ *
+ * @param {string} userId
+ * @param {{keys?: string[]}} [opts] — előre kigyűjtött kulcsok (a DB-törlés
+ *        után ez az egyetlen forrás; enélkül a függvény maga kérdezi le)
+ * @returns {Promise<number>} a törölt fájlok száma
+ */
+async function purgeUserFiles(userId, opts = {}) {
+  let deleted = 0;
+  try {
+    const keys = Array.isArray(opts.keys) ? opts.keys : await collectUserFileKeys(userId);
+    for (const key of keys) {
+      if (await storage.deleteFile(key)) deleted += 1;
     }
     if (deleted > 0) {
       console.log(`[user-files] ${deleted} tárolt fájl törölve a fiók-törléskor (user ${userId})`);
@@ -47,4 +73,4 @@ async function purgeUserFiles(userId) {
   return deleted;
 }
 
-module.exports = { purgeUserFiles };
+module.exports = { purgeUserFiles, collectUserFileKeys };

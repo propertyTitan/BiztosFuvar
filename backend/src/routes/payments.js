@@ -97,9 +97,19 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
   }
 
   const d = entity.data;
+  // ⚠️ A DÍJ, nem a fuvardíj (2026-08-09, audit — KRITIKUS javítás).
+  // A foglalási ág korábban a `route_bookings.price_huf`-ot vette, ami a
+  // KÉSZPÉNZES FUVARDÍJ (pl. 12.000 Ft), nem a kapcsolatfelvételi díj
+  // (500/1.000 Ft). Következmény minden éles járat-foglalásnál: a bank az
+  // 500 Ft-ot terhelte, a Számlázz.hu viszont 12.000 Ft-ról állított volna ki
+  // ADÓÜGYI SZÁMLÁT (NAV-adatszolgáltatással), a 45/2014. 18. § szerinti
+  // visszaigazoló e-mail hamis összeget írt volna, és a bevételi napló is
+  // torzult volna. A helyes oszlop (`connection_fee_huf`) létezik és a
+  // foglalás megerősítésekor ki is töltődik (carrierRoutes.js).
+  // A fuvar-ágon az `escrow_transactions.amount_huf` MÁR a díj — az jó volt.
   const totalAmount = entity.type === 'job'
     ? (d.amount_huf || d.accepted_price_huf || 0)
-    : (d.price_huf || 0);
+    : (d.connection_fee_huf || 0);
   const currency = d.currency || d.job_currency || 'HUF';
   const title = d.title || d.route_title || '?';
 

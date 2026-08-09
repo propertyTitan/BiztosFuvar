@@ -44,11 +44,17 @@ function createRateLimit({
   name = 'rl',
 }) {
   return function rateLimitMiddleware(req, res, next) {
-    // Kulcs összeállítása
-    const ip =
-      req.headers['x-forwarded-for']?.toString().split(',')[0].trim() ||
-      req.socket?.remoteAddress ||
-      'unknown';
+    // Kulcs összeállítása.
+    // ⚠️ 2026-08-09 (audit): korábban a NYERS `X-Forwarded-For` fejléc ELSŐ
+    // eleméből képeztük a kulcsot. Azt a fejlécet viszont a KLIENS írja —
+    // kérésenként más értéket küldve a limit teljesen megkerülhető volt
+    // (MÉRVE: fix fejléccel 25 kérésből 15 db 429, kérésenként változtatva
+    // NULLA). Ezzel egyszerre nyílt ki a jelszó-brute-force, a tömeges
+    // fiókgyártás és a globális 300/perc plafon.
+    // A helyes forrás a `req.ip`: az Express az `app.set('trust proxy', 1)`
+    // (index.js) alapján a MEGBÍZHATÓ proxy-hopot választja ki, a hamisított
+    // bal oldali elemeket eldobva.
+    const ip = req.ip || req.socket?.remoteAddress || 'unknown';
     const userId = req.user?.sub || 'anon';
     let key;
     if (keyBy === 'user') key = `${name}:user:${userId}`;

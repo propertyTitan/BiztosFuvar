@@ -17,7 +17,7 @@ const {
 } = require('../services/email');
 const { firstContactLeak } = require('../utils/contactGuard');
 const { userHasBlockingDealings } = require('../utils/activePaid');
-const { purgeUserFiles } = require('../utils/userFiles');
+const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
 
 // ---------- Helper a verifikációs / reset tokenekhez ----------
 // Egyszer használatos, kriptografikailag random token. A nyers token
@@ -1050,22 +1050,49 @@ router.delete('/me', authRequired, async (req, res) => {
   const { rows: user } = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
   const emailHash = crypto.createHash('sha256').update(user[0]?.email || '').digest('hex');
 
-  await db.query(
-    `INSERT INTO deleted_accounts (original_user_id, email_hash, reason)
-     VALUES ($1, $2, $3)`,
-    [userId, emailHash, 'Felhasználó saját kérésére'],
-  );
+  // A törlendő fájlok kulcsai — MÉG a DB-sorok megléte mellett gyűjtjük ki.
+  const fileKeys = await collectUserFileKeys(userId);
 
-  // A tárolt fájlok (KYC-okmány, avatar, fuvar-fotók) törlése a DB-CASCADE
-  // ELŐTT — különben a sorok eltűnnek, és az R2-objektumokat (köztük a
-  // személyi igazolvány fotóját) SOHA nem érnénk el (GDPR 17. cikk).
-  await purgeUserFiles(userId);
+  // ⚠️ SORREND (2026-08-09, audit): ELŐBB a DB-törlés (tranzakcióban), és CSAK
+  // a sikeres commit UTÁN a tárolóból törlés. A korábbi sorrend fordított volt:
+  // a fájlokat (köztük a személyi igazolvány fotóját) VÉGLEGESEN törölte, majd
+  // a `DELETE FROM users` egy séma-hibán elhasalt (23502) — a felhasználó
+  // „Szerverhibát" kapott, a fiókja megmaradt, az okmánya viszont nem.
+  // A fájl-törlés nem visszafordítható, ezért az mindig az utolsó lépés.
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO deleted_accounts (original_user_id, email_hash, reason)
+       VALUES ($1, $2, $3)`,
+      [userId, emailHash, 'Felhasználó saját kérésére'],
+    );
+    // CASCADE törli: jobs, bids, photos, reviews, notifications, kyc_documents, stb.
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('[account-delete] a törlés meghiúsult, a fájlok érintetlenek:', err.message);
+    throw err;
+  } finally {
+    client.release();
+  }
 
-  // CASCADE törli: jobs, bids, photos, reviews, notifications, kyc_documents, stb.
-  await db.query('DELETE FROM users WHERE id = $1', [userId]);
+  // A tárolóban maradt objektumok (KYC-okmány, avatar, fuvar-fotók) törlése —
+  // a DB-sorok már nincsenek meg, ezért a listát a purge a törlés ELŐTT
+  // gyűjtötte ki (lásd utils/userFiles.js). GDPR 17. cikk: e nélkül az
+  // R2-objektumok örökre árván maradnának.
+  await purgeUserFiles(userId, { keys: fileKeys });
 
   console.log(`[account-delete] user ${userId} törölve (email hash: ${emailHash.slice(0, 12)}...)`);
-  res.json({ ok: true, message: 'A fiókod és minden adatod törölve lett.' });
+  res.json({
+    ok: true,
+    // Pontosítás: a számviteli bizonylatok (számlák) törvényi megőrzés alá
+    // esnek, azokat nem töröljük a fiókkal együtt.
+    message: 'A fiókod és a hozzá tartozó adatok törölve lettek. '
+      + 'A jogszabály által kötelezően megőrzendő számlázási adatok (számlák) a törvényi '
+      + 'megőrzési idő végéig megmaradnak.',
+  });
 });
 
 module.exports = router;

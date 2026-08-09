@@ -26,13 +26,32 @@ const PHONE_PATTERNS = [
   // Stripp utáni hosszú számjegy-sorozat (06301234567 stb.)
 ];
 
-const EMAIL_PATTERN = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
+// ⚠️ ReDoS-BIZTOS MINTA (2026-08-09, audit): a korábbi
+//   /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/
+// domain-része TARTALMAZTA a pontot, amit utána egy `\.` követett — átfedő
+// kvantorok, klasszikus négyzetes visszalépés. Nem illeszkedő bemeneten
+// (pl. „aaa…aaa@aaa…aaa", pont nélkül) a motor minden kezdőpozícióból
+// végigrágta a maradékot: MÉRVE 100 KB → 16,5 MÁSODPERC, ami alatt a Node
+// egyszálú event-loopja teljesen áll — vagyis a backend egyetlen kérést sem
+// szolgál ki. A `POST /auth/register` hitelesítés nélkül hívható, tehát ez
+// egy kéréses, bejelentkezés nélküli teljes leállás volt.
+// A domain-rész most pont NÉLKÜLI szegmensekből épül, a pontot a csoport
+// ismétlése adja — így nincs átfedés, a futásidő lineáris.
+const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)+/;
+
+// Második védvonal: a vizsgált szöveg hossz-plafonja. Egy kapcsolat-szivárgás
+// az első pár ezer karakterben látszik; ennél hosszabb bemenetnél a
+// szűrő-futás költsége a támadó eszközévé válik. A hívók többsége amúgy is
+// `requireText`-tel korlátoz, de a szűrő SAJÁT MAGA is véd (nem bízunk abban,
+// hogy minden jövőbeli hívó odafigyel).
+const MAX_SCAN_LENGTH = 2000;
 
 /**
  * @returns {string|null} null = OK, string = blokkolás-ok
  */
-function detectContactLeak(text) {
-  if (!text || typeof text !== 'string') return null;
+function detectContactLeak(rawText) {
+  if (!rawText || typeof rawText !== 'string') return null;
+  const text = rawText.length > MAX_SCAN_LENGTH ? rawText.slice(0, MAX_SCAN_LENGTH) : rawText;
 
   // Stripp whitespace + szeparátorok, így a 06 30 123 4567 = 06301234567
   const stripped = text.replace(/[\s\-./()_]/g, '');
@@ -79,4 +98,4 @@ function firstContactLeak(texts) {
   return null;
 }
 
-module.exports = { detectContactLeak, firstContactLeak };
+module.exports = { detectContactLeak, firstContactLeak, MAX_SCAN_LENGTH };

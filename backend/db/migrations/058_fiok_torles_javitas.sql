@@ -1,0 +1,21 @@
+-- 058 — A fiók-törlés (GDPR 17. cikk) megjavítása.
+--
+-- HIBA: a 035_job_questions.sql így hozta létre az oszlopot:
+--     asker_id UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL
+-- Ez önellentmondás: a user törlésekor a Postgres NULL-t próbál írni egy
+-- NOT NULL oszlopba → 23502, és a `DELETE FROM users` ABORTÁL.
+--
+-- Következmény (a 2026-08-09-i audit igazolta a prod sémán is): aki valaha
+-- kérdést tett fel MÁS fuvarára, annak a fiók-törlése „Szerverhibával"
+-- elszáll — miközben a törlési folyamat addigra MÁR letörölte a tárolóból a
+-- személyi igazolvány fotóját, az avatart és a fuvar-fotókat. Vagyis a
+-- törlési jog nem teljesül, ÉS közben adat vész el.
+--
+-- A kérdés maga a fuvarhoz tartozik (a `job_id` CASCADE viszi, ha a fuvar
+-- megszűnik); a kérdező személye viszont anonimizálható — a megjelenítés
+-- (GET /jobs/:jobId/questions) LEFT JOIN-nal olvassa, tehát NULL askert is
+-- elbír.
+ALTER TABLE job_questions ALTER COLUMN asker_id DROP NOT NULL;
+
+-- Ugyanez a minta ellenőrizve a többi ON DELETE SET NULL hivatkozáson:
+-- a job_questions.answered_by már eleve NULL-olható.

@@ -10,7 +10,7 @@ const db = require('../db');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { userHasBlockingDealings } = require('../utils/activePaid');
-const { purgeUserFiles } = require('../utils/userFiles');
+const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -173,12 +173,17 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
     });
   }
 
-  // A tárolt fájlok (KYC-okmány, avatar, fotók) törlése a DB-CASCADE ELŐTT
-  // (GDPR 17. cikk — különben az R2-objektumok örökre árván maradnának).
-  await purgeUserFiles(targetId);
+  // ⚠️ SORREND (2026-08-09, audit): a fájl-kulcsokat a DB-sorok megléte
+  // mellett gyűjtjük ki, a tényleges (visszafordíthatatlan) tárolóból-törlés
+  // viszont csak a SIKERES DB-törlés után fut. Fordítva egy elhasalt DELETE
+  // úgy hagyná ott a fiókot, hogy közben az okmányfotója már megsemmisült.
+  const fileKeys = await collectUserFileKeys(targetId);
 
   const del = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [targetId]);
   if (del.rowCount === 0) return res.status(404).json({ error: 'Felhasználó nem található' });
+
+  // GDPR 17. cikk — az R2-objektumok különben örökre árván maradnának.
+  await purgeUserFiles(targetId, { keys: fileKeys });
   res.json({ ok: true });
 });
 
