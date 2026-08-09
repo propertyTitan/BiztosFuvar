@@ -165,7 +165,12 @@ router.post('/register', registerRateLimit, async (req, res) => {
   // jármű-leírás a profilba kerül, amit a másik fél a díjfizetés előtt lát
   // (ajánlat-kártya, publikus profil) — enélkül a PATCH /me-kapu megkerülhető
   // lenne azzal, hogy a kontaktot rögtön a regisztrációkor írja be.
-  const regLeak = firstContactLeak([company_name, vehicle_type]);
+  // ⚠️ A full_name IS szűrendő (2026-08-09, 2. audit-kör F1): a NÉV a
+  // legláthatóbb mező — ott van minden ajánlaton, kérdésen, értékelésen és a
+  // publikus profilon, MÁR a díjfizetés előtt. Egy „Hívj 0630 123 456" nevű
+  // szállító minden feladónak kiadja a számát → a díj (a platform egyetlen
+  // bevétele) egyetlen profil-beállítással, örökre megkerülhető lenne.
+  const regLeak = firstContactLeak([cleanName, company_name, vehicle_type]);
   if (regLeak) return res.status(400).json({ error: regLeak, code: 'CONTACT_LEAK' });
 
   const accountType = rawAccountType === 'company' ? 'company' : 'individual';
@@ -482,7 +487,11 @@ router.patch('/me', authRequired, async (req, res) => {
   // ajánlat-kártyán és a publikus profilon — a másik fél a díjfizetés ELŐTT
   // látja, tehát a díj megkerülésének csatornája lenne telefonszámot/emailt
   // beleírni. (A phone/vehicle_plate legitim mezők, azokat nem szűrjük.)
-  const profileLeak = firstContactLeak([req.body.bio, req.body.vehicle_type, req.body.company_name]);
+  // A full_name IS szűrendő — lásd a regisztrációnál (2. audit-kör F1):
+  // a név a legláthatóbb, fizetés előtt is megjelenő mező.
+  const profileLeak = firstContactLeak([
+    req.body.full_name, req.body.bio, req.body.vehicle_type, req.body.company_name,
+  ]);
   if (profileLeak) return res.status(400).json({ error: profileLeak, code: 'CONTACT_LEAK' });
   const updates = [];
   const values = [];

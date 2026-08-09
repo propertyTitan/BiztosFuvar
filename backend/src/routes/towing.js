@@ -32,8 +32,18 @@ const router = express.Router();
 // (~1 km-re kerekítve, hogy lássa, merre van) + a probléma-típus + a
 // távolság. (2026-08-09 audit: sérülékeny helyzetben lévők — egyedül,
 // éjszaka, elakadva — adatvédelme; a fő platform díj-kapujának megfelelője.)
+// ⚠️ 2026-08-09 (2. audit-kör): az első verzió a `...rest`-tel BENNHAGYTA a
+// pontos `address`-t (ami a ~1 km-es geo-kerekítést teljesen kiütötte), a
+// `vehicle_plate`-et, a szabad-szöveges `issue_description`-t és a
+// `requester_id`-t (amivel a teljes név lekérhető a publikus profilról).
+// Ezek MIND elvállalás után valók — a listában a döntéshez elég a közelítő
+// hely, a távolság, a probléma- és jármű-típus.
 function scrubTowRequestForList(r) {
-  const { requester_phone, lat, lng, requester_name, ...rest } = r;
+  const {
+    requester_phone, lat, lng, requester_name,
+    address, vehicle_plate, issue_description, requester_id,
+    ...rest
+  } = r;
   return {
     ...rest,
     approx_lat: lat != null ? Math.round(Number(lat) * 100) / 100 : null,

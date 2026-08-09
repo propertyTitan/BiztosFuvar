@@ -9,6 +9,7 @@ const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { requireText } = require('../utils/text');
+const { detectContactLeak } = require('../utils/contactGuard');
 const { createNotification } = require('../services/notifications');
 const realtime = require('../realtime');
 const { writeRateLimit } = require('../middleware/rateLimit');
@@ -31,9 +32,10 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
 
   // Jogosultság: a vitát csak az érintett felek nyithatják
   let againstUser = null;
+  let entityPaidAt = null;
   if (job_id) {
     const { rows } = await db.query(
-      'SELECT shipper_id, carrier_id FROM jobs WHERE id = $1',
+      'SELECT shipper_id, carrier_id, paid_at FROM jobs WHERE id = $1',
       [job_id],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
@@ -42,10 +44,11 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
       return res.status(403).json({ error: 'Nincs jogosultságod vitát nyitni ezen a fuvaron.' });
     }
     againstUser = j.shipper_id === req.user.sub ? j.carrier_id : j.shipper_id;
+    entityPaidAt = j.paid_at;
   }
   if (booking_id) {
     const { rows } = await db.query(
-      `SELECT b.shipper_id, r.carrier_id
+      `SELECT b.shipper_id, b.paid_at, r.carrier_id
          FROM route_bookings b
          JOIN carrier_routes r ON r.id = b.route_id
         WHERE b.id = $1`,
@@ -57,6 +60,18 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
       return res.status(403).json({ error: 'Nincs jogosultságod vitát nyitni ezen a foglaláson.' });
     }
     againstUser = b.shipper_id === req.user.sub ? b.carrier_id : b.shipper_id;
+    entityPaidAt = b.paid_at;
+  }
+
+  // Kapcsolat-szivárgás szűrés a vita-leíráson — CSAK a díjfizetés ELŐTT
+  // (2026-08-09, 2. audit-kör F2). A leírás eljut a másik félhez (értesítés +
+  // GET /disputes/:id), így fizetés előtt díj-megkerülési csatorna lenne.
+  // Fizetés UTÁN a felek jogosan ismerik egymást, és egy telefonszám a
+  // leírásban legitim bizonyíték („hívtam a ...számon, nem vette fel") —
+  // ugyanaz az elv, mint a chat-szűrésnél.
+  if (!entityPaidAt) {
+    const leak = detectContactLeak(descriptionCheck.value);
+    if (leak) return res.status(400).json({ error: leak, code: 'CONTACT_LEAK' });
   }
 
   // Duplázat-ellenőrzés: ne lehessen ugyanarra az entitásra kétszer nyitni

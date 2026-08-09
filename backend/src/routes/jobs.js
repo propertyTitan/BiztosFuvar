@@ -169,7 +169,10 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
   // szállítóhoz eljut a díjfizetés ELŐTT (GET /jobs) — telefonszám/email
   // itt a díj (a platform egyetlen bevétele) megkerülése lenne. A Gemini
   // reviewJobDescription csak tájékoztató; ez a determinisztikus kapu.
-  const jobLeak = firstContactLeak([titleClean, description]);
+  // A CÍM-mezők IS szűrendők (2026-08-09, 2. audit-kör F5): a backend szabad
+  // szövegként fogadja őket, és a kívülálló-scrub bennhagyja — vagyis minden
+  // böngésző szállító látja a díjfizetés ELŐTT („Budapest, hívj +3630…").
+  const jobLeak = firstContactLeak([titleClean, description, pickup_address, dropoff_address]);
   if (jobLeak) return res.status(400).json({ error: jobLeak, code: 'CONTACT_LEAK' });
 
   // Szolgáltatási terület ellenőrzés: legalább az egyik pontnak (pickup vagy dropoff)

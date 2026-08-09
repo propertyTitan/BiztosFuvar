@@ -185,6 +185,35 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **2. BIZTONSÁGI AUDIT-KÖR (4 új ügynök) — a kontakt-szűrő TELJESSÉ tétele
+  (2026-08-09, user-kérés: „merge után új mély audit")** — a friss main-en
+  (mind az 5 aznapi PR-rel) újra futott 4 ügynök, MÁS hangolással: regresszió-
+  vadászat a mai változásokra, real-time/socket + háttér-jobok, storage/külső
+  API/DB-integritás, állapotgép/maradék-PII. ⚠️ A kör ÉRTÉKE bizonyított: **két
+  hiányosságot talált az ELSŐ kör saját javításaiban**: (F1) a `firstContactLeak`-ből
+  KIMARADT a `full_name` — pedig a NÉV a legláthatóbb mező (ajánlat-lista,
+  kérdés-válasz, publikus profil, MIND fizetés előtt): egy „Hívj 0630…" nevű
+  szállító egyetlen profil-beállítással, örökre megkerülte volna a díjat;
+  (F5) kimaradtak a CÍM-mezők is (a böngésző szállító a GET /jobs-on látja).
+  Továbbá (F2) a vita-leírás szűretlen volt (most: CSAK fizetés előtt szűrünk —
+  utána a telefonszám legitim bizonyíték, a chat-minta szerint), (F7) a
+  nyilvános értékelés-komment szűretlen (most mindig szűrt: tartós „hívj
+  platformon kívül" hirdetőfelület lett volna), és a MENTŐS-SCRUB (#126)
+  bennhagyta a pontos `address`-t + rendszámot + leírást + requester_id-t —
+  ami a ~1 km-es geo-kerekítést teljesen kiütötte. Mind javítva, +7 teszt
+  (`kontakt-szuro-teljesseg.test.js`). Backend 515/515. ⚠️ A regresszió-ügynök
+  IGAZOLTA: a mai 5 PR egyébként tiszta (nincs törött hívó, körkörös import,
+  boot-hiba; a Barion-törlés és a scrub/tracking/R2 javítások szilárdak).
+  ⚠️ MARADÉK (keresztvalidált, következő körök): **stub-fizetés prodban csak
+  soft boot-warning** (hard-fail kell: kulcs nélküli éles indulásnál a
+  confirm-payment + callback nyitva), **dupla-számla verseny** a
+  `confirmFeePayment`-ben (nem tranzakcionális + nincs UNIQUE az invoices-on),
+  **emitGlobal anonim helyadat-szivárgás** (`jobs:new`/`jobs:new-instant`/
+  `towing:new` pontos cím+GPS vendég sockethez → hitelesített `feed` szoba),
+  2 db `route-bookings` emitGlobal (gateway-URL), paymentReminders nem-atomi
+  számláló, KYC-AI vak auto-approve, NAV-jelvény substring-match, privát-KYC
+  disk-fallback publikus kiszolgálása, referral 0 Ft-os kuponos trigger +
+  önreferral-arbitrázs, nincs report/block (T&S/DSA)
 - **Mentős-kapu — a segélyszolgálat (towing) végpont-biztonsága (2026-08-09,
   adatvédelem 2. csomag, user: „csináld meg, de maradjon kikapcsolva")** — a
   towing-flow a FELÜLETRŐL kikapcsolva, de a végpontok éltek, és a biztonsági
