@@ -1,7 +1,7 @@
 {
   "name": "GoFuvar — Magyarország közösségi fuvartőzsdéje",
   "short_name": "GoFuvar",
-  "description": "Hirdess meg egy fuvart és a sofőrök licitálnak rá, vagy foglalj helyet egy útba eső sofőr fix áras útvonalán. Biztonságos Barion letét, élő GPS követés, fotó bizonyíték.",
+  "description": "Add fel a fuvarod, és a szállítók ajánlatot tesznek rá — vagy foglalj helyet egy induló járaton. A fuvardíj készpénzben a szállítóé, fotó és 6 jegyű átvételi kód a biztonságért.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -35,7 +35,7 @@
     {
       "name": "Elérhető fuvarok",
       "short_name": "Fuvarok",
-      "description": "Sofőrként böngészd az elérhető fuvarokat",
+      "description": "Szállítóként böngészd az elérhető fuvarokat",
       "url": "/sofor/fuvarok",
       "icons": [{ "src": "/logo-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
     }

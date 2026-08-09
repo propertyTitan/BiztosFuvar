@@ -145,7 +145,7 @@ export type Job = {
     phone: string | null;
     email: string | null;
   };
-  /** Barion fizetési URL — STUB módban `stub:...`. */
+  /** A fizetési szolgáltató átirányítási URL-je — teszt módban `stub:...`. */
   barion_gateway_url?: string | null;
   /** Azonnali fuvar ("UberFuvar" mód) — fix ár, első elfogadó nyer. */
   is_instant?: boolean;
@@ -507,7 +507,7 @@ export const api = {
   listBookingPhotos: (bookingId: string) =>
     request<any[]>(`/route-bookings/${bookingId}/photos`),
 
-  /** Escrow / Barion állapot egy fuvarhoz. */
+  /** Fizetési (escrow) állapot egy fuvarhoz. */
   jobEscrow: (jobId: string) =>
     request<{
       amount_huf: number;
@@ -621,7 +621,7 @@ export const api = {
 
   getRouteBooking: (id: string) => request<RouteBooking>(`/route-bookings/${id}`),
 
-  /** Szállító elfogadja a foglalást → Barion escrow lefoglalás. */
+  /** Szállító elfogadja a foglalást → fizetés indítása. */
   confirmRouteBooking: (id: string) =>
     request<{ ok: true; booking_id: string; barion?: { gateway_url: string | null } }>(
       `/route-bookings/${id}/confirm`,
@@ -636,7 +636,7 @@ export const api = {
    * feladó a fizetés gombra kattint. A `consent` KÖTELEZŐ az első híváskor:
    * a feladó kéri az azonnali teljesítést (kontakt-átadás) és tudomásul
    * veszi, hogy utána elállási joga elvész (45/2014. 29. § (1) a)) — a
-   * nyilatkozat MÉG a Barion-átirányítás előtt rögzül. Idempotens.
+   * nyilatkozat MÉG a fizetőoldalra irányítás előtt rögzül. Idempotens.
    */
   payRouteBooking: (id: string, consent: boolean) =>
     request<{ payment_id: string; gateway_url: string; fee_huf: number; is_stub: boolean; reused: boolean }>(

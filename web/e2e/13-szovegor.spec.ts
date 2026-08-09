@@ -72,6 +72,20 @@ const TILTOTT: Rule[] = [
     pattern: /(töltsd le|letöltheted).{0,25}(appot|alkalmazást)/i,
     miert: 'NINCS mobilapp — letöltésre buzdítás tilos.',
   },
+  {
+    pattern: /barion/i,
+    miert: 'A Barion 2026-08-09-én VÉGLEG törölve a kódból (a launch fizetése CIB '
+      + 'bankkártyás vPOS). Egy nem létező szolgáltató megnevezése a felhasználó felé '
+      + 'félrevezető — a 2. audit-kör a fizetőoldalon, a PWA-manifesztben és a '
+      + 'foglalás-státuszban is megtalálta. A jogi oldalak (ÁSZF, adatkezelési) külön '
+      + 'körben, ügyvédi átvezetéssel javulnak — azok nincsenek ebben a listában.',
+  },
+  {
+    pattern: /(élő\s+GPS|GPS[- ]követés)(?!.{0,40}(hamarosan|érkez))/i,
+    miert: 'Az élő GPS csak a mobil-fázisban lesz — mindenhol „Hamarosan"-ként '
+      + 'kommunikáljuk (PR #48). A PWA-manifeszt ezt 2026-08-09-ig meglévő '
+      + 'funkcióként hirdette.',
+  },
 ];
 
 test.describe('szövegőr: tiltott kifejezések a marketing-oldalakon', () => {
@@ -106,4 +120,24 @@ test.describe('szövegőr: tiltott kifejezések a marketing-oldalakon', () => {
       'A láblécben az üzemeltető cégnevének kell szerepelnie (Tiszta Hód Kft.)',
     ).toMatch(/Tiszta\s+Hód/i);
   });
+});
+
+// ⚠️ A PWA-MANIFESZT NEM OLDAL — és pont ezért maradt ki minden korábbi
+// szöveg-sweepből (2026-08-09, 2. audit-kör). A `description` mezője egyszerre
+// sértett négy szabályt („sofőrök", „licitálnak", „fix áras útvonal",
+// „Barion letét"), és hirdetett egy nem létező funkciót („élő GPS követés") —
+// miközben ez a szöveg a telepítéskor és az app-info felületeken jelenik meg.
+test('tiszta szöveg: PWA-manifeszt', async ({ request }) => {
+  const res = await request.get('/manifest.webmanifest');
+  expect(res.ok(), 'a manifest nem érhető el').toBeTruthy();
+  const manifest = await res.text();
+
+  const talalatok = TILTOTT
+    .filter((szabaly) => szabaly.pattern.test(manifest))
+    .map((szabaly) => `„${szabaly.pattern}" — ${szabaly.miert}`);
+
+  expect(
+    talalatok,
+    `TILTOTT KIFEJEZÉS a PWA-manifesztben:\n${talalatok.join('\n')}`,
+  ).toEqual([]);
 });

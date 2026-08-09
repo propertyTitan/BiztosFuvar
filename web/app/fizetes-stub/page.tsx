@@ -1,15 +1,20 @@
 'use client';
 
-// STUB Barion fizetési oldal — KAPCSOLATFELVÉTELI DÍJ.
+// TESZT fizetési oldal — KAPCSOLATFELVÉTELI DÍJ.
 //
-// Ez NEM a valódi Barion — egy in-app szimuláció, amit STUB módban
+// ⚠️ 2026-08-09: az oldalról eltűnt a Barion-branding. A Barion 2026-08-09-én
+// VÉGLEG törölve a kódból (a launch fizetése a CIB vPOS), az oldal viszont
+// egy meg nem lévő szolgáltató nevét mutatta a felhasználónak — épp a
+// fizetés pillanatában, ami a legrosszabb hely egy hiteltelen részletnek.
+//
+// Ez NEM valódi fizetés — in-app szimuláció, amit stub módban
 // (amikor nincs beállítva BARION_POS_KEY a backend-en) mutatunk,
 // hogy a teljes UX flow végigjátszható legyen próba közben is.
 //
 // Készpénzes modell (2026-07-03): itt NEM a fuvardíjat fizeti a feladó,
 // hanem a sávos kapcsolatfelvételi díjat. A 45/2014. 29. § (1) a) szerinti
 // beleegyező nyilatkozatot a feladó MÁR a fizetés indításakor megtette
-// (a /pay rögzítette a fee_consent_at-ot) — itt, a "Barion-oldalon" csak
+// (a /pay rögzítette a fee_consent_at-ot) — itt, a „fizetőoldalon" csak
 // emlékeztetjük rá, ahogy élesben is a redirect előtt nyilatkozik.
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -35,7 +40,7 @@ function FizetesStubContent() {
 
   const [data, setData] = useState<LoadedData>(null);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'review' | 'processing' | 'done'>('review');
+  const [step, setStep] = useState<'review' | 'processing' | 'done' | 'unavailable'>('review');
 
   useEffect(() => {
     (async () => {
@@ -71,13 +76,15 @@ function FizetesStubContent() {
 
   async function pay() {
     setStep('processing');
-    // 1.5 másodperc "feldolgozás" – mint egy valódi Barion oldal
+    // 1,5 másodperc „feldolgozás" – mint egy valódi fizetőoldal
     await new Promise((r) => setTimeout(r, 1500));
 
-    // STUB → itt mi magunk nyugtázzuk a backend-en a fizetést.
-    // Valódi Barion esetén a /payments/barion/callback IPN hívja majd
-    // ugyanezt a logikát. A beleegyezés (fee_consent_at) már a fizetés
-    // indításakor rögzült — enélkül a backend itt 400-at adna.
+    // Stub módban itt mi magunk nyugtázzuk a backenden a fizetést. Éles
+    // szolgáltatóval ezt a PSP callbackje végzi (/payments/cib/callback). A
+    // beleegyezés (fee_consent_at) már a fizetés indításakor rögzült.
+    // ⚠️ ÉLES futásban a backend ezt a kézi nyugtázást SZÁNDÉKOSAN elutasítja
+    // (409) — különben bárki fizetés nélkül „fizetettnek" jelölhetné a saját
+    // fuvarát. Ilyenkor nem hibát mutatunk, hanem elmondjuk, mi a helyzet.
     try {
       if (bookingId) {
         await api.confirmRouteBookingPayment(bookingId);
@@ -85,13 +92,20 @@ function FizetesStubContent() {
         await api.confirmJobPayment(jobId);
       }
     } catch (e: any) {
-      toast.error('Fizetés nyugtázása sikertelen', e.message);
+      // A backend 409-et ad, ha éles környezetben nincs bekötve fizetési
+      // szolgáltató. Ez nem a felhasználó hibája, és nem is „sikertelen
+      // fizetés" — a szolgáltatás egyszerűen még nem él.
+      if (/automatikusan|szolgáltat/i.test(e.message || '')) {
+        setStep('unavailable');
+        return;
+      }
+      toast.error('A fizetés nem indult el', e.message);
       setStep('review');
       return;
     }
 
     setStep('done');
-    toast.success('Fizetés sikeres (STUB)', `${data?.feeHuf.toLocaleString('hu-HU')} Ft kapcsolatfelvételi díj`);
+    toast.success('Fizetés sikeres (teszt)', `${data?.feeHuf.toLocaleString('hu-HU')} Ft kapcsolatfelvételi díj`);
     // 2 másodperc múlva visszatérünk a foglalásaim oldalra
     setTimeout(() => {
       if (data?.back) router.push(data.back);
@@ -107,7 +121,7 @@ function FizetesStubContent() {
         minHeight: '60vh',
       }}
     >
-      {/* Barion-stílusú header */}
+      {/* Fizetőoldal fejléce (provider-semleges) */}
       <div
         style={{
           background: 'linear-gradient(135deg, #0066ff 0%, var(--primary) 100%)',
@@ -134,8 +148,8 @@ function FizetesStubContent() {
           💳
         </div>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800 }}>Barion fizetés</div>
-          <div style={{ fontSize: 12, opacity: 0.85 }}>STUB – teszt mód</div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>Bankkártyás fizetés</div>
+          <div style={{ fontSize: 12, opacity: 0.85 }}>Teszt mód — valódi terhelés nincs</div>
         </div>
       </div>
 
@@ -239,10 +253,9 @@ function FizetesStubContent() {
                 marginBottom: 16,
               }}
             >
-              ⚠️ Ez egy STUB fizetési oldal — valódi Barion kapu jön majd, ha a
-              <code style={{ fontFamily: 'monospace' }}> BARION_POS_KEY</code>{' '}
-              be lesz állítva a backend-en. Mostani kattintás csak szimulálja az
-              élményt.
+              ⚠️ Ez egy <strong>teszt fizetőoldal</strong>: valódi terhelés nem
+              történik. A bankkártyás fizetés a szolgáltatói szerződés
+              élesítése után indul — addig a gomb csak a folyamatot mutatja be.
             </div>
 
             <button
@@ -257,7 +270,7 @@ function FizetesStubContent() {
                 fontWeight: 700,
               }}
             >
-              Fizetek most (STUB)
+              Fizetek most (teszt)
             </button>
             <button
               type="button"
@@ -275,7 +288,7 @@ function FizetesStubContent() {
             <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
             <div style={{ fontWeight: 700 }}>Fizetés feldolgozása…</div>
             <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-              (kapcsolat a Barionnal szimulálva)
+              (a fizetési szolgáltató kapcsolata szimulálva)
             </div>
           </div>
         )}

@@ -4,7 +4,7 @@
 // - Élő követés Google Maps-en + Socket.IO szállító piros pötty
 // - Licitek listája (ha még bidding)
 // - Fotók (pickup / dropoff) — Proof of Delivery 2.0
-// - Escrow / Barion állapot
+// - Fizetési (escrow) állapot
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';

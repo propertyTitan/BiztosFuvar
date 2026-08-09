@@ -93,7 +93,7 @@
     "availableCapacity": "Szabad kapacitás"
   },
   "payment": {
-    "payWithBarion": "Fizetés Barionnal",
+    "payWithBarion": "Fizetés bankkártyával",
     "paid": "FIZETVE",
     "awaitingPayment": "Fizetésre vár",
     "paymentStarting": "Fizetés indítása…",
@@ -173,7 +173,7 @@
     "tagline": "Magyarország közösségi fuvartőzsdéje",
     "heroTitle": "Csomagod van?",
     "heroHighlight": "Szállítód is lesz.",
-    "heroSub": "Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá — vagy foglalj helyet egy útba eső szállító fix áras útvonalán.",
+    "heroSub": "Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá — vagy foglalj helyet egy induló járaton.",
     "cta": "Regisztráció / Belépés",
     "ctaFree": "Ingyenes regisztráció · Nincs havidíj",
     "howItWorks": "Hogyan működik?",
