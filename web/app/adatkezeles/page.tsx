@@ -143,7 +143,8 @@ export default function AdatkezelesPage() {
       <ul>
         <li>
           <strong>Számlázási adatok:</strong> A kiállítástól számított 8 évig
-          (2000. évi C. tv. — Számviteli törvény).
+          (2000. évi C. tv. — Számviteli törvény), <strong>ezt követően a számlán
+          szereplő személyes adatok (név, adószám, cím) automatikusan törlődnek</strong>.
         </li>
         <li>
           <strong>KYC dokumentumok:</strong> A fiók megszüntetését követő 5 évig
@@ -175,8 +176,23 @@ export default function AdatkezelesPage() {
           automatikusan törlődnek: a címzett elérhetősége, az átvételi kód és a
           követő-link megszűnik, a cím pedig településre rövidül. Maga a fuvar ténye
           (időpont, ár, értékelés) statisztikai és elszámolási célból megmarad.
-          Vitatott ügyletnél a bizonyítékok — a fotókkal és a beszélgetéssel együtt —
-          5 évig megőrződnek.
+          Ugyanekkor törlődik <strong>a fuvarhoz érkezett árajánlatok üzenete</strong> és
+          a fuvar <strong>nyilvános kérdés-válasz szála</strong> is — ezek ugyanarról a
+          küldeményről szólnak, mint a fuvar leírása. Vitatott ügyletnél a bizonyítékok —
+          a fotókkal és a beszélgetéssel együtt — 5 évig megőrződnek.
+        </li>
+        <li>
+          <strong>Járatok (meghirdetett útvonalak):</strong> az indulást követő{' '}
+          <strong>3 évig</strong>, utána a járat és a jármű szabad szöveges leírása
+          automatikusan törlődik. A járat ténye és útvonala statisztikai célból
+          megmarad. A mentett sablonjaidat ez nem érinti — azok a fiókod
+          élettartamáig megmaradnak, és bármikor törölheted őket.
+        </li>
+        <li>
+          <strong>Vitarendezési ügyek:</strong> a vita <strong>lezárását</strong> követő{' '}
+          <strong>5 évig</strong> (polgári jogi igényérvényesítés), utána a vita
+          leírása, az indoklás és a csatolt bizonyíték automatikusan törlődik.
+          Folyamatban lévő ügy nem évül el.
         </li>
         <li>
           <strong>Vészjelzés (SOS) és mentés-kérés:</strong> a pontos helyadat, a

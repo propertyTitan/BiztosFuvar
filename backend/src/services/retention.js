@@ -16,15 +16,30 @@
 //     3 éves mércéjéhez igazítva — Fgytv. 17/A. §; a csatornán panasz is
 //     érkezhet). A körüzenet-napló (admin_broadcasts) ugyanennyi.
 //     Fiók-törléskor a user szála azonnal megy (FK CASCADE).
+//   AJÁNLAT-ÜZENET + KÉRDÉS-VÁLASZ (2026-08-09): a fuvar anonimizálásakor
+//     ürül — ugyanaz az adat, mint a fuvar leírása, csak másik táblában.
+//   JÁRAT (2026-08-09): a lejárt, nem-sablon járat leírása 3 év után ürül
+//     (a `waypoints` sok soron át mozgásprofillá állna össze).
+//   VITA (2026-08-09): a LEZÁRT vita 5 év után törlődik — ugyanannyi, mint
+//     a miatta zárolt bizonyíték. Nyitott vita sosem évül el.
+//   SZÁMLA (2026-08-09): 8 év — Számv. tv. 169. § (2). Ez a leghosszabb kör
+//     a rendszerben, és jogszabályi kötelezettség, nem a mi döntésünk.
 //
 // Naponta fut (index.js: runDailyRetention). Soha nem dob.
 
 const db = require('../db');
-const { deleteFile } = require('./storage');
+// Modul-objektumként (nem destrukturálva): így a tároló-törlés tesztből
+// megfigyelhető — a destrukturált binding mellett egyetlen teszt sem tudta
+// ellenőrizni, hogy a fájl tényleg elmegy a tárolóból.
+const storage = require('./storage');
 
 const DEFAULT_RETENTION_DAYS = 30;
 const HOLD_RETENTION_YEARS = 5;
 const ADMIN_DM_RETENTION_YEARS = 3;
+// Számviteli bizonylat — Számv. tv. 169. § (2). Ez a rendszer LEGHOSSZABB
+// megőrzési ideje, és szándékosan az: jogszabályi kötelezettség, nem a mi
+// döntésünk. Rövidíteni nem szabad, de nyolc év után elévül.
+const INVOICE_RETENTION_YEARS = 8;
 
 // Terminális státuszok — csak lezárt ügylet fotóját törölhetjük
 // ⚠️ MINDEN fotótípus (2026-08-09, adatvédelmi audit 3. kör). A purge korábban
@@ -84,7 +99,7 @@ async function purgeOldDeliveryPhotos() {
     );
 
     for (const p of [...jobPhotos, ...bookingPhotos]) {
-      await deleteFile(p.url); // data:/hiányzó objektumnál is "rendben" — nem blokkol
+      await storage.deleteFile(p.url); // data:/hiányzó objektumnál is "rendben" — nem blokkol
       await db.query('DELETE FROM photos WHERE id = $1', [p.id]);
       purged += 1;
     }
@@ -375,14 +390,159 @@ async function anonymizeOldJobs() {
       [BOOKING_TERMINAL, JOB_PII_RETENTION_YEARS, HOLD_RETENTION_YEARS],
     );
 
+    // ── A fuvar KÖRÉ épült szabad szöveg (2026-08-09, 3. kör) ──
+    // A fuvar `description`-jét kiürítettük, de a RÓLA szóló beszélgetés két
+    // másik táblában él tovább: a szállító ajánlat-üzenetében és a nyilvános
+    // kérdés-válasz szálban. Ugyanaz az adat (mit szállítunk, hogyan lehet
+    // megközelíteni a lakást, ki lesz otthon), csak másik sorban — ezért
+    // ugyanakkor is kell elévülnie.
+    //
+    // A már anonimizált fuvarhoz kötjük, nem külön időszámításhoz: így egy
+    // szabály van, egy időbélyeg és egy zárolás-jelző, és a kör önjavító
+    // (a korábban anonimizált sorok szövegét is elkapja).
+    const { rowCount: bidMsgs } = await db.query(
+      `UPDATE bids b
+          SET message = NULL
+         FROM jobs j
+        WHERE b.job_id = j.id
+          AND j.anonymized_at IS NOT NULL
+          AND b.message IS NOT NULL`,
+    );
+
+    const { rowCount: questions } = await db.query(
+      `UPDATE job_questions q
+          SET question = '', answer = NULL
+         FROM jobs j
+        WHERE q.job_id = j.id
+          AND j.anonymized_at IS NOT NULL
+          AND (q.question <> '' OR q.answer IS NOT NULL)`,
+    );
+
     db_count = (jobs || 0) + (bookings || 0);
     if (db_count > 0) {
       console.log(`[retention] ${db_count} lezárt fuvar/foglalás személyes adata anonimizálva (>${JOB_PII_RETENTION_YEARS} év, zároltak: ${HOLD_RETENTION_YEARS} év)`);
+    }
+    if ((bidMsgs || 0) + (questions || 0) > 0) {
+      console.log(`[retention] ${bidMsgs || 0} ajánlat-üzenet és ${questions || 0} kérdés-válasz ürítve anonimizált fuvarokon`);
     }
   } catch (err) {
     console.error('[retention] fuvar-anonimizálás hiba:', err.message);
   }
   return db_count;
+}
+
+/**
+ * Járat-anonimizálás — a lejárt járatok szabad szövege és mozgásprofilja.
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit, 3. kör): a `carrier_routes` egyetlen
+ * retenciós körbe sem tartozott. A járat leírása és a jármű leírása szabad
+ * szöveg (a szállító gyakran ír bele elérhetőséget, munkarendet, „hétfőnként
+ * megyek a gyerekért Szegedre" jellegű részletet), a `waypoints` pedig évekre
+ * visszamenő útvonal-előzményt őriz — ami sok soron át MOZGÁSPROFILLÁ áll
+ * össze arról, hogy egy magánszemély jellemzően mikor merre jár.
+ *
+ * A járat TÉNYE üzletileg kell (értékelés-előzmény, statisztika, a foglalások
+ * hivatkozzák), ezért itt is anonimizálunk, nem törlünk — a sor törlése
+ * ráadásul kaszkádolna a foglalásokra.
+ *
+ * A SABLONOKAT (`is_template`) kihagyjuk: azok a szállító élő, újrahasznált
+ * beállításai, nem előzmény.
+ *
+ * @returns {Promise<number>} az anonimizált járatok száma
+ */
+async function anonymizeOldCarrierRoutes() {
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE carrier_routes
+          SET description = NULL,
+              vehicle_description = NULL,
+              anonymized_at = NOW()
+        WHERE anonymized_at IS NULL
+          AND is_template = FALSE
+          AND departure_at IS NOT NULL
+          AND departure_at < NOW() - ($1 || ' years')::interval`,
+      [JOB_PII_RETENTION_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} lejárt járat leírása anonimizálva (>${JOB_PII_RETENTION_YEARS} év)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] járat-anonimizálás hiba:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Lezárt viták elévülése (5 év).
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit, 3. kör): a `disputes` táblának nem volt
+ * megőrzési ideje. Ez azért különösen visszás, mert a vitához KÖTŐDŐ adatra
+ * (fotó, chat) épp a vita miatt írtunk elő 5 évet — a `photo_retention_hold`
+ * pontosan ezt a bizonyíték-zárolást jelenti. Magára a vitára viszont, ami a
+ * legterheltebb szöveg az egész rendszerben (kit mivel vádolnak, mi történt,
+ * milyen kárt állítanak), semmi nem vonatkozott.
+ *
+ * Ugyanaz az 5 év jár neki, mint a zárolt bizonyítéknak — és csak LEZÁRT
+ * vitára: egy nyitott ügy sosem évül el a hátunk mögött.
+ *
+ * @returns {Promise<number>} a törölt viták száma
+ */
+async function purgeOldDisputes() {
+  try {
+    // A csatolt bizonyíték-fájl a tárolóban is elmegy, különben árva marad
+    // (ugyanaz a hibaosztály, amit a fiók- és az admin-törlésnél zártunk le).
+    const { rows } = await db.query(
+      `SELECT id, evidence_url FROM disputes
+        WHERE resolved_at IS NOT NULL
+          AND resolved_at < NOW() - ($1 || ' years')::interval`,
+      [HOLD_RETENTION_YEARS],
+    );
+    if (rows.length === 0) return 0;
+
+    for (const d of rows) {
+      if (d.evidence_url) {
+        try { await storage.deleteFile(d.evidence_url); } catch { /* a sor törlése a lényeg */ }
+      }
+    }
+    const { rowCount } = await db.query(
+      'DELETE FROM disputes WHERE id = ANY($1)',
+      [rows.map((r) => r.id)],
+    );
+    console.log(`[retention] ${rowCount} lezárt vita elévült (>${HOLD_RETENTION_YEARS} év)`);
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] vita-purge hiba:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Számlák elévülése (8 év — Számv. tv. 169. § (2)).
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit, 3. kör): az `invoices` a vevő NEVÉT,
+ * ADÓSZÁMÁT és CÍMÉT tárolja, határidő nélkül. Itt a hosszú megőrzés nem
+ * mulasztás, hanem jogszabályi kötelezettség: a számviteli bizonylatot a
+ * Számv. tv. 169. § (2) szerint 8 évig meg KELL őrizni (GDPR 6. cikk (1) c) —
+ * ezért ezt a kört nem is szabad rövidíteni. De nyolc év után a kötelezettség
+ * megszűnik, és onnantól már csak felesleges személyes adat.
+ *
+ * @returns {Promise<number>} a törölt számlák száma
+ */
+async function purgeOldInvoices() {
+  try {
+    const { rowCount } = await db.query(
+      `DELETE FROM invoices WHERE created_at < NOW() - ($1 || ' years')::interval`,
+      [INVOICE_RETENTION_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} számla elévült (>${INVOICE_RETENTION_YEARS} év, Számv. tv. 169. §)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] számla-purge hiba:', err.message);
+    return 0;
+  }
 }
 
 /**
@@ -476,6 +636,9 @@ async function runDailyRetention() {
   await purgeOldAdminMessages();
   await purgeOldAdminAccessLog();
   await anonymizeOldJobs();
+  await anonymizeOldCarrierRoutes();
+  await purgeOldDisputes();
+  await purgeOldInvoices();
   await purgeEmergencyLocations();
   await purgeOldDeletedAccounts();
 }
@@ -484,8 +647,9 @@ module.exports = {
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
   purgeStaleLastKnownLocation, purgeOldNotifications,
   purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs,
+  anonymizeOldCarrierRoutes, purgeOldDisputes, purgeOldInvoices,
   purgeEmergencyLocations, purgeOldDeletedAccounts, runDailyRetention,
-  DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS,
+  DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS, INVOICE_RETENTION_YEARS,
   SOS_LOCATION_RETENTION_DAYS, SOS_EVENT_RETENTION_YEARS,
   JOB_PII_RETENTION_YEARS,
   ADMIN_ACCESS_LOG_RETENTION_YEARS,
