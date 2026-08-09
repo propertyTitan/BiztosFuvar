@@ -1,6 +1,11 @@
 // Ajánlói program (referral): attribúció regisztrációkor, a jutalom-trigger
-// őrei (egyszer, KYC-feltétel, havi plafon), és az "ingyen feladás" kupon
-// beváltása a /pay-en (a díj-plafonnal együtt).
+// őrei (egyszer, KYC-feltétel, havi plafon), és az ajánlói jutalom beváltása
+// a /pay-en.
+//
+// ⚠️ A JUTALOM NEM PÉNZÉRTÉK (user-döntés, 2026-08-09): egy INGYENES
+// KAPCSOLATFELVÉTEL, ami MINDKÉT díjsávra (500 és 1.000 Ft) érvényes, de
+// EGYSZER váltható be. A kupon-mechanizmus Ft-plafonja megmaradt általános
+// eszköznek (más kupon-fajtákhoz) — a referral csak nem használja.
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 
@@ -141,4 +146,55 @@ describe('Ingyen feladás a /pay-en (kupon-beváltás)', () => {
     );
     expect(unused.rows[0].c).toBe(1);
   });
+});
+
+// ── A jutalom természete: szolgáltatás, nem forintösszeg (2026-08-09) ──
+describe('Az ajánlói jutalom: egy ingyenes kapcsolatfelvétel', () => {
+  /** A feladó díj-fizetése; visszaadja: beváltotta-e a jutalmat. */
+  async function fizetes(shipper, priceHuf) {
+    const job = await createJob({ shipperId: shipper.id, priceHuf });
+    const res = await request(app)
+      .post(`/jobs/${job.id}/pay`)
+      .set('Authorization', `Bearer ${shipper.token}`)
+      .send({ consent: true });
+    expect(res.status).toBe(200);
+    return { ingyenes: res.body.paid_via_voucher === true, job };
+  }
+
+  it('az ALSÓ sávban (500 Ft-os díj) beváltható', async () => {
+    const shipper = await createUser();
+    await maybeGrantReferralRewardHoz(shipper);
+    const { ingyenes } = await fizetes(shipper, 20000); // 20.000 Ft fuvar → 500 Ft díj
+    expect(ingyenes, 'a jutalom nem volt beváltható az alsó sávban').toBe(true);
+  });
+
+  it('a FELSŐ sávban (1.000 Ft-os díj) is beváltható — a jutalom nem Ft-plafonos', async () => {
+    const shipper = await createUser();
+    await maybeGrantReferralRewardHoz(shipper);
+    const { ingyenes, job } = await fizetes(shipper, 150000); // 150.000 Ft fuvar → 1.000 Ft díj
+    expect(ingyenes, 'a felső sávban elveszett volna a jutalom').toBe(true);
+
+    const { rows } = await db.query('SELECT connection_fee_huf FROM jobs WHERE id = $1', [job.id]);
+    expect(rows[0].connection_fee_huf).toBe(0);
+  });
+
+  it('CSAK EGYSZER: a második feladásnál már rendesen fizetni kell', async () => {
+    const shipper = await createUser();
+    await maybeGrantReferralRewardHoz(shipper);
+
+    const elso = await fizetes(shipper, 150000);
+    expect(elso.ingyenes).toBe(true);
+
+    const masodik = await fizetes(shipper, 20000);
+    expect(masodik.ingyenes, 'egy jutalommal két feladás is ingyenes lett!').toBe(false);
+  });
+
+  /** Egy valódi ajánlói jutalmat ad a `shipper`-nek (a teljes triggeren át). */
+  async function maybeGrantReferralRewardHoz(shipper) {
+    const meghivott = await createUser();
+    await db.query('UPDATE users SET referred_by = $1 WHERE id = $2', [shipper.id, meghivott.id]);
+    await createJob({ shipperId: meghivott.id, status: 'accepted', paid: true }); // valódi díjfizetés
+    await maybeGrantReferralReward(meghivott.id, { role: 'shipper', jobId: null });
+    expect(await countVouchers(shipper.id)).toBe(1);
+  }
 });

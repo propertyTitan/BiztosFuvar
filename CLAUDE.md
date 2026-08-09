@@ -251,11 +251,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   privát KYC-bucketbe is!), a KYC-tesztek valódi, fizetős AI-hívásokat
   indíthattak. Javítva (üres string, nem `delete`) + `teszt-kornyezet.test.js`
   őr, ami elhasal, ha bármelyik éles kulcs újra beszivárog.
-  ⚠️ **MARADÉK**: (a) **report/block hiánya (T&S/DSA)** — termék-feature,
-  külön kör; (b) **üzleti döntést vár**: az ajánlói kupon 1.000 Ft-os
-  plafonja nagyobb lehet a kiváltó díjnál (500 Ft) → a több-fiókos farmolás
-  elvi haszna pozitív; a technikai gátak (havi 5-ös plafon, valódi fizetés)
-  megvannak, a kupon-érték a user döntése.
+  ⚠️ **MARADÉK**: **report/block hiánya (T&S/DSA)** — termék-feature, külön
+  kör. (Az ajánlói kupon értékének kérdését a user 2026-08-09-én eldöntötte:
+  nem pénzérték, hanem egy ingyenes kapcsolatfelvétel — lásd az „Ajánlói
+  program ÉLES" bejegyzést.)
 - **2. BIZTONSÁGI AUDIT-KÖR (4 új ügynök) — a kontakt-szűrő TELJESSÉ tétele
   (2026-08-09, user-kérés: „merge után új mély audit")** — a friss main-en
   (mind az 5 aznapi PR-rel) újra futott 4 ügynök, MÁS hangolással: regresszió-
@@ -939,8 +938,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 - **Ajánlói program ÉLES (2026-07-05, PR #58)** — egyoldalú referral: aki a
   linkjén (`?ref=KÓD`) hoz egy usert, ÉS az teljesíti az első fuvarját
   (feladóként az első díj kifizetése, VAGY sofőrként a fuvar lezárása), az
-  ajánló ingyen-feladás kupont kap (kapcsolatfelvételi díj elengedve a 2490
-  Ft-os plafonig). Védelem: meghívott KYC='verified', userenként egyszer
+  ajánló **EGY INGYENES KAPCSOLATFELVÉTELT** kap. ⚠️ **A jutalom NEM
+  pénzérték (user-döntés, 2026-08-09)**: MINDKÉT díjsávra érvényes (500 ÉS
+  1.000 Ft), de **EGYSZER** váltható be — a kupon Ft-plafonja ezért NULL
+  (a `max_fee_huf` mechanizmus megmarad általános eszköznek, a referral csak
+  nem használja). Ok: pénzben megadva egy díjsáv-változás némán elvágná a
+  jutalmat a felső sávban; a jutalom a SZOLGÁLTATÁS, nem egy összeg. Így a
+  korábbi „500-at fizetsz, 1000-et érő kupont kapsz" arbitrázs-kérdés is
+  tárgytalan: nem forintot adunk. Szöveg mindenhol „ingyenes
+  kapcsolatfelvétel" (a régi „ingyen feladás kupon" kivezetve). Védelem: meghívott KYC='verified', userenként egyszer
   (atomi guard), havi 5 plafon ajánlónként. 046 migráció (users.referral_code
   UNIQUE + referred_by + referral_reward_granted_at; fee_vouchers.max_fee_huf),
   services/referral.js, GET /auth/referral, ReferralCard a profilon. A kupon a

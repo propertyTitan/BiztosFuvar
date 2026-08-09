@@ -169,7 +169,7 @@ function BejelentkezesContent() {
             color: 'var(--text)',
           }}>
             🎉 Meghívóval regisztrálsz! Miután teljesíted az első fuvarodat,
-            az ismerősöd egy ingyen feladást kap.
+            az ismerősöd egy ingyenes kapcsolatfelvételt kap.
           </div>
         )}
         {mode === 'register' && (
