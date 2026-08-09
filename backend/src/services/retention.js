@@ -103,6 +103,14 @@ const ADMIN_ACCESS_LOG_RETENTION_YEARS = 1;
 // flag védi, mint a fotókat és a chatet: egységes bizonyíték-megőrzés.
 const JOB_PII_RETENTION_YEARS = 3;
 
+// A VÉSZHELYZETI helyadat (SOS-jelzés, mentés-kérés) két lépcsőben évül el:
+//  - 7 nap után a PONTOS koordináta és a szabad szöveg törlődik (ugyanaz a
+//    határidő, amit a tájékoztató a nyers GPS-adatra ígér);
+//  - 1 év után maga a sor is. A vészhelyzet TÉNYE addig megmarad (jogi
+//    igényérvényesítés, baleset utáni bizonyítás), de már hely nélkül.
+const SOS_LOCATION_RETENTION_DAYS = 7;
+const SOS_EVENT_RETENTION_YEARS = 1;
+
 /**
  * Lejárt chat-üzenetek törlése: lezárt ügylet üzenetei 6 hónap után,
  * zárolt (vitás/admin-holdos) ügyletéi 5 év után.
@@ -362,6 +370,62 @@ async function anonymizeOldJobs() {
   return db_count;
 }
 
+/**
+ * Vészhelyzeti helyadatok elévülése (SOS + mentés-kérés).
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit, 2. kör): a `sos_events` és a
+ * `tow_requests` egyik retenciós körbe sem tartozott — pedig ez a rendszer
+ * LEGÉRZÉKENYEBB helyadata: egy vészhelyzet pontos koordinátája és időpontja,
+ * szabad szöveges leírással; a mentés-kérésnél ráadásul a cím és a rendszám
+ * is. Eközben a tájékoztató azt ígéri, hogy a nyers helyadatot 7 nap után
+ * töröljük, és a `location_pings` / `users.last_known_*` már gépesítve is
+ * van — ez a kettő maradt ki.
+ *
+ * A mentés-funkció jelenleg ki van kapcsolva (TOWING_ENABLED), de a job
+ * MOST is fut: így amikor egyszer élesedik, az adat sosem tud felgyűlni.
+ * @returns {Promise<number>} az érintett sorok száma
+ */
+async function purgeEmergencyLocations() {
+  let erintett = 0;
+  try {
+    // 1) A pontos hely és a szabad szöveg 7 nap után
+    const { rowCount: sosHely } = await db.query(
+      `UPDATE sos_events
+          SET lat = NULL, lng = NULL, message = NULL
+        WHERE (lat IS NOT NULL OR lng IS NOT NULL OR message IS NOT NULL)
+          AND created_at < NOW() - ($1 || ' days')::interval`,
+      [SOS_LOCATION_RETENTION_DAYS],
+    );
+    const { rowCount: towHely } = await db.query(
+      `UPDATE tow_requests
+          SET address = NULL, issue_description = NULL, vehicle_plate = NULL,
+              lat = 0, lng = 0
+        WHERE (address IS NOT NULL OR issue_description IS NOT NULL
+               OR vehicle_plate IS NOT NULL OR lat <> 0 OR lng <> 0)
+          AND created_at < NOW() - ($1 || ' days')::interval`,
+      [SOS_LOCATION_RETENTION_DAYS],
+    );
+
+    // 2) Maga a sor 1 év után (a vészhelyzet ténye addig megmarad)
+    const { rowCount: sosSor } = await db.query(
+      `DELETE FROM sos_events WHERE created_at < NOW() - ($1 || ' years')::interval`,
+      [SOS_EVENT_RETENTION_YEARS],
+    );
+    const { rowCount: towSor } = await db.query(
+      `DELETE FROM tow_requests WHERE created_at < NOW() - ($1 || ' years')::interval`,
+      [SOS_EVENT_RETENTION_YEARS],
+    );
+
+    erintett = (sosHely || 0) + (towHely || 0) + (sosSor || 0) + (towSor || 0);
+    if (erintett > 0) {
+      console.log(`[retention] vészhelyzeti helyadat: ${(sosHely || 0) + (towHely || 0)} anonimizálva (>${SOS_LOCATION_RETENTION_DAYS} nap), ${(sosSor || 0) + (towSor || 0)} sor törölve (>${SOS_EVENT_RETENTION_YEARS} év)`);
+    }
+  } catch (err) {
+    console.error('[retention] vészhelyzeti purge hiba:', err.message);
+  }
+  return erintett;
+}
+
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
   await purgeOldDeliveryPhotos();
@@ -372,12 +436,15 @@ async function runDailyRetention() {
   await purgeOldAdminMessages();
   await purgeOldAdminAccessLog();
   await anonymizeOldJobs();
+  await purgeEmergencyLocations();
 }
 
 module.exports = {
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
   purgeStaleLastKnownLocation, purgeOldNotifications,
-  purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs, runDailyRetention,
+  purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs,
+  purgeEmergencyLocations, runDailyRetention,
+  SOS_LOCATION_RETENTION_DAYS, SOS_EVENT_RETENTION_YEARS,
   JOB_PII_RETENTION_YEARS,
   ADMIN_ACCESS_LOG_RETENTION_YEARS,
   NOTIFICATION_RETENTION_MONTHS,
