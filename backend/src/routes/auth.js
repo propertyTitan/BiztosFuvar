@@ -17,6 +17,7 @@ const {
 } = require('../services/email');
 const { firstContactLeak } = require('../utils/contactGuard');
 const { userHasBlockingDealings } = require('../utils/activePaid');
+const { purgeUserFiles } = require('../utils/userFiles');
 
 // ---------- Helper a verifikációs / reset tokenekhez ----------
 // Egyszer használatos, kriptografikailag random token. A nyers token
@@ -592,7 +593,11 @@ router.get('/users/:id/profile', authRequired, async (req, res) => {
   const uid = req.params.id;
   const [userRes, jobsDone, routesDone, reviewsRes] = await Promise.all([
     db.query(
-      `SELECT id, full_name, avatar_url, bio, vehicle_type, vehicle_plate,
+      // A vehicle_plate (rendszám) SZÁNDÉKOSAN kimarad: a GDPR értelmében
+      // személyes adat, és a publikus profilt bárki lekérheti kontaktus/
+      // ügylet nélkül (adat-minimalizálás, 2026-08-09 audit). A jármű TÍPUSA
+      // (vehicle_type) marad — az a döntéshez hasznos, nem azonosít.
+      `SELECT id, full_name, avatar_url, bio, vehicle_type,
               rating_avg, rating_count, trust_score, is_verified_carrier, created_at,
               account_type, company_name, company_verification_status
          FROM users WHERE id = $1`,
@@ -879,7 +884,10 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
           user_id: admin.id,
           type: 'kyc_underage_alert',
           title: '⚠️ 18 év alatti KYC!',
-          body: `${who} (${req.user.email}) személyi igazolványa alapján 18 év alatti (szül.: ${aiResult.birthDate || '?'}). Kézi jóváhagyás szükséges.`,
+          // Adat-minimalizálás (2026-08-09 audit): a teljes e-mail + születési
+          // dátum NEM kerül a notif-body-ba (az a notifications táblában
+          // határidő nélkül maradna) — a jogosult admin a KYC-panelen látja.
+          body: `${who} személyi igazolványa alapján 18 év alatti lehet — kézi jóváhagyás szükséges. A részletek a KYC-panelen.`,
           link: '/admin#kyc',
         }).catch(() => {});
       }
@@ -899,7 +907,8 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
           user_id: admin.id,
           type: 'kyc_manual_review',
           title: '📋 KYC kézi ellenőrzés szükséges',
-          body: `${req.user.email} dokumentumát (${doc_type}) az AI nem tudta ellenőrizni — kézi jóváhagyás kell.`,
+          // Adat-minimalizálás: nincs teljes e-mail a notif-body-ban.
+          body: `Egy felhasználó dokumentumát (${doc_type}) az AI nem tudta ellenőrizni — kézi jóváhagyás kell. Részletek a KYC-panelen.`,
           link: '/admin#kyc',
         }).catch(() => {});
       }
@@ -1005,6 +1014,11 @@ router.delete('/me', authRequired, async (req, res) => {
      VALUES ($1, $2, $3)`,
     [userId, emailHash, 'Felhasználó saját kérésére'],
   );
+
+  // A tárolt fájlok (KYC-okmány, avatar, fuvar-fotók) törlése a DB-CASCADE
+  // ELŐTT — különben a sorok eltűnnek, és az R2-objektumokat (köztük a
+  // személyi igazolvány fotóját) SOHA nem érnénk el (GDPR 17. cikk).
+  await purgeUserFiles(userId);
 
   // CASCADE törli: jobs, bids, photos, reviews, notifications, kyc_documents, stb.
   await db.query('DELETE FROM users WHERE id = $1', [userId]);
