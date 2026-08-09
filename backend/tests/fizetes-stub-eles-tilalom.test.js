@@ -12,6 +12,13 @@
 //  Eddig ezt csak egy boot-időben kiírt figyelmeztetés jelezte — egy
 //  elfelejtett env-változó némán nyitva hagyta a kaput. A guard mostantól
 //  futásidőben is zár. Ez a suite azt őrzi, hogy ne csússzon vissza.
+//
+//  ⚠️ A védelem FUTÁSIDEJŰ, nem boot-leállás (2026-08-09, éles tanulság): a
+//  hard-fail kipróbálva — a Railway-en NODE_ENV=production, a CIB-kulcs pedig
+//  a launchig nincs, így a boot-exit újraindítási ciklusba tette az éles
+//  backendet (502-es API). A launch előtt a „prod + stub" a NORMÁL üzem; amit
+//  védeni kell, az az, hogy közben senki ne juthasson fizetés nélkül
+//  kontakthoz — ezt a lenti guardok adják.
 // =====================================================================
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
@@ -54,11 +61,15 @@ describe('paymentProvider: az éles+stub kombináció felismerése', () => {
     expect(paymentProvider.manualConfirmAllowed()).toBe(false);
   });
 
-  it('az ALLOW_STUB_PAYMENTS=true vész-kapcsoló szándékosan felold (demó/staging)', () => {
+  it('a guardot SEMMILYEN env-kapcsoló nem oldja fel', () => {
     elesFutas();
+    // Egy „vész-kapcsoló" elfelejtve maradna bekapcsolva pont a launchkor, és
+    // épp azt a rést nyitná ki, ami ellen az egész véd. Ezért nincs ilyen.
     process.env.ALLOW_STUB_PAYMENTS = 'true';
-    expect(paymentProvider.isUnsafeStub()).toBe(false);
-    expect(paymentProvider.manualConfirmAllowed()).toBe(true);
+    process.env.SKIP_PAYMENT_GUARD = 'true';
+    expect(paymentProvider.isUnsafeStub()).toBe(true);
+    expect(paymentProvider.manualConfirmAllowed()).toBe(false);
+    delete process.env.SKIP_PAYMENT_GUARD;
   });
 });
 

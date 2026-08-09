@@ -55,24 +55,30 @@ function active() {
 // megkerülhető, ráadásul a webhook is elhinné a nyers body-t.
 //
 // Eddig ezt csak egy boot-időben kiírt figyelmeztetés jelezte — egy elfelejtett
-// env-változó tehát némán nyitva hagyta a kaput. Mostantól:
-//   - a boot LEÁLL (index.js), és
-//   - a díj-nyugtázó / webhook ágak ZÁRVA maradnak (`manualConfirmAllowed`).
+// env-változó tehát némán nyitva hagyta a kaput. Mostantól ebben az állapotban
+// a rendszer BIZTONSÁGOS MÓDBAN fut: a díj-nyugtázó és a webhook-ág ZÁRVA
+// (`manualConfirmAllowed` → false, a callback 503), a boot pedig hangosan
+// figyelmeztet + Sentry-riasztást küld.
 //
-// Vész-kapcsoló: `ALLOW_STUB_PAYMENTS=true`. Szándékosan explicit — pl. egy
-// éles környezetben futó, fizetés nélküli demó/staging példányhoz. Élesben
-// SOHA ne legyen bekapcsolva.
+// ⚠️ Miért nem hard-fail (2026-08-09, éles tanulság): a leállás kipróbálva —
+// a Railway-en `NODE_ENV=production`, a CIB-kulcs pedig a launchig NINCS, így
+// a boot-exit újraindítási ciklusba tette az éles backendet, és az API 502-t
+// adott. A „prod + stub" a launch ELŐTT NEM rendkívüli állapot, hanem a
+// normál üzem: a platform még nem szed díjat. Amit védeni kell — hogy ilyenkor
+// se lehessen fizetés nélkül „fizetettnek" jelölni egy fuvart —, azt a
+// futásidejű guard adja, nem a leállás. Bevétel-kiesést itt nem lehet némán
+// elszenvedni: ha nincs kulcs, senki nem tud fizetni, az azonnal látszik.
+//
+// SZÁNDÉKOSAN NINCS env-kapcsoló a guard feloldására: az elfelejtve maradna
+// bekapcsolva pont a launchkor, és épp azt a rést nyitná ki, ami ellen az
+// egész véd.
 function isProduction() {
   return process.env.NODE_ENV === 'production';
 }
 
-function stubOverride() {
-  return String(process.env.ALLOW_STUB_PAYMENTS || '').toLowerCase() === 'true';
-}
-
-/** Éles futás stub providerrel, override nélkül → tiltott állapot. */
+/** Éles futás stub providerrel → biztonságos mód (a fizetési ágak zárva). */
 function isUnsafeStub() {
-  return isProduction() && !stubOverride() && active().isStub();
+  return isProduction() && active().isStub();
 }
 
 /**
