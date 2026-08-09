@@ -352,6 +352,22 @@ async function anonymizeOldJobs() {
               dropoff_lng = ROUND(dropoff_lng::numeric, 2),
               description = NULL,
               cancel_reason = NULL,
+              -- 2026-08-09 (3. kör): a description mellől ez a négy kimaradt.
+              -- A title ugyanúgy felhasználó által írt szabad szöveg
+              -- („Anyukám bútorai a Fő utca 12-ből"); az
+              -- ai_description_notes a leírásból SZÁRMAZIK, tehát ugyanazt
+              -- a PII-t hordozhatja, amit épp töröltünk; a source_image_url
+              -- pedig a shipper_id-vel együtt megőrizte, ki mit vásárolt.
+              title = '(törölt fuvar)',
+              ai_description_notes = NULL,
+              source_image_url = NULL,
+              -- A lakás belső adottságai (hányadik emelet, van-e lift) a
+              -- címnél is beszédesebbek — üzleti értékük a lezárás után nincs.
+              -- Ez a négy oszlop NOT NULL, ezért semleges alapértékre áll.
+              pickup_floor = 0,
+              dropoff_floor = 0,
+              pickup_has_elevator = FALSE,
+              dropoff_has_elevator = FALSE,
               anonymized_at = NOW()
         WHERE anonymized_at IS NULL
           AND status = ANY($1)

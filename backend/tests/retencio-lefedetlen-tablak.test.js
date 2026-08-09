@@ -223,3 +223,62 @@ describe('Számla-retenció (8 év — Számv. tv. 169. §)', () => {
     ).toBe(true);
   });
 });
+
+// ── A 3. kör maradék tételei (2026-08-09) ────────────────────────────────
+describe('Anonimizálás: a leírás mellől kimaradt mezők', () => {
+  it("a `title`, az AI-jegyzet, a termékkép és a lakás-adatok is elévülnek", async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const job = await regiLezartFuvar(felado.id, szallito.id, JOB_PII_RETENTION_YEARS + 1);
+    await db.query(
+      `UPDATE jobs
+          SET title = 'Anyukám bútorai a Fő utca 12-ből',
+              ai_description_notes = 'A leírás említi: Kovács Anna, 06301234567',
+              source_image_url = 'https://ikea.com/termek/kanape.jpg',
+              pickup_floor = 3, pickup_has_elevator = FALSE
+        WHERE id = $1`,
+      [job.id],
+    );
+
+    await anonymizeOldJobs();
+
+    const { rows } = await db.query(
+      `SELECT title, ai_description_notes, source_image_url, pickup_floor FROM jobs WHERE id = $1`,
+      [job.id],
+    );
+    expect(rows[0].title, 'a felhasználó által írt cím megmaradt').not.toContain('Fő utca');
+    expect(
+      rows[0].ai_description_notes,
+      'az AI-jegyzet a törölt leírás PII-ját őrizte tovább',
+    ).toBeNull();
+    expect(rows[0].source_image_url, 'a vásárlás ténye (mit vett) megmaradt').toBeNull();
+    expect(rows[0].pickup_floor, 'a lakás emelete megmaradt').toBe(0);
+  });
+});
+
+describe('Admin-napló: a tömeges lekérés is nyomot hagy', () => {
+  const request = require('supertest');
+  const { app } = require('./helpers');
+
+  async function naplo(adminId, action) {
+    const { rows } = await db.query(
+      'SELECT 1 FROM admin_access_log WHERE admin_id = $1 AND action = $2', [adminId, action],
+    );
+    return rows.length > 0;
+  }
+
+  it('a felhasználó-LISTA megnyitása naplózódik (nem csak a részletnézet)', async () => {
+    const admin = await createUser({ role: 'admin' });
+    await request(app).get('/admin/users').set({ Authorization: `Bearer ${admin.token}` }).expect(200);
+    expect(
+      await naplo(admin.id, 'users_list'),
+      'egy kéréssel 200 ember elérhetősége lekérhető, nyomtalanul',
+    ).toBe(true);
+  });
+
+  it('a fuvar-lista megnyitása is naplózódik', async () => {
+    const admin = await createUser({ role: 'admin' });
+    await request(app).get('/admin/jobs').set({ Authorization: `Bearer ${admin.token}` }).expect(200);
+    expect(await naplo(admin.id, 'jobs_list')).toBe(true);
+  });
+});
