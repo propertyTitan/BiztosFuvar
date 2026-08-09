@@ -38,3 +38,9 @@ for (const kulcs of [
 ]) {
   process.env[kulcs] = '';
 }
+
+// A segélyszolgálat (towing) élesben KI van kapcsolva (a díj-kérdés
+// megoldásáig — lásd routes/towing.js). Teszt alatt viszont BE, hogy a
+// biztonsági tesztjei (KYC-kapu, lista-scrub, közelítő hely) továbbra is
+// fussanak, és a védelem ne rohadjon el holt kódként.
+process.env.TOWING_ENABLED = 'true';
