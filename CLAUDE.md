@@ -185,6 +185,18 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Ingyen skálázás-tuning: DB-pool 10→30 (2026-08-09, user-kérés)** — a
+  k6 plafon-teszt kimutatta, hogy a DB-kötött végpontok fő szűk
+  keresztmetszete a `pg.Pool` alapértelmezett 10-es `max`-ja volt. 30-ra
+  emelve (`db.js`, env-vezérelt `DB_POOL_MAX`) → ~3× kapacitás a DB-kötött
+  útra, nulla forintért. IGAZOLTAN biztonságos: a prod a Neon PgBouncer-
+  poolerén megy (`…-pooler…` host), a Postgres `max_connections=901`, a 30
+  elenyésző. +1 őr-teszt (db-pool.test.js: a max ne csússzon vissza 10-re).
+  ⚠️ A **keep-alive ping SZÁNDÉKOSAN NEM került vissza** a cold-start ellen:
+  a PR #70 pont azért vette ki (0-24 ébren tartotta a Neont → valószínű
+  kvóta-kifutás → éles DB-leállás kockázata). A cold-start (~1,6 mp alvás
+  után) valódi megoldása a Neon FIZETŐS tervén az autosuspend kikapcsolása
+  (az „1. skálázási lépcső", nem ingyenes) — ne tegyük vissza a pinget!
 - **Admin-üzenetküldés utólagos átvizsgálásának javítás-köre (2026-08-08)**
   — a friss feature-t „külsős csapat" szemmel átnézve 8 hibát találtunk és
   javítottunk. A legfontosabb (P2): a körüzenet „Szállítók" célzása a
