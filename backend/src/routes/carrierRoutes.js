@@ -180,9 +180,11 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
     await client.query('COMMIT');
     const withPrices = (await attachPrices([route]))[0];
 
-    // Csak a publikált útvonalakat hirdetjük real-time-ban
+    // Csak a publikált járatokat hirdetjük real-time-ban — és csak a
+    // hitelesített feedbe (2026-08-09): a sor a szállító indulási/érkezési
+    // címeit és időpontjait tartalmazza, ez nem vendég-socketre való.
     if (route.status === 'open') {
-      realtime.emitGlobal('routes:new', withPrices);
+      realtime.emitToFeed('routes:new', withPrices);
     }
     res.status(201).json(withPrices);
   } catch (err) {
@@ -697,9 +699,14 @@ router.post(
       );
 
       await client.query('COMMIT');
-      realtime.emitGlobal(`route-bookings:confirmed:${b.shipper_id}`, {
+      // ⚠️ 2026-08-09 (audit 3. kör): ez `emitGlobal`-lal ment, vagyis a
+      // FIZETÉSI GATEWAY-LINK (és a foglalás azonosítója) MINDEN csatlakozott
+      // sockethez kiment — a be nem jelentkezett vendégekhez is. Az esemény
+      // nevébe írt user-id nem címzés: a socket.io-ban az esemény NEVE nem
+      // szűr, mindenki megkapja, aki hallgat rá. A címzett szobája a helyes út.
+      realtime.emitToUser(b.shipper_id, 'route-booking:confirmed', {
         booking_id: b.id,
-        barion_gateway_url: barionRes.gatewayUrl,
+        gateway_url: barionRes.gatewayUrl,
       });
 
       // Értesítés a feladónak: a szállító megerősítette a foglalást (in-app + email)
@@ -893,8 +900,9 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
   // Éles fizetés mellett a webhook a hiteles forrás — a kézi nyugtázás csak
   // stub (teszt) módban él. Az AKTÍV providert nézzük (paymentProvider), nem
   // konkrétan a barion-t: QVIK-launchkor a barion.isStub() tévesen true lenne,
-  // és kinyitná ezt a fizetés-megkerülő ágat.
-  if (!paymentProvider.isStub()) {
+  // és kinyitná ezt a fizetés-megkerülő ágat. ⚠️ 2026-08-09: a feltétel
+  // `manualConfirmAllowed()` — éles futásban a kulcs-hiányos stub sem nyitja ki.
+  if (!paymentProvider.manualConfirmAllowed()) {
     return res.status(409).json({
       error: 'A fizetést a fizetésszolgáltató igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
     });
@@ -996,7 +1004,9 @@ router.post(
       `UPDATE route_bookings SET status = 'rejected' WHERE id = $1`,
       [b.id],
     );
-    realtime.emitGlobal(`route-bookings:rejected:${b.shipper_id}`, { booking_id: b.id });
+    // Címzett szobájába (lásd a `confirmed` ág megjegyzését) — az esemény
+    // nevébe írt user-id nem szűr senkit.
+    realtime.emitToUser(b.shipper_id, 'route-booking:rejected', { booking_id: b.id });
 
     // Értesítés a feladónak: sajnos a szállító elutasította (in-app + email)
     try {

@@ -925,10 +925,40 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
       console.warn('[kyc] admin notify hiba:', e.message);
     }
   } else if (aiResult.valid) {
-    docStatus = 'approved';
-    kycStatus = 'verified';
-    rejectionReason = null;
-    console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
+    // ⚠️ 2026-08-09 (audit 3. kör): az AI „valid" ítélete ÖNMAGÁBAN nem ad
+    // 'verified' státuszt. A kockázatos jeleket (alacsony bizalom, név-eltérés
+    // a fiókhoz képest, másolat/képernyőfotó gyanú, olvashatatlan okmányszám)
+    // emberhez tereljük — az automatizmus megmarad, csak nem vak.
+    const { needsManualReview } = require('../services/kycReview');
+    const { rows: acc } = await db.query('SELECT full_name FROM users WHERE id = $1', [req.user.sub]);
+    const review = needsManualReview(aiResult, { fullName: acc[0]?.full_name }, doc_type);
+
+    if (review) {
+      docStatus = 'pending';
+      kycStatus = 'pending';
+      rejectionReason = review.reason;
+      // PII nélkül naplózunk: sem nevet, sem okmányszámot.
+      console.log(`[kyc] KÉZI ELLENŐRZÉSRE: user=${req.user.sub} doc=${doc_type} ok=${review.code} confidence=${aiResult.confidence}`);
+      try {
+        const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+        for (const admin of admins) {
+          await createNotification({
+            user_id: admin.id,
+            type: 'kyc_manual_review',
+            title: '📋 KYC kézi ellenőrzés szükséges',
+            body: `Egy dokumentum (${doc_type}) automatikus jóváhagyása elakadt (${review.code}) — kézi döntés kell. Részletek a KYC-panelen.`,
+            link: '/admin#kyc',
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[kyc] admin notify hiba:', e.message);
+      }
+    } else {
+      docStatus = 'approved';
+      kycStatus = 'verified';
+      rejectionReason = null;
+      console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
+    }
   } else {
     docStatus = 'rejected';
     kycStatus = 'rejected';
@@ -956,14 +986,16 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   }
 
   res.json({
-    ok: aiResult.valid && !isUnderage,
+    // Az `ok` a TÉNYLEGES döntést tükrözi: kézi ellenőrzésre terelt
+    // dokumentumnál nem „sikeres" (a státusz 'pending').
+    ok: kycStatus === 'verified',
     doc_type,
     status: kycStatus,
     // A kliens felé aláírt (rövid életű) olvasó-URL megy, sosem a nyers kulcs
     file_url: await getSignedPrivateUrl(url),
     ai_reason: isUnderage
       ? 'A születési dátumod alapján 18 év alatti vagy. A profilod adminisztrátori jóváhagyásra vár.'
-      : aiResult.reason,
+      : (rejectionReason || aiResult.reason),
     ai_confidence: aiResult.confidence,
     underage: isUnderage || false,
   });

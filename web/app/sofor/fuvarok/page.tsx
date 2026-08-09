@@ -12,7 +12,7 @@ import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { PackageSearch } from 'lucide-react';
-import { getSocket } from '@/lib/socket';
+import { subscribeFeed } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
 import GreenBadge from '@/components/GreenBadge';
 import { useTranslation, formatPrice } from '@/lib/i18n';
@@ -119,19 +119,16 @@ export default function SoforFuvarokLista() {
   // Ha egy instant fuvart valaki elkapott (`jobs:instant-taken`), azonnal
   // eltüntetjük a listából, hogy a UI ne maradjon "kínálati" állapotban.
   useEffect(() => {
-    const socket = getSocket();
-    const onNew = (job: Job) => {
-      setJobs((prev) => [job as ListedJob, ...prev.filter((j) => j.id !== job.id)]);
-    };
-    const onInstantTaken = (payload: { job_id: string }) => {
-      setJobs((prev) => prev.filter((j) => j.id !== payload.job_id));
-    };
-    socket.on('jobs:new', onNew);
-    socket.on('jobs:instant-taken', onInstantTaken);
-    return () => {
-      socket.off('jobs:new', onNew);
-      socket.off('jobs:instant-taken', onInstantTaken);
-    };
+    // A piactér-események a hitelesített `feed` szobába mennek (a payload
+    // pontos címet/GPS-t tartalmaz) — a subscribeFeed lép be és iratkozik fel.
+    return subscribeFeed({
+      'jobs:new': (job: Job) => {
+        setJobs((prev) => [job as ListedJob, ...prev.filter((j) => j.id !== job.id)]);
+      },
+      'jobs:instant-taken': (payload: { job_id: string }) => {
+        setJobs((prev) => prev.filter((j) => j.id !== payload.job_id));
+      },
+    });
   }, []);
 
   return (

@@ -112,6 +112,22 @@ describe('Publikus végpontok', () => {
       .query({ pickup_lat: 47.4979, pickup_lng: 19.0402, dropoff_lat: 46.253, dropoff_lng: 20.1414, weight_kg: 5 }));
   });
 
+  it('privát fájl CSAK érvényes aláírással olvasható (KYC disk-fallback)', async () => {
+    const storage = require('../src/services/storage');
+    const privateUrl = await storage.savePrivateFile(TINY_PNG, 'okmany.png', 'image/png');
+    const signed = await storage.getSignedPrivateUrl(privateUrl);
+    expect(signed).toMatch(/^\/private-files\//);
+
+    await sikeres('GET /private-files/:name', request(app).get(signed));
+
+    // Aláírás nélkül / hamis aláírással nincs hozzáférés
+    const utNev = signed.split('?')[0];
+    expect((await request(app).get(utNev)).status).toBe(404);
+    expect((await request(app).get(`${utNev}?exp=99999999999&sig=${'a'.repeat(32)}`)).status).toBe(404);
+    // …és a statikus kiszolgálás sem adja ki a private mappát
+    expect((await request(app).get(`/uploads/private/${utNev.split('/').pop()}`)).status).toBe(404);
+  });
+
   it('nyilvános küldemény-követés a címzett tokenjével', async () => {
     const { rows } = await db.query('SELECT tracking_token FROM jobs WHERE id = $1', [V.uton.id]);
     const res = await sikeres('GET /tracking/:token',

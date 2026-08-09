@@ -179,14 +179,70 @@ async function savePrivateFile(buffer, originalName, mimetype) {
       );
       return `private:${key}`;
     } catch (err) {
-      console.error('[storage] R2 privát upload hiba, disk fallback:', err.message);
+      // ⚠️ 2026-08-09 (audit 3. kör): ÉLESBEN NINCS csendes disk-fallback.
+      // A privát fájl itt egy SZEMÉLYI IGAZOLVÁNY fotója. A lokális disk
+      // Railway-en ráadásul nem perzisztens, és a fájl a webszerver
+      // uploads-fájáig kerülne — a legrosszabb hely egy okmánynak. Inkább
+      // hibázzon a feltöltés (a user újrapróbálja), mint hogy egy R2-kiesés
+      // némán a webgyökérbe tegye az okmányt.
+      console.error('[storage] R2 privát upload hiba:', err.message);
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('A dokumentum feltöltése átmenetileg nem sikerült. Kérjük, próbáld újra néhány perc múlva.');
+      }
+      console.error('[storage] (nem-éles futás) → disk fallback');
     }
   }
 
-  // Disk fallback — a kulcs fájlnév-része kerül a private mappába
+  // Disk fallback — CSAK dev/teszt. A fájl a private mappába kerül, amit a
+  // statikus kiszolgálás NEM ad ki (index.js guard); olvasni az aláírt
+  // /private-files/ úton lehet (lásd signPrivateDiskUrl).
   const filepath = path.join(PRIVATE_DIR, path.basename(key));
   fs.writeFileSync(filepath, buffer);
   return `private:${key}`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Disk-fallback privát olvasás: rövid életű, ALÁÍRT URL (a presigned R2-URL
+// megfelelője). Korábban a fallback egyszerűen `/uploads/private/<fájl>`-t
+// adott vissza, amit az express.static bárkinek kiszolgált — hitelesítés
+// nélkül, lejárat nélkül. A HMAC-aláírás ugyanazt a garanciát adja, mint az
+// R2 presign: csak a szerver által kiadott link működik, és csak ideig.
+// ─────────────────────────────────────────────────────────────────────────
+const PRIVATE_NAME_RE = /^[a-f0-9]{32}\.[a-z0-9]{1,6}$/;
+
+function privateDiskSignature(name, exp) {
+  return crypto
+    .createHmac('sha256', process.env.JWT_SECRET || 'dev-secret')
+    .update(`${name}.${exp}`)
+    .digest('hex')
+    .slice(0, 32);
+}
+
+function signPrivateDiskUrl(key, expiresIn = 600) {
+  const name = path.basename(key);
+  const exp = Math.floor(Date.now() / 1000) + expiresIn;
+  return `/private-files/${name}?exp=${exp}&sig=${privateDiskSignature(name, exp)}`;
+}
+
+/**
+ * Az aláírt privát-fájl kérés ellenőrzése + a lemezen lévő fájl útja.
+ * @returns {{ok: true, filepath: string} | {ok: false, reason: string}}
+ */
+function resolvePrivateDiskFile(name, exp, sig) {
+  if (typeof name !== 'string' || !PRIVATE_NAME_RE.test(name)) return { ok: false, reason: 'invalid_name' };
+  const expNum = Number(exp);
+  // Hiányzó/értelmezhetetlen lejárat = érvénytelen link (404), nem „lejárt"
+  // (410) — a 410 azt üzenné, hogy létezett ilyen link, csak elavult.
+  if (exp === undefined || exp === null || exp === '' || !Number.isFinite(expNum)) {
+    return { ok: false, reason: 'invalid_exp' };
+  }
+  if (expNum < Math.floor(Date.now() / 1000)) return { ok: false, reason: 'expired' };
+  const expected = privateDiskSignature(name, String(exp));
+  if (typeof sig !== 'string' || sig.length !== expected.length) return { ok: false, reason: 'bad_signature' };
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return { ok: false, reason: 'bad_signature' };
+  const filepath = path.join(PRIVATE_DIR, name);
+  if (!filepath.startsWith(PRIVATE_DIR) || !fs.existsSync(filepath)) return { ok: false, reason: 'not_found' };
+  return { ok: true, filepath };
 }
 
 /**
@@ -215,9 +271,8 @@ async function getSignedPrivateUrl(privateUrl, expiresIn = 600) {
     }
   }
 
-  // Disk fallback (dev/teszt): a statikusan kiszolgált private mappa útja.
-  // Élesben ez az ág nem fut (ott R2 van); devben elfogadott kompromisszum.
-  return `/uploads/private/${path.basename(key)}`;
+  // Disk fallback (dev/teszt): ALÁÍRT, lejáró út — nem a statikus mappa.
+  return signPrivateDiskUrl(key, expiresIn);
 }
 
 /**
@@ -294,4 +349,7 @@ async function deleteFile(url) {
   return true;
 }
 
-module.exports = { saveFile, savePrivateFile, getSignedPrivateUrl, isPersistent, deleteFile };
+module.exports = {
+  saveFile, savePrivateFile, getSignedPrivateUrl, isPersistent, deleteFile,
+  signPrivateDiskUrl, resolvePrivateDiskFile,
+};

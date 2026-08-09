@@ -45,11 +45,52 @@ function active() {
   return provider;
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// ÉLES FUTÁS + STUB PROVIDER = TILTOTT ÁLLAPOT (2026-08-09, audit 3. kör)
+//
+// A stub (kulcs nélküli) mód dev/teszt eszköz: nem szed pénzt, és kinyitja a
+// kézi fizetés-nyugtázást (`/confirm-payment`), hogy a tesztek végig tudjanak
+// menni a pénz-úton. Élesben ugyanez azt jelentené, hogy BÁRKI fizetés nélkül
+// „fizetettnek" jelöli a saját fuvarját → a platform egyetlen bevétele
+// megkerülhető, ráadásul a webhook is elhinné a nyers body-t.
+//
+// Eddig ezt csak egy boot-időben kiírt figyelmeztetés jelezte — egy elfelejtett
+// env-változó tehát némán nyitva hagyta a kaput. Mostantól:
+//   - a boot LEÁLL (index.js), és
+//   - a díj-nyugtázó / webhook ágak ZÁRVA maradnak (`manualConfirmAllowed`).
+//
+// Vész-kapcsoló: `ALLOW_STUB_PAYMENTS=true`. Szándékosan explicit — pl. egy
+// éles környezetben futó, fizetés nélküli demó/staging példányhoz. Élesben
+// SOHA ne legyen bekapcsolva.
+function isProduction() {
+  return process.env.NODE_ENV === 'production';
+}
+
+function stubOverride() {
+  return String(process.env.ALLOW_STUB_PAYMENTS || '').toLowerCase() === 'true';
+}
+
+/** Éles futás stub providerrel, override nélkül → tiltott állapot. */
+function isUnsafeStub() {
+  return isProduction() && !stubOverride() && active().isStub();
+}
+
+/**
+ * Szabad-e a kézi fizetés-nyugtázás (a webhook megkerülése)? Csak akkor, ha a
+ * provider stub ÉS ez nem éles futás — így élesben a webhook marad az egyetlen
+ * hiteles forrás, kulcs-hiány esetén sem nyílik meg a megkerülő ág.
+ */
+function manualConfirmAllowed() {
+  return active().isStub() && !isUnsafeStub();
+}
+
 module.exports = {
   name,
   providers: Object.keys(PROVIDERS),
   active,
   isStub: () => active().isStub(),
+  isUnsafeStub,
+  manualConfirmAllowed,
   startFeePayment: (opts) => active().startFeePayment(opts),
   getPaymentState: (id) => active().getPaymentState(id),
 };

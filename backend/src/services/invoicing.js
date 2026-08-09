@@ -95,8 +95,71 @@ function buildInvoiceData({
   };
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// SZÁMLA-CLAIM (2026-08-09, audit 3. kör)
+//
+// A számla ADÓÜGYI dokumentum: ha kétszer állítjuk ki, azt sztornózni kell,
+// és a vevő két számlát kap ugyanarról a 8-16 forintnyi ÁFÁ-t hordozó díjról.
+// A régi kód a webhookban „csak úgy" hívta a providert, majd INSERT-elt —
+// két PÁRHUZAMOS webhook (a PSP-k rutinszerűen újraküldenek) tehát KÉT valódi
+// számlát állított volna ki. A `payment_events` idempotencia-ellenőrzés ez
+// ellen nem véd: a `processed` flag csak a feldolgozás VÉGÉN íródik ki.
+//
+// Ezért a sorrend megfordul: ELŐBB foglalunk egy 'pending' sort (a 057-es
+// migráció partial UNIQUE indexe miatt ügyletenként csak egy nem-'failed'
+// sor létezhet), és CSAK a nyertes hívja a providert. A vesztes visszakapja
+// a meglévő sort, külső hívás nélkül.
+// ─────────────────────────────────────────────────────────────────────────
+async function claimInvoiceRow({ jobId, bookingId, buyerUserId, invoiceData, vatResult, currency, provider }) {
+  const params = [
+    jobId || null, bookingId || null, buyerUserId,
+    invoiceData.buyer.name, invoiceData.buyer.taxId,
+    invoiceData.buyer.address, invoiceData.buyer.country,
+    currency, vatResult.netAmount, vatResult.vatRate,
+    vatResult.vatAmount, vatResult.grossAmount, vatResult.isReverseCharge,
+    provider,
+  ];
+  const { rows } = await db.query(
+    `INSERT INTO invoices (
+       job_id, booking_id, buyer_user_id, buyer_name, buyer_tax_id,
+       buyer_address, buyer_country, currency, net_amount, vat_rate,
+       vat_amount, gross_amount, is_reverse_charge, external_system, status
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'pending')
+     ON CONFLICT DO NOTHING
+     RETURNING *`,
+    params,
+  );
+  if (rows[0]) return { created: true, invoice: rows[0] };
+
+  // Vesztes ág: valaki más már foglalt sort ehhez az ügylethez.
+  const { rows: existing } = await db.query(
+    jobId
+      ? `SELECT * FROM invoices WHERE job_id = $1 AND status <> 'failed' ORDER BY created_at LIMIT 1`
+      : `SELECT * FROM invoices WHERE booking_id = $1 AND status <> 'failed' ORDER BY created_at LIMIT 1`,
+    [jobId || bookingId],
+  );
+  console.log(`[invoicing] SKIP: ehhez az ügylethez már van számla (${existing[0]?.id || '?'}) — nem állítunk ki újat`);
+  return { created: false, invoice: existing[0] || null };
+}
+
+/** A lefoglalt sor véglegesítése a provider válaszával. */
+async function finalizeInvoiceRow(id, { status, invoiceNumber = null }) {
+  const { rows } = await db.query(
+    `UPDATE invoices
+        SET status = $2,
+            invoice_number = COALESCE($3, invoice_number)
+      WHERE id = $1
+      RETURNING *`,
+    [id, status, invoiceNumber],
+  );
+  return rows[0] || null;
+}
+
 /**
  * Számla generálása a kapcsolatfelvételi díjról.
+ *
+ * Ügyletenként (fuvar VAGY foglalás) LEGFELJEBB EGY számla készül — a
+ * párhuzamos webhookok közül csak az első hívja a számlázó providert.
  *
  * @param {object} params
  * @param {string} [params.jobId]
@@ -142,6 +205,21 @@ async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, curre
     provider = 'stub';
   }
 
+  // === BILLINGO (nem terv — a claim előtt lép ki, hogy ne foglaljon sort) ===
+  if (provider === 'billingo') {
+    // TODO: Billingo REST API hívás
+    // https://app.billingo.hu/api-docs
+    console.log('[invoicing] Billingo integráció hamarosan...');
+    return null;
+  }
+
+  // ── CLAIM: ügyletenként EGY számla (dupla webhook / retry ellen) ──
+  const claim = await claimInvoiceRow({
+    jobId, bookingId, buyerUserId, invoiceData, vatResult, currency, provider,
+  });
+  if (!claim.created) return claim.invoice;
+  const invoiceId = claim.invoice.id;
+
   // === STUB MÓD ===
   if (provider === 'stub') {
     console.log('[invoicing STUB] Számla generálva:');
@@ -151,88 +229,38 @@ async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, curre
     console.log(`  Bruttó: ${vatResult.grossAmount} ${currency}`);
     console.log(`  Reverse charge: ${vatResult.isReverseCharge}`);
     console.log(`  Jogi: ${invoiceData.legalTexts.join(' | ')}`);
-
-    // DB mentés
-    const { rows: inv } = await db.query(
-      `INSERT INTO invoices (
-         job_id, booking_id, buyer_user_id, buyer_name, buyer_tax_id,
-         buyer_address, buyer_country, currency, net_amount, vat_rate,
-         vat_amount, gross_amount, is_reverse_charge, external_system,
-         status
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'stub','sent')
-       RETURNING *`,
-      [
-        jobId || null, bookingId || null, buyerUserId,
-        invoiceData.buyer.name, invoiceData.buyer.taxId,
-        invoiceData.buyer.address, invoiceData.buyer.country,
-        currency, vatResult.netAmount, vatResult.vatRate,
-        vatResult.vatAmount, vatResult.grossAmount, vatResult.isReverseCharge,
-      ],
-    );
-    return inv[0];
+    return finalizeInvoiceRow(invoiceId, { status: 'sent' });
   }
 
   // === SZÁMLÁZZ.HU ===
   if (provider === 'szamlazz_hu') {
-    const result = await szamlazzHu.issueInvoice(invoiceData, {
-      buyerEmail: buyerUser.email,
-      vatResult,
-      orderNumber: jobId || bookingId || '',
-    });
+    let result;
+    try {
+      result = await szamlazzHu.issueInvoice(invoiceData, {
+        buyerEmail: buyerUser.email,
+        vatResult,
+        orderNumber: jobId || bookingId || '',
+      });
+    } catch (err) {
+      // Kivétel esetén se maradjon 'pending' sor: az blokkolná az újrapróbát
+      // (a partial UNIQUE csak a 'failed'-et engedi újra).
+      console.error('[invoicing] Számlázz.hu hívás kivétel:', err.message);
+      return finalizeInvoiceRow(invoiceId, { status: 'failed' });
+    }
 
     if (!result.ok) {
       // A számla-kudarc nem akaszthatja meg a fizetés-feldolgozást — a
       // 'failed' sor a nyoma, ebből lehet kézzel pótolni (Számlázz.hu fiók).
       console.error('[invoicing] Számlázz.hu kiállítás sikertelen:', result.error);
-      const { rows: inv } = await db.query(
-        `INSERT INTO invoices (
-           job_id, booking_id, buyer_user_id, buyer_name, buyer_tax_id,
-           buyer_address, buyer_country, currency, net_amount, vat_rate,
-           vat_amount, gross_amount, is_reverse_charge, external_system,
-           status
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'szamlazz_hu','failed')
-         RETURNING *`,
-        [
-          jobId || null, bookingId || null, buyerUserId,
-          invoiceData.buyer.name, invoiceData.buyer.taxId,
-          invoiceData.buyer.address, invoiceData.buyer.country,
-          currency, vatResult.netAmount, vatResult.vatRate,
-          vatResult.vatAmount, vatResult.grossAmount, vatResult.isReverseCharge,
-        ],
-      );
-      return inv[0];
+      return finalizeInvoiceRow(invoiceId, { status: 'failed' });
     }
 
     console.log(`[invoicing] Számlázz.hu számla kiállítva: ${result.invoiceNumber}`);
-    const { rows: inv } = await db.query(
-      `INSERT INTO invoices (
-         job_id, booking_id, buyer_user_id, buyer_name, buyer_tax_id,
-         buyer_address, buyer_country, currency, net_amount, vat_rate,
-         vat_amount, gross_amount, is_reverse_charge, external_system,
-         invoice_number, status
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'szamlazz_hu',$14,'sent')
-       RETURNING *`,
-      [
-        jobId || null, bookingId || null, buyerUserId,
-        invoiceData.buyer.name, invoiceData.buyer.taxId,
-        invoiceData.buyer.address, invoiceData.buyer.country,
-        currency, vatResult.netAmount, vatResult.vatRate,
-        vatResult.vatAmount, vatResult.grossAmount, vatResult.isReverseCharge,
-        result.invoiceNumber,
-      ],
-    );
-    return inv[0];
+    return finalizeInvoiceRow(invoiceId, { status: 'sent', invoiceNumber: result.invoiceNumber });
   }
 
-  // === BILLINGO ===
-  if (provider === 'billingo') {
-    // TODO: Billingo REST API hívás
-    // https://app.billingo.hu/api-docs
-    console.log('[invoicing] Billingo integráció hamarosan...');
-    return null;
-  }
-
-  return null;
+  // Ismeretlen provider — a lefoglalt sort ne hagyjuk 'pending'-ben.
+  return finalizeInvoiceRow(invoiceId, { status: 'failed' });
 }
 
 module.exports = {

@@ -89,6 +89,20 @@ function init(httpServer) {
       if (typeof jobId === 'string') socket.leave(`job:${jobId}`);
     });
 
+    // ── „feed" szoba: a piactér élő eseményei (új fuvar, azonnali fuvar,
+    // mentés-kérés). ⚠️ 2026-08-09 (audit 3. kör): ezek KORÁBBAN `io.emit`-tel
+    // MINDEN csatlakozott sockethez mentek — a be nem jelentkezett vendégekhez
+    // is. Így egy böngészőkonzolból, fiók nélkül lehetett élőben gyűjteni a
+    // feladók PONTOS felvételi/lerakodási címét és GPS-koordinátáit (a
+    // mentés-kérésnél a bajba jutott helyzetét). A tartalom ugyanaz maradt,
+    // de csak HITELESÍTETT kapcsolat kaphatja meg.
+    socket.on('feed:join', () => {
+      if (me()) socket.join('feed');
+    });
+    socket.on('feed:leave', () => {
+      socket.leave('feed');
+    });
+
     // Személyre szóló szoba — KIZÁRÓLAG a hitelesített saját azonosítóval.
     // A kliens által küldött userId-t nem vesszük figyelembe.
     socket.on('user:join', () => {
@@ -112,9 +126,19 @@ function emitToUser(userId, event, payload) {
   io.to(`user:${userId}`).emit(event, payload);
 }
 
+// Valóban mindenkinek szóló, SZEMÉLYES ADATOT NEM tartalmazó jelzés
+// (pl. „ez a fuvar már elkelt" — csak azonosítók). Ha a payloadban cím, GPS,
+// név, telefonszám vagy fizetési link van, NE ezt használd: `emitToFeed`
+// (hitelesített) vagy `emitToUser` (címzett) a helyes.
 function emitGlobal(event, payload) {
   if (!io) return;
   io.emit(event, payload);
+}
+
+// Piactér-feed: csak a HITELESÍTETT, `feed:join`-nal belépett kapcsolatok.
+function emitToFeed(event, payload) {
+  if (!io) return;
+  io.to('feed').emit(event, payload);
 }
 
 // Élő jelenlét — ki van ÉPPEN az oldalon. A forrás az aktív Socket.IO
@@ -146,4 +170,4 @@ function getPresence() {
   return { online_users: users.length, total_connections: total, anonymous, by_role, users };
 }
 
-module.exports = { init, emitToJob, emitToUser, emitGlobal, getPresence };
+module.exports = { init, emitToJob, emitToUser, emitGlobal, emitToFeed, getPresence };

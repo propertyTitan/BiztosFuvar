@@ -59,6 +59,30 @@ export function leaveUserRoom(userId: string) {
 }
 
 /**
+ * Piactér-feed: új fuvar / azonnali fuvar / járat élő eseményei.
+ *
+ * ⚠️ 2026-08-09: ezek korábban minden csatlakozott sockethez kimentek — a be
+ * nem jelentkezett vendégekhez is —, pedig pontos címet és GPS-t tartalmaznak.
+ * A backend mostantól a `feed` szobába küldi őket, ahova CSAK hitelesített
+ * kapcsolat léphet be, ezért itt explicit be kell lépni (reconnect után is).
+ *
+ * @returns unsubscribe függvény
+ */
+export function subscribeFeed(handlers: Record<string, (payload: any) => void>): () => void {
+  const s = getSocket();
+  const join = () => s.emit('feed:join');
+  join();
+  s.on('connect', join);
+  for (const [event, fn] of Object.entries(handlers)) s.on(event, fn);
+
+  return () => {
+    s.off('connect', join);
+    for (const [event, fn] of Object.entries(handlers)) s.off(event, fn);
+    s.emit('feed:leave');
+  };
+}
+
+/**
  * Kijelentkezéskor / profilváltáskor hívandó. Leszedi a listener-eket,
  * kilép az aktuális user szobájából, és eldobja a socket instance-t.
  */

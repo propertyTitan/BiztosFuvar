@@ -86,7 +86,9 @@ router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
     }
   }
 
-  realtime.emitGlobal('sos:new', {
+  // Hitelesített feed (2026-08-09): egy vészjelzés ténye + a jelző user
+  // azonosítója nem való be nem jelentkezett vendég-sockethez.
+  realtime.emitToFeed('sos:new', {
     sos_id: sos.id,
     user_id: req.user.sub,
     job_id: job_id || null,

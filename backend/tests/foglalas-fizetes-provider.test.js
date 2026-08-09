@@ -20,6 +20,7 @@ import request from 'supertest';
 
 const { app, db, createUser, createBooking } = require('./helpers');
 const paymentProvider = require('../src/services/paymentProvider');
+const cib = require('../src/services/cib');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 
 beforeEach(() => { __resetRateLimitsForTests(); });
@@ -43,11 +44,13 @@ describe('Foglalás confirm-payment: az aktív provider guardja', () => {
   it('ÉLES provider mellett a kézi nyugtázás TILOS (a webhook a hiteles forrás)', async () => {
     const { felado, booking } = await nyugtazhatoFoglalas();
 
-    // „Éles" provider szimulálása: az AKTÍV provider isStub()-ja false.
-    // (A hiba lényege: korábban ezt a barion.isStub() döntötte el, ami
-    //  QVIK-launchkor tévesen true lett volna, és kinyitotta volna a guardot.)
-    const eredeti = paymentProvider.isStub;
-    paymentProvider.isStub = () => false;
+    // „Éles" provider szimulálása az AKTÍV provider-modul (CIB) szintjén —
+    // ez a valós konfigurációt utánozza (van kulcs → nem stub). Korábban itt
+    // a `paymentProvider.isStub` volt mockolva; a guard azóta a
+    // `manualConfirmAllowed()`-en megy, ami mindig az aktív providertől kérdez,
+    // így a burkoló mockolása már nem érte volna el a valódi útvonalat.
+    const eredeti = cib.isStub;
+    cib.isStub = () => false;
     try {
       const res = await confirm(booking.id, felado.token);
       expect(
@@ -58,7 +61,7 @@ describe('Foglalás confirm-payment: az aktív provider guardja', () => {
       const { rows } = await db.query('SELECT paid_at FROM route_bookings WHERE id = $1', [booking.id]);
       expect(rows[0].paid_at, 'a foglalás fizetettnek jelölődött fizetés nélkül').toBeNull();
     } finally {
-      paymentProvider.isStub = eredeti;
+      cib.isStub = eredeti;
     }
   });
 
