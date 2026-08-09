@@ -185,6 +185,24 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Barion-webhook body-trust rés zárva (2026-08-09, audit 2. csomag)** — a
+  `/payments/barion/callback` a `barion.isStub()`-ot nézte, ami a launch
+  CIB-konfigban (PAYMENT_PROVIDER=cib, barion kulcs nélkül) örökre `true` →
+  a body-nak hitt → egy hamisított `{"Status":"Succeeded"}` POST fizetés
+  nélkül beállította a paid_at-ot + felfedte a kontaktot (auth nélküli
+  díj-megkerülés; authz + pénz ügynök keresztvalidálta). GUARD: a callback
+  410-et ad és semmit nem dolgoz fel, ha nem barion az AKTÍV provider. +2
+  teszt (a fuvar + foglalás ág; a meglévő fizetes-webhook teszt "hamis zöld"
+  volt: kézzel barion.isStub=false-ra állított, sosem fedte a CIB-konfigot).
+  Backend 504/504. ⚠️ USER-DÖNTÉS (2026-08-09): a Barion VÉGLEG TÖRLENDŐ
+  (nem csak dormant) — a teljes eltávolítás gondos, önálló refaktor
+  (services/barion.js törlése, a paymentProvider default → cib, a
+  webhook-logika provider-független `confirmFeePayment` helperbe szervezve,
+  a barion-callback route törlése, env-ek, tesztek). A guard MOST zárja a
+  rést; a törlés a fizetési MAG átírása, nem elkapkodva. ⚠️ USER-PRIORITÁS:
+  a Barion-törlés UTÁN az ELSŐDLEGES az ADATVÉDELEM — cél min. 9/10, törekedve
+  a 10-re (a maradék audit-találatok: fiók-törlés R2-árvák, mentős-kapu,
+  publikus profil rendszám, KYC-notif PII, + a formális jogi réteg)
 - **Biztonsági mélyaudit (4 adverzariális ügynök) — 1. csomag: KRITIKUS
   PII/kontakt-szivárgások (2026-08-09, user-kérés)** — a user "golyóálló"
   biztonságot kért; 4 ügynök (PII/adatvédelem, hozzáférés-vezérlés,

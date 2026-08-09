@@ -14,6 +14,7 @@ const { createNotification } = require('../services/notifications');
 const { computeVat } = require('../services/vat');
 const { generatePlatformFeeInvoice } = require('../services/invoicing');
 const barion = require('../services/barion');
+const paymentProvider = require('../services/paymentProvider');
 const realtime = require('../realtime');
 const { getJobParty } = require('../utils/jobAccess');
 const { maybeGrantReferralReward } = require('../services/referral');
@@ -32,6 +33,19 @@ router.post('/payments/barion/callback', express.json(), async (req, res) => {
 
   if (!PaymentId) {
     return res.status(400).json({ error: 'Missing PaymentId' });
+  }
+
+  // ⚠️ 2026-08-09 BIZTONSÁGI GUARD (audit + user-döntés): ez a callback CSAK
+  // akkor dolgozhat fel fizetést, ha a barion az AKTÍV provider. A launch
+  // CIB-re vált (PAYMENT_PROVIDER=cib, barion kulcs NÉLKÜL → barion.isStub()
+  // örökre true), és enélkül a lenti body-visszaolvasás KIMARADNA → egy
+  // hamisított {"Status":"Succeeded"} POST beállítaná a paid_at-ot és
+  // felfedné a kontaktot fizetés nélkül. Inert, ha nem barion az aktív
+  // provider. (A Barion TELJES eltávolítása külön, gondos refaktor — a
+  // webhook-logika provider-független `confirmFeePayment` helperbe szervezve.)
+  if (paymentProvider.name() !== 'barion') {
+    console.warn(`[barion] callback ELUTASÍTVA — az aktív provider "${paymentProvider.name()}", nem barion.`);
+    return res.status(410).json({ ok: false, ignored: true, reason: 'barion is not the active payment provider' });
   }
 
   // A webhook body-jának NEM hiszünk: éles módban a tényleges státuszt a
