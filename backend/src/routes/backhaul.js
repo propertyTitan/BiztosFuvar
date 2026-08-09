@@ -15,6 +15,7 @@ const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { suggestionsForCarrier, findBackhaulCandidates } = require('../services/backhaul');
+const { scrubJobForUser } = require('./jobs');
 
 const router = express.Router();
 
@@ -24,7 +25,14 @@ const router = express.Router();
 router.get('/backhaul/suggestions', authRequired, async (req, res) => {
   try {
     const groups = await suggestionsForCarrier(req.user.sub);
-    res.json({ groups });
+    // ⚠️ SCRUB kötelező (2026-08-09, biztonsági audit): a jelöltek nyers
+    // fuvarsorok (átvételi kód + címzett PII + tracking_token). Scrub nélkül
+    // a szállító a visszafuvar-ajánlásokból licit/fizetés nélkül learatná.
+    const scrubbed = groups.map((g) => ({
+      ...g,
+      candidates: g.candidates.map((c) => scrubJobForUser(c, req.user)),
+    }));
+    res.json({ groups: scrubbed });
   } catch (err) {
     console.error('[backhaul] suggestions hiba:', err);
     res.status(500).json({ error: 'Visszafuvar-ajánlás sikertelen' });
@@ -63,7 +71,7 @@ router.get('/backhaul/for-trip/:jobId', authRequired, async (req, res) => {
     earliestPickupAt: trip.pickup_window_end || null,
   });
 
-  res.json({ trip_id: trip.id, candidates });
+  res.json({ trip_id: trip.id, candidates: candidates.map((c) => scrubJobForUser(c, req.user)) });
 });
 
 module.exports = router;

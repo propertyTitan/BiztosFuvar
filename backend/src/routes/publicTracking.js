@@ -24,7 +24,7 @@ router.get('/tracking/:token', async (req, res) => {
     `SELECT j.id, j.title, j.status, 'job' AS source,
             j.pickup_address, j.dropoff_address,
             j.dropoff_lat, j.dropoff_lng,
-            j.delivery_code, j.delivered_at,
+            j.delivery_code, j.delivered_at, j.paid_at,
             j.recipient_name, j.recipient_phone,
             j.dropoff_needs_carrying, j.dropoff_floor, j.dropoff_has_elevator,
             c.full_name AS carrier_name,
@@ -44,7 +44,7 @@ router.get('/tracking/:token', async (req, res) => {
       `SELECT b.id, r.title, b.status, 'booking' AS source,
               b.pickup_address, b.dropoff_address,
               b.dropoff_lat, b.dropoff_lng,
-              b.delivery_code, b.delivered_at,
+              b.delivery_code, b.delivered_at, b.paid_at,
               b.recipient_name, b.recipient_phone,
               c.full_name AS carrier_name,
               c.vehicle_type AS carrier_vehicle,
@@ -72,6 +72,14 @@ router.get('/tracking/:token', async (req, res) => {
     pingRows = rows;
   }
 
+  // ── Díj-kapu (2026-08-09, biztonsági audit) ──
+  // A szállító TELEFONSZÁMA és az átvételi KÓD csak a kapcsolatfelvételi díj
+  // kifizetése (paid_at) UTÁN kerül a válaszba. Enélkül a feladó — aki a saját
+  // fuvarából megkapja a tracking_tokent — ezen a publikus végponton fizetés
+  // NÉLKÜL kiolvasná a szállító számát (a díj, a platform egyetlen bevétele,
+  // megkerülhető lenne). A legitim CÍMZETT a felvételkor (ami már post-pay)
+  // kapja a linket, ezért a valós követési folyamat nem sérül.
+  const isPaid = !!job.paid_at;
   res.json({
     id: job.id,
     title: job.title,
@@ -80,13 +88,13 @@ router.get('/tracking/:token', async (req, res) => {
     dropoff_address: job.dropoff_address,
     dropoff_lat: job.dropoff_lat,
     dropoff_lng: job.dropoff_lng,
-    delivery_code: job.delivery_code,
+    delivery_code: isPaid ? job.delivery_code : null,
     delivered_at: job.delivered_at,
     recipient_name: job.recipient_name,
     carrier: job.carrier_name ? {
       name: job.carrier_name,
       vehicle: job.carrier_vehicle,
-      phone: job.carrier_phone,
+      phone: isPaid ? job.carrier_phone : null,
       rating: job.carrier_rating,
     } : null,
     last_position: pingRows[0] || null,

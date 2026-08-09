@@ -21,6 +21,7 @@ const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { findJobsAlongRoute } = require('../services/routeAlong');
+const { scrubJobForUser } = require('./jobs');
 const {
   sendBookingReceivedEmail,
   sendBookingConfirmedEmail,
@@ -269,7 +270,11 @@ router.get('/carrier-routes/:id/along-jobs', authRequired, async (req, res) => {
     : route.waypoints;
 
   const jobs = await findJobsAlongRoute(waypoints, req.user.sub);
-  res.json({ route_id: req.params.id, jobs });
+  // ⚠️ SCRUB kötelező (2026-08-09, biztonsági audit): a findJobsAlongRoute
+  // SELECT j.*-ot ad vissza (nyers sor), ami tartalmazza az átvételi kódot,
+  // a címzett PII-t és a tracking_tokent. Enélkül egy szállító a saját járata
+  // "útba eső fuvarjaiból" licit/fizetés NÉLKÜL learatná ezeket.
+  res.json({ route_id: req.params.id, jobs: jobs.map((j) => scrubJobForUser(j, req.user)) });
 });
 
 // PATCH /carrier-routes/:id/status – az útvonal tulajdonosa állítja draft→open stb.
