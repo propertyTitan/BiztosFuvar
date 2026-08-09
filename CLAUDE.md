@@ -185,6 +185,21 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **Mentős-kapu — a segélyszolgálat (towing) végpont-biztonsága (2026-08-09,
+  adatvédelem 2. csomag, user: „csináld meg, de maradjon kikapcsolva")** — a
+  towing-flow a FELÜLETRŐL kikapcsolva, de a végpontok éltek, és a biztonsági
+  audit (3 ügynök keresztvalidálta) találta: (1) mentőssé válni BÁRKI tudott
+  egy kattintással (KYC nélkül); (2) a `GET /towing/incoming` a bajba jutott
+  TELJES telefonját + PONTOS GPS-ét adta MINDEN mentősnek, elvállalás ELŐTT —
+  sérülékeny helyzetben lévők (egyedül, éjszaka, elakadva) adata learatható.
+  Fix: (1) `POST /towing/register` mostantól `requireDriverKYC` mögött; (2)
+  `scrubTowRequestForList` — a listában csak KÖZELÍTŐ hely (~1 km-re kerekítve),
+  keresztnév, probléma-típus, távolság; a teljes telefon + pontos GPS csak az
+  elvállalás UTÁN (mint a fő platform díj-kapuja). +3 teszt. Backend 508/508.
+  ⚠️ A FUNKCIÓ TOVÁBBRA IS KIKAPCSOLVA (a mentes/* UI dormant) — ez csak a
+  végpont-biztonság, hogy bekapcsoláskor ne legyen rés. ⚠️ MARADÉK adatvédelem
+  (a 9→10 úthoz): socket-broadcast cím anonim hallgatóhoz + a formális jogi
+  réteg (ügyvédi review)
 - **Adatvédelmi kör 1. csomag — a GDPR-„elfeledtetés" valódivá tétele
   (2026-08-09, user-prioritás: az adatvédelem min. 9/10)** — a biztonsági
   audit adatvédelmi találatai: (1) **FIÓK-TÖRLÉS R2-TAKARÍTÁS** — a törlés

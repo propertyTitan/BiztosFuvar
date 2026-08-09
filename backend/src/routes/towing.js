@@ -18,7 +18,7 @@
 
 const express = require('express');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireDriverKYC } = require('../middleware/auth');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { distanceMeters } = require('../utils/geo');
 const { createNotification } = require('../services/notifications');
@@ -26,6 +26,21 @@ const { sendPushToUser } = require('../services/push');
 const realtime = require('../realtime');
 
 const router = express.Router();
+
+// A bajba jutott ÉRZÉKENY adata (teljes telefonszám + PONTOS GPS) csak az
+// ELVÁLLALÁS UTÁN jár a mentősnek — a keresési listában elég a KÖZELÍTŐ hely
+// (~1 km-re kerekítve, hogy lássa, merre van) + a probléma-típus + a
+// távolság. (2026-08-09 audit: sérülékeny helyzetben lévők — egyedül,
+// éjszaka, elakadva — adatvédelme; a fő platform díj-kapujának megfelelője.)
+function scrubTowRequestForList(r) {
+  const { requester_phone, lat, lng, requester_name, ...rest } = r;
+  return {
+    ...rest,
+    approx_lat: lat != null ? Math.round(Number(lat) * 100) / 100 : null,
+    approx_lng: lng != null ? Math.round(Number(lng) * 100) / 100 : null,
+    requester_first_name: requester_name ? String(requester_name).trim().split(/\s+/)[0] : null,
+  };
+}
 
 const ISSUE_TYPES = [
   'breakdown', 'flat_tire', 'accident', 'ditch',
@@ -143,7 +158,10 @@ router.post('/towing/:id/cancel', authRequired, writeRateLimit, async (req, res)
 // =====================================================================
 
 // POST /towing/register — mentős regisztráció
-router.post('/towing/register', authRequired, writeRateLimit, async (req, res) => {
+// Mentőssé válni CSAK azonosított (identity-KYC) userként lehet — a mentős
+// hozzáférhet sérülékeny helyzetben lévők (elakadtak) adataihoz, ezért nem
+// lehet egy kattintással, névtelenül feliratkozni (2026-08-09 audit).
+router.post('/towing/register', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const { tow_services = [], tow_vehicle_description } = req.body || {};
 
   const validServices = (Array.isArray(tow_services) ? tow_services : [])
@@ -235,7 +253,8 @@ router.get('/towing/incoming', authRequired, async (req, res) => {
     rows = result.rows;
   }
 
-  res.json(rows);
+  // SCRUB: elvállalás előtt nincs teljes telefon + pontos GPS (lásd fent).
+  res.json(rows.map(scrubTowRequestForList));
 });
 
 // POST /towing/:id/accept — mentős elvállalja (első nyer)
