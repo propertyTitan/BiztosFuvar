@@ -75,6 +75,14 @@ export default function AdatkezelesPage() {
           <strong>Feladói telefonszám:</strong> Kapcsolattartás mellett a sikeres teljesítésről
           szóló záró SMS-értesítés küldése.
         </li>
+        <li>
+          <strong>Fiókhasználati adatok:</strong> a legutóbbi bejelentkezésed időpontja, a
+          bejelentkezéseid száma, a legutóbbi aktivitásod időpontja és a becsült összes
+          aktív idő. Célja a visszaélések és a jogosulatlan hozzáférés felismerése, valamint
+          az ügyfélszolgálati hibakeresés (jogos érdek). Ezek az adatok a fiókod
+          élettartamáig maradnak meg, és a fiók törlésekor a fiókkal együtt törlődnek.
+          Az adminisztrátori hozzáférés ezekhez naplózott (lásd 5. szakasz).
+        </li>
       </ul>
 
       <h2 style={{ marginTop: 32 }}>3. Az adatkezelés jogalapja</h2>
@@ -204,8 +212,11 @@ export default function AdatkezelesPage() {
           <strong>Értesítések:</strong> 6 hónap után automatikusan törlődnek.
         </li>
         <li>
-          <strong>File-hozzáférési audit log:</strong> 1 évig (incidens-vizsgálat és NAIH-bejelentés
-          érdekében).
+          <strong>File- és adminisztrátori hozzáférési audit log:</strong> 1 évig
+          (incidens-vizsgálat és NAIH-bejelentés érdekében). Naplózzuk, ha egy
+          adminisztrátor megnyitja egy felhasználó részletes adatlapját, a felek chatjét,
+          a KYC-dokumentumokat, illetve a felhasználói vagy fuvar-listát. A napló a
+          hozzáférés <strong>tényét</strong> rögzíti, nem a megtekintett tartalmat.
         </li>
         <li>
           <strong>Fuvar-fotók (felvételi és kézbesítési fotó):</strong> a fuvar lezárását követő{' '}

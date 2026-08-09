@@ -92,6 +92,13 @@ router.patch('/admin/photo-hold', ...adminOnly, async (req, res) => {
 // GET /admin/users — összes felhasználó
 router.get('/admin/users', ...adminOnly, async (req, res) => {
   const { search, limit = 50 } = req.query;
+  // Elszámoltathatóság (2026-08-09, adatvédelmi audit 3. kör): eddig CSAK az
+  // EGY felhasználós részletnézet volt naplózva — miközben ez a végpont
+  // egyetlen kéréssel 200 ember nevét, e-mailjét és telefonszámát adja vissza.
+  // Vagyis a nagyobb kiterjedésű hozzáférés hagyott kevesebb nyomot.
+  // A keresőkifejezést SZÁNDÉKOSAN nem naplózzuk: az egy harmadik személy
+  // nevét írná a naplóba (a napló nem lehet a PII második példánya).
+  logAdminAccess(req, 'users_list', { type: search ? 'search' : 'all' });
   let sql = `SELECT id, email, full_name, phone, role, account_type,
                     identity_kyc_status, driver_kyc_status, company_verification_status,
                     rating_avg, rating_count, trust_score, level, created_at,
@@ -237,6 +244,9 @@ router.get('/admin/jobs', ...adminOnly, async (req, res) => {
     return res.status(400).json({ error: `Érvénytelen státusz: "${status}".` });
   }
   const { search } = req.query;
+  // A `j.*` a címzett teljes elérhetőségét és az átvételi kódot is hozza,
+  // fuvaronként — tömegesen. Ez is naplózandó hozzáférés (lásd /admin/users).
+  logAdminAccess(req, 'jobs_list', { type: search ? 'search' : 'all' });
   let sql = `SELECT j.*, s.full_name AS shipper_name, s.email AS shipper_email,
                     c.full_name AS carrier_name
                FROM jobs j
