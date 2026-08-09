@@ -960,10 +960,33 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
       console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
     }
   } else {
-    docStatus = 'rejected';
-    kycStatus = 'rejected';
+    // ⚠️ AZ AI EGYEDÜL NEM UTASÍT EL (2026-08-09, adatvédelmi + jogi audit).
+    // Korábban a Gemini `valid:false` ítélete AZONNAL 'rejected'-et adott,
+    // emberi szem nélkül. Az elutasított szállító elesik a keresetszerzés
+    // lehetőségétől — ez a GDPR 22. cikk szerinti, „hasonlóan jelentős
+    // hatású" döntés, amelyre az adatkezelési tájékoztató, a DPIA ÉS az
+    // érdekmérlegelési teszt is azt állítja, hogy „minden esetben emberi
+    // adminisztrátor hagyja jóvá". Az elutasítás mostantól KÉZI ELLENŐRZÉSRE
+    // vár: a felhasználó tudja, mit javítson, de a végső nemet ember mondja ki.
+    // (A gyors, sikeres út változatlan: a tiszta eset automatikusan átmegy.)
+    docStatus = 'pending';
+    kycStatus = 'pending';
     rejectionReason = aiResult.reason;
-    console.log(`[kyc] AI elutasítva: user=${req.user.sub} doc=${doc_type} reason="${aiResult.reason}"`);
+    console.log(`[kyc] AI-kifogás → KÉZI ELLENŐRZÉS: user=${req.user.sub} doc=${doc_type} reason="${aiResult.reason}"`);
+    try {
+      const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+      for (const admin of admins) {
+        await createNotification({
+          user_id: admin.id,
+          type: 'kyc_manual_review',
+          title: '📋 KYC kézi ellenőrzés szükséges',
+          body: `Egy dokumentumot (${doc_type}) az AI kifogásolt — a végső döntés emberi. Részletek a KYC-panelen.`,
+          link: '/admin#kyc',
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.warn('[kyc] admin notify hiba:', e.message);
+    }
   }
 
   await db.query(
@@ -1026,6 +1049,99 @@ router.post('/push-token', authRequired, async (req, res) => {
     [req.user.sub, token, platform || 'ios'],
   );
   res.json({ ok: true });
+});
+
+// GET /auth/me/export — ADATHORDOZHATÓSÁG (GDPR 20. cikk)
+//
+// Az adatkezelési tájékoztató kifejezetten ígéri: „az adatok strukturált,
+// géppel olvasható (JSON) formátumban való kiadása". Eddig ez NEM létezett,
+// vagyis egy 20. cikkes kérést kézi SQL-lel kellett volna kiszolgálni,
+// 1 hónapos határidővel (2026-08-09 audit).
+//
+// Amit tartalmaz: minden adat, amit a felhasználó adott meg vagy ami az ő
+// tevékenységéből keletkezett. Amit NEM: jelszó-hash, session-token, más
+// felhasználók adatai (a fuvarok másik felének elérhetősége), és a
+// KYC-okmány FOTÓJA (a metaadat + státusz igen — a nyers okmányképet nem
+// adjuk vissza gépi úton).
+router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
+  const uid = req.user.sub;
+  const q = async (sql, params = [uid]) => (await db.query(sql, params)).rows;
+
+  const [profil] = await q(
+    `SELECT id, email, full_name, phone, bio, avatar_url, role, account_type,
+            company_name, tax_id, billing_address, billing_country, locale,
+            vehicle_type, vehicle_plate, identity_kyc_status,
+            driver_kyc_status, company_verification_status, email_verified,
+            referral_code, referred_by, trust_score, level, rating_avg,
+            rating_count, total_deliveries, created_at, driver_terms_accepted_at
+       FROM users WHERE id = $1`,
+  );
+  if (!profil) return res.status(404).json({ error: 'Felhasználó nem található' });
+
+  const adatok = {
+    export_keszult: new Date().toISOString(),
+    adatkezelo: 'Tiszta Hód Kft. (GoFuvar)',
+    tajekoztatas: 'Ez az export a GDPR 20. cikke szerinti adathordozhatósági jog gyakorlásához készült. '
+      + 'A más felhasználókhoz tartozó személyes adatokat (pl. a másik fél elérhetőségét) nem tartalmazza.',
+    profil,
+    feladott_fuvarok: await q(
+      `SELECT id, title, description, pickup_address, dropoff_address, weight_kg,
+              suggested_price_huf, accepted_price_huf, connection_fee_huf, status,
+              paid_at, created_at, delivered_at
+         FROM jobs WHERE shipper_id = $1 ORDER BY created_at DESC`,
+    ),
+    vallalt_fuvarok: await q(
+      `SELECT id, title, pickup_address, dropoff_address, accepted_price_huf,
+              status, created_at, delivered_at
+         FROM jobs WHERE carrier_id = $1 ORDER BY created_at DESC`,
+    ),
+    ajanlataim: await q(
+      `SELECT id, job_id, amount_huf, currency, message, status, created_at
+         FROM bids WHERE carrier_id = $1 ORDER BY created_at DESC`,
+    ),
+    jarataim: await q(
+      `SELECT id, title, description, countries, departure_at, status, created_at
+         FROM carrier_routes WHERE carrier_id = $1 ORDER BY created_at DESC`,
+    ),
+    foglalasaim: await q(
+      `SELECT id, route_id, package_size, weight_kg, pickup_address, dropoff_address,
+              price_huf, connection_fee_huf, status, paid_at, created_at
+         FROM route_bookings WHERE shipper_id = $1 ORDER BY created_at DESC`,
+    ),
+    uzeneteim: await q(
+      `SELECT id, job_id, booking_id, body, created_at
+         FROM messages WHERE sender_id = $1 ORDER BY created_at DESC`,
+    ),
+    ertekeleseim: await q(
+      `SELECT id, job_id, stars, comment, created_at
+         FROM reviews WHERE reviewer_id = $1 ORDER BY created_at DESC`,
+    ),
+    rolam_szolo_ertekelesek: await q(
+      `SELECT id, job_id, stars, comment, created_at
+         FROM reviews WHERE reviewee_id = $1 ORDER BY created_at DESC`,
+    ),
+    ertesiteseim: await q(
+      `SELECT id, type, title, body, link, read_at, created_at
+         FROM notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 500`,
+    ),
+    szamlaim: await q(
+      `SELECT id, job_id, booking_id, invoice_number, currency, net_amount,
+              vat_amount, gross_amount, status, created_at
+         FROM invoices WHERE buyer_user_id = $1 ORDER BY created_at DESC`,
+    ),
+    kyc_metaadat: await q(
+      `SELECT doc_type, status, rejection_reason, created_at, reviewed_at
+         FROM kyc_documents WHERE user_id = $1`,
+    ),
+    kuponjaim: await q(
+      `SELECT reason, max_fee_huf, valid_from, valid_until, used_at, created_at
+         FROM fee_vouchers WHERE user_id = $1 ORDER BY created_at DESC`,
+    ),
+  };
+
+  res.setHeader('Content-Disposition', `attachment; filename="gofuvar-adatexport-${uid.slice(0, 8)}.json"`);
+  res.setHeader('Cache-Control', 'private, no-store');
+  res.json(adatok);
 });
 
 // DELETE /auth/me — fiók törlése (GDPR "elfeledtetéshez való jog")

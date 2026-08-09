@@ -128,6 +128,10 @@ describe('Publikus végpontok', () => {
     expect((await request(app).get(`/uploads/private/${utNev.split('/').pop()}`)).status).toBe(404);
   });
 
+  it('adatexport: a felhasználó letöltheti a saját adatait (GDPR 20. cikk)', async () => {
+    await sikeres('GET /auth/me/export', request(app).get('/auth/me/export').set(auth(V.felado.token)));
+  });
+
   it('nyilvános küldemény-követés a címzett tokenjével', async () => {
     const { rows } = await db.query('SELECT tracking_token FROM jobs WHERE id = $1', [V.uton.id]);
     const res = await sikeres('GET /tracking/:token',

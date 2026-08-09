@@ -71,6 +71,9 @@ describe('Fuvar-adatok láthatósága (scrub)', () => {
       'delivery_code_attempts', 'delivery_code_locked_until',
       'closed_by_code_type',
       'country_code', 'category', 'urgency_level',
+      // 2026-08-09: jelzés a kliensnek, hogy a hely csak KÖZELÍTŐ (elkelt /
+      // lezárt fuvarnál a kívülálló nem kap pontos címet és koordinátát).
+      'approximate_location',
       // Belső értesítés-könyvelési flagek — ártalmatlan boolean-ok, de ha
       // valaha érzékeny notif-adat kerül melléjük, ide NE vedd fel gondolkodás
       // nélkül

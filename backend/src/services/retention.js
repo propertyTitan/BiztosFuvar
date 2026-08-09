@@ -88,6 +88,13 @@ async function purgeOldDeliveryPhotos() {
 
 const CHAT_RETENTION_MONTHS = 6;
 const GPS_RETENTION_DAYS = 7;
+// Az értesítések fél évig maradnak: a felhasználónak ennyi idő után már
+// nincs haszna belőlük, viszont a body-juk PII-t hordozhat (lásd
+// purgeOldNotifications).
+const NOTIFICATION_RETENTION_MONTHS = 6;
+// Az admin-hozzáférési napló megőrzése — pontosan annyi, amennyit az
+// adatkezelési tájékoztató ígér („File-hozzáférési audit log: 1 évig”).
+const ADMIN_ACCESS_LOG_RETENTION_YEARS = 1;
 
 /**
  * Lejárt chat-üzenetek törlése: lezárt ügylet üzenetei 6 hónap után,
@@ -180,17 +187,102 @@ async function purgeOldAdminMessages() {
   }
 }
 
+/**
+ * A szállító UTOLSÓ ISMERT pozíciójának elévülése.
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit): a nyers GPS-pingeket 7 nap után töröltük,
+ * de a `users.last_known_lat/lng` egy MÁSOLAT ugyanarról a koordinátáról —
+ * és arra semmilyen retenció nem volt. Az utolsó ping tipikusan a nap végi
+ * tartózkodási hely (gyakran a lakcím környéke), vagyis a fiók élettartamáig
+ * őriztünk egy pontos otthon-koordinátát, miközben a tájékoztató 7 napot ígér.
+ * A mező a matchinghez kell (azonnali fuvar, mentős) — a friss érték marad,
+ * a 7 napnál régebbi törlődik.
+ * @returns {Promise<number>} a nullázott sorok száma
+ */
+async function purgeStaleLastKnownLocation() {
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE users
+          SET last_known_lat = NULL, last_known_lng = NULL
+        WHERE (last_known_lat IS NOT NULL OR last_known_lng IS NOT NULL)
+          AND (last_ping_at IS NULL OR last_ping_at < NOW() - ($1 || ' days')::interval)`,
+      [GPS_RETENTION_DAYS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} elavult utolsó-pozíció törölve (>${GPS_RETENTION_DAYS} nap)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] utolsó-pozíció purge hiba:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Régi ÉRTESÍTÉSEK törlése.
+ *
+ * ⚠️ 2026-08-09 (adatvédelmi audit): a `notifications` táblának NEM VOLT
+ * életciklusa, pedig a `body` mezőben PII-t hordoz (SOS: teljes név +
+ * telefonszám + pontos GPS; mentés-elvállalás: telefonszám; chat-értesítés: az
+ * üzenet első 100 karaktere). Ez utóbbi ráadásul TÚLÉLTE a 6 hónapos
+ * chat-retenciót: a `messages` sor törlődött, a másolata az értesítésben
+ * maradt. Az „minden adattípus életciklusa gépesített" állítás enélkül nem
+ * volt igaz.
+ * @returns {Promise<number>} a törölt sorok száma
+ */
+async function purgeOldNotifications() {
+  try {
+    const { rowCount } = await db.query(
+      `DELETE FROM notifications WHERE created_at < NOW() - ($1 || ' months')::interval`,
+      [NOTIFICATION_RETENTION_MONTHS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} értesítés törölve (>${NOTIFICATION_RETENTION_MONTHS} hónap)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] értesítés-purge hiba:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Az admin-hozzáférési napló elévülése (1 év — a tájékoztató ígérete).
+ * @returns {Promise<number>} a törölt sorok száma
+ */
+async function purgeOldAdminAccessLog() {
+  try {
+    const { rowCount } = await db.query(
+      `DELETE FROM admin_access_log WHERE created_at < NOW() - ($1 || ' years')::interval`,
+      [ADMIN_ACCESS_LOG_RETENTION_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} admin-hozzáférési naplósor törölve (>${ADMIN_ACCESS_LOG_RETENTION_YEARS} év)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] admin-napló purge hiba:', err.message);
+    return 0;
+  }
+}
+
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
   await purgeOldDeliveryPhotos();
   await purgeOldChatMessages();
   await purgeOldLocationPings();
+  await purgeStaleLastKnownLocation();
+  await purgeOldNotifications();
   await purgeOldAdminMessages();
+  await purgeOldAdminAccessLog();
 }
 
 module.exports = {
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
-  purgeOldAdminMessages, runDailyRetention,
+  purgeStaleLastKnownLocation, purgeOldNotifications,
+  purgeOldAdminMessages, purgeOldAdminAccessLog, runDailyRetention,
+  ADMIN_ACCESS_LOG_RETENTION_YEARS,
+  NOTIFICATION_RETENTION_MONTHS,
   DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS, CHAT_RETENTION_MONTHS, GPS_RETENTION_DAYS,
   ADMIN_DM_RETENTION_YEARS,
 };

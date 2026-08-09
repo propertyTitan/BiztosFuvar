@@ -71,6 +71,7 @@ const ROUTE_MANIFEST = {
   // ── Bejelentkezés kell ──────────────────────────────────────────────
   'GET /auth/me': { access: 'auth' },
   'PATCH /auth/me': { access: 'auth' },
+  'GET /auth/me/export': { access: 'auth' },
   'DELETE /auth/me': { access: 'auth' },
   'GET /auth/me/driver-dashboard': { access: 'auth' },
   'GET /auth/me/game-stats': { access: 'auth' },

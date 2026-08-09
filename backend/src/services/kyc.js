@@ -17,6 +17,10 @@ const { deleteFile } = require('./storage');
 // rejected) után ennyi nappal töröljük a tárolóból. A metaadat (státusz,
 // dokumentumszám-hash a csalásvédelemhez) megmarad — csak a kép tűnik el.
 const KYC_FILE_RETENTION_DAYS = 30;
+// Abszolút plafon az ELDÖNTETLEN (pending) okmányfotókra: ha az admin ennyi
+// idő alatt sem döntött, a nyers fotó akkor is törlődik. Az érintett a
+// felületen bármikor újratölthet, ha időközben megszületik a döntés-igény.
+const KYC_PENDING_MAX_DAYS = 60;
 
 /**
  * Jogosítvány feltöltés feldolgozása.
@@ -207,13 +211,25 @@ async function checkExpiredLicenses() {
 async function purgeOldKycFiles() {
   let purged = 0;
   try {
+    // ⚠️ A 'pending' okmány is kap FELSŐ KORLÁTOT (2026-08-09, adatvédelmi
+    // audit). Korábban a purge csak eldöntött (approved/rejected/expired)
+    // okmányra futott — ha az admin sosem döntött, a személyi igazolvány
+    // fotója HATÁRIDŐ NÉLKÜL a tárolóban maradt. Épp a legkényesebb esetek
+    // kerülnek pendingbe: AI-kiesés, alacsony bizalom, név-eltérés,
+    // másolat-gyanú — és a 18 év alattinak vélt személyek okmánya.
+    // A metaadat (státusz, doc_number_hash) marad, csak a NYERS FOTÓ megy.
     const { rows } = await db.query(
       `SELECT id, file_url
          FROM kyc_documents
         WHERE file_url IS NOT NULL
-          AND status IN ('approved', 'rejected', 'expired')
-          AND COALESCE(reviewed_at, created_at) < NOW() - ($1 || ' days')::interval`,
-      [KYC_FILE_RETENTION_DAYS],
+          AND (
+            (status IN ('approved', 'rejected', 'expired')
+              AND COALESCE(reviewed_at, created_at) < NOW() - ($1 || ' days')::interval)
+            OR
+            (status = 'pending'
+              AND created_at < NOW() - ($2 || ' days')::interval)
+          )`,
+      [KYC_FILE_RETENTION_DAYS, KYC_PENDING_MAX_DAYS],
     );
     for (const doc of rows) {
       const ok = await deleteFile(doc.file_url);
@@ -237,4 +253,6 @@ module.exports = {
   rejectDocument,
   checkExpiredLicenses,
   purgeOldKycFiles,
+  KYC_FILE_RETENTION_DAYS,
+  KYC_PENDING_MAX_DAYS,
 };

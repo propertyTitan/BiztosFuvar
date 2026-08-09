@@ -11,6 +11,7 @@ const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { userHasBlockingDealings } = require('../utils/activePaid');
 const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
+const { logAdminAccess } = require('../utils/adminAudit');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -112,6 +113,9 @@ router.get('/admin/users', ...adminOnly, async (req, res) => {
 //    kellenek, az admin-felületen elég a "megadta-e" tény (has_tax_data);
 //  - titkok (password_hash, token-hash-ek).
 router.get('/admin/users/:id', ...adminOnly, async (req, res) => {
+  // Elszámoltathatóság: a teljes felhasználói részletnézet megnyitása naplózva
+  // (GDPR 5. cikk (2) — a tájékoztató „hozzáférési audit log" ígérete).
+  logAdminAccess(req, 'user_detail', { type: 'user', id: req.params.id });
   const { rows } = await db.query(
     `SELECT u.id, u.email, u.email_verified, u.full_name, u.phone, u.role,
             u.account_type, u.locale, u.bio, u.avatar_url,
@@ -296,6 +300,11 @@ router.get('/admin/messages', ...adminOnly, async (req, res) => {
   if (!job_id && !booking_id) {
     return res.status(400).json({ error: 'Kell: job_id vagy booking_id.' });
   }
+  // A felek PRIVÁT levelezésébe való betekintés — a legérzékenyebb admin-
+  // művelet a KYC-fotó mellett. Naplózzuk, ki melyik ügylet chatjét nyitotta.
+  logAdminAccess(req, 'chat_read', job_id
+    ? { type: 'job', id: job_id }
+    : { type: 'booking', id: booking_id });
   const { rows } = await db.query(
     `SELECT m.id, m.body, m.created_at, m.sender_id, u.full_name AS sender_name
        FROM messages m JOIN users u ON u.id = m.sender_id
@@ -378,6 +387,9 @@ router.delete('/admin/bookings/:id', ...adminOnly, async (req, res) => {
 // GET /admin/kyc-documents — összes KYC dokumentum
 router.get('/admin/kyc-documents', ...adminOnly, async (req, res) => {
   const { status = 'pending' } = req.query;
+  // A válasz rövid életű ALÁÍRT linkeket ad a személyi igazolvány fotóihoz —
+  // ez a legérzékenyebb hozzáférés a rendszerben, ezért naplózzuk.
+  logAdminAccess(req, 'kyc_documents_list');
   const { rows } = await db.query(
     `SELECT k.*, u.full_name, u.email
        FROM kyc_documents k JOIN users u ON u.id = k.user_id
