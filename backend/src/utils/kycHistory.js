@@ -29,7 +29,7 @@ async function rogzitLenyomat(docNumberHash) {
   if (!docNumberHash) return;
   try {
     await db.query(
-      `INSERT INTO kyc_doc_history (doc_number_hash) VALUES ($1)
+      `INSERT INTO kyc_doc_history (doc_number_hash, hash_algo) VALUES ($1, 'hmac-sha256')
        ON CONFLICT (doc_number_hash) DO UPDATE SET last_seen_at = NOW()`,
       [docNumberHash],
     );
@@ -61,13 +61,17 @@ async function jeloldToroltFioknak(client, userId, reason) {
 }
 
 /** Van-e korábban törölt fiók ezzel az okmánnyal? */
-async function korabbanToroltFiok(docNumberHash) {
-  if (!docNumberHash) return null;
+async function korabbanToroltFiok(hashek) {
+  const lista = (Array.isArray(hashek) ? hashek : [hashek]).filter(Boolean);
+  if (lista.length === 0) return null;
   try {
+    // Több alakra illesztünk: a régi sorok sózatlan SHA-256-tal készültek
+    // (064 migráció), az újak HMAC-kal. Feltöltéskor mindkettő kiszámolható.
     const { rows } = await db.query(
       `SELECT deleted_account_count, last_deletion_reason
-         FROM kyc_doc_history WHERE doc_number_hash = $1`,
-      [docNumberHash],
+         FROM kyc_doc_history WHERE doc_number_hash = ANY($1)
+         ORDER BY deleted_account_count DESC LIMIT 1`,
+      [lista],
     );
     return (rows[0]?.deleted_account_count || 0) > 0 ? rows[0] : null;
   } catch (err) {
