@@ -835,6 +835,36 @@ async function purgeOldPaymentEvents() {
 const TAX_DATA_RETENTION_YEARS = 5;
 
 /**
+ * A fizetési tranzakció-nyom elévülése (8 év).
+ *
+ * ⚠️ 2026-08-10: az `escrow_transactions` egyetlen körbe sem tartozott, és a
+ * retenciós manifestben TÉNYBELILEG HAMIS indoklással szerepelt kivételként
+ * („az escrow-modell dormant"). A tábla valójában MINDEN kapcsolatfelvételi
+ * díj-fizetéskor íródik, és a fuvar-CASCADE sosem üt be, mert a fuvart nem
+ * töröljük, hanem anonimizáljuk. A számlákkal azonos, 8 éves megőrzést kap.
+ *
+ * @returns {Promise<number>}
+ */
+async function purgeOldEscrowTransactions() {
+  try {
+    const { rowCount } = await db.query(
+      // ⚠️ A táblának NINCS `created_at` oszlopa — az időbélyeg a `held_at`
+      // (ellenőrizve a sémában, nem feltételezve).
+      `DELETE FROM escrow_transactions
+        WHERE COALESCE(held_at, released_at, refunded_at) < NOW() - ($1 || ' years')::interval`,
+      [INVOICE_RETENTION_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} fizetési tranzakció-nyom elévült (>${INVOICE_RETENTION_YEARS} év)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] escrow-purge hiba:', err.message);
+    return 0;
+  }
+}
+
+/**
  * A DAC7-adatok elévülése (5 év).
  *
  * ⚠️ 2026-08-10: a tájékoztató konkrét 5 éves megőrzést ígért az adóazonosító
@@ -855,10 +885,23 @@ async function purgeOldTaxData() {
       `UPDATE users u
           SET personal_tax_id = NULL,
               birth_date = NULL,
+              -- ⚠️ A LAKCÍM IS (2026-08-10): a tájékoztató ugyanabban a
+              -- mondatban ígéri rá az 5 évet, a purge viszont kihagyta.
+              -- Céges fióknál a billing_address a SZÁMLÁZÁSI cím, azt nem
+              -- bántjuk — csak magánszemélynél DAC7-adat.
+              billing_address = CASE WHEN u.account_type = 'company'
+                                     THEN u.billing_address ELSE NULL END,
               tax_data_provided_at = NULL
         WHERE (u.personal_tax_id IS NOT NULL OR u.birth_date IS NOT NULL)
           AND COALESCE(
-                (SELECT MAX(j.delivered_at) FROM jobs j WHERE j.carrier_id = u.id),
+                -- A jelentési kötelezettség az UTOLSÓ teljesített fuvarhoz
+                -- kötődik — a JÁRAT-foglalási ágon teljesítettekhez is.
+                GREATEST(
+                  (SELECT MAX(j.delivered_at) FROM jobs j WHERE j.carrier_id = u.id),
+                  (SELECT MAX(b.delivered_at) FROM route_bookings b
+                     JOIN carrier_routes r ON r.id = b.route_id
+                    WHERE r.carrier_id = u.id)
+                ),
                 u.tax_data_provided_at,
                 u.created_at
               ) < NOW() - ($1 || ' years')::interval`,
@@ -893,6 +936,7 @@ async function runDailyRetention() {
   await purgeOldDeletedAccounts();
   await purgeOldKycDocHistory();
   await purgeOldPaymentEvents();
+  await purgeOldEscrowTransactions();
   await purgeOldTaxData();
 }
 
@@ -901,7 +945,7 @@ module.exports = {
   purgeStaleLastKnownLocation, purgeOldNotifications,
   purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs,
   shortenAnonymizedAddresses, expireAbandonedJobs, expireAbandonedBookings,
-  purgeOldPaymentEvents, purgeOldTaxData, TAX_DATA_RETENTION_YEARS, ABANDONED_JOB_YEARS,
+  purgeOldPaymentEvents, purgeOldEscrowTransactions, purgeOldTaxData, TAX_DATA_RETENTION_YEARS, ABANDONED_JOB_YEARS,
   anonymizeOldCarrierRoutes, purgeOldDisputes, purgeOldInvoices,
   purgeEmergencyLocations, purgeOldDeletedAccounts, purgeOldKycDocHistory, runDailyRetention,
   DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS, INVOICE_RETENTION_YEARS,

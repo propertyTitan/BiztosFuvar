@@ -68,12 +68,15 @@ export default function AdatkezelesPage() {
           eszközazonosítók és Push tokenek (működtetés és biztonság).
         </li>
         <li>
-          <strong>Címzetti telefonszám:</strong> Többlépcsős tájékoztatás a csomag érkezéséről,
-          átvételi kód eljuttatása, sikeres kézbesítés visszaigazolása.
+          <strong>Címzetti telefonszám:</strong> <strong>egyetlen</strong> SMS a csomag
+          felvételekor — benne az átvételi kód, a szállító neve és telefonszáma, valamint
+          az adatkezelési tájékoztatóra mutató link. A kézbesítés visszaigazolása
+          e-mailben megy (ha megadtak e-mail-címet), SMS-ben nem.
         </li>
         <li>
-          <strong>Feladói telefonszám:</strong> Kapcsolattartás mellett a sikeres teljesítésről
-          szóló záró SMS-értesítés küldése.
+          <strong>Feladói telefonszám:</strong> kapcsolattartás a szállítóval a
+          kapcsolatfelvételi díj megfizetése után. <strong>SMS-t a feladónak nem
+          küldünk</strong> — minden értesítés e-mailben és a felületen érkezik.
         </li>
         <li>
           <strong>Adóazonosító adatok (DAC7, csak Szállítóknak):</strong> ha magánszemélyként

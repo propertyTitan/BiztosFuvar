@@ -1,7 +1,7 @@
 # Érdekmérlegelési tesztek (GDPR 6. cikk (1) f)
 
 **Adatkezelő:** Tiszta Hód Kft. (GoFuvar platform, gofuvar.hu)
-**Verzió:** 1.0 (munkapéldány) · **Kelt:** 2026-07-20
+**Verzió:** 1.1 (munkapéldány) · **Kelt:** 2026-07-20 · **Módosítva:** 2026-08-10 — a kód szerinti tényleges állapotra igazítva
 **Készítette:** AI-asszisztens a platform tényleges működése alapján;
 jóváhagyja: Jovány Gyula ügyvezető
 

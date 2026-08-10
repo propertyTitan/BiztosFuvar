@@ -185,3 +185,84 @@ describe('Fizetési napló', () => {
     }
   });
 });
+
+// ── A negyedik mérés találatai (2026-08-10) ─────────────────────────────
+describe('DAC7: a saját javításom hiányai', () => {
+  it('az adatmentő végpont beállítja a tax_data_provided_at-ot', async () => {
+    const request = require('supertest');
+    const { app } = require('./helpers');
+    const szallito = await createUser({ role: 'carrier' });
+
+    await request(app).post('/auth/tax-data').set({ Authorization: `Bearer ${szallito.token}` })
+      .send({ personal_tax_id: '8412345673', birth_date: '1985-03-12', address: '6800 Hódmezővásárhely, Fő u. 1.' });
+
+    const { rows } = await db.query('SELECT tax_data_provided_at FROM users WHERE id = $1', [szallito.id]);
+    expect(
+      rows[0].tax_data_provided_at,
+      'A retenció erre az időbélyegre időzít, de SENKI nem írta — így a created_at-re '
+      + 'esett vissza. Egy 5 évnél régebbi fiók frissen megadott adóazonosítóját a '
+      + 'KÖVETKEZŐ éjszakai kör törölte volna, a kapu újra kérte volna: VÉGTELEN HUROK.',
+    ).toBeTruthy();
+  });
+
+  it('a purge a LAKCÍMET is viszi magánszemélynél', async () => {
+    const szallito = await createUser({ role: 'carrier' });
+    await db.query(
+      `UPDATE users SET personal_tax_id = '8412345673', billing_address = '6800 Hmvhely, Fő u. 1.',
+              account_type = 'individual',
+              tax_data_provided_at = NOW() - ($2 || ' years')::interval - INTERVAL '1 day'
+        WHERE id = $1`,
+      [szallito.id, TAX_DATA_RETENTION_YEARS],
+    );
+
+    await purgeOldTaxData();
+
+    const { rows } = await db.query('SELECT billing_address FROM users WHERE id = $1', [szallito.id]);
+    expect(
+      rows[0].billing_address,
+      'a tájékoztató ugyanabban a mondatban ígéri a lakcímre az 5 évet, a purge kihagyta',
+    ).toBeNull();
+  });
+
+  it('a CÉGES számlázási címet viszont nem bántja', async () => {
+    const ceg = await createUser({ role: 'carrier' });
+    await db.query(
+      `UPDATE users SET personal_tax_id = '8412345673', billing_address = 'Céges székhely 1.',
+              account_type = 'company',
+              tax_data_provided_at = NOW() - ($2 || ' years')::interval - INTERVAL '1 day'
+        WHERE id = $1`,
+      [ceg.id, TAX_DATA_RETENTION_YEARS],
+    );
+
+    await purgeOldTaxData();
+
+    const { rows } = await db.query('SELECT billing_address FROM users WHERE id = $1', [ceg.id]);
+    expect(rows[0].billing_address, 'a céges SZÁMLÁZÁSI címet törölte').toBe('Céges székhely 1.');
+  });
+});
+
+describe('Fizetési tranzakció-nyom (a hamis kivétel helyett)', () => {
+  it('a 8 évnél régebbi escrow-sor elévül', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const job = await createJob({ shipperId: felado.id, status: 'completed', paid: true });
+    const { rows } = await db.query(
+      // A job_id UNIQUE — a fizetett fuvar fixtúrája már létrehozhatta a sort.
+      `INSERT INTO escrow_transactions (job_id, amount_huf, status, carrier_share_huf, platform_share_huf, held_at)
+       VALUES ($1, 500, 'held', 0, 500, NOW() - ($2 || ' years')::interval - INTERVAL '1 day')
+       ON CONFLICT (job_id) DO UPDATE
+         SET held_at = NOW() - ($2 || ' years')::interval - INTERVAL '1 day'
+       RETURNING id`,
+      [job.id, INVOICE_RETENTION_YEARS],
+    );
+    const { purgeOldEscrowTransactions } = require('../src/services/retention');
+
+    await purgeOldEscrowTransactions();
+
+    const { rowCount } = await db.query('SELECT 1 FROM escrow_transactions WHERE id = $1', [rows[0].id]);
+    expect(
+      rowCount,
+      'A manifest kivételként vette fel „az escrow-modell dormant" indokkal — '
+      + 'pedig MINDEN díjfizetéskor íródik, és a CASCADE sosem üt be.',
+    ).toBe(0);
+  });
+});
