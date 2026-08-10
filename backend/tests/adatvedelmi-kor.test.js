@@ -235,15 +235,20 @@ describe('Retenció: minden adattípusnak van életciklusa', () => {
 
 // ─────────────────────────────────────────────────────────────────────
 describe('Admin-hozzáférési napló', () => {
-  const naplo = async (action) => (await db.query(
-    'SELECT * FROM admin_access_log WHERE action = $1 ORDER BY created_at DESC LIMIT 1', [action],
+  // ⚠️ ADMINRA SZŰKÍTVE (2026-08-10): a puszta `action`-re szűrés a
+  // párhuzamosan futó teszt-fájlok sorát is eltalálhatta — így a teszt
+  // véletlenszerűen bukott (más admin id-jét kapta vissza).
+  const naplo = async (action, adminId) => (await db.query(
+    `SELECT * FROM admin_access_log
+      WHERE action = $1 AND ($2::uuid IS NULL OR admin_id = $2)
+      ORDER BY created_at DESC LIMIT 1`, [action, adminId || null],
   )).rows[0];
 
   it('a KYC-fotók listázása nyomot hagy', async () => {
     const admin = await createUser({ role: 'admin' });
     await request(app).get('/admin/kyc-documents').set(auth(admin.token));
 
-    const sor = await naplo('kyc_documents_list');
+    const sor = await naplo('kyc_documents_list', admin.id);
     expect(sor, 'az okmányfotókhoz való hozzáférés nyomtalan maradt').toBeTruthy();
     expect(sor.admin_id).toBe(admin.id);
   });
@@ -255,7 +260,7 @@ describe('Admin-hozzáférési napló', () => {
 
     await request(app).get(`/admin/messages?job_id=${job.id}`).set(auth(admin.token));
 
-    const sor = await naplo('chat_read');
+    const sor = await naplo('chat_read', admin.id);
     expect(sor).toBeTruthy();
     expect(sor.target_type).toBe('job');
     expect(sor.target_id).toBe(job.id);
@@ -266,14 +271,14 @@ describe('Admin-hozzáférési napló', () => {
     const user = await createUser({ role: 'shipper' });
     await request(app).get(`/admin/users/${user.id}`).set(auth(admin.token));
 
-    const sor = await naplo('user_detail');
+    const sor = await naplo('user_detail', admin.id);
     expect(sor.target_id).toBe(user.id);
   });
 
   it('a napló NEM tartalmazza a megtekintett tartalmat', async () => {
     const admin = await createUser({ role: 'admin' });
     await request(app).get('/admin/kyc-documents').set(auth(admin.token));
-    const sor = await naplo('kyc_documents_list');
+    const sor = await naplo('kyc_documents_list', admin.id);
     // Csak: ki, mit, mikor, melyik entitáson — semmi tartalom.
     expect(Object.keys(sor).sort()).toEqual(
       ['action', 'admin_id', 'created_at', 'id', 'target_id', 'target_type'],
