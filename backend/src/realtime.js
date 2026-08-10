@@ -116,6 +116,34 @@ function init(httpServer) {
   return io;
 }
 
+/**
+ * Egy felhasználó KILAKOLTATÁSA egy fuvar élő szobájából.
+ *
+ * ⚠️ 2026-08-10 (adatáramlási audit): a `job:join` a BELÉPÉSKOR ellenőrzi a
+ * jogosultságot, de kilakoltatás sehol nem volt — egy megnyitott fül pedig
+ * a lezárásig bent marad a szobában. Így a LEVÁLTOTT szállító (díjmentes
+ * újraválasztás, `POST /jobs/:id/reopen`) tovább kapta az ÚJ szállító élő
+ * GPS-pingjeit és a felvételi/kézbesítési fotók URL-jeit — egy fuvarból,
+ * amihez már semmi köze.
+ *
+ * A jogosultság megszűnésekor tehát aktívan ki kell tenni a szobából; a
+ * kliens újracsatlakozáskor úgyis újra átesik az ellenőrzésen.
+ *
+ * @param {string} userId — akinek megszűnt a jogosultsága
+ * @param {string} jobId
+ */
+async function evictUserFromJob(userId, jobId) {
+  if (!io || !userId || !jobId) return;
+  try {
+    const szoba = `job:${jobId}`;
+    for (const socket of await io.in(szoba).fetchSockets()) {
+      if (socket.data?.user?.sub === userId) socket.leave(szoba);
+    }
+  } catch (err) {
+    console.error('[realtime] kilakoltatás hiba:', err.message);
+  }
+}
+
 function emitToJob(jobId, event, payload) {
   if (!io) return;
   io.to(`job:${jobId}`).emit(event, payload);
@@ -170,4 +198,7 @@ function getPresence() {
   return { online_users: users.length, total_connections: total, anonymous, by_role, users };
 }
 
-module.exports = { init, emitToJob, emitToUser, emitGlobal, emitToFeed, getPresence };
+module.exports = {
+  init, emitToJob, emitToUser, emitGlobal, emitToFeed, getPresence,
+  evictUserFromJob,
+};
