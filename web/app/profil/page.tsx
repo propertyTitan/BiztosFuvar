@@ -138,6 +138,29 @@ export default function ProfilOldal() {
     }
   }
 
+  async function adataimLetoltese() {
+    try {
+      const token = window.localStorage.getItem('gofuvar_token');
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/me/export`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
+      );
+      if (!res.ok) throw new Error('A letöltés nem sikerült');
+      const adat = await res.json();
+      const url = URL.createObjectURL(
+        new Blob([JSON.stringify(adat, null, 2)], { type: 'application/json' }),
+      );
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `gofuvar-adataim-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Az adataid letöltve');
+    } catch (err: any) {
+      toast.error('Hiba', err.message);
+    }
+  }
+
   if (loadError) return <ErrorState message={loadError} onRetry={() => window.location.reload()} />;
   if (!profile) return <Loading />;
 
@@ -348,6 +371,27 @@ export default function ProfilOldal() {
             }}
           >
             🗑️ Fiók végleges törlése
+          </button>
+
+          {/* Adathordozhatóság (GDPR 20. cikk) — a végpont régóta megvolt,
+              de a felületről nem lehetett elérni, így az érintett csak
+              e-mailben tudta kérni, és kézzel kellett kiszolgálni. */}
+          <button
+            type="button"
+            onClick={adataimLetoltese}
+            style={{
+              marginLeft: 12,
+              padding: '10px 20px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              color: 'var(--text)',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: 'pointer',
+            }}
+          >
+            ⬇️ Adataim letöltése (JSON)
           </button>
         </>
       ) : (

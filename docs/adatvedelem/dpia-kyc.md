@@ -46,10 +46,22 @@ csak kockázati alapon kérhető.
    kerül elemzésre (EU-n kívüli továbbítás — garanciák: 5.2 pont).
    Az AI kimenete: okmány-jelleg (valódinak tűnik-e), olvashatóság,
    kiolvasott név és születési dátum, 18+ ellenőrzés eredménye.
-4. **Emberi adminisztrátor** a képet (rövid élettartamú, aláírt
-   hivatkozáson át) és az AI-előszűrés eredményét látva dönt:
-   jóváhagyás / elutasítás (indoklással, amelyről az érintett értesítést
-   kap).
+4. **A döntés kétágú (2026-08-10-i pontosítás, a kóddal egyezően):**
+   - **Kockázati jel nélküli eset → AUTOMATIKUS jóváhagyás.** Ha az AI
+     minden ellenőrzésen hibátlan eredményt ad, a hitelesítés emberi
+     közreműködés nélkül megtörténik. Ez az érintett érdekét szolgálja
+     (másodperces átfutás), és nem jár hátránnyal: a kimenete a
+     szolgáltatáshoz való HOZZÁFÉRÉS MEGADÁSA.
+   - **Kockázati jel esetén → EMBERI adminisztrátor dönt.** Öt jel terel
+     emberhez: 0,85 alatti felismerési bizonyosság; az okmányon szereplő és
+     a fiókban megadott név eltérése; másolat/képernyőfotó gyanúja;
+     olvashatatlan okmányszám; illetve ha ezzel az okmánnyal korábban már
+     volt fiók a rendszerben.
+   - **ELUTASÍTÁST az AI önmagában SOHA nem mond ki** — a kedvezőtlen döntés
+     minden esetben emberi. Ez a lényeges garancia a 22. cikk szempontjából:
+     a joghatást kiváltó, kedvezőtlen kimenet nem automatizált.
+   - Az érintett a hitelesítés eredménye ellen emberi felülvizsgálatot
+     kérhet (panasz-csatorna: 8.4 pont).
 5. A döntés után **30 nappal a nyers fotó automatikusan, véglegesen
    törlődik** (napi ütemezett job); megmarad: státusz, a döntés ténye,
    valamint az okmányszám vissza nem fejthető lenyomata
@@ -100,7 +112,7 @@ Skála: valószínűség/súlyosság — alacsony (A), közepes (K), magas (M).
 | 5 | Funkció-elcsúszás (az okmányadatok más célra használata) | A | K | Célhoz kötöttség a tájékoztatóban; a kód az okmányadatot kizárólag a KYC-folyamatban használja; új cél = új jogalap + e DPIA felülvizsgálata | A |
 | 6 | Lakcímkártya/személyi azonosító véletlen begyűjtése | A | M | A felület kizárólag személyi igazolványt kér; szabály rögzítve (CLAUDE.md + jelen dokumentum): lakcímkártya SOHA; ha felhasználó tévedésből mégis azt tölt fel, az admin elutasítja és a fotó a szokásos rend szerint törlődik | A |
 | 7 | Az EU-n kívüli továbbítás garanciáinak elégtelensége | A | K | Google adatfeldolgozási feltételek + EU szerződéses általános adatvédelmi kikötések (SCC); adattakarékosság (csak a két okmánykép megy át, tárolás a Google-nál a fizetős szinten nincs) | A |
-| 8 | Megkülönböztetés (pl. nem magyar okmányok rosszabb felismerése) | K | A | A döntés emberi; elutasításnál egyedi felülvizsgálat kérhető; a panasz-csatorna nyitva | A |
+| 8 | Megkülönböztetés (pl. nem magyar okmányok rosszabb felismerése) | K | A | A gyengébb felismerés a bizonyosság-küszöb (0,85) miatt EMBERHEZ terel, nem elutasításhoz; elutasítást csak ember mond ki, egyedi felülvizsgálat kérhető; a panasz-csatorna nyitva | A |
 
 ## 5. Kockázatcsökkentő intézkedések
 
@@ -108,8 +120,10 @@ Skála: valószínűség/súlyosság — alacsony (A), közepes (K), magas (M).
 
 - Privát tároló + aláírt, rövid élettartamú hozzáférési linkek
 - 30 napos automatikus törlés (napi job), lenyomat-alapú megőrzés
-- Emberi döntéshozatal (22. cikk szerinti tisztán automatizált döntés
-  nincs); elutasítás indoklással
+- Kétágú döntés: kockázati jel nélkül automatikus jóváhagyás (kedvező
+  kimenet), kockázati jel vagy ELUTASÍTÁS esetén emberi adminisztrátor.
+  A 22. cikk szempontjából lényeges garancia, hogy a KEDVEZŐTLEN döntés
+  soha nem automatizált, és emberi felülvizsgálat kérhető.
 - Magic-byte fájl-ellenőrzés; HTTPS mindenhol; rate-limit
 - Munkamenet-érvénytelenítés (kompromittált admin-fiók kizárható)
 - Sentry hibafigyelés PII-szűréssel (auth-fejlécek eltávolítva)

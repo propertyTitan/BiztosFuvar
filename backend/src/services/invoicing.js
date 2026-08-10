@@ -223,7 +223,11 @@ async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, curre
   // === STUB MÓD ===
   if (provider === 'stub') {
     console.log('[invoicing STUB] Számla generálva:');
-    console.log(`  Vevő: ${invoiceData.buyer.name} (${invoiceData.buyer.country})`);
+    // ⚠️ A VEVŐ NEVE NEM MEGY A LOGBA (2026-08-10): a Railway-logra nincs
+    // retenciós kontrollunk, és a maszkolási szabályunk („a szerverlogba
+    // sose kerüljön teljes e-mail/telefonszám") szellemével sem fér össze.
+    // Ez a STUB ág — ma ez az ÉLESBEN futó út, amíg nincs Agent-kulcs.
+    console.log(`  Vevő országa: ${invoiceData.buyer.country}`);
     console.log(`  Nettó: ${vatResult.netAmount} ${currency}`);
     console.log(`  ÁFA: ${vatResult.vatAmount} ${currency} (${Math.round(vatResult.vatRate * 100)}%)`);
     console.log(`  Bruttó: ${vatResult.grossAmount} ${currency}`);

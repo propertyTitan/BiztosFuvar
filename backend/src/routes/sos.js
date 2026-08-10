@@ -125,7 +125,12 @@ router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
             user_id: otherId,
             type: 'sos_partner_alert',
             title: '🚨 A partnered segítséget kér!',
-            body: `A(z) "${job.title}" fuvarhoz kapcsolódó partnered vészjelzést küldött.${message ? ` Üzenet: "${message}"` : ''}`,
+            // ⚠️ A SZABAD SZÖVEG NEM MÁSOLÓDIK IDE (2026-08-10): a
+            // `sos_events.message` 7 nap után törlődik (ezt ígéri a
+            // tájékoztató), a `notifications.body` viszont 6 hónapig él —
+            // a másolat túlélte volna az eredetit. A partner a fuvar
+            // oldalán látja a részleteket.
+            body: `A(z) "${job.title}" fuvarhoz kapcsolódó partnered vészjelzést küldött.${message ? ' Részletek a fuvar oldalán.' : ''}`,
             link: job.shipper_id === req.user.sub
               ? `/sofor/fuvar/${job_id}`
               : `/dashboard/fuvar/${job_id}`,

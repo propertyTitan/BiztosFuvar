@@ -20,7 +20,7 @@ async function authRequired(req, res, next) {
     // itt bukik el. A `tv ?? 0` a migráció előtt kiadott tokeneket 0-ként
     // kezeli (zökkenőmentes bevezetés).
     const { rows } = await db.query(
-      'SELECT token_version, role FROM users WHERE id = $1',
+      'SELECT token_version, role, email_verified FROM users WHERE id = $1',
       [payload.sub],
     );
     if (!rows[0]) return res.status(401).json({ error: 'Érvénytelen token' });
@@ -35,7 +35,7 @@ async function authRequired(req, res, next) {
     // `role` mezőjében hitt: egy lefokozott admin a token lejártáig (1 nap)
     // megtartotta az admin-jogát, pedig a DB-ben már nem volt az. A lekérdezés
     // amúgy is lefut a token_version miatt, tehát ez nem kerül plusz körbe.
-    req.user = { ...payload, role: rows[0].role };
+    req.user = { ...payload, role: rows[0].role, emailVerified: !!rows[0].email_verified };
     next();
   } catch (err) {
     // DB-hiba NEM jelent érvénytelen tokent (pl. Neon cold start) — továbbadjuk
@@ -128,4 +128,29 @@ async function requireDriverKYC(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { authRequired, requireRole, requireIdentityKYC, requireDriverKYC };
+/**
+ * Megerősített e-mail-cím megkövetelése.
+ *
+ * ⚠️ 2026-08-10 (adatáramlási audit): az e-mail-kapu eddig KIZÁRÓLAG
+ * frontend-oldali volt (EmailVerifyGate overlay). A regisztráció azonnal
+ * érvényes JWT-t ad, tehát egy eldobható, NEM LÉTEZŐ e-mail-címmel készült
+ * fiók tokenjével a piactér-listák API-ból szabadon lapozhatók voltak
+ * (200 sor/kérés, pontos címekkel). Egy böngésző-overlay nem hozzáférés-
+ * vezérlés.
+ *
+ * Csak ott alkalmazzuk, ahol MÁSOK adatait olvassa a felhasználó — a saját
+ * profilja, a verifikáció újraküldése és a kijelentkezés nyitva marad,
+ * különben nem tudná feloldani a helyzetét.
+ */
+function requireVerifiedEmail(req, res, next) {
+  if (req.user?.emailVerified) return next();
+  return res.status(403).json({
+    error: 'Erősítsd meg az e-mail-címedet a folytatáshoz. '
+      + 'A megerősítő linket a regisztrációkor küldtük el.',
+    code: 'EMAIL_NOT_VERIFIED',
+  });
+}
+
+module.exports = {
+  authRequired, requireRole, requireIdentityKYC, requireDriverKYC, requireVerifiedEmail,
+};
