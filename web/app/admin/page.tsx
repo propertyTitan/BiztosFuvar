@@ -567,7 +567,6 @@ export default function AdminPanel() {
                         {KYC_DOC_LABEL[doc.doc_type] || doc.doc_type}
                       </span>
                     </div>
-                    {doc.full_name_on_doc && <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>Okmányon: {doc.full_name_on_doc}</div>}
                     {doc.rejection_reason && (
                       <div style={{ fontSize: 12, marginTop: 6, color: 'var(--warning)' }}>
                         AI/korábbi megjegyzés: {doc.rejection_reason}
