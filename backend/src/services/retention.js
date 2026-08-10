@@ -480,15 +480,30 @@ async function expireAbandonedJobs() {
       `UPDATE jobs
           SET status = 'cancelled',
               cancelled_at = NOW(),
-              cancel_reason = 'Automatikusan lezárva: a fuvar egy évig nem talált szállítót.',
+              cancel_reason = CASE
+                WHEN status IN ('pending','bidding')
+                  THEN 'Automatikusan lezárva: a fuvar egy évig nem talált szállítót.'
+                ELSE 'Automatikusan lezárva: a fuvar egy éve nem mozdult.'
+              END,
               updated_at = NOW()
-        WHERE status IN ('pending', 'bidding')
-          AND paid_at IS NULL
-          AND created_at < NOW() - ($1 || ' years')::interval`,
+        WHERE (
+            -- Sosem kelt el
+            (status IN ('pending', 'bidding') AND paid_at IS NULL
+              AND created_at < NOW() - ($1 || ' years')::interval)
+            OR
+            -- ⚠️ BERAGADT (2026-08-10): elkelt, akár ki is fizették, aztán
+            -- megállt. Ez a leggyakoribb VALÓS kudarc-mód, és eddig egyetlen
+            -- retenciós kör sem érte el — örökre őrizte a pontos címeket, a
+            -- címzett elérhetőségét, az átvételi kódot és az élő
+            -- követő-tokent. A disputed SZÁNDÉKOSAN kimarad: nyitott vitát
+            -- nem zárhat le egy időzítő.
+            (status IN ('accepted', 'in_progress')
+              AND updated_at < NOW() - ($1 || ' years')::interval)
+          )`,
       [ABANDONED_JOB_YEARS],
     );
     if (rowCount > 0) {
-      console.log(`[retention] ${rowCount} elhagyott fuvar lezárva (>${ABANDONED_JOB_YEARS} év, nem talált szállítót)`);
+      console.log(`[retention] ${rowCount} elhagyott/beragadt fuvar lezárva (>${ABANDONED_JOB_YEARS} év)`);
     }
     return rowCount || 0;
   } catch (err) {
@@ -759,6 +774,106 @@ async function purgeOldKycDocHistory() {
   }
 }
 
+
+/**
+ * Beragadt JÁRAT-FOGLALÁSOK lezárása.
+ *
+ * ⚠️ 2026-08-10: a foglalási ágon EGYÁLTALÁN nem volt elhagyott-lezáró, tehát
+ * egy `pending`/`confirmed`/`in_progress` foglalás örökre őrizte a pontos
+ * címeket, a címzett elérhetőségét és az átvételi kódot. A fuvar-ág
+ * megfelelője (`expireAbandonedJobs`) létezett — ez a szimmetria hiányzott.
+ *
+ * @returns {Promise<number>} a lezárt foglalások száma
+ */
+async function expireAbandonedBookings() {
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE route_bookings
+          SET status = 'cancelled',
+              cancel_reason = 'Automatikusan lezárva: a foglalás egy éve nem mozdult.'
+        WHERE status::text NOT IN ('delivered', 'rejected', 'cancelled', 'disputed')
+          AND COALESCE(delivered_at, created_at) < NOW() - ($1 || ' years')::interval`,
+      [ABANDONED_JOB_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} beragadt foglalás lezárva (>${ABANDONED_JOB_YEARS} év)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] foglalás-lezárás hiba:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * A fizetési napló elévülése (8 év).
+ *
+ * ⚠️ 2026-08-10: a `payment_events` egyetlen körbe sem tartozott. Pénzügyi
+ * nyom, ezért a számlákkal azonos, 8 éves megőrzést kap (Számv. tv. 169. §) —
+ * de az sem lehet határtalan.
+ *
+ * @returns {Promise<number>}
+ */
+async function purgeOldPaymentEvents() {
+  try {
+    const { rowCount } = await db.query(
+      `DELETE FROM payment_events WHERE created_at < NOW() - ($1 || ' years')::interval`,
+      [INVOICE_RETENTION_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} fizetési naplósor elévült (>${INVOICE_RETENTION_YEARS} év)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] fizetési napló purge hiba:', err.message);
+    return 0;
+  }
+}
+
+// A DAC7-adatszolgáltatáshoz gyűjtött adóazonosító jel és születési dátum
+// megőrzése. Pontosan annyi, amennyit az adatkezelési tájékoztató ígér.
+const TAX_DATA_RETENTION_YEARS = 5;
+
+/**
+ * A DAC7-adatok elévülése (5 év).
+ *
+ * ⚠️ 2026-08-10: a tájékoztató konkrét 5 éves megőrzést ígért az adóazonosító
+ * jelre, a születési dátumra és a lakcímre — végrehajtó kód viszont NEM volt
+ * hozzá. Vagyis egy kormányzati személyazonosító számot tartottunk a fiók
+ * élettartamáig, írásos 5 éves vállalás mellett: a saját dokumentumunk lett
+ * volna a bizonyíték a szabályszegésre.
+ *
+ * Az időszámítás az UTOLSÓ teljesített fuvartól indul (az adatszolgáltatási
+ * kötelezettség ahhoz a jelentési évhez kötődik); ha nincs teljesített fuvar,
+ * a megadás időpontjától.
+ *
+ * @returns {Promise<number>}
+ */
+async function purgeOldTaxData() {
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE users u
+          SET personal_tax_id = NULL,
+              birth_date = NULL,
+              tax_data_provided_at = NULL
+        WHERE (u.personal_tax_id IS NOT NULL OR u.birth_date IS NOT NULL)
+          AND COALESCE(
+                (SELECT MAX(j.delivered_at) FROM jobs j WHERE j.carrier_id = u.id),
+                u.tax_data_provided_at,
+                u.created_at
+              ) < NOW() - ($1 || ' years')::interval`,
+      [TAX_DATA_RETENTION_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} felhasználó DAC7-adata törölve (>${TAX_DATA_RETENTION_YEARS} év)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] DAC7-purge hiba:', err.message);
+    return 0;
+  }
+}
+
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
   await purgeOldDeliveryPhotos();
@@ -769,6 +884,7 @@ async function runDailyRetention() {
   await purgeOldAdminMessages();
   await purgeOldAdminAccessLog();
   await expireAbandonedJobs();
+  await expireAbandonedBookings();
   await anonymizeOldJobs();
   await anonymizeOldCarrierRoutes();
   await purgeOldDisputes();
@@ -776,13 +892,16 @@ async function runDailyRetention() {
   await purgeEmergencyLocations();
   await purgeOldDeletedAccounts();
   await purgeOldKycDocHistory();
+  await purgeOldPaymentEvents();
+  await purgeOldTaxData();
 }
 
 module.exports = {
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
   purgeStaleLastKnownLocation, purgeOldNotifications,
   purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs,
-  shortenAnonymizedAddresses, expireAbandonedJobs, ABANDONED_JOB_YEARS,
+  shortenAnonymizedAddresses, expireAbandonedJobs, expireAbandonedBookings,
+  purgeOldPaymentEvents, purgeOldTaxData, TAX_DATA_RETENTION_YEARS, ABANDONED_JOB_YEARS,
   anonymizeOldCarrierRoutes, purgeOldDisputes, purgeOldInvoices,
   purgeEmergencyLocations, purgeOldDeletedAccounts, purgeOldKycDocHistory, runDailyRetention,
   DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS, INVOICE_RETENTION_YEARS,

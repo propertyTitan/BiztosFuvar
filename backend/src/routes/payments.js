@@ -247,7 +247,11 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
       jobId: entity.type === 'job' ? d.job_id : null,
       bookingId: entity.type === 'booking' ? d.id : null,
       totalAmount, currency,
-      summary: `${status}: "${title}" — ${totalAmount} ${currency}`,
+      // ⚠️ NINCS BENNE A FUVAR CÍME (2026-08-10): a `title` felhasználó által
+      // írt szabad szöveg („Anyukám bútorai a Fő utca 12-ből") — a fuvar
+      // csupaszításakor épp ezért ürítjük ki. A fizetési naplóban tovább élne,
+      // job_id-vel a fuvarhoz kötve. A hibakereséshez az azonosító elég.
+      summary: `${status}: fuvar ${entity.type === 'job' ? d.job_id : d.id} — ${totalAmount} ${currency}`,
       processed: true,
     });
     if (d.shipper_id) {
@@ -268,7 +272,7 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
       paymentId: PaymentId, status, eventType: 'webhook',
       jobId: entity.type === 'job' ? d.job_id : null,
       bookingId: entity.type === 'booking' ? d.id : null,
-      summary: `${status}: "${title}"`,
+      summary: `${status}: fuvar ${entity.type === 'job' ? d.job_id : d.id}`,
       processed: true,
     });
   }
