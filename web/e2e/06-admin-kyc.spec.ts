@@ -6,8 +6,10 @@ import { createUser, dbQuery, loginAs } from './helpers';
 test('admin jóváhagyja a függő KYC-dokumentumot → a user verified lesz', async ({ page }) => {
   const applicant = await createUser('shipper', 'Kyc Kázmér', 'pending');
   await dbQuery(
-    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, full_name_on_doc)
-     VALUES ($1, 'id_card', '/uploads/e2e-kyc-teszt.png', 'pending', 'Kyc Kázmér')`,
+    // A `full_name_on_doc` oszlop 2026-08-10-én TÖRÖLVE (066-os migráció):
+    // halott PII-séma volt, egyetlen élő út sem írta.
+    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status)
+     VALUES ($1, 'id_card', '/uploads/e2e-kyc-teszt.png', 'pending')`,
     [applicant.id],
   );
   const admin = await createUser('admin', 'Admin Aladár');

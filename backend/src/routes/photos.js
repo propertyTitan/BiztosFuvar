@@ -238,13 +238,18 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
         if (pi && pi.recipient_phone && pi.delivery_code) {
           const { sendSms } = require('../services/sms');
           // Név-plafon: az üzenet 134 karakter alatt maradjon (= max 2
-          // UCS-2 szegmens; a "Szállító" szó +3 kar → cap 20)
-          const nev = (pi.carrier_name || '').slice(0, 20);
+          // UCS-2 szegmens). ⚠️ 2026-08-10: a szöveg végére bekerült a GDPR
+          // 14. cikk szerinti mutató — a CSAK TELEFONSZÁMMAL megadott
+          // címzettnek ez az EGYETLEN csatorna, amin egyáltalán megtudhatja,
+          // ki kezeli az adatait. Hogy ne kelljen 3. szegmenst fizetni
+          // (~+19 Ft/fuvar), a telefonszám zárójelei elmaradtak és a
+          // név-plafon 20 → 18. Az `sms-szegmens-or.test.js` őrzi a határt.
+          const nev = (pi.carrier_name || '').slice(0, 18);
           const sofor = nev
-            ? ` Szállító: ${nev}${pi.carrier_phone ? ` (${pi.carrier_phone})` : ''}.`
+            ? ` Szállító: ${nev}${pi.carrier_phone ? ` ${pi.carrier_phone}` : ''}.`
             : '';
           sendSms(pi.recipient_phone,
-            `GoFuvar: úton a csomagod! Átvételi kód: ${pi.delivery_code}.${sofor} Kérjük, egyeztess vele az érkezésről.`,
+            `GoFuvar: úton a csomagod! Átvételi kód: ${pi.delivery_code}.${sofor} Egyeztess vele! Adatkezelés: gofuvar.hu/a`,
           ).catch(() => {});
         }
       } catch (e) {
@@ -534,12 +539,13 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
           );
           const c = cRows[0] || {};
           const { sendSms } = require('../services/sms');
-          const nev = (c.full_name || '').slice(0, 20);
+          // Ugyanaz a 2-szegmenses korlát, mint a fuvar-ágon (lásd ott).
+          const nev = (c.full_name || '').slice(0, 18);
           const sofor = nev
-            ? ` Szállító: ${nev}${c.phone ? ` (${c.phone})` : ''}.`
+            ? ` Szállító: ${nev}${c.phone ? ` ${c.phone}` : ''}.`
             : '';
           sendSms(booking.recipient_phone,
-            `GoFuvar: úton a csomagod! Átvételi kód: ${booking.delivery_code}.${sofor} Kérjük, egyeztess vele az érkezésről.`,
+            `GoFuvar: úton a csomagod! Átvételi kód: ${booking.delivery_code}.${sofor} Egyeztess vele! Adatkezelés: gofuvar.hu/a`,
           ).catch(() => {});
         }
       } catch (e) {
