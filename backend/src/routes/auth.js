@@ -22,6 +22,17 @@ const { userHasBlockingDealings } = require('../utils/activePaid');
 const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
 const kycHistory = require('../utils/kycHistory');
 
+/**
+ * Okmányszám-lenyomat. HMAC, mert az okmányszámok tere felsorolható —
+ * sózatlan hash-ből jelöltlistával visszafejthető lenne (lásd 064 migráció).
+ */
+function docHmac(nyersOkmanyszam) {
+  return crypto
+    .createHmac('sha256', process.env.JWT_SECRET || 'dev-secret')
+    .update(nyersOkmanyszam)
+    .digest('hex');
+}
+
 // ---------- Helper a verifikációs / reset tokenekhez ----------
 // Egyszer használatos, kriptografikailag random token. A nyers token
 // CSAK a kimenő e-mailbe kerül. A DB-ben SHA-256 hash van. A user a
@@ -455,7 +466,14 @@ router.post('/accept-driver-terms', authRequired, async (req, res) => {
 // PATCH /auth/me — profil szerkesztés
 // Engedélyezett mezők: full_name, phone, vehicle_type, vehicle_plate, bio, avatar_url
 router.patch('/me', authRequired, async (req, res) => {
-  const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio', 'avatar_url', 'company_name', 'tax_id', 'company_reg_number', 'eu_vat_number', 'billing_address'];
+  // ⚠️ Az `avatar_url` SZÁNDÉKOSAN NINCS itt (2026-08-10, adatvédelmi audit).
+  // Szabadon írható volt, és amióta az avatar-csere TÖRLI a régi fájlt a
+  // tárolóból, ez bizonyíték-megsemmisítő eszközzé vált: a támadó beírja egy
+  // MÁSIK felhasználó fuvar-fotójának URL-jét, feltölt egy új avatart, és a
+  // kód „régi avatarként" letörli az áldozat fotóját (a vitarendezés
+  // bizonyítékát). Az avatart kizárólag a POST /auth/avatar állíthatja, ami a
+  // fájlt maga hozza létre — ott az érték nem a felhasználótól jön.
+  const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio', 'company_name', 'tax_id', 'company_reg_number', 'eu_vat_number', 'billing_address'];
   // Adószám formátum-ellenőrzés (ugyanaz mint a regisztrációnál), hogy ne
   // kerüljön szemét érték a számlázási mezőbe (a Barion VAT-számítás ezt olvassa).
   if (req.body.tax_id !== undefined && req.body.tax_id && !/^\d{8}-\d{1,2}-\d{2}$/.test(req.body.tax_id)) {
@@ -870,13 +888,24 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   let docNumberHash = null;
   let korabbanToroltFiok = null;
   if (docNumberRaw) {
-    docNumberHash = require('crypto').createHash('sha256').update(docNumberRaw.trim().toUpperCase()).digest('hex');
+    // ⚠️ HMAC, nem sima SHA-256 (2026-08-10): a személyi igazolvány számának
+    // értéktere teljesen felsorolható (~10⁸), ezért egy SÓZATLAN hash egy
+    // jelöltlistával visszafejthető lenne. A szerver-oldali titok nélkül egy
+    // DB-szivárgásból nem állítható vissza az okmányszám. (Ugyanez az érvelés
+    // vezetett a 061-es migrációnál az e-mail-lenyomat HMAC-ra váltásához —
+    // a 063 mégis sózatlanul vezette be ezt a mezőt.)
+    const nyers = docNumberRaw.trim().toUpperCase();
+    docNumberHash = docHmac(nyers);
+    // ÁTMENET: a régi sorok sózatlan SHA-256-tal készültek, és a nyers számot
+    // sosem tároltuk, tehát nem számolhatók újra. Feltöltéskor viszont
+    // MINDKETTŐ kiszámolható, ezért mindkét alakra illesztünk — így a
+    // duplikátum-védelem az átmenet alatt sem gyengül.
+    const legacyHash = require('crypto').createHash('sha256').update(nyers).digest('hex');
     const { rows: existing } = await db.query(
-      `SELECT k.user_id, u.email FROM kyc_documents k
-       JOIN users u ON u.id = k.user_id
-       WHERE k.doc_number_hash = $1 AND k.user_id <> $2
+      `SELECT k.user_id FROM kyc_documents k
+       WHERE k.doc_number_hash = ANY($1) AND k.user_id <> $2
          AND k.status IN ('approved', 'pending')`,
-      [docNumberHash, req.user.sub],
+      [[docNumberHash, legacyHash], req.user.sub],
     );
     if (existing.length > 0) {
       // NE logold a nyers okmányszámot — a DB-ben is csak hash-elve tároljuk.
@@ -896,7 +925,7 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     // emberi ellenőrzésre küldjük, és az admin látja az előzményt. Egy vak
     // tiltás a jóhiszemű visszatérőt is kizárná, és emberi felülvizsgálat
     // nélküli automatizált döntés lenne (GDPR 22. cikk).
-    korabbanToroltFiok = await kycHistory.korabbanToroltFiok(docNumberHash);
+    korabbanToroltFiok = await kycHistory.korabbanToroltFiok([docNumberHash, legacyHash]);
   }
 
   const isUnderage = aiResult.underage === true;
@@ -1039,12 +1068,13 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   );
 
   await db.query(
-    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason, doc_number_hash)
-     VALUES ($1, $2, $3, $4, $5, $6)
+    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason, doc_number_hash, hash_algo)
+     VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $6::text IS NULL THEN NULL ELSE 'hmac-sha256' END)
      ON CONFLICT (user_id, doc_type) DO UPDATE SET
        file_url = EXCLUDED.file_url, status = EXCLUDED.status,
        rejection_reason = EXCLUDED.rejection_reason,
        doc_number_hash = EXCLUDED.doc_number_hash,
+       hash_algo = EXCLUDED.hash_algo,
        reviewed_by = NULL, reviewed_at = NOW()`,
     [req.user.sub, doc_type, url, docStatus, rejectionReason, docNumberHash],
   );

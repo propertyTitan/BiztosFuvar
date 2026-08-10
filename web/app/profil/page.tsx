@@ -127,8 +127,11 @@ export default function ProfilOldal() {
       );
       if (!res.ok) throw new Error('Feltöltés sikertelen');
       const { url } = await res.json();
-      const updated = await api.updateMyProfile({ avatar_url: url });
-      setProfile((prev: any) => ({ ...prev, ...updated }));
+      // A feltöltő végpont MAGA menti az avatar_url-t — külön PATCH nem kell.
+      // (2026-08-10: az `avatar_url` szándékosan kikerült a szerkeszthető
+      // profil-mezők közül; szabadon írható értékre nem szabad fájl-törlést
+      // alapozni — lásd backend/src/routes/auth.js.)
+      setProfile((prev: any) => ({ ...prev, avatar_url: url }));
       toast.success('Profilkép mentve!');
     } catch (err: any) {
       toast.error('Hiba', err.message);
