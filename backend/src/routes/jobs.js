@@ -653,7 +653,7 @@ router.get('/', authRequired, requireVerifiedEmail, async (req, res) => {
 // A válasz tartalmazza a Barion gateway_url-t is (az escrow_transactions
 // táblából JOIN-olva), hogy a frontend egyszerűen eldönthesse, van-e már
 // aktív fizetés-lehetőség. A `paid_at` pedig eleve a jobs soron van.
-router.get('/:id', authRequired, async (req, res) => {
+router.get('/:id', authRequired, requireVerifiedEmail, async (req, res) => {
   const { rows } = await db.query(
     `SELECT j.*,
             e.barion_gateway_url,

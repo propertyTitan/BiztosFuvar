@@ -3,7 +3,7 @@
 // fél értékelheti a másikat 1-5 csillaggal + szöveges megjegyzéssel.
 const express = require('express');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { detectContactLeak } = require('../utils/contactGuard');
@@ -145,7 +145,7 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
 
 // GET /reviews?job_id=X | ?booking_id=X | ?user_id=X
 // Bárki lekérheti — az értékelések publikusak.
-router.get('/reviews', authRequired, async (req, res) => {
+router.get('/reviews', authRequired, requireVerifiedEmail, async (req, res) => {
   const { job_id, booking_id, user_id } = req.query;
   let sql = `SELECT r.*, u.full_name AS reviewer_name
                FROM reviews r

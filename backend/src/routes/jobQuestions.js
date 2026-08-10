@@ -13,7 +13,7 @@
 
 const express = require('express');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const { requireText } = require('../utils/text');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { detectContactLeak } = require('../utils/contactGuard');
@@ -30,7 +30,7 @@ router.param('id', uuidParam);
 const OPEN_STATUSES = ['pending', 'bidding'];
 
 // GET /jobs/:jobId/questions — bárki látja a Q&A-t
-router.get('/jobs/:jobId/questions', authRequired, async (req, res) => {
+router.get('/jobs/:jobId/questions', authRequired, requireVerifiedEmail, async (req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT q.id, q.question, q.answer, q.created_at, q.answered_at,

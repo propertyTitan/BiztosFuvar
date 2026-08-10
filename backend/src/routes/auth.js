@@ -1304,6 +1304,9 @@ router.delete('/me', authRequired, async (req, res) => {
     client.release();
   }
 
+  // A nyitott socketek bontása: a szoba-tagság különben túlélné a fiókot.
+  require('../realtime').disconnectUser(userId).catch(() => {});
+
   // A tárolóban maradt objektumok (KYC-okmány, avatar, fuvar-fotók) törlése —
   // a DB-sorok már nincsenek meg, ezért a listát a purge a törlés ELŐTT
   // gyűjtötte ki (lásd utils/userFiles.js). GDPR 17. cikk: e nélkül az

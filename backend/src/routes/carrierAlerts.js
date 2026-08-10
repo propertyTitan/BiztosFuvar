@@ -6,7 +6,7 @@
 
 const express = require('express');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { geocodeAddress } = require('../services/geocode');
 
@@ -30,7 +30,7 @@ router.get('/carrier-alerts', authRequired, async (req, res) => {
 });
 
 // POST /carrier-alerts — új figyelő
-router.post('/carrier-alerts', authRequired, writeRateLimit, async (req, res) => {
+router.post('/carrier-alerts', authRequired, requireVerifiedEmail, writeRateLimit, async (req, res) => {
   const {
     label, from_lat, from_lng, from_label,
     to_lat, to_lng, to_label, radius_km,

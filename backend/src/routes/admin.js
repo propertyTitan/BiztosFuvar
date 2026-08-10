@@ -212,6 +212,7 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
   }
   if (del.rowCount === 0) return res.status(404).json({ error: 'Felhasználó nem található' });
 
+  require('../realtime').disconnectUser(targetId).catch(() => {});
   // GDPR 17. cikk — az R2-objektumok különben örökre árván maradnának.
   await purgeUserFiles(targetId, { keys: fileKeys });
   res.json({ ok: true });
@@ -322,6 +323,8 @@ router.post('/admin/users/:id/force-logout', ...adminOnly, async (req, res) => {
   );
   if (!rows[0]) return res.status(404).json({ error: 'User nem található' });
   console.log(`[admin] force-logout: ${rows[0].id} (admin: ${req.user.sub})`);
+  // A nyitott socket is bomoljon — a token_version bump csak a REST-et zárja.
+  require('../realtime').disconnectUser(req.params.id).catch(() => {});
   res.json({ ok: true });
 });
 

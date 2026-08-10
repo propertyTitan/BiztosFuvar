@@ -35,10 +35,20 @@ function listRoutes(app) {
       if (layer.route) {
         const routePath = layer.route.path;
         // Egy route több metódusra is regisztrálható
+        // A route hívási lánca: a middleware-ek FUTÁSIDEJŰ neve. Ebből tudja
+        // a PII-csatorna-őr ellenőrizni, hogy egy kapu tényleg rá van-e téve —
+        // forráskód-szöveg helyett a valóságból.
+        const middlewares = (layer.route.stack || [])
+          .map((l) => l.name)
+          .filter((n) => n && n !== '<anonymous>');
         for (const method of Object.keys(layer.route.methods)) {
           if (!layer.route.methods[method]) continue;
           const full = (prefix + routePath).replace(/\/{2,}/g, '/');
-          out.push({ method: method.toUpperCase(), path: full === '' ? '/' : full });
+          out.push({
+            method: method.toUpperCase(),
+            path: full === '' ? '/' : full,
+            middlewares,
+          });
         }
       } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
         walk(layer.handle.stack, prefix + prefixFromLayer(layer));

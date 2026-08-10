@@ -66,41 +66,60 @@ describe('Publikus követő-végpont', () => {
 });
 
 describe('Chat-előzmény szállító-csere után', () => {
-  it('az ÚJ szállító nem látja a leváltott szállító üzeneteit', async () => {
+  // ⚠️ A KÜLDÉS VALÓDI API-HÍVÁSSAL megy, nem nyers SQL-lel. Az első
+  // javításnál a fixtúra kézzel írt sort szúrt be, és emiatt a teszt csak a
+  // védelem FELÉT mérte: a leváltott szállító üzenetét vizsgálta, a feladóét
+  // nem — pedig a feladó éppen a KORÁBBI szállítónak írta, hogy „a kapukód
+  // 1234". A valódi úton haladva a fixtúra nem tud eltérni a valóságtól.
+  async function beszelgetes() {
     const felado = await createUser({ role: 'shipper' });
     const regi = await createUser({ role: 'carrier' });
     const uj = await createUser({ role: 'carrier' });
     const job = await createJob({ shipperId: felado.id, carrierId: regi.id, status: 'accepted', paid: true });
-    await db.query(
-      `INSERT INTO messages (job_id, sender_id, body) VALUES ($1,$2,'Titkos egyeztetés a régi szállítóval')`,
-      [job.id, regi.id],
-    );
-    // Szállító-csere
+
+    await request(app).post('/messages').set(auth(regi.token))
+      .send({ job_id: job.id, body: 'Itt a RÉGI szállító, mikor menjek?' }).expect(201);
+    await request(app).post('/messages').set(auth(felado.token))
+      .send({ job_id: job.id, body: 'A kapukód 1234, a nagymamám egyedül lesz otthon' }).expect(201);
+
+    return { felado, regi, uj, job };
+  }
+
+  it('az ÚJ szállító a leváltott szállító üzeneteit NEM látja', async () => {
+    const { uj, job } = await beszelgetes();
     await db.query('UPDATE jobs SET carrier_id = $2 WHERE id = $1', [job.id, uj.id]);
 
     const res = await request(app).get(`/messages?job_id=${job.id}`).set(auth(uj.token)).expect(200);
 
-    const szoveg = JSON.stringify(res.body);
-    expect(
-      szoveg,
-      'az ÚJ szállító elolvasta a LEVÁLTOTT szállító és a feladó beszélgetését',
-    ).not.toContain('Titkos egyeztetés');
-  });
-
-  it('a jelenlegi felek üzenetei viszont látszanak', async () => {
-    const felado = await createUser({ role: 'shipper' });
-    const szallito = await createUser({ role: 'carrier' });
-    const job = await createJob({ shipperId: felado.id, carrierId: szallito.id, status: 'accepted', paid: true });
-    await db.query(
-      `INSERT INTO messages (job_id, sender_id, body) VALUES ($1,$2,'Mikor érsz ide?')`,
-      [job.id, felado.id],
-    );
-
-    const res = await request(app).get(`/messages?job_id=${job.id}`).set(auth(szallito.token)).expect(200);
     expect(
       JSON.stringify(res.body),
-      'a védelem túl széles lett: a jelenlegi felek üzenetei is eltűntek',
-    ).toContain('Mikor érsz ide?');
+      'az ÚJ szállító elolvasta a LEVÁLTOTT szállító üzenetét',
+    ).not.toContain('RÉGI szállító');
+  });
+
+  it('az ÚJ szállító a FELADÓ korábbi üzeneteit sem látja', async () => {
+    const { uj, job } = await beszelgetes();
+    await db.query('UPDATE jobs SET carrier_id = $2 WHERE id = $1', [job.id, uj.id]);
+
+    const res = await request(app).get(`/messages?job_id=${job.id}`).set(auth(uj.token)).expect(200);
+
+    expect(
+      JSON.stringify(res.body),
+      'AZ ELSŐ JAVÍTÁS ITT BUKOTT EL: a feladó a KORÁBBI szállítónak írta a '
+      + 'kapukódot, és az átment az újhoz — a szűrés csak a leváltott szállító '
+      + 'üzeneteit rejtette el',
+    ).not.toContain('kapukód 1234');
+  });
+
+  it('a saját beszélgetését mindkét fél változatlanul látja', async () => {
+    const { felado, regi, job } = await beszelgetes();
+
+    for (const [ki, token] of [['feladó', felado.token], ['szállító', regi.token]]) {
+      const res = await request(app).get(`/messages?job_id=${job.id}`).set(auth(token)).expect(200);
+      const szoveg = JSON.stringify(res.body);
+      expect(szoveg, `a védelem túl széles: a ${ki} a saját szálát sem látja`).toContain('kapukód 1234');
+      expect(szoveg, `a ${ki} nem látja a másik fél üzenetét a saját szálában`).toContain('RÉGI szállító');
+    }
   });
 });
 
