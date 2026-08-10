@@ -185,6 +185,72 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **HÁROM FÜGGETLEN ADATVÉDELMI LENCSE + a teljes javítási kör (2026-08-09/10,
+  PR #143-148)** — a user kérésére 3 ügynök futott EGYSZERRE, de MÁS
+  szemszögből: séma/tárolás (**7/10**), adatáramlás (**7/10**), érintett+jogi
+  (**6/10**). ⚠️ **A KÖR FŐ TANULSÁGA: a ~15 súlyos találatból mindössze
+  NÉGYET talált meg egynél több lencse.** Vagyis a korábbi körök „ezt
+  lezártuk" következtetése strukturálisan megbízhatatlan volt — nem azért nem
+  találtak többet, mert nem volt több, hanem mert EGY szemszögből néztek.
+  Összkép: **a gépezet erős, a papír hazudott** (a 11 megőrzési ígéretből 11
+  stimmelt a kóddal, de négy helyen olyat vállaltunk ÍRÁSBAN, ami a kódban
+  nem volt igaz). Javítva:
+  **(1) SENTRY-SZIVÁRGÁS (PR #143)** — a SeeMe SMS-gateway GET-es, tehát az
+  ÉLES API-kulcs + a címzett telefonszáma + a teljes SMS-szöveg (6 jegyű
+  ÁTVÉTELI KÓD + szállító neve/telefonja) a query stringbe kerül; a Sentry SDK
+  a nyers query stringet külön mezőbe (`http.query`) írja; a mi scrubunk
+  viszont MEZŐNEVEKET sorolt fel (url/to/from). A kiváltó ok épp a saját
+  SMS-hiba riasztásunk (code=13 = VÁRT hibamód). Ugyanez vitte a Nominatim
+  `?q=<cím>`-et és a VIES adószámot. Fix: strukturális (minden URL-jellegű
+  kulcs + a query string EGÉSZBEN eldobva). ⚠️ A régi teszt ZÖLD volt — kézzel
+  írt fixtúrán, ami nem egyezett a valódi SDK-alakkal; az új suite ŐRE az SDK
+  FORRÁSÁBÓL olvassa ki a mezőneveket. **A Sentry session replay NEM fut**
+  (a `replayIntegration` egyik alapértelmezett integrációs listában sincs) —
+  a félrevezető konfig kivéve. **(2) NÉGY ÁRVA-FÁJL ÚT (PR #144)** — a
+  KYC-ÚJRAFELTÖLTÉS (új random kulcs + ON CONFLICT → az előző SZEMÉLYI
+  IGAZOLVÁNY fotója örökre a bucketben; és ez a NORMÁL út, mert a pending-nél
+  újrafeltöltésre kérjük a usert), az avatar-csere, a MÁSIK FÉL fotói (a
+  gyűjtő csak `uploader_id`-re nézett), és a `disputes.evidence_url`.
+  **(3) CÍM-ELREJTÉS (PR #145)** — a `split(',')[0]` CSAK magyar formátumon
+  működik: „Hauptstraße 5, 10115 Berlin" → „Hauptstraße 5". ÉLŐ szivárgás
+  volt Európa-szintű coverage mellett, és kiütötte a mellette lévő ~1 km-es
+  koordináta-kerekítést. Új `utils/address.js`, TARTALOM-alapú. Plusz: az
+  ELHAGYOTT (soha le nem zárt) fuvarnak nem volt életciklusa → 1 év után
+  auto-lezárás. **(4) HTML-INJEKTÁLÁS + SOCKET (PR #147)** — hat inline
+  sendEmail nem escape-elt: egy szállító a saját NEVÉBE tett linkkel
+  GoFuvar-arculatú, noreply@gofuvar.hu-ról érkező levelet küldethetett; és a
+  `job:join` csak BELÉPÉSKOR ellenőrzött, kilakoltatás nem volt → a leváltott
+  szállító tovább kapta az ÚJ szállító GPS-pingjeit. **(5) KYC-LENYOMAT +
+  JOGI SZÖVEGEK (PR #148, 063-as migráció, prodon lefutott)** —
+  **USER-DÖNTÉS: a fiók törlésével ne lehessen „kvázi újként" visszaregisztrálni.**
+  A tájékoztató + 30. cikk + érdekmérlegelési teszt II. mind 5 éves
+  hash-megőrzést állított, a CASCADE viszont azonnal törölte → új
+  `kyc_doc_history` tábla (user-független, csak SHA-256 + időbélyeg, 5 év
+  retencióval). ⚠️ NEM kemény tiltás: a visszatérő EMBERI ellenőrzésre kerül
+  (`PREVIOUSLY_DELETED_ACCOUNT`) — a cél nem a kizárás, hanem hogy ne lehessen
+  ELŐZMÉNY NÉLKÜL visszajönni. **USER-DÖNTÉS a KYC-jóváhagyásról: a KÓD marad
+  (tiszta eset automatikus, kockázati jel → admin), a SZÖVEG igazodik.**
+  Továbbá: a Trust Score-nál PROFILALKOTÁST vallottunk magunkra, amit nem
+  végzünk (nincs ORDER BY trust_score, nincs auto-felfüggesztés); a **DAC7
+  adóazonosító jel** gyűjtéséről NULLA tájékoztatás volt; az adatfeldolgozói
+  listán Barion állt, hiányzott a CIB, a Számlázz.hu, a Nominatim és az
+  ImprovMX. Mind javítva. **(6) AUDIT-NAPLÓ VERSENY (PR #146)** — a
+  `logAdminAccess` fire-and-forget volt: egy PII-hozzáférési naplónál a
+  „talán kiírjuk" nem elég (deploy/összeomlás esetén a hozzáférés megtörtént,
+  a nyoma nem). Mostantól await. Backend **680/680**.
+  ⚠️ **SAJÁT HIBÁIM, tanulságnak**: (a) MÁSODSZOR írtam **backticket SQL-
+  kommentbe JS template literal belsejében** → a teljes backend nem indult
+  volna (mindkétszer a teszt fogta meg); (b) a PR #141-gyel **flaky teszteket
+  engedtem a main-re** (a CI ott zöld volt — egy futás nem bizonyít
+  stabilitást; azóta 3 teljes futással igazolok); (c) a #144 kommentjében azt
+  írtam, az árva-fájl osztály „le van zárva" — nem volt igaz.
+  ⚠️ **NYITOTT**: (i) a MÁR MEGLÉVŐ árva fájlok a bucketekben (R2 ListObjects
+  + DB-összevetés kell, hálózati művelet); (ii) halott PII-séma törlése
+  (`kyc_documents.doc_number` PLAINTEXT + `full_name_on_doc` + 6 oszlop +
+  4 nem hívott függvény) — destruktív, önálló PR; (iii) a nyitott fuvar
+  cím-pontossága (termékdöntés); (iv) JSON-export GOMB a profilra (a végpont
+  KÉSZ, csak a felületről nem érhető el); (v) a szöveg/jogi kör maradéka
+  (DSA report/block, ÁSZF-átfésülés) — a user külön körre halasztotta
 - **ADATVÉDELMI KÖR 3 — SÉMA-ALAPÚ audit (2026-08-09, PR #139-141)** — a user
   jogos kifogása után („mennyire jó az adatvédelmünk, aztán minden új teszt
   10/6-ot hoz valami kritikus hibával") a 3. kör NEM a kódot járta végig,
