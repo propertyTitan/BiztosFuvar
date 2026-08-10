@@ -35,6 +35,16 @@ export function scrubUrlLike<T>(value: T): T {
 const URL_LIKE_KEY_RE = /(^|\.)(url|to|from|query|fragment|href|link)$/i;
 
 /**
+ * URL- vagy query-jellegű ÉRTÉK felismerése — TARTALOM alapján.
+ * A kulcsnév-felsorolás azt hagyja ki, amire nem gondoltunk: az `url.full`
+ * („full" végződés) épp a teljes URL-t hordozza, mégis kimaradt a mintából.
+ */
+function urlSzeruErtek(value: unknown): boolean {
+  if (typeof value !== 'string' || !value) return false;
+  return value.includes('://') || /^[?&]/.test(value) || /[?&][\w.%+-]+=/.test(value);
+}
+
+/**
  * Breadcrumb-mező szűrése — szigorúbb, mint a saját kérésünké: a query
  * stringet EGÉSZBEN eldobjuk, nem paraméterenként válogatunk.
  */
@@ -72,12 +82,59 @@ export function scrubSentryEvent<E extends Record<string, any>>(event: E): E {
       for (const crumb of event.breadcrumbs) {
         if (crumb?.data && typeof crumb.data === 'object') {
           for (const kulcs of Object.keys(crumb.data)) {
-            if (URL_LIKE_KEY_RE.test(kulcs) && typeof crumb.data[kulcs] === 'string') {
-              crumb.data[kulcs] = scrubBreadcrumbValue(crumb.data[kulcs]);
+            const ertek = crumb.data[kulcs];
+            if (typeof ertek === 'string' && (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek))) {
+              crumb.data[kulcs] = scrubBreadcrumbValue(ertek);
             }
           }
         }
       }
+    }
+    return event;
+  } catch {
+    return event;
+  }
+}
+
+/**
+ * Egy SPAN szűrése (beforeSendSpan).
+ *
+ * ⚠️ A `beforeSend` KIZÁRÓLAG hiba-eseményen fut. A teljesítmény-események
+ * másik borítékban mennek; böngészőben a root span `url.full` attribútuma és
+ * a tranzakció NEVE is tartalmazhatja az oldal URL-jét — benne a jelszó-reset
+ * / e-mail-verify ÉLŐ tokenjével és a nyomon-követési tokennel.
+ */
+export function scrubSentrySpan<S extends Record<string, any>>(span: S): S {
+  const sp = span as Record<string, any>;
+  try {
+    if (!span || typeof span !== 'object') return span;
+    if (typeof sp.description === 'string') {
+      sp.description = scrubBreadcrumbValue(sp.description);
+    }
+    if (sp.data && typeof sp.data === 'object') {
+      for (const kulcs of Object.keys(sp.data)) {
+        const ertek = sp.data[kulcs];
+        if (typeof ertek === 'string' && (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek))) {
+          sp.data[kulcs] = scrubBreadcrumbValue(ertek);
+        }
+      }
+    }
+    return span;
+  } catch {
+    return span;
+  }
+}
+
+/** Egy TRANZAKCIÓ-esemény szűrése (beforeSendTransaction). */
+export function scrubSentryTransaction<E extends Record<string, any>>(event: E): E {
+  const ev = event as Record<string, any>;
+  try {
+    scrubSentryEvent(event);
+    if (Array.isArray(event?.spans)) {
+      for (const span of event.spans) scrubSentrySpan(span);
+    }
+    if (typeof ev?.transaction === 'string') {
+      ev.transaction = scrubBreadcrumbValue(ev.transaction);
     }
     return event;
   } catch {

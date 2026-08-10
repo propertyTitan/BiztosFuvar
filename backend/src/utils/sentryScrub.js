@@ -32,6 +32,21 @@ const SENSITIVE_PATH_RE = /(\/tracking\/|\/vat\/)[^/?#]+/gi;
 // korábbi, mezőnév-felsoroláson alapuló szűrés nem érte el.
 const URL_LIKE_KEY_RE = /(^|\.)(url|to|from|query|fragment|href|link)$/i;
 
+/**
+ * URL- vagy query-jellegű ÉRTÉK felismerése — TARTALOM alapján.
+ *
+ * ⚠️ Miért nem a kulcsnév dönt: a kulcsnév-felsorolás pontosan azt hagyja ki,
+ * amire nem gondoltunk. Ezt a saját őrünk mérte ki: az `url.full` kulcs
+ * („full" végződés) kimaradt a mintából, pedig épp AZ hordozza a teljes URL-t
+ * a query stringgel együtt. A tartalom-alapú felismerés nem felejt.
+ */
+function urlSzeruErtek(value) {
+  if (typeof value !== 'string' || !value) return false;
+  return value.includes('://')          // teljes URL
+    || /^[?&]/.test(value)              // önálló query string
+    || /[?&][\w.%+-]+=/.test(value);   // URL query résszel
+}
+
 /** Query string / teljes URL token-paramétereinek kitakarása. */
 function scrubUrlLike(value) {
   if (typeof value !== 'string' || !value) return value;
@@ -103,8 +118,9 @@ function scrubSentryEvent(event) {
       for (const crumb of event.breadcrumbs) {
         if (crumb && crumb.data && typeof crumb.data === 'object') {
           for (const kulcs of Object.keys(crumb.data)) {
-            if (URL_LIKE_KEY_RE.test(kulcs) && typeof crumb.data[kulcs] === 'string') {
-              crumb.data[kulcs] = scrubBreadcrumbValue(crumb.data[kulcs]);
+            const ertek = crumb.data[kulcs];
+            if (typeof ertek === 'string' && (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek))) {
+              crumb.data[kulcs] = scrubBreadcrumbValue(ertek);
             }
           }
         }
@@ -116,4 +132,62 @@ function scrubSentryEvent(event) {
   }
 }
 
-module.exports = { scrubSentryEvent, scrubUrlLike, scrubBreadcrumbValue, REDACTED };
+/**
+ * Egy SPAN szűrése (beforeSendSpan).
+ *
+ * ⚠️ 2026-08-10 — EZ AZ OSZTÁLY, amit reggel NEM zártam le. A `beforeSend`
+ * KIZÁRÓLAG hiba-eseményen fut (@sentry/core client.js: `isErrorEvent(...)
+ * && beforeSend`). A teljesítmény-események (tracesSampleRate) MÁSIK
+ * borítékban mennek, és ugyanazt az adatot viszik: a kimenő fetch spanjének
+ * attribútumai közt ott a teljes URL query-vel (`url.full`) ÉS a nyers query
+ * string (`url.query`) — vagyis az ÉLES SeeMe API-kulcs, a 6 jegyű átvételi
+ * kód és a telefonszámok. Reggel a breadcrumb-mezőket kerestem; azt kellett
+ * volna kérdeznem, HÁNYFÉLE BORÍTÉKBAN hagyhatja el ugyanaz az adat a
+ * rendszert.
+ */
+function scrubSentrySpan(span) {
+  try {
+    if (!span || typeof span !== 'object') return span;
+    // A leírásban is ott lehet a teljes URL (pl. „GET https://…?key=…").
+    if (typeof span.description === 'string') {
+      span.description = scrubBreadcrumbValue(span.description);
+    }
+    if (span.data && typeof span.data === 'object') {
+      for (const kulcs of Object.keys(span.data)) {
+        const ertek = span.data[kulcs];
+        if (typeof ertek === 'string' && (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek))) {
+          span.data[kulcs] = scrubBreadcrumbValue(ertek);
+        }
+      }
+    }
+    return span;
+  } catch {
+    return span;
+  }
+}
+
+/**
+ * Egy TRANZAKCIÓ-esemény szűrése (beforeSendTransaction).
+ * A kérés-adatokat ugyanúgy kezeljük, mint hibánál, és minden beágyazott
+ * spanre lefuttatjuk a span-szűrőt.
+ */
+function scrubSentryTransaction(event) {
+  try {
+    scrubSentryEvent(event);
+    if (event && Array.isArray(event.spans)) {
+      for (const span of event.spans) scrubSentrySpan(span);
+    }
+    // A tranzakció NEVE is lehet URL-jellegű (böngészőben az útvonal).
+    if (event && typeof event.transaction === 'string') {
+      event.transaction = scrubBreadcrumbValue(event.transaction);
+    }
+    return event;
+  } catch {
+    return event;
+  }
+}
+
+module.exports = {
+  scrubSentryEvent, scrubSentrySpan, scrubSentryTransaction,
+  scrubUrlLike, scrubBreadcrumbValue, urlSzeruErtek, URL_LIKE_KEY_RE, REDACTED,
+};

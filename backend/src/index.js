@@ -9,12 +9,23 @@ if (process.env.SENTRY_DSN) {
   const Sentry = require('@sentry/node');
   // PII-szűrés: request body eldobása + token-paraméterek kitakarása +
   // auth-fejlécek törlése (részletek: utils/sentryScrub.js)
-  const { scrubSentryEvent } = require('./utils/sentryScrub');
+  // ⚠️ MIND A HÁROM BORÍTÉKRA (2026-08-10): a `beforeSend` KIZÁRÓLAG
+  // hiba-eseményen fut. A teljesítmény-események (tracesSampleRate) másik
+  // borítékban mennek, és a kimenő fetch spanjében ott a teljes URL a query
+  // stringgel — vagyis az élő SeeMe-kulcs, a 6 jegyű átvételi kód és a
+  // telefonszámok. Egy hook beállítása itt NEM elég; a
+  // `sentry-borítékok.test.js` őre gondoskodik róla, hogy egy jövőbeli
+  // SDK-verzió új borítéka se maradhasson szűretlen.
+  const {
+    scrubSentryEvent, scrubSentrySpan, scrubSentryTransaction,
+  } = require('./utils/sentryScrub');
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
     tracesSampleRate: 0.1,
     beforeSend: scrubSentryEvent,
+    beforeSendSpan: scrubSentrySpan,
+    beforeSendTransaction: scrubSentryTransaction,
   });
   console.log('[sentry] aktív');
 }
