@@ -80,6 +80,9 @@ const OLDALAK: Oldal[] = [
   { minta: '/', url: () => '/', szereplo: 'anon' },
   { minta: '/aszf', url: () => '/aszf', szereplo: 'anon' },
   { minta: '/adatkezeles', url: () => '/adatkezeles', szereplo: 'anon' },
+  // Rövid átirányítás a címzetti adatkezelési szakaszra — a felvételkori
+  // SMS-be ez a legrövidebb URL fér bele (GDPR 14. cikk, 2 szegmens).
+  { minta: '/a', url: () => '/a', szereplo: 'anon' },
   { minta: '/bejelentkezes', url: () => '/bejelentkezes', szereplo: 'anon' },
   { minta: '/elfelejtett-jelszo', url: () => '/elfelejtett-jelszo', szereplo: 'anon' },
   { minta: '/jelszo-reset', url: () => '/jelszo-reset?token=ervenytelen', szereplo: 'anon' },
