@@ -211,8 +211,9 @@ export default function AdatkezelesPage() {
           automatikusan törlődnek: a címzett elérhetősége, az átvételi kód és a
           követő-link megszűnik, a cím pedig településre rövidül. Maga a fuvar ténye
           (időpont, ár, értékelés) statisztikai és elszámolási célból megmarad.
-          A szállítót nem találó, elhagyott fuvarhirdetés <strong>1 év</strong> után
-          automatikusan lezárul, és onnantól ugyanez a rend vonatkozik rá.
+          A szállítót nem találó, illetve az <strong>1 éve nem mozduló</strong> (félbehagyott)
+          fuvar és foglalás automatikusan lezárul, és onnantól ugyanez a rend vonatkozik rá.
+          Folyamatban lévő vitás ügyet ez soha nem érint.
           Ugyanekkor törlődik <strong>a fuvarhoz érkezett árajánlatok üzenete</strong> és
           a fuvar <strong>nyilvános kérdés-válasz szála</strong> is — ezek ugyanarról a
           küldeményről szólnak, mint a fuvar leírása. Vitatott ügyletnél a bizonyítékok —
@@ -239,6 +240,11 @@ export default function AdatkezelesPage() {
         </li>
         <li>
           <strong>Értesítések:</strong> 6 hónap után automatikusan törlődnek.
+        </li>
+        <li>
+          <strong>Fizetési napló:</strong> a díjfizetések technikai naplója (időpont,
+          összeg, tranzakció-azonosító) <strong>8 évig</strong>, a számlázási adatokkal
+          egyező megőrzéssel, majd automatikusan törlődik.
         </li>
         <li>
           <strong>File- és adminisztrátori hozzáférési audit log:</strong> 1 évig
