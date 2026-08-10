@@ -140,8 +140,8 @@ export default function AszfPage() {
       <h2 style={{ marginTop: 32 }}>4. Pénzügyi Feltételek és Számlázás</h2>
       <p>
         <strong>4.1. Kapcsolatfelvételi (közvetítési) díj:</strong> A Szolgáltató egyetlen díja a
-        kapcsolatfelvételi díj, amelyet a <strong>Feladó</strong> fizet meg bankkártyával (a Barion
-        Payment Zrt. fizetési rendszerén keresztül) a megállapodás létrejöttekor (licit elfogadása,
+        kapcsolatfelvételi díj, amelyet a <strong>Feladó</strong> fizet meg bankkártyával (a CIB Bank Zrt.
+        fizetési rendszerén keresztül) a megállapodás létrejöttekor (licit elfogadása,
         fix áras foglalás sofőri megerősítése, illetve azonnali fuvar sofőri elvállalása után).
         A díj ellenében a Szolgáltató <strong>azonnal átadja a Feladónak a Sofőr kapcsolatfelvételi
         adatait</strong> (név, telefonszám, e-mail cím), a Sofőrnek a Feladóét, és elindítja a

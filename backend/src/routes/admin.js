@@ -14,6 +14,7 @@ const {
   purgeUserFiles, collectUserFileKeys, collectEntityFileKeys, purgeFileKeys,
 } = require('../utils/userFiles');
 const { logAdminAccess } = require('../utils/adminAudit');
+const kycHistory = require('../utils/kycHistory');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -192,7 +193,23 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
   // úgy hagyná ott a fiókot, hogy közben az okmányfotója már megsemmisült.
   const fileKeys = await collectUserFileKeys(targetId);
 
-  const del = await db.query('DELETE FROM users WHERE id = $1 RETURNING id', [targetId]);
+  // Az okmány-lenyomat túléli a törlést (user-döntés, 2026-08-10) — az
+  // ADMIN által törölt (jellemzően kitiltott) fióknál ez a fontosabb eset:
+  // enélkül ugyanazzal a személyivel, előzmény nélkül vissza lehetne jönni.
+  // A DB-CASCADE ELŐTT kell jelölni, mert utána a kyc_documents sor már nincs.
+  const client = await db.pool.connect();
+  let del;
+  try {
+    await client.query('BEGIN');
+    await kycHistory.jeloldToroltFioknak(client, targetId, 'admin');
+    del = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [targetId]);
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
   if (del.rowCount === 0) return res.status(404).json({ error: 'Felhasználó nem található' });
 
   // GDPR 17. cikk — az R2-objektumok különben örökre árván maradnának.

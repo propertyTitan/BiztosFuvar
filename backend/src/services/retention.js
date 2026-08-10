@@ -735,6 +735,30 @@ async function purgeOldDeletedAccounts() {
   }
 }
 
+/**
+ * Az okmány-lenyomat előzményének elévülése (5 év).
+ *
+ * A tájékoztató és az érdekmérlegelési teszt II. pontosan ennyit ígér a
+ * doc_number_hash csalásvédelmi megőrzésére a fiók megszűnése után. Eddig ez
+ * ÜRES ígéret volt (a CASCADE azonnal törölte); most valóra váltjuk — de a
+ * határidőt is betartjuk.
+ */
+async function purgeOldKycDocHistory() {
+  try {
+    const { rowCount } = await db.query(
+      `DELETE FROM kyc_doc_history WHERE last_seen_at < NOW() - ($1 || ' years')::interval`,
+      [HOLD_RETENTION_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} okmány-lenyomat elévült (>${HOLD_RETENTION_YEARS} év)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] okmány-lenyomat purge hiba:', err.message);
+    return 0;
+  }
+}
+
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
   await purgeOldDeliveryPhotos();
@@ -751,6 +775,7 @@ async function runDailyRetention() {
   await purgeOldInvoices();
   await purgeEmergencyLocations();
   await purgeOldDeletedAccounts();
+  await purgeOldKycDocHistory();
 }
 
 module.exports = {
@@ -759,7 +784,7 @@ module.exports = {
   purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs,
   shortenAnonymizedAddresses, expireAbandonedJobs, ABANDONED_JOB_YEARS,
   anonymizeOldCarrierRoutes, purgeOldDisputes, purgeOldInvoices,
-  purgeEmergencyLocations, purgeOldDeletedAccounts, runDailyRetention,
+  purgeEmergencyLocations, purgeOldDeletedAccounts, purgeOldKycDocHistory, runDailyRetention,
   DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS, INVOICE_RETENTION_YEARS,
   SOS_LOCATION_RETENTION_DAYS, SOS_EVENT_RETENTION_YEARS,
   JOB_PII_RETENTION_YEARS,
