@@ -47,7 +47,16 @@ function scrubBookingForUser(booking, user) {
   if (!booking) return booking;
   const isShipper = user?.sub === booking.shipper_id;
   const isAdmin = user?.role === 'admin';
-  if (isAdmin || isShipper) return booking;
+  if (isAdmin) return booking;
+  if (isShipper) {
+    // ⚠️ A feladó itt MEGKAPJA a delivery_code-ot — és ez SZÁNDÉKOS.
+    // Az audit „aszimmetriát" jelzett a fuvar-ághoz képest (ott a feladó nem
+    // látja a címzett kódját), de a két ág SÉMÁJA különbözik: a fuvarnak KÉT
+    // kódja van (címzetti + feladói vészhelyzeti), a foglalásnak csak EGY.
+    // Elvéve a feladónak semmilyen kódja nem maradna — a leggyakoribb
+    // esetben (ő maga veszi át) nem tudná lezárni a fuvart.
+    return booking;
+  }
   // Szállító (vagy bárki más, aki idáig eljut): kód + token nélkül. A címzett
   // elérhetőségét (recipient_*) CSAK a feladó díjfizetése (paid_at) UTÁN
   // látja — a kézbesítéskor akkor már hívnia kell tudni. Enélkül a díj
@@ -545,7 +554,9 @@ router.post(
       console.warn('[notifications] booking_received hiba:', e.message);
     }
 
-    res.status(201).json(booking);
+    // Scrub a válaszon is: a létrehozáskor se szivárogjon ki több, mint
+    // amennyit a listán látna (a POST /jobs-nál ugyanez a hiba volt).
+    res.status(201).json(scrubBookingForUser(booking, req.user));
 
     // Címzett értesítése (email + SMS log)
     if (recipient_phone || recipient_email) {
@@ -610,7 +621,10 @@ router.get('/route-bookings/mine', authRequired, async (req, res) => {
       ORDER BY b.created_at DESC`,
     [req.user.sub],
   );
-  res.json(rows);
+  // ⚠️ 2026-08-10: ez a végpont NYERS sorokat adott vissza — a feladó saját
+  // foglalás-listáján benne volt a CÍMZETT átvételi kódja is. A scrub
+  // feladó-ága ezt (a fuvar-ággal egyezően) elveszi.
+  res.json(rows.map((b) => scrubBookingForUser(b, req.user)));
 });
 
 // GET /route-bookings/:id
