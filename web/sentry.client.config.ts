@@ -1,7 +1,7 @@
 // Sentry kliens-oldali init.
 // Csak akkor aktivál, ha NEXT_PUBLIC_SENTRY_DSN env meg van adva.
 import * as Sentry from '@sentry/nextjs';
-import { scrubSentryEvent } from '@/lib/sentryScrub';
+import { scrubSentryEvent, scrubSentrySpan, scrubSentryTransaction } from '@/lib/sentryScrub';
 
 if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
   Sentry.init({
@@ -22,5 +22,8 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     // (jelszó-reset / email-verify URL-tokenek!), auth-fejlécek törlése —
     // részletek: src/lib/sentryScrub.ts
     beforeSend: scrubSentryEvent,
+    // Mind a három boríték — a beforeSend csak a HIBA-eseményre fut.
+    beforeSendSpan: scrubSentrySpan,
+    beforeSendTransaction: scrubSentryTransaction,
   });
 }
