@@ -20,6 +20,7 @@ const {
 const { firstContactLeak } = require('../utils/contactGuard');
 const { userHasBlockingDealings } = require('../utils/activePaid');
 const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
+const kycHistory = require('../utils/kycHistory');
 
 // ---------- Helper a verifikációs / reset tokenekhez ----------
 // Egyszer használatos, kriptografikailag random token. A nyers token
@@ -867,6 +868,7 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   // Dokumentum szám duplikáció ellenőrzés — egy személyi = egy fiók
   const docNumberRaw = aiResult.documentNumber;
   let docNumberHash = null;
+  let korabbanToroltFiok = null;
   if (docNumberRaw) {
     docNumberHash = require('crypto').createHash('sha256').update(docNumberRaw.trim().toUpperCase()).digest('hex');
     const { rows: existing } = await db.query(
@@ -887,6 +889,14 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
         code: 'DUPLICATE_DOCUMENT',
       });
     }
+
+    // ⚠️ TÖRÖLT FIÓK OKMÁNYA (2026-08-10, user-döntés): a lenyomat túléli a
+    // fiók törlését (kyc_doc_history, 5 év), így kiderül, ha valaki a fiókja
+    // törlésével akar „friss" felhasználóként visszatérni. NEM tiltjuk ki —
+    // emberi ellenőrzésre küldjük, és az admin látja az előzményt. Egy vak
+    // tiltás a jóhiszemű visszatérőt is kizárná, és emberi felülvizsgálat
+    // nélküli automatizált döntés lenne (GDPR 22. cikk).
+    korabbanToroltFiok = await kycHistory.korabbanToroltFiok(docNumberHash);
   }
 
   const isUnderage = aiResult.underage === true;
@@ -947,7 +957,15 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     // emberhez tereljük — az automatizmus megmarad, csak nem vak.
     const { needsManualReview } = require('../services/kycReview');
     const { rows: acc } = await db.query('SELECT full_name FROM users WHERE id = $1', [req.user.sub]);
-    const review = needsManualReview(aiResult, { fullName: acc[0]?.full_name }, doc_type);
+    // A korábban törölt fiók okmánya ugyanúgy emberhez terel, mint a többi
+    // kockázati jel — a visszatérés így nem marad előzmény nélküli.
+    const review = korabbanToroltFiok
+      ? {
+        code: 'PREVIOUSLY_DELETED_ACCOUNT',
+        reason: 'Ezzel az okmánnyal korábban már volt fiók a rendszerben. '
+          + 'A hitelesítést munkatársunk ellenőrzi.',
+      }
+      : needsManualReview(aiResult, { fullName: acc[0]?.full_name }, doc_type);
 
     if (review) {
       docStatus = 'pending';
@@ -1030,6 +1048,10 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
        reviewed_by = NULL, reviewed_at = NOW()`,
     [req.user.sub, doc_type, url, docStatus, rejectionReason, docNumberHash],
   );
+
+  // A lenyomat a fiók törlését is túléli (kyc_doc_history) — enélkül a
+  // „egy okmány = egy fiók" védelem törlés+újraregisztrációval megkerülhető.
+  await kycHistory.rogzitLenyomat(docNumberHash);
 
   // A DB-írás UTÁN törlünk: ha az INSERT elhasalna, a régi fotó maradjon meg.
   const elozoUrl = elozoDok[0]?.file_url;
@@ -1228,6 +1250,10 @@ router.delete('/me', authRequired, async (req, res) => {
        VALUES ($1, $2, $3, 'hmac-sha256')`,
       [userId, emailHash, 'Felhasználó saját kérésére'],
     );
+    // Az okmány-lenyomat TÚLÉLI a törlést (user-döntés, 2026-08-10): enélkül
+    // a „egy okmány = egy fiók" védelem törlés + újraregisztrációval
+    // megkerülhető lenne. Csak a hash marad, az okmányszám sosem.
+    await kycHistory.jeloldToroltFioknak(client, userId, 'self');
     // CASCADE törli: jobs, bids, photos, reviews, notifications, kyc_documents, stb.
     await client.query('DELETE FROM users WHERE id = $1', [userId]);
     await client.query('COMMIT');

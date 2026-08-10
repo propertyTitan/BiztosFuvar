@@ -18,7 +18,7 @@ export default function AdatkezelesPage() {
     >
       <h1 style={{ marginBottom: 4 }}>Adatkezelési Tájékoztató (GDPR)</h1>
       <p className="muted" style={{ margin: 0 }}>
-        <strong>Hatályos:</strong> 2026. július 4-től
+        <strong>Hatályos:</strong> 2026. augusztus 10-től
       </p>
 
       <h2 style={{ marginTop: 32 }}>1. Az Adatkezelő</h2>
@@ -49,7 +49,7 @@ export default function AdatkezelesPage() {
           hitelesítés ideje alatt kerül tárolásra.
         </li>
         <li>
-          <strong>Tranzakciós adatok:</strong> Számlázási adatok, Barion fizetési azonosító
+          <strong>Tranzakciós adatok:</strong> Számlázási adatok, a fizetési szolgáltató tranzakció-azonosítója
           (kapcsolatfelvételi díj), a megállapodott fuvardíj összege (DAC7), valamint az
           elállási jogról szóló fogyasztói nyilatkozat (45/2014. Korm. r. 29. § (1) a) szerinti
           beleegyezés) időbélyege — a nyilatkozat megtételének bizonyítására.
@@ -74,6 +74,19 @@ export default function AdatkezelesPage() {
         <li>
           <strong>Feladói telefonszám:</strong> Kapcsolattartás mellett a sikeres teljesítésről
           szóló záró SMS-értesítés küldése.
+        </li>
+        <li>
+          <strong>Adóazonosító adatok (DAC7, csak Szállítóknak):</strong> ha magánszemélyként
+          végzel szállítást, az első teljesített fuvar után elkérjük az <strong>adóazonosító
+          jeledet</strong>, a <strong>születési dátumodat</strong> és a <strong>lakcímedet</strong>.
+          Ezt nem mi találtuk ki: az adó- és egyéb közterhekkel kapcsolatos nemzetközi
+          közigazgatási együttműködésről szóló törvény (Aktv., DAC7) a platformüzemeltetőt
+          kötelezi az adatszolgáltatásra, ezért a jogalap <strong>jogi kötelezettség</strong>
+          (GDPR 6. cikk (1) c). Céges fiók esetén az adószám tölti be ezt a szerepet.
+          Címzett: a Nemzeti Adó- és Vámhivatal, éves adatszolgáltatás keretében.
+          Megőrzés: az adatszolgáltatási kötelezettség elévüléséig (az adatszolgáltatás
+          évének végétől számított 5 év). Ha nem adod meg, szállítói tevékenységet nem
+          tudsz folytatni — feladóként a Platform ettől függetlenül használható.
         </li>
         <li>
           <strong>Fiókhasználati adatok:</strong> a legutóbbi bejelentkezésed időpontja, a
@@ -114,7 +127,14 @@ export default function AdatkezelesPage() {
         <strong>4.1. Adatfeldolgozók (EU területén belül):</strong>
       </p>
       <ul>
-        <li><strong>Barion Payment Zrt.</strong> (1117 Budapest) — bankkártyás fizetés (kapcsolatfelvételi díj)</li>
+        <li><strong>CIB Bank Zrt.</strong> (1027 Budapest) — bankkártyás fizetés elfogadása
+          (kapcsolatfelvételi díj)</li>
+        <li><strong>KBOSS.hu Kft. (Számlázz.hu)</strong> (1031 Budapest) — számlázás: a számla
+          kiállítása és kiküldése (név, számlázási cím, adószám, e-mail cím)</li>
+        <li><strong>OpenStreetMap Foundation (Nominatim)</strong> (EU/Egyesült Királyság) —
+          címek koordinátára fordítása (geokódolás) a szerveroldalon</li>
+        <li><strong>ImprovMX</strong> (EU régió) — a @gofuvar.hu címekre érkező levelek
+          továbbítása (így az érintetti kérelmek is)</li>
         <li><strong>Vercel Inc.</strong> (Frankfurt régió) — webes alkalmazás-hosting</li>
         <li><strong>Railway Corp.</strong> (EU régió) — backend-hosting</li>
         <li><strong>Neon Inc.</strong> (eu-central-1, Frankfurt — AWS) — PostgreSQL adatbázis</li>
@@ -155,9 +175,16 @@ export default function AdatkezelesPage() {
           szereplő személyes adatok (név, adószám, cím) automatikusan törlődnek</strong>.
         </li>
         <li>
-          <strong>KYC dokumentumok:</strong> A fiók megszüntetését követő 5 évig
-          (Polgári jogi elévülés és csalásmegelőzés). A platform a hitelesítést követően az
-          aktív tárolást technikai-szervezési intézkedésekkel minimalizálja.
+          <strong>KYC dokumentumok:</strong> a személyi igazolványról készült
+          <strong>fénykép a döntést (jóváhagyás vagy elutasítás) követő 30 napon belül
+          automatikusan törlődik</strong> — a fiók megszüntetésekor pedig azonnal, a
+          tárolóból is. Ennél tovább <strong>kizárólag az okmányszám egyirányú lenyomata
+          (hash)</strong> marad meg, <strong>5 évig</strong>: ebből az okmányszám nem
+          állítható vissza, egyedül arra használjuk, hogy ugyanazzal az okmánnyal ne
+          lehessen több fiókot létrehozni, illetve hogy a fiók törlése után létrehozott új
+          fiók hitelesítése emberi ellenőrzéshez kerüljön (visszaélés- és
+          kitiltás-megkerülés elleni védelem, jogos érdek). Öt év után a lenyomat is
+          automatikusan törlődik.
         </li>
         <li>
           <strong>In-app Chat üzenetek:</strong> A fuvar lezárását követő <strong>6 hónapig</strong>{' '}
@@ -250,23 +277,32 @@ export default function AdatkezelesPage() {
       </p>
       <ul>
         <li>
-          <strong>AI-alapú KYC előellenőrzés:</strong> a feltöltött személyi igazolvány
-          képét a Google Gemini AI elemzi (név, születési dátum kiolvasása, kép-minőség
-          ellenőrzés). Az AI csak <strong>előellenőrzést</strong> végez,
-          <strong> a végleges hitelesítést minden esetben emberi adminisztrátor</strong> hagyja
-          jóvá.
+          <strong>AI-alapú KYC ellenőrzés:</strong> a feltöltött személyi igazolvány
+          képét a Google Gemini AI elemzi (név, születési dátum és okmányszám kiolvasása,
+          kép-minőség ellenőrzés). Ha az ellenőrzés minden szempontból rendben van, a
+          hitelesítés <strong>automatikusan</strong> megtörténik — így néhány másodperc alatt
+          elindulhatsz. <strong>Kockázati jel esetén a döntést emberi adminisztrátor
+          hozza meg</strong>: alacsony felismerési biztonság, az okmányon szereplő és a
+          fiókban megadott név eltérése, másolat/képernyőfotó gyanúja, olvashatatlan
+          okmányszám, illetve ha ezzel az okmánnyal korábban már volt fiók a rendszerben.
+          <strong>Elutasítást az AI önmagában soha nem mond ki</strong> — az mindig emberi
+          döntés. A hitelesítés eredménye ellen emberi felülvizsgálatot kérhetsz
+          (lásd 8.4. pont).
         </li>
         <li>
           <strong>Automata kor-ellenőrzés:</strong> az AI a személyi igazolványról kiolvassa a
-          születési dátumot, és ha az 18 évnél fiatalabb felhasználót jelez, a regisztráció
-          automatikusan visszautasításra kerül. Ez a döntés joghatást vált ki, ezért a felhasználó
-          jogosult emberi felülvizsgálatra (lásd 8.4. pont).
+          születési dátumot. Ha 18 évnél fiatalabb felhasználót jelez, a hitelesítés
+          <strong>nem történik meg automatikusan</strong>: az ügy emberi adminisztrátorhoz kerül,
+          és a döntést ő hozza meg. A Platformot 18 éven aluli nem használhatja
+          (ÁSZF 3.1.), a végső döntés ellen emberi felülvizsgálatot kérhetsz (lásd 8.4. pont).
         </li>
         <li>
           <strong>Trust Score:</strong> a Sofőr platformon belüli megbízhatósági pontszámát egy
           algoritmus számítja teljesített fuvarok, értékelések, viták és lemondások alapján.
-          A Trust Score a fuvar-elfogadási sorrendet befolyásolja, és kiemelkedően alacsony
-          értéknél a fiók ideiglenes felfüggesztését eredményezheti.
+          A Trust Score <strong>tájékoztató jellegű</strong>: a profilodon és az ajánlataid
+          mellett jelenik meg, hogy a másik fél könnyebben dönthessen. <strong>Nem befolyásolja
+          a fuvarok kiajánlásának sorrendjét, és önmagában nem eredményez fiók-felfüggesztést</strong>
+          — ilyen döntést csak emberi adminisztrátor hozhat, konkrét szabályszegés miatt.
         </li>
         <li>
           <strong>Coverage-zóna szűrés:</strong> a platform földrajzi alapon korlátozhatja a
