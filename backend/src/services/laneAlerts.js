@@ -55,7 +55,14 @@ async function notifyMatchingAlerts(job) {
          FROM carrier_alerts a
          JOIN users u ON u.id = a.carrier_id
         WHERE a.active = TRUE
-          AND a.carrier_id <> $1`,
+          AND a.carrier_id <> $1
+          -- ⚠️ 2026-08-10: az értesítés a HÁZSZÁMIG PONTOS felvételi és
+          -- lerakodási címet viszi — értesítésbe ÉS e-mailbe. A megerősítetlen
+          -- fiók így megkerülte volna a piactér e-mail-kapuját, ráadásul
+          -- push-ban (lekérdezni sem kell), és az e-mail-példány semmilyen
+          -- retenció alá nem esik. Ugyanaz a feltétel kell, mint a
+          -- böngészéshez.
+          AND u.email_verified = TRUE`,
       [job.shipper_id],
     );
     if (!alerts.length) return;

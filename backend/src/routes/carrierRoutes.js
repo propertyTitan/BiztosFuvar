@@ -6,7 +6,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired, requireDriverKYC } = require('../middleware/auth');
+const { authRequired, requireDriverKYC, requireVerifiedEmail } = require('../middleware/auth');
 const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 // ⚠️ 2026-08-08: a foglalási (Járat) ág EDDIG közvetlenül a barion-t hívta,
 // pedig a launch QVIK-re vált (Barion elvetve). Következmény lett volna:
@@ -221,7 +221,7 @@ router.get('/carrier-routes/mine', authRequired, async (req, res) => {
 // jelöli és letiltja rajta a "Helyet foglalok" akciót. Szerver oldalon
 // a POST /route-bookings végpont úgyis 403-mal elutasítja, ha a carrier_id
 // megegyezik a hívóval.
-router.get('/carrier-routes', authRequired, async (req, res) => {
+router.get('/carrier-routes', authRequired, requireVerifiedEmail, async (req, res) => {
   const { city, from_date, to_date, max_price } = req.query;
   let sql = `SELECT * FROM carrier_routes
               WHERE status = 'open'

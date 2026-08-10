@@ -89,10 +89,13 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
   }
 
   const { rows } = await db.query(
-    `INSERT INTO messages (job_id, booking_id, sender_id, body)
-     VALUES ($1, $2, $3, $4)
+    // A CÍMZETTET is rögzítjük (067-es migráció): egy beszélgetés mindig KÉT
+    // fél között zajlik, és enélkül a szállító-csere után nem lehet pontosan
+    // eldönteni, ki volt részese egy üzenetnek.
+    `INSERT INTO messages (job_id, booking_id, sender_id, recipient_id, body)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING *`,
-    [access.jobId, access.bookingId, req.user.sub, bodyCheck.value],
+    [access.jobId, access.bookingId, req.user.sub, access.otherUserId, bodyCheck.value],
   );
   const msg = rows[0];
 
@@ -162,21 +165,25 @@ router.get('/messages', authRequired, async (req, res) => {
 
   const col = job_id ? 'job_id' : 'booking_id';
   const val = job_id || booking_id;
-  // ⚠️ CSAK A JELENLEGI FELEK ÜZENETEI (2026-08-10, adatáramlási audit).
-  // A `checkAccess` helyesen az AKTUÁLIS carrier_id-t nézi, de a lekérdezés a
-  // fuvar TELJES előzményét adta vissza, küldő-névvel együtt. Szállító-csere
-  // (díjmentes újraválasztás) után az ÚJ szállító elolvasta, mit írt a
-  // LEVÁLTOTT szállító és a feladó egymásnak — az előző szállító nevével.
-  // A reopen-plafon 5, tehát ez ötször ismételhető volt.
+  // ⚠️ CSAK AZ A BESZÉLGETÉS, AMINEK A HÍVÓ RÉSZESE VOLT (2026-08-10).
+  //
+  // Az első javítás a JELENLEGI felekre szűrt — az elrejtette a leváltott
+  // szállító üzeneteit, de a FELADÓ üzeneteit NEM, holott azokat a feladó a
+  // KORÁBBI szállítónak írta („a kapukód 1234"). A tesztje is csak a szállító
+  // üzenetét vizsgálta, ezért zöld lett a fél védelem mellett.
+  //
+  // A gyökér-ok az volt, hogy a sorból nem derült ki, KINEK szólt az üzenet.
+  // A 067-es migráció óta rögzítjük a címzettet, így a szűrés pontos:
+  // a felhasználó azt látja, aminek küldőként vagy címzettként részese volt.
   const { rows } = await db.query(
     `SELECT m.*, u.full_name AS sender_name
        FROM messages m
        JOIN users u ON u.id = m.sender_id
       WHERE m.${col} = $1
-        AND m.sender_id = ANY($2)
+        AND (m.sender_id = $2 OR m.recipient_id = $2)
       ORDER BY m.created_at ASC
       LIMIT 500`,
-    [val, access.felek || []],
+    [val, req.user.sub],
   );
 
   res.json(rows);

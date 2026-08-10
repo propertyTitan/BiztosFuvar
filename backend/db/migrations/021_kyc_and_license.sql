@@ -22,7 +22,22 @@ CREATE TABLE IF NOT EXISTS kyc_documents (
     UNIQUE (user_id, doc_type)
 );
 CREATE INDEX IF NOT EXISTS idx_kyc_user   ON kyc_documents(user_id);
-CREATE INDEX IF NOT EXISTS idx_kyc_expiry ON kyc_documents(expiry_date) WHERE status = 'approved';
+-- ⚠️ FELTÉTELESEN (2026-08-10): a 066-os migráció TÖRÖLTE az `expiry_date`
+-- oszlopot (halott PII-séma, a jogosítvány-követelmény 2026-07-07 óta nincs).
+-- A migrációs futtató MINDEN fájlt újrajátszik minden indításkor, ezért egy
+-- feltétel nélküli CREATE INDEX itt a teljes láncot megtörné: friss építésnél
+-- (schema.sql + migrációk sorrendben) még létezik az oszlop, egy meglévő
+-- adatbázison viszont már nem. A DO-blokk mindkét irányban helyes.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+     WHERE table_name = 'kyc_documents' AND column_name = 'expiry_date'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS idx_kyc_expiry
+        ON kyc_documents(expiry_date) WHERE status = 'approved';
+  END IF;
+END $$;
 
 -- A user tábla bővítése KYC státusszal
 ALTER TABLE users

@@ -31,9 +31,12 @@ function init(httpServer) {
         // Session-invalidáció a socketen is: a jelszó-reset (token_version++)
         // után a nyitott socket ne maradjon hitelesítve. Eltérő tv / hiányzó
         // user → vendégként kezeljük (szoba-join nélkül).
-        const { rows } = await db.query('SELECT token_version FROM users WHERE id = $1', [payload.sub]);
+        const { rows } = await db.query(
+          'SELECT token_version, email_verified FROM users WHERE id = $1', [payload.sub],
+        );
         if (rows[0] && (rows[0].token_version ?? 0) === (payload.tv ?? 0)) {
           socket.data.user = payload;
+          socket.data.emailVerified = !!rows[0].email_verified;
         }
       } catch {
         // Érvénytelen/lejárt token vagy DB-hiba → vendégként kezelve
@@ -96,8 +99,12 @@ function init(httpServer) {
     // feladók PONTOS felvételi/lerakodási címét és GPS-koordinátáit (a
     // mentés-kérésnél a bajba jutott helyzetét). A tartalom ugyanaz maradt,
     // de csak HITELESÍTETT kapcsolat kaphatja meg.
+    // ⚠️ UGYANAZ A KAPU, MINT A REST-PÁRJÁN (2026-08-10). A `feed` payloadja
+    // a `jobs:new` esemény, ami NYITOTT fuvarnál a HÁZSZÁMIG PONTOS címet és a
+    // koordinátákat viszi — pontosan azt, amiért a `GET /jobs` megerősített
+    // e-mailt követel. Enélkül a kapu megkerülhető: elég egy socketet nyitni.
     socket.on('feed:join', () => {
-      if (me()) socket.join('feed');
+      if (me() && socket.data.emailVerified) socket.join('feed');
     });
     socket.on('feed:leave', () => {
       socket.leave('feed');
@@ -141,6 +148,29 @@ async function evictUserFromJob(userId, jobId) {
     }
   } catch (err) {
     console.error('[realtime] kilakoltatás hiba:', err.message);
+  }
+}
+
+/**
+ * Egy felhasználó ÖSSZES nyitott socketjének bontása.
+ *
+ * ⚠️ 2026-08-10 (adatáramlási audit): a socket hitelesítése CSAK a
+ * handshake-kor fut. A `POST /admin/users/:id/force-logout` (token_version
+ * bump) és a fiók-törlés a REST-et lezárja, a NYITOTT SOCKETET nem — a
+ * kitiltott vagy törölt felhasználó tovább kapta a `user:<id>` szobájába
+ * érkező értesítéseket (bennük mások neve, chat-előnézet), és bent maradt a
+ * `feed`-ben is, ahol a pontos címek mennek.
+ *
+ * @param {string} userId
+ */
+async function disconnectUser(userId) {
+  if (!io || !userId) return;
+  try {
+    for (const socket of await io.fetchSockets()) {
+      if (socket.data?.user?.sub === userId) socket.disconnect(true);
+    }
+  } catch (err) {
+    console.error('[realtime] socket-bontás hiba:', err.message);
   }
 }
 
@@ -200,5 +230,5 @@ function getPresence() {
 
 module.exports = {
   init, emitToJob, emitToUser, emitGlobal, emitToFeed, getPresence,
-  evictUserFromJob,
+  evictUserFromJob, disconnectUser,
 };
