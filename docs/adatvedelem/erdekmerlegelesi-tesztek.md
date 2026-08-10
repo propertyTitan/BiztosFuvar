@@ -22,8 +22,9 @@ tevékenykedni kívánó felhasználó az első ajánlattétel előtt feltölti 
 személyi igazolványa két oldalának fényképét. A képet a rendszer
 mesterséges intelligencia (Google Gemini) segítségével előellenőrzi
 (okmány-jelleg, olvashatóság, név és születési dátum kiolvasása, 18. életév
-betöltésének ellenőrzése), majd **minden esetben emberi adminisztrátor
-dönt** a jóváhagyásról. A nyers okmányfotó a döntést követő **30 nap
+betöltésének ellenőrzése). A kockázati jel nélküli esetben a hitelesítés
+**automatikusan** megtörténik; **kockázati jel esetén, valamint minden
+ELUTASÍTÁSNÁL emberi adminisztrátor dönt** (részletesen: DPIA 3. pont). A nyers okmányfotó a döntést követő **30 nap
 elteltével automatikusan és véglegesen törlődik**; megmarad a
 verifikációs státusz és az okmányszám kriptográfiai lenyomata
 (`doc_number_hash` — lásd II. teszt).
@@ -99,9 +100,10 @@ ténylegesen működő, egyben a legkevésbé korlátozó eszköze.
    jogosultsággal.
 3. **Adattakarékos megőrzés**: a 30 nap után nem a másolat, hanem csak a
    verifikációs státusz és az okmányszám lenyomata marad (II. teszt).
-4. **Emberi döntéshozatal**: az AI csak előszűr; elutasítást és
-   jóváhagyást minden esetben ember hoz (GDPR 22. cikk szerinti, kizárólag
-   automatizált döntés nincs).
+4. **Emberi döntéshozatal a kedvezőtlen kimeneten**: elutasítást az AI
+   önmagában soha nem mond ki, és öt kockázati jel emberhez terel. A tiszta
+   eset automatikus jóváhagyása kedvező kimenet (hozzáférés megadása), és az
+   érintett emberi felülvizsgálatot kérhet.
 5. **Feltöltés-védelem**: a feltöltött fájl tartalmi (magic-byte)
    ellenőrzésen megy át; csak képformátum fogadott.
 6. **Átláthatóság**: az Adatkezelési tájékoztató az adatkört, célt,

@@ -5,7 +5,7 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit, writeRateLimit, createRateLimit } = require('../middleware/rateLimit');
 const navTaxpayer = require('../services/navTaxpayer');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
@@ -619,7 +619,8 @@ router.post('/tax-data', authRequired, writeRateLimit, async (req, res) => {
 });
 
 // GET /auth/users/:id/profile — publikus profil + statisztikák
-router.get('/users/:id/profile', authRequired, async (req, res) => {
+// ⚠️ requireVerifiedEmail: ez MÁS felhasználó nevét és értékeléseit adja.
+router.get('/users/:id/profile', authRequired, requireVerifiedEmail, async (req, res) => {
   const uid = req.params.id;
   const [userRes, jobsDone, routesDone, reviewsRes] = await Promise.all([
     db.query(

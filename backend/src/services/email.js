@@ -507,7 +507,7 @@ async function sendRecipientTrackingEmail({ to, recipientName, jobTitle, trackin
           <strong>Honnan tudjuk az elérhetőségedet?</strong> A csomag feladója adta meg,
           hogy értesíteni tudjunk az érkezésről. Az adataidat (név, telefonszám, e-mail-cím,
           szállítási cím) kizárólag ennek a küldeménynek a kézbesítéséhez használjuk,
-          és a fuvar lezárása után töröljük.
+          és a fuvar lezárását követő 3 éven belül töröljük.
           <br><br>
           Adatkezelő: <strong>Tiszta Hód Kft.</strong> (6800 Hódmezővásárhely, Szántó Kovács
           János utca 144.) ·

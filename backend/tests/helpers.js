@@ -37,15 +37,22 @@ function uniqueEmail(prefix = 'user') {
 /**
  * User létrehozása közvetlenül a DB-be, alapból átment KYC-vel
  * (identity + driver verified), hogy a middleware-ek ne állítsák meg.
+ *
+ * Az `emailVerified` alapból true — a valós felhasználók túlnyomó része
+ * megerősített, és a `requireVerifiedEmail` kapu (2026-08-10) különben minden
+ * tesztet megállítana. A kapu SAJÁT tesztje `emailVerified: false`-szal hív.
  */
-async function createUser({ role = 'shipper', kyc = 'verified', email } = {}) {
+async function createUser({
+  role = 'shipper', kyc = 'verified', email, emailVerified = true,
+} = {}) {
   const { rows } = await db.query(
     `INSERT INTO users (role, email, password_hash, full_name, phone,
-                        identity_kyc_status, driver_kyc_status, driver_terms_accepted_at)
+                        identity_kyc_status, driver_kyc_status, driver_terms_accepted_at,
+                        email_verified)
      VALUES ($1, $2, 'x', $3, '+36201234567', $4, $4,
-             CASE WHEN $4 = 'verified' THEN NOW() ELSE NULL END)
+             CASE WHEN $4 = 'verified' THEN NOW() ELSE NULL END, $5)
      RETURNING id, role, email`,
-    [role, email || uniqueEmail(role), `Teszt ${role}`, kyc],
+    [role, email || uniqueEmail(role), `Teszt ${role}`, kyc, emailVerified],
   );
   const user = rows[0];
   user.token = jwt.sign(

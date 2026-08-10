@@ -247,6 +247,20 @@ export default function AdatkezelesPage() {
           egyező megőrzéssel, majd automatikusan törlődik.
         </li>
         <li>
+          <strong>Törölt fiókok nyoma:</strong> ha törlöd a fiókodat, a törlés
+          <strong>tényét</strong> (időpont, a törlés oka) <strong>5 évig</strong>
+          megőrizzük, az e-mail-címedről pedig egy visszafejthetetlen, szerver-oldali
+          titokkal képzett lenyomatot — visszaélés-vizsgálat és jogi igényérvényesítés
+          céljából. Magát az e-mail-címet nem őrizzük meg. Öt év után ez a bejegyzés is
+          automatikusan törlődik.
+        </li>
+        <li>
+          <strong>Útvonal-figyelők (szállítóknak):</strong> a mentett figyelőid — köztük a
+          megadott kiindulási és célpont-koordináta — a <strong>fiókod élettartamáig</strong>
+          maradnak meg, mert ezek élő beállítások, nem előzmény-adatok. Bármikor törölheted
+          őket a felületen, és a fiók törlésekor automatikusan megszűnnek.
+        </li>
+        <li>
           <strong>File- és adminisztrátori hozzáférési audit log:</strong> 1 évig
           (incidens-vizsgálat és NAIH-bejelentés érdekében). Naplózzuk, ha egy
           adminisztrátor megnyitja egy felhasználó részletes adatlapját, a felek chatjét,
@@ -385,8 +399,11 @@ export default function AdatkezelesPage() {
           (1) f) — enélkül a szállító nem tudna időben egyeztetni veled az átadásról.
         </li>
         <li>
-          <strong>Meddig:</strong> a fuvar lezárását követően az adataid a fuvar-adatokkal
-          együtt törlődnek. Marketing célra soha nem használjuk, és hírlevelet nem küldünk.
+          <strong>Meddig:</strong> a fuvar lezárását követő <strong>3 éven belül</strong> az
+          adataid a fuvar-adatokkal együtt automatikusan törlődnek (vitatott ügyletnél
+          5 év — lásd az 5. szakaszt). A követő-linked ennél hamarabb, a kézbesítést
+          követő <strong>14 nap</strong> után lejár. Marketing célra soha nem használjuk,
+          és hírlevelet nem küldünk.
         </li>
         <li>
           <strong>Kinek adjuk át:</strong> a küldeményt szállító személynek (a neved és a

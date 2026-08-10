@@ -220,7 +220,7 @@ export default function PublicTrackingPage() {
             Az elérhetőségedet a <strong>csomag feladója</strong> adta meg, hogy értesíteni
             tudjunk az érkezésről. A nevedet, telefonszámodat, e-mail-címedet és a
             szállítási címet kizárólag ennek a küldeménynek a kézbesítéséhez használjuk,
-            és a fuvar lezárása után töröljük. Nem küldünk neked hírlevelet, és nem kell
+            és a fuvar lezárását követő 3 éven belül töröljük. Nem küldünk neked hírlevelet, és nem kell
             regisztrálnod.
           </p>
           <p style={{ margin: '0 0 8px' }}>

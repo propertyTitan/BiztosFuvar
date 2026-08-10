@@ -3,7 +3,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired, requireDriverKYC } = require('../middleware/auth');
+const { authRequired, requireDriverKYC, requireVerifiedEmail } = require('../middleware/auth');
 const { reviewJobDescription } = require('../services/gemini');
 const { distanceMeters } = require('../utils/geo');
 const { maskEmail } = require('../utils/mask');
@@ -94,6 +94,18 @@ function scrubJobForUser(job, user) {
     payment_reminder_count, last_payment_reminder_at,
     // Belső könyvelés: mikor futott le a személyes adatok anonimizálása.
     anonymized_at,
+    // ⚠️ A CSOMAG DEKLARÁLT ÉRTÉKE (2026-08-10, adatáramlási audit).
+    // A nyitott piactéren, fizetés és KYC nélkül, 200-asával lapozva ez a
+    // párosítás állt össze: pontos házszámos cím + „mennyit ér a csomag".
+    // Az ajánlattételhez a méret, a súly, a távolság és a megközelítés kell —
+    // az ÉRTÉK nem befolyásolja a szállítás munkáját, viszont célpont-
+    // válogatásra alkalmas. Az elfogadás után (a kontakt-adatokkal együtt) jár.
+    //
+    // ⚠️ SZÁNDÉKOSAN BENNMARAD: emelet, lift, cipelés-igény, időablak. Ezek
+    // ÁRAZÁSI tényezők — a harmadik emelet lift nélkül más munka. Elvéve a
+    // szállító vakon licitálna, és abból vita lesz. Az audit ezeket is
+    // javasolta kivenni; ez termék-szempontból rossz csere lett volna.
+    declared_value_huf,
     ...publicFields
   } = rest;
 
@@ -552,7 +564,10 @@ const VALID_JOB_STATUSES = [
 // konkrét két fél közötti ügylet — ahhoz kívülállónak semmi köze.
 const NYITOTT_STATUSZOK = ['bidding', 'pending'];
 
-router.get('/', authRequired, async (req, res) => {
+// ⚠️ requireVerifiedEmail: a piactér MÁSOK adatait mutatja (címek, méretek).
+// Az e-mail-kapu eddig csak a böngészőben létezett — egy eldobható, nem
+// létező címmel készült fiók tokenjével a lista API-ból lapozható volt.
+router.get('/', authRequired, requireVerifiedEmail, async (req, res) => {
   const {
     status = 'bidding', lat, lng, radius_km,
     min_price, max_price, max_weight_kg, instant,
