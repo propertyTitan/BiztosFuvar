@@ -31,6 +31,7 @@ async function checkAccess(req, jobId, bookingId) {
     return {
       jobId, bookingId: null, paidAt: j.paid_at,
       otherUserId: j.shipper_id === req.user.sub ? j.carrier_id : j.shipper_id,
+      felek: [j.shipper_id, j.carrier_id].filter(Boolean),
     };
   }
   if (bookingId) {
@@ -47,6 +48,7 @@ async function checkAccess(req, jobId, bookingId) {
     return {
       jobId: null, bookingId, paidAt: b.paid_at,
       otherUserId: b.shipper_id === req.user.sub ? b.carrier_id : b.shipper_id,
+      felek: [b.shipper_id, b.carrier_id].filter(Boolean),
     };
   }
   return null;
@@ -160,14 +162,21 @@ router.get('/messages', authRequired, async (req, res) => {
 
   const col = job_id ? 'job_id' : 'booking_id';
   const val = job_id || booking_id;
+  // ⚠️ CSAK A JELENLEGI FELEK ÜZENETEI (2026-08-10, adatáramlási audit).
+  // A `checkAccess` helyesen az AKTUÁLIS carrier_id-t nézi, de a lekérdezés a
+  // fuvar TELJES előzményét adta vissza, küldő-névvel együtt. Szállító-csere
+  // (díjmentes újraválasztás) után az ÚJ szállító elolvasta, mit írt a
+  // LEVÁLTOTT szállító és a feladó egymásnak — az előző szállító nevével.
+  // A reopen-plafon 5, tehát ez ötször ismételhető volt.
   const { rows } = await db.query(
     `SELECT m.*, u.full_name AS sender_name
        FROM messages m
        JOIN users u ON u.id = m.sender_id
       WHERE m.${col} = $1
+        AND m.sender_id = ANY($2)
       ORDER BY m.created_at ASC
       LIMIT 500`,
-    [val],
+    [val, access.felek || []],
   );
 
   res.json(rows);

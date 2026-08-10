@@ -15,6 +15,10 @@ const db = require('../db');
 
 const router = express.Router();
 
+// A követő-link a kézbesítés (vagy lemondás) után ennyi napig él még.
+// Két hét bőven elég a visszakereséshez; utána a link nem szolgál semmit.
+const TRACKING_GRACE_DAYS = 14;
+
 // GET /tracking/:token — publikus, nincs auth
 router.get('/tracking/:token', async (req, res) => {
   // Keresés a jobs-ban VAGY a route_bookings-ban
@@ -24,7 +28,7 @@ router.get('/tracking/:token', async (req, res) => {
     `SELECT j.id, j.title, j.status, 'job' AS source,
             j.pickup_address, j.dropoff_address,
             j.dropoff_lat, j.dropoff_lng,
-            j.delivery_code, j.delivered_at, j.paid_at,
+            j.delivery_code, j.delivered_at, j.paid_at, j.cancelled_at, j.updated_at,
             j.recipient_name, j.recipient_phone,
             j.dropoff_needs_carrying, j.dropoff_floor, j.dropoff_has_elevator,
             c.full_name AS carrier_name,
@@ -44,7 +48,7 @@ router.get('/tracking/:token', async (req, res) => {
       `SELECT b.id, r.title, b.status, 'booking' AS source,
               b.pickup_address, b.dropoff_address,
               b.dropoff_lat, b.dropoff_lng,
-              b.delivery_code, b.delivered_at, b.paid_at,
+              b.delivery_code, b.delivered_at, b.paid_at, b.created_at,
               b.recipient_name, b.recipient_phone,
               c.full_name AS carrier_name,
               c.vehicle_type AS carrier_vehicle,
@@ -80,11 +84,26 @@ router.get('/tracking/:token', async (req, res) => {
   // megkerülhető lenne). A legitim CÍMZETT a felvételkor (ami már post-pay)
   // kapja a linket, ezért a valós követési folyamat nem sérül.
   const isPaid = !!job.paid_at;
+
+  // ⚠️ LEJÁRAT (2026-08-10, adatáramlási audit): a token eddig az anonimizálásig
+  // (3, zároltnál 5 év) élt, és LEZÁRT fuvarra is ugyanezt adta. Aki valaha
+  // megkapta a linket — rossz számra ment SMS, továbbküldött levél,
+  // böngésző-előzmény, Referer —, az ÉVEKIG lekérdezhette a címeket és a
+  // neveket. A követés célja a kézbesítés; utána a link nem szolgál semmit.
+  const lezart = ['delivered', 'completed', 'cancelled'].includes(job.status);
+  const lezarasIdeje = job.delivered_at || job.cancelled_at || job.updated_at || job.created_at;
+  if (lezart && lezarasIdeje
+      && Date.now() - new Date(lezarasIdeje).getTime() > TRACKING_GRACE_DAYS * 86400000) {
+    return res.status(410).json({ error: 'Ez a követési link lejárt.' });
+  }
+
   res.json({
     id: job.id,
     title: job.title,
     status: job.status,
-    pickup_address: job.pickup_address,
+    // ⚠️ A FELVÉTELI cím NEM megy ki: a címzettet a kézbesítési cím érdekli,
+    // a feladó otthoni címe rá nem tartozik. (A linket bárki megnyithatja,
+    // aki hozzájut — nem kell hozzá fiók.)
     dropoff_address: job.dropoff_address,
     dropoff_lat: job.dropoff_lat,
     dropoff_lng: job.dropoff_lng,
@@ -92,6 +111,11 @@ router.get('/tracking/:token', async (req, res) => {
     delivered_at: job.delivered_at,
     recipient_name: job.recipient_name,
     carrier: job.carrier_name ? {
+      // A NÉV szándékosan kapu NÉLKÜL megy (korábbi tudatos döntés): a
+      // címzettnek tudnia kell, ki hozza a csomagot, és a névvel — a
+      // telefonszámmal ellentétben — a kapcsolatfelvételi díj nem kerülhető
+      // meg. Az audit itt a fuvar- és a foglalás-ág eltérő sémáját vetette
+      // össze; a díj-kapu a KONTAKT-adatra való, nem a megnevezésre.
       name: job.carrier_name,
       vehicle: job.carrier_vehicle,
       phone: isPaid ? job.carrier_phone : null,

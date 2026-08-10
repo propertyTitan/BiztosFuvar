@@ -875,7 +875,8 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   // PRIVÁT tárolás (2026-07-13, biztonsági audit): a személyi okmány fotója
   // a privát bucketbe kerül (`private:<kulcs>` a DB-ben), publikus URL-je
   // NINCS — olvasni csak rövid életű aláírt linkkel lehet (admin-felület).
-  const url = await savePrivateFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+  // Modul-objektumon át: így a tároló-hívás tesztből megfigyelhető.
+  const url = await storage.savePrivateFile(req.file.buffer, req.file.originalname, req.file.mimetype);
 
   // AI ellenőrzés: a feltöltött kép tényleg a megadott dokumentum típus-e?
   const { verifyKycDocument } = require('../services/gemini');
@@ -910,7 +911,14 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     if (existing.length > 0) {
       // NE logold a nyers okmányszámot — a DB-ben is csak hash-elve tároljuk.
       // Az app-log (Railway/Sentry) nem lehet kormányzati okmányszám-forrás.
-      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM: user=${req.user.sub} docHash=${docNumberHash.slice(0, 12)}… → már használja: ${existing[0].user_id}`);
+      // ⚠️ NE hagyjunk árva fájlt (2026-08-10): a fotó ekkor MÁR a privát
+      // bucketben van, a 409 viszont DB-írás nélkül tér vissza — így a
+      // kyc_documents sor sosem jön létre, és se a napi purge, se a
+      // fiók-törlés nem éri el többé. Ez volt az ÖTÖDIK árva-út.
+      await storage.deleteFile(url).catch(() => {});
+      // A naplóba nem írjuk a másik fiók azonosítóját: a két user
+      // összekapcsolása („ugyanaz az ember") önmagában is személyes adat.
+      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM: user=${req.user.sub} docHash=${docNumberHash.slice(0, 12)}…`);
       return res.status(409).json({
         ok: false,
         status: 'rejected',
