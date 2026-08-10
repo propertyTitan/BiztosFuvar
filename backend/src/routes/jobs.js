@@ -1008,6 +1008,11 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
       WHERE job_id = $1 AND status = 'rejected' AND carrier_id <> $2`,
     [j.id, failedCarrierId || '00000000-0000-0000-0000-000000000000'],
   );
+  // A leváltott szállítót ki kell tenni a fuvar élő szobájából — különben a
+  // nyitva hagyott füle tovább kapná az ÚJ szállító GPS-pingjeit és fotóit.
+  if (failedCarrierId) {
+    realtime.evictUserFromJob(failedCarrierId, j.id).catch(() => {});
+  }
   realtime.emitToJob(j.id, 'job:reopened', { job_id: j.id, reason: reason || null });
   realtime.emitToFeed('jobs:reopened', { job_id: j.id });
 }

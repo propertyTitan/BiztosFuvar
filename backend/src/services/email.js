@@ -637,6 +637,11 @@ async function sendAdminMessageEmail({ to, name, bodyText }) {
 
 module.exports = {
   sendEmail,
+  // ⚠️ EXPORTÁLVA (2026-08-10, adatáramlási audit): a routes/-ban lévő
+  // inline sendEmail-hívások eddig NEM escape-eltek — egy szállító a saját
+  // NEVÉBE tett HTML-lel GoFuvar-arculatú, noreply@gofuvar.hu-ról érkező
+  // levelet küldethetett a feladónak és a címzettnek.
+  escapeHtml,
   sendBidReceivedEmail,
   sendLaneAlertEmail,
   sendBidAcceptedEmail,

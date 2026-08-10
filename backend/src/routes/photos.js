@@ -7,6 +7,10 @@
 //   automatikus minősítés alá.
 // - Sikeres validáció után az escrow letét felszabadul ('released').
 const express = require('express');
+// A levelek HTML-törzsébe kerülő, FELHASZNÁLÓ által megadott értékek
+// escape-elése (név, cím, fuvarcím). Enélkül egy szállító a saját nevébe
+// tett linkkel GoFuvar-arculatú levelet küldethetne a másik félnek.
+const { escapeHtml: esc } = require('../services/email');
 const crypto = require('crypto');
 const multer = require('multer');
 const db = require('../db');
@@ -326,8 +330,8 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
               to: info.recipient_email,
               subject: `✅ Csomag átvéve: ${info.title}`,
               html: `
-                <p>Szia${info.recipient_name ? ` ${info.recipient_name}` : ''}!</p>
-                <p>A(z) <strong>"${info.title}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
+                <p>Szia${info.recipient_name ? ` ${esc(info.recipient_name)}` : ''}!</p>
+                <p>A(z) <strong>"${esc(info.title)}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
                 <p>Köszönjük, hogy a GoFuvart használtátok!</p>
               `,
             }).catch((e) => console.warn('[email] recipient delivered hiba:', e.message));
@@ -339,8 +343,8 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
             const { sendEmail: _send, isStub: _isStub } = require('../services/email');
             // Egyszerű inline email — a sendEmail wrapper-t használjuk
             const emailHtml = `
-              <p>Szia ${info.shipper_name || 'GoFuvar felhasználó'}!</p>
-              <p>Nagyszerű hír — <strong>${info.carrier_name || 'a szállító'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${info.title}"</strong> fuvarban!</p>
+              <p>Szia ${esc(info.shipper_name) || 'GoFuvar felhasználó'}!</p>
+              <p>Nagyszerű hír — <strong>${esc(info.carrier_name) || 'a szállító'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${esc(info.title)}"</strong> fuvarban!</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
               <p>A 6 jegyű átvételi kód ellenőrizve. A fuvardíj készpénzben jár a szállítónak — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
               <p>Ha bármi probléma van a csomagoddal, a fuvar részletek oldalán tudsz vitás esetet nyitni.</p>
@@ -592,8 +596,8 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
             to: booking.recipient_email,
             subject: `✅ Csomag átvéve: ${booking.route_title || 'GoFuvar foglalás'}`,
             html: `
-              <p>Szia${booking.recipient_name ? ` ${booking.recipient_name}` : ''}!</p>
-              <p>A(z) <strong>"${booking.route_title || 'foglalt fuvar'}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
+              <p>Szia${booking.recipient_name ? ` ${esc(booking.recipient_name)}` : ''}!</p>
+              <p>A(z) <strong>"${esc(booking.route_title) || 'foglalt fuvar'}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
               <p>Köszönjük, hogy a GoFuvart használtátok!</p>
             `,
           }).catch((e) => console.warn('[email] booking recipient delivered hiba:', e.message));
@@ -603,7 +607,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
             to: shipper.email,
             subject: `✅ Kézbesítve: ${booking.route_title || 'foglalásod'}`,
             html: `
-              <p>Szia ${shipper.full_name || 'GoFuvar felhasználó'}!</p>
+              <p>Szia ${esc(shipper.full_name) || 'GoFuvar felhasználó'}!</p>
               <p>A foglalásod csomagja sikeresen kézbesítve — a 6 jegyű átvételi kód ellenőrizve.</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
               <p>A fuvardíj készpénzben jár a szállítónak — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
