@@ -80,12 +80,21 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
     const res = await request(app).post('/auth/kyc-document').set(auth(uj.token))
       .field('doc_type', 'id_card').attach('file', JPEG, 'o.jpg');
 
+    // ⚠️ 2026-08-10 óta a duplikátum NEM automatikus elutasítás, hanem KÉZI
+    // ELLENŐRZÉS (GDPR 22.: a lenyomat az AI OCR-jéből származik, egy
+    // félreolvasás nem zárhat ki jóhiszemű felhasználót ember nélkül).
+    // A védendő garancia változatlan: a RÉGI (legacy) lenyomatú okmánnyal
+    // nem lehet ÉSZREVÉTLENÜL új, hitelesített fiókot nyitni.
+    expect(res.status).toBe(200);
+    const { rows: dok } = await db.query(
+      'SELECT status FROM kyc_documents WHERE user_id = $1', [uj.id],
+    );
     expect(
-      res.status,
-      'a HMAC-ra váltás után a RÉGI lenyomatú okmánnyal új fiókot lehetett nyitni — '
-      + 'az „egy okmány = egy fiók" védelem az átmenetben kilyukadt',
-    ).toBe(409);
-    expect(res.body.code).toBe('DUPLICATE_DOCUMENT');
+      dok[0]?.status,
+      'a HMAC-ra váltás után a RÉGI lenyomatú okmánnyal ÉSZREVÉTLENÜL új, '
+      + 'hitelesített fiókot lehetett nyitni — az „egy okmány = egy fiók" '
+      + 'védelem az átmenetben kilyukadt',
+    ).toBe('pending');
   });
 });
 

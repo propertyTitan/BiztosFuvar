@@ -61,10 +61,13 @@ const RETENTION_MANIFEST = {
     kivetel: 'Eszköz-token, a fiók aktív állapotáig — a tájékoztató így közli. '
       + 'Fiók-törléskor CASCADE. (A mobil-fázisban érdemes lesz elavult tokent takarítani.)',
   },
-  escrow_transactions: {
-    kivetel: 'Pénzügyi elszámolási nyom (összeg + külső fizetési azonosító + fuvar-hivatkozás), '
-      + 'közvetlen személyes adatot nem tartalmaz. A fuvarral CASCADE. Az escrow-modell dormant.',
-  },
+  // ⚠️ A KORÁBBI KIVÉTEL-INDOKLÁS TÉNYBELILEG HAMIS VOLT (2026-08-10):
+  // „az escrow-modell dormant" — pedig a tábla MINDEN kapcsolatfelvételi
+  // díj-fizetéskor íródik (bids.js, jobs.js három helyről), és a CASCADE sosem
+  // üt be, mert a fuvart nem töröljük, hanem anonimizáljuk. Vagyis egy hibás
+  // premisszájú mondattal vettem ki egy élő táblát a hatály alól — pontosan az
+  // a gyengeség, amit a független mérés az őrömről írt.
+  escrow_transactions: { szabaly: '8 év, a számlákkal egyező pénzügyi nyom (purgeOldEscrowTransactions)' },
   fee_vouchers: {
     kivetel: 'Kupon (érték + felhasználó-hivatkozás), nem tartalmaz személyes adatot a hivatkozáson túl. '
       + 'Fiók-törléskor CASCADE.',

@@ -123,8 +123,14 @@ describe('Chat-előzmény szállító-csere után', () => {
   });
 });
 
-describe('Ötödik árva-út: duplikátum-elutasítás', () => {
-  it('a 409-nél a már feltöltött okmányfotó törlődik a tárolóból', async () => {
+describe('Duplikátum-okmány: kézi ellenőrzés, nem árva fájl', () => {
+  it('a fotó a rendszerben marad (van rá DB-sor), tehát nem lesz árva', async () => {
+    // ⚠️ Ez a teszt korábban azt őrizte, hogy a 409-es ág TÖRLI a feltöltött
+    // fotót — mert a 409 DB-írás nélkül tért vissza, és a fájl árván maradt.
+    // 2026-08-10 óta a duplikátum KÉZI ELLENŐRZÉSRE megy (GDPR 22.), tehát
+    // keletkezik kyc_documents sor: a fájlt így a napi purge és a fiók-törlés
+    // is eléri. A védendő garancia UGYANAZ — árva fájl nem maradhat —, csak
+    // most a hivatkozás megléte biztosítja, nem a törlés.
     const elso = await createUser({ role: 'carrier' });
     const masodik = await createUser({ role: 'carrier' });
     const okmanyszam = 'EF1122334';
@@ -138,20 +144,24 @@ describe('Ötödik árva-út: duplikátum-elutasítás', () => {
     );
 
     vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/MASODIK-FELTOLTES.jpg');
-    const torles = vi.spyOn(storage, 'deleteFile').mockResolvedValue(true);
+    vi.spyOn(storage, 'deleteFile').mockResolvedValue(true);
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: true, confidence: 0.95, documentNumber: okmanyszam,
       holder_name: null, likely_copy: false, birthDate: '1990-01-01',
     });
 
-    const res = await request(app).post('/auth/kyc-document').set(auth(masodik.token))
+    await request(app).post('/auth/kyc-document').set(auth(masodik.token))
       .field('doc_type', 'id_card').attach('file', JPEG, 'o.jpg');
 
-    expect(res.status).toBe(409);
+    const { rows } = await db.query(
+      'SELECT file_url, status FROM kyc_documents WHERE user_id = $1', [masodik.id],
+    );
     expect(
-      torles.mock.calls.flat(),
-      'ÁRVA: a 409 DB-írás nélkül tér vissza, tehát a feltöltött SZEMÉLYI '
-      + 'IGAZOLVÁNY fotóját semmilyen purge nem éri el többé',
-    ).toContain('private:kyc/MASODIK-FELTOLTES.jpg');
+      rows[0],
+      'ÁRVA: nincs DB-sor a feltöltött SZEMÉLYI IGAZOLVÁNY fotójához, tehát '
+      + 'semmilyen purge nem éri el többé',
+    ).toBeTruthy();
+    expect(rows[0].file_url).toBe('private:kyc/MASODIK-FELTOLTES.jpg');
+    expect(rows[0].status, 'a duplikátum nem kerülhet automatikusan hitelesítettbe').toBe('pending');
   });
 });

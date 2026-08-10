@@ -5,7 +5,7 @@ János utca 144. · Cg. 06-09-020646 · adószám: 24750792-2-06 ·
 képviseli: Jovány Gyula ügyvezető · info@gofuvar.hu · +36 20 397 9223
 **Adatvédelmi tisztviselő:** nincs (a 37. cikk szerinti kötelező esetek
 nem állnak fenn; felülvizsgálat az élő GPS élesítésekor)
-**Verzió:** 1.0 (munkapéldány) · **Kelt:** 2026-07-20
+**Verzió:** 1.1 (munkapéldány) · **Kelt:** 2026-07-20 · **Módosítva:** 2026-08-10 — a kód szerinti tényleges állapotra igazítva
 
 > A 30. cikk (5) szerinti mentesség az adatkezelőre NEM alkalmazható,
 > mert az adatkezelés nem alkalmi jellegű (a platform működésének
@@ -198,18 +198,40 @@ intézkedések (közös lista a dokumentum végén).
   nap)
 - **TOM**: közös lista + Sentry beforeSend-szűrés
 
-## 13. Adóhatósági adatszolgáltatás (DAC7) — TERVEZETT
+## 12/B. Vészjelzés és mentés-kérés (SOS / segélyszolgálat)
 
-- **Állapot**: az operatív bevezetés folyamatban (NAV platformüzemeltetői
-  bejelentkezés + szállítói adóazonosító-gyűjtés — launch-teendő).
+- **Állapot**: a felületen KIKAPCSOLVA (`TOWING_ENABLED`), a végpontok
+  védettek; a retenciós kör viszont MÁR MOST fut, hogy bekapcsoláskor ne
+  gyűlhessen fel adat.
+- **Cél**: a bajba jutott felhasználó segítségkérésének továbbítása
+- **Jogalap**: az érintett vagy más természetes személy **létfontosságú
+  érdeke** (GDPR 6. cikk (1) d), illetve szerződés teljesítése
+- **Adatkategóriák**: pontos helyadat, szabad szöveges leírás, rendszám,
+  keresztnév, telefonszám
+- **Címzett**: a jelzést elvállaló mentős/segítő (a pontos hely és a teljes
+  telefonszám CSAK az elvállalás után); adminisztrátor
+- **Törlés**: a pontos helyadat, a szabad szöveg és a rendszám **7 nap**, a
+  jelzés ténye további **1 év** után (`retention.js:purgeEmergencyLocations`)
+
+## 13. Adóhatósági adatszolgáltatás (DAC7) — ÉLES
+
+- **Állapot**: az adatgyűjtés ÉL (2026-07-22 óta). A magánszemély szállítótól
+  az első teljesített fuvar után kérjük az adóazonosító jelet, a születési
+  dátumot és a lakcímet; napi emlékeztető-kör fut, és a határidő letelte után
+  az új ajánlattétel blokkolva van. Launch-teendő maradt: a NAV
+  platformüzemeltetői bejelentkezés és az éves jelentés-generátor.
 - **Cél**: az Aktv. (DAC7) szerinti platformüzemeltetői átvilágítás és
   éves adatszolgáltatás a NAV felé a szállítókról (értékesítőkről)
 - **Jogalap**: JK
 - **Adatkategóriák (bevezetéskor)**: szállító neve, lakcíme, születési
   ideje, adóazonosító jele, a jóváírt ellenérték és a tranzakció-szám
 - **Címzett**: Nemzeti Adó- és Vámhivatal
-- **Törlés**: az Aktv. szerinti megőrzési idő
-- Bevezetéskor e pont véglegesítendő + a tájékoztató kiegészítendő.
+- **Törlés**: az adóazonosító jel, a születési dátum és (magánszemélynél) a
+  lakcím **5 év** után gépiesen törlődik. Az óra az UTOLSÓ teljesített fuvartól
+  indul (fuvar- és járat-foglalási ágon egyaránt); ha nincs ilyen, a megadás
+  időpontjától. Végrehajtó: `retention.js:purgeOldTaxData`, napi körben.
+- A nyilvános adatkezelési tájékoztató 2. szakasza 2026-08-10 óta tartalmazza
+  ezt az adatkört, jogalappal és megőrzési idővel.
 
 ---
 

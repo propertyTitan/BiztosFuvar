@@ -610,8 +610,13 @@ router.post('/tax-data', authRequired, writeRateLimit, async (req, res) => {
   }
 
   await db.query(
+    // ⚠️ A `tax_data_provided_at`-ot ITT kell beállítani (2026-08-10). A
+    // DAC7-retenció (purgeOldTaxData) erre az időbélyegre időzít — enélkül a
+    // `created_at`-re esett vissza, és egy 5 évnél régebbi fiók frissen
+    // megadott adóazonosítóját a KÖVETKEZŐ éjszakai kör törölte volna. Utána a
+    // TAX_DATA_REQUIRED kapu újra kéri → végtelen hurok.
     `UPDATE users SET personal_tax_id = $1, birth_date = $2, billing_address = $3,
-            updated_at = NOW()
+            tax_data_provided_at = NOW(), updated_at = NOW()
       WHERE id = $4`,
     [cleanTaxId, bd.toISOString().slice(0, 10), cleanAddress, req.user.sub],
   );
@@ -888,7 +893,8 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   // Dokumentum szám duplikáció ellenőrzés — egy személyi = egy fiók
   const docNumberRaw = aiResult.documentNumber;
   let docNumberHash = null;
-  let korabbanToroltFiok = null;
+  // Kézi ellenőrzésre terelő ok (élő duplikátum vagy korábban törölt fiók).
+  let keziEllenorzesOka = null;
   if (docNumberRaw) {
     // ⚠️ HMAC, nem sima SHA-256 (2026-08-10): a személyi igazolvány számának
     // értéktere teljesen felsorolható (~10⁸), ezért egy SÓZATLAN hash egy
@@ -916,16 +922,22 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
       // bucketben van, a 409 viszont DB-írás nélkül tér vissza — így a
       // kyc_documents sor sosem jön létre, és se a napi purge, se a
       // fiók-törlés nem éri el többé. Ez volt az ÖTÖDIK árva-út.
-      await storage.deleteFile(url).catch(() => {});
+      // ⚠️ NEM AUTOMATIKUS ELUTASÍTÁS (2026-08-10, GDPR 22. cikk). Eddig ez az
+      // ág azonnal 'rejected'-et adott — ember nélkül, admin-értesítés nélkül,
+      // felülvizsgálati út nélkül. Csakhogy a lenyomat az AI OCR-jéből
+      // származik: egy félreolvasás így jóhiszemű felhasználót zárt volna ki
+      // véglegesen. Az adatkezelési tájékoztató pedig kifejezetten azt állítja,
+      // hogy „elutasítást az AI önmagában soha nem mond ki", és a kézi
+      // ellenőrzésre terelő jelek közt NEVESÍTI ezt az esetet.
+      // Ezért: a dokumentum EMBERI ellenőrzésre vár, ahogy a többi kockázati jel.
+      keziEllenorzesOka = {
+        code: 'DUPLICATE_DOCUMENT',
+        reason: 'Ez a dokumentum már egy másik fiókhoz van regisztrálva. '
+          + 'A hitelesítést munkatársunk ellenőrzi.',
+      };
       // A naplóba nem írjuk a másik fiók azonosítóját: a két user
       // összekapcsolása („ugyanaz az ember") önmagában is személyes adat.
-      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM: user=${req.user.sub} docHash=${docNumberHash.slice(0, 12)}…`);
-      return res.status(409).json({
-        ok: false,
-        status: 'rejected',
-        ai_reason: 'Ez a dokumentum már egy másik fiókhoz van regisztrálva. Minden felhasználó csak egy fiókot használhat.',
-        code: 'DUPLICATE_DOCUMENT',
-      });
+      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM → KÉZI ELLENŐRZÉS: user=${req.user.sub} docHash=${docNumberHash.slice(0, 12)}…`);
     }
 
     // ⚠️ TÖRÖLT FIÓK OKMÁNYA (2026-08-10, user-döntés): a lenyomat túléli a
@@ -934,7 +946,14 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     // emberi ellenőrzésre küldjük, és az admin látja az előzményt. Egy vak
     // tiltás a jóhiszemű visszatérőt is kizárná, és emberi felülvizsgálat
     // nélküli automatizált döntés lenne (GDPR 22. cikk).
-    korabbanToroltFiok = await kycHistory.korabbanToroltFiok([docNumberHash, legacyHash]);
+    // A már beállított okot NEM írjuk felül (az élő duplikátum erősebb jel).
+    if (!keziEllenorzesOka && await kycHistory.korabbanToroltFiok([docNumberHash, legacyHash])) {
+      keziEllenorzesOka = {
+        code: 'PREVIOUSLY_DELETED_ACCOUNT',
+        reason: 'Ezzel az okmánnyal korábban már volt fiók a rendszerben. '
+          + 'A hitelesítést munkatársunk ellenőrzi.',
+      };
+    }
   }
 
   const isUnderage = aiResult.underage === true;
@@ -997,13 +1016,8 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     const { rows: acc } = await db.query('SELECT full_name FROM users WHERE id = $1', [req.user.sub]);
     // A korábban törölt fiók okmánya ugyanúgy emberhez terel, mint a többi
     // kockázati jel — a visszatérés így nem marad előzmény nélküli.
-    const review = korabbanToroltFiok
-      ? {
-        code: 'PREVIOUSLY_DELETED_ACCOUNT',
-        reason: 'Ezzel az okmánnyal korábban már volt fiók a rendszerben. '
-          + 'A hitelesítést munkatársunk ellenőrzi.',
-      }
-      : needsManualReview(aiResult, { fullName: acc[0]?.full_name }, doc_type);
+    const review = keziEllenorzesOka
+      || needsManualReview(aiResult, { fullName: acc[0]?.full_name }, doc_type);
 
     if (review) {
       docStatus = 'pending';
@@ -1085,7 +1099,18 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
        doc_number_hash = EXCLUDED.doc_number_hash,
        hash_algo = EXCLUDED.hash_algo,
        reviewed_by = NULL, reviewed_at = NOW()`,
-    [req.user.sub, doc_type, url, docStatus, rejectionReason, docNumberHash],
+    [
+      req.user.sub, doc_type, url, docStatus, rejectionReason,
+      // ⚠️ DUPLIKÁTUMNÁL LENYOMAT NÉLKÜL TÁROLUNK. A DB-ben parciális UNIQUE
+      // index van a `doc_number_hash`-en (approved/pending) — ez az „egy okmány
+      // = egy fiók" garancia adatbázis-szinten, és NEM ejtjük el. Mivel a
+      // duplikátum 2026-08-10 óta emberi ellenőrzésre vár (nem automatikus
+      // elutasítás), a lenyomatot ilyenkor nem írjuk be: így a sor létrejöhet
+      // (a fotó nem lesz árva, és az admin láthatja), de a védelem sértetlen.
+      // A lenyomat majd akkor kerül be, ha az admin jóváhagyja — akkorra a
+      // másik fiók ügye rendezve van.
+      keziEllenorzesOka?.code === 'DUPLICATE_DOCUMENT' ? null : docNumberHash,
+    ],
   );
 
   // A lenyomat a fiók törlését is túléli (kyc_doc_history) — enélkül a
