@@ -11,6 +11,8 @@ const navTaxpayer = require('../services/navTaxpayer');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
 const { getOrCreateReferralCode, resolveReferrerId } = require('../services/referral');
 const { saveFile, savePrivateFile, getSignedPrivateUrl } = require('../services/storage');
+// Modul-objektumként is, hogy a törlés tesztből megfigyelhető legyen.
+const storage = require('../services/storage');
 const {
   sendEmailVerificationEmail,
   sendPasswordResetEmail,
@@ -805,10 +807,24 @@ router.post('/avatar', authRequired, uploadSingle('file'), async (req, res) => {
       req.file.originalname,
       req.file.mimetype,
     );
-    await db.query(
-      `UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2`,
+    // ⚠️ ÁRVA FÁJL (2026-08-09, adatvédelmi audit): a `saveFile` minden
+    // feltöltésnél ÚJ véletlen kulcsot ad, az UPDATE viszont felülírja a
+    // régi hivatkozást — az előző profilkép így kikerül a rendszer látóköréből,
+    // miközben a PUBLIKUS bucketben marad, 1 éves immutable cache-sel. A
+    // fiók törlése sem érte el (a gyűjtő az aktuális avatar_url-t nézi).
+    // A RÉGI értéket a Postgres önjoin-idiómájával kapjuk vissza: az `elozo`
+    // külön olvasás, ezért a frissítés ELŐTTI pillanatképet látja.
+    const { rows: regi } = await db.query(
+      `UPDATE users u SET avatar_url = $1, updated_at = NOW()
+         FROM users elozo
+        WHERE u.id = $2 AND elozo.id = u.id
+       RETURNING elozo.avatar_url AS elozo`,
       [url, req.user.sub],
     );
+    const elozoAvatar = regi[0]?.elozo;
+    if (elozoAvatar && elozoAvatar !== url) {
+      storage.deleteFile(elozoAvatar).catch(() => {}); // nem blokkolja a választ
+    }
     res.json({ url });
   } catch (err) {
     console.error('[auth] avatar upload hiba:', err);
@@ -989,6 +1005,21 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     }
   }
 
+  // ⚠️ ÁRVA OKMÁNYFOTÓ (2026-08-09, adatvédelmi audit — a legsúlyosabb
+  // árva-eset). A `savePrivateFile` minden feltöltésnél ÚJ véletlen kulcsot
+  // ad, az ON CONFLICT viszont felülírja a `file_url`-t: az ELŐZŐ személyi
+  // igazolvány fotója így kikerül a rendszer látóköréből, miközben a privát
+  // bucketben marad. A 30 napos purge a `kyc_documents.file_url`-ből olvas,
+  // tehát csak az AKTUÁLISAT látja — az árvát soha többé nem éri el, még a
+  // fiók törlése sem.
+  //
+  // És ez a NORMÁL út, nem szélső eset: a kockázati jelre `pending`-be tett
+  // dokumentumnál az értesítés kifejezetten újrafeltöltésre kéri a usert.
+  const { rows: elozoDok } = await db.query(
+    `SELECT file_url FROM kyc_documents WHERE user_id = $1 AND doc_type = $2`,
+    [req.user.sub, doc_type],
+  );
+
   await db.query(
     `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason, doc_number_hash)
      VALUES ($1, $2, $3, $4, $5, $6)
@@ -999,6 +1030,12 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
        reviewed_by = NULL, reviewed_at = NOW()`,
     [req.user.sub, doc_type, url, docStatus, rejectionReason, docNumberHash],
   );
+
+  // A DB-írás UTÁN törlünk: ha az INSERT elhasalna, a régi fotó maradjon meg.
+  const elozoUrl = elozoDok[0]?.file_url;
+  if (elozoUrl && elozoUrl !== url) {
+    storage.deleteFile(elozoUrl).catch(() => {});
+  }
 
   if (doc_type === 'id_card') {
     await db.query(`UPDATE users SET identity_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);

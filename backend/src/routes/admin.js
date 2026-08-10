@@ -98,7 +98,7 @@ router.get('/admin/users', ...adminOnly, async (req, res) => {
   // Vagyis a nagyobb kiterjedésű hozzáférés hagyott kevesebb nyomot.
   // A keresőkifejezést SZÁNDÉKOSAN nem naplózzuk: az egy harmadik személy
   // nevét írná a naplóba (a napló nem lehet a PII második példánya).
-  logAdminAccess(req, 'users_list', { type: search ? 'search' : 'all' });
+  await logAdminAccess(req, 'users_list', { type: search ? 'search' : 'all' });
   let sql = `SELECT id, email, full_name, phone, role, account_type,
                     identity_kyc_status, driver_kyc_status, company_verification_status,
                     rating_avg, rating_count, trust_score, level, created_at,
@@ -124,7 +124,7 @@ router.get('/admin/users', ...adminOnly, async (req, res) => {
 router.get('/admin/users/:id', ...adminOnly, async (req, res) => {
   // Elszámoltathatóság: a teljes felhasználói részletnézet megnyitása naplózva
   // (GDPR 5. cikk (2) — a tájékoztató „hozzáférési audit log" ígérete).
-  logAdminAccess(req, 'user_detail', { type: 'user', id: req.params.id });
+  await logAdminAccess(req, 'user_detail', { type: 'user', id: req.params.id });
   const { rows } = await db.query(
     `SELECT u.id, u.email, u.email_verified, u.full_name, u.phone, u.role,
             u.account_type, u.locale, u.bio, u.avatar_url,
@@ -246,7 +246,7 @@ router.get('/admin/jobs', ...adminOnly, async (req, res) => {
   const { search } = req.query;
   // A `j.*` a címzett teljes elérhetőségét és az átvételi kódot is hozza,
   // fuvaronként — tömegesen. Ez is naplózandó hozzáférés (lásd /admin/users).
-  logAdminAccess(req, 'jobs_list', { type: search ? 'search' : 'all' });
+  await logAdminAccess(req, 'jobs_list', { type: search ? 'search' : 'all' });
   let sql = `SELECT j.*, s.full_name AS shipper_name, s.email AS shipper_email,
                     c.full_name AS carrier_name
                FROM jobs j
@@ -317,7 +317,7 @@ router.get('/admin/messages', ...adminOnly, async (req, res) => {
   }
   // A felek PRIVÁT levelezésébe való betekintés — a legérzékenyebb admin-
   // művelet a KYC-fotó mellett. Naplózzuk, ki melyik ügylet chatjét nyitotta.
-  logAdminAccess(req, 'chat_read', job_id
+  await logAdminAccess(req, 'chat_read', job_id
     ? { type: 'job', id: job_id }
     : { type: 'booking', id: booking_id });
   const { rows } = await db.query(
@@ -410,7 +410,7 @@ router.get('/admin/kyc-documents', ...adminOnly, async (req, res) => {
   const { status = 'pending' } = req.query;
   // A válasz rövid életű ALÁÍRT linkeket ad a személyi igazolvány fotóihoz —
   // ez a legérzékenyebb hozzáférés a rendszerben, ezért naplózzuk.
-  logAdminAccess(req, 'kyc_documents_list');
+  await logAdminAccess(req, 'kyc_documents_list');
   const { rows } = await db.query(
     `SELECT k.*, u.full_name, u.email
        FROM kyc_documents k JOIN users u ON u.id = k.user_id

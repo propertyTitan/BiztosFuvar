@@ -38,10 +38,35 @@ async function collectUserFileKeys(userId) {
        UNION ALL
        SELECT avatar_url FROM users WHERE id = $1 AND avatar_url IS NOT NULL
        UNION ALL
-       SELECT url FROM photos WHERE uploader_id = $1 AND url IS NOT NULL`,
+       SELECT url FROM photos WHERE uploader_id = $1 AND url IS NOT NULL
+       UNION ALL
+       -- ⚠️ 2026-08-09 (adatáramlási + séma-audit): a MÁSIK FÉL által a user
+       -- fuvarjaira/foglalásaira feltöltött fotók. Az uploader_id-szűrés
+       -- ezeket kihagyta, a CASCADE viszont elviszi a DB-sorukat: a feladó
+       -- fiók-törlésekor a SZÁLLÍTÓ felvételi/kézbesítési fotói (a bennük lévő
+       -- GPS-koordinátával) örökre az R2-ben ragadtak.
+       SELECT p.url FROM photos p JOIN jobs j ON j.id = p.job_id
+        WHERE (j.shipper_id = $1 OR j.carrier_id = $1) AND p.url IS NOT NULL
+       UNION ALL
+       SELECT p.url FROM photos p JOIN route_bookings b ON b.id = p.booking_id
+        WHERE b.shipper_id = $1 AND p.url IS NOT NULL
+       UNION ALL
+       SELECT p.url FROM photos p
+         JOIN route_bookings b ON b.id = p.booking_id
+         JOIN carrier_routes r ON r.id = b.route_id
+        WHERE r.carrier_id = $1 AND p.url IS NOT NULL
+       UNION ALL
+       -- A vita csatolt bizonyítéka. A disputes.opened_by CASCADE elviszi a
+       -- sort, a napi purge pedig a disputes táblából olvasná a kulcsot —
+       -- tehát a fiók törlése után SOHA nem törlődött volna.
+       SELECT evidence_url FROM disputes
+        WHERE (opened_by = $1 OR against_user = $1) AND evidence_url IS NOT NULL`,
       [userId],
     );
-    return rows.map((r) => r.u).filter(Boolean);
+    // Egyedivé tesszük: a UNION ALL ágak átfedhetnek (a saját fuvarára maga
+    // feltöltött fotó az uploader- ÉS a felek-ágon is illeszkedik), és ilyenkor
+    // ugyanarra az objektumra kétszer indulna törlés.
+    return [...new Set(rows.map((r) => r.u).filter(Boolean))];
   } catch (err) {
     console.error('[user-files] kulcs-gyűjtés hiba:', err.message);
     return [];
@@ -91,17 +116,27 @@ async function purgeUserFiles(userId, opts = {}) {
  * @returns {Promise<string[]>}
  */
 async function collectEntityFileKeys(tipus, id) {
+  // A vita bizonyíték-fájlja is kaszkádol az entitással (disputes.job_id /
+  // booking_id ON DELETE CASCADE) — tehát ugyanígy össze kell szedni.
   const sql = {
-    job: 'SELECT url FROM photos WHERE job_id = $1 AND url IS NOT NULL',
-    booking: 'SELECT url FROM photos WHERE booking_id = $1 AND url IS NOT NULL',
+    job: `SELECT url FROM photos WHERE job_id = $1 AND url IS NOT NULL
+          UNION ALL
+          SELECT evidence_url FROM disputes WHERE job_id = $1 AND evidence_url IS NOT NULL`,
+    booking: `SELECT url FROM photos WHERE booking_id = $1 AND url IS NOT NULL
+              UNION ALL
+              SELECT evidence_url FROM disputes WHERE booking_id = $1 AND evidence_url IS NOT NULL`,
     route: `SELECT p.url FROM photos p
               JOIN route_bookings b ON b.id = p.booking_id
-             WHERE b.route_id = $1 AND p.url IS NOT NULL`,
+             WHERE b.route_id = $1 AND p.url IS NOT NULL
+            UNION ALL
+            SELECT d.evidence_url FROM disputes d
+              JOIN route_bookings b ON b.id = d.booking_id
+             WHERE b.route_id = $1 AND d.evidence_url IS NOT NULL`,
   }[tipus];
   if (!sql) return [];
   try {
     const { rows } = await db.query(sql, [id]);
-    return rows.map((r) => r.url).filter(Boolean);
+    return [...new Set(rows.map((r) => r.url).filter(Boolean))];
   } catch (err) {
     console.error('[entity-files] kulcs-gyűjtés hiba:', err.message);
     return [];

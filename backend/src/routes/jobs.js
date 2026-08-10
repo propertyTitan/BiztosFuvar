@@ -18,6 +18,7 @@ const { calculateConnectionFee } = require('../services/connectionFee');
 const { useVoucherIfAvailable } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { firstContactLeak } = require('../utils/contactGuard');
+const { telepulesSzint } = require('../utils/address');
 
 const router = express.Router();
 
@@ -107,11 +108,11 @@ function scrubJobForUser(job, user) {
  * konkrét lakcímek nem gyűjthetők ki belőle.
  */
 function kozelitoHely(job) {
-  const telepules = (cim) => {
-    if (!cim || typeof cim !== 'string') return cim;
-    // „Budapest, Váci út 1." → „Budapest"; „6800 Hódmezővásárhely, …" → „6800 Hódmezővásárhely"
-    return cim.split(',')[0].trim().slice(0, 60);
-  };
+  // ⚠️ A rövidítés TARTALOM-alapú, nem pozíció-alapú (utils/address.js).
+  // A korábbi `split(',')[0]` csak a magyar formátumon működött; a német/
+  // osztrák/román címeknél épp az utcát és a HÁZSZÁMOT tartotta meg, kiütve
+  // a mellette lévő ~1 km-es koordináta-kerekítést.
+  const telepules = telepulesSzint;
   const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 100) / 100);
   return {
     ...job,
