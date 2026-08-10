@@ -32,6 +32,7 @@ const db = require('../db');
 // megfigyelhető — a destrukturált binding mellett egyetlen teszt sem tudta
 // ellenőrizni, hogy a fájl tényleg elmegy a tárolóból.
 const storage = require('./storage');
+const { telepulesSzint } = require('../utils/address');
 
 const DEFAULT_RETENTION_DAYS = 30;
 const HOLD_RETENTION_YEARS = 5;
@@ -344,8 +345,6 @@ async function anonymizeOldJobs() {
               delivery_code   = NULL,
               sender_delivery_code = NULL,
               tracking_token  = NULL,
-              pickup_address  = split_part(pickup_address, ',', 1),
-              dropoff_address = split_part(dropoff_address, ',', 1),
               pickup_lat  = ROUND(pickup_lat::numeric, 2),
               pickup_lng  = ROUND(pickup_lng::numeric, 2),
               dropoff_lat = ROUND(dropoff_lat::numeric, 2),
@@ -386,8 +385,6 @@ async function anonymizeOldJobs() {
               recipient_email = NULL,
               delivery_code   = NULL,
               tracking_token  = NULL,
-              pickup_address  = split_part(pickup_address, ',', 1),
-              dropoff_address = split_part(dropoff_address, ',', 1),
               pickup_lat  = ROUND(pickup_lat::numeric, 2),
               pickup_lng  = ROUND(pickup_lng::numeric, 2),
               dropoff_lat = ROUND(dropoff_lat::numeric, 2),
@@ -438,6 +435,11 @@ async function anonymizeOldJobs() {
     if (db_count > 0) {
       console.log(`[retention] ${db_count} lezárt fuvar/foglalás személyes adata anonimizálva (>${JOB_PII_RETENTION_YEARS} év, zároltak: ${HOLD_RETENTION_YEARS} év)`);
     }
+    // A cím-rövidítés az anonimizálás RÉSZE — a hívónak egy lépés. (Külön is
+    // exportált, mert önjavítóan a korábban, hibás szabállyal anonimizált
+    // sorokat is rendbe teszi.)
+    await shortenAnonymizedAddresses();
+
     if ((bidMsgs || 0) + (questions || 0) > 0) {
       console.log(`[retention] ${bidMsgs || 0} ajánlat-üzenet és ${questions || 0} kérdés-válasz ürítve anonimizált fuvarokon`);
     }
@@ -445,6 +447,97 @@ async function anonymizeOldJobs() {
     console.error('[retention] fuvar-anonimizálás hiba:', err.message);
   }
   return db_count;
+}
+
+// Az ELHAGYOTT (soha le nem zárt) fuvar ennyi idő után lejár. A feladó
+// feladta, majd otthagyta: nincs ajánlat, nincs lemondás, nincs teljesítés.
+// Egy év bőven elég ahhoz, hogy egy valódi fuvar elkeljen.
+const ABANDONED_JOB_YEARS = 1;
+
+/**
+ * Elhagyott fuvarok lezárása.
+ *
+ * ⚠️ 2026-08-09 (két független lencse találata): az anonimizálás ÉS a
+ * fotó-purge is CSAK terminális státuszú (delivered/completed/cancelled)
+ * fuvarra futott. Egy `bidding`/`pending` állapotban otthagyott fuvarnak
+ * tehát SEMMILYEN életciklusa nem volt: örökre őrizte a pontos felvételi és
+ * lerakodási címet, a koordinátákat, a címzett nevét/telefonját/e-mailjét,
+ * az átvételi kódot, a követő-tokent és a hirdetési fotókat.
+ *
+ * Ráadásul a `bidding` NYITOTT státusz, tehát a kívülálló-scrub nem is
+ * kerekíti a címet: bármely bejelentkezett felhasználó évek múlva is látta
+ * volna a listán a pontos otthoni címet.
+ *
+ * A lezárás után a szokásos körök (anonimizálás 3 év, fotó 30 nap) már
+ * elérik — nem külön szabályt vezetünk be, hanem a meglévők hatálya alá
+ * hozzuk a beragadt sorokat.
+ *
+ * @returns {Promise<number>} a lezárt fuvarok száma
+ */
+async function expireAbandonedJobs() {
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE jobs
+          SET status = 'cancelled',
+              cancelled_at = NOW(),
+              cancel_reason = 'Automatikusan lezárva: a fuvar egy évig nem talált szállítót.',
+              updated_at = NOW()
+        WHERE status IN ('pending', 'bidding')
+          AND paid_at IS NULL
+          AND created_at < NOW() - ($1 || ' years')::interval`,
+      [ABANDONED_JOB_YEARS],
+    );
+    if (rowCount > 0) {
+      console.log(`[retention] ${rowCount} elhagyott fuvar lezárva (>${ABANDONED_JOB_YEARS} év, nem talált szállítót)`);
+    }
+    return rowCount || 0;
+  } catch (err) {
+    console.error('[retention] elhagyott-fuvar lezárás hiba:', err.message);
+    return 0;
+  }
+}
+
+/**
+ * Az anonimizált sorok címeinek településszintre rövidítése.
+ *
+ * ⚠️ 2026-08-09 (adatáramlási audit): ez korábban SQL-ben, `split_part(cim,
+ * ',', 1)`-gyel történt — ami CSAK a magyar címformátumon működik. A
+ * német/osztrák/román formátumban az utca áll elöl, tehát épp a pontos utca
+ * és HÁZSZÁM maradt meg (lásd utils/address.js). A logika ezért JS-be került,
+ * ahol tartalom alapján dönt.
+ *
+ * Külön körben fut, nem a nagy UPDATE-ben: így ÖNJAVÍTÓ — a korábban, a hibás
+ * szabállyal anonimizált sorokat is rendbe teszi.
+ *
+ * @returns {Promise<number>} a javított sorok száma
+ */
+async function shortenAnonymizedAddresses() {
+  let javitva = 0;
+  try {
+    for (const tabla of ['jobs', 'route_bookings']) {
+      const { rows } = await db.query(
+        `SELECT id, pickup_address, dropoff_address FROM ${tabla}
+          WHERE anonymized_at IS NOT NULL
+            AND (pickup_address IS NOT NULL OR dropoff_address IS NOT NULL)`,
+      );
+      for (const r of rows) {
+        const felvetel = telepulesSzint(r.pickup_address) ?? '';
+        const lerakas = telepulesSzint(r.dropoff_address) ?? '';
+        if (felvetel === r.pickup_address && lerakas === r.dropoff_address) continue;
+        await db.query(
+          `UPDATE ${tabla} SET pickup_address = $2, dropoff_address = $3 WHERE id = $1`,
+          [r.id, felvetel, lerakas],
+        );
+        javitva += 1;
+      }
+    }
+    if (javitva > 0) {
+      console.log(`[retention] ${javitva} anonimizált sor címe rövidítve településszintre`);
+    }
+  } catch (err) {
+    console.error('[retention] cím-rövidítés hiba:', err.message);
+  }
+  return javitva;
 }
 
 /**
@@ -651,6 +744,7 @@ async function runDailyRetention() {
   await purgeOldNotifications();
   await purgeOldAdminMessages();
   await purgeOldAdminAccessLog();
+  await expireAbandonedJobs();
   await anonymizeOldJobs();
   await anonymizeOldCarrierRoutes();
   await purgeOldDisputes();
@@ -663,6 +757,7 @@ module.exports = {
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
   purgeStaleLastKnownLocation, purgeOldNotifications,
   purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs,
+  shortenAnonymizedAddresses, expireAbandonedJobs, ABANDONED_JOB_YEARS,
   anonymizeOldCarrierRoutes, purgeOldDisputes, purgeOldInvoices,
   purgeEmergencyLocations, purgeOldDeletedAccounts, runDailyRetention,
   DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS, INVOICE_RETENTION_YEARS,
