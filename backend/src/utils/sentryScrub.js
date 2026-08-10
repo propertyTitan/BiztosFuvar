@@ -20,8 +20,17 @@ const REDACTED = '[SZURVE]';
 // egyszer használatos tokenje; a többi védekező jellegű (jövőbeli kulcsnevek).
 const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code'];
 
-// Útvonal-szegmensek, amelyek után titok áll (pl. /tracking/<token>).
-const SENSITIVE_PATH_RE = /(\/tracking\/)[^/?#]+/gi;
+// Útvonal-szegmensek, amelyek után titok vagy személyes adat áll.
+//   /tracking/<token>  — a publikus követő-link
+//   /vat/<adószám>     — a VIES adószám-ellenőrzés az ÚTVONALBA teszi a
+//                        számot (services/vat.js), nem query-paraméterbe
+const SENSITIVE_PATH_RE = /(\/tracking\/|\/vat\/)[^/?#]+/gi;
+
+// A breadcrumb-adatok azon kulcsai, amelyekben URL vagy query string állhat.
+// A `http.query` a Sentry Node SDK saját mezője: a kimenő fetch NYERS query
+// stringjét teszi bele (node-core/utils/outgoingFetchRequest.js) — ezt a
+// korábbi, mezőnév-felsoroláson alapuló szűrés nem érte el.
+const URL_LIKE_KEY_RE = /(^|\.)(url|to|from|query|fragment|href|link)$/i;
 
 /** Query string / teljes URL token-paramétereinek kitakarása. */
 function scrubUrlLike(value) {
@@ -34,6 +43,32 @@ function scrubUrlLike(value) {
       `$1$2=${REDACTED}`,
     );
   }
+  return out;
+}
+
+/**
+ * Breadcrumb-mező szűrése — SZIGORÚBB, mint a saját kérésünké.
+ *
+ * ⚠️ 2026-08-09 (adatáramlási audit): a korábbi szűrés paraméter-NEVEK
+ * listájára épült. Ez rossz minta egy biztonsági szűrőnél: pontosan azt nem
+ * fogja meg, amire nem gondoltunk. Élesben ez a SeeMe SMS-gateway hívásán
+ * bukott meg — az GET-es, tehát az ÉLES API-kulcs, a címzett telefonszáma és
+ * a teljes SMS-szöveg (benne a 6 jegyű átvételi kóddal és a szállító
+ * nevével/telefonjával) a query stringbe kerül, és az SMS-hiba riasztásával
+ * együtt kiment volna a Sentrybe.
+ *
+ * A kimenő hívásaink MINDEGYIKE titkot vagy személyes adatot visz a query
+ * stringben (SeeMe: kulcs+üzenet, Nominatim: a begépelt cím, VIES: adószám),
+ * a breadcrumb hibakeresési értéke pedig a „melyik szolgáltatót hívtuk"
+ * információ — ahhoz a query nem kell. Ezért itt a query stringet EGÉSZBEN
+ * eldobjuk, nem paraméterenként válogatunk.
+ */
+function scrubBreadcrumbValue(value) {
+  if (typeof value !== 'string' || !value) return value;
+  const out = value.replace(SENSITIVE_PATH_RE, `$1${REDACTED}`);
+  const q = out.indexOf('?');
+  if (q === 0) return REDACTED;          // önálló query string (http.query)
+  if (q > 0) return `${out.slice(0, q)}?${REDACTED}`; // teljes URL
   return out;
 }
 
@@ -60,13 +95,18 @@ function scrubSentryEvent(event) {
       // 4) Sütik külön mezőben is érkezhetnek
       delete req.cookies;
     }
-    // Breadcrumb-URL-ek (navigáció/fetch) is hordozhatnak tokent
+    // Breadcrumb-ok: a KIMENŐ hívások URL-jei és query stringjei.
+    // Nem mezőnevet sorolunk fel (azon buktunk el), hanem MINDEN URL-jellegű
+    // kulcsot végigveszünk — így az SDK bármelyik verziója által termelt
+    // mező (ma: url, http.query, http.fragment) automatikusan a szűrő alá esik.
     if (event && Array.isArray(event.breadcrumbs)) {
       for (const crumb of event.breadcrumbs) {
-        if (crumb && crumb.data) {
-          crumb.data.url = scrubUrlLike(crumb.data.url);
-          if (typeof crumb.data.to === 'string') crumb.data.to = scrubUrlLike(crumb.data.to);
-          if (typeof crumb.data.from === 'string') crumb.data.from = scrubUrlLike(crumb.data.from);
+        if (crumb && crumb.data && typeof crumb.data === 'object') {
+          for (const kulcs of Object.keys(crumb.data)) {
+            if (URL_LIKE_KEY_RE.test(kulcs) && typeof crumb.data[kulcs] === 'string') {
+              crumb.data[kulcs] = scrubBreadcrumbValue(crumb.data[kulcs]);
+            }
+          }
         }
       }
     }
@@ -76,4 +116,4 @@ function scrubSentryEvent(event) {
   }
 }
 
-module.exports = { scrubSentryEvent, scrubUrlLike, REDACTED };
+module.exports = { scrubSentryEvent, scrubUrlLike, scrubBreadcrumbValue, REDACTED };
