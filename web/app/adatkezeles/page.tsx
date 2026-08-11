@@ -42,11 +42,31 @@ export default function AdatkezelesPage() {
           <strong>Azonosító adatok:</strong> Név, e-mail, telefonszám.
         </li>
         <li>
+          <strong>Profil-adatok:</strong> Profilkép, bemutatkozó szöveg, valamint
+          Szállítóként a jármű típusa és <strong>rendszáma</strong>. Megőrzés: a fiókod
+          élettartamáig — a profilodon bármikor módosíthatod vagy törölheted őket.
+          (A rendszám a nyilvános profilodon NEM jelenik meg.)
+        </li>
+        <li>
+          <strong>Céges adatok:</strong> Céges fiók esetén cégnév, adószám,
+          cégjegyzékszám, uniós adószám, valamint a NAV-tól visszakapott
+          hivatalos cégnév (az „Ellenőrzött cég" jelvényhez). Megőrzés: a fiók
+          élettartamáig; a számlákra került adatokra a 8 éves számviteli
+          megőrzés vonatkozik (lásd lent).
+        </li>
+        <li>
           <strong>KYC adatok:</strong> Személyi igazolvány — a Szállítóként (fuvarozóként)
           tevékenykedő felhasználóknál kötelező, Feladónál kizárólag kockázat-alapú ellenőrzés
           esetén (pl. visszaélés gyanúja, vitarendezés) kerül bekérésre —, valamint céges fiók
           esetén adószám (Biztonság, jogi megfelelés). A KYC dokumentumok fotója nyers formában a
           hitelesítés ideje alatt kerül tárolásra.
+        </li>
+        <li>
+          <strong>A fuvarral kapcsolatos adatok:</strong> A felvétel és a lerakodás
+          címe és koordinátája, a csomag leírása, méretei és tömege, az általad
+          megadott <strong>deklarált érték</strong>, valamint — ha nem te veszed át —
+          a címzett neve, telefonszáma és e-mail-címe. Megőrzés: a fuvar lezárása
+          után 3 év, vitatott ügyletnél 5 év (lásd az 5. szakaszt).
         </li>
         <li>
           <strong>Tranzakciós adatok:</strong> Számlázási adatok, a fizetési szolgáltató tranzakció-azonosítója
@@ -289,6 +309,13 @@ export default function AdatkezelesPage() {
           titokkal képzett lenyomatot — visszaélés-vizsgálat és jogi igényérvényesítés
           céljából. Magát az e-mail-címet nem őrizzük meg. Öt év után ez a bejegyzés is
           automatikusan törlődik.
+          {' '}⚠️ <strong>Amit a fiók törlése NEM visz el:</strong> ha kapcsolatfelvételi
+          díjat fizettél, a róla kiállított <strong>számlán szereplő neved, címed és
+          adószámod a számviteli törvény (2000. évi C. tv. 169. §) szerint 8 évig
+          megmarad</strong> — ezt jogszabály írja elő, törlési kérésre sem szüntethető
+          meg. Ugyanígy megmarad a KYC-okmányod visszafejthetetlen lenyomata 5 évig
+          (hogy ugyanazzal az okmánnyal ne lehessen a korlátozásokat új fiókkal
+          megkerülni); magát az okmányfotót a döntés után 30 nappal töröljük.
         </li>
         <li>
           <strong>Útvonal-figyelők (szállítóknak):</strong> a mentett figyelőid — köztük a
