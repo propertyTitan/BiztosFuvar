@@ -28,10 +28,15 @@ const TYPE_TITLES: Record<string, string> = {
 const TYPE_DESCRIPTIONS: Record<string, string> = {
   identity:
     'A platform biztonsága érdekében szükségünk van a személyazonosító dokumentumod feltöltésére. Ez biztosítja, hogy minden felhasználó valós személy legyen.',
+  // ⚠️ 2026-08-11: a jogosítvány- és a cégkivonat-szöveg TÖRÖLVE. Egyiket sem
+  // kérjük (a jogosítvány 2026-07-07, a céges dokumentum 2026-07-05 óta nem
+  // követelmény), és a backend `validTypes` listája sem fogadja már el őket.
+  // Egy nem kért okmányt kérő felület a felhasználót fölösleges adatközlésre
+  // biztatja — ez adat-minimalizálási hiba, akkor is, ha a flow nem éri el.
   driver:
-    'Szállítóként szükséges a jogosítványod feltöltése. Ez a felhasználók biztonságát szolgálja és igazolja, hogy érvényes jogosítvánnyal rendelkezel.',
+    'Szállítóként a személyi igazolványod elegendő — jogosítvány nem szükséges. Ez biztosítja, hogy minden szállító valós személy legyen.',
   company:
-    'Céges fiók használatához szükséges a cég igazoló dokumentumainak feltöltése (pl. cégkivonat, adóbejelentés). Ez biztosítja a céges tranzakciók hitelességét.',
+    'Céges fióknál az adószámot a NAV nyilvántartásából ellenőrizzük — dokumentumot nem kell feltöltened.',
 };
 
 export default function KycModal() {

@@ -202,6 +202,22 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
   try {
     await client.query('BEGIN');
     await kycHistory.jeloldToroltFioknak(client, targetId, 'admin');
+    // ⚠️ AUDIT-NYOM AZ ADMIN-TÖRLÉSRŐL IS (2026-08-11). Az önkéntes törlés
+    // beírja a HMAC-elt e-mail-lenyomatot, az admin-törlés eddig nem — vagyis
+    // a kitiltás-megkerülés elleni nyom pont a KITILTOTT felhasználóra nem
+    // keletkezett, ami a fontosabb eset. A 30. cikk nyilvántartás 10. pontja
+    // ezt a célt nevezi meg.
+    const { rows: torlendo } = await client.query('SELECT email FROM users WHERE id = $1', [targetId]);
+    await client.query(
+      `INSERT INTO deleted_accounts (original_user_id, email_hash, reason, hash_algo)
+       VALUES ($1, $2, $3, 'hmac-sha256')`,
+      [
+        targetId,
+        require('crypto').createHmac('sha256', process.env.JWT_SECRET || 'dev-secret')
+          .update(torlendo[0]?.email || '').digest('hex'),
+        'Adminisztrátori törlés',
+      ],
+    );
     del = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [targetId]);
     await client.query('COMMIT');
   } catch (err) {

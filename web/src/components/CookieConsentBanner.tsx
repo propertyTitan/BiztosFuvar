@@ -50,25 +50,20 @@ export default function CookieConsentBanner() {
         }}
       >
         <div style={{ flex: '1 1 360px', fontSize: 14, lineHeight: 1.5 }}>
-          🍪 A GoFuvar a működéshez szükséges sütiket használ (bejelentkezés,
-          szolgáltatás-elérés). Az „Elfogadom" gombbal hozzájárulsz a használatukhoz.
+          {/* ⚠️ 2026-08-11: a szöveg korábban HOZZÁJÁRULÁST kért — miközben a
+              tájékoztató kimondja, hogy a működéshez szükséges sütikhez nem
+              kérünk külön hozzájárulást, és a két gomb hatása azonos is volt.
+              Egy látszat-választás rosszabb, mint a nyílt tájékoztatás. */}
+          🍪 A GoFuvar <strong>kizárólag a működéshez szükséges</strong> sütiket és
+          böngészői tárolókat használ (bejelentkezés, nézet- és téma-választás).
+          Marketing- vagy analitikai sütit nem helyezünk el, és nem követünk
+          harmadik feleken keresztül — ezekhez nem is kérünk hozzájárulást.
           Részletek az{' '}
           <Link href="/adatkezeles" style={{ color: 'var(--primary-text)' }}>
             Adatkezelési tájékoztatóban
           </Link>.
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => decide('decline')}
-            style={{
-              padding: '10px 16px', background: 'transparent',
-              border: '1px solid var(--border)', color: 'var(--text)',
-              borderRadius: 8, fontWeight: 600, cursor: 'pointer', fontSize: 13,
-            }}
-          >
-            Csak a szükségest
-          </button>
           <button
             type="button"
             onClick={() => decide('accept')}
@@ -78,7 +73,7 @@ export default function CookieConsentBanner() {
               fontWeight: 700, cursor: 'pointer', fontSize: 13,
             }}
           >
-            Elfogadom
+            Rendben, értem
           </button>
         </div>
       </div>

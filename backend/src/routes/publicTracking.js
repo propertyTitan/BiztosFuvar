@@ -90,7 +90,11 @@ router.get('/tracking/:token', async (req, res) => {
   // megkapta a linket — rossz számra ment SMS, továbbküldött levél,
   // böngésző-előzmény, Referer —, az ÉVEKIG lekérdezhette a címeket és a
   // neveket. A követés célja a kézbesítés; utána a link nem szolgál semmit.
-  const lezart = ['delivered', 'completed', 'cancelled'].includes(job.status);
+  // ⚠️ A 'rejected' a FOGLALÁSI ág terminális státusza (a fuvarnak nincs
+  // ilyen). Nélküle egy elutasított foglalás követő-linkje nem a 14 napos
+  // lejárat alá esett, hanem az anonimizálásig (3 év) élt — és díj-kapu
+  // nélkül adta a kézbesítési címet, a címzett nevét és a szállító nevét.
+  const lezart = ['delivered', 'completed', 'cancelled', 'rejected'].includes(job.status);
   const lezarasIdeje = job.delivered_at || job.cancelled_at || job.updated_at || job.created_at;
   if (lezart && lezarasIdeje
       && Date.now() - new Date(lezarasIdeje).getTime() > TRACKING_GRACE_DAYS * 86400000) {

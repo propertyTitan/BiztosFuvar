@@ -37,7 +37,8 @@ csak kockázati alapon kérhető.
 
 ### 2.2 Adatfolyam (lépésről lépésre)
 
-1. A felhasználó a profilján feltölti a személyi igazolvány két oldalának
+1. A felhasználó a profilján feltölti a személyi igazolvány EGY fényképét
+   (a rendszer egyetlen fájlt fogad; az adatlap-oldal elegendő) — a
    fényképét (HTTPS; a fájl tartalmi/magic-byte ellenőrzésen esik át —
    csak valódi képformátum fogadott).
 2. A kép **privát object storage-ba** kerül (Cloudflare R2, dedikált
@@ -73,7 +74,7 @@ csak kockázati alapon kérhető.
 
 - **Érintettek**: szállítói tevékenységre jelentkező felhasználók
   (18+ természetes személyek); kockázati alapon egyes feladók.
-- **Adatok**: az okmány két oldalán látható adatok (név, születési hely
+- **Adatok**: az okmány fényképén látható adatok (név, születési hely
   és idő, okmányszám, arckép, aláírás, érvényesség). **Lakcímkártya
   kizárt** (személyi azonosítót a platform semmilyen formában nem kezel).
 - **Nem különleges adat**: biometrikus sablon-képzés, arc-egyeztetés
