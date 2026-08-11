@@ -10,7 +10,7 @@ const express = require('express');
 // A levelek HTML-törzsébe kerülő, FELHASZNÁLÓ által megadott értékek
 // escape-elése (név, cím, fuvarcím). Enélkül egy szállító a saját nevébe
 // tett linkkel GoFuvar-arculatú levelet küldethetne a másik félnek.
-const { escapeHtml: esc, wrapHtml } = require('../services/email');
+const { escapeHtml: esc, wrapHtml, cimzettiTajekoztatoBlokk } = require('../services/email');
 const crypto = require('crypto');
 const multer = require('multer');
 const db = require('../db');
@@ -348,7 +348,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
                 <p>Szia${info.recipient_name ? ` ${esc(info.recipient_name)}` : ''}!</p>
                 <p>A(z) <strong>"${esc(info.title)}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
                 <p>Köszönjük, hogy a GoFuvart használtátok!</p>
-              ` }),
+              ${cimzettiTajekoztatoBlokk()}` }),
             }).catch((e) => console.warn('[email] recipient delivered hiba:', e.message));
           });
         }
@@ -616,7 +616,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
               <p>Szia${booking.recipient_name ? ` ${esc(booking.recipient_name)}` : ''}!</p>
               <p>A(z) <strong>"${esc(booking.route_title) || 'foglalt fuvar'}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
               <p>Köszönjük, hogy a GoFuvart használtátok!</p>
-            ` }),
+            ${cimzettiTajekoztatoBlokk()}` }),
           }).catch((e) => console.warn('[email] booking recipient delivered hiba:', e.message));
         }
         if (shipper.email) {

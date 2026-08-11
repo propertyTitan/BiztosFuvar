@@ -23,6 +23,17 @@ if (process.env.SENTRY_DSN) {
     dsn: process.env.SENTRY_DSN,
     environment: process.env.NODE_ENV || 'development',
     tracesSampleRate: 0.1,
+    // ⚠️ A CONSOLE-BREADCRUMBÖK KIKAPCSOLVA (2026-08-11, adatáramlási audit).
+    // A `consoleIntegration` ALAPBÓL be van kapcsolva, és MINDEN `console.*`
+    // hívásból breadcrumbot csinál: a `message` a formázott szöveg, a
+    // `data.arguments` pedig a NYERS argumentumok. Így egy `console.error(
+    // '[error]', err)` kiviszi a Postgres `detail` mezőjét is:
+    //     Key (email)=(kovacs.janos@gmail.com) already exists.
+    // A szűrőnk mostantól alak-függetlenül takarja az e-mailt és a
+    // telefonszámot — de a legbiztosabb, ha ez a felület be sem nyílik: a
+    // szerver-logot úgyis látjuk a Railway-en, a breadcrumb hibakeresési
+    // többlete csekély, a kockázata nem az.
+    integrations: (alap) => alap.filter((i) => i.name !== 'Console'),
     beforeSend: scrubSentryEvent,
     beforeSendSpan: scrubSentrySpan,
     beforeSendTransaction: scrubSentryTransaction,

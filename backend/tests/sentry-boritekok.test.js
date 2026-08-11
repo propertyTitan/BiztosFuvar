@@ -123,6 +123,43 @@ describe('Őr: a titok SEHOL nem marad az eseményben', () => {
     };
   }
 
+  // ⚠️ NEM CSAK URL-ALAKÚ TITOK (2026-08-11). Az előző változat mind a hat
+  // plantje URL-alakú volt (`https://…?token=`), ezért azt mérte, hogy „egy
+  // URL-alakú titok mindenhonnan eltűnik" — nem azt, hogy „PII eltűnik".
+  // A vakfolt így már nem egy HELY volt, hanem egy ALAK: pont az, amit a
+  // console-breadcrumbök és a hibaüzenetek használnak (nyers e-mail,
+  // telefonszám, koordináta). Ez a teszt ezért NYERS PII-t is elültet.
+  it('a NYERS PII (nem URL-alakú) sem marad benne sehol', () => {
+    const esemeny = {
+      // Postgres-hiba üzenete — a leggyakoribb valós eset
+      breadcrumbs: [{
+        category: 'console',
+        message: 'Key (email)=(kovacs.janos@gmail.com) already exists.',
+        data: { arguments: ['hívtam a +36 30 123 4567 számot'] },
+      }],
+      exception: { values: [{ value: 'duplicate key: kovacs.janos@gmail.com' }] },
+      extra: { megjegyzes: 'a címzett: 06 30 123 4567' },
+      request: { url: 'https://api.gofuvar.hu/calculator/estimate?pickup_lat=47.497912&pickup_lng=19.040235' },
+    };
+
+    const szoveg = JSON.stringify(scrubSentryEvent(esemeny));
+
+    expect(szoveg.includes('kovacs.janos'), 'e-mail-cím maradt az eseményben').toBe(false);
+    expect(szoveg.includes('36 30 123 4567'), 'telefonszám maradt az eseményben').toBe(false);
+    expect(szoveg.includes('06 30 123 4567'), 'telefonszám maradt az `extra`-ban').toBe(false);
+    expect(szoveg.includes('47.497912'), 'PONTOS koordináta maradt a kérés-URL-ben').toBe(false);
+  });
+
+  it('a hibakereséshez szükséges rész a PII-szűrés után is megmarad', () => {
+    const e = scrubSentryEvent({
+      request: { url: 'https://api.gofuvar.hu/jobs?status=bidding' },
+      exception: { values: [{ value: 'connection timeout after 5000ms' }] },
+    });
+    const szoveg = JSON.stringify(e);
+    expect(szoveg, 'a hasznos query-paraméter eltűnt').toContain('status=bidding');
+    expect(szoveg, 'a hibaüzenet ártalmatlan része eltűnt').toContain('connection timeout');
+  });
+
   it('a titok egyetlen helyen sem marad benne (contexts.trace.data-ban sem)', () => {
     const eredmeny = scrubSentryTransaction(valodiTranzakcio());
     const szoveg = JSON.stringify(eredmeny);

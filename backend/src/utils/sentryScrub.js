@@ -18,7 +18,14 @@ const REDACTED = '[SZURVE]';
 
 // Query-paraméterek, amelyek titkot hordozhatnak. A `token` a verify/reset
 // egyszer használatos tokenje; a többi védekező jellegű (jövőbeli kulcsnevek).
-const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code', 'sig', 'exp'];
+// ⚠️ A koordináták és a kereső-kifejezés is ide tartozik: a
+// `/calculator/estimate?pickup_lat=…&pickup_lng=…` a feladó PONTOS
+// fel-/lerakodási helyét viszi — még a fuvar létrejötte ELŐTT, űrlapkitöltés
+// közben. Az `/admin/users?search=…` pedig épp az az érték, amit az
+// admin-naplóból SZÁNDÉKOSAN kihagyunk („a napló nem lehet a PII második
+// példánya") — az egyenértékű úton mégis kiment volna.
+const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code', 'sig', 'exp',
+  'search', 'q', 'lat', 'lng', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng', 'email', 'phone'];
 
 // Útvonal-szegmensek, amelyek után titok vagy személyes adat áll.
 //   /tracking/<token>  — a publikus követő-link
@@ -47,6 +54,25 @@ function urlSzeruErtek(value) {
   return value.includes('://')          // teljes URL
     || /^[?&]/.test(value)              // önálló query string
     || /[?&][\w.%+-]+=/.test(value);   // URL query résszel
+}
+
+// ⚠️ NEM CSAK URL-ALAKÚ ADAT SZIVÁROG (2026-08-11, adatáramlási audit).
+// A mélybejárás a „HOL keressem" hibamódot megszüntette, de a hely-allowlistet
+// ALAK-allowlistre cserélte: csak URL-jellegű stringet írt át. A console-
+// breadcrumbök, a kivétel-üzenetek és az `extra` viszont NYERS szöveget
+// visznek — pl. a Postgres `detail` mezője:
+//     Key (email)=(kovacs.janos@gmail.com) already exists.
+// Ezért a szűrés mostantól ALAK-FÜGGETLEN: minden stringből kitakarja az
+// e-mail-címet és a telefonszám-alakot, bárhol is áll.
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+// Telefonszám: vezető '+' VAGY elválasztók — így egy sima hosszú szám
+// (időbélyeg, azonosító) nem esik áldozatul.
+const TELEFON_RE = /(?:\+\d[\d\s\-/().]{7,18}\d|\b06[\s\-/]?\d{1,2}[\s\-/]?\d{3}[\s\-/]?\d{3,4}\b)/g;
+
+/** E-mail és telefonszám kitakarása TETSZŐLEGES szövegből. */
+function piiSzures(ertek) {
+  if (typeof ertek !== 'string' || !ertek) return ertek;
+  return ertek.replace(EMAIL_RE, REDACTED).replace(TELEFON_RE, REDACTED);
 }
 
 /** Query string / teljes URL token-paramétereinek kitakarása. */
@@ -111,9 +137,8 @@ function melyszures(csomopont, kihagy = new Set(), melyseg = 0, latott = new Wea
     if (melyseg === 0 && kihagy.has(kulcs)) continue;
     const ertek = csomopont[kulcs];
     if (typeof ertek === 'string') {
-      if (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek)) {
-        csomopont[kulcs] = scrubBreadcrumbValue(ertek);
-      }
+      const urlSzeru = URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek);
+      csomopont[kulcs] = piiSzures(urlSzeru ? scrubBreadcrumbValue(ertek) : ertek);
     } else if (ertek && typeof ertek === 'object') {
       melyszures(ertek, kihagy, melyseg + 1, latott);
     }
@@ -158,7 +183,18 @@ function scrubSentryEvent(event) {
     // Ezért a szűrés mostantól NEM tudja, hol keressen: rekurzívan végigmegy
     // az esemény MINDEN string-értékén, és a tartalom alapján dönt. Egy
     // jövőbeli SDK-verzió új helye így automatikusan a hatálya alá kerül.
+    // A `request` a PARAMÉTER-szintű szűrést kapta fent (hogy a hibakereséshez
+    // hasznos `?status=bidding` megmaradjon) — ezért a mélybejárás URL-ágából
+    // kimarad. A PII-ALAKOKAT viszont ott is ki kell takarni, ezért kap egy
+    // saját, csak-PII menetet.
     melyszures(event, new Set(['request']));
+    if (event && event.request && typeof event.request === 'object') {
+      for (const kulcs of Object.keys(event.request)) {
+        if (typeof event.request[kulcs] === 'string') {
+          event.request[kulcs] = piiSzures(event.request[kulcs]);
+        }
+      }
+    }
     return event;
   } catch {
     return event;
@@ -222,5 +258,5 @@ function scrubSentryTransaction(event) {
 
 module.exports = {
   scrubSentryEvent, scrubSentrySpan, scrubSentryTransaction,
-  scrubUrlLike, scrubBreadcrumbValue, urlSzeruErtek, melyszures, URL_LIKE_KEY_RE, REDACTED,
+  scrubUrlLike, scrubBreadcrumbValue, urlSzeruErtek, piiSzures, melyszures, URL_LIKE_KEY_RE, REDACTED,
 };

@@ -248,9 +248,10 @@ export default function AdatkezelesPage() {
         </li>
         <li>
           <strong>Járatok (meghirdetett útvonalak):</strong> az indulást követő{' '}
-          <strong>3 évig</strong>, utána a járat és a jármű szabad szöveges leírása
-          automatikusan törlődik. A járat ténye és útvonala statisztikai célból
-          megmarad. A mentett sablonjaidat ez nem érinti — azok a fiókod
+          <strong>3 évig</strong>, utána a járat megnevezése, a jármű szabad szöveges
+          leírása <strong>és az útvonal-pontjai</strong> automatikusan törlődnek.
+          A járat <strong>ténye</strong> (időpont, teljesítés) statisztikai és
+          elszámolási célból megmarad. A mentett sablonjaidat ez nem érinti — azok a fiókod
           élettartamáig megmaradnak, és bármikor törölheted őket.
         </li>
         <li>
@@ -392,6 +393,8 @@ export default function AdatkezelesPage() {
           <tr><td style={{ padding: 8 }}>gofuvar_fee_info_dismissed</td><td style={{ padding: 8 }}>Elrejtett tájékoztató sáv</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_kyc_welcome_&lt;azonosító&gt;</td><td style={{ padding: 8 }}>Egyszer megjelenő üdvözlő ablak</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_prefill (munkamenet)</td><td style={{ padding: 8 }}>„Hozasd el" űrlap-előtöltés</td><td style={{ padding: 8 }}>a lap bezárásáig</td></tr>
+          <tr><td style={{ padding: 8 }}>gofuvar_ai_history</td><td style={{ padding: 8 }}>Az AI-asszisztenssel folytatott beszélgetés előzménye — <strong>kizárólag a te böngésződben</strong> tárolva</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
+          <tr><td style={{ padding: 8 }}>gofuvar_install_dismissed_at</td><td style={{ padding: 8 }}>A telepítési ajánlat elrejtése</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_cookie_consent</td><td style={{ padding: 8 }}>A süti-bannerre adott válasz rögzítése</td><td style={{ padding: 8 }}>1 év</td></tr>
         </tbody>
       </table>

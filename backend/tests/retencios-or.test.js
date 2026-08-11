@@ -126,6 +126,60 @@ describe('Retenciós őr: minden táblának ismernie kell az életciklusát', ()
     ).toEqual([]);
   });
 
+  it('a NAPI KÖR maga ütemezve van', () => {
+    // ⚠️ ELLENPÉLDÁVAL IGAZOLT VAKFOLT (2026-08-11, 7. mérés): az őr külön
+    // tesztet szentelt annak, hogy a purgeOldKycFiles ütemezve van — a FŐ
+    // körre viszont nem volt ilyen. Lefuttatva: az index.js ütemező sorainak
+    // törlésével MIND A 19 retenciós kör némán megszűnt, és a TELJES suite
+    // (755 teszt) ZÖLD MARADT. A retenciós szabályok papíron megvoltak, a
+    // gépben senki nem hívta volna őket.
+    const index = require('fs').readFileSync(`${__dirname}/../src/index.js`, 'utf8');
+    expect(
+      /setInterval\([\s\S]{0,80}runDailyRetention/.test(index),
+      'A napi retenciós kör NINCS ütemezve az index.js-ben. Enélkül MINDEN '
+      + 'megőrzési szabály papír-ígéret: a tájékoztatóban ott a határidő, a '
+      + 'gépben nincs, aki végrehajtsa.',
+    ).toBe(true);
+  });
+
+  it('MINDEN retenciós függvény szerepel a napi körben', async () => {
+    // ⚠️ MÁSODIK ELLENPÉLDA: az őr csak a manifestben NEVESÍTETT függvényeket
+    // követelte meg. A `purgeStaleLastKnownLocation`-t egyik manifest-bejegyzés
+    // sem nevezi meg — lefuttatva: a KOR_NEVEK-ből kivéve a suite ZÖLD MARADT,
+    // miközben a szállító utolsó ismert GPS-pozíciója (tipikusan a lakhelye
+    // környéke) a 7 nap helyett a fiók élettartamáig megmaradt volna.
+    // Ezért mostantól nem a manifest felől nézünk, hanem a KÓD felől: minden
+    // exportált retenciós függvényt meg kell hívnia a napi körnek.
+    const hivott = new Set();
+    const eredetiek = {};
+    const nevek = Object.keys(retention).filter(
+      (k) => typeof retention[k] === 'function' && /^(purge|anonymize|expire|shorten)/.test(k),
+    );
+    for (const nev of nevek) {
+      eredetiek[nev] = retention[nev];
+      retention[nev] = async () => { hivott.add(nev); return 0; };
+    }
+    try {
+      await retention.runDailyRetention();
+    } finally {
+      for (const [nev, fn] of Object.entries(eredetiek)) retention[nev] = fn;
+    }
+
+    // Amit SZÁNDÉKOSAN nem a napi kör hív — indoklással.
+    const KIVETELEK = {
+      purgeOldKycFiles: 'külön ütemezve az index.js-ben (lásd a fenti tesztet)',
+      shortenAnonymizedAddresses: 'az anonymizeOldJobs hívja a saját törzsében (önjavító alág)',
+    };
+
+    const nemHivott = nevek.filter((n) => !hivott.has(n) && !KIVETELEK[n]);
+    expect(
+      nemHivott,
+      `Ezek a retenciós függvények LÉTEZNEK, de a napi kör nem hívja meg őket: `
+      + `${nemHivott.join(', ')}.\n\nVagy vedd fel a KOR_NEVEK tömbbe, vagy — ha `
+      + 'máshol fut — írd meg ITT, a KIVETELEK listában, hol és miért.',
+    ).toEqual([]);
+  });
+
   it('a MÁSHOL ütemezett kivétel tényleg ütemezve van', () => {
     // ⚠️ A `purgeOldKycFiles` az egyetlen kivétel a fenti tesztben — és eddig
     // ELLENŐRIZETLENÜL. Ha valaki kiveszi az index.js-ből, az őr zöld marad,

@@ -39,18 +39,32 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   //
   // A `private:` prefix a KYC privát bucketre mutat — kliensről SOHA nem
   // fogadható el. A publikus URL-t is csak a SAJÁT tárolónkra engedjük.
+  // ⚠️ A PREFIX-ELLENŐRZÉS NEM VOLT ELÉG (2026-08-11, 7. mérés). Az első
+  // javítás azt követelte, hogy az URL a SAJÁT bucketünkkel kezdődjön —
+  // csakhogy az avatar, a hirdetés-fotó és a fuvar-fotó MIND ugyanazt a
+  // prefixet kapja (storage.js), és a `deleteFile` bármit töröl, ami így
+  // kezdődik. Vagyis a támadó a saját fuvarjára nyitott vitába beírhatta egy
+  // MÁSIK ember avatar-URL-jét (a publikus profilról bárki megkapja) vagy egy
+  // vitás fuvar felvételi fotóját, és a fiók-törlés / admin-törlés / 5 éves
+  // vita-purge elvitte az áldozat fájlját. Épp a bizonyíték-rétegen.
+  //
+  // A helyes ellenőrzés nem az URL ALAKJA, hanem a TULAJDONJOG: a hivatkozott
+  // fotónak ahhoz a fuvarhoz/foglaláshoz kell tartoznia, amire a vita szól.
   let tisztaEvidence = null;
   if (evidence_url != null && evidence_url !== '') {
     const ertek = String(evidence_url);
-    const sajatPrefix = process.env.R2_PUBLIC_URL || '';
-    const rendben = ertek.length <= 500
-      && !ertek.startsWith('private:')
-      && sajatPrefix
-      && ertek.startsWith(`${sajatPrefix}/`);
-    if (!rendben) {
+    const { rows: sajatFoto } = await db.query(
+      `SELECT 1 FROM photos
+        WHERE url = $1
+          AND ($2::uuid IS NULL OR job_id = $2)
+          AND ($3::uuid IS NULL OR booking_id = $3)
+        LIMIT 1`,
+      [ertek, job_id || null, booking_id || null],
+    );
+    if (ertek.length > 500 || sajatFoto.length === 0) {
       return res.status(400).json({
-        error: 'Érvénytelen bizonyíték-hivatkozás. Tölts fel fotót a fuvar oldalán, '
-          + 'és azt csatold.',
+        error: 'A csatolt bizonyítéknak ehhez a fuvarhoz feltöltött fotónak kell lennie. '
+          + 'Tölts fel fotót a fuvar oldalán, és azt csatold.',
         code: 'INVALID_EVIDENCE_URL',
       });
     }
