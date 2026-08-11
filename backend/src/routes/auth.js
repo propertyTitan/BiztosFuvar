@@ -1072,7 +1072,12 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     docStatus = 'pending';
     kycStatus = 'pending';
     rejectionReason = aiResult.reason;
-    console.log(`[kyc] AI-kifogás → KÉZI ELLENŐRZÉS: user=${req.user.sub} doc=${doc_type} reason="${aiResult.reason}"`);
+    // ⚠️ AZ AI SZABAD SZÖVEGE NEM MEGY A LOGBA (2026-08-11, 9. mérés B2).
+      // Az aiResult.reason a modell szabad szövege egy SZEMÉLYI IGAZOLVÁNYRÓL —
+      // tartalmazhat nevet, okmányszámot, bármit. A szomszédos ágak szándékosan
+      // csak kódot naplóznak ("PII nélkül naplózunk"); ez az egy sor kilógott.
+      // A döntéshez elég a kifogás TÉNYE; a részletet az admin a KYC-panelen látja.
+      console.log(`[kyc] AI-kifogás → KÉZI ELLENŐRZÉS: user=${req.user.sub} doc=${doc_type}`);
     try {
       const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
       for (const admin of admins) {

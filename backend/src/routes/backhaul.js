@@ -13,7 +13,7 @@
 
 const express = require('express');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const { suggestionsForCarrier, findBackhaulCandidates } = require('../services/backhaul');
 const { scrubJobForUser } = require('./jobs');
 
@@ -22,7 +22,7 @@ const router = express.Router();
 // GET /backhaul/suggestions
 // A bejelentkezett szállító összes aktív A→B fuvarára kiad egy ajánlás-listát.
 // Üres tömb: nincs aktív fuvar, VAGY nincs passzoló jelölt egyikre sem.
-router.get('/backhaul/suggestions', authRequired, async (req, res) => {
+router.get('/backhaul/suggestions', authRequired, requireVerifiedEmail, async (req, res) => {
   try {
     const groups = await suggestionsForCarrier(req.user.sub);
     // ⚠️ SCRUB kötelező (2026-08-09, biztonsági audit): a jelöltek nyers
@@ -43,7 +43,7 @@ router.get('/backhaul/suggestions', authRequired, async (req, res) => {
 // Egy konkrét, a szállító által birtokolt fuvarhoz (carrier_id = me) adja
 // vissza a visszafuvar jelölteket. Jogosultság: csak a szállító látja, aki
 // az adott A→B fuvart már elvállalta.
-router.get('/backhaul/for-trip/:jobId', authRequired, async (req, res) => {
+router.get('/backhaul/for-trip/:jobId', authRequired, requireVerifiedEmail, async (req, res) => {
   const { rows } = await db.query(
     `SELECT id, carrier_id,
             pickup_lat,  pickup_lng,  pickup_address,

@@ -127,7 +127,15 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   // Kapcsolat-szivárgás védelem: a járat neve/leírása/jármű-leírása minden
   // feladóhoz eljut a díjfizetés ELŐTT (járat-böngésző) — a díj megkerülése
   // lenne itt telefonszámot/emailt megadni.
-  const routeLeak = firstContactLeak([titleClean, description, vehicle_description]);
+  // ⚠️ A WAYPOINTS IS (2026-08-11, 9. mérés A2). Kliens-oldali szabad JSON,
+  // amit a felület RENDEREL (járat-böngésző térkép, járataim, fuvarjaim), és a
+  // `routes:new` feed-broadcast minden feladóhoz elvisz — fizetés előtt.
+  // Egy „Szeged (hívj 06 30 123 4567)" nevű megálló tartós hirdetőfelület
+  // lenne, pontosan úgy, ahogy az értékelés-komment volt.
+  const routeLeak = firstContactLeak([
+    titleClean, description, vehicle_description,
+    ...(Array.isArray(waypoints) ? waypoints.map((w) => (w && typeof w === 'object' ? w.name : w)) : []),
+  ]);
   if (routeLeak) return res.status(400).json({ error: routeLeak, code: 'CONTACT_LEAK' });
   // Indulás időpontja: érvényes dátum, és NEM a múltban (tesztelői észrevétel,
   // 2026-08-04). Múltbeli járatra foglalni sem lehetne, a listázás is kiszűrné
@@ -262,7 +270,7 @@ router.get('/carrier-routes/:id', authRequired, async (req, res) => {
 // GET /carrier-routes/:id/along-jobs — "Útba eső fuvarok"
 // Az útvonal waypoint-jai mentén keresünk nyitott (bidding) fuvarokat,
 // amelyeket a szállító felvehetne kitérő nélkül (vagy minimális kitérővel).
-router.get('/carrier-routes/:id/along-jobs', authRequired, async (req, res) => {
+router.get('/carrier-routes/:id/along-jobs', authRequired, requireVerifiedEmail, async (req, res) => {
   const { rows } = await db.query(
     'SELECT carrier_id, waypoints, status FROM carrier_routes WHERE id = $1',
     [req.params.id],
@@ -336,7 +344,12 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
 
   // Kapcsolat-szivárgás védelem a szerkesztett szövegmezőkön (ugyanaz, mint a
   // létrehozáskor — a járat a feladókhoz jut a díjfizetés előtt).
-  const routeEditLeak = firstContactLeak([title, description, vehicle_description]);
+  // A PATCH-en is: a kapu nem kerülhető meg szerkesztéssel (a waypoints itt is
+  // szabadon átírható lenne).
+  const routeEditLeak = firstContactLeak([
+    title, description, vehicle_description,
+    ...(Array.isArray(waypoints) ? waypoints.map((w) => (w && typeof w === 'object' ? w.name : w)) : []),
+  ]);
   if (routeEditLeak) return res.status(400).json({ error: routeEditLeak, code: 'CONTACT_LEAK' });
 
   const client = await db.pool.connect();
@@ -446,7 +459,12 @@ router.post(
     // Kapcsolat-szivárgás védelem: a foglalás jegyzete a szállítóhoz jut a
     // megerősítéskor, a feladó díjfizetése ELŐTT (scrubBookingForUser) — a
     // díj megkerülése lenne itt telefonszámot/emailt megadni.
-    const bookingLeak = detectContactLeak(notes);
+    // ⚠️ A CÍMEK IS (2026-08-11, 9. mérés A1). Eddig CSAK a `notes` ment át a
+    // szűrőn — a `pickup_address`/`dropoff_address` szabad szöveg, és a
+    // szállító a foglalás megerősítésekor, a díjfizetés ELŐTT látja
+    // (route-bookings:new socket + a foglalás-lista). A fuvar-ágon ez a pontos
+    // lyuk 2026-08-09-én bezárult, a foglalási ágon nyitva maradt.
+    const bookingLeak = firstContactLeak([notes, pickup_address, dropoff_address]);
     if (bookingLeak) return res.status(400).json({ error: bookingLeak, code: 'CONTACT_LEAK' });
 
     // Csomag kategória besorolása

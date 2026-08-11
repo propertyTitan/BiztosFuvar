@@ -226,7 +226,15 @@ function getPresence() {
     total += 1;
     const u = socket.data.user;
     if (!u || !u.sub) { anonymous += 1; continue; }
-    const cur = byUser.get(u.sub) || { id: u.sub, role: u.role || 'ismeretlen', email: u.email || null, connections: 0 };
+    // ⚠️ E-MAIL NÉLKÜL (2026-08-11, 9. mérés A3). A jelenlét-nézet korábban
+    // e-mail-címet is adott, ráadásul a JWT payloadjából (tehát elavultat is).
+    // Ezzel másodpercenként lekérdezhető volt, KI van éppen online, név
+    // szerint — és ez SEMMILYEN nyomot nem hagyott, miközben a
+    // `GET /admin/users` (ugyanaz az adat) naplózott. A nagyobb frissességű
+    // hozzáférés hagyta a kevesebb nyomot. A jelenlét-nézet célja a
+    // DARABSZÁM; az azonosító megmarad, hogy az admin átkattinthasson a
+    // (naplózott) részletnézetre.
+    const cur = byUser.get(u.sub) || { id: u.sub, role: u.role || 'ismeretlen', connections: 0 };
     cur.connections += 1;
     byUser.set(u.sub, cur);
   }

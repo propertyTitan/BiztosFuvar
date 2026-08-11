@@ -19,7 +19,13 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 
-const R = require('../src/services/retention');
+const R = {
+  ...require('../src/services/retention'),
+  // ⚠️ A KYC-fájl retenciója MÁSIK modulban él (services/kyc.js) — épp ezért
+  // maradt ki eddig a horgonyból. A konstansokat egy térképbe olvasztjuk,
+  // hogy a horgony ne a fájl-határnál álljon meg.
+  KYC_FILE_RETENTION_DAYS: require('../src/services/kyc').KYC_FILE_RETENTION_DAYS,
+};
 
 const TAJEKOZTATO = readFileSync(`${__dirname}/../../web/app/adatkezeles/page.tsx`, 'utf8');
 
@@ -29,21 +35,41 @@ const TAJEKOZTATO = readFileSync(`${__dirname}/../../web/app/adatkezeles/page.ts
  * A `szoveg` szándékosan RÖVID és a SZÁMOT tartalmazza — a mondat többi
  * részének átfogalmazása ne törje el a tesztet, a szám megváltozása igen.
  */
+// konstans → [elvárt érték, mit ígérünk, a SZÁM, a bekezdést azonosító KIFEJEZÉS]
+//
+// ⚠️ A NEGYEDIK ELEM 2026-08-11-ÉN KERÜLT BE, MERT A SZÁM ÖNMAGÁBAN NEM VÉD.
+// A korábbi változat csak azt nézte, hogy a '8 év' részsztring előfordul-e
+// valahol az 584 soros oldalon — és a „kizárólag 18 éven felüliek" mondat ezt
+// KIELÉGÍTETTE. Vagyis a rendszer LEGHOSSZABB megőrzési idejének közlése
+// (számlán a név + cím + adószám 8 évig, GDPR 13. cikk (2) a) törölhető lett
+// volna a tájékoztatóból zöld build mellett. Ugyanígy a '3 év' 5×, az '5 év'
+// 10× fordul elő — egyetlen ígéret sem volt egyedileg védve.
+// Mostantól a számnak és a hozzá tartozó kifejezésnek EGY bekezdésben kell
+// állnia, tehát a konkrét ígéret eltűnése pirosra vált.
 const HORGONYOK = {
-  JOB_PII_RETENTION_YEARS: [3, 'a lezárt fuvar személyes adatai', '3 év'],
-  HOLD_RETENTION_YEARS: [5, 'vitás/zárolt ügylet bizonyítéka', '5 év'],
-  DEFAULT_RETENTION_DAYS: [30, 'fuvar-fotók a lezárás után', '30 nap'],
-  CHAT_RETENTION_MONTHS: [6, 'chat-üzenetek a lezárás után', '6 hónap'],
-  GPS_RETENTION_DAYS: [7, 'nyers GPS-pingek', '7 nap'],
-  INVOICE_RETENTION_YEARS: [8, 'számlák (Számv. tv. 169. §)', '8 év'],
-  DELETED_ACCOUNT_RETENTION_YEARS: [5, 'törölt fiók lenyomata', '5 év'],
-  TAX_DATA_RETENTION_YEARS: [5, 'DAC7 adóazonosító', '5 év'],
-  ADMIN_DM_RETENTION_YEARS: [3, 'admin-levelezés (Fgytv. 17/A. §)', '3 év'],
-  NOTIFICATION_RETENTION_MONTHS: [6, 'értesítések', '6 hónap'],
-  SOS_LOCATION_RETENTION_DAYS: [7, 'vészjelzés helyadata', '7 nap'],
-  SOS_EVENT_RETENTION_YEARS: [1, 'vészjelzés ténye', '1 év'],
-  ADMIN_ACCESS_LOG_RETENTION_YEARS: [1, 'admin-hozzáférési napló', '1 év'],
-  ABANDONED_JOB_YEARS: [1, 'félbehagyott fuvar lejáratása', '1 év'],
+  JOB_PII_RETENTION_YEARS: [3, 'a lezárt fuvar személyes adatai', '3 év', 'fuvar'],
+  HOLD_RETENTION_YEARS: [5, 'vitás/zárolt ügylet bizonyítéka', '5 év', 'vitatott'],
+  DEFAULT_RETENTION_DAYS: [30, 'fuvar-fotók a lezárás után', '30 nap', 'fotó'],
+  CHAT_RETENTION_MONTHS: [6, 'chat-üzenetek a lezárás után', '6 hónap', 'üzenet'],
+  GPS_RETENTION_DAYS: [7, 'nyers GPS-pingek', '7 nap', 'GPS'],
+  // ⚠️ 'kiállítás', nem 'számláz': a fizetési napló bekezdése is tartalmazza a
+  // 'számláz' szót 8 év mellett, tehát a SZÁMLA-megőrzés közlése törölhető
+  // maradt volna. A horgony akkor ér valamit, ha EGYEDI a bekezdésére.
+  INVOICE_RETENTION_YEARS: [8, 'számlák (Számv. tv. 169. §)', '8 év', 'kiállítás'],
+  DELETED_ACCOUNT_RETENTION_YEARS: [5, 'törölt fiók lenyomata', '5 év', 'törölt fiók'],
+  TAX_DATA_RETENTION_YEARS: [5, 'DAC7 adóazonosító', '5 év', 'adóazonosító'],
+  ADMIN_DM_RETENTION_YEARS: [3, 'admin-levelezés (Fgytv. 17/A. §)', '3 év', 'GoFuvar csapatával'],
+  NOTIFICATION_RETENTION_MONTHS: [6, 'értesítések', '6 hónap', 'értesítés'],
+  SOS_LOCATION_RETENTION_DAYS: [7, 'vészjelzés helyadata', '7 nap', 'vészjelzés'],
+  SOS_EVENT_RETENTION_YEARS: [1, 'vészjelzés ténye', '1 év', 'vészjelzés'],
+  ADMIN_ACCESS_LOG_RETENTION_YEARS: [1, 'admin-hozzáférési napló', '1 év', 'hozzáférési'],
+  ABANDONED_JOB_YEARS: [1, 'félbehagyott fuvar lejáratása', '1 év', 'fuvar'],
+  // ⚠️ A LEGÉRZÉKENYEBB ADAT, ÉS EDDIG NEM VOLT HORGONYOZVA (2026-08-11):
+  // a nyers okmányfotó törlése. A 9. mérés ellenpéldája szerint a 30 → 3650
+  // átírás az EGÉSZ suite-on átment volna — a személyi igazolvány fotója
+  // 10 évig maradt volna a privát bucketben, miközben a tájékoztató
+  // FÉLKÖVÉREN 30 napot ígér.
+  KYC_FILE_RETENTION_DAYS: [30, 'a nyers okmányfotó a döntés után', '30 nap', 'okmány'],
 };
 
 describe('Megőrzési idők — a szám a publikált ígérethez van kötve', () => {
@@ -66,17 +92,33 @@ describe('Megőrzési idők — a szám a publikált ígérethez van kötve', ()
     ).toEqual([]);
   });
 
-  it('az ígéret tényleg ott van a tájékoztatóban', () => {
-    // A szöveg-oldal: ha valaki a publikált számot írja át, arról is
-    // tudatos döntés szülessen. Az ékezetes/nem törhető szóközt egységesítjük.
-    const norm = TAJEKOZTATO.replace(/ /g, ' ').replace(/\s+/g, ' ');
-    const hianyzo = [...new Set(Object.values(HORGONYOK).map(([, , sz]) => sz))]
-      .filter((sz) => !norm.includes(sz));
+  it('az ígéret tényleg ott van a tájékoztatóban — BEKEZDÉS-szinten', () => {
+    // Bekezdésekre bontunk (a lista-elemek a <li> határok mentén), és
+    // megköveteljük, hogy a SZÁM és a hozzá tartozó KIFEJEZÉS EGYÜTT álljon.
+    // A puszta szám-keresés nem véd: a „18 éven felüliek" mondat kielégítette
+    // a '8 év' horgonyt, tehát a 8 éves számla-megőrzés közlése törölhető volt.
+    // ⚠️ ELŐBB BONTUNK, UTÁNA SZEDJÜK LE A CÍMKÉKET. Az első változat fordítva
+    // csinálta, ezért a `</li>` határ már nem létezett, és egyetlen óriási
+    // szövegdarab keletkezett — amiben persze minden szó „együtt áll" minden
+    // számmal. A horgony így semmit nem védett (lemérve: a számla-bekezdés
+    // törlése után is zöld maradt).
+    const bekezdesek = TAJEKOZTATO
+      .split(/<\/li>|<\/p>/i)
+      .map((b2) => b2.replace(/ /g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
+
+    const hianyzo = [];
+    for (const [nev, [, mit, szam, kifejezes]] of Object.entries(HORGONYOK)) {
+      const talalt = bekezdesek.some(
+        (b2) => b2.includes(szam) && b2.toLowerCase().includes(kifejezes.toLowerCase()),
+      );
+      if (!talalt) hianyzo.push(`${nev}: "${szam}" + "${kifejezes}" nem áll együtt (${mit})`);
+    }
     expect(
       hianyzo,
-      `Ezek a megőrzési idők nem szerepelnek az adatkezelési tájékoztatóban: ${hianyzo.join(', ')}\n\n`
-      + 'Vagy a tájékoztatóból tűnt el az ígéret (GDPR 13. cikk (2) a — a megőrzési\n'
-      + 'időt közölni KELL), vagy a horgony-tábla avult el.',
+      `Ezek a megőrzési ígéretek nem szerepelnek együtt a tájékoztatóban:\n  ${hianyzo.join('\n  ')}\n\n`
+      + 'A GDPR 13. cikk (2) a) szerint a megőrzési időt közölni KELL. A szám\n'
+      + 'önmagában nem bizonyíték: a 8 év horgonyt korábban a „18 éven felüliek"\n'
+      + 'mondat elégítette ki. Vagy a közlés tűnt el, vagy a horgony avult el.',
     ).toEqual([]);
   });
 

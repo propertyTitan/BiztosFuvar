@@ -79,6 +79,24 @@ router.patch('/admin/photo-hold', ...adminOnly, async (req, res) => {
   }
   const table = job_id ? 'jobs' : 'route_bookings';
   const id = job_id || booking_id;
+  // ⚠️ VITÁS ÜGYLETEN A ZÁROLÁS NEM OLDHATÓ FEL (2026-08-11, séma-audit T1-R).
+  // A `disputed` státusz + `hold=FALSE` kombináció minden retenciós ágból
+  // kiesik (a disputed nincs a lezárt státuszok közt, a másik ág holdot vár),
+  // és nincs kód-út, ami kihozná — a PII határidő nélkül megmaradna. A vita
+  // LEZÁRÁSA (POST /disputes/:id/resolve) állítja vissza a státuszt; a
+  // zárolás onnantól szabályosan, 5 év után jár le.
+  if (hold === false) {
+    const { rows: statusz } = await db.query(
+      `SELECT status::text AS status FROM ${table} WHERE id = $1`, [id],
+    );
+    if (statusz[0]?.status === 'disputed') {
+      return res.status(409).json({
+        error: 'Vitás ügyleten a bizonyíték-zárolás nem oldható fel. Előbb zárd le a vitát — '
+          + 'a lezárás visszaállítja a fuvar státuszát, és a zárolás onnantól szabályosan jár le.',
+        code: 'DISPUTED_HOLD_LOCKED',
+      });
+    }
+  }
   const { rows } = await db.query(
     `UPDATE ${table} SET photo_retention_hold = $1 WHERE id = $2 RETURNING id, photo_retention_hold`,
     [hold, id],
@@ -316,9 +334,30 @@ router.delete('/admin/jobs/:id', ...adminOnly, async (req, res) => {
 });
 
 // PATCH /admin/jobs/:id — fuvar státusz módosítása
+// ⚠️ A 'disputed' NEM ÁLLÍTHATÓ BE KÉZZEL (2026-08-11, séma-audit T1-R).
+// A retenció két ágon dolgozik: (hold=FALSE ÉS lezárt státusz) VAGY
+// (hold=TRUE). A `disputed` nincs a lezárt státuszok közt, tehát a
+// `disputed` + `hold=FALSE` kombináció MINDKÉT ágból kiesik — és nincs
+// kód-út, ami kihozná belőle: az `expireAbandonedJobs` szándékosan kihagyja a
+// vitás fuvart, a `purgeOldDisputes` pedig a `disputes` táblát nézi, amiben
+// ilyenkor nincs sor. A fuvar teljes PII-ja (címzett-adatok, átvételi kód,
+// ÉLŐ követő-token, pontos címek), a fotói és a felek chatje ÖRÖKRE megmaradt
+// volna, egyetlen admin-kattintásból.
+// Vitát a POST /disputes nyit — az beállítja a holdot és a
+// status_before_dispute-ot is, tehát van visszaút.
+const KEZZEL_NEM_ALLITHATO = ['disputed'];
+
 router.patch('/admin/jobs/:id', ...adminOnly, async (req, res) => {
   const { status } = req.body;
   if (!status) return res.status(400).json({ error: 'Státusz kötelező' });
+  if (KEZZEL_NEM_ALLITHATO.includes(status)) {
+    return res.status(400).json({
+      error: 'A „Vitatott" státusz kézzel nem állítható be — vitát a vitarendezés '
+        + 'nyit (az beállítja a bizonyíték-zárolást és a visszaállítási pontot is). '
+        + 'Kézi beállítással a fuvar adatai határidő nélkül megmaradnának.',
+      code: 'DISPUTED_NOT_MANUAL',
+    });
+  }
   const { rows } = await db.query(
     `UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
     [status, req.params.id],

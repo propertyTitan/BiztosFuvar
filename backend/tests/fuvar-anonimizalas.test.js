@@ -191,3 +191,63 @@ describe('Lezáratlan vita — a zárolás 5 év, nem örökre', () => {
     ).toBeTruthy();
   });
 });
+
+// =====================================================================
+//  A SZABAD SZÖVEGES MEZŐK (2026-08-11, 9. mérés E-1/E-2)
+//
+//  ⚠️ ELLENPÉLDA, AMI KORÁBBAN NEM BUKOTT: töröld a `description = NULL,`
+//  sort a retention.js-ből → a fuvar leírása ÖRÖKRE megmarad, és a suite
+//  zöld. A `title`, `ai_description_notes`, `source_image_url` és a
+//  lakás-adatok le voltak fedve — a `description` nem, pedig a gyakorlatban
+//  ez a legterheltebb mező az egész rendszerben:
+//    „Anyukám bútorai, 3. emelet, nincs lift, csöngess a Kovács névre,
+//     előtte hívd a 06-30…-t"
+// =====================================================================
+describe('Anonimizálás: a szabad szöveges mezők is ürülnek', () => {
+  it('a fuvar LEÍRÁSA és lemondás-indoka törlődik', async () => {
+    const job = await regiFuvar({ evek: JOB_PII_RETENTION_YEARS + 1 });
+    await db.query(
+      `UPDATE jobs SET description = $2, cancel_reason = $3 WHERE id = $1`,
+      [job.id,
+        'Anyukám bútorai, 3. emelet nincs lift, csöngess a Kovács névre, hívd a 06 30 123 4567-et',
+        'A címzett nem volt otthon a Fő utca 12-ben'],
+    );
+
+    await anonymizeOldJobs();
+
+    const utana = await jobSor(job.id);
+    expect(
+      utana.description,
+      'A fuvar LEÍRÁSA megmaradt az anonimizálás után.\n'
+      + 'Ez a rendszer legterheltebb szabad szöveges mezője: nevet, emeletet,\n'
+      + 'telefonszámot, családi viszonyt tartalmaz. A tájékoztató szerint a\n'
+      + 'csomag leírását a lezárás után 3 évig őrizzük.',
+    ).toBeNull();
+    expect(utana.cancel_reason, 'a lemondás indoka (szabad szöveg) megmaradt').toBeNull();
+  });
+
+  it('a foglalás MEGJEGYZÉSE is törlődik', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const { booking: bk } = await createBooking({
+      shipperId: felado.id, carrierId: szallito.id, status: 'delivered', paid: true,
+    });
+    await db.query(
+      `UPDATE route_bookings
+          SET notes = $2,
+              created_at = NOW() - ($3 || ' years')::interval,
+              delivered_at = NOW() - ($3 || ' years')::interval
+        WHERE id = $1`,
+      [bk.id, 'A szomszéd néni veszi át, Kovácsné, 06 20 111 2222', JOB_PII_RETENTION_YEARS + 1],
+    );
+
+    await anonymizeOldJobs();
+
+    const { rows } = await db.query('SELECT notes FROM route_bookings WHERE id = $1', [bk.id]);
+    expect(
+      rows[0].notes,
+      'A foglalás feladói MEGJEGYZÉSE megmaradt — ugyanolyan szabad szöveg,\n'
+      + 'mint a fuvar leírása, csak a másik ágon.',
+    ).toBeNull();
+  });
+});

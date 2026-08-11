@@ -352,6 +352,42 @@ async function purgeOldAdminAccessLog() {
  *
  * @returns {Promise<number>} az anonimizált sorok száma
  */
+/**
+ * ADAT-INTEGRITÁS JAVÍTÓ KÖR: vitás ügylet zárolás nélkül.
+ *
+ * A 9. mérés találata (T1-R). A retenció két ágon dolgozik:
+ *   (hold=FALSE ES lezart statusz)  VAGY  (hold=TRUE)
+ * A 'disputed' nincs a lezart statuszok kozt, tehat a 'disputed' + hold=FALSE
+ * kombinacio MINDKETTOBOL kiesik - es nincs kod-ut, ami kihozna: az
+ * expireAbandonedJobs szandekosan kihagyja a vitast, a purgeOldDisputes pedig
+ * a disputes tablat nezi, amiben ilyenkor nincs sor.
+ *
+ * A beiro utakat elzartuk (az admin nem allithat kezzel disputed-et, es vitas
+ * ugyleten nem oldhato fel a zarolas), DE a MAR MEGLEVO sorok ettol meg ilyen
+ * allapotban lehetnek. Ezert a takaritas elott helyreallitjuk az invariánst:
+ * vitás ügylet MINDIG zárolt. Így a bizonyíték megmarad (ez a zárolás célja),
+ * és 5 év után szabályosan törlődik.
+ */
+async function repairDisputedHold() {
+  try {
+    let javitva = 0;
+    for (const tabla of ['jobs', 'route_bookings']) {
+      const { rowCount } = await db.query(
+        `UPDATE ${tabla} SET photo_retention_hold = TRUE
+          WHERE status::text = 'disputed' AND photo_retention_hold = FALSE`,
+      );
+      javitva += rowCount;
+    }
+    if (javitva > 0) {
+      console.log(`[retention] ${javitva} vitas ugylet zarolasa helyreallitva (invarians: vitas = zarolt)`);
+    }
+    return javitva;
+  } catch (err) {
+    console.error('[retention] disputed-hold javitas hiba:', err.message);
+    return 0;
+  }
+}
+
 async function anonymizeOldJobs() {
   let db_count = 0;
   try {
@@ -528,9 +564,18 @@ async function expireAbandonedJobs() {
               END,
               updated_at = NOW()
         WHERE (
-            -- Sosem kelt el
-            (status IN ('pending', 'bidding') AND paid_at IS NULL
-              AND created_at < NOW() - ($1 || ' years')::interval)
+            -- Sosem kelt el VAGY újranyitás után nem talált új szállítót.
+            -- ⚠️ A paid_at IS NULL FELTÉTEL KIVÉVE (2026-08-11, állapot-mátrix).
+            -- A díjmentes újraválasztás (reopenJobForNewDriver) a fuvart
+            -- VISSZAÁLLÍTJA 'bidding'-re, de a paid_at-ot MEGTARTJA — tehát a
+            -- „fizetett, mégis nyitott" fuvar teljesen normális állapot. A régi
+            -- feltétel ezeket kizárta a lejáratásból, így egy kifizetett, majd
+            -- soha újra el nem vállalt fuvar HATÁRIDŐ NÉLKÜL őrizte a címzett
+            -- adatait, az átvételi kódot és az élő követő-tokent.
+            -- Egy év mozdulatlanság után a fuvar akkor is elhagyott, ha fizettek
+            -- érte (a feladónak egy éve volt élni az újraválasztással).
+            (status IN ('pending', 'bidding')
+              AND COALESCE(updated_at, created_at) < NOW() - ($1 || ' years')::interval)
             OR
             -- ⚠️ BERAGADT (2026-08-10): elkelt, akár ki is fizették, aztán
             -- megállt. Ez a leggyakoribb VALÓS kudarc-mód, és eddig egyetlen
@@ -1013,6 +1058,7 @@ async function runDailyRetention() {
     'purgeOldAdminAccessLog',
     'expireAbandonedJobs',
     'expireAbandonedBookings',
+    'repairDisputedHold',
     'anonymizeOldJobs',
     'anonymizeOldCarrierRoutes',
     'purgeOldDisputes',
@@ -1082,6 +1128,7 @@ async function lastSuccessfulRetentionRun() {
 }
 
 module.exports = {
+  repairDisputedHold,
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
   purgeStaleLastKnownLocation, purgeOldNotifications,
   purgeOldAdminMessages, purgeOldAdminAccessLog, anonymizeOldJobs,

@@ -76,7 +76,23 @@ router.get('/bids/mine', authRequired, async (req, res) => {
       ORDER BY b.created_at DESC`,
     [req.user.sub],
   );
-  res.json(rows);
+  // ⚠️ ELKELT FUVARNÁL KÖZELÍTŐ CÍM (2026-08-11, 9. mérés B1).
+  // A válasz eddig NYERS volt: a vesztes ajánlattevő ÖRÖKRE megtartotta a
+  // házszámig pontos fel- és lerakodási címet, minden valaha leadott
+  // ajánlatához. A `scrubJobForUser` ezzel szemben azt a szabályt követi, hogy
+  // a pontosság csak addig indokolt, amíg a fuvar ELVÁLLALHATÓ — utána
+  // településre kerekít. A kijelölt szállító természetesen továbbra is a
+  // pontos címet kapja: neki oda kell mennie.
+  const { telepulesSzint } = require('../utils/address');
+  const NYITOTT = ['bidding', 'pending'];
+  res.json(rows.map((r) => {
+    if (NYITOTT.includes(r.job_status) || r.job_carrier_id === req.user.sub) return r;
+    return {
+      ...r,
+      pickup_address: telepulesSzint(r.pickup_address),
+      dropoff_address: telepulesSzint(r.dropoff_address),
+    };
+  }));
 });
 
 // POST /jobs/:jobId/bids – bárki licitálhat egy fuvarra, kivéve ha ő a feladója
