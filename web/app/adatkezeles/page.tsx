@@ -92,6 +92,14 @@ export default function AdatkezelesPage() {
           tudsz folytatni — feladóként a Platform ettől függetlenül használható.
         </li>
         <li>
+          <strong>Ajánlói program:</strong> ha a linkeddel vagy kódoddal hozol új
+          felhasználót, eltároljuk a saját ajánlói kódodat, azt, hogy <strong>ki hívott
+          meg téged</strong>, és a jutalom megítélésének időpontját. Ez a kapcsolat
+          mindkettőtökről szóló adat; célja a program működtetése és a visszaélés
+          (önmagad meghívása, kupon-halmozás) kiszűrése. Jogalap: szerződés
+          teljesítése, illetve jogos érdek. Megőrzés: a fiókod élettartamáig.
+        </li>
+        <li>
           <strong>Fiókhasználati adatok:</strong> a legutóbbi bejelentkezésed időpontja, a
           bejelentkezéseid száma, a legutóbbi aktivitásod időpontja és a becsült összes
           aktív idő. Célja a visszaélések és a jogosulatlan hozzáférés felismerése, valamint
@@ -156,7 +164,7 @@ export default function AdatkezelesPage() {
       <ul>
         <li>
           <strong>Google LLC</strong> — Google Maps Platform (cím-geokódolás, útvonal-számítás),
-          Google Gemini AI (KYC dokumentum-elemzés, csomag-méret elemzés, csevegési segéd)
+          Google Gemini AI (KYC dokumentum-elemzés, csevegési segéd)
         </li>
         <li>
           <strong>Expo Inc.</strong> — Expo Push Notifications szolgáltatás (mobil-értesítések
@@ -267,7 +275,7 @@ export default function AdatkezelesPage() {
           <strong>File- és adminisztrátori hozzáférési audit log:</strong> 1 évig
           (incidens-vizsgálat és NAIH-bejelentés érdekében). Naplózzuk, ha egy
           adminisztrátor megnyitja egy felhasználó részletes adatlapját, a felek chatjét,
-          a KYC-dokumentumokat, illetve a felhasználói vagy fuvar-listát. A napló a
+          a KYC-dokumentumokat, a felhasználói, fuvar-, foglalás-, járat- és ajánlat-listát, a vitarendezési ügyek listáját, valamint a veled folytatott üzenetváltást. A napló a
           hozzáférés <strong>tényét</strong> rögzíti, nem a megtekintett tartalmat.
         </li>
         <li>

@@ -4,7 +4,6 @@ const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
 const { authRequired, requireDriverKYC, requireVerifiedEmail } = require('../middleware/auth');
-const { reviewJobDescription } = require('../services/gemini');
 const { distanceMeters } = require('../utils/geo');
 const { maskEmail } = require('../utils/mask');
 const realtime = require('../realtime');
@@ -467,21 +466,18 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
     });
   }
 
-  // --- Fire-and-forget AI review ---
-  // A válasz már elment a kliensnek, itt már csak a háttérben dolgozunk.
-  // Hibát nyugodtan elnyelhetünk, mert az ai_description_ok csak tájékoztató.
-  setImmediate(() => {
-    reviewJobDescription(title, description)
-      .then((review) =>
-        db.query(
-          `UPDATE jobs SET ai_description_ok = $1, ai_description_notes = $2 WHERE id = $3`,
-          [review.ok, review.notes || review.reason || null, job.id],
-        ),
-      )
-      .catch((err) => {
-        console.warn('[gemini] description review hiba:', err.message);
-      });
-  });
+  // ⚠️ A HIRDETÉS-ELLENŐRZŐ AI-HÍVÁS TÖRÖLVE (2026-08-11, adatvédelmi audit).
+  // Minden feladáskor kiküldte a Google Geminihez a felhasználó által írt
+  // CÍMET és LEÍRÁST — ami rendszeresen tartalmaz címet, nevet, „a nagymamám
+  // egyedül lesz otthon" típusú részletet. Az eredmény az
+  // `ai_description_ok`/`ai_description_notes` mezőbe került, amit viszont a
+  // TELJES kódbázisban SENKI nem olvas (sem backend, sem web).
+  //
+  // Vagyis: cél nélküli adatkezelés (GDPR 5. cikk (1) b) és felesleges
+  // harmadik országbeli továbbítás (44. cikk) — ráadásul a tájékoztató a
+  // Geminire csak KYC-elemzést, csomagméret-elemzést és chatbotot vall be,
+  // hirdetés-ellenőrzést NEM. A hívás kivétele NULLA funkciót visz el.
+  // Ha valaha kell moderáció, előbb tájékoztatás kell hozzá.
 
   // --- Azonnali fuvar: közeli szállítók push értesítése ---
   if (wantsInstant) {

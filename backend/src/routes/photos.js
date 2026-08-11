@@ -10,7 +10,7 @@ const express = require('express');
 // A levelek HTML-törzsébe kerülő, FELHASZNÁLÓ által megadott értékek
 // escape-elése (név, cím, fuvarcím). Enélkül egy szállító a saját nevébe
 // tett linkkel GoFuvar-arculatú levelet küldethetne a másik félnek.
-const { escapeHtml: esc } = require('../services/email');
+const { escapeHtml: esc, wrapHtml } = require('../services/email');
 const crypto = require('crypto');
 const multer = require('multer');
 const db = require('../db');
@@ -244,9 +244,17 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           // ki kezeli az adatait. Hogy ne kelljen 3. szegmenst fizetni
           // (~+19 Ft/fuvar), a telefonszám zárójelei elmaradtak és a
           // név-plafon 20 → 18. Az `sms-szegmens-or.test.js` őrzi a határt.
-          const nev = (pi.carrier_name || '').slice(0, 18);
+          // ⚠️ A TELEFONSZÁM NORMALIZÁLVA (2026-08-11): a `cleanPhone` 30
+          // karakterig, SZÓKÖZZEL és kötőjellel is elfogadja, és a tárolt érték
+          // a felhasználó saját formázása. Egy szokványos „+36 30 123 4567"
+          // már 3 szegmensbe (~+19 Ft/fuvar) vitte volna az üzenetet. A csak
+          // számjegyekre szűkített alak rövidebb ÉS jobban hívható.
+          // Név-plafon 18 → 14, hogy a 15 számjegyes nemzetközi maximum
+          // mellett is beleférjünk 2 szegmensbe.
+          const tel = (pi.carrier_phone || '').replace(/[^\d+]/g, '');
+          const nev = (pi.carrier_name || '').slice(0, 14);
           const sofor = nev
-            ? ` Szállító: ${nev}${pi.carrier_phone ? ` ${pi.carrier_phone}` : ''}.`
+            ? ` Szállító: ${nev}${tel ? ` ${tel}` : ''}.`
             : '';
           sendSms(pi.recipient_phone,
             `GoFuvar: úton a csomagod! Átvételi kód: ${pi.delivery_code}.${sofor} Egyeztess vele! Adatkezelés: gofuvar.hu/a`,
@@ -334,11 +342,11 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
             _sendR({
               to: info.recipient_email,
               subject: `✅ Csomag átvéve: ${info.title}`,
-              html: `
+              html: wrapHtml({ bodyHtml: `
                 <p>Szia${info.recipient_name ? ` ${esc(info.recipient_name)}` : ''}!</p>
                 <p>A(z) <strong>"${esc(info.title)}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
                 <p>Köszönjük, hogy a GoFuvart használtátok!</p>
-              `,
+              ` }),
             }).catch((e) => console.warn('[email] recipient delivered hiba:', e.message));
           });
         }
@@ -357,7 +365,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
             sendEmail({
               to: info.shipper_email,
               subject: `✅ Kézbesítve: ${info.title}`,
-              html: emailHtml,
+              html: wrapHtml({ bodyHtml: emailHtml }),
             }).catch((e) => console.warn('[email] job_delivered hiba:', e.message));
           });
         }
@@ -539,10 +547,11 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
           );
           const c = cRows[0] || {};
           const { sendSms } = require('../services/sms');
-          // Ugyanaz a 2-szegmenses korlát, mint a fuvar-ágon (lásd ott).
-          const nev = (c.full_name || '').slice(0, 18);
+          // Ugyanaz a 2-szegmenses korlát és normalizálás, mint a fuvar-ágon.
+          const tel = (c.phone || '').replace(/[^\d+]/g, '');
+          const nev = (c.full_name || '').slice(0, 14);
           const sofor = nev
-            ? ` Szállító: ${nev}${c.phone ? ` ${c.phone}` : ''}.`
+            ? ` Szállító: ${nev}${tel ? ` ${tel}` : ''}.`
             : '';
           sendSms(booking.recipient_phone,
             `GoFuvar: úton a csomagod! Átvételi kód: ${booking.delivery_code}.${sofor} Egyeztess vele! Adatkezelés: gofuvar.hu/a`,
@@ -601,24 +610,24 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
           sendEmail({
             to: booking.recipient_email,
             subject: `✅ Csomag átvéve: ${booking.route_title || 'GoFuvar foglalás'}`,
-            html: `
+            html: wrapHtml({ bodyHtml: `
               <p>Szia${booking.recipient_name ? ` ${esc(booking.recipient_name)}` : ''}!</p>
               <p>A(z) <strong>"${esc(booking.route_title) || 'foglalt fuvar'}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
               <p>Köszönjük, hogy a GoFuvart használtátok!</p>
-            `,
+            ` }),
           }).catch((e) => console.warn('[email] booking recipient delivered hiba:', e.message));
         }
         if (shipper.email) {
           sendEmail({
             to: shipper.email,
             subject: `✅ Kézbesítve: ${booking.route_title || 'foglalásod'}`,
-            html: `
+            html: wrapHtml({ bodyHtml: `
               <p>Szia ${esc(shipper.full_name) || 'GoFuvar felhasználó'}!</p>
               <p>A foglalásod csomagja sikeresen kézbesítve — a 6 jegyű átvételi kód ellenőrizve.</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
               <p>A fuvardíj készpénzben jár a szállítónak — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
               <p>Ha bármi probléma van a csomagoddal, a Foglalásaim oldalon tudsz vitás esetet nyitni.</p>
-            `,
+            ` }),
           }).catch((e) => console.warn('[email] booking_delivered hiba:', e.message));
         }
       } catch (e) {
