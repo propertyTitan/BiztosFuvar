@@ -30,10 +30,19 @@ const { PII_CSATORNA_MANIFEST, SOCKET_CSATORNAK } = require('./piiCsatornaManife
 
 const KAPU = 'requireVerifiedEmail';
 
-/** Minden hitelesített GET — ezek a MÁSOK adatához vezető olvasási felület. */
+/**
+ * Minden hitelesített, ADATOT VISSZAADÓ végpont — a mások adatához vezető
+ * olvasási felület.
+ *
+ * ⚠️ A POST IS ADAT-VISSZAADÓ LEHET (2026-08-11, 9. mérés Ő5). Az őr korábban
+ * KIZÁRÓLAG GET-et sorolt be, tehát egy `POST /jobs/search` végpont — ugyanaz
+ * a lekérdezés, csak más metódussal — a hatályán kívül lett volna, és
+ * mindhárom manifest-teszt zöld maradt volna. A díj-kapu így egy
+ * metódus-váltással megkerülhető lett volna.
+ */
 function hitelesitettGetek() {
   return listRoutes(expressApp).filter(
-    (r) => r.method === 'GET' && r.middlewares.includes('authRequired'),
+    (r) => ['GET', 'POST'].includes(r.method) && r.middlewares.includes('authRequired'),
   );
 }
 

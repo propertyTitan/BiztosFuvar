@@ -215,7 +215,7 @@ async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, f
 async function getDriverGameStats(userId) {
   const [userRes, badgesRes, vouchersRes] = await Promise.all([
     db.query(
-      `SELECT level, level_name, total_deliveries, total_earnings,
+      `SELECT level, level_name, total_deliveries,
               trust_score, is_verified_carrier, rating_avg, rating_count
          FROM users WHERE id = $1`,
       [userId],
@@ -250,7 +250,10 @@ async function getDriverGameStats(userId) {
     levelName: user.level_name,
     levelIcon: currentLvl.icon,
     totalDeliveries: user.total_deliveries,
-    totalEarnings: user.total_earnings,
+    // ⚠️ A `total_earnings` MEZŐ TÖRÖLVE (2026-08-11, 9. mérés D1). Soha,
+    // egyetlen kódút sem ÍRTA — vagyis mindig 0 volt, mégis „összes kereset"
+    // néven jelent meg. A kápés modellben ez amúgy is értelmezhetetlen: a
+    // fuvardíj 100%-a a szállítóé, a platform nem is látja.
     trustScore: user.trust_score,
     isVerified: user.is_verified_carrier,
     ratingAvg: user.rating_avg,

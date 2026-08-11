@@ -113,6 +113,70 @@ const PII_CSATORNA_MANIFEST = {
       + 'lista scrubja csak ~1 km-re kerekített helyet + keresztnevet ad. '
       + 'Élesedéskor ezt újra kell értékelni.',
   },
+
+  // ── ÍRÁSI (POST) VÉGPONTOK (2026-08-11, 9. mérés Ő5) ─────────────────
+  //
+  // ⚠️ Az őr korábban KIZÁRÓLAG GET-et sorolt be, tehát egy `POST /jobs/search`
+  // végpont — ugyanaz a lekérdezés, csak más metódussal — a hatályán kívül
+  // lett volna, és mindhárom manifest-teszt zöld maradt volna. A díj-kapu egy
+  // metódus-váltással megkerülhető lett volna.
+  //
+  // A POST-ok többsége MŰVELET (a válasz a saját, frissen létrehozott sor vagy
+  // egy nyugta), nem böngészési felület — de a besorolás mostantól KÖTELEZŐ,
+  // hogy egy jövőbeli adat-visszaadó POST ne maradhasson észrevétlen.
+
+  'POST /admin/dm/broadcast': 'admin',
+  'POST /admin/dm/with/:userId': 'admin',
+  'POST /admin/users/:id/force-logout': 'admin',
+  'POST /auth/admin/grant-monthly-vouchers': 'admin',
+
+  'POST /ai/chat': 'sajat',
+  'POST /auth/accept-driver-terms': 'sajat',
+  'POST /auth/avatar': 'sajat',
+  'POST /auth/kyc-document': 'sajat',
+  'POST /auth/push-token': 'sajat',
+  'POST /auth/resend-verification': 'sajat',
+  'POST /auth/tax-data': 'sajat',
+  'POST /auth/verify-company': 'sajat',
+  'POST /carrier-alerts': 'sajat',
+  'POST /carrier-routes': 'sajat',
+  'POST /carrier-routes/:id/bookings': 'sajat',
+  'POST /jobs/': 'sajat',
+  'POST /jobs/:jobId/bids': 'sajat',
+  'POST /me/admin-messages': 'sajat',
+  'POST /notifications/:id/read': 'sajat',
+  'POST /notifications/read-all': 'sajat',
+  'POST /sos': 'sajat',
+  'POST /towing/register': 'sajat',
+  'POST /towing/request': 'sajat',
+  'POST /towing/toggle-available': 'sajat',
+
+  'POST /bids/:id/accept': 'felek',
+  'POST /bids/:id/accept-counter': 'felek',
+  'POST /bids/:id/counter': 'felek',
+  'POST /disputes': 'felek',
+  'POST /jobs/:id/cancel': 'felek',
+  'POST /jobs/:id/confirm-payment': 'felek',
+  'POST /jobs/:id/instant-accept': 'felek',
+  'POST /jobs/:id/pay': 'felek',
+  'POST /jobs/:id/reopen': 'felek',
+  'POST /jobs/:jobId/location': 'felek',
+  'POST /jobs/:jobId/photos': 'felek',
+  'POST /jobs/:jobId/questions': 'felek',
+  'POST /jobs/:jobId/reviews': 'felek',
+  'POST /messages': 'felek',
+  'POST /questions/:id/answer': 'felek',
+  'POST /reviews': 'felek',
+  'POST /route-bookings/:bookingId/photos': 'felek',
+  'POST /route-bookings/:id/cancel': 'felek',
+  'POST /route-bookings/:id/confirm': 'felek',
+  'POST /route-bookings/:id/confirm-payment': 'felek',
+  'POST /route-bookings/:id/pay': 'felek',
+  'POST /route-bookings/:id/reject': 'felek',
+  'POST /towing/:id/accept': 'felek',
+  'POST /towing/:id/arrive': 'felek',
+  'POST /towing/:id/cancel': 'felek',
+  'POST /towing/:id/complete': 'felek',
 };
 
 // Socket-csatornák: a szoba-belépésnek ugyanazt kell megkövetelnie, mint a
