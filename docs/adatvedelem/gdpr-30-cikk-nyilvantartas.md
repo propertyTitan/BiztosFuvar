@@ -44,7 +44,7 @@ intézkedések (közös lista a dokumentum végén).
 - **Jogalap**: JÉ (I. teszt) + JK-elem (DAC7 átvilágítás)
 - **Érintettek**: szállítói tevékenységre jelentkezők; kockázati alapon
   egyes feladók
-- **Adatkategóriák**: személyi igazolvány két oldalának fényképe és az
+- **Adatkategóriák**: a személyi igazolvány fényképe (egyetlen fájl) és az
   azon látható adatok; AI-előszűrés eredménye; döntés + indoklás;
   okmányszám-lenyomat (hash)
 - **Címzettek/feldolgozók**: Cloudflare R2 (privát tároló, EU), Google

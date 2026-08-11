@@ -18,13 +18,15 @@ const REDACTED = '[SZURVE]';
 
 // Query-paraméterek, amelyek titkot hordozhatnak. A `token` a verify/reset
 // egyszer használatos tokenje; a többi védekező jellegű (jövőbeli kulcsnevek).
-const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code'];
+const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code', 'sig', 'exp'];
 
 // Útvonal-szegmensek, amelyek után titok vagy személyes adat áll.
 //   /tracking/<token>  — a publikus követő-link
 //   /vat/<adószám>     — a VIES adószám-ellenőrzés az ÚTVONALBA teszi a
 //                        számot (services/vat.js), nem query-paraméterbe
-const SENSITIVE_PATH_RE = /(\/tracking\/|\/vat\/)[^/?#]+/gi;
+// A `/private-files/<név>?exp=…&sig=…` a KYC-okmány dev-fallback olvasó-útja
+// (aláírt, lejáró link) — a `sig`/`exp` a SENSITIVE_PARAMS-ban is szerepel.
+const SENSITIVE_PATH_RE = /(\/tracking\/|\/vat\/|\/private-files\/)[^/?#]+/gi;
 
 // A breadcrumb-adatok azon kulcsai, amelyekben URL vagy query string állhat.
 // A `http.query` a Sentry Node SDK saját mezője: a kimenő fetch NYERS query

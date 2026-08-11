@@ -446,7 +446,6 @@ export const api = {
       gps_lat: number | null;
       gps_lng: number | null;
       taken_at: string;
-      ai_has_cargo: boolean | null;
     }>>(`/jobs/${jobId}/photos`),
 
   /**

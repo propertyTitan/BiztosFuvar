@@ -208,7 +208,7 @@ export default function HomeHub() {
                     (fuvar-feladáshoz nem kell okmány):
                   </p>
                   <ul style={{ fontSize: 13, margin: '8px 0 0', paddingLeft: 20, lineHeight: 1.8 }}>
-                    <li><strong>Személyi igazolvány</strong> fotója (mindkét oldal)</li>
+                    <li><strong>Személyi igazolvány</strong> fotója (az adatlap-oldal)</li>
                   </ul>
                   <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
                     <button

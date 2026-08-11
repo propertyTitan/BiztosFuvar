@@ -429,8 +429,6 @@ export default function FuvarReszletek() {
                 <div className="muted" style={{ fontSize: 12 }}>
                   {new Date(p.taken_at).toLocaleString('hu-HU')}
                   {p.gps_lat && ` · ${p.gps_lat.toFixed(5)}, ${p.gps_lng?.toFixed(5)}`}
-                  {p.ai_has_cargo != null &&
-                    ` · AI: ${p.ai_has_cargo ? '✓ áru azonosítva' : '✗ nem található áru'}`}
                 </div>
                 {p.url && (
                   <img

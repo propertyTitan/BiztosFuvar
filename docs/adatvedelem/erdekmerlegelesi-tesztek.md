@@ -19,7 +19,7 @@ dokumentum ezt a kötelezettséget teljesíti.
 
 A GoFuvar P2P fuvarközvetítő platform. A **Szállítóként** (fuvarozóként)
 tevékenykedni kívánó felhasználó az első ajánlattétel előtt feltölti a
-személyi igazolványa két oldalának fényképét. A képet a rendszer
+személyi igazolványának fényképét (egyetlen fájl). A képet a rendszer
 mesterséges intelligencia (Google Gemini) segítségével előellenőrzi
 (okmány-jelleg, olvashatóság, név és születési dátum kiolvasása, 18. életév
 betöltésének ellenőrzése). A kockázati jel nélküli esetben a hitelesítés
@@ -75,7 +75,7 @@ ténylegesen működő, egyben a legkevésbé korlátozó eszköze.
 
 ### 4. Az érintettre gyakorolt hatás (arányosság)
 
-- **Érintett adatkör**: a személyi igazolvány két oldalán látható adatok
+- **Érintett adatkör**: a személyi igazolvány fényképén látható adatok
   (név, születési adatok, okmányszám, arckép, aláírás). Lakcímkártyát a
   platform **nem kér és nem fogad el** (a személyi azonosító kezelésére
   nincs törvényi felhatalmazás).

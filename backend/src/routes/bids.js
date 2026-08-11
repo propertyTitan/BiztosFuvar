@@ -433,9 +433,16 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     }
     await client.query('COMMIT');
 
+    // ⚠️ A FIZETÉSI LINK CSAK A FIZETŐNEK (2026-08-11). A `job:<id>` szoba a
+    // feladót, a kijelölt szállítót ÉS az admint tartalmazza — a gateway-URL
+    // viszont a feladó fizetési munkamenete, senki másra nem tartozik. A
+    // foglalási ág ikerpárján ezt 2026-08-09-én már kijavítottuk
+    // (emitGlobal → emitToUser); a fuvar-ág kimaradt.
     realtime.emitToJob(bid.job_id, 'job:accepted', {
-      job_id: bid.job_id, carrier_id: bid.carrier_id,
-      amount_huf: agreedPrice, barion_gateway_url: fin.barionRes.gatewayUrl,
+      job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: agreedPrice,
+    });
+    realtime.emitToUser(bid.shipper_id, 'job:payment-due', {
+      job_id: bid.job_id, barion_gateway_url: fin.barionRes.gatewayUrl,
     });
     notifyDealClosed(bid, agreedPrice, 'shipper');
 
@@ -494,9 +501,16 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     }
     await client.query('COMMIT');
 
+    // ⚠️ A FIZETÉSI LINK CSAK A FIZETŐNEK (2026-08-11). A `job:<id>` szoba a
+    // feladót, a kijelölt szállítót ÉS az admint tartalmazza — a gateway-URL
+    // viszont a feladó fizetési munkamenete, senki másra nem tartozik. A
+    // foglalási ág ikerpárján ezt 2026-08-09-én már kijavítottuk
+    // (emitGlobal → emitToUser); a fuvar-ág kimaradt.
     realtime.emitToJob(bid.job_id, 'job:accepted', {
-      job_id: bid.job_id, carrier_id: bid.carrier_id,
-      amount_huf: agreedPrice, barion_gateway_url: fin.barionRes.gatewayUrl,
+      job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: agreedPrice,
+    });
+    realtime.emitToUser(bid.shipper_id, 'job:payment-due', {
+      job_id: bid.job_id, barion_gateway_url: fin.barionRes.gatewayUrl,
     });
     notifyDealClosed(bid, agreedPrice, 'carrier');
 

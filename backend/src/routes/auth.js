@@ -875,7 +875,15 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   }
   req.file.mimetype = sniffedKyc;
   const { doc_type } = req.body || {};
-  const validTypes = ['id_card', 'drivers_license', 'insurance', 'vehicle_registration', 'company_document'];
+  // ⚠️ CSAK SZEMÉLYI IGAZOLVÁNY (2026-08-11, adatvédelmi audit). A
+  // jogosítvány-követelmény 2026-07-07 óta NINCS, a céges dokumentum-kapu
+  // 2026-07-05 óta NINCS (a NAV-ellenőrzés váltotta ki) — a végpont mégis
+  // elfogadta ezeket a típusokat. Adat-minimalizálás (GDPR 5. cikk (1) c):
+  // ha nem kérünk egy okmányt, ne is lehessen feltölteni. A tájékoztató 2.
+  // szakasza is csak személyi igazolványt vall be.
+  // ⚠️ LAKCÍMKÁRTYÁT SOHA (a hátulján a személyi azonosító) — ezt a lista
+  // szűkítése is kikényszeríti.
+  const validTypes = ['id_card'];
   if (!validTypes.includes(doc_type)) return res.status(400).json({ error: 'Érvénytelen dokumentum típus' });
 
   // PRIVÁT tárolás (2026-07-13, biztonsági audit): a személyi okmány fotója
@@ -1125,11 +1133,9 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
 
   if (doc_type === 'id_card') {
     await db.query(`UPDATE users SET identity_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
-  } else if (doc_type === 'drivers_license') {
-    await db.query(`UPDATE users SET driver_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
-  } else if (doc_type === 'company_document') {
-    await db.query(`UPDATE users SET company_verification_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
   }
+  // A drivers_license / company_document ágak törölve: a `validTypes` már nem
+  // engedi be őket (lásd ott), tehát elérhetetlen kód lettek volna.
 
   res.json({
     // Az `ok` a TÉNYLEGES döntést tükrözi: kézi ellenőrzésre terelt

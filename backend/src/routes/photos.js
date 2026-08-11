@@ -192,9 +192,11 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   // nem minősítjük). A GPS log-szerűen kerül be, bizonyítékként, akkor is ha
   // nem pont a cél koordinátáján áll a szállító.
   const { rows } = await db.query(
-    `INSERT INTO photos (job_id, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m,
-                         ai_has_cargo, ai_confidence, ai_raw_response)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,NULL,NULL,NULL) RETURNING *`,
+    // Az ai_* oszlopok a 071-es migrációval TÖRÖLVE: fixen NULL-t írtunk
+    // beléjük, olvasójuk nem volt (a nyers AI-válasz egy lakásfotóról a
+    // lehető legbeszédesebb tartalom lett volna).
+    `INSERT INTO photos (job_id, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
     [
       jobId, req.user.sub, kind, url,
       gps_lat ? parseFloat(gps_lat) : null,
