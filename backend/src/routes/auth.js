@@ -324,6 +324,15 @@ router.post('/reset-password', loginRateLimit, async (req, res) => {
         WHERE id = $2`,
       [hashPassword(password), user.id],
     );
+    // ⚠️ A NYITOTT SOCKET IS BOMOLJON (2026-08-11, adatáramlási audit).
+    // A `token_version` léptetése CSAK a REST-oldalt zárja: a socket
+    // token-ellenőrzése kizárólag a HANDSHAKE-kor fut (realtime.js), egy már
+    // felépült kapcsolat sosem esik át rajta újra. A jelszó-reset viszont épp
+    // a kompromittált fiók visszaszerzésének fő eszköze — ha a támadó füle
+    // nyitva marad, tovább kapja az értesítéseket (chat-részlet, fizetési
+    // gateway-URL), az élő GPS-t és a `feed`-en az új fuvarok PONTOS címét.
+    // A force-logout ága ezt már így csinálta (admin.js) — a reset kimaradt.
+    require('../realtime').disconnectUser(user.id).catch(() => {});
     res.json({ ok: true });
   } catch (err) {
     console.error('[auth] reset-password hiba:', err.message);

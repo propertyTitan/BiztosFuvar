@@ -13,10 +13,31 @@
 
 const REDACTED = '[SZURVE]';
 
-const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code'];
+const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code', 'sig', 'exp',
+  'search', 'q', 'lat', 'lng', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng', 'email', 'phone'];
+
+// ⚠️ NEM CSAK URL-ALAKÚ ADAT SZIVÁROG (2026-08-11, adatáramlási audit).
+// A backend 2026-08-11-én alak-független PII-szűrést kapott, a WEB NEM — és a
+// saját őrünk ezt nem vehette észre, mert kizárólag a backend modult töltötte
+// be. A böngészőben ez élő út volt: a Sentry `consoleIntegration`-je
+// alapértelmezés szerint BE VAN kapcsolva, tehát minden `console.log` szövege
+// breadcrumbként kimegy — nyers e-mail-címmel együtt.
+// A szűrés ezért itt is ALAK-FÜGGETLEN: e-mailt és telefonszám-alakot bárhol
+// kitakar, nem csak URL-jellegű stringben.
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+// Telefonszám: vezető '+' VAGY elválasztók — így egy sima hosszú szám
+// (időbélyeg, azonosító) nem esik áldozatul.
+const TELEFON_RE = /(?:\+\d[\d\s\-/().]{7,18}\d|\b06[\s\-/]?\d{1,2}[\s\-/]?\d{3}[\s\-/]?\d{3,4}\b)/g;
+
+/** E-mail és telefonszám kitakarása TETSZŐLEGES szövegből. */
+export function piiSzures<T>(ertek: T): T {
+  if (typeof ertek !== 'string' || !ertek) return ertek;
+  return (ertek as string).replace(EMAIL_RE, REDACTED).replace(TELEFON_RE, REDACTED) as unknown as T;
+}
 
 // Útvonal-szegmens, ami után titok áll (publikus tracking-token)
-const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/)[^/?#]+/gi;
+// ⚠️ SZIMMETRIKUS a backend listájával (2026-08-11, közös korpusz).
+const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/|\/vat\/|\/private-files\/)[^/?#]+/gi;
 
 /** Query string / teljes URL token-paramétereinek kitakarása. */
 export function scrubUrlLike<T>(value: T): T {
@@ -68,9 +89,8 @@ function melyszures(
     if (melyseg === 0 && kihagy.has(kulcs)) continue;
     const ertek = csomopont[kulcs];
     if (typeof ertek === 'string') {
-      if (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek)) {
-        csomopont[kulcs] = scrubBreadcrumbValue(ertek);
-      }
+      const urlSzeru = URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek);
+      csomopont[kulcs] = piiSzures(urlSzeru ? scrubBreadcrumbValue(ertek) : ertek);
     } else if (ertek && typeof ertek === 'object') {
       melyszures(ertek, kihagy, melyseg + 1, latott);
     }
@@ -89,8 +109,9 @@ export function scrubSentryEvent<E extends Record<string, any>>(event: E): E {
         delete req.headers.cookie;
         delete req.headers.Cookie;
       }
-      req.url = scrubUrlLike(req.url);
-      req.query_string = scrubUrlLike(req.query_string);
+      // ⚠️ A `request` kimarad a mélybejárásból, ezért a PII-szűrés ide kell.
+      req.url = piiSzures(scrubUrlLike(req.url));
+      req.query_string = piiSzures(scrubUrlLike(req.query_string));
       delete req.cookies;
     }
     // Breadcrumb-ok: nem mezőnevet sorolunk fel (a backend-oldali szűrő ezen
@@ -123,13 +144,14 @@ export function scrubSentrySpan<S extends Record<string, any>>(span: S): S {
   try {
     if (!span || typeof span !== 'object') return span;
     if (typeof sp.description === 'string') {
-      sp.description = scrubBreadcrumbValue(sp.description);
+      sp.description = piiSzures(scrubBreadcrumbValue(sp.description));
     }
     if (sp.data && typeof sp.data === 'object') {
       for (const kulcs of Object.keys(sp.data)) {
         const ertek = sp.data[kulcs];
-        if (typeof ertek === 'string' && (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek))) {
-          sp.data[kulcs] = scrubBreadcrumbValue(ertek);
+        if (typeof ertek === 'string') {
+          const urlSzeru = URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek);
+          sp.data[kulcs] = piiSzures(urlSzeru ? scrubBreadcrumbValue(ertek) : ertek);
         }
       }
     }

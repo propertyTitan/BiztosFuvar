@@ -122,7 +122,9 @@ export default function CoverageModal() {
                 type="button"
                 onClick={() => {
                   if (email.includes('@')) {
-                    console.log(`[coverage-waitlist] ${email}`);
+                    // ⚠️ A nyers e-mail-cím NEM megy konzolra (2026-08-11): a Sentry
+                    // console-breadcrumbként kivinné. A gomb amúgy sem küld
+                    // sehova semmit — a visszajelzés helyben történik.
                     setSubscribed(true);
                   }
                 }}

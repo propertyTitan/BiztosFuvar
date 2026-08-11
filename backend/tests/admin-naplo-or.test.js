@@ -115,7 +115,11 @@ function handlerNaploz(utvonal) {
       const kezd = forras.indexOf(`router.get('${jelolt}'`);
       if (kezd === -1) continue;
       const kov = forras.indexOf('\nrouter.', kezd + 1);
-      const blokk = forras.slice(kezd, kov === -1 ? forras.length : kov);
+      let blokk = forras.slice(kezd, kov === -1 ? forras.length : kov);
+      // ⚠️ KOMMENTEK NÉLKÜL (2026-08-11, 8. mérés ellenpéldája): korábban egy
+      // `// TODO: logAdminAccess(...)` sor is kielégítette ezt az ellenőrzést,
+      // vagyis a naplózás kivehető volt úgy, hogy az őr zöld marad.
+      blokk = blokk.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
       if (blokk.includes(NAPLO)) return true;
     }
   }

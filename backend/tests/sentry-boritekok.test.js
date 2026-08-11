@@ -28,11 +28,24 @@ import { fileURLToPath } from 'url';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
+const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
 const {
   scrubSentryEvent, scrubSentrySpan, scrubSentryTransaction, REDACTED,
 } = require('../src/utils/sentryScrub');
 
-const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
+// ⚠️ 2026-08-11 — A LEGFONTOSABB TANULSÁG EBBEN A FÁJLBAN.
+// Ez az őr két körön át EGYETLEN MODULT töltött be (a backendet), és a
+// „minden init-fájlban rajta van" tesztje csak azt mérte, hogy a hook egy
+// `scrubSentry…` nevű azonosítóra van-e kötve — a WEB függvény VISELKEDÉSÉT
+// soha nem futtatta le. Közben a web-oldali szűrő egy generációval lemaradt
+// (nem volt benne alak-független PII-szűrés), és a böngészőből NYERS
+// e-mail-cím ment ki a Sentrybe console-breadcrumbként. Az őr végig zöld volt.
+//
+// Ezért mostantól MINDKÉT megvalósítás UGYANAZT a korpuszt kapja, és a
+// korpusz KÖZÖS fájlban él (shared/pii-teszt-korpusz.json) — így a két oldal
+// nem tud némán szétcsúszni: ha bármelyik elenged egy tételt, ez a teszt pirosra vált.
+const KORPUSZ = JSON.parse(readFileSync(p('../../shared/pii-teszt-korpusz.json'), 'utf8'));
+
 const SDK_CLIENT = p('../node_modules/@sentry/core/build/cjs/client.js');
 
 // Ahol Sentry-t inicializálunk. Mindháromnak ugyanazt kell tudnia.
@@ -241,5 +254,63 @@ describe('Őr: MINDEN Sentry-borítékra van szűrőnk', () => {
     // őr ettől még értelmes marad. Ez csak dokumentálja a mai állapotot.
     const init = readFileSync(INIT_FAJLOK[0], 'utf8');
     expect(init).toContain('tracesSampleRate');
+  });
+});
+
+// =====================================================================
+//  KÖZÖS KORPUSZ — a backend ÉS a web szűrője ugyanazt kapja
+//
+//  ⚠️ EZ A TESZT AZÉRT LÉTEZIK, MERT AZ ŐR MAGA VOLT VAK (2026-08-11).
+//  A web-oldali szűrőt semmi nem futtatta; egy generációval le volt maradva,
+//  és ezen az úton NYERS e-mail-cím hagyta el a böngészőt a Sentry felé.
+//  A backend suite közvetlenül betölti a web TS-modulját, hogy egyetlen
+//  helyen, egyszerre legyen mérve mind a kettő.
+// =====================================================================
+describe('PII-szűrés — KÖZÖS korpusz mindkét megvalósításon', () => {
+  const OLDALAK = [
+    ['backend', async () => require('../src/utils/sentryScrub')],
+    ['web', async () => import('../../web/src/lib/sentryScrub.ts')],
+  ];
+
+  for (const [nev, betolt] of OLDALAK) {
+    it(`${nev}: a korpusz TILOS tételeiből semmi nem jut ki`, async () => {
+      const { scrubSentryEvent: szur } = await betolt();
+      for (const { be, miert } of KORPUSZ.tilos) {
+        // Négy különböző alakban ültetjük el ugyanazt: console-breadcrumb,
+        // kivétel-üzenet, `extra` mező és kérés-URL. A vakfolt eddig mindig
+        // az volt, hogy EGY alakot mértünk.
+        const szoveg = JSON.stringify(szur({
+          breadcrumbs: [{ category: 'console', message: be, data: { arguments: [be] } }],
+          exception: { values: [{ value: be }] },
+          extra: { megjegyzes: be },
+          request: { url: be.startsWith('http') || be.startsWith('/') ? be : `https://gofuvar.hu/x?v=${be}` },
+        }));
+        // A titkot a legbeszédesebb részletével keressük vissza.
+        const nyom = (be.match(/[\w.+-]+@[\w.-]+|\+?\d[\d\s\-/]{7,}\d|token=[^&\s]+|nyomon-kovetes\/\S+|search=[^&\s]+|lat=[\d.]+/) || [be])[0];
+        expect(
+          szoveg.includes(nyom),
+          `[${nev}] KIJUTOTT: "${nyom}"\n  Korpusz-tétel: ${be}\n  Miért tilos: ${miert}\n\n`
+          + 'Ha ez a backendnél zöld és a webnél piros (vagy fordítva), akkor a két\n'
+          + 'szűrő szétcsúszott — pontosan az a hiba, ami miatt ez a teszt létrejött.',
+        ).toBe(false);
+      }
+    });
+
+    it(`${nev}: a hibakereséshez szükséges rész megmarad`, async () => {
+      const { scrubSentryEvent: szur } = await betolt();
+      for (const { be, miert } of KORPUSZ.megmarad) {
+        const szoveg = JSON.stringify(szur({ exception: { values: [{ value: be }] } }));
+        expect(
+          szoveg.includes(be),
+          `[${nev}] ELTŰNT: "${be}" — ${miert}\n\n`
+          + 'A túlszűrés is hiba: egy vak hibajelentés nem véd senkit.',
+        ).toBe(true);
+      }
+    });
+  }
+
+  it('a korpusz nem üresedhet ki', () => {
+    expect(KORPUSZ.tilos.length, 'a TILOS lista kiürült — az őr elveszti az értelmét').toBeGreaterThanOrEqual(7);
+    expect(KORPUSZ.megmarad.length).toBeGreaterThanOrEqual(4);
   });
 });

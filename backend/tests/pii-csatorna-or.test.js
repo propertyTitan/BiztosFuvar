@@ -18,6 +18,13 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 
 const { expressApp } = require('./helpers');
+
+// ⚠️ KOMMENTEK NÉLKÜL VIZSGÁLUNK (2026-08-11, 8. mérés ellenpéldája).
+// Korábban a forrás-szeletben elég volt, hogy a keresett szó BÁRHOL
+// szerepeljen — egy magyarázó komment is kielégítette. Így a `feed:join`
+// e-mail-megerősítés kapuja és a lane-alert `email_verified` szűrője úgy
+// volt kivehető, hogy ez az őr zöld maradt.
+const KOMMENT_NELKUL = (sz) => String(sz).replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const { listRoutes } = require('./routeInventory');
 const { PII_CSATORNA_MANIFEST, SOCKET_CSATORNAK } = require('./piiCsatornaManifest');
 
@@ -127,6 +134,12 @@ describe('PII-csatorna őr', () => {
         + `pedig ${elvaras.indok}. A REST-párja kapuzott, tehát a kapu megkerülhető: `
         + 'elég egy socketet nyitni.',
       ).toContain(elvaras.kapu);
+      // …és a kapu KÓD legyen, ne magyarázat:
+      expect(
+        KOMMENT_NELKUL(belepes[0]),
+        `A(z) "${szoba}" szobánál a(z) ${elvaras.kapu} kapu CSAK KOMMENTBEN van meg. `
+        + 'Egy magyarázó mondat nem kapuz semmit.',
+      ).toContain(elvaras.kapu);
     }
   });
 
@@ -140,6 +153,12 @@ describe('PII-csatorna őr', () => {
       + 'értesítésben ÉS e-mailben. Ha nincs benne email_verified feltétel, egy '
       + 'meg nem erősített fiók push-ban kapja meg az összes új fuvar címét — '
       + 'lekérdezni sem kell hozzá, és az e-mail-példány semmilyen retenció alá nem esik.',
+    ).toContain('email_verified');
+    // A komment nem szűrő: a feltételnek a KÓDBAN kell lennie.
+    expect(
+      KOMMENT_NELKUL(lekerdezes),
+      'Az email_verified feltétel CSAK KOMMENTBEN szerepel a lane-alert '
+      + 'lekérdezésében — a tényleges WHERE-ből hiányzik.',
     ).toContain('email_verified');
   });
 });

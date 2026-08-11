@@ -87,8 +87,10 @@ export default function AdatkezelesPage() {
           kötelezi az adatszolgáltatásra, ezért a jogalap <strong>jogi kötelezettség</strong>
           (GDPR 6. cikk (1) c). Céges fiók esetén az adószám tölti be ezt a szerepet.
           Címzett: a Nemzeti Adó- és Vámhivatal, éves adatszolgáltatás keretében.
-          Megőrzés: az adatszolgáltatási kötelezettség elévüléséig (az adatszolgáltatás
-          évének végétől számított 5 év). Ha nem adod meg, szállítói tevékenységet nem
+          Megőrzés: az <strong>utolsó teljesített fuvarodtól</strong> számított{' '}
+          <strong>5 év</strong> (ha nincs teljesített fuvarod, az adat megadásától) —
+          ezt követően az adóazonosító jeled, a születési dátumod és a lakcímed
+          automatikusan törlődik. Ha nem adod meg, szállítói tevékenységet nem
           tudsz folytatni — feladóként a Platform ettől függetlenül használható.
         </li>
         <li>
@@ -158,6 +160,12 @@ export default function AdatkezelesPage() {
           (kapcsolatfelvételi díj)</li>
         <li><strong>KBOSS.hu Kft. (Számlázz.hu)</strong> (1031 Budapest) — számlázás: a számla
           kiállítása és kiküldése (név, számlázási cím, adószám, e-mail cím)</li>
+        <li><strong>Európai Bizottság (VIES adószám-ellenőrző)</strong> (EU) — uniós céges
+          vevő adószámának érvényesség-ellenőrzése a fordított adózáshoz; csak az
+          adószám megy át</li>
+        <li><strong>Nemzeti Adó- és Vámhivatal (Online Számla adóalany-lekérdezés)</strong>{' '}
+          (Magyarország) — a megadott magyar adószám és cégnév ellenőrzése az
+          „Ellenőrzött cég" jelvényhez</li>
         <li><strong>OpenStreetMap Foundation (Nominatim)</strong> (EU/Egyesült Királyság) —
           címek koordinátára fordítása (geokódolás) a szerveroldalon</li>
         <li><strong>ImprovMX</strong> (EU régió) — a @gofuvar.hu címekre érkező levelek

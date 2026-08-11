@@ -21,6 +21,13 @@ if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
     // PII-szűrés: request body eldobása, token-paraméterek kitakarása
     // (jelszó-reset / email-verify URL-tokenek!), auth-fejlécek törlése —
     // részletek: src/lib/sentryScrub.ts
+    // ⚠️ CONSOLE-BREADCRUMB KIKAPCSOLVA (2026-08-11, adatáramlási audit).
+    // A Sentry `consoleIntegration`-je ALAPÉRTELMEZÉS SZERINT BE VAN
+    // KAPCSOLVA: minden `console.log/warn/error` szövege breadcrumbként
+    // felkerül a következő hibaeseményre. Élő út volt rá, ami nyers
+    // e-mail-címet vitt ki a böngészőből. A PII-szűrő ma már ezt is takarja,
+    // de a helyes sorrend: NE IS keletkezzen. (A backend ugyanezt teszi.)
+    integrations: (alap) => alap.filter((i) => i.name !== 'Console'),
     beforeSend: scrubSentryEvent,
     // Mind a három boríték — a beforeSend csak a HIBA-eseményre fut.
     beforeSendSpan: scrubSentrySpan,
