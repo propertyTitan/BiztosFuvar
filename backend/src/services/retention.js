@@ -360,6 +360,11 @@ async function anonymizeOldJobs() {
               title = '(törölt fuvar)',
               ai_description_notes = NULL,
               source_image_url = NULL,
+              -- A 060-as migráció indoklása KIFEJEZETTEN nevesíti a csomag
+              -- deklarált értékét, az UPDATE mégis bennhagyta. A bolt neve
+              -- ugyanígy: a shipper_id-vel együtt vásárlási előzmény.
+              declared_value_huf = NULL,
+              source_store = NULL,
               -- A lakás belső adottságai (hányadik emelet, van-e lift) a
               -- címnél is beszédesebbek — üzleti értékük a lezárás után nincs.
               -- Ez a négy oszlop NOT NULL, ezért semleges alapértékre áll.
@@ -580,6 +585,12 @@ async function anonymizeOldCarrierRoutes() {
       `UPDATE carrier_routes
           SET description = NULL,
               vehicle_description = NULL,
+              -- ⚠️ A WAYPOINTS IS (2026-08-10): a függvény saját indoklása és a
+              -- 062-es migráció is a mozgásprofillal érvelt, az UPDATE mégis
+              -- csak a szabad szöveget ürítette. A járat TÉNYE (cím, időpont)
+              -- megmarad a title-ben; a soronkénti, azonosítható koordináta-
+              -- előzményre a „statisztikai cél" gyenge jogalap.
+              waypoints = '[]'::jsonb,
               anonymized_at = NOW()
         WHERE anonymized_at IS NULL
           AND is_template = FALSE
@@ -919,25 +930,95 @@ async function purgeOldTaxData() {
 
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
-  await purgeOldDeliveryPhotos();
-  await purgeOldChatMessages();
-  await purgeOldLocationPings();
-  await purgeStaleLastKnownLocation();
-  await purgeOldNotifications();
-  await purgeOldAdminMessages();
-  await purgeOldAdminAccessLog();
-  await expireAbandonedJobs();
-  await expireAbandonedBookings();
-  await anonymizeOldJobs();
-  await anonymizeOldCarrierRoutes();
-  await purgeOldDisputes();
-  await purgeOldInvoices();
-  await purgeEmergencyLocations();
-  await purgeOldDeletedAccounts();
-  await purgeOldKycDocHistory();
-  await purgeOldPaymentEvents();
-  await purgeOldEscrowTransactions();
-  await purgeOldTaxData();
+  // ⚠️ MEGFIGYELHETŐSÉG (2026-08-10, séma-audit): korábban minden purge
+  // lenyelte a saját hibáját, az ütemező pedig `.catch(() => {})`-tal hívott.
+  // Ha a kör hónapokig elszállt, azt SEMMI nem jelezte, és utólag bizonyítani
+  // sem lehetett, hogy valaha lefutott. A GDPR 5. cikk (2) épp ezt kéri:
+  // nem elég betartani a megőrzési időket, bizonyítani is kell tudni.
+  //
+  // Mostantól: minden kör eredménye naplóba kerül (személyes adat NÉLKÜL:
+  // mit futtattunk, mikor, hány sort érintett), a hiba pedig Sentry-riasztást
+  // kap — ugyanúgy, ahogy az SMS-kiesés (sms.js reportSmsFailure).
+  // Egy kör hibája NEM állítja meg a többit: mindegyik külön fut.
+  // A köröket NÉV szerint hívjuk a modul-exportról: így egy teszt le tudja
+  // cserélni bármelyiket (a belső hivatkozást nem lehetne), és a retenciós őr
+  // is látja a neveket a forrásban.
+  const KOR_NEVEK = [
+    'purgeOldDeliveryPhotos',
+    'purgeOldChatMessages',
+    'purgeOldLocationPings',
+    'purgeStaleLastKnownLocation',
+    'purgeOldNotifications',
+    'purgeOldAdminMessages',
+    'purgeOldAdminAccessLog',
+    'expireAbandonedJobs',
+    'expireAbandonedBookings',
+    'anonymizeOldJobs',
+    'anonymizeOldCarrierRoutes',
+    'purgeOldDisputes',
+    'purgeOldInvoices',
+    'purgeEmergencyLocations',
+    'purgeOldDeletedAccounts',
+    'purgeOldKycDocHistory',
+    'purgeOldPaymentEvents',
+    'purgeOldEscrowTransactions',
+    'purgeOldTaxData',
+  ];
+
+  const eredmeny = {};
+  const hibak = {};
+
+  for (const nev of KOR_NEVEK) {
+    try {
+      eredmeny[nev] = (await module.exports[nev]()) || 0;
+    } catch (err) {
+      // Ide csak akkor jutunk, ha a kör SAJÁT kezelése is elhasalt.
+      hibak[nev] = err.message;
+      console.error(`[retention] ${nev} elszállt:`, err.message);
+    }
+  }
+
+  const ok = Object.keys(hibak).length === 0;
+
+  try {
+    await db.query(
+      `INSERT INTO retention_runs (finished_at, eredmeny, hibak, ok)
+       VALUES (NOW(), $1::jsonb, $2::jsonb, $3)`,
+      [JSON.stringify(eredmeny), JSON.stringify(hibak), ok],
+    );
+  } catch (err) {
+    console.error('[retention] a futás-napló írása sikertelen:', err.message);
+  }
+
+  if (!ok) {
+    try {
+      const Sentry = require('@sentry/node');
+      Sentry.captureMessage(
+        `[retention] ${Object.keys(hibak).length} retenciós kör elszállt: ${Object.keys(hibak).join(', ')}`,
+        'error',
+      );
+    } catch { /* a riasztás hiánya nem akaszthatja meg a kört */ }
+  }
+
+  return { eredmeny, hibak, ok };
+}
+
+/**
+ * Mikor futott le UTOLJÁRA hibátlanul a napi kör?
+ * Az elszámoltathatóság bizonyítéka — és az alapja annak, hogy egy néma
+ * kiesés észrevehető legyen.
+ */
+async function lastSuccessfulRetentionRun() {
+  try {
+    const { rows } = await db.query(
+      `SELECT started_at, finished_at, eredmeny FROM retention_runs
+        WHERE ok = TRUE ORDER BY started_at DESC LIMIT 1`,
+    );
+    return rows[0] || null;
+  } catch (err) {
+    console.error('[retention] futás-napló olvasás hiba:', err.message);
+    return null;
+  }
 }
 
 module.exports = {
@@ -947,6 +1028,7 @@ module.exports = {
   shortenAnonymizedAddresses, expireAbandonedJobs, expireAbandonedBookings,
   purgeOldPaymentEvents, purgeOldEscrowTransactions, purgeOldTaxData, TAX_DATA_RETENTION_YEARS, ABANDONED_JOB_YEARS,
   anonymizeOldCarrierRoutes, purgeOldDisputes, purgeOldInvoices,
+  lastSuccessfulRetentionRun,
   purgeEmergencyLocations, purgeOldDeletedAccounts, purgeOldKycDocHistory, runDailyRetention,
   DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS, INVOICE_RETENTION_YEARS,
   SOS_LOCATION_RETENTION_DAYS, SOS_EVENT_RETENTION_YEARS,

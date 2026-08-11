@@ -76,6 +76,12 @@ const RETENTION_MANIFEST = {
     kivetel: 'Jelvény-hivatkozás, nem tartalmaz személyes adatot a felhasználó-hivatkozáson túl. '
       + 'Fiók-törléskor CASCADE.',
   },
+  retention_runs: {
+    kivetel: 'A retenciós körök FUTÁS-NAPLÓJA (mit futtattunk, mikor, hány sort '
+      + 'érintett, hibázott-e). Személyes adatot nem tartalmaz — épp az '
+      + 'elszámoltathatóság bizonyítéka (GDPR 5. cikk (2)), ezért nem is szabad '
+      + 'rövid határidővel törölni. A sorok mérete elhanyagolható (napi egy).',
+  },
   carrier_route_prices: {
     kivetel: 'Járat-szakaszok árazása, nem tartalmaz személyes adatot. A járattal CASCADE.',
   },
