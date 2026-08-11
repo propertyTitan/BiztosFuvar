@@ -497,12 +497,19 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
         // fordítottját implementáljuk itt, mivel az új job mondja ki a
         // "jelölt" állapotot, és mi a passzoló SZÁLLÍTÓKAT keressük.
         const { rows: activeTrips } = await db.query(
-          `SELECT DISTINCT carrier_id,
-                  pickup_lat, pickup_lng,
-                  dropoff_lat, dropoff_lng
-             FROM jobs
-            WHERE carrier_id IS NOT NULL
-              AND status IN ('accepted', 'in_progress')`,
+          // ⚠️ CSAK MEGERŐSÍTETT E-MAILŰ FIÓKNAK (2026-08-11, 9. mérés B3).
+          // Az értesítés törzse a fuvar CÍMÉT viszi — felhasználó által írt
+          // szabad szöveg, amit a retenció épp ezért anonimizál. Push-ként megy
+          // ki, lekérdezés nélkül. Az ikerútvonal (lane-alert) 2026-08-10 óta
+          // szűr email_verified-re; ez az ág kimaradt.
+          `SELECT DISTINCT j.carrier_id,
+                  j.pickup_lat, j.pickup_lng,
+                  j.dropoff_lat, j.dropoff_lng
+             FROM jobs j
+             JOIN users u ON u.id = j.carrier_id
+            WHERE j.carrier_id IS NOT NULL
+              AND j.status IN ('accepted', 'in_progress')
+              AND u.email_verified = TRUE`,
         );
         // JS oldali távolság-szűrés — aktív fuvar ritkán több száz, ez
         // tökéletes. Nagyobb skálán ebből SQL-alapú geo query lesz.

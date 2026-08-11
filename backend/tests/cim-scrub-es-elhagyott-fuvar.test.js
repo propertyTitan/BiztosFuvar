@@ -78,8 +78,15 @@ describe('Elhagyott fuvarok lezárása', () => {
   it('az egy évnél régebbi, ajánlat nélküli fuvar lezárul (így elérik a retenciós körök)', async () => {
     const felado = await createUser({ role: 'shipper' });
     const job = await createJob({ shipperId: felado.id, status: 'bidding' });
+    // ⚠️ MINDKÉT IDŐBÉLYEG RÉGI (2026-08-11). A lejáratás órája `updated_at`-ra
+    // váltott, mert a díjmentes újraválasztás a fuvart visszaállítja
+    // 'bidding'-re — ott a `created_at` már nem mond semmit arról, mikor
+    // mozdult utoljára. Egy VALÓDI két éves, érintetlen fuvarnak amúgy is
+    // mindkét bélyege régi; a régi fixtúra (csak created_at) irreális volt.
     await db.query(
-      `UPDATE jobs SET created_at = NOW() - ($2 || ' years')::interval WHERE id = $1`,
+      `UPDATE jobs SET created_at = NOW() - ($2 || ' years')::interval,
+                       updated_at = NOW() - ($2 || ' years')::interval
+        WHERE id = $1`,
       [job.id, ABANDONED_JOB_YEARS + 1],
     );
 
@@ -116,5 +123,41 @@ describe('Elhagyott fuvarok lezárása', () => {
 
     const { rows } = await db.query('SELECT status FROM jobs WHERE id = $1', [job.id]);
     expect(rows[0].status, 'egy KIFIZETETT fuvart zárt le automatikusan').toBe('bidding');
+  });
+});
+
+// =====================================================================
+//  A FIZETETT, MAJD ÚJRANYITOTT FUVAR (2026-08-11, 9. mérés — az
+//  állapot-mátrix őr saját találata)
+//
+//  ⚠️ A díjmentes újraválasztás (`reopenJobForNewDriver`) a fuvart
+//  VISSZAÁLLÍTJA 'bidding'-re, de a `paid_at`-ot MEGTARTJA — tehát a
+//  „fizetett, mégis nyitott" fuvar teljesen normális állapot. A lejáratás
+//  viszont `paid_at IS NULL`-t követelt, így ezek a fuvarok kiestek minden
+//  retenciós ág alól: a címzett adatai, az átvételi kód és az ÉLŐ követő-token
+//  határidő nélkül megmaradt.
+// =====================================================================
+describe('Fizetett, majd újranyitott fuvar sem ragadhat be', () => {
+  it('az egy éve mozdulatlan, KIFIZETETT nyitott fuvar is lezárul', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const job = await createJob({ shipperId: felado.id, status: 'bidding', paid: true });
+    await db.query(
+      `UPDATE jobs SET created_at = NOW() - ($2 || ' years')::interval,
+                       updated_at = NOW() - ($2 || ' years')::interval
+        WHERE id = $1`,
+      [job.id, ABANDONED_JOB_YEARS + 1],
+    );
+
+    await expireAbandonedJobs();
+
+    const { rows } = await db.query('SELECT status, paid_at FROM jobs WHERE id = $1', [job.id]);
+    expect(rows[0].paid_at, 'a fixture nem fizetett fuvart hozott létre').toBeTruthy();
+    expect(
+      rows[0].status,
+      'A KIFIZETETT, majd újranyitott és soha el nem vállalt fuvar nem zárult le.\n'
+      + 'Ez a díjmentes újraválasztás normál végállapota — és eddig kiesett\n'
+      + 'minden retenciós ág alól, tehát a címzett elérhetősége, az átvételi kód\n'
+      + 'és az élő követő-token HATÁRIDŐ NÉLKÜL megmaradt.',
+    ).toBe('cancelled');
   });
 });

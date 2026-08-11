@@ -788,7 +788,7 @@ export const api = {
       total_connections: number;
       anonymous: number;
       by_role: Record<string, number>;
-      users: Array<{ id: string; role: string; email: string | null; connections: number }>;
+      users: Array<{ id: string; role: string; connections: number }>;
     }>('/admin/live'),
 
   adminPaymentLog: (limit = 50) =>

@@ -47,8 +47,11 @@ const ADMIN_NAPLO_MANIFEST = {
       + 'elérhetőséget, egyedi felhasználói sort nem ad vissza.',
   },
   'GET /admin/live': {
-    kivetel: 'Élő jelenlét-összesítő: darabszámok szerep szerint. Nevet és '
-      + 'elérhetőséget nem ad vissza, csak azt, hányan vannak éppen az oldalon.',
+    kivetel: 'Élő jelenlét: szerepenkénti darabszám + felhasználó-azonosító és '
+      + 'kapcsolat-szám. Nevet és ELÉRHETŐSÉGET nem ad vissza — az e-mail-mező '
+      + '2026-08-11-én kikerült (a 9. mérés találata: a manifest ezt állította, '
+      + 'a kód mégis küldte, és a hozzáférés nyomtalan volt). A részletnézet, '
+      + 'ami elérhetőséget ad, naplózott.',
   },
   'GET /admin/dm/broadcasts': {
     kivetel: 'A SAJÁT körüzeneteink naplója (tárgy, szöveg, célcsoport, '

@@ -48,7 +48,10 @@ const BROADCAST_TARGET_LABEL: Record<string, string> = {
   company: 'Céges fiókok',
 };
 
-const JOB_STATUSES = ['pending', 'bidding', 'accepted', 'in_progress', 'delivered', 'completed', 'disputed', 'cancelled'];
+// ⚠️ A 'disputed' SZÁNDÉKOSAN NINCS a listán (2026-08-11): kézzel beállítva a
+// fuvar kiesne minden retenciós ág alól, és határidő nélkül megőrizné a
+// teljes PII-t. Vitát a vitarendezés nyit. A backend is elutasítja.
+const JOB_STATUSES = ['pending', 'bidding', 'accepted', 'in_progress', 'delivered', 'completed', 'cancelled'];
 const JOB_STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik', bidding: 'Ajánlatokat vár', accepted: 'Elfogadva',
   in_progress: 'Folyamatban', delivered: 'Lerakva', completed: 'Lezárva',
