@@ -84,6 +84,11 @@ function scrubBreadcrumbValue(value) {
   const q = out.indexOf('?');
   if (q === 0) return REDACTED;          // önálló query string (http.query)
   if (q > 0) return `${out.slice(0, q)}?${REDACTED}`; // teljes URL
+  // ⚠️ '?' NÉLKÜLI query string is létezik: a Sentry `requestDataIntegration`
+  // normalizált alakban (pl. „token=…&q=…") teszi az `url.query`-be. A '?'-re
+  // épülő vágás ezt változatlanul átengedte volna — ma nem elérhető ág, de egy
+  // SDK-frissítés vagy a span-streaming bekapcsolása élesíti.
+  if (/^[\w.%+-]+=/.test(out) && !out.includes('://') && !out.startsWith('/')) return REDACTED;
   return out;
 }
 
