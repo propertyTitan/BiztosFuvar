@@ -185,6 +185,28 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **A sózatlan okmány-lenyomatok kinullázása (2026-08-11, PR #169, 073-as
+  migráció — a prodon LEFUTOTT)** — USER-DÖNTÉS; két egymást követő mérés
+  hozta fel. Ez volt az UTOLSÓ pont, ahol ÍRÁSBAN olyat állítottunk, ami a
+  valóságra nem igaz: a személyi igazolvány számának értéktere felsorolható
+  (~10^8), tehát a sózatlan SHA-256 visszafejthető — miközben a tájékoztató,
+  a 30. cikkes nyilvántartás ÉS az érdekmérlegelési teszt II. (ami a 5 éves
+  megőrzést ÉPP erre alapozza) az ellenkezőjét állította. ⚠️ MÉRÉS A TÖRLÉS
+  ELŐTT: 7+7 sor, mind legacy, és a `deleted_account_count` ÖSSZESEN **0** —
+  vagyis ezekkel az okmányokkal még senki nem törölt fiókot, tehát a
+  „visszatérő törölt fiók" védelem semmi valósat nem veszített. ÁRA: a 7
+  pre-launch fiókra elveszik az „egy okmány = egy fiók" duplikátum-védelem
+  (öngyógyul, ha újra feltöltik az okmányt; minden ÚJ feltöltés eleve HMAC).
+  Az „átmeneti" sózatlan illesztés kikerült a kódból. **ŐR:**
+  `lenyomat-hmac-or.test.js` — nincs legacy sor a DB-ben, a számítás tényleg
+  a pepperrel megy, SEHOL nem készül sózatlan hash okmányszámból, az új sorok
+  HMAC-ként jelölődnek (lemérve: a visszatétel pirosra vált). ⚠️ A meglévő
+  end-to-end duplikátum-teszt a LEGACY ágat mérte — NEM töröltem, hanem
+  ÁTÁLLÍTOTTAM a HMAC-os, élő útra, és visszamértem, hogy továbbra is fog.
+  ⚠️ TANULSÁG: a 061-es migráció ezt az érvelést MÁR LEÍRTA az
+  e-mail-lenyomatnál, a 063 mégis sózatlanul vezette be az okmány-lenyomatot —
+  a helyes érvelés önmagában nem elég, kikényszerítés kell hozzá.
+  Backend **788/788**.
 - **9. ADATVÉDELMI MÉRÉS + javítások (2026-08-11, PR #168)** — 2 ügynök
   (adatáramlás / séma, a jogi kihagyva: ott 9/10 stabil): **8 és 7 pont**.
   ⚠️⚠️ **A KÖR KÉT LEGFONTOSABB TANULSÁGA A SAJÁT MUNKÁMRÓL:**
@@ -222,9 +244,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   nélkül; `/bids/mine` örök pontos cím; visszafuvar-push `email_verified`
   nélkül; az AI KYC-kifogás szabad szövege a logban; a fuvar LEÍRÁSÁNAK
   anonimizálását semmi nem őrizte. Backend **784/784**.
-  ⚠️ NYITOTT: a 14 `sha256-legacy` okmány-lenyomat (sózatlan SHA-256, a
-  dokumentumok „visszafejthetetlent" állítanak — USER-DÖNTÉS kell a
-  kinullázáshoz); a retenciós manifest `bids`/`job_questions` sorai hamis
+  ⚠️ NYITOTT: a retenciós manifest `bids`/`job_questions` sorai hamis
   premisszán állnak („a fuvarral CASCADE" — a fuvart nem töröljük, hanem
   anonimizáljuk); az admin ÍRÁSAI (KYC-státusz, szerep, törlés) nem naplózottak.
 - **8. ADATVÉDELMI MÉRÉS + a találatok javítása (2026-08-11, PR #167)** — 3
