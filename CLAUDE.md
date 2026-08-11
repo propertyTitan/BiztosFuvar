@@ -185,6 +185,48 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **9. ADATVÉDELMI MÉRÉS + javítások (2026-08-11, PR #168)** — 2 ügynök
+  (adatáramlás / séma, a jogi kihagyva: ott 9/10 stabil): **8 és 7 pont**.
+  ⚠️⚠️ **A KÖR KÉT LEGFONTOSABB TANULSÁGA A SAJÁT MUNKÁMRÓL:**
+  **(1) A SOCKET-RÉTEGET SEMMI NEM VÉDTE.** Az ellenpélda szerint két sor
+  átírásával kivehető a socket-jogosultság úgy, hogy a suite zöld marad —
+  LEMÉRTEM, IGAZ VOLT: a `job:join` DB-ellenőrzéséből kivéve a
+  shipper_id/carrier_id feltételt és a `feed:join` `&&`-jét `||`-ra cserélve
+  MIND A 774 TESZT ÁTMENT. Bárki beléphetett volna BÁRMELY fuvar szobájába
+  (élő GPS, fotók, ajánlatok), és minden meg nem erősített fiók megkapta volna
+  a feeden a pontos címeket. Ok: a socket-őr FORRÁSSZÖVEGET illesztett, és
+  egyetlen teszt sem nyitott valódi socketet. Most: `socket.io-client`
+  (dev-függőség) + `socket-szoba-jogosultsag.test.js` VALÓDI kapcsolattal.
+  **(2) MÁSODSZOR JAVÍTOTTAM UGYANAZT TÜNET-SZINTEN.** A 8. körben a
+  `disputed`+`hold=TRUE` ágat javítottam; a 9. azonnal talált másikat:
+  `disputed`+`hold=FALSE` MINDKÉT ágból kiesik, **egy admin-kattintással**,
+  kiút nélkül. Javítás: a beíró utak elzárva (a `disputed` kézzel nem
+  állítható, vitáson a zárolás nem oldható fel), `repairDisputedHold` kör a
+  MEGLÉVŐ sorokra, és **ÁLLAPOT-MÁTRIX ŐR** (`retencio-allapot-matrix.test.js`):
+  minden státusz × zárolás kombináció, a VALÓS enumból olvasva. ⚠️ A mátrix
+  azonnal talált egy továbbit, amit egyik ügynök sem: a díjmentes
+  újraválasztás `bidding`-re állít vissza, de MEGTARTJA a `paid_at`-ot — a
+  lejáratás viszont `paid_at IS NULL`-t követelt, tehát a kifizetett, soha el
+  nem vállalt fuvar örökre őrizte a címzett adatait és az ÉLŐ követő-tokent
+  (az óra mostantól `updated_at`). **AZ ŐREIM, MEGINT:** a megőrzési-idő
+  horgony `'8 év'` ellenőrzését a „kizárólag **18 év**en felüliek" mondat
+  kielégítette (a bekezdés-bontásom a címkéket a bontás ELŐTT szedte le → egy
+  óriási szövegdarab); a **KYC-fájl 30 napos törlése** (a legérzékenyebb adat)
+  NEM volt horgonyozva, mert más modulban él → a 30→3650 átment volna; a saját
+  állapot-mátrixom foglalási ága **VAKON ZÖLDELT** (a `createBooking`
+  `{booking, routeId}`-t ad vissza, nem a sort — a `continue` elfedte).
+  Tényleges szivárgások: a foglalási ág CÍM-mezői a kontakt-szűrőn kívül; a
+  járat `waypoints` szűretlen ÉS renderelt (tartós hirdetőfelület lett volna);
+  a `/admin/live` e-mailt adott NYOMTALANUL (a manifestem az ellenkezőjét
+  állította); `along-jobs`/`backhaul` feladói NÉV + pontos cím e-mail-kapu
+  nélkül; `/bids/mine` örök pontos cím; visszafuvar-push `email_verified`
+  nélkül; az AI KYC-kifogás szabad szövege a logban; a fuvar LEÍRÁSÁNAK
+  anonimizálását semmi nem őrizte. Backend **784/784**.
+  ⚠️ NYITOTT: a 14 `sha256-legacy` okmány-lenyomat (sózatlan SHA-256, a
+  dokumentumok „visszafejthetetlent" állítanak — USER-DÖNTÉS kell a
+  kinullázáshoz); a retenciós manifest `bids`/`job_questions` sorai hamis
+  premisszán állnak („a fuvarral CASCADE" — a fuvart nem töröljük, hanem
+  anonimizáljuk); az admin ÍRÁSAI (KYC-státusz, szerep, törlés) nem naplózottak.
 - **8. ADATVÉDELMI MÉRÉS + a találatok javítása (2026-08-11, PR #167)** — 3
   független ügynök (jogi / adatáramlási / séma): **9, 7, 8 pont**. ⚠️ A KÖR
   MÓDSZERTANI TANULSÁGA: **ellenpéldát kértem érvelés helyett** („mondd meg,
