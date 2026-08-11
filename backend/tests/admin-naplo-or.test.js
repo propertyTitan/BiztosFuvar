@@ -22,10 +22,22 @@ const { ADMIN_NAPLO_MANIFEST } = require('./adminNaploManifest');
 
 const NAPLO = 'logAdminAccess';
 
-/** Minden admin-felületi GET (a mount-prefix alapján). */
+/**
+ * Minden ADMIN-KÉPES GET — a hívási lánc alapján, NEM útvonal-prefix szerint.
+ *
+ * ⚠️ 2026-08-11: az őr korábban `path.startsWith('/admin/')`-gal szűrt, ezért
+ * MINDEN admin-képes végpont, ami nem az `/admin/` alatt lakik, láthatatlan
+ * volt neki — köztük a `GET /payments/admin/log`, ami NEM naplózott, és a
+ * `GET /disputes` admin-ága, ami csak véletlenül naplózott (az őr nem
+ * kényszerítette). Ugyanaz a hibaosztály, amit ez az őr ünnepel a
+ * fejlécében — csak egy szinttel feljebb.
+ */
 function adminGetek() {
   return listRoutes(expressApp).filter(
-    (r) => r.method === 'GET' && r.path.startsWith('/admin/'),
+    (r) => r.method === 'GET'
+      && (r.path.startsWith('/admin/')
+        || r.middlewares.some((m) => /^(adminOnly|requireRole)/.test(m))
+        || r.path.includes('/admin/')),
   );
 }
 

@@ -71,12 +71,37 @@ describe('Retenciós őr: minden táblának ismernie kell az életciklusát', ()
     }
   });
 
-  it('a napi kör tényleg meghívja a manifestben hivatkozott függvényeket', () => {
-    // Az őr önmagában nem ér semmit, ha a hivatkozott függvények nem futnak.
-    // A napi kör forrását nézzük: minden nevesített purge/anonimizáló
-    // szerepeljen benne.
-    const forras = require('fs').readFileSync(`${__dirname}/../src/services/retention.js`, 'utf8');
-    const napiKor = forras.slice(forras.indexOf('async function runDailyRetention'));
+  it('a napi kör TÉNYLEGESEN meghívja a manifestben hivatkozott függvényeket', async () => {
+    // ⚠️ EZ A TESZT KORÁBBAN BIZONYÍTOTTAN VAK VOLT (2026-08-11).
+    //
+    // Szövegben kereste a függvényneveket a `runDailyRetention`-től a fájl
+    // VÉGÉIG tartó szeletben — csakhogy az a szelet tartalmazza a
+    // `module.exports = {…}` blokkot is, amiben MINDEN purge-név szerepel.
+    // Így bármelyik EXPORTÁLT függvényre igazat adott, akkor is, ha a napi
+    // kör soha nem hívta meg. Bizonyítva: a `purgeOldTaxData` kivétele a
+    // KOR_NEVEK-ből (a DAC7-adat 5 éves törlése némán megszűnik) NEM tette
+    // pirossá az őrt.
+    //
+    // Mostantól nem szöveget nézünk, hanem LEFUTTATJUK a napi kört mockolt
+    // modul-exporttal, és feljegyezzük, MELYIKET hívta meg ténylegesen.
+    // (A `runDailyRetention` a köröket `module.exports[nev]()`-vel hívja, épp
+    // azért, hogy ez mérhető legyen.)
+    const hivott = new Set();
+    const eredetiek = {};
+
+    const nevek = Object.keys(retention).filter(
+      (k) => typeof retention[k] === 'function' && /^(purge|anonymize|expire|shorten)/.test(k),
+    );
+    for (const nev of nevek) {
+      eredetiek[nev] = retention[nev];
+      retention[nev] = async () => { hivott.add(nev); return 0; };
+    }
+
+    try {
+      await retention.runDailyRetention();
+    } finally {
+      for (const [nev, fn] of Object.entries(eredetiek)) retention[nev] = fn;
+    }
 
     const hivatkozott = new Set();
     for (const be of Object.values(RETENTION_MANIFEST)) {
@@ -89,19 +114,27 @@ describe('Retenciós őr: minden táblának ismernie kell az életciklusát', ()
 
     // A KYC-fotó purge külön ütemezett (index.js), nem a napi retenciós körben.
     const MASHOL_UTEMEZETT = ['purgeOldKycFiles'];
-    const nemFut = [...hivatkozott].filter(
-      (fn) => !MASHOL_UTEMEZETT.includes(fn) && !napiKor.includes(fn),
+    const nemFutott = [...hivatkozott].filter(
+      (fn) => !MASHOL_UTEMEZETT.includes(fn) && !hivott.has(fn),
     );
-    expect(
-      nemFut,
-      `A manifest olyan retenciós függvényre hivatkozik, amit a napi kör NEM hív meg: `
-      + `${nemFut.join(', ')}. Egy meg nem hívott szabály papír-ígéret.`,
-    ).toEqual([]);
 
-    // És legyen exportálva is (különben nem tesztelhető)
-    for (const fn of hivatkozott) {
-      if (MASHOL_UTEMEZETT.includes(fn)) continue;
-      expect(typeof retention[fn], `a ${fn} nincs exportálva a retention.js-ből`).toBe('function');
-    }
+    expect(
+      nemFutott,
+      `A manifest olyan retenciós szabályra hivatkozik, amit a napi kör NEM hívott meg: `
+      + `${nemFutott.join(', ')}.\n\nEgy meg nem hívott szabály papír-ígéret: a `
+      + 'tájékoztatóban ott a megőrzési idő, a gépben nincs, aki végrehajtsa.',
+    ).toEqual([]);
+  });
+
+  it('a MÁSHOL ütemezett kivétel tényleg ütemezve van', () => {
+    // ⚠️ A `purgeOldKycFiles` az egyetlen kivétel a fenti tesztben — és eddig
+    // ELLENŐRIZETLENÜL. Ha valaki kiveszi az index.js-ből, az őr zöld marad,
+    // miközben a SZEMÉLYI IGAZOLVÁNY fotójának 30 napos törlése megszűnik.
+    const index = require('fs').readFileSync(`${__dirname}/../src/index.js`, 'utf8');
+    expect(
+      index.includes('purgeOldKycFiles'),
+      'A KYC-fotó purge nincs ütemezve az index.js-ben — ez a rendszer '
+      + 'legérzékenyebb törlése (a személyi igazolvány nyers fotója).',
+    ).toBe(true);
   });
 });

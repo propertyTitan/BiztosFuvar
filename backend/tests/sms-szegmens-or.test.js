@@ -21,11 +21,37 @@ import { readFileSync } from 'fs';
 // UCS-2 (ékezetes) SMS: 70 kar egy szegmensben, összefűzve 67/szegmens.
 const KET_SZEGMENS_MAX = 134;
 
-const FORRAS = readFileSync(`${__dirname}/../src/routes/photos.js`, 'utf8');
+// ⚠️ MINDEN route-fájl (2026-08-11). Az őr korábban CSAK a photos.js-t
+// olvasta, és a sablont a „GoFuvar: úton a csomagod!" nyitómondathoz kötötte
+// — egy másik fájlból küldött, más szövegű címzetti SMS-re teljesen vak volt.
+// Pedig épp az a mérce, hogy „a címzett EGYETLEN csatornája".
+const ROUTES_DIR = `${__dirname}/../src/routes`;
+const ROUTE_FAJLOK = require('fs').readdirSync(ROUTES_DIR)
+  .filter((f) => f.endsWith('.js'))
+  .map((f) => ({ nev: f, forras: readFileSync(`${ROUTES_DIR}/${f}`, 'utf8') }))
+  .filter((x) => x.forras.includes('sendSms('));
+const FORRAS = ROUTE_FAJLOK.map((x) => x.forras).join('\n');
 
 /** A felvételkori SMS-ek sablonjai a forrásból. */
+/**
+ * Minden SMS-küldés: a sablon ÉS a hozzá tartozó fájl név-plafona.
+ * ⚠️ A plafont FÁJLONKÉNT olvassuk — ha az összes route `.slice()`-át
+ * néznénk, egy másik fájl hosszabb vágása némán elrontaná a számítást.
+ */
+function kuldesek() {
+  const out = [];
+  for (const { nev, forras } of ROUTE_FAJLOK) {
+    const capok = [...forras.matchAll(/\.slice\(0,\s*(\d+)\)/g)].map((m) => Number(m[1]));
+    const nevCap = capok.length ? Math.max(...capok) : 0;
+    for (const m of forras.matchAll(/sendSms\([^,]+,\s*(`[^`]*`)/g)) {
+      out.push({ fajl: nev, sablon: m[1], nevCap });
+    }
+  }
+  return out;
+}
+
 function sablonok() {
-  return [...FORRAS.matchAll(/`GoFuvar: úton a csomagod![^`]*`/g)].map((m) => m[0]);
+  return kuldesek().map((k) => k.sablon);
 }
 
 /**
@@ -75,8 +101,15 @@ function legrosszabbHossz(sablon, nevCap, telHossz) {
 }
 
 describe('Felvételkori SMS a címzettnek', () => {
-  it('mindkét ág (fuvar + foglalás) sablonja megvan', () => {
-    expect(sablonok().length, 'nem találtam a felvételkori SMS-sablonokat — az őr vak').toBe(2);
+  it('minden SMS-küldés sablonja megtalálható', () => {
+    const hivasok = (FORRAS.match(/sendSms\(/g) || []).length;
+    expect(hivasok, 'nem találtam sendSms hívást — az őr vak').toBeGreaterThan(0);
+    expect(
+      sablonok().length,
+      `${hivasok} sendSms hívás van, de csak ${sablonok().length} sablont ismertem fel. `
+      + 'Ha egy küldés nem template-literállal megy, az őr NEM méri — írd át, '
+      + 'vagy igazítsd a felismerést.',
+    ).toBe(hivasok);
   });
 
   it('tartalmazza a GDPR 14. cikk szerinti mutatót', () => {
@@ -90,14 +123,10 @@ describe('Felvételkori SMS a címzettnek', () => {
   });
 
   it('a legrosszabb eset is 2 szegmensen belül marad (nem drágul az üzem)', () => {
-    // A név-plafont a forrásból olvassuk ki, hogy a teszt ne csússzon el tőle.
-    const capok = [...FORRAS.matchAll(/\.slice\(0,\s*(\d+)\)/g)].map((m) => Number(m[1]));
-    const nevCap = Math.max(...capok);
-    expect(nevCap, 'nem találtam a név-plafont a forrásban').toBeGreaterThan(0);
-
     const telHossz = telefonMaxHossz();
-    for (const s of sablonok()) {
-      const hossz = legrosszabbHossz(s, nevCap, telHossz);
+    for (const { fajl, sablon, nevCap } of kuldesek()) {
+      expect(nevCap, `nem találtam név-plafont a ${fajl}-ban`).toBeGreaterThan(0);
+      const hossz = legrosszabbHossz(sablon, nevCap, telHossz);
       expect(
         hossz,
         `Az SMS legrosszabb esete ${hossz} karakter, a 2 szegmenses határ ${KET_SZEGMENS_MAX}. `

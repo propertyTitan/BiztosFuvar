@@ -395,6 +395,11 @@ async function anonymizeOldJobs() {
               dropoff_lat = ROUND(dropoff_lat::numeric, 2),
               dropoff_lng = ROUND(dropoff_lng::numeric, 2),
               notes = NULL,
+              -- ⚠️ 2026-08-11: a cancel_reason a FUVAR-ágon (fent) NULL-ra
+              -- áll, a foglalási ágon kimaradt. Felhasználó által írt szabad
+              -- szöveg („nem volt otthon senki a Fő u. 12-ben, hívtam a
+              -- 06-30…-t"), és határidő nélkül maradt volna.
+              cancel_reason = NULL,
               anonymized_at = NOW()
         WHERE anonymized_at IS NULL
           AND status::text = ANY($1)
@@ -585,6 +590,12 @@ async function anonymizeOldCarrierRoutes() {
       `UPDATE carrier_routes
           SET description = NULL,
               vehicle_description = NULL,
+              -- ⚠️ A TITLE IS (2026-08-11). A beíró-pont mind a hármat AZONOSAN
+              -- kezeli (ugyanaz a kapcsolat-szűrő fut rájuk), és a FUVAR-ágon
+              -- épp ezért döntöttünk a title ürítése mellett — a járatnál
+              -- mégis bennmaradt. Ugyanaz az érv, ugyanaz a kockázat,
+              -- ellentétes végrehajtás volt.
+              title = '(lejárt járat)',
               -- ⚠️ A WAYPOINTS IS (2026-08-10): a függvény saját indoklása és a
               -- 062-es migráció is a mozgásprofillal érvelt, az UPDATE mégis
               -- csak a szabad szöveget ürítette. A járat TÉNYE (cím, időpont)
