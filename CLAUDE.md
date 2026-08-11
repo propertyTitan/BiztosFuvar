@@ -185,6 +185,50 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **8. ADATVÉDELMI MÉRÉS + a találatok javítása (2026-08-11, PR #167)** — 3
+  független ügynök (jogi / adatáramlási / séma): **9, 7, 8 pont**. ⚠️ A KÖR
+  MÓDSZERTANI TANULSÁGA: **ellenpéldát kértem érvelés helyett** („mondd meg,
+  melyik sort vegyem ki ahhoz, hogy a rendszer sérüljön, miközben a tesztek
+  zöldek maradnak") — mind az 5 megadott ellenpélda IGAZNAK bizonyult,
+  lefuttatva. Ez sokkal többet ért bármilyen véleménynél; **a következő
+  köröknél is így kérd.** Négy érdemi találat: **(1) HATÁRIDŐ NÉLKÜLI PII** —
+  az anonimizálás felső szinten szűrt a lezárt státuszokra, amiben a
+  `disputed` NINCS benne: egy soha le nem zárt vitánál a címzett-adatok, az
+  átvételi kód, az ÉLŐ követő-token és a pontos cím ÖRÖKRE megmaradt (a
+  tájékoztató 5 évet ígér). A státusz-szűrő mostantól CSAK a nem zárolt ágra
+  vonatkozik — ahogy a fotó- és chat-purge már helyesen csinálta.
+  **(2) ÉLŐ SZIVÁRGÁS A BÖNGÉSZŐBŐL** — az alak-független PII-szűrés csak a
+  backendre került fel; a Sentry console-integrációja alapból BE van
+  kapcsolva, tehát minden `console.log` breadcrumbként kimegy (volt élő út
+  nyers e-maillel). **(3)** a jelszó-reset nem bontotta a nyitott socketet (a
+  socket-ellenőrzés CSAK a handshake-kor fut) — az ellopott tokennel nyitott
+  fül tovább kapta az értesítéseket, az élő GPS-t és a feed pontos címeit.
+  **(4)** a tároló-törlés R2-hibánál csendben `false`-t ad, a purge mégis
+  törölte az egyetlen mutatót → néma, végleges árva a PUBLIKUS bucketben.
+  ⚠️⚠️ **A LEGFONTOSABB RÉSZ — A SAJÁT ŐREIM VOLTAK VAKOK**: mindhárom
+  szöveg-illesztő őrt **egy KOMMENT kielégítette** (az admin-naplózás
+  `// TODO:`-vá alakítva kivehető volt; az export-őr elhitte a saját
+  állítását, hogy „az exportban szerepel (vitaim)"), a Sentry-őr pedig
+  KIZÁRÓLAG a backend modult töltötte be. És a megőrzési IDŐT semmi nem kötötte
+  a publikált ígérethez: a `JOB_PII_RETENTION_YEARS` 3→30-ra átírva az EGÉSZ
+  suite zöld maradt (lemérve). Javítás: komment-szűrés, **futtatás-alapú**
+  kikényszerítés (az export-őr meghívja a végpontot, az admin-őr a naplótáblát
+  nézi), **közös PII-korpusz** (`shared/pii-teszt-korpusz.json`), amit a
+  backend suite MINDKÉT megvalósításon lefuttat (betölti a web TS-modulját —
+  ez azonnal kimutatta, hogy a `request.url` EGYIK oldalon sem kapott
+  PII-szűrést), és **horgony-őr** 14 megőrzési időre, a publikált számhoz
+  kötve + visszaellenőrizve, hogy az ígéret ott van a tájékoztatóban.
+  ⚠️ SZABÁLY MOSTANTÓL: **minden javításnál mérd le, hogy az őr a javítás
+  NÉLKÜL tényleg pirosra vált** — enélkül az őr csak dísz. Egyéb: DPIA 3.
+  kockázati sora („minden döntés emberi") a saját dokumentumának is
+  ellentmondott; VIES + NAV-lekérdezés felvéve a címzett-listára; 072-es
+  migráció (elavult `users.kyc_status` + 7 halott oszlop, prodon lefutott);
+  maszkolatlan e-mail a Resend-hibalogban (`maskInText`); a lane-alert push
+  település-szintre; az adatexport nyomot hagy. Backend **774/774**.
+  ⚠️ NYITOTT, USER-DÖNTÉST IGÉNYEL: a címzett a fuvar LÉTREHOZÁSAKOR e-mailben
+  megkapja az átvételi kódot (a `/tracking/:token` ugyanezt `paid_at` mögé
+  zárja) — elgépelt címnél idegen kap érvényes kódot; a felvételkori
+  SMS-modell user-döntés volt (2026-07-13), ezért nem írtam át egyoldalúan.
 - **ADATVÉDELMI KÖR 4-5 — a HÁROM LENCSE megismételve + teljes javítás
   (2026-08-10/11, PR #150-159)** — a user kérése: „ha valamit kijavítasz,
   akkor később ne derüljön ki, hogy mégis rossz". A 3 független ügynök
