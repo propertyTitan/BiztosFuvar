@@ -99,10 +99,31 @@ async function purgeOldDeliveryPhotos() {
       [BOOKING_TERMINAL, DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS, PHOTO_KINDS],
     );
 
+    let beragadt = 0;
     for (const p of [...jobPhotos, ...bookingPhotos]) {
-      await storage.deleteFile(p.url); // data:/hiányzó objektumnál is "rendben" — nem blokkol
+      const ok = await storage.deleteFile(p.url);
+      // ⚠️ SIKERTELEN TÖRLÉSNÉL MEGTARTJUK A DB-SORT (2026-08-11, 8. mérés).
+      // A deleteFile R2-hibánál CSENDBEN false-t ad. Ha ilyenkor is töröltük
+      // a photos sort — az EGYETLEN mutatót —, az objektum VÉGLEGESEN a
+      // PUBLIKUS bucketben maradt: se retry, se riasztás, se sepregető.
+      // A sor megtartásával a holnapi kör újrapróbálja. (data:URL és már
+      // hiányzó objektum true-t ad, tehát azok nem ragadnak be.)
+      // Ugyanez a hibaosztály a KYC-ágon már zárva volt (services/kyc.js).
+      if (!ok) {
+        beragadt += 1;
+        continue;
+      }
       await db.query('DELETE FROM photos WHERE id = $1', [p.id]);
       purged += 1;
+    }
+    if (beragadt > 0) {
+      console.error(`[photo-retention] ${beragadt} fotó tároló-törlése sikertelen — a DB-sort MEGTARTJUK, holnap újrapróbáljuk`);
+      try {
+        require('@sentry/node').captureMessage(
+          `[photo-retention] ${beragadt} fotó törlése sikertelen (tároló-hiba) — a mutatók megmaradtak`,
+          'warning',
+        );
+      } catch { /* a Sentry hiánya ne akassza meg a kört */ }
     }
     if (purged > 0) {
       console.log(`[photo-retention] ${purged} felvételi/lerakós fotó törölve (>${DEFAULT_RETENTION_DAYS} nap, zároltak: ${HOLD_RETENTION_YEARS} év)`);
@@ -374,9 +395,17 @@ async function anonymizeOldJobs() {
               dropoff_has_elevator = FALSE,
               anonymized_at = NOW()
         WHERE anonymized_at IS NULL
-          AND status = ANY($1)
+          -- ⚠️ A STÁTUSZ-SZŰRŐ CSAK A NEM ZÁROLT ÁGRA VONATKOZIK (2026-08-11).
+          -- Korábban felső szinten állt, ezért a disputed fuvar (ami nincs a
+          -- JOB_TERMINAL-ban) SOHA nem anonimizálódott: ha egy vitát nem zárnak
+          -- le, a címzett neve/telefonja/e-mailje, az átvételi kód, az ÉLŐ
+          -- követő-token és a házszámig pontos cím HATÁRIDŐ NÉLKÜL megmaradt —
+          -- miközben a tájékoztató 5 évet ígér. Ugyanennek a fájlnak a fotó- és
+          -- chat-purge ága már helyesen járt el (a zárolt ág ott sem szűr
+          -- státuszra); ez az ág csúszott ki alóla.
           AND (
-            (photo_retention_hold = FALSE AND updated_at < NOW() - ($2 || ' years')::interval)
+            (photo_retention_hold = FALSE AND status = ANY($1)
+              AND updated_at < NOW() - ($2 || ' years')::interval)
             OR
             (photo_retention_hold = TRUE  AND updated_at < NOW() - ($3 || ' years')::interval)
           )`,
@@ -402,9 +431,11 @@ async function anonymizeOldJobs() {
               cancel_reason = NULL,
               anonymized_at = NOW()
         WHERE anonymized_at IS NULL
-          AND status::text = ANY($1)
+          -- ⚠️ Ugyanaz, mint a fuvar-ágon: a státusz-szűrő csak a NEM zárolt
+          -- ágra való, különben a lezáratlan vitás foglalás örökre PII marad.
           AND (
             (photo_retention_hold = FALSE
+              AND status::text = ANY($1)
               AND COALESCE(delivered_at, created_at) < NOW() - ($2 || ' years')::interval)
             OR
             (photo_retention_hold = TRUE
@@ -646,14 +677,32 @@ async function purgeOldDisputes() {
     );
     if (rows.length === 0) return 0;
 
+    // ⚠️ Ugyanaz a szabály, mint a fotóknál: ha a bizonyíték-fájl törlése
+    // elbukik, a vita-sort MEGTARTJUK (az az egyetlen mutató a fájlra).
+    // Korábban a `try { … } catch {}` elnyelte a hibát, és a DELETE feltétel
+    // nélkül lefutott — néma, végleges árva a tárolóban.
+    const torolheto = [];
+    let beragadtVita = 0;
     for (const d of rows) {
       if (d.evidence_url) {
-        try { await storage.deleteFile(d.evidence_url); } catch { /* a sor törlése a lényeg */ }
+        const ok = await storage.deleteFile(d.evidence_url).catch(() => false);
+        if (!ok) { beragadtVita += 1; continue; }
       }
+      torolheto.push(d.id);
     }
+    if (beragadtVita > 0) {
+      console.error(`[retention] ${beragadtVita} vita bizonyíték-fájljának törlése sikertelen — a sort MEGTARTJUK`);
+      try {
+        require('@sentry/node').captureMessage(
+          `[retention] ${beragadtVita} vita-bizonyíték törlése sikertelen (tároló-hiba)`,
+          'warning',
+        );
+      } catch { /* nem akaszthatja meg a kört */ }
+    }
+    if (torolheto.length === 0) return 0;
     const { rowCount } = await db.query(
       'DELETE FROM disputes WHERE id = ANY($1)',
-      [rows.map((r) => r.id)],
+      [torolheto],
     );
     console.log(`[retention] ${rowCount} lezárt vita elévült (>${HOLD_RETENTION_YEARS} év)`);
     return rowCount || 0;

@@ -86,11 +86,29 @@ async function purgeUserFiles(userId, opts = {}) {
   let deleted = 0;
   try {
     const keys = Array.isArray(opts.keys) ? opts.keys : await collectUserFileKeys(userId);
+    let sikertelen = 0;
     for (const key of keys) {
       if (await storage.deleteFile(key)) deleted += 1;
+      else sikertelen += 1;
     }
     if (deleted > 0) {
       console.log(`[user-files] ${deleted} tárolt fájl törölve a fiók-törléskor (user ${userId})`);
+    }
+    // ⚠️ ITT NEM LEHET „MEGTARTJUK A MUTATÓT" (2026-08-11, 8. mérés).
+    // A retenciós köröknél a sikertelen tároló-törlésnél megtartjuk a DB-sort,
+    // és holnap újrapróbáljuk. Fiók-törlésnél ez nem járható: a sorok
+    // CASCADE-del amúgy is elmennek, tehát a mutató elveszik. Ilyenkor a
+    // fájl VÉGLEGESEN árva marad — beleértve a személyi igazolvány fotóját.
+    // Ezért ez az egyetlen hely, ahol a néma kudarc elfogadhatatlan: RIASZT,
+    // hogy legyen mit egyeztetni a bucket ↔ DB összevetéskor.
+    if (sikertelen > 0) {
+      console.error(`[user-files] ⚠️ ${sikertelen} fájl törlése SIKERTELEN a fiók-törléskor (user ${userId}) — VÉGLEGESEN árva marad`);
+      try {
+        require('@sentry/node').captureMessage(
+          `[user-files] ${sikertelen} fájl árván maradt a fiók törlésekor (user ${userId}) — GDPR 17. cikk, kézi takarítás kell`,
+          'error',
+        );
+      } catch { /* a Sentry hiánya ne akassza meg a törlést */ }
     }
   } catch (err) {
     console.error('[user-files] fiók-fájl purge hiba:', err.message);

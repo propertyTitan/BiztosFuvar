@@ -33,7 +33,11 @@ const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', '
 //                        számot (services/vat.js), nem query-paraméterbe
 // A `/private-files/<név>?exp=…&sig=…` a KYC-okmány dev-fallback olvasó-útja
 // (aláírt, lejáró link) — a `sig`/`exp` a SENSITIVE_PARAMS-ban is szerepel.
-const SENSITIVE_PATH_RE = /(\/tracking\/|\/vat\/|\/private-files\/)[^/?#]+/gi;
+// ⚠️ A KÉT MEGVALÓSÍTÁS SZÉTCSÚSZOTT (2026-08-11, közös korpusz): innen a
+// `/nyomon-kovetes/` (a webes publikus követő-oldal) hiányzott, a webből
+// pedig a `/vat/` és a `/private-files/`. Mostantól a lista SZIMMETRIKUS —
+// a backend a webes URL-t is láthatja (referer, hibaüzenet, breadcrumb).
+const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/|\/vat\/|\/private-files\/)[^/?#]+/gi;
 
 // A breadcrumb-adatok azon kulcsai, amelyekben URL vagy query string állhat.
 // A `http.query` a Sentry Node SDK saját mezője: a kimenő fetch NYERS query
@@ -163,8 +167,11 @@ function scrubSentryEvent(event) {
         delete req.headers.Cookie;
       }
       // 3) Tokenek az URL-ben / query stringben
-      req.url = scrubUrlLike(req.url);
-      req.query_string = scrubUrlLike(req.query_string);
+      // ⚠️ A `request` KIMARAD a mélybejárásból (fent, a `kihagy` halmazban),
+      // ezért a PII-szűrést ITT kell rátenni — enélkül a kérés-URL-be írt
+      // e-mail/telefon átment (a közös korpusz ezt azonnal elkapta).
+      req.url = piiSzures(scrubUrlLike(req.url));
+      req.query_string = piiSzures(scrubUrlLike(req.query_string));
       // 4) Sütik külön mezőben is érkezhetnek
       delete req.cookies;
     }

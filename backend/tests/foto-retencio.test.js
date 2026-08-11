@@ -8,8 +8,8 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
-const { db, createUser } = require('./helpers');
-const { purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings } = require('../src/services/retention');
+const { db, createUser, createJob } = require('./helpers');
+const { purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings, DEFAULT_RETENTION_DAYS } = require('../src/services/retention');
 
 // data: URL — a deleteFile-nak nincs tároló-dolga vele, a sor-törlés a lényeg
 const DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
@@ -176,5 +176,62 @@ describe('GPS-ping retenció (7 nap)', () => {
     const { rows: f } = await db.query('SELECT 1 FROM location_pings WHERE id=$1', [freshPing[0].id]);
     expect(o.length).toBe(0);
     expect(f.length).toBe(1);
+  });
+});
+
+// =====================================================================
+//  A TÁROLÓ-TÖRLÉS KUDARCA (2026-08-11, séma-audit T2)
+//
+//  ⚠️ ELLENPÉLDA, AMI KORÁBBAN NEM BUKOTT: a `storage.deleteFile` R2-hibánál
+//  CSENDBEN `false`-t ad. A purge mégis törölte a `photos` sort — az EGYETLEN
+//  mutatót a fájlra —, tehát egy átmeneti R2-kiesés VÉGLEGESEN a publikus
+//  bucketben hagyta az objektumot: se retry, se riasztás, se sepregető.
+//  A régi tesztek ezt nem vehették észre: data:URL-t használtak fotó-URL-nek,
+//  és kizárólag DB-sor létezését mérték — a tároló felé semmit.
+// =====================================================================
+describe('Tároló-hiba: a mutatót nem dobjuk el', () => {
+  it('sikertelen fájl-törlésnél a photos sor MEGMARAD (holnap újrapróbáljuk)', async () => {
+    const storage = require('../src/services/storage');
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const job = await createJob({
+      shipperId: felado.id, carrierId: szallito.id, status: 'delivered', paid: true,
+    });
+    await db.query(
+      `UPDATE jobs SET updated_at = NOW() - ($2 || ' days')::interval WHERE id = $1`,
+      [job.id, DEFAULT_RETENTION_DAYS + 5],
+    );
+    const { rows: [foto] } = await db.query(
+      `INSERT INTO photos (job_id, uploader_id, kind, url)
+       VALUES ($1, $2, 'pickup', 'https://r2.example/teszt-foto.jpg') RETURNING id`,
+      [job.id, szallito.id],
+    );
+
+    const eredeti = storage.deleteFile;
+    storage.deleteFile = async () => false; // az R2 „elérhetetlen"
+    try {
+      await purgeOldDeliveryPhotos();
+    } finally {
+      storage.deleteFile = eredeti;
+    }
+
+    const { rows } = await db.query('SELECT id FROM photos WHERE id = $1', [foto.id]);
+    expect(
+      rows.length,
+      'A tároló-törlés elbukott, de a DB-sort mégis töröltük.\n'
+      + 'Ezzel az objektum VÉGLEGESEN árva marad a publikus bucketben:\n'
+      + 'nincs mutató, nincs retry, nincs riasztás. A sort meg kell tartani,\n'
+      + 'hogy a holnapi kör újrapróbálhassa (a KYC-ág már így csinálja).',
+    ).toBe(1);
+
+    // …és ha az R2 újra elérhető, a következő kör tényleg elviszi:
+    storage.deleteFile = async () => true;
+    try {
+      await purgeOldDeliveryPhotos();
+    } finally {
+      storage.deleteFile = eredeti;
+    }
+    const { rows: utana } = await db.query('SELECT id FROM photos WHERE id = $1', [foto.id]);
+    expect(utana.length, 'a helyreállás után sem törölt — beragadt volna').toBe(0);
   });
 });

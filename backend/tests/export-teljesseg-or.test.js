@@ -94,3 +94,90 @@ describe('Export-teljesség őr', () => {
     }
   });
 });
+
+// =====================================================================
+//  AZ „EXPORTBAN SZEREPEL" ÁLLÍTÁSOK FUTTATVA (2026-08-11, 8. mérés Ő3)
+//
+//  ⚠️ AZ ŐR EDDIG A SAJÁT ÁLLÍTÁSÁT HITTE EL. A KIVETELEK 16 bejegyzése szó
+//  szerint azt mondja: „az exportban szerepel (vitaim)" — de a teszt csak
+//  annyit nézett, hogy VAN-E bejegyzés, nem azt, hogy IGAZ-E. Ellenpélda:
+//  töröld a `vitaim:` blokkot az auth.js-ből → a `disputes` benne marad a
+//  kivétel-listán → ZÖLD BUILD, miközben egy 15. cikkes kérésre a
+//  legterheltebb szöveg (kit mivel vádolnak) kimarad a válaszból.
+//
+//  Ez a teszt a valódi végpontot hívja meg, és megköveteli, hogy minden
+//  ígért kulcs TÉNYLEGESEN ott legyen a válaszban.
+// =====================================================================
+describe('Export — az ígért kulcsok tényleg a válaszban vannak', () => {
+  it('minden „az exportban szerepel (X)" állítás igaz', async () => {
+    const request = require('supertest');
+    const { app, createUser } = require('./helpers');
+
+    const user = await createUser({ role: 'shipper' });
+    const res = await request(app)
+      .get('/auth/me/export')
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(res.status, 'az export-végpont nem válaszolt — a teszt nem mér semmit').toBe(200);
+
+    // A kivétel-indoklásokból kiszedjük a zárójeles kulcsokat:
+    //   'az exportban szerepel (ertekeleseim + rolam_szolo_ertekelesek)'
+    const igertKulcsok = [];
+    for (const [tabla, indok] of Object.entries(KIVETELEK)) {
+      if (typeof indok !== 'string' || !indok.includes('az exportban szerepel')) continue;
+      const m = indok.match(/\(([^)]+)\)/);
+      if (!m) continue;
+      for (const k of m[1].split('+').map((x) => x.trim())) {
+        igertKulcsok.push([tabla, k]);
+      }
+    }
+    expect(igertKulcsok.length, 'nem találtam ígért kulcsokat — az őr vak').toBeGreaterThan(10);
+
+    const hianyzo = igertKulcsok
+      .filter(([, kulcs]) => !(kulcs in res.body))
+      .map(([tabla, kulcs]) => `${tabla} → "${kulcs}" (ez a kulcs NINCS a válaszban)`);
+
+    expect(
+      hianyzo,
+      `A kivétel-lista olyan kulcsokra hivatkozik, amik nincsenek az exportban:\n  ${hianyzo.join('\n  ')}\n\n`
+      + 'Vagy a blokk esett ki az auth.js-ből (ekkor a 15. cikkes válasz hiányos),\n'
+      + 'vagy a kulcsot átnevezték és a kivétel-indoklás avult el. Mindkettő\n'
+      + 'tudatos döntést kíván — az őr nem hiheti el a saját állítását.',
+    ).toEqual([]);
+  });
+});
+
+// =====================================================================
+//  AZ EXPORT NYOMOT HAGY (2026-08-11, adatáramlási audit)
+//
+//  A végpont a teljes személyes adat-dumpot adja PUSZTA bearer-tokenre:
+//  adóazonosító jel, születési dátum, minden cím, chat, számlák — jelszó-
+//  újrakérés nélkül. Egy ellopott JWT egyetlen kéréssel mindent kivisz.
+//  A jelszó-újrakérés a mi flow-nkban nem járható (a token az egyetlen
+//  bizonyíték), a NÉMASÁG viszont igen: az exportról a felhasználó értesül.
+// =====================================================================
+describe('Export — a felhasználó értesül róla', () => {
+  it('az adatexport értesítést hagy a fiókban', async () => {
+    const request = require('supertest');
+    const { app, db, createUser } = require('./helpers');
+
+    const user = await createUser({ role: 'shipper' });
+    const res = await request(app)
+      .get('/auth/me/export')
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(res.status).toBe(200);
+
+    // Az értesítés fire-and-forget — rövid várakozás a beírásra.
+    await new Promise((r) => { setTimeout(r, 150); });
+    const { rows } = await db.query(
+      `SELECT type, title FROM notifications WHERE user_id = $1 AND type = 'security'`,
+      [user.id],
+    );
+    expect(
+      rows.length,
+      'Az adatexport NEM hagyott nyomot a felhasználó felé.\n'
+      + 'Egy ellopott tokennel így némán kivihető a teljes személyes adat-dump\n'
+      + '(adóazonosító jel, születési dátum, chat, számlák), és a felhasználó\n'
+      + 'soha nem tudja meg. Az értesítés az egyetlen jelzésünk.',
+    ).toBeGreaterThan(0);
+  });
+});

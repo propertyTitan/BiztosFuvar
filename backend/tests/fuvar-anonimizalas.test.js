@@ -14,15 +14,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 const { db, createUser, createJob, createBooking } = require('./helpers');
-const { anonymizeOldJobs, JOB_PII_RETENTION_YEARS } = require('../src/services/retention');
+const { anonymizeOldJobs, JOB_PII_RETENTION_YEARS, HOLD_RETENTION_YEARS } = require('../src/services/retention');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 
 beforeEach(() => { __resetRateLimitsForTests(); });
 
 const jobSor = async (id) => (await db.query('SELECT * FROM jobs WHERE id = $1', [id])).rows[0];
 
-/** Lezárt fuvar, adott korral. */
-async function regiFuvar({ evek, hold = false }) {
+/** Lezárt fuvar, adott korral. `statusz`-szal felülírható a végállapot. */
+async function regiFuvar({ evek, hold = false, statusz = null }) {
   const felado = await createUser({ role: 'shipper' });
   const szallito = await createUser({ role: 'carrier' });
   const job = await createJob({
@@ -30,9 +30,10 @@ async function regiFuvar({ evek, hold = false }) {
   });
   await db.query(
     `UPDATE jobs SET updated_at = NOW() - ($2 || ' years')::interval,
-                     photo_retention_hold = $3
-      WHERE id = $1`,
-    [job.id, evek, hold],
+                     photo_retention_hold = $3,
+                     status = COALESCE($4, status)`
+    + ' WHERE id = $1',
+    [job.id, evek, hold, statusz],
   );
   return job;
 }
@@ -143,5 +144,50 @@ describe('Fuvar-anonimizálás: a személyes adat elévül, a fuvar ténye marad
     expect(rows[0].delivery_code).toBeNull();
     expect(rows[0].pickup_address).toBe('Budapest');
     expect(rows[0].status, 'a foglalás ténye eltűnt').toBe('delivered');
+  });
+});
+
+// =====================================================================
+//  A LEZÁRATLAN VITA (2026-08-11, séma-audit T1)
+//
+//  ⚠️ A `disputed` státuszt EDDIG EGYETLEN anonimizálási teszt SEM használta.
+//  Az anonimizálás felső szinten szűrt a JOB_TERMINAL-ra, amiben a `disputed`
+//  nincs benne — így ha egy vitát soha nem zárnak le (solo-üzemeltetésnél
+//  reális), a címzett neve/telefonja/e-mailje, az átvételi kód, az ÉLŐ
+//  követő-token és a házszámig pontos cím HATÁRIDŐ NÉLKÜL megmaradt.
+//  A tájékoztató ezzel szemben 5 évet ígér.
+// =====================================================================
+describe('Lezáratlan vita — a zárolás 5 év, nem örökre', () => {
+  it('a SOHA le nem zárt vitás fuvar 5 év után is anonimizálódik', async () => {
+    const job = await regiFuvar({
+      evek: HOLD_RETENTION_YEARS + 1, hold: true, statusz: 'disputed',
+    });
+    const elotte = await jobSor(job.id);
+    expect(elotte.status, 'a fixture nem állt disputed-re').toBe('disputed');
+    expect(elotte.recipient_phone).toBeTruthy();
+    expect(elotte.tracking_token).toBeTruthy();
+
+    await anonymizeOldJobs();
+
+    const utana = await jobSor(job.id);
+    expect(
+      utana.recipient_phone,
+      'A lezáratlan vitás fuvarnál a címzett telefonszáma HATÁRIDŐ NÉLKÜL megmaradt.\n'
+      + 'A státusz-szűrő csak a NEM zárolt ágra való — a zárolt ág 5 év után töröl,\n'
+      + 'pontosan úgy, ahogy a fotó- és chat-purge már csinálja.',
+    ).toBeNull();
+    expect(utana.tracking_token, 'az ÉLŐ követő-token megmaradt').toBeNull();
+    expect(utana.recipient_email).toBeNull();
+    expect(utana.delivery_code).toBeNull();
+  });
+
+  it('a FRISS vitás fuvart nem bántja (a bizonyíték kell)', async () => {
+    const job = await regiFuvar({ evek: 1, hold: true, statusz: 'disputed' });
+    await anonymizeOldJobs();
+    const utana = await jobSor(job.id);
+    expect(
+      utana.recipient_phone,
+      'Egy 1 éves vitás ügylet bizonyítéka még kell — nem szabad törölni.',
+    ).toBeTruthy();
   });
 });

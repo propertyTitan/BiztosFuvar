@@ -13,7 +13,7 @@
 //   EMAIL_FROM="GoFuvar <noreply@gofuvar.hu>"   (default a seedhez)
 //   WEB_BASE_URL=https://app.gofuvar.hu          (a linkekhez)
 
-const { maskEmail } = require('../utils/mask');
+const { maskEmail, maskInText } = require('../utils/mask');
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
@@ -82,7 +82,11 @@ async function sendEmail({ to, subject, html, text }) {
     });
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      console.error('[email] Resend hiba:', res.status, body.slice(0, 300));
+      // ⚠️ A RESEND VISSZHANGOZZA A CÍMZETTET (2026-08-11, adatáramlási audit).
+      // A 4xx-válaszok tartalmazzák a `to` mezőt, tehát maszkolatlan
+      // e-mail-cím került a Railway-logba — miközben ennek a fájlnak minden
+      // más log-sora maskEmail-t használ. Egyetlen kilógó sor volt.
+      console.error('[email] Resend hiba:', res.status, maskInText(body.slice(0, 300)));
       return null;
     }
     const json = await res.json();

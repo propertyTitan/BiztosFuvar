@@ -1,0 +1,18 @@
+{
+  "_megjegyzes": "KÖZÖS PII-KORPUSZ — a backend (utils/sentryScrub.js) és a web (src/lib/sentryScrub.ts) Sentry-szűrője UGYANEZT a korpuszt kapja. 2026-08-11: a két megvalósítás szétcsúszott (a backend alak-független PII-szűrést kapott, a web nem), és az őr ezt NEM VEHETTE ÉSZRE, mert csak a backend modult töltötte be. A korpusz azért közös, hogy a két oldal ne tudjon némán eltérni: ha bármelyik szűrő elenged egy tételt, a SAJÁT suite-ja pirosra vált.",
+  "tilos": [
+    { "be": "Key (email)=(kovacs.janos@gmail.com) already exists.", "miert": "Postgres UNIQUE-hiba visszhangozza az e-mailt a kivétel-üzenetben" },
+    { "be": "[coverage-waitlist] teszt.elek@example.hu", "miert": "console.log → breadcrumb (a Sentry consoleIntegration alapból BE van kapcsolva)" },
+    { "be": "Nem sikerult kikuldeni: +36 20 397 9223", "miert": "nyers telefonszám tetszőleges szövegben" },
+    { "be": "hívd a 06 30 123 4567 számot", "miert": "magyar belföldi alak elválasztókkal" },
+    { "be": "https://gofuvar.hu/jelszo-reset?token=EloTitokErtek123", "miert": "ÉLŐ jelszó-reset token az oldal-URL-ben" },
+    { "be": "https://gofuvar.hu/nyomon-kovetes/abc123titkos", "miert": "publikus követő-token útvonal-szegmensben" },
+    { "be": "/api/jobs?search=Kossuth%20utca%2012&lat=46.41&lng=20.33", "miert": "keresőszöveg és pontos koordináta query-ben" }
+  ],
+  "megmarad": [
+    { "be": "GET /api/jobs 500", "miert": "a végpont neve kell a hibakereséshez" },
+    { "be": "TypeError: Cannot read properties of undefined", "miert": "sima hibaüzenet, nincs benne PII" },
+    { "be": "1754923200000", "miert": "időbélyeg — NEM eshet a telefon-mintába" },
+    { "be": "a8c1cd28b0c75194c", "miert": "azonosító" }
+  ]
+}

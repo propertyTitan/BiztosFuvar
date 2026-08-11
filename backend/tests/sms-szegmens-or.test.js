@@ -25,11 +25,30 @@ const KET_SZEGMENS_MAX = 134;
 // olvasta, és a sablont a „GoFuvar: úton a csomagod!" nyitómondathoz kötötte
 // — egy másik fájlból küldött, más szövegű címzetti SMS-re teljesen vak volt.
 // Pedig épp az a mérce, hogy „a címzett EGYETLEN csatornája".
-const ROUTES_DIR = `${__dirname}/../src/routes`;
-const ROUTE_FAJLOK = require('fs').readdirSync(ROUTES_DIR)
-  .filter((f) => f.endsWith('.js'))
-  .map((f) => ({ nev: f, forras: readFileSync(`${ROUTES_DIR}/${f}`, 'utf8') }))
-  .filter((x) => x.forras.includes('sendSms('));
+// ⚠️ A TELJES `src` FÁT JÁRJUK (2026-08-11, 8. mérés Ő5). Korábban csak a
+// `src/routes` alatt kerestünk, ezért egy service-ből (pl. notifications.js,
+// retention.js) küldött címzetti SMS-t az őr NEM LÁTOTT — sem a 14. cikkes
+// mutatót, sem a szegmens-hosszt nem mérte rajta. A védelem a HELYRE épült,
+// nem a viselkedésre; ez pontosan az a minta, amit ez a kör több helyen is
+// megtalált.
+const SRC_DIR = `${__dirname}/../src`;
+function smsKuldoFajlok(mappa = SRC_DIR, elotag = '') {
+  const { readdirSync } = require('fs');
+  const ki = [];
+  for (const b of readdirSync(mappa, { withFileTypes: true })) {
+    const ut = `${mappa}/${b.name}`;
+    const rel = elotag ? `${elotag}/${b.name}` : b.name;
+    if (b.isDirectory()) { ki.push(...smsKuldoFajlok(ut, rel)); continue; }
+    if (!b.name.endsWith('.js')) continue;
+    const forras = readFileSync(ut, 'utf8');
+    // HÍVÁST keresünk, nem DEKLARÁCIÓT: a services/sms.js maga definiálja a
+    // függvényt (`async function sendSms(to, message)`), az nem küldés.
+    const hivasok = forras.replace(/(?:async\s+)?function\s+sendSms\s*\(/g, '');
+    if (hivasok.includes('sendSms(')) ki.push({ nev: rel, forras });
+  }
+  return ki;
+}
+const ROUTE_FAJLOK = smsKuldoFajlok();
 const FORRAS = ROUTE_FAJLOK.map((x) => x.forras).join('\n');
 
 /** A felvételkori SMS-ek sablonjai a forrásból. */

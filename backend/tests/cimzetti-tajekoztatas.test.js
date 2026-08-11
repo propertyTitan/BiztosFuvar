@@ -45,6 +45,21 @@ async function elkapottHtml(kuldes) {
   return html || '';
 }
 
+// ⚠️ A TELJES `src` FÁT JÁRJUK (2026-08-11, 8. mérés Ő6). Korábban csak a
+// `src/routes` alá néztünk, tehát egy service-ből küldött címzetti levelet
+// az őr nem látott — a 14. cikkes tájékoztatás hiánya ott némán maradhatott.
+function jsFajlok(mappa, elotag = '') {
+  const { readdirSync } = require('fs');
+  const ki = [];
+  for (const b of readdirSync(mappa, { withFileTypes: true })) {
+    const ut = `${mappa}/${b.name}`;
+    const rel = elotag ? `${elotag}/${b.name}` : b.name;
+    if (b.isDirectory()) { ki.push(...jsFajlok(ut, rel)); continue; }
+    if (b.name.endsWith('.js')) ki.push({ nev: rel, ut });
+  }
+  return ki;
+}
+
 describe('A címzettnek küldött e-mail tájékoztatása', () => {
   it('megnevezi az adatkezelőt, és nem csak a „GoFuvar" márkanevet', async () => {
     const html = await elkapottHtml(() => email.sendRecipientTrackingEmail({
@@ -108,15 +123,24 @@ describe('MINDEN inline levél a közös sablonon megy (adatkezelő-lábléc)', 
     // közlésnél megvan), de pontosan az a minta, ami itt többször okozott
     // „csak az egyiket javítottuk" hibát. Ezért közös helperbe került, és ez
     // az őr követeli meg minden címzetti levélen.
-    const dir = `${__dirname}/../src/routes`;
+    const dir = `${__dirname}/../src`;
     const gondok = [];
 
-    for (const f of readdirSync(dir).filter((x) => x.endsWith('.js'))) {
-      const forras = readFileSync(`${dir}/${f}`, 'utf8');
+    for (const { nev: f, ut } of jsFajlok(dir)) {
+      const forras = readFileSync(ut, 'utf8');
       // Csak a NYERS `sendEmail(` hívások — a `sendRecipientTrackingEmail`
       // helper maga tartalmazza a 14. cikkes blokkot, azt nem kell külön
       // bekötni. (Ezt az őr első változata hamis riasztásként jelezte.)
-      for (const m of forras.matchAll(/sendEmail\(\{[\s\S]{0,200}?to:\s*[\w.]*recipient_email,[\s\S]{0,900}?\}\)/g)) {
+      // ⚠️ NEM A VÁLTOZÓNÉVHEZ TAPADUNK (2026-08-11, 8. mérés Ő6). A korábbi
+      // minta a `to: …recipient_email` alakot kereste, tehát egy
+      // `const cimzett = job.recipient_email; … sendEmail({ to: cimzett })`
+      // átírás LÁTHATATLANNÁ tette volna a levelet az őr számára.
+      // Most minden sendEmail-hívást megnézünk, és a KÖRNYEZETÉBŐL döntjük
+      // el, címzettnek megy-e (a hívás körüli 400 karakterben szerepel-e a
+      // recipient_email — akár közvetve, változón át).
+      for (const m of forras.matchAll(/sendEmail\(\{[\s\S]{0,900}?\}\)/g)) {
+        const korulotte = forras.slice(Math.max(0, m.index - 400), m.index + m[0].length);
+        if (!/recipient_email/.test(korulotte)) continue;
         if (!m[0].includes('cimzettiTajekoztatoBlokk')) {
           gondok.push(`${f}: ${m[0].slice(0, 80).replace(/\s+/g, ' ')}…`);
         }
@@ -133,11 +157,20 @@ describe('MINDEN inline levél a közös sablonon megy (adatkezelő-lábléc)', 
   });
 
   it('a routes/ egyetlen levele sem kerüli meg a wrapHtml-t', () => {
+    // ⚠️ EZ A TESZT SZÁNDÉKOSAN CSAK A `routes/`-t nézi (2026-08-11).
+    // A kiterjesztéskor kiderült, hogy a `services/email.js` egy levele
+    // (sendRecipientTrackingEmail) nyers HTML-t épít a wrapHtml helyett.
+    // ELLENŐRIZVE: ez NEM adatvédelmi hiány — a levél a
+    // `cimzettiTajekoztatoBlokk()`-ot tartalmazza, ami maga megnevezi az
+    // adatkezelőt (Tiszta Hód Kft., székhely) és linkeli a tájékoztatót,
+    // vagyis a 14. cikk (1) a) teljesül a közös lábléc nélkül is. Ami hiányzik,
+    // az a márkázott burok — kozmetika, nem jogi kötelezettség.
+    // A 14. cikkes TARTALMAT a fenti, `src`-szintű teszt őrzi.
     const dir = `${__dirname}/../src/routes`;
     const gondok = [];
 
-    for (const f of readdirSync(dir).filter((x) => x.endsWith('.js'))) {
-      const forras = readFileSync(`${dir}/${f}`, 'utf8');
+    for (const { nev: f, ut } of jsFajlok(dir)) {
+      const forras = readFileSync(ut, 'utf8');
       for (const m of forras.matchAll(/html:\s*(.{0,30})/g)) {
         if (!m[1].includes('wrapHtml')) gondok.push(`${f}: html: ${m[1].trim()}…`);
       }
