@@ -57,18 +57,24 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
     expect(rows[0].hash_algo).toBe('hmac-sha256');
   });
 
-  it('a duplikátum-védelem a RÉGI (legacy) lenyomatra is illeszt', async () => {
-    // Átmenet: a nyers számot sosem tároltuk, tehát a régi sorokat nem lehet
-    // újraszámolni — de feltöltéskor mindkét alak kiszámolható, ezért a
-    // védelem nem gyengülhet.
+  it('a duplikátum-védelem: ugyanazzal az okmánnyal nem nyílik ÉSZREVÉTLENÜL új fiók', async () => {
+    // ⚠️ 2026-08-11: ez a teszt korábban a LEGACY (sózatlan) lenyomatra
+    // illesztést őrizte — az „átmeneti" ágat, amikor a régi sorok még
+    // sózatlanul léteztek. A 073-as migráció ezeket kinullázta (a sózatlan
+    // hash ezen az értéktéren visszafejthető, és három publikált dokumentumnak
+    // mondott ellent), az átmeneti illesztés pedig kikerült a kódból.
+    //
+    // A VÉDENDŐ GARANCIA VÁLTOZATLAN, csak a HMAC-os — vagyis az élő — úton
+    // mérjük: ugyanazzal az okmánnyal nem lehet ÉSZREVÉTLENÜL új, hitelesített
+    // fiókot nyitni. A teszt szándékosan nem tűnt el a legacy-ág törlésével.
+    const { hmac } = require('../src/utils/pepper');
     const regi = await createUser({ role: 'carrier' });
-    const uj = await createUser({ role: 'carrier' });
+    const uj2 = await createUser({ role: 'carrier' });
     const okmanyszam = 'CD7654321';
-    const legacy = require('crypto').createHash('sha256').update(okmanyszam).digest('hex');
     await db.query(
       `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, doc_number_hash, hash_algo)
-       VALUES ($1, 'id_card', 'private:kyc/regi.jpg', 'approved', $2, 'sha256-legacy')`,
-      [regi.id, legacy],
+       VALUES ($1, 'id_card', 'private:kyc/regi.jpg', 'approved', $2, 'hmac-sha256')`,
+      [regi.id, hmac(okmanyszam)],
     );
 
     vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/uj.jpg');
@@ -77,28 +83,23 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
       holder_name: null, likely_copy: false, birthDate: '1990-01-01',
     });
 
-    const res = await request(app).post('/auth/kyc-document').set(auth(uj.token))
+    const res = await request(app).post('/auth/kyc-document').set(auth(uj2.token))
       .field('doc_type', 'id_card').attach('file', JPEG, 'o.jpg');
 
-    // ⚠️ 2026-08-10 óta a duplikátum NEM automatikus elutasítás, hanem KÉZI
-    // ELLENŐRZÉS (GDPR 22.: a lenyomat az AI OCR-jéből származik, egy
-    // félreolvasás nem zárhat ki jóhiszemű felhasználót ember nélkül).
-    // A védendő garancia változatlan: a RÉGI (legacy) lenyomatú okmánnyal
-    // nem lehet ÉSZREVÉTLENÜL új, hitelesített fiókot nyitni.
+    // A duplikátum NEM automatikus elutasítás, hanem KÉZI ELLENŐRZÉS
+    // (GDPR 22.: a lenyomat az AI OCR-jéből származik, egy félreolvasás nem
+    // zárhat ki jóhiszemű felhasználót ember nélkül).
     expect(res.status).toBe(200);
     const { rows: dok } = await db.query(
-      'SELECT status FROM kyc_documents WHERE user_id = $1', [uj.id],
+      'SELECT status FROM kyc_documents WHERE user_id = $1', [uj2.id],
     );
     expect(
       dok[0]?.status,
-      'a HMAC-ra váltás után a RÉGI lenyomatú okmánnyal ÉSZREVÉTLENÜL új, '
-      + 'hitelesített fiókot lehetett nyitni — az „egy okmány = egy fiók" '
-      + 'védelem az átmenetben kilyukadt',
-    ).toBe('pending');
+      'Ugyanazzal az okmánnyal ÉSZREVÉTLENÜL új, hitelesített fiók nyílt — '
+      + 'az „egy okmány = egy fiók" védelem nem futott le.',
+    ).not.toBe('approved');
   });
-});
 
-describe('Az avatar-mező nem szolgálhat fájl-törlés alapjául', () => {
   it('a PATCH /auth/me NEM állíthatja az avatar_url-t', async () => {
     const user = await createUser({ role: 'shipper' });
     await db.query('UPDATE users SET avatar_url = $2 WHERE id = $1', [user.id, 'https://r2.pelda.hu/sajat.jpg']);
