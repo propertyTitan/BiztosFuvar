@@ -213,8 +213,7 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
        VALUES ($1, $2, $3, 'hmac-sha256')`,
       [
         targetId,
-        require('crypto').createHmac('sha256', process.env.JWT_SECRET || 'dev-secret')
-          .update(torlendo[0]?.email || '').digest('hex'),
+        require('../utils/pepper').hmac(torlendo[0]?.email || ''),
         'Adminisztrátori törlés',
       ],
     );

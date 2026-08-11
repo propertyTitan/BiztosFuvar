@@ -27,10 +27,7 @@ const kycHistory = require('../utils/kycHistory');
  * sózatlan hash-ből jelöltlistával visszafejthető lenne (lásd 064 migráció).
  */
 function docHmac(nyersOkmanyszam) {
-  return crypto
-    .createHmac('sha256', process.env.JWT_SECRET || 'dev-secret')
-    .update(nyersOkmanyszam)
-    .digest('hex');
+  return require('../utils/pepper').hmac(nyersOkmanyszam);
 }
 
 // ---------- Helper a verifikációs / reset tokenekhez ----------
@@ -1202,7 +1199,14 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
             vehicle_type, vehicle_plate, identity_kyc_status,
             driver_kyc_status, company_verification_status, email_verified,
             referral_code, referred_by, trust_score, level, rating_avg,
-            rating_count, total_deliveries, created_at, driver_terms_accepted_at
+            rating_count, total_deliveries, created_at, driver_terms_accepted_at,
+            -- ⚠️ 2026-08-11: ezek kimaradtak, pedig a tájékoztató 2. szakasza
+            -- tételesen felsorolja őket kezelt adatként. A DAC7 adóazonosító
+            -- jel a legérzékenyebb kormányzati azonosító, amit magánszemély
+            -- szállítóról tartunk — egy 15. cikkes hozzáférési kérésre a
+            -- válasz nélküle hiányos volt.
+            personal_tax_id, birth_date, tax_data_provided_at,
+            last_login_at, login_count, last_seen_at, total_active_seconds
        FROM users WHERE id = $1`,
   );
   if (!profil) return res.status(404).json({ error: 'Felhasználó nem található' });
@@ -1262,6 +1266,35 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
       `SELECT doc_type, status, rejection_reason, created_at, reviewed_at
          FROM kyc_documents WHERE user_id = $1`,
     ),
+    // ⚠️ 2026-08-11: az alábbi hat tábla kimaradt az exportból, miközben a
+    // gomb felirata („Adataim letöltése") és a végpont kommentje is
+    // TELJESSÉGET állított. Az `export-teljesseg-or.test.js` mostantól a séma
+    // felől ellenőrzi, hogy ne csúszhasson ki újabb.
+    utvonal_figyeloim: await q(
+      `SELECT id, label, from_label, from_lat, from_lng, to_label, to_lat, to_lng,
+              radius_km, min_price_huf, max_weight_kg, active, created_at
+         FROM carrier_alerts WHERE carrier_id = $1`,
+    ),
+    kerdeseim: await q(
+      `SELECT id, job_id, question, answer, answered_at, created_at
+         FROM job_questions WHERE asker_id = $1`,
+    ),
+    vitaim: await q(
+      `SELECT id, job_id, booking_id, description, status, resolution_note,
+              refund_huf, created_at, resolved_at
+         FROM disputes WHERE opened_by = $1 OR against_user = $1`,
+    ),
+    veszjelzeseim: await q(
+      `SELECT id, job_id, booking_id, message, resolved, resolved_at, created_at
+         FROM sos_events WHERE user_id = $1`,
+    ),
+    gofuvar_uzenetvaltas: await q(
+      `SELECT id, sender, kind, body, read_at, created_at
+         FROM admin_messages WHERE user_id = $1`,
+    ),
+    ertesitesi_eszkozeim: await q(
+      `SELECT id, platform, created_at FROM push_tokens WHERE user_id = $1`,
+    ),
     kuponjaim: await q(
       `SELECT reason, max_fee_huf, valid_from, valid_until, used_at, created_at
          FROM fee_vouchers WHERE user_id = $1 ORDER BY created_at DESC`,
@@ -1298,10 +1331,7 @@ router.delete('/me', authRequired, async (req, res) => {
   // titokkal képzett lenyomat egy DB-szivárgásból önmagában nem fordítható
   // vissza. A sor 5 év után a napi retenciós körben törlődik.
   const { rows: user } = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
-  const emailHash = crypto
-    .createHmac('sha256', process.env.JWT_SECRET || 'dev-secret')
-    .update(user[0]?.email || '')
-    .digest('hex');
+  const emailHash = require('../utils/pepper').hmac(user[0]?.email || '');
 
   // A törlendő fájlok kulcsai — MÉG a DB-sorok megléte mellett gyűjtjük ki.
   const fileKeys = await collectUserFileKeys(userId);
