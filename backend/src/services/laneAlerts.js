@@ -9,6 +9,7 @@
 // =====================================================================
 
 const realDb = require('../db');
+const { telepulesSzint } = require('../utils/address');
 const { distanceMeters } = require('../utils/geo');
 const { createNotification } = require('./notifications');
 const { sendLaneAlertEmail } = require('./email');
@@ -75,7 +76,15 @@ async function notifyMatchingAlerts(job) {
       if (!jobMatchesAlert(job, alert)) continue;
       notifiedCarriers.add(alert.carrier_id);
 
-      const routeLabel = `${job.pickup_address} → ${job.dropoff_address}`;
+      // ⚠️ TELEPÜLÉS-SZINT A PUSH-BAN (2026-08-11, adatáramlási audit).
+      // Korábban a HÁZSZÁMIG PONTOS fel- és lerakodási cím ment ki — méghozzá
+      // PUSH-szerűen: lekérdezni sem kellett hozzá. A DB-példányra (értesítés)
+      // van retenció, az E-MAIL-példányra viszont SEMMI: az a postafiókban
+      // marad örökre. A szállítónak a döntéshez a település elég; a pontos cím
+      // egy kattintásra ott van a fuvar oldalán, ahol a scrub és a jogosultság
+      // is érvényesül. (Ugyanaz az elv, mint a mentős-listánál: a részletes
+      // helyadat az elvállalás/megnyitás mögé kerül.)
+      const routeLabel = `${telepulesSzint(job.pickup_address)} → ${telepulesSzint(job.dropoff_address)}`;
       const link = `/sofor/fuvar/${job.id}`;
 
       await createNotification({

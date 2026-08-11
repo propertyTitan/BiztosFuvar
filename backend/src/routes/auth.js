@@ -1312,6 +1312,24 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
 
   res.setHeader('Content-Disposition', `attachment; filename="gofuvar-adatexport-${uid.slice(0, 8)}.json"`);
   res.setHeader('Cache-Control', 'private, no-store');
+  // ⚠️ ÉRTESÍTÉS AZ EXPORTRÓL (2026-08-11, adatáramlási audit).
+  // Ez a végpont a teljes személyes adat-dumpot adja (adóazonosító jel,
+  // születési dátum, minden cím, chat, számlák) PUSZTA bearer-tokenre: nincs
+  // jelszó-újrakérés. Egy ellopott JWT egyetlen kéréssel mindent kivisz, és a
+  // felhasználó SOHA nem tudja meg. A jelszó-újrakérés a saját flow-nkban nem
+  // járható (OAuth nincs, a token az egyetlen bizonyíték), a NÉMASÁG viszont
+  // igen: mostantól minden export nyomot hagy, és a felhasználó látja.
+  // Ha nem ő kérte, a jelszó-reset (ami már a socketet is bontja) az azonnali
+  // válaszlépés.
+  require('../services/notifications').createNotification({
+    user_id: uid,
+    type: 'security',
+    title: 'Adatexport készült a fiókodról',
+    body: 'Valaki letöltötte a fiókodhoz tartozó összes adatot. Ha nem te voltál, '
+      + 'változtass jelszót azonnal — azzal minden eszközről kiléptetjük a fiókodat.',
+    link: '/profil',
+  }).catch(() => { /* az értesítés hibája ne akassza meg az exportot */ });
+
   res.json(adatok);
 });
 

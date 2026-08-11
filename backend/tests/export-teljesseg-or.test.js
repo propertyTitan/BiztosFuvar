@@ -145,3 +145,39 @@ describe('Export — az ígért kulcsok tényleg a válaszban vannak', () => {
     ).toEqual([]);
   });
 });
+
+// =====================================================================
+//  AZ EXPORT NYOMOT HAGY (2026-08-11, adatáramlási audit)
+//
+//  A végpont a teljes személyes adat-dumpot adja PUSZTA bearer-tokenre:
+//  adóazonosító jel, születési dátum, minden cím, chat, számlák — jelszó-
+//  újrakérés nélkül. Egy ellopott JWT egyetlen kéréssel mindent kivisz.
+//  A jelszó-újrakérés a mi flow-nkban nem járható (a token az egyetlen
+//  bizonyíték), a NÉMASÁG viszont igen: az exportról a felhasználó értesül.
+// =====================================================================
+describe('Export — a felhasználó értesül róla', () => {
+  it('az adatexport értesítést hagy a fiókban', async () => {
+    const request = require('supertest');
+    const { app, db, createUser } = require('./helpers');
+
+    const user = await createUser({ role: 'shipper' });
+    const res = await request(app)
+      .get('/auth/me/export')
+      .set('Authorization', `Bearer ${user.token}`);
+    expect(res.status).toBe(200);
+
+    // Az értesítés fire-and-forget — rövid várakozás a beírásra.
+    await new Promise((r) => { setTimeout(r, 150); });
+    const { rows } = await db.query(
+      `SELECT type, title FROM notifications WHERE user_id = $1 AND type = 'security'`,
+      [user.id],
+    );
+    expect(
+      rows.length,
+      'Az adatexport NEM hagyott nyomot a felhasználó felé.\n'
+      + 'Egy ellopott tokennel így némán kivihető a teljes személyes adat-dump\n'
+      + '(adóazonosító jel, születési dátum, chat, számlák), és a felhasználó\n'
+      + 'soha nem tudja meg. Az értesítés az egyetlen jelzésünk.',
+    ).toBeGreaterThan(0);
+  });
+});
