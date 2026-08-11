@@ -95,6 +95,32 @@ function scrubBreadcrumbValue(value) {
 }
 
 /**
+ * Rekurzív bejárás: az esemény MINDEN string-értékét megszűri, tartalom
+ * alapján. Ciklus- és mélység-védett, sosem dob.
+ *
+ * A `kihagy` halmaz azokat a részfákat védi, amiket máshol, FINOMABBAN
+ * kezelünk (az `event.request`-en paraméter-szintű szűrés fut, hogy a
+ * hibakereséshez hasznos `?status=bidding` megmaradjon).
+ */
+function melyszures(csomopont, kihagy = new Set(), melyseg = 0, latott = new WeakSet()) {
+  if (melyseg > 12 || csomopont == null || typeof csomopont !== 'object') return;
+  if (latott.has(csomopont)) return;
+  latott.add(csomopont);
+
+  for (const kulcs of Object.keys(csomopont)) {
+    if (melyseg === 0 && kihagy.has(kulcs)) continue;
+    const ertek = csomopont[kulcs];
+    if (typeof ertek === 'string') {
+      if (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek)) {
+        csomopont[kulcs] = scrubBreadcrumbValue(ertek);
+      }
+    } else if (ertek && typeof ertek === 'object') {
+      melyszures(ertek, kihagy, melyseg + 1, latott);
+    }
+  }
+}
+
+/**
  * Sentry beforeSend-kompatibilis esemény-szűrő. Mutálja és visszaadja az
  * eseményt (a Sentry-nek ez így megfelel).
  */
@@ -117,22 +143,22 @@ function scrubSentryEvent(event) {
       // 4) Sütik külön mezőben is érkezhetnek
       delete req.cookies;
     }
-    // Breadcrumb-ok: a KIMENŐ hívások URL-jei és query stringjei.
-    // Nem mezőnevet sorolunk fel (azon buktunk el), hanem MINDEN URL-jellegű
-    // kulcsot végigveszünk — így az SDK bármelyik verziója által termelt
-    // mező (ma: url, http.query, http.fragment) automatikusan a szűrő alá esik.
-    if (event && Array.isArray(event.breadcrumbs)) {
-      for (const crumb of event.breadcrumbs) {
-        if (crumb && crumb.data && typeof crumb.data === 'object') {
-          for (const kulcs of Object.keys(crumb.data)) {
-            const ertek = crumb.data[kulcs];
-            if (typeof ertek === 'string' && (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek))) {
-              crumb.data[kulcs] = scrubBreadcrumbValue(ertek);
-            }
-          }
-        }
-      }
-    }
+    // ⚠️ AZ EGÉSZ ESEMÉNYT BEJÁRJUK (2026-08-11) — nem helyeket sorolunk fel.
+    //
+    // Ez a harmadik nekifutás ugyanarra a hibára, és a tanulság mostanra
+    // egyértelmű. Először MEZŐNEVEKET soroltunk fel (url/to/from) → kimaradt a
+    // `http.query`. Aztán BORÍTÉKOKAT (beforeSend/Span/Transaction) → kimaradt,
+    // hogy EGY borítékon BELÜL is több másolat van ugyanabból az URL-ből:
+    // `request.url`, a gyerek-spanek `data`-ja, ÉS a gyökér-span attribútumai
+    // a `contexts.trace.data`-ban (@sentry/core sentrySpan.js → contexts.trace,
+    // benne `http.url` a TELJES query stringgel, `http.target` és a
+    // `http.client_ip`). Kettőt védtünk, a harmadik szűretlenül ment ki —
+    // 10%-os mintavétellel, benne az ÉLŐ jelszó-reset tokennel.
+    //
+    // Ezért a szűrés mostantól NEM tudja, hol keressen: rekurzívan végigmegy
+    // az esemény MINDEN string-értékén, és a tartalom alapján dönt. Egy
+    // jövőbeli SDK-verzió új helye így automatikusan a hatálya alá kerül.
+    melyszures(event, new Set(['request']));
     return event;
   } catch {
     return event;
@@ -196,5 +222,5 @@ function scrubSentryTransaction(event) {
 
 module.exports = {
   scrubSentryEvent, scrubSentrySpan, scrubSentryTransaction,
-  scrubUrlLike, scrubBreadcrumbValue, urlSzeruErtek, URL_LIKE_KEY_RE, REDACTED,
+  scrubUrlLike, scrubBreadcrumbValue, urlSzeruErtek, melyszures, URL_LIKE_KEY_RE, REDACTED,
 };

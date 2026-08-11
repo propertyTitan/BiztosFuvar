@@ -57,6 +57,26 @@ export function scrubBreadcrumbValue(value: string): string {
   return out;
 }
 
+/** Rekurzív bejárás: minden string-érték tartalom alapján szűrve. */
+function melyszures(
+  csomopont: any, kihagy = new Set<string>(), melyseg = 0, latott = new WeakSet<object>(),
+): void {
+  if (melyseg > 12 || csomopont == null || typeof csomopont !== 'object') return;
+  if (latott.has(csomopont)) return;
+  latott.add(csomopont);
+  for (const kulcs of Object.keys(csomopont)) {
+    if (melyseg === 0 && kihagy.has(kulcs)) continue;
+    const ertek = csomopont[kulcs];
+    if (typeof ertek === 'string') {
+      if (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek)) {
+        csomopont[kulcs] = scrubBreadcrumbValue(ertek);
+      }
+    } else if (ertek && typeof ertek === 'object') {
+      melyszures(ertek, kihagy, melyseg + 1, latott);
+    }
+  }
+}
+
 /** Sentry beforeSend-kompatibilis esemény-szűrő (mutál + visszaad). */
 export function scrubSentryEvent<E extends Record<string, any>>(event: E): E {
   try {
@@ -78,18 +98,12 @@ export function scrubSentryEvent<E extends Record<string, any>>(event: E): E {
     // MINDEN URL-jellegű kulcsot végigveszünk, és a query stringet EGÉSZBEN
     // eldobjuk. A hibakereséshez a hívott végpont neve elég; a paraméterek
     // (keresőszöveg, cím, token) nem tartoznak a Sentryre.
-    if (Array.isArray(event?.breadcrumbs)) {
-      for (const crumb of event.breadcrumbs) {
-        if (crumb?.data && typeof crumb.data === 'object') {
-          for (const kulcs of Object.keys(crumb.data)) {
-            const ertek = crumb.data[kulcs];
-            if (typeof ertek === 'string' && (URL_LIKE_KEY_RE.test(kulcs) || urlSzeruErtek(ertek))) {
-              crumb.data[kulcs] = scrubBreadcrumbValue(ertek);
-            }
-          }
-        }
-      }
-    }
+    // ⚠️ AZ EGÉSZ ESEMÉNYT BEJÁRJUK — nem helyeket sorolunk fel. Egy borítékon
+    // BELÜL is több másolat van ugyanabból az URL-ből (request.url, a
+    // gyerek-spanek data-ja, és a gyökér-span attribútumai a
+    // contexts.trace.data-ban). A böngészőben ez a jelszó-reset és az
+    // e-mail-verify ÉLŐ tokenjét jelenti az oldal-URL-ből.
+    melyszures(event, new Set(['request']));
     return event;
   } catch {
     return event;
