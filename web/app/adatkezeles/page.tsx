@@ -92,6 +92,17 @@ export default function AdatkezelesPage() {
           tudsz folytatni — feladóként a Platform ettől függetlenül használható.
         </li>
         <li>
+          <strong>Vészjelzés (SOS):</strong> ha a fuvar közben vészjelzést küldesz,
+          rögzítjük a <strong>pontos tartózkodási helyedet</strong>, az általad írt
+          rövid üzenetet és az időpontot. Ezt haladéktalanul továbbítjuk az ügylet
+          másik felének (a keresztneved és a jelzés ténye) és a Szolgáltató
+          ügyeletes munkatársainak (a részletekkel), hogy segítséget tudjanak
+          nyújtani. Jogalap: a te vagy más természetes személy{' '}
+          <strong>létfontosságú érdeke</strong> (GDPR 6. cikk (1) d), illetve a
+          szerződés teljesítése. Megőrzés: a pontos helyadat és a szöveg{' '}
+          <strong>7 nap</strong>, a jelzés ténye további <strong>1 év</strong>.
+        </li>
+        <li>
           <strong>Ajánlói program:</strong> ha a linkeddel vagy kódoddal hozol új
           felhasználót, eltároljuk a saját ajánlói kódodat, azt, hogy <strong>ki hívott
           meg téged</strong>, és a jutalom megítélésének időpontját. Ez a kapcsolat
@@ -110,6 +121,11 @@ export default function AdatkezelesPage() {
       </ul>
 
       <h2 style={{ marginTop: 32 }}>3. Az adatkezelés jogalapja</h2>
+      <p>
+        <strong>Létfontosságú érdek</strong> — vészjelzés (SOS) esetén a helyadatod és az
+        üzeneted továbbítása a segítségnyújtáshoz [GDPR 6. cikk (1) d)]; ilyenkor nem
+        kérünk külön hozzájárulást, mert a késedelem kárt okozhatna.
+      </p>
       <p>
         <strong>Szerződés teljesítése</strong> (ide értve a Felek kapcsolatfelvételi adatainak
         egymás részére történő átadását a díj megfizetése után — ez a megrendelt közvetítési
