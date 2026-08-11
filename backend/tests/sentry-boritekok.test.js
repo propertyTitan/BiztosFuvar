@@ -178,7 +178,13 @@ describe('Őr: MINDEN Sentry-borítékra van szűrőnk', () => {
 
     for (const fajl of INIT_FAJLOK) {
       const init = readFileSync(fajl, 'utf8');
-      const hianyzo = [...hookok].filter((h) => !init.includes(`${h}:`));
+      // ⚠️ Nem elég, hogy a hook NEVE szerepel: az ÉRTÉKÉNEK is a scrub-
+      // függvénynek kell lennie. Egy `beforeSendTransaction: (e) => e` no-op
+      // korábban zöld maradt volna.
+      const hianyzo = [...hookok].filter((h) => {
+        const m = init.match(new RegExp(`${h}:\\s*([A-Za-z_$][\\w$]*)`));
+        return !m || !/^scrubSentry/.test(m[1]);
+      });
       expect(
         hianyzo,
         `A Sentry SDK ismer olyan borítékot, amire ebben az init-fájlban nincs szűrő:\n`

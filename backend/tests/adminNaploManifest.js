@@ -37,7 +37,15 @@ const ADMIN_NAPLO_MANIFEST = {
   'GET /admin/dm/threads': 'naplozando',
   'GET /admin/dm/with/:userId': 'naplozando',
 
+  // ⚠️ 2026-08-11: ez a kettő NEM az /admin/ prefix alatt lakik, ezért az őr
+  // korábbi (útvonal-alapú) szűrője nem is látta őket.
+  'GET /payments/admin/log': 'naplozando',
+
   // ── Indokolt kivételek ───────────────────────────────────────────────
+  'GET /auth/admin/stats': {
+    kivetel: 'Összesítő statisztika (darabszámok, forgalmi adatok) — nevet, '
+      + 'elérhetőséget, egyedi felhasználói sort nem ad vissza.',
+  },
   'GET /admin/live': {
     kivetel: 'Élő jelenlét-összesítő: darabszámok szerep szerint. Nevet és '
       + 'elérhetőséget nem ad vissza, csak azt, hányan vannak éppen az oldalon.',

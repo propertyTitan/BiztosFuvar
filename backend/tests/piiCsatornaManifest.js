@@ -120,6 +120,16 @@ const PII_CSATORNA_MANIFEST = {
 // pontos címet visz — ugyanazt, amiért a GET /jobs kaput kapott.
 const SOCKET_CSATORNAK = {
   feed: { kapu: 'emailVerified', indok: 'a jobs:new payload pontos címet és GPS-t visz' },
+  // A `job:<id>` szoba élő GPS-t, fotó-URL-eket (GPS-metaadattal) és nyers
+  // ajánlat-sorokat visz. A belépés DB-ből ellenőrzött (a fuvar fele vagy
+  // admin) — ez ERŐSEBB kapu, mint az e-mail-verifikáció, ezért nem azt
+  // követeljük meg. ⚠️ A `role` 2026-08-11 óta szintén a DB-ből jön: a
+  // JWT-ből olvasva egy lefokozott admin a token lejártáig bejutott.
+  job: { kapu: 'db.query', indok: 'élő GPS + fotó-URL-ek + ajánlat-sorok' },
+  // A `user:<id>` szoba kizárólag a HITELESÍTETT saját azonosítóval nyílik —
+  // a kliens által küldött id-t nem vesszük figyelembe. Ennél szűkebb kaput
+  // nem lehet adni.
+  user: { kapu: 'me()', indok: 'személyes értesítések, kizárólag a saját szobába' },
 };
 
 module.exports = { PII_CSATORNA_MANIFEST, SOCKET_CSATORNAK };

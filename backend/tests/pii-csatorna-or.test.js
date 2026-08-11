@@ -88,14 +88,38 @@ describe('PII-csatorna őr', () => {
     }
   });
 
+  // ⚠️ TELJESSÉG a socket-oldalon is (2026-08-11). A manifest SOCKET-része
+  // eddig KÉZZEL írt, egyelemű lista volt, teljesség-teszt nélkül — vagyis egy
+  // holnap felvett, PII-t szóró negyedik szoba semmilyen pirosat nem okozott
+  // volna. Ez pontosan az az aszimmetria, amit ez az őr a REST-oldalon már
+  // lezárt: ott gépi, itt kézi.
+  it('minden socket-szoba belépése be van sorolva', () => {
+    const forras = readFileSync(`${__dirname}/../src/realtime.js`, 'utf8');
+    const szobak = [...forras.matchAll(/socket\.on\('([a-z-]+):join'/g)].map((m) => m[1]);
+
+    expect(szobak.length, 'nem találtam szoba-belépést — az őr vak').toBeGreaterThan(1);
+
+    const hianyzo = szobak.filter((sz) => !SOCKET_CSATORNAK[sz]);
+    expect(
+      hianyzo,
+      `Ezek a socket-szobák nincsenek besorolva: ${hianyzo.join(', ')}.\n\n`
+      + 'Vedd fel a piiCsatornaManifest.js SOCKET_CSATORNAK részébe: mit visz a '
+      + 'payload, és milyen kaput követel meg a belépés. A REST-kapu önmagában '
+      + 'nem elég — ugyanaz az adat socketen is kimegy.',
+    ).toEqual([]);
+  });
+
   // ⚠️ A REST-kapu önmagában nem elég: ugyanaz az adat socketen is kimegy.
   it('a socket-szobák belépése ugyanazt a kaput követeli meg', () => {
     const forras = readFileSync(`${__dirname}/../src/realtime.js`, 'utf8');
 
     for (const [szoba, elvaras] of Object.entries(SOCKET_CSATORNAK)) {
-      const belepes = forras.match(
-        new RegExp(`socket\\.on\\('${szoba}:join'[\\s\\S]{0,300}?\\}\\);`),
-      );
+      // A `job:join` blokkja hosszabb (DB-lekérdezés + try/catch), ezért a
+      // következő `socket.on`-ig olvasunk, nem fix hosszig.
+      const kezd = forras.indexOf(`socket.on('${szoba}:join'`);
+      const kov = forras.indexOf('socket.on(', kezd + 10);
+      const belepes = kezd === -1 ? null
+        : [forras.slice(kezd, kov === -1 ? kezd + 1200 : kov)];
       expect(belepes, `nem találtam a(z) "${szoba}" szoba belépését — az őr vak`).toBeTruthy();
       expect(
         belepes[0],

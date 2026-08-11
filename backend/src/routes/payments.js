@@ -13,6 +13,7 @@
 // így nincs "body-trust" rés. Az aktív provider a CIB vPOS (a callback
 // bekötésekor); a stub (kulcs nélküli) mód dev/teszthez, valódi pénz nélkül.
 const express = require('express');
+const { logAdminAccess } = require('../utils/adminAudit');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { createNotification } = require('../services/notifications');
@@ -326,6 +327,9 @@ router.post('/payments/qvik/callback', express.json(), handleProviderCallback);
 // ADMIN — Fizetési napló
 // ============================================================
 router.get('/payments/admin/log', authRequired, async (req, res) => {
+  // A `pe.*` + a fuvar CÍME (felhasználó által írt szabad szöveg), 200 soros
+  // lapozással. Naplózandó admin-hozzáférés, mint a többi tömeges olvasás.
+  await logAdminAccess(req, 'payment_log', { type: 'all' });
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Csak admin' });
   }
