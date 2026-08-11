@@ -32,10 +32,17 @@ function init(httpServer) {
         // után a nyitott socket ne maradjon hitelesítve. Eltérő tv / hiányzó
         // user → vendégként kezeljük (szoba-join nélkül).
         const { rows } = await db.query(
-          'SELECT token_version, email_verified FROM users WHERE id = $1', [payload.sub],
+          'SELECT token_version, email_verified, role FROM users WHERE id = $1', [payload.sub],
         );
         if (rows[0] && (rows[0].token_version ?? 0) === (payload.tv ?? 0)) {
-          socket.data.user = payload;
+          // ⚠️ A SZEREPKÖR A DB-BŐL, NEM A JWT-BŐL (2026-08-11). A REST-oldali
+          // ikertestvérét (middleware/auth.js) épp ezért javítottuk: egy
+          // LEFOKOZOTT admin a token lejártáig (1 nap) megtartotta a jogát. A
+          // socketen ez nyitva maradt — és az `isAdmin()` DB-ellenőrzés nélkül
+          // enged be BÁRMELYIK fuvar szobájába, ahonnan élő GPS, fotó-URL-ek és
+          // nyers ajánlat-sorok jönnek. Az `email_verified` már a DB-ből jött:
+          // az inkonzisztencia egyetlen függvényen belül volt.
+          socket.data.user = { ...payload, role: rows[0].role };
           socket.data.emailVerified = !!rows[0].email_verified;
         }
       } catch {

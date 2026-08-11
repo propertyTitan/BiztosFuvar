@@ -29,7 +29,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const {
-  scrubSentrySpan, scrubSentryTransaction, REDACTED,
+  scrubSentryEvent, scrubSentrySpan, scrubSentryTransaction, REDACTED,
 } = require('../src/utils/sentryScrub');
 
 const p = (rel) => fileURLToPath(new URL(rel, import.meta.url));
@@ -85,6 +85,73 @@ describe('Span-boríték: a kimenő hívás query stringje nem megy ki', () => {
 });
 
 // ⚠️ EZ AZ ŐR A SUITE LÉNYEGE — ez az, ami hiányzott.
+// ⚠️ ÚJ ŐR (2026-08-11): NEM a hook MEGLÉTÉT méri, hanem a szűrés HATÁSÁT.
+//
+// A korábbi őr a borítékokat számolta (beforeSend / beforeSendSpan /
+// beforeSendTransaction), és sztring-illesztéssel nézte, hogy be vannak-e
+// állítva. Zöld volt — miközben EGY borítékon BELÜL a `contexts.trace.data`
+// szűretlenül vitte ki a TELJES kérés-URL-t (élő jelszó-reset tokennel).
+//
+// A tanulság: nem elég tudni, HÁNY boríték van; azt kell mérni, hogy a titok
+// SEHOL nem marad benne. Ezért ez az őr egy realisztikus eseményt épít, a
+// titkot MINDEN plauzibilis helyre elülteti, és azt állítja, hogy a
+// szűrés után egyik sem szerepel a kimenetben.
+describe('Őr: a titok SEHOL nem marad az eseményben', () => {
+  const TITOK = 'ELO-RESET-TOKEN-9f3a';
+
+  /** A @sentry/node által ténylegesen termelt tranzakció-alak. */
+  function valodiTranzakcio() {
+    return {
+      type: 'transaction',
+      transaction: '/jelszo-reset',
+      request: { url: `https://gofuvar.hu/jelszo-reset?token=${TITOK}` },
+      contexts: {
+        trace: {
+          op: 'http.server',
+          data: {
+            // httpServerSpansIntegration: a TELJES URL query stringgel
+            'http.url': `https://gofuvar.hu/jelszo-reset?token=${TITOK}`,
+            'http.target': `/jelszo-reset?token=${TITOK}`,
+            'http.client_ip': '1.2.3.4',
+          },
+        },
+      },
+      spans: [{ description: 'GET seeme.hu', data: { 'url.query': `?key=${TITOK}` } }],
+      breadcrumbs: [{ data: { url: `https://x.hu/a?token=${TITOK}` } }],
+      // Egy jövőbeli SDK-verzió tetszőleges új helye:
+      valamiUjMezo: { melyebben: { url: `https://x.hu/b?token=${TITOK}` } },
+    };
+  }
+
+  it('a titok egyetlen helyen sem marad benne (contexts.trace.data-ban sem)', () => {
+    const eredmeny = scrubSentryTransaction(valodiTranzakcio());
+    const szoveg = JSON.stringify(eredmeny);
+
+    expect(
+      szoveg.includes(TITOK),
+      'A titok BENNMARADT az eseményben. Keresd meg, HOL — és ne csak azt a '
+      + 'helyet javítsd: a szűrésnek rekurzívan végig kell mennie az egész '
+      + 'eseményen, különben a következő SDK-verzió új helye megint kicsúszik. '
+      + `\n\nA kimenet: ${szoveg.slice(0, 400)}`,
+    ).toBe(false);
+  });
+
+  it('a hibakereséshez szükséges rész viszont megmarad', () => {
+    const e = scrubSentryEvent({
+      request: { url: 'https://api.gofuvar.hu/jobs?status=bidding&token=X' },
+      contexts: { trace: { data: { 'http.url': 'https://api.gofuvar.hu/jobs?token=X' } } },
+    });
+    expect(e.request.url, 'a saját kérésünk hasznos paramétere eltűnt').toContain('status=bidding');
+    expect(JSON.stringify(e)).toContain('api.gofuvar.hu');
+  });
+
+  it('a mély bejárás nem akad el körkörös hivatkozáson', () => {
+    const e = { contexts: { trace: { data: { url: 'https://x.hu/a?t=1' } } } };
+    e.contexts.trace.onmaga = e;
+    expect(() => scrubSentryTransaction(e)).not.toThrow();
+  });
+});
+
 describe('Őr: MINDEN Sentry-borítékra van szűrőnk', () => {
   it('az SDK által ismert összes beforeSend* hook be van állítva, minden init-fájlban', () => {
     expect(
