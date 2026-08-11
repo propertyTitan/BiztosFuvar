@@ -354,6 +354,7 @@ router.get('/admin/messages', ...adminOnly, async (req, res) => {
 
 // GET /admin/bids — licitek egy fuvarhoz
 router.get('/admin/bids/:jobId', ...adminOnly, async (req, res) => {
+  await logAdminAccess(req, 'bids_read', { type: 'job', id: req.params.jobId });
   const { rows } = await db.query(
     `SELECT b.*, u.full_name AS carrier_name, u.email AS carrier_email
        FROM bids b JOIN users u ON u.id = b.carrier_id
@@ -373,6 +374,7 @@ router.delete('/admin/bids/:id', ...adminOnly, async (req, res) => {
 
 // GET /admin/routes — összes útvonal
 router.get('/admin/routes', ...adminOnly, async (req, res) => {
+  await logAdminAccess(req, 'routes_list', { type: 'all' });
   const { rows } = await db.query(
     `SELECT r.*, u.full_name AS carrier_name
        FROM carrier_routes r JOIN users u ON u.id = r.carrier_id
@@ -399,6 +401,9 @@ router.delete('/admin/routes/:id', ...adminOnly, async (req, res) => {
 
 // GET /admin/bookings — összes foglalás
 router.get('/admin/bookings', ...adminOnly, async (req, res) => {
+  // A `b.*` a címzett teljes elérhetőségét, az átvételi kódot és a
+  // követő-tokent is hozza, foglalásonként — a /admin/jobs PONTOS ikerpárja.
+  await logAdminAccess(req, 'bookings_list', { type: 'all' });
   const { rows } = await db.query(
     `SELECT b.*, r.title AS route_title,
             s.full_name AS shipper_name, c.full_name AS carrier_name

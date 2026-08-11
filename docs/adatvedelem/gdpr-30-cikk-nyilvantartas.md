@@ -67,8 +67,12 @@ intézkedések (közös lista a dokumentum végén).
 - **Címzettek/feldolgozók**: Railway, Neon, Cloudflare R2 (fotók);
   Google Maps Platform (cím-geokódolás, útvonal)
 - **Harmadik országba továbbítás**: Google Maps (SCC)
-- **Törlés**: a fuvar-alapadatok a fiók törléséig; kapcsolódó fotók/chat:
-  lásd 5–6. pont
+- **Törlés**: a fuvar-alapadatok személyes része a lezárást követő **3 évig**
+  (gépi PII-csupaszítás: címzett-elérhetőség, átvételi kód, követő-token
+  törlése, cím településre rövidítése); vitatott/zárolt ügyletnél 5 évig.
+  A szállítót nem találó vagy 1 éve nem mozduló fuvar automatikusan lezárul,
+  és onnantól ugyanez a rend vonatkozik rá. Kapcsolódó fotók/chat: 5–6. pont.
+  Végrehajtó: `retention.js:anonymizeOldJobs` + `expireAbandonedJobs`
 - **TOM**: közös lista + kontakt-kapuzás (elérhetőség csak díjfizetés
   után), kód-próbálkozás-korlátozás
 
@@ -147,7 +151,8 @@ intézkedések (közös lista a dokumentum végén).
   (a felhasználó által kért szolgáltatás-funkció)
 - **Adatkategóriák**: e-mail-cím, értesítés-tartalom, olvasottság
 - **Címzettek/feldolgozók**: Resend (EU), Railway, Neon
-- **Törlés**: a fiókkal együtt
+- **Törlés**: **6 hónap** (napi automatikus törlés,
+  `retention.js:purgeOldNotifications`); a fiók törlésekor azonnal
 - **TOM**: közös lista
 
 ## 10. Csalásmegelőzés és kitiltás-kezelés

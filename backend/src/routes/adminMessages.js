@@ -16,6 +16,7 @@
 // =====================================================================
 
 const express = require('express');
+const { logAdminAccess } = require('../utils/adminAudit');
 const db = require('../db');
 const realtime = require('../realtime');
 const { authRequired, requireRole } = require('../middleware/auth');
@@ -91,6 +92,8 @@ function reportBroadcastEmailFailure(broadcastId, err, sentCount, totalCount) {
 // GET /admin/dm/threads — szálak listája (utolsó üzenet + olvasatlan válaszok).
 // A lista eagerly töltődik az admin-panelen (fül-badge-hez kell a darabszám).
 router.get('/admin/dm/threads', ...adminOnly, async (req, res) => {
+  // 200 szál UTOLSÓ ÜZENET-TÖRZSE + minden érintett e-mail-címe.
+  await logAdminAccess(req, 'admin_dm_threads', { type: 'all' });
   const { rows } = await db.query(
     `SELECT m.user_id,
             u.full_name, u.email, u.role,
@@ -110,6 +113,9 @@ router.get('/admin/dm/threads', ...adminOnly, async (req, res) => {
 // GET /admin/dm/with/:userId — egy szál teljes tartalma.
 // Mellékhatás: a user válaszait olvasottra állítja (az admin most látta őket).
 router.get('/admin/dm/with/:userId', ...adminOnly, async (req, res) => {
+  // A teljes privát admin↔user levelezés. A felek egymás közti chatjét
+  // naplózzuk (chat_read) — ez ugyanolyan érzékeny.
+  await logAdminAccess(req, 'admin_dm_read', { type: 'user', id: req.params.userId });
   const { rows: userRows } = await db.query(
     'SELECT id, full_name, email, admin_channel_closed_at FROM users WHERE id = $1',
     [req.params.userId],

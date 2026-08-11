@@ -637,6 +637,11 @@ async function sendAdminMessageEmail({ to, name, bodyText }) {
 
 module.exports = {
   sendEmail,
+  // ⚠️ EXPORTÁLVA (2026-08-11): a routes/-ban lévő inline levelek eddig NEM a
+  // közös sablonon mentek, ezért hiányzott belőlük az adatkezelő megnevezése
+  // és a tájékoztató linkje — pedig ezek egy része épp a CÍMZETTNEK megy,
+  // akinek nincs fiókja és semmit nem fogadott el (GDPR 14. cikk).
+  wrapHtml,
   // ⚠️ EXPORTÁLVA (2026-08-10, adatáramlási audit): a routes/-ban lévő
   // inline sendEmail-hívások eddig NEM escape-eltek — egy szállító a saját
   // NEVÉBE tett HTML-lel GoFuvar-arculatú, noreply@gofuvar.hu-ról érkező

@@ -6,6 +6,7 @@
 //   GET  /disputes/:id     — egy vita részletei
 //   PATCH /disputes/:id    — admin döntés (resolve)
 const express = require('express');
+const { logAdminAccess } = require('../utils/adminAudit');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { requireText } = require('../utils/text');
@@ -20,6 +21,42 @@ const router = express.Router();
 // POST /disputes — vita megnyitása
 router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   const { job_id, booking_id, description, evidence_url } = req.body || {};
+
+  // ⚠️ A BIZONYÍTÉK-URL VALIDÁLÁSA (2026-08-11, adatvédelmi audit 5. kör).
+  // Ez a mező NYERSEN, ellenőrzés nélkül került a DB-be — és 2026-08-09 óta a
+  // fájl-törlő gyűjtők is olvassák (userFiles.js: fiók-törlés, admin
+  // entitás-törlés, 5 éves vita-purge). A kettő együtt INTEGRITÁS-TÁMADÁS:
+  // a támadó a saját fuvarjára nyit vitát, `evidence_url`-nek beállítja egy
+  // MÁSIK ember objektum-URL-jét (az avatart bárki megkapja a publikus
+  // profilból, az ügylet másik felének fotóit legitim módon látja), majd
+  // törli a fiókját → a rendszer a MÁSIK ember fájlját törli az R2-ből.
+  // Épp a bizonyíték-rétegen: egy vitás fuvar felvételi fotója tüntethető el.
+  //
+  // ⚠️ UGYANAZ A HIBAOSZTÁLY, mint az avatar_url-nél (PR #151) — csak ott
+  // kijavítottam, itt nem néztem meg, HOLOTT ugyanabban a PR-ben (#144) én
+  // tettem be az evidence_url-t a törlő gyűjtőbe. Szabadon írható mezőre nem
+  // szabad visszafordíthatatlan műveletet alapozni.
+  //
+  // A `private:` prefix a KYC privát bucketre mutat — kliensről SOHA nem
+  // fogadható el. A publikus URL-t is csak a SAJÁT tárolónkra engedjük.
+  let tisztaEvidence = null;
+  if (evidence_url != null && evidence_url !== '') {
+    const ertek = String(evidence_url);
+    const sajatPrefix = process.env.R2_PUBLIC_URL || '';
+    const rendben = ertek.length <= 500
+      && !ertek.startsWith('private:')
+      && sajatPrefix
+      && ertek.startsWith(`${sajatPrefix}/`);
+    if (!rendben) {
+      return res.status(400).json({
+        error: 'Érvénytelen bizonyíték-hivatkozás. Tölts fel fotót a fuvar oldalán, '
+          + 'és azt csatold.',
+        code: 'INVALID_EVIDENCE_URL',
+      });
+    }
+    tisztaEvidence = ertek;
+  }
+
   // requireText: nem-string érték (szám, tömb, objektum) korábban 500-zal
   // szállt el a .trim()-en — most rendes 400-at kap a kliens.
   const descriptionCheck = requireText(description, { label: 'A vita leírása', min: 1, max: 5000 });
@@ -95,7 +132,7 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
     `INSERT INTO disputes (job_id, booking_id, opened_by, against_user, description, evidence_url)
      VALUES ($1, $2, $3, $4, $5, $6)
      RETURNING *`,
-    [job_id || null, booking_id || null, req.user.sub, againstUser, descriptionCheck.value, evidence_url || null],
+    [job_id || null, booking_id || null, req.user.sub, againstUser, descriptionCheck.value, tisztaEvidence],
   );
   const dispute = inserted[0];
 
@@ -155,6 +192,11 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
 // ezt használja; a /disputes/mine csak a saját érintettségű vitákat adja,
 // ami adminnak jellemzően üres volt — emiatt nem látszottak a viták.
 router.get('/disputes', authRequired, async (req, res) => {
+  // Admin-lista: 200 vita szabad szöveges leírása — a rendszer egyik
+  // legterheltebb szövege (kit mivel vádolnak). Naplózandó hozzáférés.
+  if (req.user?.role === 'admin') {
+    await logAdminAccess(req, 'disputes_list', { type: 'all' });
+  }
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Csak admin' });
   }

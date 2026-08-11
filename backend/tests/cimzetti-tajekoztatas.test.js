@@ -88,8 +88,40 @@ describe('A címzettnek küldött e-mail tájékoztatása', () => {
   });
 });
 
-describe('A tranzakciós e-mailek közös lába', () => {
-  it('minden levélben megnevezi az adatkezelőt és a tájékoztatót', async () => {
+describe('MINDEN inline levél a közös sablonon megy (adatkezelő-lábléc)', () => {
+  // ⚠️ EZ A BLOKK KORÁBBAN HAZUDOTT. A címe az volt, hogy „a tranzakciós
+  // e-mailek közös lába — MINDEN levélben megnevezi az adatkezelőt", és
+  // közben EGYETLEN sablont (jelszó-reset) vizsgált. Zöld volt, miközben a
+  // routes/-ban lévő öt inline levél — köztük négy, ami a CÍMZETTNEK megy,
+  // akinek nincs fiókja és semmit nem fogadott el — a közös sablont MEGKERÜLTE,
+  // tehát még az adatkezelő megnevezése sem volt bennük (GDPR 14. cikk).
+  //
+  // Mostantól a FORRÁST nézzük: minden `html:` érték a wrapHtml-en megy át.
+  // Így egy ÚJ inline levél írásakor is szól a teszt.
+  const { readFileSync, readdirSync } = require('fs');
+
+  it('a routes/ egyetlen levele sem kerüli meg a wrapHtml-t', () => {
+    const dir = `${__dirname}/../src/routes`;
+    const gondok = [];
+
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.js'))) {
+      const forras = readFileSync(`${dir}/${f}`, 'utf8');
+      for (const m of forras.matchAll(/html:\s*(.{0,30})/g)) {
+        if (!m[1].includes('wrapHtml')) gondok.push(`${f}: html: ${m[1].trim()}…`);
+      }
+    }
+
+    expect(
+      gondok,
+      'Ezek a levelek NEM a közös sablonon mennek, tehát hiányzik belőlük az '
+      + 'adatkezelő megnevezése és a tájékoztató linkje:\n  ' + gondok.join('\n  ')
+      + '\n\nHasználd a wrapHtml({ bodyHtml: `…` }) alakot. Ez különösen a '
+      + 'CÍMZETTNEK menő leveleknél kötelező: neki nincs fiókja, nem fogadott '
+      + 'el semmit, és a GDPR 14. cikk szerint tájékoztatni kell.',
+    ).toEqual([]);
+  });
+
+  it('a közös sablon tényleg tartalmazza az adatkezelőt és a tájékoztatót', async () => {
     const html = await elkapottHtml(() => email.sendPasswordResetEmail({
       to: 'user@pelda.hu', fullName: 'Teszt Elek', resetUrl: 'https://gofuvar.hu/jelszo-reset?token=x',
     }));
