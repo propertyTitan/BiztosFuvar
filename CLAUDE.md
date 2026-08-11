@@ -185,6 +185,80 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **ADATVÉDELMI KÖR 4-5 — a HÁROM LENCSE megismételve + teljes javítás
+  (2026-08-10/11, PR #150-159)** — a user kérése: „ha valamit kijavítasz,
+  akkor később ne derüljön ki, hogy mégis rossz". A 3 független ügynök
+  (séma / adatáramlás / érintett+jogi) kétszer futott le; a **4. mérés
+  eredménye 7 / 8 / 8** (a 3. körben 7/7/6 volt), és **szivárgást a
+  díj-kapun EGYIK lencse sem talált**.
+  ⚠️ **A KÖR FŐ TANULSÁGA — a mintázat, amit magamtól nem vettem észre:**
+  *„Egy védelem azon az úton épül meg, ahol felfedezték — az egyenértékű
+  utakon nem."* Az e-mail-kaput 2 végpontra tettem rá, ugyanaz az adat 4
+  másik úton ment ki (az egyiken PUSH-ban); a Sentry-szűrést a breadcrumbra
+  írtam, a span-borítékon ugyanaz az adat szűretlen ment; a chat-szűrést a
+  szállító üzeneteire, a feladóéra nem. **Ezért a javítások fele már nem
+  hiba-javítás, hanem ŐR**:
+  **(1) SENTRY-BORÍTÉK-ŐR** — az SDK forrásából olvassa ki, HÁNY `beforeSend*`
+  hook létezik, és mindegyikre követel szűrőt, mindhárom init-fájlban.
+  A `beforeSend` CSAK hiba-eseményen fut; a tracesSampleRate-es
+  teljesítmény-események másik borítékban vitték az ÉLES SeeMe-kulcsot, a
+  6 jegyű átvételi kódot és a telefonszámokat. ⚠️ **A saját őröm kapta el a
+  saját javításom hibáját**: a kulcsnév-alapú minta az `url.full`-t nem
+  fogta → tartalom-alapúra váltottam.
+  **(2) RETENCIÓS ŐR** — a VALÓS `information_schema`-ból olvassa a táblákat;
+  mindegyiknek szabály VAGY érdemi indoklás kell. Három egymást követő kör
+  talált „lefedetlen tábla" találatot — ez zárja az osztályt. Azonnal
+  feltárt 4 hiányt (beragadt fuvar/foglalás, DAC7, fizetési napló), és
+  később a saját új tábláimat is elkapta.
+  **(3) PII-CSATORNA ŐR** — MINDEN hitelesített GET-et be kell sorolni, és a
+  `masok` besorolásúakon a kaput **FUTÁSIDŐBEN**, az Express router-stack
+  hívási láncából ellenőrzi (nem forrásszövegből). Plusz a SOCKET-szobát és
+  a PUSH-csatornát is: a REST-kapu önmagában nem elég.
+  **(4) SMS-SZEGMENS-ŐR** — egyszerre tartja, hogy a 14. cikk szerinti mutató
+  benne legyen ÉS beleférjen 2 szegmensbe (különben +19 Ft/fuvar).
+  A JAVÍTÁSOK: okmány-lenyomat HMAC-ra (a 061-es migrációm leírta, MIÉRT
+  rossz a sózatlan hash — a 063 mégis úgy vezette be); **az avatar-mező, amit
+  a saját árva-fájl javításom tett bizonyíték-megsemmisítő eszközzé**;
+  követő-link 14 napos lejárata; chat-előzmény (067-068 migráció:
+  `messages.recipient_id` — a beszélgetés KÉT fél között zajlik);
+  szerver-oldali e-mail-kapu (eddig csak böngésző-overlay volt);
+  lane-alert + feed-szoba kapuzása; socket-bontás force-logoutnál és
+  fiók-törlésnél; beragadt (`accepted`/`in_progress`) fuvarok és foglalások;
+  DAC7-retenció (⚠️ a `tax_data_provided_at`-ot SENKI nem írta → végtelen
+  hurok lett volna); fizetési napló és escrow 8 év; halott PII-séma 2 körben
+  (köztük a NYERS okmányszám és a `reviews.photo_url` árva-gyár);
+  duplikátum-okmány → emberi ellenőrzés (GDPR 22.); címzetti SMS-tájékoztatás;
+  a DPIA + érdekmérlegelés + **30. cikk nyilvántartás** kódhoz igazítása,
+  mind v1.1-re emelve. Backend **739/739**.
+  **(5) A RETENCIÓ MEGFIGYELHETŐ** (069, `retention_runs`): eddig minden purge
+  lenyelte a saját hibáját, az ütemező `.catch(() => {})`-tal hívott — ha a
+  kör hónapokig elszállt volna, azt SEMMI nem jelzi, és utólag bizonyítani
+  sem lehetett, hogy valaha lefutott (GDPR 5. cikk (2) elszámoltathatóság).
+  Most: futás-napló PII nélkül + Sentry-riasztás + egy kör hibája nem
+  állítja meg a többit.
+  ⚠️ **AMIT SZÁNDÉKOSAN NEM JAVÍTOTTAM** (az ügynök nem mindig téved a
+  javunkra): a foglalási ág feladói `delivery_code`-ja MARAD — a fuvarnak
+  KÉT kódja van, a foglalásnak EGY, elvéve a feladó nem tudná lezárni;
+  az emelet/lift/időablak MARAD a piactéren (ÁRAZÁSI tényezők, elvéve a
+  szállító vakon licitálna); a szállító NEVE marad a követő-oldalon (a névvel
+  a díj nem kerülhető meg); a `users.kyc_status` marad (NOT NULL, státusz,
+  nem PII). Mindegyikre teszt is van, hogy a védelem NE legyen túl széles.
+  ⚠️ **SAJÁT HIBÁIM, tanulságnak**: (a) a 066-os migrációm MEGTÖRTE a
+  migrációs lánc újrajátszhatóságát (a 021 indexet hoz létre egy oszlopon,
+  amit töröltem — friss építésnél működött, meglévő DB-n elhasalt); (b) a
+  migrációs futtató a TELJES fájlt EGY lekérdezésként adja át, amiben a
+  Postgres előre elemez → DDL és a rá épülő DML/INDEX külön fájlba kell;
+  (c) egy `cd` elszállása miatt közvetlenül a main-re commitoltam (ágra
+  áthelyezve, push előtt); (d) kétszer írtam backticket SQL-kommentbe JS
+  template literal belsejében.
+  ⚠️ **USER-TEENDŐ**: ha a Sentry valaha elkapott SeeMe-hibát vagy sampled
+  tranzakciót a gateway-hívással, a **SEEME_API_KEY-t ROTÁLNI kell**
+  (Sentry → Performance → „HTTP GET seeme.hu"). Kódból nem megállapítható.
+  ⚠️ **NYITOTT**: a MÁR MEGLÉVŐ R2-árvák (egyszeri bucket ↔ DB egyeztetés
+  kell); a `sha256-legacy` okmány-lenyomatok kinullázása élesedés előtt
+  (különben a „nem visszafejthető" állítás rájuk nem igaz); a süti-banner
+  látszat-választása (a két gomb azonos hatású — termék/jogi döntés); a
+  nyitott fuvar cím-pontossága (termékdöntés); ügyvédi review.
 - **HÁROM FÜGGETLEN ADATVÉDELMI LENCSE + a teljes javítási kör (2026-08-09/10,
   PR #143-148)** — a user kérésére 3 ügynök futott EGYSZERRE, de MÁS
   szemszögből: séma/tárolás (**7/10**), adatáramlás (**7/10**), érintett+jogi
