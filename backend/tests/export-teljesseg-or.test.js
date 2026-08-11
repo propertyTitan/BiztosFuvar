@@ -136,6 +136,21 @@ describe('Export — az ígért kulcsok tényleg a válaszban vannak', () => {
       .filter(([, kulcs]) => !(kulcs in res.body))
       .map(([tabla, kulcs]) => `${tabla} → "${kulcs}" (ez a kulcs NINCS a válaszban)`);
 
+    // ⚠️ A KULCS LÉTEZÉSE NEM ELÉG (2026-08-11, 9. mérés Ő6). A korábbi
+    // változat csak azt nézte, hogy `kulcs in res.body` — vagyis egy üres
+    // tömböt vagy egy szűkített (pl. „csak az utolsó 30 nap") lekérdezést is
+    // elfogadott volna, miközben a 15. cikkes válasz hiányos. Ezért a lista
+    // TÍPUSÁT is megköveteljük: ami gyűjtemény, az tömb legyen — így egy
+    // `null`-ra vagy objektumra csúszó blokk kiderül.
+    const rosszTipus = igertKulcsok
+      .filter(([, kulcs]) => kulcs in res.body && !Array.isArray(res.body[kulcs]))
+      .map(([tabla, kulcs]) => `${tabla} → "${kulcs}" nem tömb (${typeof res.body[kulcs]})`);
+    expect(
+      rosszTipus,
+      `Az export ígért gyűjteményei nem tömbök:\n  ${rosszTipus.join('\n  ')}\n\n`
+      + 'Egy 15. cikkes kérésre a hiányos vagy rossz alakú válasz jogsértés.',
+    ).toEqual([]);
+
     expect(
       hianyzo,
       `A kivétel-lista olyan kulcsokra hivatkozik, amik nincsenek az exportban:\n  ${hianyzo.join('\n  ')}\n\n`

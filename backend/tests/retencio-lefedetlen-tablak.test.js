@@ -48,11 +48,17 @@ describe('A fuvar körüli szabad szöveg is elévül', () => {
 
     await anonymizeOldJobs();
 
-    const { rows } = await db.query('SELECT message FROM bids WHERE job_id = $1', [job.id]);
+    // ⚠️ 2026-08-11 (9. mérés M1): a SOR is elmegy, nem csak a szövege.
+    // A manifest korábban azt állította, hogy „a sor a fuvarral CASCADE" — ez
+    // hamis premissza volt: a fuvart NEM töröljük, hanem anonimizáljuk, tehát
+    // a fuvar sora megmarad, és vele minden rá adott ajánlat. Az üres üzenetű
+    // sor is viselkedési adat: „X szállító Y Ft-ot ajánlott Z fuvarra T-kor".
+    const { rows } = await db.query('SELECT id FROM bids WHERE job_id = $1', [job.id]);
     expect(
-      rows[0].message,
-      'a fuvar leírását kiürítettük, de az ajánlat-üzenet szövege örökre megmaradt',
-    ).toBeNull();
+      rows.length,
+      'az anonimizált fuvar ajánlat-sorai megmaradtak — üres üzenettel is '
+      + 'viselkedési adat egy személyről, határidő nélkül',
+    ).toBe(0);
   });
 
   it('az anonimizált fuvar KÉRDÉS-VÁLASZ szála kiürül', async () => {
@@ -67,9 +73,12 @@ describe('A fuvar körüli szabad szöveg is elévül', () => {
 
     await anonymizeOldJobs();
 
-    const { rows } = await db.query('SELECT question, answer FROM job_questions WHERE job_id = $1', [job.id]);
-    expect(rows[0].question, 'a nyilvános kérdés szövege megmaradt').toBe('');
-    expect(rows[0].answer, 'a válasz szövege megmaradt').toBeNull();
+    const { rows } = await db.query('SELECT id FROM job_questions WHERE job_id = $1', [job.id]);
+    expect(
+      rows.length,
+      'az anonimizált fuvar kérdés-válasz sorai megmaradtak — ki érdeklődött '
+      + 'mikor melyik fuvarra, határidő nélkül',
+    ).toBe(0);
   });
 
   it('a FUTÓ fuvar ajánlat-üzenetét és kérdéseit nem bántja', async () => {

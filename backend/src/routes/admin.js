@@ -72,6 +72,36 @@ router.get('/admin/live', ...adminOnly, (req, res) => {
 // (2026-07-16 retenció-szabály: alapból 30 nap; zárolva 5 év). A vita-nyitás
 // automatikusan zárol; ez a végpont az "admini utasítás" ága.
 // Body: { job_id? , booking_id?, hold: boolean }
+// =====================================================================
+//  MINDEN ADMIN ÍRÁS NYOMOT HAGY (2026-08-11, 9. mérés P1)
+//
+//  ⚠️ Az admin-hozzáférési napló eddig CSAK az OLVASÁST rögzítette. Az
+//  ÍRÁSOKAT — KYC-státusz átírása, szerep-váltás, felhasználó törlése,
+//  fuvar-státusz módosítása, fotó-zárolás fel/le — semmi nem naplózta.
+//
+//  A GDPR 5. cikk (2) elszámoltathatósága szempontjából a MÓDOSÍTÁS legalább
+//  annyira számít, mint a megtekintés: egy vitatott ügyben azt is tudni kell,
+//  KI állította át a státuszt, nem csak azt, ki nézte meg. A megtekintésnél
+//  szigorúbbak voltunk, mint a beavatkozásnál.
+//
+//  Ez a middleware KÉRÉSBŐL olvassa az útvonalat és a metódust, ezért egy
+//  ÚJ admin-írás automatikusan naplózott lesz — nem kell rá emlékezni.
+// =====================================================================
+router.use((req, res, next) => {
+  if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) return next();
+  if (!req.path.includes('/admin/')) return next();
+  // A választ megvárjuk: csak a TÉNYLEGES változást naplózzuk (a 4xx-et nem).
+  res.on('finish', () => {
+    if (res.statusCode >= 400) return;
+    // Szándékosan NEM naplózzuk a body-t: az személyes adatot tartalmazhat,
+    // és a napló maga is retenció alá esik. A MŰVELET ténye a lényeg.
+    logAdminAccess(req, `write:${req.method} ${req.route?.path || req.path}`, {
+      type: 'admin_write', id: req.params?.id || null,
+    }).catch(() => {});
+  });
+  next();
+});
+
 router.patch('/admin/photo-hold', ...adminOnly, async (req, res) => {
   const { job_id, booking_id, hold } = req.body || {};
   if (typeof hold !== 'boolean' || (!job_id && !booking_id)) {
@@ -153,7 +183,7 @@ router.get('/admin/users/:id', ...adminOnly, async (req, res) => {
             u.billing_address, u.billing_country, u.company_verification_status,
             u.nav_taxpayer_checked_at, u.nav_taxpayer_name, u.nav_taxpayer_valid,
             -- szállítói profil
-            u.vehicle_type, u.vehicle_plate, u.service_categories,
+            u.vehicle_type, u.vehicle_plate,
             u.identity_kyc_status, u.driver_kyc_status, u.driver_terms_accepted_at,
             u.is_tow_driver, u.tow_services, u.tow_vehicle_description,
             u.level, u.level_name, u.total_deliveries,

@@ -491,21 +491,26 @@ async function anonymizeOldJobs() {
     // szabály van, egy időbélyeg és egy zárolás-jelző, és a kör önjavító
     // (a korábban anonimizált sorok szövegét is elkapja).
     const { rowCount: bidMsgs } = await db.query(
-      `UPDATE bids b
-          SET message = NULL
-         FROM jobs j
+      // A SOR MAGA IS ELMEGY, NEM CSAK A SZÖVEGE (2026-08-11, 9. mérés M1).
+      // A manifest azt állította, hogy „a sor a fuvarral CASCADE" — ez HAMIS
+      // premissza volt: a fuvart NEM töröljük, hanem anonimizáljuk, tehát a
+      // fuvar sora megmarad, és vele az összes rá adott ajánlat. Az üres
+      // üzenetű sor is viselkedési adat egy személyről: „X szállító Y forintot
+      // ajánlott Z fuvarra T időpontban" — határidő nélkül. Az anonimizált
+      // (3+ éves) fuvarnál ennek semmilyen célja nincs.
+      `DELETE FROM bids b
+         USING jobs j
         WHERE b.job_id = j.id
-          AND j.anonymized_at IS NOT NULL
-          AND b.message IS NOT NULL`,
+          AND j.anonymized_at IS NOT NULL`,
     );
 
     const { rowCount: questions } = await db.query(
-      `UPDATE job_questions q
-          SET question = '', answer = NULL
-         FROM jobs j
+      // Ugyanaz, mint a bids-nél: a kérdés/válasz SORA is viselkedési adat
+      // (ki érdeklődött mikor melyik fuvarra), nem csak a szövege.
+      `DELETE FROM job_questions q
+         USING jobs j
         WHERE q.job_id = j.id
-          AND j.anonymized_at IS NOT NULL
-          AND (q.question <> '' OR q.answer IS NOT NULL)`,
+          AND j.anonymized_at IS NOT NULL`,
     );
 
     db_count = (jobs || 0) + (bookings || 0);
@@ -1079,7 +1084,12 @@ async function runDailyRetention() {
       eredmeny[nev] = (await module.exports[nev]()) || 0;
     } catch (err) {
       // Ide csak akkor jutunk, ha a kör SAJÁT kezelése is elhasalt.
-      hibak[nev] = err.message;
+      // ⚠️ A HIBAÜZENET MASZKOLVA (2026-08-11, 9. mérés R1). A futás-naplót
+        // HATÁRIDŐ NÉLKÜL őrizzük, azzal az indoklással, hogy „személyes adatot
+        // nem tartalmaz" — ez eddig ÁLLÍTÁS volt, nem garancia. A Postgres
+        // hibaüzenetek viszont visszhangozhatnak adat-részletet
+        // (`invalid input syntax for type uuid: "..."`). Most kikényszerítjük.
+        hibak[nev] = require('../utils/mask').maskInText(err.message);
       console.error(`[retention] ${nev} elszállt:`, err.message);
     }
   }
