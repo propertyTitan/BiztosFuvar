@@ -918,16 +918,16 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     // a 063 mégis sózatlanul vezette be ezt a mezőt.)
     const nyers = docNumberRaw.trim().toUpperCase();
     docNumberHash = docHmac(nyers);
-    // ÁTMENET: a régi sorok sózatlan SHA-256-tal készültek, és a nyers számot
-    // sosem tároltuk, tehát nem számolhatók újra. Feltöltéskor viszont
-    // MINDKETTŐ kiszámolható, ezért mindkét alakra illesztünk — így a
-    // duplikátum-védelem az átmenet alatt sem gyengül.
-    const legacyHash = require('crypto').createHash('sha256').update(nyers).digest('hex');
+    // ⚠️ AZ ÁTMENETI (sózatlan SHA-256) ILLESZTÉS TÖRÖLVE (2026-08-11, 073-as
+    // migráció). A legacy lenyomatok kinullázása után nincs mihez illeszteni,
+    // és a bennhagyott ág azt sugallná, hogy még van sózatlan adatunk. Minden
+    // tárolt lenyomat mostantól HMAC — pontosan úgy, ahogy a tájékoztató, a
+    // 30. cikkes nyilvántartás és az érdekmérlegelési teszt állítja.
     const { rows: existing } = await db.query(
       `SELECT k.user_id FROM kyc_documents k
-       WHERE k.doc_number_hash = ANY($1) AND k.user_id <> $2
+       WHERE k.doc_number_hash = $1 AND k.user_id <> $2
          AND k.status IN ('approved', 'pending')`,
-      [[docNumberHash, legacyHash], req.user.sub],
+      [docNumberHash, req.user.sub],
     );
     if (existing.length > 0) {
       // NE logold a nyers okmányszámot — a DB-ben is csak hash-elve tároljuk.
@@ -961,7 +961,7 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     // tiltás a jóhiszemű visszatérőt is kizárná, és emberi felülvizsgálat
     // nélküli automatizált döntés lenne (GDPR 22. cikk).
     // A már beállított okot NEM írjuk felül (az élő duplikátum erősebb jel).
-    if (!keziEllenorzesOka && await kycHistory.korabbanToroltFiok([docNumberHash, legacyHash])) {
+    if (!keziEllenorzesOka && await kycHistory.korabbanToroltFiok([docNumberHash])) {
       keziEllenorzesOka = {
         code: 'PREVIOUSLY_DELETED_ACCOUNT',
         reason: 'Ezzel az okmánnyal korábban már volt fiók a rendszerben. '
