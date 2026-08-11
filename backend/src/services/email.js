@@ -95,6 +95,32 @@ async function sendEmail({ to, subject, html, text }) {
 
 // ---------- HTML email sablon (egyszerű wrapper) ----------
 
+
+/**
+ * GDPR 14. cikk szerinti tájékoztató blokk a CÍMZETTNEK.
+ *
+ * ⚠️ 2026-08-11: ez a szöveg korábban EGYETLEN e-mail-függvényben élt
+ * (`sendRecipientTrackingEmail`), a címzettnek küldött többi levél nem kapta
+ * meg. Ez ugyanaz a minta, ami ebben a projektben többször okozott „csak az
+ * egyiket javítottuk" hibát — ezért közös helyre került. Aki a címzettnek ír,
+ * ezt hívja.
+ */
+function cimzettiTajekoztatoBlokk() {
+  return `        <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;line-height:1.6;color:#94a3b8">
+          <strong>Honnan tudjuk az elérhetőségedet?</strong> A csomag feladója adta meg,
+          hogy értesíteni tudjunk az érkezésről. Az adataidat (név, telefonszám, e-mail-cím,
+          szállítási cím) kizárólag ennek a küldeménynek a kézbesítéséhez használjuk,
+          és a fuvar lezárását követő 3 éven belül töröljük.
+          <br><br>
+          Adatkezelő: <strong>Tiszta Hód Kft.</strong> (6800 Hódmezővásárhely, Szántó Kovács
+          János utca 144.) ·
+          <a href="${getWebBase()}/adatkezeles#cimzett" style="color:#94a3b8">Adatkezelési tájékoztató</a>
+          <br>
+          Ha nem szeretnéd, hogy kezeljük az adataidat, vagy nem te vagy a címzett, írj az
+          <a href="mailto:info@gofuvar.hu" style="color:#94a3b8">info@gofuvar.hu</a> címre.
+        </div>`;
+}
+
 function wrapHtml({ heading, bodyHtml, ctaText, ctaHref }) {
   const cta = ctaText && ctaHref
     ? `<p style="margin:24px 0 0">
@@ -503,19 +529,7 @@ async function sendRecipientTrackingEmail({ to, recipientName, jobTitle, trackin
              mondani, KI kezeli az adatait, HONNAN vannak, MEDDIG tartjuk meg, és
              hogyan tiltakozhat. (2026-08-09 adatvédelmi audit: eddig egyik
              kötelező elem sem szerepelt sem az e-mailben, sem az SMS-ben.) -->
-        <div style="margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;line-height:1.6;color:#94a3b8">
-          <strong>Honnan tudjuk az elérhetőségedet?</strong> A csomag feladója adta meg,
-          hogy értesíteni tudjunk az érkezésről. Az adataidat (név, telefonszám, e-mail-cím,
-          szállítási cím) kizárólag ennek a küldeménynek a kézbesítéséhez használjuk,
-          és a fuvar lezárását követő 3 éven belül töröljük.
-          <br><br>
-          Adatkezelő: <strong>Tiszta Hód Kft.</strong> (6800 Hódmezővásárhely, Szántó Kovács
-          János utca 144.) ·
-          <a href="${getWebBase()}/adatkezeles#cimzett" style="color:#94a3b8">Adatkezelési tájékoztató</a>
-          <br>
-          Ha nem szeretnéd, hogy kezeljük az adataidat, vagy nem te vagy a címzett, írj az
-          <a href="mailto:info@gofuvar.hu" style="color:#94a3b8">info@gofuvar.hu</a> címre.
-        </div>
+        ${cimzettiTajekoztatoBlokk()}
       </div>
     `,
   });
@@ -637,6 +651,7 @@ async function sendAdminMessageEmail({ to, name, bodyText }) {
 
 module.exports = {
   sendEmail,
+  cimzettiTajekoztatoBlokk,
   // ⚠️ EXPORTÁLVA (2026-08-11): a routes/-ban lévő inline levelek eddig NEM a
   // közös sablonon mentek, ezért hiányzott belőlük az adatkezelő megnevezése
   // és a tájékoztató linkje — pedig ezek egy része épp a CÍMZETTNEK megy,

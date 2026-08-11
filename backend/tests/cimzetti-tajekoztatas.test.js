@@ -100,6 +100,38 @@ describe('MINDEN inline levél a közös sablonon megy (adatkezelő-lábléc)', 
   // Így egy ÚJ inline levél írásakor is szól a teszt.
   const { readFileSync, readdirSync } = require('fs');
 
+  it('MINDEN címzettnek küldött levél tartalmazza a 14. cikkes blokkot', () => {
+    // ⚠️ 2026-08-11: a 14. cikkes tájékoztató (honnan az adat, meddig
+    // tartjuk, hogyan tiltakozhat) EGYETLEN e-mail-függvényben élt. A
+    // címzettnek küldött többi levél — köztük az, ami az ÁTVÉTELI KÓDOT és a
+    // szállító telefonját viszi — nem kapta meg. Nem jogsértés (az első
+    // közlésnél megvan), de pontosan az a minta, ami itt többször okozott
+    // „csak az egyiket javítottuk" hibát. Ezért közös helperbe került, és ez
+    // az őr követeli meg minden címzetti levélen.
+    const dir = `${__dirname}/../src/routes`;
+    const gondok = [];
+
+    for (const f of readdirSync(dir).filter((x) => x.endsWith('.js'))) {
+      const forras = readFileSync(`${dir}/${f}`, 'utf8');
+      // Csak a NYERS `sendEmail(` hívások — a `sendRecipientTrackingEmail`
+      // helper maga tartalmazza a 14. cikkes blokkot, azt nem kell külön
+      // bekötni. (Ezt az őr első változata hamis riasztásként jelezte.)
+      for (const m of forras.matchAll(/sendEmail\(\{[\s\S]{0,200}?to:\s*[\w.]*recipient_email,[\s\S]{0,900}?\}\)/g)) {
+        if (!m[0].includes('cimzettiTajekoztatoBlokk')) {
+          gondok.push(`${f}: ${m[0].slice(0, 80).replace(/\s+/g, ' ')}…`);
+        }
+      }
+    }
+
+    expect(
+      gondok,
+      'Ezek a levelek a CÍMZETTNEK mennek (nincs fiókja, semmit nem fogadott el), '
+      + 'de nincs bennük a GDPR 14. cikk szerinti tájékoztatás:\n  '
+      + gondok.join('\n  ')
+      + '\n\nTedd a törzs végére: ${cimzettiTajekoztatoBlokk()}',
+    ).toEqual([]);
+  });
+
   it('a routes/ egyetlen levele sem kerüli meg a wrapHtml-t', () => {
     const dir = `${__dirname}/../src/routes`;
     const gondok = [];
