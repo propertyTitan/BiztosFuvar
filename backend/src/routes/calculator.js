@@ -57,7 +57,18 @@ router.get('/calculator/estimate', (req, res) => {
   const pLng = parseFloat(pickup_lng);
   const dLat = parseFloat(dropoff_lat);
   const dLng = parseFloat(dropoff_lng);
-  const kg   = parseFloat(weight_kg) || 5;
+  // ⚠️ TARTOMÁNY-ELLENŐRZÉS (2026-08-12, lefedettségi kör). A puszta
+  // `parseFloat(x) || 5` átengedte a VÉGTELENT és a NEGATÍVAT:
+  //   weight_kg=Infinity → a JSON nem tudja ábrázolni → a látogató
+  //                        „null Ft" becslést látott a főoldalon
+  //   weight_kg=-1000    → NEGATÍV ár, és a sáv MEGFORDULT (alsó > felső)
+  // Az emelet-mezők ugyanebben a kezelőben 14 sorral lejjebb már kaptak
+  // `Math.max(0, Math.min(10, …))` határellenőrzést; a súly kimaradt.
+  // Publikus, auth nélküli végpont — ez a konverziós felület.
+  const nyersKg = parseFloat(weight_kg);
+  const kg = (Number.isFinite(nyersKg) && nyersKg > 0)
+    ? Math.min(nyersKg, 100000)
+    : 5;
   const volM3 = parseFloat(volume_m3);
 
   if (!Number.isFinite(pLat) || !Number.isFinite(pLng) ||
