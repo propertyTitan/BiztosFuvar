@@ -307,6 +307,17 @@ export default function AdatkezelesPage() {
           egyező megőrzéssel, majd automatikusan törlődik.
         </li>
         <li>
+          <strong>Alvó fiókok:</strong> ha <strong>3 évig</strong> nem
+          jelentkezel be, e-mailben figyelmeztetünk, és ha ezt követő{' '}
+          <strong>30 napon</strong> belül sem lépsz be, a fiókodat és a hozzá
+          tartozó személyes adatokat (név, e-mail, telefonszám, profilkép,
+          bemutatkozás, jármű adatai) automatikusan töröljük. Egyetlen
+          bejelentkezés visszaállítja az órát. A fiók nem törlődik, amíg
+          folyamatban lévő, kifizetett vagy vitatott ügyleted van — ilyenkor
+          előbb azt kell lezárni. (A számlákra került adatokra a fentiek
+          szerinti 8 éves számviteli megőrzés vonatkozik.)
+        </li>
+        <li>
           <strong>Törölt fiókok nyoma:</strong> ha törlöd a fiókodat, a törlés
           <strong>tényét</strong> (időpont, a törlés oka) <strong>5 évig</strong>
           megőrizzük, az e-mail-címedről pedig egy visszafejthetetlen, szerver-oldali

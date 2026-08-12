@@ -634,6 +634,43 @@ async function sendTaxDataRequestEmail({ to, name, deadline, reminderNo = 0 }) {
  * A body sortöréseit megőrizzük; a tartalom user-vezérelt szempontból az
  * ADMIN szövege, de az escape a biztonsági alapszabály miatt így is jár.
  */
+/**
+ * Alvó fiók: figyelmeztetés a közelgő automatikus törlésről.
+ *
+ * ⚠️ A FIGYELMEZTETÉS A SZABÁLY RÉSZE, nem udvariasság. Előzmény nélküli
+ * törlésnél a felhasználó a fuvar-előzményét, az értékeléseit és a
+ * referral-kódját veszítené el anélkül, hogy bármit tehetett volna ellene.
+ * Egyetlen bejelentkezés visszaállítja az órát.
+ */
+async function sendDormantAccountWarningEmail({ to, name, deleteDate }) {
+  const datum = deleteDate instanceof Date
+    ? deleteDate.toLocaleDateString('hu-HU') : String(deleteDate || '');
+  const bodyHtml = `
+    <p>Szia ${escapeHtml(name) || 'GoFuvar felhasználó'}!</p>
+    <p>Régen jártál nálunk — a fiókodba <strong>több mint 3 éve</strong> nem
+       jelentkeztél be.</p>
+    <p>Az adataidat nem őrizzük tovább a szükségesnél, ezért ha
+       <strong>${escapeHtml(datum)}</strong>-ig nem lépsz be, a fiókodat és a
+       hozzá tartozó személyes adatokat automatikusan töröljük.</p>
+    <p><strong>Ha meg szeretnéd tartani, nincs teendőd azon kívül, hogy
+       belépsz</strong> — ez önmagában visszaállítja az órát, és nem kapsz
+       több ilyen levelet.</p>
+    <p style="font-size:13px;color:#64748b">Ha nem szeretnéd megtartani, nem
+       kell tenned semmit. A törlés után a fuvar-előzményed, az értékeléseid és
+       az ajánlói kódod is megszűnik. A számlákra került adatokat a számviteli
+       törvény alapján 8 évig akkor is meg kell őriznünk.</p>`;
+  return sendEmail({
+    to,
+    subject: '⏳ A GoFuvar-fiókod hamarosan törlődik',
+    html: wrapHtml({
+      heading: '⏳ Régen jártál nálunk',
+      bodyHtml,
+      ctaText: 'Belépek, megtartom a fiókom',
+      ctaHref: `${getWebBase()}/belepes`,
+    }),
+  });
+}
+
 async function sendAdminMessageEmail({ to, name, bodyText }) {
   const bodyHtml = `
     <p>Szia ${escapeHtml(name) || 'GoFuvar felhasználó'}!</p>
@@ -654,6 +691,7 @@ async function sendAdminMessageEmail({ to, name, bodyText }) {
 }
 
 module.exports = {
+  sendDormantAccountWarningEmail,
   sendEmail,
   cimzettiTajekoztatoBlokk,
   // ⚠️ EXPORTÁLVA (2026-08-11): a routes/-ban lévő inline levelek eddig NEM a

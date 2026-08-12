@@ -44,3 +44,7 @@ for (const kulcs of [
 // biztonsági tesztjei (KYC-kapu, lista-scrub, közelítő hely) továbbra is
 // fussanak, és a védelem ne rohadjon el holt kódként.
 process.env.TOWING_ENABLED = 'true';
+// Ugyanaz az elv, mint a towingnal: a funkcio ELESBEN ki van kapcsolva
+// (user-dontes, 2026-08-12), de a tesztek futtatjak, hogy a vedelmek ne
+// rothadjanak el. Elesztes elott lasd a sos.js fejleceben a feltetellistat.
+process.env.SOS_ENABLED = 'true';
