@@ -44,7 +44,12 @@ function sosEnabled() {
   return String(process.env.SOS_ENABLED || '').toLowerCase() === 'true';
 }
 
-router.use((req, res, next) => {
+// ⚠️ AZ ÚTVONAL-ELŐTAG KÖTELEZŐ. Előtag nélkül a middleware MINDEN kérésre
+// lefut, ami ezen a routeren áthalad — és mivel a router '/'-ra van
+// felcsatolva, az utána mountolt adminRoutes / jobQuestions / driverStats
+// végpontjai is 503-at kaptak volna. (Az E2E fogta meg; a towing verziója
+// eleve kiírja az előtagot.)
+router.use('/sos', (req, res, next) => {
   if (!sosEnabled()) {
     return res.status(503).json({
       error: 'A vészjelzés-funkció jelenleg nem elérhető. Vészhelyzetben hívd a 112-t.',

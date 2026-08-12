@@ -92,11 +92,15 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             role={t.kind === 'error' ? 'alert' : undefined}
             onClick={() => setItems((prev) => prev.filter((x) => x.id !== t.id))}
             style={{
+              // A *-solid tokenek fehér szöveghez vannak méretezve (WCAG AA 4.5:1).
+              // A sima --danger/--success sötét módban világosabb, mert ott
+              // SZÖVEGKÉNT kell látszania sötét háttéren — fehér szöveg alatt
+              // viszont bukik (a kontraszt-audit 3,8:1-et mért).
               background:
                 t.kind === 'success'
-                  ? 'var(--success)'
+                  ? 'var(--success-solid)'
                   : t.kind === 'error'
-                  ? 'var(--danger)'
+                  ? 'var(--danger-solid)'
                   : 'var(--primary)',
               color: '#fff',
               padding: '12px 16px',
