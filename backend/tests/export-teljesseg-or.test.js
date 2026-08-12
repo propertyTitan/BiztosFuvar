@@ -111,13 +111,65 @@ describe('Export-teljesség őr', () => {
 describe('Export — az ígért kulcsok tényleg a válaszban vannak', () => {
   it('minden „az exportban szerepel (X)" állítás igaz', async () => {
     const request = require('supertest');
-    const { app, createUser } = require('./helpers');
+    const { app, db, createUser, createJob } = require('./helpers');
 
     const user = await createUser({ role: 'shipper' });
+    const masik = await createUser({ role: 'carrier' });
+
+    // ⚠️ ADATTAL HÍVJUK (2026-08-12, 10. mérés F3/Ő6). A korábbi változat egy
+    // FRISS, adat nélküli userre hívta a végpontot, és annyit követelt, hogy a
+    // kulcs LÉTEZZEN és tömb legyen. Egy üres tömb viszont mindent kielégít:
+    // a `WHERE` helyessége nem volt mérve. Ellenpélda, ami átment volna:
+    //   `FROM disputes WHERE opened_by = $1`  →  `... AND FALSE`
+    // A `vitaim` kulcs megvan, tömb, üres — és egy GDPR 15. cikkes kérésre a
+    // rendszer legterheltebb szövege (kit mivel vádolnak) hiányzik a válaszból.
+    const job = await createJob({
+      shipperId: user.id, carrierId: masik.id, status: 'delivered', paid: true,
+    });
+    await db.query(
+      `INSERT INTO disputes (job_id, opened_by, description, status)
+       VALUES ($1, $2, 'A doboz sérülten érkezett', 'open')`,
+      [job.id, user.id],
+    );
+    await db.query(
+      `INSERT INTO messages (job_id, sender_id, recipient_id, body)
+       VALUES ($1, $2, $3, 'Szia, mikor érkezel?')`,
+      [job.id, user.id, masik.id],
+    );
+    await db.query(
+      `INSERT INTO job_questions (job_id, asker_id, question)
+       VALUES ($1, $2, 'Elfér a csomag egy kombiban?')`,
+      [job.id, user.id],
+    );
+    await db.query(
+      `INSERT INTO notifications (user_id, type, title, body)
+       VALUES ($1, 'test', 'Teszt értesítés', 'törzs')`,
+      [user.id],
+    );
+
     const res = await request(app)
       .get('/auth/me/export')
       .set('Authorization', `Bearer ${user.token}`);
     expect(res.status, 'az export-végpont nem válaszolt — a teszt nem mér semmit').toBe(200);
+
+    // A feltöltött adatnak MEG KELL jelennie: az üres tömb nem bizonyíték.
+    const ADATOS = {
+      vitaim: 'a nyitott vita',
+      uzeneteim: 'a küldött chat-üzenet',
+      kerdeseim: 'a feltett kérdés',
+      ertesiteseim: 'az értesítés',
+      feladott_fuvarok: 'a feladott fuvar',
+    };
+    const uresek = Object.entries(ADATOS)
+      .filter(([k]) => Array.isArray(res.body[k]) && res.body[k].length === 0)
+      .map(([k, mit]) => `${k} — ${mit} nem jelent meg`);
+    expect(
+      uresek,
+      `Az exportban ÜRESEN maradt olyan lista, amibe épp most tettünk adatot:\n  ${uresek.join('\n  ')}\n\n`
+      + 'A kulcs létezése nem bizonyíték: egy elrontott vagy leszűkített WHERE\n'
+      + '(pl. „csak az utolsó 30 nap") ugyanúgy üres tömböt ad. A GDPR 15. cikk\n'
+      + 'szerinti válasz ettől hiányos lenne, miközben minden őr zöld.',
+    ).toEqual([]);
 
     // A kivétel-indoklásokból kiszedjük a zárójeles kulcsokat:
     //   'az exportban szerepel (ertekeleseim + rolam_szolo_ertekelesek)'

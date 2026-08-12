@@ -86,22 +86,6 @@ router.get('/admin/live', ...adminOnly, (req, res) => {
 //
 //  Ez a middleware KÉRÉSBŐL olvassa az útvonalat és a metódust, ezért egy
 //  ÚJ admin-írás automatikusan naplózott lesz — nem kell rá emlékezni.
-// =====================================================================
-router.use((req, res, next) => {
-  if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) return next();
-  if (!req.path.includes('/admin/')) return next();
-  // A választ megvárjuk: csak a TÉNYLEGES változást naplózzuk (a 4xx-et nem).
-  res.on('finish', () => {
-    if (res.statusCode >= 400) return;
-    // Szándékosan NEM naplózzuk a body-t: az személyes adatot tartalmazhat,
-    // és a napló maga is retenció alá esik. A MŰVELET ténye a lényeg.
-    logAdminAccess(req, `write:${req.method} ${req.route?.path || req.path}`, {
-      type: 'admin_write', id: req.params?.id || null,
-    }).catch(() => {});
-  });
-  next();
-});
-
 router.patch('/admin/photo-hold', ...adminOnly, async (req, res) => {
   const { job_id, booking_id, hold } = req.body || {};
   if (typeof hold !== 'boolean' || (!job_id && !booking_id)) {

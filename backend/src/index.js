@@ -172,6 +172,45 @@ app.get('/private-files/:name', (req, res) => {
   res.sendFile(r.filepath);
 });
 
+// =====================================================================
+//  MINDEN ADMIN ÍRÁS NYOMOT HAGY — APP-SZINTEN (2026-08-12, 10. mérés A5/F2)
+//
+//  ⚠️ MIÉRT KERÜLT IDE. Az első változat `router.use` volt az admin.js-ben,
+//  tehát KIZÁRÓLAG az admin.js saját routerére hatott. A többi routerben lakó
+//  admin-művelet NYOMTALAN maradt:
+//
+//    PATCH  /disputes/:id            vita-döntés, resolution_note, refund
+//    POST   /admin/dm/broadcast      körlevél MINDEN felhasználónak
+//    POST   /admin/dm/with/:userId   közvetlen üzenet
+//    PATCH  /admin/dm/channel        a user válasz-csatornájának lezárása
+//    PATCH  /questions/:id/hide      tartalom-moderáció (DSA-releváns)
+//    POST   /auth/admin/grant-monthly-vouchers
+//
+//  Ez pontosan az a minta, amit a projekt magáról írt: „a védelem azon az
+//  úton épül meg, ahol felfedezték". Az OLVASÁSRA volt gépi teljesség-őr, az
+//  ÍRÁSRA egyetlen ponthelyes teszt.
+//
+//  App-szinten a mount-sorrendtől független: a kérés útvonalából és a
+//  szerepkörből dönt, tehát egy ÚJ admin-írás bárhol automatikusan naplózott.
+// =====================================================================
+app.use((req, res, next) => {
+  if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) return next();
+  res.on('finish', () => {
+    // Csak a TÉNYLEGES változás; a 4xx zajt csinálna.
+    if (res.statusCode >= 400) return;
+    // A szerepkört az authRequired a DB-ből tölti be (nem a JWT-ből).
+    if (req.user?.role !== 'admin') return;
+    // Szándékosan NEM naplózzuk a body-t: az személyes adat lenne egy amúgy is
+    // retenció alá eső naplóban. A MŰVELET ténye és a célpont azonosítója elég.
+    require('./utils/adminAudit').logAdminAccess(
+      req,
+      `write:${req.method} ${req.baseUrl || ''}${req.route?.path || req.path}`,
+      { type: 'admin_write', id: req.params?.id || req.params?.userId || null },
+    ).catch(() => {});
+  });
+  next();
+});
+
 app.use('/', calculatorRoutes);
 app.use('/', publicTrackingRoutes);
 app.use('/', linkPreviewRoutes);

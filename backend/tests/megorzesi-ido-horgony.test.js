@@ -26,6 +26,7 @@ const R = {
   // maradt ki eddig a horgonyból. A konstansokat egy térképbe olvasztjuk,
   // hogy a horgony ne a fájl-határnál álljon meg.
   KYC_FILE_RETENTION_DAYS: require('../src/services/kyc').KYC_FILE_RETENTION_DAYS,
+  KYC_PENDING_MAX_DAYS: require('../src/services/kyc').KYC_PENDING_MAX_DAYS,
 };
 
 const TAJEKOZTATO = readFileSync(`${__dirname}/../../web/app/adatkezeles/page.tsx`, 'utf8');
@@ -76,6 +77,7 @@ const HORGONYOK = {
   // neve+telefonja és az átvételi kód érhető el. Eddig semmi nem kötötte a
   // publikált ígérethez: bármely érték a [3, 29] tartományban némán átcsúszott.
   TRACKING_GRACE_DAYS: [14, 'a követő-link élettartama a kézbesítés után', '14 nap', 'követ'],
+  KYC_PENDING_MAX_DAYS: [60, 'a függőben maradt KYC-okmány fotója', '60 nap', 'okmány'],
 };
 
 describe('Megőrzési idők — a szám a publikált ígérethez van kötve', () => {
@@ -133,5 +135,49 @@ describe('Megőrzési idők — a szám a publikált ígérethez van kötve', ()
     // normál elévülést, különben a vitás ügy bizonyítéka hamarabb tűnne el.
     expect(R.HOLD_RETENTION_YEARS).toBeGreaterThan(R.JOB_PII_RETENTION_YEARS);
     expect(R.HOLD_RETENTION_YEARS * 365).toBeGreaterThan(R.DEFAULT_RETENTION_DAYS);
+  });
+
+  it('MINDEN megőrzési konstans horgonyozva van (új konstans = tudatos döntés)', () => {
+    // ⚠️ A KÉZI LISTA MAGA A HIBA (2026-08-12, 10. mérés). A horgony-tábla
+    // eddig kézzel karbantartott felsorolás volt: egy ÚJ megőrzési konstans
+    // (pl. egy új adattípus életciklusa) némán kimaradt volna belőle, és a
+    // számát semmi nem kötötte volna a publikált ígérethez. Pontosan így
+    // maradt ki a KYC-fájl 30 napja és a követő-link 14 napja — mindkettő
+    // azért, mert MÁS FÁJLBAN él, mint a többi.
+    //
+    // Ezért mostantól a KÓDBÓL soroljuk fel őket: minden olyan konstans, ami
+    // megőrzési időnek látszik, vagy horgonyzott, vagy írásos kivétel.
+    const { readFileSync, readdirSync } = require('fs');
+    const MINTA = /^const ([A-Z_]*(?:RETENTION|GRACE|MAX_DAYS)[A-Z_]*) = (\d+);/gm;
+
+    const KIVETELEK = {
+      // ide kerülhet olyan konstans, ami NEM megőrzési idő (pl. limit)
+    };
+
+    const talalt = [];
+    const bejar = (mappa) => {
+      for (const b2 of readdirSync(mappa, { withFileTypes: true })) {
+        const ut = `${mappa}/${b2.name}`;
+        if (b2.isDirectory()) { bejar(ut); continue; }
+        if (!b2.name.endsWith('.js')) continue;
+        const forras = readFileSync(ut, 'utf8');
+        for (const m of forras.matchAll(MINTA)) talalt.push(m[1]);
+      }
+    };
+    bejar(`${__dirname}/../src`);
+
+    expect(talalt.length, 'nem találtam megőrzési konstanst — az őr vak').toBeGreaterThan(10);
+
+    const horgonyzatlan = [...new Set(talalt)]
+      .filter((nev) => !HORGONYOK[nev] && !KIVETELEK[nev]);
+
+    expect(
+      horgonyzatlan,
+      `Ezek a megőrzési konstansok nincsenek a publikált ígérethez kötve:\n  ${horgonyzatlan.join('\n  ')}\n\n`
+      + 'A többi teszt ezeket NEM veszi észre: azok a konstanshoz képest mérnek,\n'
+      + 'tehát bármilyen értékkel zöldek. Vedd fel a HORGONYOK táblába (érték +\n'
+      + 'a tájékoztató bekezdését azonosító kifejezés), vagy — ha nem megőrzési\n'
+      + 'idő — a KIVETELEK-be, indoklással.',
+    ).toEqual([]);
   });
 });

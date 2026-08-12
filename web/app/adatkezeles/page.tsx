@@ -233,8 +233,12 @@ export default function AdatkezelesPage() {
           <strong>KYC dokumentumok:</strong> a személyi igazolványról készült
           <strong>fénykép a döntést (jóváhagyás vagy elutasítás) követő 30 napon belül
           automatikusan törlődik</strong> — a fiók megszüntetésekor pedig azonnal, a
-          tárolóból is. Ennél tovább <strong>kizárólag az okmányszám egyirányú lenyomata
-          (hash)</strong> marad meg, <strong>5 évig</strong>: ebből az okmányszám nem
+          tárolóból is. Ha a hitelesítés bármilyen okból függőben marad (nem születik
+          döntés), a feltöltött okmány fényképét <strong>60 nap</strong> után akkor is
+          automatikusan töröljük. A döntés tényét, időpontját és — elutasítás esetén —
+          az indokolást a fiókod fennállásáig megőrizzük, hogy egy későbbi
+          újrapróbálkozásnál látható legyen az előzmény. Ezen felül{' '}
+          <strong>az okmányszám egyirányú lenyomata (hash)</strong> marad meg, <strong>5 évig</strong>: ebből az okmányszám nem
           állítható vissza, egyedül arra használjuk, hogy ugyanazzal az okmánnyal ne
           lehessen több fiókot létrehozni, illetve hogy a fiók törlése után létrehozott új
           fiók hitelesítése emberi ellenőrzéshez kerüljön (visszaélés- és
