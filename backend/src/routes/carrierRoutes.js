@@ -261,9 +261,24 @@ router.get('/carrier-routes', authRequired, requireVerifiedEmail, async (req, re
 });
 
 // GET /carrier-routes/:id
-router.get('/carrier-routes/:id', authRequired, async (req, res) => {
+router.get('/carrier-routes/:id', authRequired, requireVerifiedEmail, async (req, res) => {
   const { rows } = await db.query('SELECT * FROM carrier_routes WHERE id = $1', [req.params.id]);
   if (!rows[0]) return res.status(404).json({ error: 'Útvonal nem található' });
+
+  // A LISTA KAPUZOTT, A DETAIL NEM VOLT (2026-08-11, 10. mérés A2).
+  // A lista (GET /carrier-routes) tudatosan csak NYITOTT, jövőbeli indulású
+  // járatot ad, megerősített e-maillel. Ez a végpont mindezt megkerülte:
+  // bármely bejelentkezett fiók lekérhette a DRAFT, LEMONDOTT, LEZÁRT és
+  // SABLON járatokat is — a `waypoints` JSONB-vel együtt, amiben a szállító
+  // megállóinak neve és PONTOS koordinátája áll (jellemzően az otthoni
+  // indulóponttal). Ezek a járatok soha nem jelennek meg a listában, tehát a
+  // feladó soha nem látja őket — a manifest korábbi indoklása („csak azt
+  // adja, amit a feladó úgyis lát") ezekre nem volt igaz.
+  const sajat = rows[0].carrier_id === req.user.sub;
+  const bongeszheto = rows[0].status === 'open' && !rows[0].is_template;
+  if (!sajat && !bongeszheto) {
+    return res.status(404).json({ error: 'Útvonal nem található' });
+  }
   res.json((await attachPrices(rows))[0]);
 });
 

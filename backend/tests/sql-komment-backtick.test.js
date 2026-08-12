@@ -47,3 +47,49 @@ describe('Nincs backtick az SQL-kommentekben', () => {
     ).toEqual([]);
   });
 });
+
+// =====================================================================
+//  JS-KOMMENT AZ SQL-BEN (2026-08-11)
+//
+//  ⚠️ A BACKTICK TESTVÉRE. Ma egy `// …` sort írtam egy SQL template
+//  literal belsejébe: a Postgres `syntax error at or near "//"`-t adott, az
+//  `anonymizeOldJobs` catch-e pedig CSENDBEN lenyelte, és 0-t adott vissza.
+//  A napi kör „sikeresnek" látszott — az anonimizálás hónapokig futhatott
+//  volna hatás nélkül. (A catch azóta továbbdobja a hibát.)
+//
+//  Az SQL-ben a komment `--`, nem `//`.
+// =====================================================================
+describe('Nincs JS-komment az SQL-ben', () => {
+  it('egyetlen SQL template literal sem tartalmaz `//` kommentsort', () => {
+    const { readFileSync, readdirSync } = require('fs');
+    const talalatok = [];
+
+    const bejar = (mappa, elotag = '') => {
+      for (const b of readdirSync(mappa, { withFileTypes: true })) {
+        const ut = `${mappa}/${b.name}`;
+        const rel = elotag ? `${elotag}/${b.name}` : b.name;
+        if (b.isDirectory()) { bejar(ut, rel); continue; }
+        if (!b.name.endsWith('.js')) continue;
+        const forras = readFileSync(ut, 'utf8');
+        // Template literálok, amikben SQL-kulcsszó van
+        for (const m of forras.matchAll(/`([^`]*)`/g)) {
+          const tartalom = m[1];
+          if (!/\b(SELECT|INSERT|UPDATE|DELETE|ALTER|CREATE)\b/i.test(tartalom)) continue;
+          for (const sor of tartalom.split('\n')) {
+            if (/^\s*\/\//.test(sor)) {
+              talalatok.push(`${rel}: ${sor.trim().slice(0, 70)}`);
+            }
+          }
+        }
+      }
+    };
+    bejar(`${__dirname}/../src`);
+
+    expect(
+      talalatok,
+      `JS-komment (//) SQL-lekérdezés belsejében:\n  ${talalatok.join('\n  ')}\n\n`
+      + 'Az SQL-ben a komment `--`. A `//` szintaktikai hibát okoz, amit egy\n'
+      + 'try/catch könnyen elnyel — a lekérdezés némán soha nem fut le.',
+    ).toEqual([]);
+  });
+});

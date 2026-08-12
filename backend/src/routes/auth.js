@@ -1110,12 +1110,14 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   );
 
   await db.query(
-    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason, doc_number_hash, hash_algo)
-     VALUES ($1, $2, $3, $4, $5, $6, CASE WHEN $6::text IS NULL THEN NULL ELSE 'hmac-sha256' END)
+    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason,
+                                doc_number_hash, pending_doc_number_hash, hash_algo)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN COALESCE($6::text, $7::text) IS NULL THEN NULL ELSE 'hmac-sha256' END)
      ON CONFLICT (user_id, doc_type) DO UPDATE SET
        file_url = EXCLUDED.file_url, status = EXCLUDED.status,
        rejection_reason = EXCLUDED.rejection_reason,
        doc_number_hash = EXCLUDED.doc_number_hash,
+       pending_doc_number_hash = EXCLUDED.pending_doc_number_hash,
        hash_algo = EXCLUDED.hash_algo,
        reviewed_by = NULL, reviewed_at = NOW()`,
     [
@@ -1129,6 +1131,15 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
       // A lenyomat majd akkor kerül be, ha az admin jóváhagyja — akkorra a
       // másik fiók ügye rendezve van.
       keziEllenorzesOka?.code === 'DUPLICATE_DOCUMENT' ? null : docNumberHash,
+      // ⚠️ A FÜGGŐ LENYOMAT (2026-08-11, 10. mérés F5). A fenti komment azt
+      // ígérte, hogy „a lenyomat majd akkor kerül be, ha az admin jóváhagyja" —
+      // de a jóváhagyás sosem írta vissza, a nyers szám pedig akkorra már
+      // nincs meg. Így aki EGYSZER duplikátum-gyanúba került, arra az
+      // „egy okmány = egy fiók" védelem VÉGLEG elveszett — miközben az
+      // érdekmérlegelési teszt épp ezzel indokolja a lenyomat megőrzését.
+      // A függő oszlop nem része a parciális UNIQUE indexnek, tehát tárolható
+      // ütközés nélkül, és a jóváhagyáskor előlép.
+      keziEllenorzesOka?.code === 'DUPLICATE_DOCUMENT' ? docNumberHash : null,
     ],
   );
 

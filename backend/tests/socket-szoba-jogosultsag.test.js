@@ -169,6 +169,57 @@ describe('Socket-szobák: valódi kapcsolat, valódi jogosultság', () => {
     } finally { s.close(); }
   });
 
+  it('a user:join NEM veszi figyelembe a kliens által küldött azonosítót', async () => {
+    // ⚠️ A RENDSZER LEGSZEMÉLYESEBB CSATORNÁJA, ÉS EDDIG NULLA TESZT VÉDTE.
+    // A `user:<id>` szobából megy ki: a nyers értesítés-sor (benne a chat-üzenet
+    // első 100 karaktere, a vita-leírás első 80 karaktere, a mentős
+    // telefonszáma), a teljes chat-üzenetek, az admin↔user levelezés, és a
+    // foglalás-megerősítés FIZETÉSI GATEWAY-LINKKEL.
+    //
+    // A szerver ma helyesen ELDOBJA a paramétert — de a kliens KÜLDI
+    // (web/src/lib/socket.ts: `s.emit('user:join', userId)`), és a
+    // socket-őr csak azt nézte, hogy a `me()` szó szerepel-e a blokkban.
+    // Egy jövőbeli „használjuk már fel a paramétert" takarítás pontosan ezt a
+    // regressziót írná meg — és eddig semmi nem szólt volna.
+    const aldozat = await createUser({ role: 'shipper' });
+    const tamado = await createUser({ role: 'carrier' });
+
+    const s = await csatlakoz(tamado.token);
+    try {
+      // A támadó az ÁLDOZAT azonosítójával próbál belépni.
+      s.emit('user:join', aldozat.id);
+      await new Promise((r) => { setTimeout(r, 250); });
+
+      const figyelo = varEsemenyt(s, 'notification:new');
+      realtime.emitToUser(aldozat.id, 'notification:new', {
+        title: 'Új üzenet', body: 'Szia, itt a telefonszámom: 06 30 123 4567',
+      });
+      const kapott = await figyelo;
+
+      expect(
+        kapott,
+        'A TÁMADÓ BELÉPETT AZ ÁLDOZAT SZEMÉLYES SZOBÁJÁBA.\n\n'
+        + 'Onnan megkapja az összes értesítését (chat-előnézet, vita-leírás),\n'
+        + 'a teljes chat-üzeneteit, az admin-levelezését és a foglalás-\n'
+        + 'megerősítés FIZETÉSI LINKJÉT.\n\n'
+        + 'A user:join SOHA nem veheti figyelembe a kliens által küldött\n'
+        + 'azonosítót — kizárólag a hitelesített `me()` értéket.',
+      ).toBeNull();
+    } finally { s.close(); }
+  });
+
+  it('a SAJÁT személyes szobájába viszont belép', async () => {
+    const user = await createUser({ role: 'shipper' });
+    const s = await csatlakoz(user.token);
+    try {
+      s.emit('user:join');
+      await new Promise((r) => { setTimeout(r, 250); });
+      const figyelo = varEsemenyt(s, 'notification:new');
+      realtime.emitToUser(user.id, 'notification:new', { title: 'Teszt' });
+      expect(await figyelo, 'a saját értesítéseit sem kapja meg — a kapu túl szigorú').not.toBeNull();
+    } finally { s.close(); }
+  });
+
   it('HITELESÍTÉS NÉLKÜLI kapcsolat egyik szobába sem jut be', async () => {
     const felado = await createUser({ role: 'shipper' });
     const job = await createJob({ shipperId: felado.id, status: 'bidding' });

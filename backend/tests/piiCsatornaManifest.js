@@ -55,7 +55,11 @@ const PII_CSATORNA_MANIFEST = {
   'GET /jobs/:jobId/bids': 'felek',
   'GET /jobs/:jobId/escrow': 'felek',
   'GET /jobs/:jobId/location/last': 'felek',
-  'GET /jobs/:jobId/photos': 'felek',
+  // ⚠️ 2026-08-11 (10. mérés A1): ez a címke HAMIS volt. A végpont a
+  // nem-félnek is adott vissza adatot (listing-fotó), méghozzá a NYERS
+  // photos sort — uploader_id-vel és GPS-koordinátával. Most kapuzott, és a
+  // nem-fél csak a fotó URL-jét kapja meg.
+  'GET /jobs/:jobId/photos': 'masok',
   'GET /messages': 'felek',
   'GET /disputes/:id': 'felek',
   'GET /disputes': 'felek',
