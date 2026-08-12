@@ -187,6 +187,45 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
   // beinjektálni, ami a szállító böngészőjében töltődne be.
   const ALLOWED_IMAGE_HOST_SUFFIXES = ['ikea.com', 'obi.hu', 'praktiker.hu', 'jofogas.hu'];
   let sourceImageClean = null;
+  // ⚠️ IDŐABLAK-VALIDÁCIÓ (2026-08-12, lefedettségi kör BUG-2).
+  //
+  // A `pickup_window_start` / `_end` VALIDÁLATLANUL ment a `timestamptz`
+  // oszlopba: a `'nem-datum'` → `22007`, a `99999999999999` → `22008`
+  // Postgres-hiba, mindkettő **500 Szerverhiba** — ami sérti a projekt SZ1
+  // szabályát („egyetlen írási végpont sem adhat 500-at rossz inputra").
+  //
+  // ⚠️ MIÉRT NEM FOGTA MEG A HÜLYEBIZTOS-MÁTRIX: az a saját body-SABLONJÁBAN
+  // szereplő mezőket mutálja, és ez a két mező nem volt benne. A mátrix-módszer
+  // vakfoltja: a HIÁNYZÓ mezőt nem lehet mutálni. (A sablon azóta bővült.)
+  const idoablak = {};
+  for (const [nev, ertek] of [['pickup_window_start', pickup_window_start],
+    ['pickup_window_end', pickup_window_end]]) {
+    if (ertek === undefined || ertek === null || ertek === '') { idoablak[nev] = null; continue; }
+    const d = new Date(ertek);
+    if (Number.isNaN(d.getTime())) {
+      return res.status(400).json({
+        error: 'Az átvételi időablak érvénytelen dátum.',
+        code: 'INVALID_PICKUP_WINDOW',
+      });
+    }
+    // Postgres timestamptz tartomány + józan felső korlát (10 év).
+    const tizEv = Date.now() + 10 * 365 * 24 * 3600 * 1000;
+    if (d.getTime() > tizEv || d.getFullYear() < 2000) {
+      return res.status(400).json({
+        error: 'Az átvételi időablak irreális dátumot tartalmaz.',
+        code: 'INVALID_PICKUP_WINDOW',
+      });
+    }
+    idoablak[nev] = d.toISOString();
+  }
+  if (idoablak.pickup_window_start && idoablak.pickup_window_end
+      && new Date(idoablak.pickup_window_end) < new Date(idoablak.pickup_window_start)) {
+    return res.status(400).json({
+      error: 'Az átvételi időablak vége nem lehet korábban, mint a kezdete.',
+      code: 'INVALID_PICKUP_WINDOW',
+    });
+  }
+
   if (typeof source_image_url === 'string' && source_image_url.length <= 2000) {
     try {
       const iu = new URL(source_image_url);
@@ -396,7 +435,7 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
       distanceKm, weightKg, volumeM3,
       L, W, H,
       suggested_price_huf || null,
-      pickup_window_start || null, pickup_window_end || null,
+      idoablak.pickup_window_start, idoablak.pickup_window_end,
       deliveryCode,
       wantsInstant, instantRadiusKm, instantExpiresAt,
       pCarry, pFloor, pLift,

@@ -102,7 +102,21 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
   const { amount_huf, amount, currency, message, eta_minutes, return_policy, return_fee_huf } = req.body || {};
   // Backward compat: amount_huf VAGY az új amount + currency páros
   const bidAmount = amount || amount_huf;
-  const bidCurrency = currency || 'HUF';
+  // ⚠️ ZÁRT ÉRTÉKKÉSZLET (2026-08-12, BUG-3). Korábban bármi átment: a
+  // `currency: 'HUFHUFHUF…'` és a `currency: 12345` is 201-et kapott és
+  // eltárolódott. Következmény: a `bidCurrency !== jobCurrency` ág szemét
+  // valutára is elindítja az árfolyam-befagyasztást (külső ECB-hívás), a
+  // felületen pedig szemét jelenik meg. A `return_policy` már helyesen zárt —
+  // a valuta kimaradt.
+  const TAMOGATOTT_VALUTAK = ['HUF', 'EUR'];
+  if (currency !== undefined && currency !== null
+      && !TAMOGATOTT_VALUTAK.includes(String(currency).toUpperCase())) {
+    return res.status(400).json({
+      error: `Nem támogatott pénznem. Választható: ${TAMOGATOTT_VALUTAK.join(', ')}.`,
+      code: 'UNSUPPORTED_CURRENCY',
+    });
+  }
+  const bidCurrency = currency ? String(currency).toUpperCase() : 'HUF';
 
   // Visszaszállítási nyilatkozat (sikertelen kézbesítés esetén): kötelező.
   // 'included' = benne van az ajánlatban, 'extra_fee' = külön díjért
@@ -409,6 +423,29 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
+
+    // ⚠️ ELŐBB A FUVAR SORÁT ZÁROLJUK (2026-08-12, lefedettségi kör BUG-1).
+    //
+    // Korábban a tranzakció az AJÁNLAT sorával kezdett (WHERE b.id = $1 FOR
+    // UPDATE), majd a tömeges elutasításnál (UPDATE bids ... WHERE job_id=$1
+    // AND id <> $2) zárolta a TÖBBI ajánlatot. Két párhuzamos elfogadásnál
+    // (dupla kattintás, két nyitott fül) ez KÖRKÖRÖS VÁRAKOZÁS:
+    //   A tranzakció: zárolja az A ajánlatot → várja a B-t
+    //   B tranzakció: zárolja a B ajánlatot → várja az A-t
+    // Mérve: 10 párhuzamos futásból 9 DEADLOCK. A vesztes ág 500-at kapott a
+    // szánt 409 helyett — vagyis a feladó „Szerverhibát" látott a pénz-úton,
+    // és fölösleges Sentry-riasztás ment. A `jobClaim.rowCount === 0` guard
+    // (lentebb) emiatt gyakorlatilag HOLT KÓD volt: a deadlock előbb ütött.
+    //
+    // A megoldás egységes zárolási SORREND: minden elfogadás ELŐSZÖR a fuvar
+    // sorát veszi (fuvaronként EGY sor), így a második tranzakció itt vár, és
+    // a nyertes véglegesítése után rendben megkapja a 409-et.
+    const { rows: bidJob } = await client.query(
+      'SELECT job_id FROM bids WHERE id = $1', [req.params.id],
+    );
+    if (!bidJob[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Ajánlat nem található' }); }
+    await client.query('SELECT id FROM jobs WHERE id = $1 FOR UPDATE', [bidJob[0].job_id]);
+
     const { rows: bidRows } = await client.query(
       `SELECT b.*, j.shipper_id, j.status AS job_status,
               j.paid_at, j.connection_fee_huf,

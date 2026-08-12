@@ -16,7 +16,9 @@ package-lock.json
 .claude/settings.local.json
 
 # Beágyazott teszt-Postgres adatkönyvtára
-backend/tests/.pg-data/
+# A párhuzamos teszt-futások portonként külön adatkönyvtárat kapnak
+# (GOFUVAR_TEST_PG_PORT) — a minta mindet lefedi.
+backend/tests/.pg-data*/
 
 # Playwright E2E
 web/e2e/.pg-data/

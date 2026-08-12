@@ -26,6 +26,15 @@ async function recalcRating(userId) {
 router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
   const { job_id, booking_id, stars, comment } = req.body || {};
 
+  // ⚠️ PONTOSAN AZ EGYIK (2026-08-12). Mindkét azonosítóval a korábbi kód
+  // némán mindkét ágat lefuttatta és a foglalási ág írta felül az értékeltet.
+  if (job_id && booking_id) {
+    return res.status(400).json({
+      error: 'Egyszerre csak fuvart VAGY foglalást lehet értékelni.',
+      code: 'AMBIGUOUS_ENTITY',
+    });
+  }
+
   if (!stars || stars < 1 || stars > 5) {
     return res.status(400).json({ error: 'Adj meg 1 és 5 közötti csillagot.' });
   }
@@ -95,7 +104,13 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
         `INSERT INTO reviews (job_id, booking_id, reviewer_id, reviewee_id, stars, rating, comment)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
-        [job_id || null, booking_id || null, req.user.sub, revieweeId, stars, stars, comment || null],
+        // ⚠️ PONTOSAN AZ EGYIK AZONOSÍTÓ (2026-08-12, 078-as migráció).
+        // Ha a kérés mindkettőt küldi, korábban MINDKÉT ág lefutott, a
+        // revieweeId-t a foglalási ág felülírta, és a sor mindkét
+        // azonosítóval mentődött. A DB-kényszer ezt már kizárja; itt a
+        // válasz legyen beszédes, ne 500-as constraint-hiba.
+        [booking_id ? null : (job_id || null), booking_id || null,
+          req.user.sub, revieweeId, stars, stars, comment || null],
       );
       review = rows[0];
     } catch (insertErr) {

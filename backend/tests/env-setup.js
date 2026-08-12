@@ -4,7 +4,17 @@
 // hiába van a backend/.env-ben a prod Neon connstring (a dotenv nem ír
 // felül meglévő env-t), és hiába örökölne a shell bármit — teszt alatt
 // kizárólag az embedded-postgres példányt érhetjük el.
-process.env.DATABASE_URL = 'postgres://gofuvar:gofuvar@127.0.0.1:54331/gofuvar_test';
+// ⚠️ A PORT KONFIGURÁLHATÓ (2026-08-12). Eddig fixen 54331 volt, ami azt
+// jelentette, hogy EGYSZERRE CSAK EGY teszt-futás lehetett a gépen — két
+// párhuzamos munkamenet (vagy két ügynök) ütközött volna a porton és a
+// data-könyvtáron. Emiatt kellett minden párhuzamos munkát sorosítani, pedig
+// a verifikáció (»mérd le, hogy nélküle piros«) épp a lényeg.
+//
+// A `GOFUVAR_TEST_PG_PORT` env-vel mostantól minden futás kaphat saját portot
+// és saját adatkönyvtárat. Alapértelmezés változatlan, tehát a CI és a
+// megszokott `npm test` semmit nem vesz észre.
+const TESZT_PG_PORT = Number(process.env.GOFUVAR_TEST_PG_PORT || 54331);
+process.env.DATABASE_URL = `postgres://gofuvar:gofuvar@127.0.0.1:${TESZT_PG_PORT}/gofuvar_test`;
 process.env.NODE_ENV = 'test';
 process.env.JWT_SECRET = 'teszt-jwt-titok-nem-eles';
 process.env.PORT = '0';

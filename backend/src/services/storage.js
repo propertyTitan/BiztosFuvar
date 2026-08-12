@@ -142,6 +142,21 @@ async function saveFile(buffer, originalName, mimetype) {
       // Ha R2 upload sikertelen, **ne** dobjunk — essünk vissza diskre,
       // hogy a user legalább lássa a képet az aktuális sessionben.
       console.error('[storage] R2 upload hiba, disk fallback:', err.message);
+      // ⚠️ DE ÉLESBEN RIASSZUNK (2026-08-12, lefedettségi kör P2-4).
+      // A Railway-lemez NEM perzisztens: a következő deploynál a felvételi /
+      // kézbesítési BIZONYÍTÉKFOTÓ eltűnik, a DB-ben pedig halott `/uploads/…`
+      // URL marad — amire a deleteFile `true`-t ad, tehát a retenció
+      // „letöröltnek" könyveli. A csendes fallback így néma bizonyíték-vesztés.
+      // A savePrivateFile ágán ezt már lezártuk (ott élesben DOB); a publikus
+      // ág kimaradt alóla.
+      if (process.env.NODE_ENV === 'production') {
+        try {
+          require('@sentry/node').captureMessage(
+            '[storage] R2 feltöltés sikertelen, NEM PERZISZTENS disk-fallback — a fotó a következő deploynál elvész',
+            'error',
+          );
+        } catch { /* a riasztás hiánya ne akassza meg a feltöltést */ }
+      }
     }
   }
 

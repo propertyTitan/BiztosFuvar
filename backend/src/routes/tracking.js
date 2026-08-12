@@ -24,6 +24,18 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
   const { lat, lng, speed_kmh } = req.body || {};
   if (lat == null || lng == null) return res.status(400).json({ error: 'Hiányzó koordináta' });
 
+  // ⚠️ TARTOMÁNY-ELLENŐRZÉS (2026-08-12, lefedettségi kör P2-2).
+  // Korábban a `{"lat":999,"lng":-9999}` 200-at kapott ÉS eltárolódott — sőt a
+  // `users.last_known_lat/lng` is elromlott tőle, amire a visszafuvar-ajánlás
+  // és az azonnali fuvar közelség-párosítása épül. Egy elrontott mobilkliens
+  // így az egész párosítást tönkretehette volna, némán.
+  const latSzam = Number(lat);
+  const lngSzam = Number(lng);
+  if (!Number.isFinite(latSzam) || !Number.isFinite(lngSzam)
+      || Math.abs(latSzam) > 90 || Math.abs(lngSzam) > 180) {
+    return res.status(400).json({ error: 'Érvénytelen koordináta.', code: 'INVALID_COORDINATES' });
+  }
+
   const { rows: jobRows } = await db.query(
     `SELECT j.carrier_id, j.shipper_id, j.status, j.dropoff_lat, j.dropoff_lng, j.dropoff_address,
             j.notif_city_sent, j.notif_nearby_sent, j.title,
@@ -67,7 +79,11 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
   res.json({ ok: true });
 
   // --- Közelség-alapú push értesítések (fire-and-forget) ---
-  if (job.status === 'in_progress' && job.dropoff_lat && job.dropoff_lng) {
+  if (job.status === 'in_progress' && // ⚠️ `!= null`, NEM falsy (2026-08-12): a 0,0 hosszúsági fok (Greenwich —
+      // UK/FR/ES, az európai coverage-en belül) falsy, tehát a közelség-
+      // értesítés némán kimaradt volna. Ugyanez a hiba 45 sorral feljebb már
+      // helyesen `== null`-lal van megírva.
+      job.dropoff_lat != null && job.dropoff_lng != null) {
     setImmediate(async () => {
       try {
         const dist = distanceMeters(lat, lng, job.dropoff_lat, job.dropoff_lng);
@@ -101,7 +117,7 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
               sendEmail({
                 to: job.recipient_email,
                 subject: '🏙️ A szállító hamarosan megérkezik a csomagoddal!',
-                html: wrapHtml({ bodyHtml: `<p>Szia${job.recipient_name ? ` ${esc(job.recipient_name)}` : ''}!</p><p>A szállító beért a városba, hamarosan nálad a csomag.</p>${job.carrier_name ? `<p>🚗 <strong>${esc(job.carrier_name)}</strong>${job.carrier_phone ? ` — <a href="tel:${esc(job.carrier_phone)}">${esc(job.carrier_phone)}</a>` : ''}</p>` : ''}<p><a href="${trackUrl}">📍 Kövesd élőben itt</a></p><p>Átvételi kód: <strong style="font-size:24px;letter-spacing:4px">${job.delivery_code}</strong></p>${cimzettiTajekoztatoBlokk()}` }),
+                html: wrapHtml({ heading: '🏙️ A szállító beért a városba', bodyHtml: `<p>Szia${job.recipient_name ? ` ${esc(job.recipient_name)}` : ''}!</p><p>A szállító beért a városba, hamarosan nálad a csomag.</p>${job.carrier_name ? `<p>🚗 <strong>${esc(job.carrier_name)}</strong>${job.carrier_phone ? ` — <a href="tel:${esc(job.carrier_phone)}">${esc(job.carrier_phone)}</a>` : ''}</p>` : ''}<p><a href="${trackUrl}">📍 Kövesd élőben itt</a></p><p>Átvételi kód: <strong style="font-size:24px;letter-spacing:4px">${job.delivery_code}</strong></p>${cimzettiTajekoztatoBlokk()}` }),
               }).catch(() => {});
             }
           }
@@ -133,7 +149,7 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
               sendEmail({
                 to: job.recipient_email,
                 subject: '📍 A szállító egy saroknyira van!',
-                html: wrapHtml({ bodyHtml: `<p>Szia${job.recipient_name ? ` ${esc(job.recipient_name)}` : ''}!</p><p><strong>A szállító mindjárt megérkezik!</strong></p>${job.carrier_name ? `<p>🚗 <strong>${esc(job.carrier_name)}</strong>${job.carrier_phone ? ` — <a href="tel:${esc(job.carrier_phone)}" style="font-size:18px;font-weight:700">${esc(job.carrier_phone)}</a>` : ''}</p>` : ''}<p>Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a PIN-t mondd meg a szállítónak az átvételkor.</p>${cimzettiTajekoztatoBlokk()}` }),
+                html: wrapHtml({ heading: '📍 A szállító mindjárt megérkezik', bodyHtml: `<p>Szia${job.recipient_name ? ` ${esc(job.recipient_name)}` : ''}!</p><p><strong>A szállító mindjárt megérkezik!</strong></p>${job.carrier_name ? `<p>🚗 <strong>${esc(job.carrier_name)}</strong>${job.carrier_phone ? ` — <a href="tel:${esc(job.carrier_phone)}" style="font-size:18px;font-weight:700">${esc(job.carrier_phone)}</a>` : ''}</p>` : ''}<p>Készítsd elő az átvételi kódot:</p><div style="text-align:center;font-size:40px;font-weight:800;letter-spacing:8px;font-family:monospace;padding:16px;background:#f0fdf4;border-radius:12px;margin:16px 0">${job.delivery_code}</div><p>Ezt a PIN-t mondd meg a szállítónak az átvételkor.</p>${cimzettiTajekoztatoBlokk()}` }),
               }).catch(() => {});
             }
           }
@@ -147,12 +163,14 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
 });
 
 // Város neve kinyerése a címből (utolsó vessző előtti rész vagy első szó)
-function extractCity(address) {
-  if (!address) return null;
-  const parts = address.split(',').map((s) => s.trim());
-  // Magyar cím: általában "Utca, Város" vagy "Város, Ország"
-  if (parts.length >= 2) return parts[parts.length - 2] || parts[0];
-  return parts[0];
+function extractCity(cim) {
+  // ⚠️ A KÖZÖS, TARTALOM-ALAPÚ HELPERT HASZNÁLJUK (2026-08-12).
+  // A nyers `split(',')` MAGYAR címformátumot feltételez: a
+  // „Hauptstraße 5, 10115 Berlin" esetén az UTCA nevét írta „városként" az
+  // értesítésbe. Pontosan ez a hiba volt a 2026-08-09-i cím-szivárgás oka,
+  // és akkor született rá a `utils/address.js:telepulesSzint` — csak ez a
+  // hívási hely maradt ki alóla.
+  return require('../utils/address').telepulesSzint(cim) || '';
 }
 
 // GET /jobs/:jobId/location/last – legutolsó pozíció
