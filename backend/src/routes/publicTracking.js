@@ -25,7 +25,7 @@ router.get('/tracking/:token', async (req, res) => {
   let job, pingRows = [];
 
   const { rows: jobRows } = await db.query(
-    `SELECT j.id, j.title, j.status, 'job' AS source,
+    `SELECT j.id, j.title, j.status, j.status_before_dispute, 'job' AS source,
             j.pickup_address, j.dropoff_address,
             j.dropoff_lat, j.dropoff_lng,
             j.delivery_code, j.delivered_at, j.paid_at, j.cancelled_at, j.updated_at,
@@ -45,7 +45,7 @@ router.get('/tracking/:token', async (req, res) => {
   if (!job) {
     // Keresés a route_bookings-ban
     const { rows: bookingRows } = await db.query(
-      `SELECT b.id, r.title, b.status, 'booking' AS source,
+      `SELECT b.id, r.title, b.status, b.status_before_dispute, 'booking' AS source,
               b.pickup_address, b.dropoff_address,
               b.dropoff_lat, b.dropoff_lng,
               b.delivery_code, b.delivered_at, b.paid_at, b.created_at,
@@ -94,7 +94,26 @@ router.get('/tracking/:token', async (req, res) => {
   // ilyen). Nélküle egy elutasított foglalás követő-linkje nem a 14 napos
   // lejárat alá esett, hanem az anonimizálásig (3 év) élt — és díj-kapu
   // nélkül adta a kézbesítési címet, a címzett nevét és a szállító nevét.
-  const lezart = ['delivered', 'completed', 'cancelled', 'rejected'].includes(job.status);
+  // ⚠️ SZÁRMAZTATVA, NEM KÉZZEL FELSOROLVA (2026-08-12, 11. mérés A2).
+  //
+  // A kézi lista MÁR KÉTSZER hiányos volt: előbb a 'rejected' maradt ki
+  // (foglalási ág), most a 'disputed'. Utóbbi ÉLŐ rés volt: a vita nyitása a
+  // fuvart `status='disputed'`-re állítja, ami nem szerepelt a listán, tehát a
+  // 14 napos lejárat SOSEM futott le rá — és a `repairDisputedHold` a
+  // zárolással 5 évre tolta az anonimizálást is. Addig BEJELENTKEZÉS NÉLKÜL
+  // elérhető maradt a címzett neve, a pontos cím és a szállító telefonszáma.
+  //
+  // Az igazságforrás a retention.js: ott dől el, mi számít lezártnak.
+  // A `disputed` KÜLÖN kezelendő: nem terminális státusz, DE a fuvar akkor is
+  // véget ért (a vita a lezárás UTÁN nyílik) — a követésnek nincs mit
+  // szolgálnia, ezért a lejárat alá esik. A visszaállítási pontot
+  // (`status_before_dispute`) használjuk, ha megvan.
+  const { JOB_TERMINAL, BOOKING_TERMINAL } = require('../services/retention');
+  const TERMINALIS = new Set([...JOB_TERMINAL, ...BOOKING_TERMINAL]);
+  const tenylegesStatusz = job.status === 'disputed'
+    ? (job.status_before_dispute || 'delivered')
+    : job.status;
+  const lezart = TERMINALIS.has(tenylegesStatusz);
   const lezarasIdeje = job.delivered_at || job.cancelled_at || job.updated_at || job.created_at;
   if (lezart && lezarasIdeje
       && Date.now() - new Date(lezarasIdeje).getTime() > TRACKING_GRACE_DAYS * 86400000) {

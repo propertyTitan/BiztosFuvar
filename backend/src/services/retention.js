@@ -1238,6 +1238,7 @@ async function lastSuccessfulRetentionRun() {
 }
 
 module.exports = {
+  JOB_TERMINAL, BOOKING_TERMINAL,
   purgeDormantAccounts, DORMANT_WARN_YEARS, DORMANT_DELETE_DAYS,
   repairDisputedHold,
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,

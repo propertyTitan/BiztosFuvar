@@ -1,0 +1,34 @@
+-- 077 — Halott séma, hatodik kör (az ELSŐ, amit ŐR talált, nem ember)
+--
+-- ⚠️ EZ A KÖR MÁS, MINT AZ ELŐZŐ ÖT. A 066/070/071/072/074 mind KÉZI listával
+-- dolgozott, és mind talált olyat, amit az előző kihagyott. A 074-gyel együtt
+-- bevezetett `halott-oszlop-or` viszont már gépi — csakhogy TÁBLA-VAK volt:
+-- kizárólag az OSZLOPNEVET kereste a forrásban, a táblát nem.
+--
+-- Következmény: minden több táblában előforduló név (`message`, `notes`,
+-- `status`, `address`, `title`, `description`, `email`) HALOTT lehetett az
+-- egyik táblában, miközben az őr zöldet mutatott, mert egy MÁSIK táblában élt.
+-- Ellenpélda, ami átment volna:
+--     ALTER TABLE sos_events ADD COLUMN recipient_phone TEXT;
+-- (soha ne írj rá kódot — az őr zöld, mert a `jobs.recipient_phone` létezik).
+--
+-- Az őr tábla-tudatossá tétele után AZONNAL ezt a kettőt jelezte:
+--
+--   escrow_transactions.exchange_rate_frozen_at
+--       Az árfolyam-befagyasztás időpontja. A kód KIZÁRÓLAG a `bids` táblába
+--       írja ezt a mezőt (bids.js) — az escrow-sorba soha. A dormant
+--       escrow-modellben (2026-07-03 pivot óta a fuvardíj nem folyik át a
+--       platformon) nincs is értelme.
+--
+--   sos_events.resolved_by
+--       Ki zárta le a vészjelzést. SEHOL nem írjuk és nem olvassuk. A
+--       vészjelzés-funkció 2026-08-12 óta amúgy is ki van kapcsolva, mert
+--       nem volt hozzá olvasói felület — épp ezt a hiányt tükrözi ez az
+--       oszlop is.
+--
+-- Egyik sem tartalmaz nyers PII-t, de mindkettő ugyanazt a kockázatot hordozza,
+-- amit a 072 leírt: a séma „meglévőnek" mutatja őket, tehát egy jövőbeli
+-- lekérdezés némán üres/elavult értéket olvasna ki belőlük.
+
+ALTER TABLE escrow_transactions DROP COLUMN IF EXISTS exchange_rate_frozen_at;
+ALTER TABLE sos_events          DROP COLUMN IF EXISTS resolved_by;

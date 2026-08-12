@@ -51,7 +51,12 @@ function osszesForras() {
         bejar(ut);
         continue;
       }
-      if (/\.(js|ts|tsx)$/.test(b.name)) darabok.push(readFileSync(ut, 'utf8'));
+      if (!/\.(js|ts|tsx)$/.test(b.name)) continue;
+      // ⚠️ KOMMENTEK NÉLKÜL: egy magyarázó mondatban szereplő oszlopnév nem
+      // jelenti, hogy bárki OLVASNÁ. Ezt az osztályt a 8. körben az
+      // admin-napló őrnél már lezártuk; itt nyitva maradt.
+      darabok.push(readFileSync(ut, 'utf8')
+        .replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, ''));
     }
   };
   bejar(`${__dirname}/../src`);
@@ -72,8 +77,43 @@ describe('Halott oszlop őr: minden séma-oszlopnak van gazdája', () => {
     expect(rows.length, 'nem sikerült kiolvasni a sémát — az őr vak').toBeGreaterThan(100);
 
     const forras = osszesForras();
-    // Szó-határos keresés: a `notes` ne illeszkedjen az `ai_description_notes`-ra.
-    const hivatkozott = (nev) => new RegExp(`\\b${nev}\\b`).test(forras);
+
+    // ⚠️ TÁBLA-VAKSÁG (2026-08-12, 11. mérés). Az első változat CSAK az
+    // oszlopnevet kereste, a táblát nem — ezért minden több táblában előforduló
+    // név (`message`, `notes`, `status`, `address`, `title`, `description`,
+    // `email`, `full_name`, `lat`) HALOTT lehetett az egyik táblában, miközben
+    // az őr zöldet mutatott, mert egy MÁSIK táblában élt.
+    //
+    // Ellenpélda, ami átment volna:
+    //   ALTER TABLE sos_events ADD COLUMN recipient_phone TEXT;
+    // Soha ne írj rá kódot — az őr zöld, mert a `jobs.recipient_phone` létezik.
+    //
+    // Mostantól: ha az oszlopnév EGYEDI a sémában, elég a névre illeszteni.
+    // Ha TÖBB táblában is előfordul, akkor a tábla nevének is szerepelnie kell
+    // a hivatkozás közelében (ugyanabban a lekérdezésben/blokkban) — különben
+    // nem tudjuk megmondani, melyik táblára hivatkozik.
+    const oszlopGyakorisag = new Map();
+    for (const { table_name: t, column_name: o } of rows) {
+      if (KIHAGYOTT_TABLAK.has(t)) continue;
+      oszlopGyakorisag.set(o, (oszlopGyakorisag.get(o) || 0) + 1);
+    }
+
+    const hivatkozott = (tabla, nev) => {
+      const nevRe = new RegExp(`\\b${nev}\\b`);
+      if (!nevRe.test(forras)) return false;
+      // Egyedi név: a puszta előfordulás bizonyíték.
+      if ((oszlopGyakorisag.get(nev) || 0) <= 1) return true;
+      // Több táblában is szerepel → a tábla nevének is közel kell lennie.
+      const tablaRe = new RegExp(`\\b${tabla}\\b`);
+      for (const m of forras.matchAll(new RegExp(`\\b${nev}\\b`, 'g'))) {
+        // 1500 karakteres ablak: egy UPDATE SET-listája hosszú lehet, a tábla
+        // neve pedig a lekérdezés ELEJÉN áll. Szűkebb ablaknál hamis riasztást
+        // kapnánk a hosszú anonimizáló lekérdezésekre.
+        const korulotte = forras.slice(Math.max(0, m.index - 1500), m.index + 600);
+        if (tablaRe.test(korulotte)) return true;
+      }
+      return false;
+    };
 
     const arvak = [];
     for (const { table_name: tabla, column_name: oszlop } of rows) {
@@ -82,7 +122,7 @@ describe('Halott oszlop őr: minden séma-oszlopnak van gazdája', () => {
       if (KIVETELEK[kulcs]) continue;
       // Az `id`, `created_at`, `updated_at` szinte mindenhol előfordul —
       // ezeket a szó-határos keresés amúgy is megtalálja, nem kell külön kezelni.
-      if (!hivatkozott(oszlop)) arvak.push(kulcs);
+      if (!hivatkozott(tabla, oszlop)) arvak.push(kulcs);
     }
 
     expect(

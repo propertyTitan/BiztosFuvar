@@ -1378,10 +1378,18 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       carrier_id: job.carrier_id,
       amount_huf: job.accepted_price_huf,
       connection_fee_huf: feeHuf,
-      barion: {
-        payment_id: barionRes.paymentId,
-        gateway_url: barionRes.gatewayUrl,
-      },
+      // ⚠️ A FIZETÉSI LINK NEM MEHET A HÍVÓNAK (2026-08-12, 11. mérés A1).
+      // Ezt a végpontot a SZÁLLÍTÓ hívja, a fizető viszont a FELADÓ. A
+      // `gateway_url` a feladó fizetési munkamenete a PSP-nél — a szállítónak
+      // semmi köze hozzá.
+      //
+      // A socket-ág (emitToUser a feladóhoz) 2026-08-09 óta helyes, és az
+      // `accept-counter` ágon a HTTP-válaszból is szándékosan kimaradt — ez a
+      // két hely csúszott ki alóla, UGYANABBAN a handlerben, 45 sorral a
+      // saját indokló komment alatt. Stubbal ma ártalmatlan; a CIB
+      // élesítésével valódi banki fizetőoldal URL-je kerülne a másik félhez.
+      // A feladó a fizetési linket a saját `job:payment-due` értesítésében
+      // kapja meg (fent, emitToUser), illetve a POST /jobs/:id/pay válaszában.
     });
   } catch (err) {
     await client.query('ROLLBACK');

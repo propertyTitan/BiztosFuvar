@@ -235,3 +235,39 @@ describe('Tároló-hiba: a mutatót nem dobjuk el', () => {
     expect(utana.length, 'a helyreállás után sem törölt — beragadt volna').toBe(0);
   });
 });
+
+// =====================================================================
+//  A „NEM ISMEREM FEL" ÁG (2026-08-12, 11. mérés A3)
+//
+//  ⚠️ A 8. körben lezárt árva-fájl osztálynak volt egy CSENDES, TÖMEGES
+//  változata. A `deleteFile` korábban MINDEN fel nem ismert alakra `true`-t
+//  adott. A `data:` URL-re ez helyes — egy `http(s)://` URL-re viszont
+//  végzetes: ha az `R2_PUBLIC_URL` megváltozik (saját domainre váltás) vagy
+//  egy deploynál eltér, a prefix-illesztés elhasal, a függvény „sikert"
+//  jelent, és a napi kör TÖRLI AZ EGYETLEN MUTATÓT minden régi fotóról.
+//
+//  A meglévő tesztek ezt nem foghatták meg: MINDEN `deleteFile`-hívás
+//  mockolt volt, és a fixtúrák `data:` URL-t használtak — az igazi függvény
+//  sosem látott `https://…` címet.
+// =====================================================================
+describe('deleteFile: ismeretlen távoli URL fail-closed', () => {
+  it('a fel nem ismert http(s) URL FALSE-t ad (nem hazudik sikert)', async () => {
+    const storage = require('../src/services/storage');
+    const eredmeny = await storage.deleteFile('https://idegen-domain.example/valami/kep.jpg');
+    expect(
+      eredmeny,
+      'A deleteFile SIKERT jelentett egy olyan URL-re, amit nem tud kulcsra\n'
+      + 'képezni. Ettől a retenciós kör törli a DB-sort — az egyetlen mutatót —,\n'
+      + 'miközben az objektum a PUBLIKUS bucketben marad, örökre, riasztás nélkül.\n'
+      + 'Ez pontosan akkor történik, ha az R2_PUBLIC_URL megváltozik.',
+    ).toBe(false);
+  });
+
+  it('a data: URL és a relatív út viszont TRUE (nincs mit törölni)', async () => {
+    const storage = require('../src/services/storage');
+    expect(
+      await storage.deleteFile('data:image/png;base64,iVBORw0KGgo='),
+      'a data: URL-re false-t adtunk — ettől a sorok örökre beragadnának',
+    ).toBe(true);
+  });
+});

@@ -166,7 +166,10 @@ const PII_CSATORNA_MANIFEST = {
   'POST /jobs/:id/reopen': 'felek',
   'POST /jobs/:jobId/location': 'felek',
   'POST /jobs/:jobId/photos': 'felek',
-  'POST /jobs/:jobId/questions': 'felek',
+  // ⚠️ 2026-08-12 (11. mérés A5): ez a címke HAMIS volt. A végpontnak NINCS
+  // fél-ellenőrzése — bárki kérdezhet bármely nyitott fuvarra (ez a termék
+  // szándéka), tehát `masok`, és a kapu futásidőben kikényszerített.
+  'POST /jobs/:jobId/questions': 'masok',
   'POST /jobs/:jobId/reviews': 'felek',
   'POST /messages': 'felek',
   'POST /questions/:id/answer': 'felek',

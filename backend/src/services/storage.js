@@ -353,7 +353,31 @@ async function deleteFile(url) {
     }
   }
 
-  // data: URL vagy ismeretlen formátum — nincs külön objektum, amit törölni kell
+  // ⚠️ FAIL-CLOSED AZ ISMERETLEN TÁVOLI URL-RE (2026-08-12, 11. mérés A3).
+  //
+  // Korábban MINDEN fel nem ismert alak `true`-t kapott („nincs mit törölni").
+  // A `data:` URL-re és a relatív útra ez helyes — egy `http(s)://` URL-re
+  // viszont VÉGZETES: ha az R2_PUBLIC_URL megváltozik (saját domainre váltás)
+  // vagy egy deploynál eltér, a prefix-illesztés elhasal, a függvény `true`-t
+  // ad, és a napi retenciós kör TÖRLI AZ EGYETLEN MUTATÓT minden régi fotóról.
+  // Az objektumok VÉGLEGESEN a PUBLIKUS bucketben maradnak — feladói
+  // lakásbelső, kézbesítési bizonyítékfotók —, `beragadt = 0`, riasztás nincs.
+  //
+  // Ez a CSENDES, TÖMEGES változata annak az árva-fájl osztálynak, amit a
+  // 8. körben lezártunk. A hívók (retention.js, kyc.js) `false` esetén
+  // MEGTARTJÁK a DB-sort és riasztanak — pontosan ezt akarjuk.
+  if (/^https?:\/\//i.test(url)) {
+    console.error(`[storage] ISMERETLEN távoli URL, nem tudom kulcsra képezni: ${String(url).slice(0, 120)}`);
+    try {
+      require('@sentry/node').captureMessage(
+        '[storage] deleteFile: ismeretlen távoli URL — a mutatót MEGTARTJUK (R2_PUBLIC_URL eltérés?)',
+        'error',
+      );
+    } catch { /* a Sentry hiánya ne akassza meg a kört */ }
+    return false;
+  }
+
+  // data: URL vagy relatív út — nincs külön objektum, amit törölni kell.
   return true;
 }
 
