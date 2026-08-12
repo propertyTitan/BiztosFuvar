@@ -54,7 +54,10 @@ describe('Teszt-környezet: semmi nem megy ki élesbe', () => {
   });
 
   it('az adatbázis a beágyazott teszt-példány, nem a prod Neon', () => {
-    expect(process.env.DATABASE_URL).toContain('127.0.0.1:54331');
+    // A port konfigurálható (GOFUVAR_TEST_PG_PORT) — a lényeg, hogy LOKÁLIS
+    // teszt-DB legyen, sose a prod Neon.
+    expect(process.env.DATABASE_URL).toContain('127.0.0.1:');
+    expect(process.env.DATABASE_URL).toContain('gofuvar_test');
     expect(process.env.DATABASE_URL).not.toContain('neon.tech');
   });
 });
