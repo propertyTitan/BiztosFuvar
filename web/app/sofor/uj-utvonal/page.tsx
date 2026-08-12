@@ -191,8 +191,8 @@ function UjUtvonalContent() {
           onChange={setWaypoints}
         />
 
-        <label>Megnevezés</label>
-        <input
+        <label htmlFor="jarat-megnevezes">Megnevezés</label>
+        <input id="jarat-megnevezes"
           className="input"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -211,8 +211,8 @@ function UjUtvonalContent() {
           )}
         </p>
 
-        <label>Indulás időpontja</label>
-        <input
+        <label htmlFor="jarat-indulas-idopontja">Indulás időpontja</label>
+        <input id="jarat-indulas-idopontja"
           className="input"
           type="datetime-local"
           value={departureLocal}
@@ -228,16 +228,16 @@ function UjUtvonalContent() {
           </p>
         )}
 
-        <label>Jármű rövid leírása (opcionális)</label>
-        <input
+        <label htmlFor="jarat-jarmu-rovid-leirasa">Jármű rövid leírása (opcionális)</label>
+        <input id="jarat-jarmu-rovid-leirasa"
           className="input"
           value={vehicle}
           onChange={(e) => setVehicle(e.target.value)}
           placeholder="pl. Kisteherautó, 1 m³ szabad hely"
         />
 
-        <label>Megjegyzés (opcionális)</label>
-        <textarea
+        <label htmlFor="jarat-megjegyzes">Megjegyzés (opcionális)</label>
+        <textarea id="jarat-megjegyzes"
           className="input"
           rows={3}
           value={description}
@@ -255,11 +255,11 @@ function UjUtvonalContent() {
             borderRadius: 8,
           }}
         >
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={() => setIsRideAlong(!isRideAlong)}
-            onKeyDown={(e) => e.key === 'Enter' && setIsRideAlong(!isRideAlong)}
+          {/* Lásd az uj-fuvar oldal azonos javítását: a `<label>` natívan
+              adja a kattintást, a Szóközt és a felolvasott állapotot —
+              szemben a `div role="button"`-nal, ami a benne ülő
+              jelölőnégyzetet elnyelte (axe: nested-interactive). */}
+          <label
             style={{ display: 'flex', gap: 12, alignItems: 'center', cursor: 'pointer' }}
           >
             <input
@@ -269,7 +269,7 @@ function UjUtvonalContent() {
               style={{ width: 20, height: 20, flexShrink: 0 }}
             />
             <strong style={{ fontSize: 16 }}>🚗 Útba esik mód — amúgy is megyek erre</strong>
-          </div>
+          </label>
           <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
             Ha bejelölöd, a rendszer automatikusan kiajánlja neked az útvonaladba
             eső csomagokat, amiket minimális kitérővel felvehetsz. Mivel amúgy is
@@ -299,8 +299,14 @@ function UjUtvonalContent() {
                   gap: 12,
                 }}
               >
+                {/* A sor „címkéje" vizuálisan a mellette lévő <strong>, de az
+                    programozottan nincs a mezőhöz kötve — a képernyőolvasó
+                    névtelen jelölőnégyzetet és névtelen szám-mezőt olvasott fel,
+                    négyszer egymás után (axe: `label`, critical). A méretkód a
+                    listából jön, ezért aria-labelt adunk, nem statikus <label>-t. */}
                 <input
                   type="checkbox"
+                  aria-label={`${ps.label_hu} méret vállalása`}
                   checked={row.enabled}
                   onChange={() => toggleSize(ps.id)}
                   style={{ width: 20, height: 20, cursor: 'pointer' }}
@@ -313,6 +319,7 @@ function UjUtvonalContent() {
                   <input
                     className="input"
                     type="number"
+                    aria-label={`${ps.label_hu} méret ára forintban`}
                     inputMode="numeric"
                     value={row.price}
                     onChange={(e) => setSizePrice(ps.id, e.target.value)}

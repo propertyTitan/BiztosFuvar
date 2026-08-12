@@ -44,9 +44,10 @@ export default function ReferralCard() {
 
       {/* Ajánlói kód — verbális/üzenetben megosztható, kézzel is beírható a
           regisztrációnál. */}
-      <label style={{ fontSize: 13, fontWeight: 600 }}>Ajánlói kódod</label>
+      <label htmlFor="referral-kod" style={{ fontSize: 13, fontWeight: 600 }}>Ajánlói kódod</label>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 12px' }}>
         <input
+          id="referral-kod"
           className="input"
           readOnly
           value={info.code}
@@ -58,9 +59,10 @@ export default function ReferralCard() {
         </button>
       </div>
 
-      <label style={{ fontSize: 13, fontWeight: 600 }}>Vagy oszd meg a linkedet</label>
+      <label htmlFor="referral-link" style={{ fontSize: 13, fontWeight: 600 }}>Vagy oszd meg a linkedet</label>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', margin: '4px 0 12px' }}>
         <input
+          id="referral-link"
           className="input"
           readOnly
           value={info.link}

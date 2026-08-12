@@ -22,9 +22,10 @@
 import { test, expect, Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { loginAs } from './helpers';
 import {
-  createUser, createJob, loginAs, placeBid, setJobAccepted, dbQuery, E2EUser,
-} from './helpers';
+  OLDALAK, KIVETELEK, keszitsFixtures, Oldal, Fixtures,
+} from './oldal-leltar';
 
 // ── Ami zajnak számít, nem hibának ────────────────────────────────────
 const ELNEZETT_KONZOL = [
@@ -52,142 +53,14 @@ const HIBA_JELEK = [
   /Cannot read propert/i,
 ];
 
-type Szereplo = 'anon' | 'felado' | 'szallito' | 'admin';
+// ── A LELTÁR a közös modulból jön ────────────────────────────────────
+// Korábban itt élt, de az akadálymentesítési (19) és a halott-link (20)
+// mérés is ugyanezt az 51 oldalt járja be. Három külön lista szétcsúszott
+// volna, és a lenti önvédő őr csak ezt az egyet védte volna.
 
-type Oldal = {
-  /** Az App Router útvonala, ahogy a fájlrendszerben van (leltár-egyeztetéshez). */
-  minta: string;
-  /** A ténylegesen megnyitandó URL (a dinamikus paraméterek behelyettesítve). */
-  url: (F: Fixtures) => string;
-  szereplo: Szereplo;
-  /** Ha az oldal szándékosan máshova irányít (pl. kapuzás). */
-  varhatoAtiranyitas?: RegExp;
-};
-
-type Fixtures = {
-  felado: E2EUser;
-  szallito: E2EUser;
-  admin: E2EUser;
-  jobId: string;
-  licitesJobId: string;
-  routeId: string;
-  trackingToken: string;
-};
-
-// ── A leltár ──────────────────────────────────────────────────────────
-const OLDALAK: Oldal[] = [
-  // Publikus / marketing
-  { minta: '/', url: () => '/', szereplo: 'anon' },
-  { minta: '/aszf', url: () => '/aszf', szereplo: 'anon' },
-  { minta: '/adatkezeles', url: () => '/adatkezeles', szereplo: 'anon' },
-  // Rövid átirányítás a címzetti adatkezelési szakaszra — a felvételkori
-  // SMS-be ez a legrövidebb URL fér bele (GDPR 14. cikk, 2 szegmens).
-  { minta: '/a', url: () => '/a', szereplo: 'anon' },
-  { minta: '/bejelentkezes', url: () => '/bejelentkezes', szereplo: 'anon' },
-  { minta: '/elfelejtett-jelszo', url: () => '/elfelejtett-jelszo', szereplo: 'anon' },
-  { minta: '/jelszo-reset', url: () => '/jelszo-reset?token=ervenytelen', szereplo: 'anon' },
-  { minta: '/email-megerositese', url: () => '/email-megerositese?token=ervenytelen', szereplo: 'anon' },
-  { minta: '/fuvarozoknak', url: () => '/fuvarozoknak', szereplo: 'anon' },
-  { minta: '/soforoknek', url: () => '/soforoknek', szereplo: 'anon' },
-  { minta: '/webshopoknak', url: () => '/webshopoknak', szereplo: 'anon' },
-  { minta: '/butorszallitas', url: () => '/butorszallitas', szereplo: 'anon' },
-  { minta: '/koltoztetes', url: () => '/koltoztetes', szereplo: 'anon' },
-  { minta: '/ikea-behozatal', url: () => '/ikea-behozatal', szereplo: 'anon' },
-  { minta: '/marketplace-elhozas', url: () => '/marketplace-elhozas', szereplo: 'anon' },
-  { minta: '/nagygep-szallitas', url: () => '/nagygep-szallitas', szereplo: 'anon' },
-  { minta: '/autoszallitas', url: () => '/autoszallitas', szereplo: 'anon' },
-  { minta: '/fuvar/[utvonal]', url: () => '/fuvar/budapest-szeged', szereplo: 'anon' },
-  { minta: '/hozasd-el', url: () => '/hozasd-el', szereplo: 'anon' },
-  { minta: '/nyomon-kovetes/[token]', url: (F) => `/nyomon-kovetes/${F.trackingToken}`, szereplo: 'anon' },
-
-  // Mentős
-  { minta: '/mentes', url: () => '/mentes', szereplo: 'felado' },
-  { minta: '/mentes/regisztracio', url: () => '/mentes/regisztracio', szereplo: 'szallito' },
-  { minta: '/mentes/beerkezett', url: () => '/mentes/beerkezett', szereplo: 'szallito' },
-
-  // Közös (belépett)
-  { minta: '/profil', url: () => '/profil', szereplo: 'felado' },
-  { minta: '/profil/[id]', url: (F) => `/profil/${F.szallito.id}`, szereplo: 'felado' },
-  { minta: '/ertesitesek', url: () => '/ertesitesek', szereplo: 'felado' },
-  { minta: '/uzenetek', url: () => '/uzenetek', szereplo: 'felado' },
-  { minta: '/ai-chat', url: () => '/ai-chat', szereplo: 'felado' },
-  { minta: '/fuvarjaim', url: () => '/fuvarjaim', szereplo: 'felado' },
-  { minta: '/hirdeteseim', url: () => '/hirdeteseim', szereplo: 'felado' },
-  { minta: '/fizetes-stub', url: (F) => `/fizetes-stub?job_id=${F.jobId}`, szereplo: 'felado' },
-
-  // Feladói
-  { minta: '/dashboard', url: () => '/dashboard', szereplo: 'felado' },
-  { minta: '/dashboard/uj-fuvar', url: () => '/dashboard/uj-fuvar', szereplo: 'felado' },
-  { minta: '/dashboard/fuvar/[id]', url: (F) => `/dashboard/fuvar/${F.jobId}`, szereplo: 'felado' },
-  { minta: '/dashboard/foglalasaim', url: () => '/dashboard/foglalasaim', szereplo: 'felado' },
-  { minta: '/dashboard/utvonalak', url: () => '/dashboard/utvonalak', szereplo: 'felado' },
-  { minta: '/dashboard/utvonal/[id]', url: (F) => `/dashboard/utvonal/${F.routeId}`, szereplo: 'felado' },
-
-  // Szállítói
-  { minta: '/sofor/dashboard', url: () => '/sofor/dashboard', szereplo: 'szallito' },
-  { minta: '/sofor/fuvarok', url: () => '/sofor/fuvarok', szereplo: 'szallito' },
-  { minta: '/sofor/fuvar/[id]', url: (F) => `/sofor/fuvar/${F.licitesJobId}`, szereplo: 'szallito' },
-  { minta: '/sofor/sajat-fuvarok', url: () => '/sofor/sajat-fuvarok', szereplo: 'szallito' },
-  { minta: '/sofor/licitjeim', url: () => '/sofor/licitjeim', szereplo: 'szallito' },
-  { minta: '/sofor/utvonalaim', url: () => '/sofor/utvonalaim', szereplo: 'szallito' },
-  { minta: '/sofor/uj-utvonal', url: () => '/sofor/uj-utvonal', szereplo: 'szallito' },
-  { minta: '/sofor/utvonal/[id]', url: (F) => `/sofor/utvonal/${F.routeId}`, szereplo: 'szallito' },
-  { minta: '/sofor/utvonal/[id]/utba-eso', url: (F) => `/sofor/utvonal/${F.routeId}/utba-eso`, szereplo: 'szallito' },
-  { minta: '/sofor/ertesitok', url: () => '/sofor/ertesitok', szereplo: 'szallito' },
-  { minta: '/sofor/visszafuvar', url: () => '/sofor/visszafuvar', szereplo: 'szallito' },
-
-  // Admin
-  { minta: '/admin', url: () => '/admin', szereplo: 'admin' },
-];
-
-/** Szándékosan kihagyott oldalak — mindegyikhez írásos indokkal. */
-const KIVETELEK: Record<string, string> = {};
-
-// ── Fixture-ök (egyszer, az egész specre) ─────────────────────────────
 let F: Fixtures;
 
-test.beforeAll(async () => {
-  const felado = await createUser('shipper', 'Lefedettség Feladó');
-  const szallito = await createUser('carrier', 'Lefedettség Szállító');
-  const admin = await createUser('admin', 'Lefedettség Admin');
-
-  // Elfogadott + fizetett fuvar (a feladói és szállítói részletoldalhoz)
-  const job = await createJob(felado);
-  await setJobAccepted(job.id, szallito.id, { paid: true, priceHuf: 15000 });
-
-  // Licites fuvar (a szállítói fuvar-oldal ajánlattételi nézetéhez)
-  const licites = await createJob(felado, { title: 'Licites fuvar a lefedettséghez' });
-  await placeBid(szallito, licites.id, 14000);
-
-  // Járat a szállítótól (feladói foglalási és szállítói szerkesztő nézethez)
-  const { rows: routeRows } = await dbQuery(
-    `INSERT INTO carrier_routes (carrier_id, title, departure_at, status, waypoints)
-     VALUES ($1, 'Lefedettségi járat', NOW() + INTERVAL '2 days', 'open', $2::jsonb)
-     RETURNING id`,
-    [szallito.id, JSON.stringify([
-      { name: 'Budapest', lat: 47.4979, lng: 19.0402, order: 0 },
-      { name: 'Szeged', lat: 46.253, lng: 20.1414, order: 1 },
-    ])],
-  );
-  const routeId = routeRows[0].id;
-  await dbQuery(
-    `INSERT INTO carrier_route_prices (route_id, size, price_huf)
-     VALUES ($1, 'M', 9000) ON CONFLICT DO NOTHING`,
-    [routeId],
-  );
-
-  const { rows: tokenRows } = await dbQuery(
-    'SELECT tracking_token FROM jobs WHERE id = $1', [job.id],
-  );
-
-  F = {
-    felado, szallito, admin,
-    jobId: job.id,
-    licitesJobId: licites.id,
-    routeId,
-    trackingToken: tokenRows[0].tracking_token,
-  };
-});
+test.beforeAll(async () => { F = await keszitsFixtures(); });
 
 /** Az oldal megnyitása a megfelelő szereplővel + a közös ellenőrzések. */
 async function ellenorizOldalt(page: Page, oldal: Oldal) {
@@ -217,6 +90,14 @@ async function ellenorizOldalt(page: Page, oldal: Oldal) {
   // A kliens-oldali adatlekérés és a hidratálás befejeződjön
   await page.waitForLoadState('networkidle').catch(() => {});
   await page.waitForTimeout(600);
+
+  // Interakcióval feltáruló állapot (pl. profil szerkesztő-űrlap): azt is
+  // renderelnie kell hiba nélkül — a konzol-figyelő fut tovább, tehát az
+  // állapotváltás közben dobott kivétel is ide esik.
+  if (oldal.allapot) {
+    await oldal.allapot(page);
+    await page.waitForTimeout(300);
+  }
 
   const torzs = await page.locator('body').innerText();
 
@@ -253,7 +134,7 @@ async function ellenorizOldalt(page: Page, oldal: Oldal) {
 // ── A tesztek ─────────────────────────────────────────────────────────
 test.describe('oldal-lefedettség: minden oldal megnyílik és renderel', () => {
   for (const oldal of OLDALAK) {
-    test(`${oldal.minta} (${oldal.szereplo})`, async ({ page }) => {
+    test(`${oldal.minta}${oldal.allapot ? ' [állapot]' : ''} (${oldal.szereplo})`, async ({ page }) => {
       await ellenorizOldalt(page, oldal);
     });
   }

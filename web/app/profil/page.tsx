@@ -193,7 +193,7 @@ export default function ProfilOldal() {
           }}
           title="Profilkép módosítása"
         >
-          <input type="file" accept="image/*" onChange={uploadAvatar} style={{ display: 'none' }} />
+          <input type="file" aria-label="Profilkép feltöltése" accept="image/*" onChange={uploadAvatar} style={{ display: 'none' }} />
           {profile.avatar_url ? (
             <img
               src={avatarSrc(profile.avatar_url)}
@@ -401,8 +401,8 @@ export default function ProfilOldal() {
             <h2 style={{ marginTop: 0 }}>Személyes adatok</h2>
             <div className="grid-2">
               <div>
-                <label>Teljes név</label>
-                <input
+                <label htmlFor="profil-teljes-nev">Teljes név</label>
+                <input id="profil-teljes-nev"
                   className="input"
                   value={fullName}
               maxLength={100}
@@ -410,8 +410,8 @@ export default function ProfilOldal() {
                 />
               </div>
               <div>
-                <label>Telefon</label>
-                <input
+                <label htmlFor="profil-telefon">Telefon</label>
+                <input id="profil-telefon"
                   className="input"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -419,8 +419,8 @@ export default function ProfilOldal() {
                 />
               </div>
             </div>
-            <label>Bemutatkozás</label>
-            <textarea
+            <label htmlFor="profil-bemutatkozas">Bemutatkozás</label>
+            <textarea id="profil-bemutatkozas"
               className="input"
               rows={3}
               value={bio}
@@ -433,8 +433,8 @@ export default function ProfilOldal() {
             <h2 style={{ marginTop: 0 }}>🚛 Jármű (opcionális)</h2>
             <div className="grid-2">
               <div>
-                <label>Jármű típusa</label>
-                <input
+                <label htmlFor="profil-jarmu-tipusa">Jármű típusa</label>
+                <input id="profil-jarmu-tipusa"
                   className="input"
                   value={vehicleType}
                   onChange={(e) => setVehicleType(e.target.value)}
@@ -442,8 +442,8 @@ export default function ProfilOldal() {
                 />
               </div>
               <div>
-                <label>Rendszám</label>
-                <input
+                <label htmlFor="profil-rendszam">Rendszám</label>
+                <input id="profil-rendszam"
                   className="input"
                   value={vehiclePlate}
                   onChange={(e) => setVehiclePlate(e.target.value)}

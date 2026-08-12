@@ -448,8 +448,8 @@ export default function UjFuvar() {
         />
         <FieldError>{show('title')}</FieldError>
 
-        <label>Részletes leírás</label>
-        <textarea
+        <label htmlFor="fuvar-reszletes-leiras">Részletes leírás</label>
+        <textarea id="fuvar-reszletes-leiras"
           className="input"
           rows={3}
           value={form.description}
@@ -464,8 +464,12 @@ export default function UjFuvar() {
           ha látják, mit kell szállítani. Max {MAX_PHOTO_COUNT} kép, fotónként
           legfeljebb {MAX_PHOTO_BYTES / 1024 / 1024} MB.
         </p>
+        {/* A fájlválasztónak nincs látható címkéje (a fölötte lévő <p> a
+            magyarázat, nem <label>), ezért a képernyőolvasó „gomb"-ként,
+            név nélkül olvasta fel — axe: `label`, critical. */}
         <input
           type="file"
+          aria-label="Fotók kiválasztása a csomagról"
           accept="image/*"
           multiple
           onChange={onPickPhotos}
@@ -955,8 +959,8 @@ export default function UjFuvar() {
 
         {/* --- Csomag értéke --- */}
         <h2 style={{ marginTop: 24 }}>Csomag értéke</h2>
-        <label>Becsült érték (Ft)</label>
-        <input
+        <label htmlFor="fuvar-becsult-ertek">Becsült érték (Ft)</label>
+        <input id="fuvar-becsult-ertek"
           className="input"
           type="text"
           inputMode="numeric"
