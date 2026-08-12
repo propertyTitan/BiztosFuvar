@@ -336,7 +336,7 @@ describe('ár-kalkulátor — hibás és rosszhiszemű bemenet (SOHA nem 500)', 
   it('a válasz értelmezhető, POZITÍV szám a reális bemeneteken', async () => {
     // A „reális" itt szó szerint azt jelenti, amit egy böngésző-űrlap
     // előállíthat. A két ismert kivételt (végtelen és negatív súly) a lenti
-    // két `it.fails` jelöli — azok TERMÉKHIBÁK, nem a teszt engedménye.
+    // két teszt fedi — azok 2026-08-12-ig TERMÉKHIBÁK voltak, azóta javítva.
     const kombinaciok = [
       {}, { weight_kg: '0' }, { weight_kg: '1' }, { weight_kg: '2500' },
       { weight_kg: 'abc' }, { weight_kg: '' }, { weight_kg: 'NaN' }, { weight_kg: 'null' },
@@ -361,12 +361,14 @@ describe('ár-kalkulátor — hibás és rosszhiszemű bemenet (SOHA nem 500)', 
     }
   });
 
-  // ── ISMERT TERMÉKHIBÁK ───────────────────────────────────────────────
-  // ⚠️ Ez a két teszt `it.fails`: a vitest AKKOR fogadja el őket, ha a bennük
-  // lévő állítás ELBUKIK. Vagyis amíg a hiba él, a build zöld; amint a
-  // `routes/calculator.js` megjavul, EZ A KETTŐ VÁLT PIROSRA, és rákényszerít,
-  // hogy sima `it()`-té alakítsd. Így a talált hiba nem tűnik el a jelentéssel
-  // együtt — és közben nem is kodifikáljuk „helyes viselkedésként".
+  // ── ✅ JAVÍTOTT TERMÉKHIBÁK (2026-08-12) ─────────────────────────────
+  // ⚠️ MEGJEGYZENDŐ MÓDSZER: ez a két teszt eredetileg `it.fails` volt — a
+  // vitest akkor fogadja el, ha az állítás ELBUKIK. Amíg a hiba élt, a build
+  // zöld maradt; a javítás pillanatában viszont PIROSRA VÁLTOTT, és
+  // rákényszerített a sima `it()`-té alakításra. Pontosan így is történt.
+  // Az ügynök így tudta a talált hibát jelenteni anélkül, hogy (a) piros
+  // buildet hagyjon maga után, vagy (b) a hibás viselkedést „helyesként"
+  // kodifikálja. Érdemes újra használni.
   //   Gyökér-ok mindkettőnél: `const kg = parseFloat(weight_kg) || 5;`
   //   (routes/calculator.js:60) — az emelet-mezők KAPNAK határellenőrzést
   //   (`Math.max(0, Math.min(10, …))`, 74-75. sor), a súly viszont nem.
