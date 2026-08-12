@@ -185,6 +185,57 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **10. ADATVÉDELMI MÉRÉS + javítások (2026-08-11/12, PR #171)** — 2 ügynök
+  (a jogi kihagyva, ott 9/10 stabil): **adatáramlás 8 → 8,5**, **séma 7 → 8**.
+  Mindkettő IGAZOLTA, hogy az előző kör mind a 13 javítása valódi volt, és az
+  adatáramlási lencse kimondta: **ebben a körben nem volt élő „koronaékszer"-
+  szivárgás** (átvételi kód / címzett-telefon / követő-token fizetés nélkül).
+  ⚠️ **A KÖR FŐ TANULSÁGA — A HIÁNYZÓ GRANULARITÁSI SZINT.** Kilenc őr volt, és
+  mindegyik ENTITÁST kényszerített ki (minden TÁBLÁNAK szabály, minden VÉGPONT
+  besorolva, minden STÁTUSZ lefedve, minden Sentry-HOOK szűrt) — egy szinttel
+  lejjebb, az ATTRIBÚTUMNÁL, semmi. Lemérve: a `declared_value_huf = NULL,`, a
+  `sender_delivery_code = NULL,` és a `dropoff_floor = 0,` sorok törlésével MIND
+  A 793 TESZT ZÖLD MARADT. Javítás: `anonimizalasManifest.js` +
+  `anonimizalas-oszlop-or.test.js` — a `jobs` 69 és a `route_bookings` 43
+  oszlopa besorolva (`urul` / `rovidul` / írásos indok), és az őr TÉNYLEGESEN
+  LEFUTTATJA az anonimizálást egy minden oszlopában kitöltött soron.
+  ⚠️ **A `user:join` SZOBÁT SEMMI NEM VÉDTE**: a `user:<id>`-ből megy a nyers
+  értesítés-sor (chat-előnézet, vita-leírás), a teljes chat, az admin-levelezés
+  és a foglalás-megerősítés FIZETÉSI GATEWAY-LINKKEL. A szerver ma helyesen
+  eldobja a kliens azonosítóját, de a kliens KÜLDI (`socket.ts`), és NULLA
+  teszt érintette. +2 teszt valódi socket-tel.
+  ⚠️ **KÉT HAMIS MANIFEST-CÍMKE** (a kör meta-találata: az őrök megtanultak
+  MÉRNI, de azt, hogy MIT, egy kézzel írt címke döntötte el):
+  `GET /jobs/:jobId/photos` „felek"-ként volt besorolva, valójában a NEM-FÉLNEK
+  is adta a NYERS photos sort (uploader_id → publikus profil → NÉV, GPS,
+  taken_at), e-mail-kapu nélkül; `GET /carrier-routes/:id` nyers sort adott
+  BÁRMILYEN státuszra — draft, lemondott, lezárt, SABLON is —, a `waypoints`-szal
+  (a szállító megállói + PONTOS koordináta, jellemzően az otthoni indulóponttal).
+  Mindkettő kapuzva + szűrve.
+  ⚠️ **A LENYOMAT SOSEM KERÜLT VISSZA** (075-ös migráció, prodon lefutott): a
+  feltöltés kommentje azt ígérte, „a lenyomat majd akkor kerül be, ha az admin
+  jóváhagyja" — a jóváhagyás sosem írta vissza, a nyers okmányszám pedig
+  akkorra már nincs meg. Aki EGYSZER duplikátum-gyanúba került, arra az
+  „egy okmány = egy fiók" védelem VÉGLEG elveszett, miközben az
+  érdekmérlegelési teszt II. ÉPP EZZEL indokolja az 5 éves megőrzést. Új
+  `pending_doc_number_hash` (nem része a parciális UNIQUE indexnek), ami
+  jóváhagyáskor előlép.
+  ⚠️ **NÉMA ELNYELÉS — SAJÁT TALÁLAT hibakeresés közben**: az
+  `anonymizeOldJobs` catch-e CSENDBEN lenyelte az SQL-hibát és 0-t adott vissza,
+  a napi kör SIKERESNEK látta, a `retention_runs` „0 anonimizált sort" naplózott.
+  Egy elgépelés (nálam egy JS-komment `//` az SQL belsejében — a backtick-hiba
+  új változata) HÓNAPOKIG futhatott volna hatás nélkül. A hiba mostantól
+  továbbdobódik; a `//`-re új őr, a saját mai hibámon visszamérve.
+  Kisebbek: a fuvar CÍME kikerült a Railway-logból; `TRACKING_GRACE_DAYS`
+  horgonyozva (egy PUBLIKUS, hitelesítés nélküli végpont élettartama volt
+  kötetlen). Backend **800/800**.
+  ⚠️ NYITOTT (a 9-hez, az ügynökök szerint): a `felek` besorolás FUTTATVA
+  ellenőrzése (idegen tokennel hívva ne adjon tartalmat); az admin-ÍRÁS
+  naplózás app-szintre emelése (ma `router.use`, ezért a `PATCH /disputes/:id`,
+  a körüzenet és a moderáció kiesik); az export-őr ADATTAL hívja a végpontot
+  (üres tömb ma bizonyítéknak számít); `sos_events` olvasói oldala hiányzik
+  (gyűjtjük a vészhelyzeti pontos helyet, de nincs admin-felület, ami mutatná);
+  alvó fiókok inaktivitási politikája (TERMÉKDÖNTÉS); ügyvédi review.
 - **A sózatlan okmány-lenyomatok kinullázása (2026-08-11, PR #169, 073-as
   migráció — a prodon LEFUTOTT)** — USER-DÖNTÉS; két egymást követő mérés
   hozta fel. Ez volt az UTOLSÓ pont, ahol ÍRÁSBAN olyat állítottunk, ami a
