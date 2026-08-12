@@ -185,6 +185,57 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **ELÁGAZÁS-LEFEDETTSÉG 80% FÖLÉ + 12 TERMÉKKÓD-HIBA (2026-08-12, PR #175)**
+  — a tesztelő kérése. Elágazás **67,24% → 80,54%**, sorok 79,12% → **89,26%**,
+  a suite **843 → 1289 teszt**. A padló megemelve (branches 55→77, lines
+  70→85) — visszacsúszás-védelemnek, nem célnak.
+  ⚠️ **A PÁRHUZAMOS TESZTELÉS FELOLDVA:** a beágyazott Postgres eddig FIX
+  portot (54331) foglalt, ezért egyszerre csak EGY teszt-futás lehetett a
+  gépen — emiatt kellett minden párhuzamos ügynök-munkát sorosítani.
+  Mostantól `GOFUVAR_TEST_PG_PORT` állítja a portot ÉS az adatkönyvtárat
+  (alapértelmezés változatlan, a CI nem vesz észre semmit). Így NÉGY ügynök
+  dolgozott egyszerre, külön forrásfájlokon és külön porton — és tudtak
+  verifikálni is, ami a módszertan lényege.
+  ⚠️ **AZ ÜGYNÖK-MUNKA SZABÁLYAI (bevált, ismételd):** (1) mindegyik CSAK ÚJ
+  tesztfájlt hozhat létre, meglévőt nem módosít; (2) a talált termékkód-hibát
+  JELENTI, nem javítja (a `src/`-t a parent viszi, így nem írnak egymásra);
+  (3) minden teszthez le kell írnia: „ez akkor bukna el, ha…". Az ügynökök
+  ezt maguk is visszamérték szándékos regressziókkal: 10/10, 12/12, 15/15 piros.
+  ⚠️⚠️ **A LEFEDETTSÉG-HAJSZOLÁS 12 VALÓDI HIBÁT HOZOTT ELŐ** — ez a legjobb
+  érv amellett, hogy a kérés nem szám-fetisizmus volt: a fedetlen elágazások
+  TÖBBSÉGE hibaág. **(1) 🔴 A JÁRAT-FOGLALÁS ÉRTÉKELÉSE SOHA NEM MŰKÖDÖTT** —
+  a `reviews.job_id` a kezdetektől NOT NULL, a 012-es migráció hozzáadta a
+  `booking_id`-t, de a NOT NULL-t nem oldotta fel; a web HÍVJA ezt az utat
+  (`Bookings.tsx`), tehát minden foglalás-értékelés 500-zal szállt el,
+  Sentry-riasztással (078-as migráció: nullázható `job_id` + XOR-kényszer —
+  a „mindkettő" eset korábban némán mindkét azonosítóval mentett).
+  **(2) 🔴 PÁRHUZAMOS AJÁNLAT-ELFOGADÁS → POSTGRES DEADLOCK → 500** a
+  PÉNZ-ÚTON (dupla kattintás); a javítás nélkül 3/3 futásban reprodukálva.
+  Egységes zárolási sorrend: előbb MINDIG a fuvar sora. **(3) 🟠 a CÍMZETT
+  levelének címsora „undefined" volt** (a `wrapHtml` heading nélkül hívva).
+  **(4)** `pickup_window_*` validálatlan → 500 (⚠️ a hülyebiztos-mátrix azért
+  nem fogta meg, mert a saját body-SABLONJÁBAN szereplő mezőket mutálja — a
+  HIÁNYZÓ mezőt nem lehet mutálni). **(5)** GPS-koordináta tartomány nélkül
+  (a 999-es szélesség elrontotta a `users.last_known_*`-ot, amire a
+  visszafuvar-párosítás épül). **(6)** `storage.saveFile` CSENDES disk-fallback
+  élesben: a Railway-lemez nem perzisztens → a BIZONYÍTÉKFOTÓ a következő
+  deploynál elvész, a `deleteFile` mégis `true`-t ad, a retenció „letöröltnek"
+  könyveli. Plusz: a 0,0 koordináta falsy-hibája; az `extractCity` nyers
+  `split(',')`-tal az UTCA nevét írta „városként" (a `telepulesSzint` pont
+  erre készült); nyitott `currency` értékkészlet; a gemini `confidence`
+  string-összehasonlítást is elfogadott, felső korlát nélkül (999 →
+  auto-jóváhagyás).
+  ⚠️ **AZ SSRF-FELÜLET 0%-ON ÁLLT:** a `linkPreview.js` az EGYETLEN végpont,
+  ami felhasználó által megadott URL-t tölt le. A CLAUDE.md „ellenőrizve és
+  rendben"-t írt róla — de ÁTOLVASÁSSAL, nem méréssel. Most bizonyított:
+  belső cím (felhő-metaadat, 127.0.0.1, 10.x), `file://`/`gopher://`,
+  allowlist-kerülés hasonló hoszttal, ÁTIRÁNYÍTÁS belső címre, protokoll-
+  váltó átirányítás. Az `sms.js` (25%) a két TAPASZTALT éles hibamódot kapta
+  meg (code=13 IP-allowlist, code=7 egyenleg — mindkettő NÉMA kiesés).
+  Plusz **FEKETEDOBOZ-ÚT** (PR #174): a 60 tesztfájl SQL-fixtúrával épít
+  állapotot, tehát a LÁNC sosem volt mérve. Bizonyíték: egy sort kivéve az
+  admin KYC-jóváhagyásból (a user státuszát átállítót) a 813 régi teszt MIND
+  ZÖLD maradt, a feketedoboz azonnal elbukott.
 - **FEKETEDOBOZ-ÚT + a 11. mérés nyolc tétele (2026-08-12, PR #173-174)** —
   a tesztelő kérésére feketedoboz-lefedettség, majd a 11. kör (séma **8**,
   adatáramlás **8,5**) mind a nyolc megnevezett tétele.
