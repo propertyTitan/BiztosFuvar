@@ -350,7 +350,9 @@ export const api = {
       job_id: string;
       carrier_id: string;
       amount_huf: number;
-      barion: { gateway_url: string | null; payment_id: string | null };
+      // A fizetési link SZÁNDÉKOSAN nincs a válaszban: ezt a végpontot a
+      // SZÁLLÍTÓ hívja, a fizető viszont a FELADÓ (2026-08-12, 11. mérés A1).
+      // A feladó a linket az értesítésében és a /pay válaszában kapja.
     }>(`/jobs/${jobId}/instant-accept`, { method: 'POST' }),
 
   /** Visszafuvar-ajánlások a hívó szállító összes aktív fuvarához. */

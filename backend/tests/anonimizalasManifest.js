@@ -159,6 +159,34 @@ const ANONIMIZALAS_MANIFEST = {
     barion_payment_id: { marad: 'A PSP tranzakció-azonosítója; a fizetési napló 8 éves megőrzése alá esik (Számv. tv.).' },
     barion_gateway_url: { marad: 'A PSP fizetőoldalának linkje; lejárt token, a tranzakció-nyomkövetéshez tartozik.' },
   },
+
+  // ⚠️ A HARMADIK ANONIMIZÁLT TÁBLA (2026-08-12, 11. mérés T2). A manifest
+  // eddig csak a `jobs`-ot és a `route_bookings`-ot fedte — a `carrier_routes`
+  // kimaradt, pedig az `anonymizeOldCarrierRoutes` ugyanúgy csupaszítja.
+  // Lemérve: a `waypoints = '[]'::jsonb,` sor TÖRLÉSÉVEL mind a 811 teszt
+  // zöld maradt, miközben a `waypoints` az, amit a függvény saját indoklása
+  // MOZGÁSPROFILNAK nevez: „hogy egy magánszemély jellemzően mikor merre jár".
+  carrier_routes: {
+    // ── Ürülnie kell ────────────────────────────────────────────────────
+    description: 'urul',
+    vehicle_description: 'urul',
+    waypoints: 'urul',
+    title: 'rovidul',
+
+    // ── Indokoltan marad ────────────────────────────────────────────────
+    id: { marad: 'Elsődleges kulcs; a járat tényének megőrzéséhez kell.' },
+    carrier_id: { marad: 'A járat TÉNYE a szállítóhoz kötve marad; a fiók törlésekor CASCADE viszi.' },
+    departure_at: { marad: 'Az indulás időpontja — a retenciós óra alapja, cím és megállók nélkül nem azonosít.' },
+    status: { marad: 'A járat életciklusának végállapota — státusz-érték, nem személyes adat.' },
+    is_template: { marad: 'Sablon-jelző. A sablon a szállító visszatérő járata; az anonimizálás szándékosan kihagyja.' },
+    template_source_id: { marad: 'Melyik sablonból készült — belső hivatkozás, nem személyes adat.' },
+    created_at: { marad: 'Időbélyeg; a retenciós órák és a statisztika alapja.' },
+    updated_at: { marad: 'Ugyanaz; a legutóbbi módosítás ideje.' },
+    anonymized_at: { marad: 'Épp az anonimizálás ténye — enélkül nem tudnánk, hogy megtörtént (GDPR 5. cikk (2)).' },
+    countries: { marad: 'Érintett országkódok — a ~1 km-es koordináta-kerekítésnél durvább felbontás.' },
+    currency: { marad: 'Pénznem-kód, nem személyes adat.' },
+    is_ride_along: { marad: 'Termék-jelző: személyszállítással együtt megy-e. Boolean, nem személyes adat.' },
+  },
 };
 
 module.exports = { ANONIMIZALAS_MANIFEST };

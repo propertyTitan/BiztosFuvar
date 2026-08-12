@@ -793,13 +793,21 @@ router.post(
         console.warn('[notifications] booking_confirmed hiba:', e.message);
       }
 
+      // ⚠️ A FIZETÉSI LINK NEM MEHET A HÍVÓNAK (2026-08-12, 11. mérés A1).
+      // Ezt a végpontot a SZÁLLÍTÓ hívja, a fizető viszont a FELADÓ. A
+      // `gateway_url` a feladó fizetési munkamenete a PSP-nél — a szállítónak
+      // semmi köze hozzá.
+      //
+      // A socket-ág (emitToUser a feladóhoz) 2026-08-09 óta helyes, és az
+      // `accept-counter` ágon a HTTP-válaszból is szándékosan kimaradt — ez a
+      // két hely csúszott ki alóla, UGYANABBAN a handlerben, 45 sorral a
+      // saját indokló komment alatt. Stubbal ma ártalmatlan; a CIB
+      // élesítésével valódi banki fizetőoldal URL-je kerülne a másik félhez.
+      // A feladó a linket a `route-bookings:confirmed:<id>` értesítésében kapja
+      // (fent, emitToUser), illetve a POST /route-bookings/:id/pay válaszában.
       res.json({
         ok: true,
         booking_id: b.id,
-        barion: {
-          payment_id: barionRes.paymentId,
-          gateway_url: barionRes.gatewayUrl,
-        },
       });
     } catch (err) {
       await client.query('ROLLBACK');

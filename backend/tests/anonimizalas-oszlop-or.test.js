@@ -22,7 +22,9 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 const { db, createUser, createJob, createBooking } = require('./helpers');
-const { anonymizeOldJobs, JOB_PII_RETENTION_YEARS } = require('../src/services/retention');
+const {
+  anonymizeOldJobs, anonymizeOldCarrierRoutes, JOB_PII_RETENTION_YEARS,
+} = require('../src/services/retention');
 const { ANONIMIZALAS_MANIFEST } = require('./anonimizalasManifest');
 
 /** „Üresnek" számít-e az érték az anonimizálás után? */
@@ -145,6 +147,45 @@ describe('Anonimizálási oszlop-őr', () => {
     expect(
       bentmaradt,
       `Ezek a foglalás-oszlopok az anonimizálás UTÁN is tartalmaznak adatot:\n  ${bentmaradt.join('\n  ')}`,
+    ).toEqual([]);
+  });
+
+  it('a JÁRAT MINDEN „urul" oszlopa tényleg kiürül (futtatva)', async () => {
+    const szallito = await createUser({ role: 'carrier' });
+    const { rows: jarat } = await db.query(
+      `INSERT INTO carrier_routes
+         (carrier_id, title, description, vehicle_description, waypoints,
+          departure_at, status, created_at)
+       VALUES ($1, 'Kovács János rendszeres járata',
+               'Minden kedden megyek, hívj a 06 30 111 2222-n',
+               'Fehér Ford Transit, KOV-123',
+               '[{"name":"Budapest, Váci út 12.","lat":47.49,"lng":19.04}]'::jsonb,
+               NOW() - INTERVAL '5 years', 'completed', NOW() - INTERVAL '5 years')
+       RETURNING id`,
+      [szallito.id],
+    );
+
+    await anonymizeOldCarrierRoutes();
+
+    const { rows } = await db.query('SELECT * FROM carrier_routes WHERE id = $1', [jarat[0].id]);
+    const sor = rows[0];
+    const bentmaradt = Object.entries(ANONIMIZALAS_MANIFEST.carrier_routes)
+      .filter(([, v]) => v === 'urul')
+      .filter(([o]) => {
+        const e = sor[o];
+        if (e === null || e === '' || e === 0 || e === false) return false;
+        // a waypoints üres tömbje is „ürült"
+        if (Array.isArray(e) && e.length === 0) return false;
+        return true;
+      })
+      .map(([o]) => `${o} = ${JSON.stringify(sor[o])}`);
+
+    expect(
+      bentmaradt,
+      `Ezek a JÁRAT-oszlopok az anonimizálás UTÁN is tartalmaznak adatot:\n  ${bentmaradt.join('\n  ')}\n\n`
+      + 'A `waypoints` az, amit a retention.js saját indoklása MOZGÁSPROFILNAK\n'
+      + 'nevez: „hogy egy magánszemély jellemzően mikor merre jár". A megmaradó\n'
+      + 'carrier_id mellett ez személyhez köthetően maradna, határidő nélkül.',
     ).toEqual([]);
   });
 

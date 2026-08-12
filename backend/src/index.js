@@ -364,10 +364,47 @@ if (process.env.DATABASE_URL) {
 
   // Adat-retenció (fotó 30 nap / chat 6 hó / GPS 7 nap; zárolt: 5 év) —
   // egy napi körben (2026-07-16/17 user-döntések).
-  const { runDailyRetention } = require('./services/retention');
+  const { runDailyRetention, lastSuccessfulRetentionRun } = require('./services/retention');
   setTimeout(() => { runDailyRetention().catch(() => {}); }, 90 * 1000).unref();
   setInterval(() => { runDailyRetention().catch(() => {}); }, DAY_MS).unref();
   console.log('[retention] napi adat-retenció ütemezve (fotó 30 nap / chat 6 hó / GPS 7 nap; zárolt: 5 év)');
+
+  // ⚠️ WATCHDOG: A RETENCIÓ FUTÁSA IS MEGFIGYELT (2026-08-12, 11. mérés T3).
+  //
+  // A `retention_runs` napló eddig WRITE-ONLY volt: senki nem olvasta. A
+  // Sentry-riasztás csak akkor ment, ha egy kör DOBOTT — ha a kör EL SEM
+  // INDULT (elrontott ütemezés, egy `if` mögé került blokk, megváltoztatott
+  // periódus), arról SEMMI nem szólt. A GDPR 5. cikk (2) nem naplót kér,
+  // hanem BIZONYÍTHATÓSÁGOT — bizonyítani viszont csak akkor tudunk, ha
+  // valaki nézi is.
+  //
+  // Ez a kör 6 óránként ellenőrzi, mikor futott le utoljára SIKERESEN a
+  // retenció. Ha 48 óránál régebben, az riasztás: a megőrzési ígéreteink
+  // (30 nap fotó, 7 nap GPS, 3 év fuvar-PII) ilyenkor NEM teljesülnek,
+  // miközben a rendszer kívülről hibátlanul működik.
+  const RETENCIO_WATCHDOG_ORA = 48;
+  const watchdog = async () => {
+    try {
+      const utolso = await lastSuccessfulRetentionRun();
+      if (!utolso) return; // friss telepítés: még nem futott le egyszer sem
+      // ⚠️ A lastSuccessfulRetentionRun SORT ad vissza, nem időbélyeget —
+      // az első változatom `new Date(utolso)`-t számolt, ami NaN-t adott, és
+      // a watchdog SOSEM riasztott volna. (A saját tesztje fogta meg.)
+      const mikor = utolso.finished_at || utolso.started_at;
+      const oraja = (Date.now() - new Date(mikor).getTime()) / 3600000;
+      if (oraja > RETENCIO_WATCHDOG_ORA) {
+        const uzenet = `[retention-watchdog] a retenció ${Math.round(oraja)} órája nem futott le sikeresen `
+          + `(küszöb: ${RETENCIO_WATCHDOG_ORA} óra) — a megőrzési határidők NEM teljesülnek`;
+        console.error(uzenet);
+        try { require('@sentry/node').captureMessage(uzenet, 'error'); } catch { /* nincs Sentry */ }
+      }
+    } catch (err) {
+      console.error('[retention-watchdog] hiba:', err.message);
+    }
+  };
+  setTimeout(watchdog, 5 * 60 * 1000).unref();
+  setInterval(watchdog, 6 * 60 * 60 * 1000).unref();
+  console.log(`[retention-watchdog] figyelés indul (riasztás ${RETENCIO_WATCHDOG_ORA} óra után)`);
 
   // DAC7: adóazonosító-emlékeztetők (21 naponta, max 2; 60 nap után a
   // requireDriverKYC kapu blokkol) — napi kör.

@@ -52,7 +52,12 @@ router.get('/jobs/:jobId/questions', authRequired, requireVerifiedEmail, async (
 });
 
 // POST /jobs/:jobId/questions — új kérdés
-router.post('/jobs/:jobId/questions', authRequired, writeRateLimit, async (req, res) => {
+// ⚠️ E-MAIL-KAPU AZ ÍRÁS-OLDALON IS (2026-08-12, 11. mérés A5).
+// A GET-en 2026-08-10 óta ott a `requireVerifiedEmail`, a POST-on nem volt:
+// egy eldobható, nem létező e-maillel készült fiók NEM TUDTA OLVASNI a
+// kérdés-választ, de PUBLIKÁLHATOTT bele — minden böngésző szállító és a
+// feladó számára láthatóan, bármely nyitott fuvaron.
+router.post('/jobs/:jobId/questions', authRequired, requireVerifiedEmail, writeRateLimit, async (req, res) => {
   const { question } = req.body || {};
   const questionCheck = requireText(question, { label: 'A kérdés', min: 5, max: 500 });
   if (!questionCheck.ok) {
