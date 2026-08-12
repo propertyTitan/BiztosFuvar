@@ -64,7 +64,11 @@ export default function SoforDashboard() {
         gap: 12, marginTop: 16,
       }}>
         <StatCard icon="🚛" value={totals.total_deliveries} label="Befejezett fuvar" />
-        <StatCard icon="💰" value={`${fmt(totals.total_net_earnings)} Ft`} label="Nettó bevétel (össz)" />
+        {/* A „nettó" szó a megszűnt escrow-modellből maradt itt: akkor a
+            platform 10% + 400 Ft-ot vont le, tehát volt bruttó és nettó.
+            A kápés modellben a fuvardíj 100%-a a szállítóé, levonás nincs —
+            a „nettó" azt sugallná, hogy valamit mégis levontunk tőle. */}
+        <StatCard icon="💰" value={`${fmt(totals.total_net_earnings)} Ft`} label="Összes bevétel" />
         <StatCard icon="📊" value={`${fmt(totals.avg_price)} Ft`} label="Átlag fuvardíj" />
         <StatCard icon="🛣️" value={`${Number(totals.total_km).toFixed(0)} km`} label="Össztávolság" />
         <StatCard icon="⭐" value={profile.rating_avg || '—'} label={`Értékelés (${profile.rating_count})`} />
