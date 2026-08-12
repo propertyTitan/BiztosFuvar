@@ -427,6 +427,12 @@ async function anonymizeOldJobs() {
               -- Ez a négy oszlop NOT NULL, ezért semleges alapértékre áll.
               pickup_floor = 0,
               dropoff_floor = 0,
+              -- A needs_carrying PARJA IS (2026-08-11, 10. meres F1). Az emelet
+              -- es a lift urult, a kell-e cipelni nem - pedig a kod sajat
+              -- indoklasa (a lakas belso adottsagai; uzleti ertekuk a lezaras
+              -- utan nincs) pontosan ugyanigy all ra.
+              pickup_needs_carrying = FALSE,
+              dropoff_needs_carrying = FALSE,
               pickup_has_elevator = FALSE,
               dropoff_has_elevator = FALSE,
               anonymized_at = NOW()
@@ -526,7 +532,19 @@ async function anonymizeOldJobs() {
       console.log(`[retention] ${bidMsgs || 0} ajánlat-üzenet és ${questions || 0} kérdés-válasz ürítve anonimizált fuvarokon`);
     }
   } catch (err) {
-    console.error('[retention] fuvar-anonimizálás hiba:', err.message);
+    // ⚠️ A HIBA NEM NYELHETO EL (2026-08-11, sajat talalat a 10. kor kozben).
+    // Ez a catch csendben lenyelte az SQL-hibat, es 0-t adott vissza — a
+    // `runDailyRetention` ezt SIKERES kornek latta, a `retention_runs` naplo
+    // pedig „0 anonimizalt sort" rogzitett. Egy elgepeles az UPDATE-ben
+    // (nekem egy JS-komment `//` az SQL belsejeben) igy HONAPOKIG futhatott
+    // volna hatas nelkul, es SEMMI nem jelezte volna: a fuvarok PII-ja
+    // hatarido nelkul bent marad, miközben a napi kor „lefutott".
+    //
+    // A hibat ezert TOVABBDOBJUK: a `runDailyRetention` sajat catch-e elkapja,
+    // beirja a `retention_runs.hibak`-ba (maszkolva), es Sentry-riasztast kuld.
+    // A tobbi kor ettol meg lefut — a kulon-kulon hibatures ott van, ahol kell.
+    console.error('[retention] fuvar-anonimizalas hiba:', err.message);
+    throw err;
   }
   return db_count;
 }

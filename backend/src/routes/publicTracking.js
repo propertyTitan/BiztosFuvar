@@ -132,4 +132,9 @@ router.get('/tracking/:token', async (req, res) => {
   });
 });
 
+// A konstans exportalva, hogy a megorzesi-ido horgony merni tudja
+// (2026-08-11, 10. meres A6): ez egy PUBLIKUS, hitelesites nelkuli vegpont
+// elettartama - a cimzett neve, a pontos cim, a szallito telefonja es az
+// atveteli kod erheto el rajta.
 module.exports = router;
+module.exports.TRACKING_GRACE_DAYS = TRACKING_GRACE_DAYS;

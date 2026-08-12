@@ -14,7 +14,7 @@ const { escapeHtml: esc, wrapHtml, cimzettiTajekoztatoBlokk } = require('../serv
 const crypto = require('crypto');
 const multer = require('multer');
 const db = require('../db');
-const { authRequired } = require('../middleware/auth');
+const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { sendEmail } = require('../services/email');
@@ -668,7 +668,7 @@ router.get('/route-bookings/:bookingId/photos', authRequired, async (req, res) =
 // a hirdetés részei, kellenek a licithez. A pickup/dropoff/damage/document
 // fotók (és a beágyazott GPS-koordináták) privát bizonyítékok, ezeket
 // idegen nem láthatja.
-router.get('/jobs/:jobId/photos', authRequired, async (req, res) => {
+router.get('/jobs/:jobId/photos', authRequired, requireVerifiedEmail, async (req, res) => {
   const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
   if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
 
@@ -676,8 +676,20 @@ router.get('/jobs/:jobId/photos', authRequired, async (req, res) => {
     'SELECT * FROM photos WHERE job_id = $1 ORDER BY taken_at ASC',
     [req.params.jobId],
   );
-  const visible = isParty ? rows : rows.filter((p) => p.kind === 'listing');
-  res.json(visible);
+  // A NEM-FÉL NYERS SORT KAPOTT (2026-08-11, 10. mérés A1).
+  // A `listing` fotó a hirdetéshez tartozik, tehát a böngésző szállító
+  // láthatja — DE eddig a teljes `photos` sort kapta meg hozzá:
+  //   * `uploader_id`  → a publikus profilon át NÉVHEZ vezet,
+  //   * `gps_lat/lng`  → a felvétel helye ~1 m pontossággal (ma a web nem
+  //     küld GPS-t listing-fotónál, a mobil-fázisban viszont fog),
+  //   * `taken_at`     → mikor volt otthon.
+  // Ráadásul e-mail-kapu nélkül, bármilyen státuszú fuvarra — miközben
+  // maga a fuvar-sor nem nyitott státuszban településre kerekedik.
+  // Az ikerpár (GET /route-bookings/:id/photos) nem-félnél 403-at ad.
+  if (isParty) return res.json(rows);
+  return res.json(rows
+    .filter((f) => f.kind === 'listing')
+    .map((f) => ({ id: f.id, job_id: f.job_id, kind: f.kind, url: f.url })));
 });
 
 module.exports = router;

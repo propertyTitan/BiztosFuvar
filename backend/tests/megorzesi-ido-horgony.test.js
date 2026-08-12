@@ -21,6 +21,7 @@ import { readFileSync } from 'fs';
 
 const R = {
   ...require('../src/services/retention'),
+  TRACKING_GRACE_DAYS: require('../src/routes/publicTracking').TRACKING_GRACE_DAYS,
   // ⚠️ A KYC-fájl retenciója MÁSIK modulban él (services/kyc.js) — épp ezért
   // maradt ki eddig a horgonyból. A konstansokat egy térképbe olvasztjuk,
   // hogy a horgony ne a fájl-határnál álljon meg.
@@ -70,6 +71,11 @@ const HORGONYOK = {
   // 10 évig maradt volna a privát bucketben, miközben a tájékoztató
   // FÉLKÖVÉREN 30 napot ígér.
   KYC_FILE_RETENTION_DAYS: [30, 'a nyers okmányfotó a döntés után', '30 nap', 'okmány'],
+  // ⚠️ EGY PUBLIKUS, HITELESÍTÉS NÉLKÜLI VÉGPONT ÉLETTARTAMA (10. mérés A6):
+  // a követő-linken a címzett neve, a pontos kézbesítési cím, a szállító
+  // neve+telefonja és az átvételi kód érhető el. Eddig semmi nem kötötte a
+  // publikált ígérethez: bármely érték a [3, 29] tartományban némán átcsúszott.
+  TRACKING_GRACE_DAYS: [14, 'a követő-link élettartama a kézbesítés után', '14 nap', 'követ'],
 };
 
 describe('Megőrzési idők — a szám a publikált ígérethez van kötve', () => {

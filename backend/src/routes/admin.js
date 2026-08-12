@@ -569,7 +569,22 @@ router.patch('/admin/kyc-documents/:id', ...adminOnly, async (req, res) => {
 
   await db.query(
     `UPDATE kyc_documents
-        SET status = $1, reviewed_by = $2, reviewed_at = NOW(), rejection_reason = $3
+        SET status = $1, reviewed_by = $2, reviewed_at = NOW(), rejection_reason = $3,
+            -- A FUGGO LENYOMAT ELOLEP (2026-08-11, 10. meres F5).
+            -- Jovahagyaskor a duplikatum-gyanus feltoltes lenyomata bekerul az
+            -- eles oszlopba, tehat az "egy okmany = egy fiok" vedelem
+            -- visszaall. Ha a masik fiok ugye NINCS rendezve, a parcialis
+            -- UNIQUE index utkozik - ezt az admin latja, es elobb azt kell
+            -- rendeznie. Elutasitasnal a fuggo lenyomat marad, hogy egy kesobbi
+            -- jovahagyas meg elolephessen.
+            doc_number_hash = CASE WHEN $1 = 'approved'
+                                   THEN COALESCE(doc_number_hash, pending_doc_number_hash)
+                                   ELSE doc_number_hash END,
+            pending_doc_number_hash = CASE WHEN $1 = 'approved'
+                                           THEN NULL ELSE pending_doc_number_hash END,
+            hash_algo = CASE WHEN $1 = 'approved' AND doc_number_hash IS NULL
+                                  AND pending_doc_number_hash IS NOT NULL
+                             THEN 'hmac-sha256' ELSE hash_algo END
       WHERE id = $4`,
     [docStatus, req.user.sub, rejectionReason, req.params.id],
   );

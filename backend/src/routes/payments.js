@@ -264,7 +264,11 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
         link: entity.type === 'job' ? `/dashboard/fuvar/${d.job_id}` : `/dashboard/foglalasaim`,
       }).catch(() => {});
     }
-    console.log(`[fee-webhook] ❌ ${status}: "${title}"`);
+    // A CIM NEM MEGY A LOGBA (2026-08-11, 10. meres A3). Husz sorral feljebb
+    // epp azt indokoljuk, miert nem tesszuk a title-t a payment_events-be
+    // (felhasznalo altal irt szabad szoveg) - aztan ugyanaz a szoveg kiment
+    // a Railway-logba, amire semmilyen retencios szabaly nem vonatkozik.
+    console.log(`[fee-webhook] ❌ ${status} (${entity.type} ${d.job_id || d.booking_id})`);
   }
 
   // === EGYÉB STÁTUSZOK (Prepared, Started, stb.) — csak logoljuk ===
