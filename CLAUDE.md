@@ -185,6 +185,55 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **FEKETEDOBOZ-ÚT + a 11. mérés nyolc tétele (2026-08-12, PR #173-174)** —
+  a tesztelő kérésére feketedoboz-lefedettség, majd a 11. kör (séma **8**,
+  adatáramlás **8,5**) mind a nyolc megnevezett tétele.
+  ⚠️ **A FEKETEDOBOZ FŐ TANULSÁGA — KORRIGÁLTAM MAGAM:** először azt hittem, a
+  nyilvános belépési pontok (regisztráció, e-mail-verify, KYC) teszteletlenek.
+  LEMÉRTEM: nem igaz, a `szerep-lefedettseg` őr mindegyiket hívja. A VALÓDI rés
+  a **LÁNC**: a 60 tesztfájl SQL-fixtúrával épít állapotot, és minden végpontot
+  KÜLÖN-KÜLÖN hív. Bizonyíték: kivettem EGY sort az admin KYC-jóváhagyásból (a
+  user státuszát átállítót) — a végpont továbbra is 200-at ad, csak a hatása
+  marad el → **a 813 régi teszt MIND ZÖLD**, a feketedoboz azonnal elbukik.
+  Az új `feketedoboz-ut.test.js` setuphoz NEM használ `db.query`-t (önvédő
+  teszttel), és a verifikációs linket az ELKÜLDÖTT LEVÉLBŐL olvassa ki, ahogy a
+  felhasználó is. Menet közben feltárta a valódi nyilvános szerződést
+  (`return_policy`, `consent`, admin `action`).
+  ⚠️ **SÚLYOS SAJÁT HIBA, amit az E2E fogott meg (a backend suite NEM):** az
+  SOS kikapcsolásakor a kaput útvonal-ELŐTAG NÉLKÜL tettem a routerbe
+  (`router.use((req,res,next)…)` a helyes `router.use('/sos', …)` helyett).
+  Mivel a router `/`-ra van felcsatolva és az adminRoutes UTÁNA van mountolva,
+  az admin, a moderáció és a statisztika végpontjai is 503-at kaptak volna
+  élesben. A backend suite azért nem fogta meg, mert a teszt-env BEKAPCSOLJA a
+  funkciót. Új `funkcio-kapcsolo-hatokor.test.js`. Mellékfelfedezés: a
+  hiba-toast kontrasztja önmagában is bukott (fehér a `--danger`-en sötét
+  módban 3,76:1) → új `--danger-solid`/`--success-solid` tokenek.
+  ⚠️ **AZ EGYETLEN ÉLŐ RÉS:** a `disputed` fuvar publikus követő-linkje SOSEM
+  járt le (a kézi státusz-lista MÁSODSZOR volt hiányos — előbb a `rejected`).
+  Bejelentkezés nélkül, határidő nélkül adta a címzett nevét, a pontos címet és
+  a szállító telefonját. A lista mostantól a retention.js-ből SZÁRMAZIK +
+  `koveto-link-lejarat-matrix.test.js` minden státuszra méri.
+  ⚠️ **AMIT SOHA EGYETLEN ŐR NEM NÉZETT: az ÍRÁSI végpontok VÁLASZ-TÖRZSE.**
+  A `POST /jobs/:id/instant-accept` és a `POST /route-bookings/:id/confirm`
+  (mindkettőt a SZÁLLÍTÓ hívja) visszaadta a FELADÓ fizetési gateway-linkjét.
+  A socket-ág és az `accept-counter` helyes volt — a szabály ISMERT, csak két
+  helyen nem alkalmaztuk, ugyanabban a handlerben.
+  ⚠️ **AZ IDŐ-DIMENZIÓ:** az őr a `setInterval` PERIÓDUSÁT sosem nézte. Két
+  ellenpélda ment át: a periódus 24-szerezése, és az ütemező `if` mögé rejtése
+  (élesben SOHA nem fut retenció, és semmi nem szól, mert a `retention_runs`
+  WRITE-ONLY volt). Most **WATCHDOG** (48 óra után riaszt, élesben fut) + az őr
+  a valódi `setInterval`-hívásokat fogja el és MEGHÍVJA a callbacket.
+  ⚠️ A saját tesztem fogta meg a saját watchdogom hibáját (`lastSuccessfulRetentionRun`
+  SORT ad vissza, nem időbélyeget → NaN → sosem riasztott volna).
+  Továbbá: `deleteFile` fail-closed ismeretlen `http(s)` URL-re (a csendes,
+  TÖMEGES árva-gyár: R2_PUBLIC_URL-váltásnál minden mutató törlődött volna);
+  az anonimizálási manifest kiterjesztve a `carrier_routes`-ra (a `waypoints` =
+  MOZGÁSPROFIL); a `halott-oszlop-or` TÁBLA-TUDATOS lett (eddig egy
+  `sos_events.recipient_phone` kód nélkül átment volna) → 077-es migráció;
+  `POST /jobs/:jobId/questions` e-mail-kapu. Backend **827/827**.
+  ⚠️ MÓDSZERTAN: a 8 tételt NEM osztottam több ügynökre — a beágyazott Postgres
+  FIX portot foglal, tehát párhuzamos ügynök nem tud tesztet futtatni, verifikáció
+  nélkül pedig értelmetlen (az egész módszertan az „mérd le, hogy nélküle piros").
 - **10. ADATVÉDELMI MÉRÉS + javítások (2026-08-11/12, PR #171)** — 2 ügynök
   (a jogi kihagyva, ott 9/10 stabil): **adatáramlás 8 → 8,5**, **séma 7 → 8**.
   Mindkettő IGAZOLTA, hogy az előző kör mind a 13 javítása valódi volt, és az
