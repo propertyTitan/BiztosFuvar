@@ -17,6 +17,48 @@ const realtime = require('../realtime');
 const router = express.Router();
 
 // POST /sos — vészjelzés küldése
+// =====================================================================
+//  A VÉSZJELZÉS KIKAPCSOLVA (2026-08-12, USER-DÖNTÉS)
+//
+//  ⚠️ MIÉRT: a 10. mérés találata (A4). A `POST /sos` eltárolta a bajba jutott
+//  ~1 m pontosságú koordinátáját és a szabad szöveges üzenetét, az admin
+//  értesítése pedig azt írta, hogy „a részletek az admin-felületen" —
+//  CSAKHOGY ILYEN FELÜLET NINCS. A `sos_events` táblát a teljes kódbázisban
+//  csak az adatexport, a purge és a bejelentő saját `GET /sos/mine`-ja
+//  olvassa; sem az `admin.js`, sem az admin-oldal nem hivatkozik rá.
+//
+//  Vagyis vészhelyzeti helyadatot gyűjtöttünk olyan célra, amit a rendszer
+//  nem tud teljesíteni (GDPR 5. cikk (1) c — adattakarékosság), miközben a
+//  funkció a felhasználó felé azt sugallta, hogy segítség érkezik.
+//
+//  A tulajdonos döntése: amíg nincs mögötte valódi ügyeleti folyamat, a
+//  funkció KI VAN KAPCSOLVA. A towing-mintát követi: a végpontok 503-at
+//  adnak, de a kód és a biztonsági tesztek élnek, hogy élesztéskor azonnal
+//  ellenőrzött legyen — ne „elrothadó" holt kód.
+//
+//  ⚠️ ÉLESZTÉS ELŐTT KÖTELEZŐ: (1) admin-felület, ami a bejelentést MEGMUTATJA;
+//  (2) az adatkezelési tájékoztató 2. szakaszának visszaigazolása; (3) a
+//  30. cikkes nyilvántartás sora; (4) a helyadat pontosságának újragondolása.
+// =====================================================================
+function sosEnabled() {
+  return String(process.env.SOS_ENABLED || '').toLowerCase() === 'true';
+}
+
+// ⚠️ AZ ÚTVONAL-ELŐTAG KÖTELEZŐ. Előtag nélkül a middleware MINDEN kérésre
+// lefut, ami ezen a routeren áthalad — és mivel a router '/'-ra van
+// felcsatolva, az utána mountolt adminRoutes / jobQuestions / driverStats
+// végpontjai is 503-at kaptak volna. (Az E2E fogta meg; a towing verziója
+// eleve kiírja az előtagot.)
+router.use('/sos', (req, res, next) => {
+  if (!sosEnabled()) {
+    return res.status(503).json({
+      error: 'A vészjelzés-funkció jelenleg nem elérhető. Vészhelyzetben hívd a 112-t.',
+      code: 'SOS_DISABLED',
+    });
+  }
+  return next();
+});
+
 router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
   const { job_id, booking_id, lat, lng, message } = req.body || {};
 

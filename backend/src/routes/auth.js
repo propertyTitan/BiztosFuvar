@@ -421,7 +421,12 @@ router.post('/login', loginRateLimit, async (req, res) => {
   // hogy egy esetleges DB-hiba ne blokkolja a bejelentkezést.
   db.query(
     `UPDATE users SET last_login_at = NOW(), last_seen_at = NOW(),
-            login_count = login_count + 1 WHERE id = $1`,
+            login_count = login_count + 1,
+            -- Egyetlen belepes visszaallitja az alvo-fiok orat (2026-08-12).
+            -- Enelkul a figyelmeztetes utan belepo felhasznalo fiokjat a
+            -- kovetkezo kor akkor is torolne, ha epp aktivva valt.
+            dormant_warned_at = NULL
+      WHERE id = $1`,
     [user.id],
   ).catch((e) => console.warn('[login] aktivitás-frissítés hiba:', e.message));
   res.json({ user, token: signToken(user) });

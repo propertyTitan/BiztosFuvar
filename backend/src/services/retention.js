@@ -163,6 +163,13 @@ const SOS_EVENT_RETENTION_YEARS = 1;
 // felső határa; utána a törlés ténye sem indokolt.
 const DELETED_ACCOUNT_RETENTION_YEARS = 5;
 
+// ⚠️ ALVÓ FIÓKOK (2026-08-12, user-döntés a 10. mérés F6-jára). Egy fiók, ami
+// évek óta nem lépett be, HATÁRIDŐ NÉLKÜL őrizte a nevet, e-mailt, telefont,
+// rendszámot, avatart és bemutatkozást. A tájékoztató „a fiókod
+// élettartamáig"-ot ír — formálisan igaz, de az „élettartam" végtelen volt.
+const DORMANT_WARN_YEARS = 3;
+const DORMANT_DELETE_DAYS = 30;
+
 /**
  * Lejárt chat-üzenetek törlése: lezárt ügylet üzenetei 6 hónap után,
  * zárolt (vitás/admin-holdos) ügyletéi 5 év után.
@@ -386,6 +393,80 @@ async function repairDisputedHold() {
     console.error('[retention] disputed-hold javitas hiba:', err.message);
     return 0;
   }
+}
+
+/**
+ * ALVÓ FIÓKOK: figyelmeztetés, majd törlés.
+ *
+ * KÉT FÁZIS, mert az előzmény nélküli törlés elfogadhatatlan lenne:
+ *   1. 3 év tétlenség után FIGYELMEZTETŐ e-mail (dormant_warned_at = NOW()),
+ *   2. ha a következő 30 napban sem lép be, a fiók törlődik.
+ * Egyetlen bejelentkezés nullázza a jelzőt (auth.js), tehát visszaáll az óra.
+ *
+ * ⚠️ A TÖRLÉS UGYANAZT AZ UTAT JÁRJA, mint a self-delete: előbb a TÁROLÓBÓL
+ * visszük el a fájlokat (KYC-okmány, avatar, fuvar-fotók), csak utána a
+ * DB-sort — különben árva objektumok maradnának a bucketben (GDPR 17.).
+ *
+ * ⚠️ AMI VÉDI: `userHasBlockingDealings` — aktív+fizetett vagy vitatott
+ * ügyletnél NEM törlünk. Egy alvó feladó törlése különben MÁS emberek
+ * folyamatban lévő ügyleteit semmisítené meg (CASCADE), és a vitás ügyletek
+ * 5 éves bizonyíték-zárolását is kiütné.
+ */
+async function purgeDormantAccounts() {
+  const { userHasBlockingDealings } = require('../utils/activePaid');
+  const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
+  let figyelmeztetve = 0;
+  let torolve = 0;
+
+  // 1. FÁZIS — figyelmeztetés
+  const { rows: jeloltek } = await db.query(
+    `SELECT id, email, full_name
+       FROM users
+      WHERE dormant_warned_at IS NULL
+        AND role <> 'admin'
+        AND COALESCE(last_login_at, created_at) < NOW() - ($1 || ' years')::interval
+      LIMIT 200`,
+    [DORMANT_WARN_YEARS],
+  );
+  for (const u of jeloltek) {
+    if (await userHasBlockingDealings(u.id)) continue;
+    const hatarido = new Date(Date.now() + DORMANT_DELETE_DAYS * 86400000);
+    try {
+      const { sendDormantAccountWarningEmail } = require('./email');
+      await sendDormantAccountWarningEmail({
+        to: u.email, name: u.full_name, deleteDate: hatarido,
+      });
+    } catch (e) {
+      console.warn('[dormant] figyelmeztetes hiba:', e.message);
+      continue; // e-mail nelkul NEM inditjuk el az orat
+    }
+    await db.query('UPDATE users SET dormant_warned_at = NOW() WHERE id = $1', [u.id]);
+    figyelmeztetve += 1;
+  }
+
+  // 2. FÁZIS — törlés
+  const { rows: torlendok } = await db.query(
+    `SELECT id FROM users
+      WHERE dormant_warned_at IS NOT NULL
+        AND dormant_warned_at < NOW() - ($1 || ' days')::interval
+        AND role <> 'admin'
+        AND COALESCE(last_login_at, created_at) < NOW() - ($2 || ' years')::interval
+      LIMIT 100`,
+    [DORMANT_DELETE_DAYS, DORMANT_WARN_YEARS],
+  );
+  for (const u of torlendok) {
+    if (await userHasBlockingDealings(u.id)) continue;
+    // A fajl-kulcsokat MEG a DB-sorok megléte mellett gyűjtjük ki.
+    const keys = await collectUserFileKeys(u.id).catch(() => []);
+    await db.query('DELETE FROM users WHERE id = $1', [u.id]);
+    await purgeUserFiles(u.id, { keys });
+    torolve += 1;
+  }
+
+  if (figyelmeztetve || torolve) {
+    console.log(`[dormant] ${figyelmeztetve} figyelmeztetve, ${torolve} alvo fiok torolve`);
+  }
+  return figyelmeztetve + torolve;
 }
 
 async function anonymizeOldJobs() {
@@ -1092,6 +1173,7 @@ async function runDailyRetention() {
     'purgeOldPaymentEvents',
     'purgeOldEscrowTransactions',
     'purgeOldTaxData',
+    'purgeDormantAccounts',
   ];
 
   const eredmeny = {};
@@ -1156,6 +1238,7 @@ async function lastSuccessfulRetentionRun() {
 }
 
 module.exports = {
+  purgeDormantAccounts, DORMANT_WARN_YEARS, DORMANT_DELETE_DAYS,
   repairDisputedHold,
   purgeOldDeliveryPhotos, purgeOldChatMessages, purgeOldLocationPings,
   purgeStaleLastKnownLocation, purgeOldNotifications,

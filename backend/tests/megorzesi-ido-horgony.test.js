@@ -78,6 +78,8 @@ const HORGONYOK = {
   // publikált ígérethez: bármely érték a [3, 29] tartományban némán átcsúszott.
   TRACKING_GRACE_DAYS: [14, 'a követő-link élettartama a kézbesítés után', '14 nap', 'követ'],
   KYC_PENDING_MAX_DAYS: [60, 'a függőben maradt KYC-okmány fotója', '60 nap', 'okmány'],
+  DORMANT_WARN_YEARS: [3, 'alvó fiók: figyelmeztetés tétlenség után', '3 év', 'Alvó fiókok'],
+  DORMANT_DELETE_DAYS: [30, 'alvó fiók: törlés a figyelmeztetés után', '30 nap', 'Alvó fiókok'],
 };
 
 describe('Megőrzési idők — a szám a publikált ígérethez van kötve', () => {
