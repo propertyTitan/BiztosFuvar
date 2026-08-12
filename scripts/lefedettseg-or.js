@@ -18,7 +18,11 @@
 const fs = require('fs');
 const path = require('path');
 
-const PADLO = { lines: 70, statements: 67, functions: 68, branches: 55 };
+// ⚠️ MEGEMELVE (2026-08-12, a tesztelő kérésére). A padló mindig a MÉRT
+// érték alatt pár ponttal áll — nem célnak, hanem VISSZACSÚSZÁS-védelemnek.
+// Előtte: lines 70 / statements 67 / functions 68 / branches 55.
+// A mért érték ekkor: lines 89,2 / statements 87 / functions 84 / branches 80,5.
+const PADLO = { lines: 85, statements: 83, functions: 80, branches: 77 };
 
 const konyvtar = process.argv[2] || '.';
 const riport = path.join(konyvtar, 'coverage', 'coverage-summary.json');

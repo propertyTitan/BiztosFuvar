@@ -155,7 +155,7 @@ function wrapHtml({ heading, bodyHtml, ctaText, ctaHref }) {
           </tr>
           <tr>
             <td style="padding:32px">
-              <h1 style="margin:0 0 16px;font-size:20px;line-height:1.3;color:#0f172a">${heading}</h1>
+              ${heading ? `<h1 style="margin:0 0 16px;font-size:20px;line-height:1.3;color:#0f172a">${heading}</h1>` : ''}
               <div style="font-size:14px;line-height:1.6;color:#334155">${bodyHtml}</div>
               ${cta}
             </td>
@@ -691,6 +691,9 @@ async function sendAdminMessageEmail({ to, name, bodyText }) {
 }
 
 module.exports = {
+  // A wrapHtml exportálva, hogy a levél-váz viselkedése MÉRHETŐ legyen
+  // (2026-08-12): a heading nélküli hívás korábban „undefined" címsort adott.
+  wrapHtml,
   sendDormantAccountWarningEmail,
   sendEmail,
   cimzettiTajekoztatoBlokk,

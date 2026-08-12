@@ -605,7 +605,8 @@ ${birthDateInstruction}
     const parsed = safeParseJson(result.response.text()) || {};
     const isUnderage = parsed.underage === true;
     return {
-      valid: parsed.valid === true && (parsed.confidence || 0) >= 0.6 && !isUnderage,
+      valid: parsed.valid === true && (typeof parsed.confidence === 'number'
+        && parsed.confidence >= 0.6 && parsed.confidence <= 1) && !isUnderage,
       confidence: typeof parsed.confidence === 'number' ? parsed.confidence : 0,
       reason: isUnderage
         ? 'A dokumentum tulajdonosa 18 év alatti. Adminisztrátori jóváhagyás szükséges.'
