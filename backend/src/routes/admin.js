@@ -143,7 +143,12 @@ router.get('/admin/users', ...adminOnly, async (req, res) => {
     params.push(`%${search}%`);
     sql += ` WHERE full_name ILIKE $1 OR email ILIKE $1 OR phone ILIKE $1`;
   }
-  sql += ` ORDER BY created_at DESC LIMIT ${Math.min(Number(limit), 200)}`;
+  // ⚠️ ALSÓ ÉS FELSŐ KORLÁT (2026-08-12, query-string mátrix). A puszta
+  // `Number(limit)` a NEGATÍVAT és a NaN-t is átengedte → Postgres
+  // `LIMIT must not be negative`, illetve `column "nan" does not exist` →
+  // 500 „Szerverhiba". Sérti az SZ1 szabályt, és élesben hamis
+  // Sentry-riasztást ad az adminnak.
+  sql += ` ORDER BY created_at DESC LIMIT ${Math.min(Math.max(1, Number(limit) || 50), 200)}`;
   const { rows } = await db.query(sql, params);
   res.json(rows);
 });
@@ -329,7 +334,12 @@ router.get('/admin/jobs', ...adminOnly, async (req, res) => {
     where.push(`(j.title ILIKE $${i} OR s.email ILIKE $${i} OR s.full_name ILIKE $${i} OR c.full_name ILIKE $${i} OR j.id::text ILIKE $${i})`);
   }
   if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
-  sql += ` ORDER BY j.created_at DESC LIMIT ${Math.min(Number(limit) || 50, 200)}`;
+  // ⚠️ ALSÓ ÉS FELSŐ KORLÁT (2026-08-12, query-string mátrix). A puszta
+  // `Number(limit)` a NEGATÍVAT és a NaN-t is átengedte → Postgres
+  // `LIMIT must not be negative`, illetve `column "nan" does not exist` →
+  // 500 „Szerverhiba". Sérti az SZ1 szabályt, és élesben hamis
+  // Sentry-riasztást ad az adminnak.
+  sql += ` ORDER BY j.created_at DESC LIMIT ${Math.min(Math.max(1, Number(limit) || 50), 200)}`;
   const { rows } = await db.query(sql, params);
   res.json(rows);
 });

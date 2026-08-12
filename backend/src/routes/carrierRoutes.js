@@ -233,6 +233,15 @@ router.get('/carrier-routes', authRequired, requireVerifiedEmail, async (req, re
   const { city, from_date, to_date, max_price } = req.query;
   let sql = `SELECT * FROM carrier_routes
               WHERE status = 'open'
+                -- ⚠️ A SABLON NEM BÖNGÉSZHETŐ (2026-08-12). A 11. körben a
+                -- részletnézetet kapuztam (is_template kizárva), a LISTÁT nem —
+                -- vagyis a sablon-járat továbbra is megjelent a feladói
+                -- böngészőben, a teljes waypoints-szal (a szállító megállói
+                -- + pontos koordináta, jellemzően az OTTHONI indulóponttal),
+                -- miközben a részletnézete 404-et adott. A két kapu
+                -- ellentmondott egymásnak; ez a lista oldala.
+                -- A sablon a szállító visszatérő járat-mintája, nem hirdetés.
+                AND is_template = FALSE
                 -- BUG-028: indulás után az útvonal tűnjön el a keresésből.
                 -- 1 óra türelmi idő marad a kicsit csúszó indulásokra (a
                 -- korábbi 12 óra alatt a feladók már elment szállítókkal

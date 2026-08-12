@@ -25,7 +25,14 @@ router.get('/driver-stats', authRequired, async (req, res) => {
       `SELECT
          COUNT(*)::int AS total_deliveries,
          COALESCE(SUM(accepted_price_huf), 0)::int AS total_gross_earnings,
-         COALESCE(SUM(accepted_price_huf * 0.9 - 400), 0)::int AS total_net_earnings,
+         -- ⚠️ A KÁPÉS MODELLBEN A FUVARDÍJ 100%-A A SZÁLLÍTÓÉ (2026-08-12).
+         -- Itt a 2026-07-03-án HATÁLYON KÍVÜL HELYEZETT escrow-modell 10% +
+         -- 400 Ft-os jutaléka maradt bent. A szállítói dashboard „Nettó
+         -- bevétel" néven fuvaronként 10% + 400 Ft-tal KEVESEBBET mutatott a
+         -- valósnál — miközben a /fuvarozoknak oldal azt ígéri, hogy a
+         -- fuvardíj 100%-a az övé, és a platform tőle semmit nem von le.
+         -- Kínálati oldali, felhasználó által LÁTOTT hiba.
+         COALESCE(SUM(accepted_price_huf), 0)::int AS total_net_earnings,
          COALESCE(AVG(accepted_price_huf), 0)::int AS avg_price,
          COALESCE(SUM(distance_km), 0)::numeric AS total_km
        FROM jobs
@@ -39,7 +46,8 @@ router.get('/driver-stats', authRequired, async (req, res) => {
          TO_CHAR(delivered_at, 'YYYY-MM') AS month,
          COUNT(*)::int AS deliveries,
          COALESCE(SUM(accepted_price_huf), 0)::int AS gross,
-         COALESCE(SUM(accepted_price_huf * 0.9 - 400), 0)::int AS net
+         -- Ugyanaz a havi bontásban (lásd fent).
+         COALESCE(SUM(accepted_price_huf), 0)::int AS net
        FROM jobs
        WHERE carrier_id = $1
          AND status IN ('delivered', 'completed')

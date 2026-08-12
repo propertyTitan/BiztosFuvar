@@ -348,7 +348,13 @@ router.get('/payments/admin/log', authRequired, async (req, res) => {
   LEFT JOIN carrier_routes r ON r.id = rb.route_id
       ORDER BY pe.created_at DESC
       LIMIT $1 OFFSET $2`,
-    [Math.min(Number(limit) || 50, 200), Number(offset) || 0],
+    // ⚠️ ALSÓ KORLÁT IS (2026-08-12, lefedettségi kör T1). A `Number(x) || d`
+    // a NEGATÍV számot truthy-ként átengedte → Postgres `2201X: OFFSET must
+    // not be negative` → 500 „Szerverhiba". Sérti az SZ1 szabályt.
+    // ⚠️ A hülyebiztos-mátrix azért nem fogta meg, mert CSAK a path-
+    // paramétereket és a TÖRZSET mutálja — a QUERY STRING egy egész,
+    // őrizetlen input-osztály volt.
+    [Math.min(Math.max(1, Number(limit) || 50), 200), Math.max(0, Number(offset) || 0)],
   );
   res.json(rows);
 });

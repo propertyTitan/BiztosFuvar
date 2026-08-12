@@ -170,3 +170,85 @@ describe('P1: a foglalás értékelhető', () => {
     ).toBe(400);
   });
 });
+
+// =====================================================================
+//  A SABLON-JÁRAT NEM BÖNGÉSZHETŐ (2026-08-12)
+//
+//  ⚠️ A SAJÁT 11. KÖRI JAVÍTÁSOM HIÁNYOSSÁGA. A járat RÉSZLETNÉZETÉT
+//  kapuztam (`status==='open' && !is_template`), a LISTÁT viszont nem —
+//  vagyis a sablon-járat továbbra is megjelent a feladói böngészőben, a
+//  teljes waypoints-szal (a szállító megállói + PONTOS koordináta,
+//  jellemzően az OTTHONI indulóponttal), miközben a részletnézete 404-et
+//  adott. A két kapu ellentmondott egymásnak.
+//
+//  Pontosan az a minta, amit a projekt magáról írt: „a védelem azon az úton
+//  épül meg, ahol felfedezték."
+// =====================================================================
+describe('Sablon-járat: se listában, se részletben', () => {
+  it('a sablon NEM jelenik meg a böngészhető listában', async () => {
+    const szallito = await createUser({ role: 'carrier' });
+    const felado = await createUser({ role: 'shipper' });
+
+    const { rows } = await db.query(
+      `INSERT INTO carrier_routes
+         (carrier_id, title, waypoints, departure_at, status, is_template)
+       VALUES ($1, 'Kovács János visszatérő járata',
+               '[{"name":"Budapest, Váci út 12.","lat":47.49,"lng":19.04}]'::jsonb,
+               NOW() + INTERVAL '2 days', 'open', TRUE)
+       RETURNING id`,
+      [szallito.id],
+    );
+    const sablonId = rows[0].id;
+
+    const lista = await request(app)
+      .get('/carrier-routes')
+      .set('Authorization', `Bearer ${felado.token}`);
+    expect(lista.status).toBe(200);
+
+    const talalt = (lista.body.routes || lista.body || [])
+      .some((r) => r.id === sablonId);
+    expect(
+      talalt,
+      'A SABLON-JÁRAT megjelent a feladói böngészőben, a teljes waypoints-szal '
+      + '(a szállító megállói + pontos koordináta, jellemzően az OTTHONI '
+      + 'indulóponttal) — miközben a részletnézete 404-et ad. A sablon a '
+      + 'szállító visszatérő járat-mintája, nem hirdetés.',
+    ).toBe(false);
+
+    // …és a részletnézet továbbra is 404 (a két kapu egyetért)
+    const detail = await request(app)
+      .get(`/carrier-routes/${sablonId}`)
+      .set('Authorization', `Bearer ${felado.token}`);
+    expect(detail.status, 'a sablon részletnézete elérhető lett').toBe(404);
+  });
+
+  it('a NORMÁL nyitott járat viszont látszik (a szűrő nem túl széles)', async () => {
+    // ⚠️ EGYEDI VÁROSNÉVRE SZŰRÜNK (2026-08-12). Az első változat a TELJES
+    // listát kérte le, és abban kereste a saját járatát — a lista viszont
+    // limitált, tehát a többi tesztfájl járatai kiszoríthatták. Önmagában
+    // zöld volt, a teljes suite-ban FLAKY. Az egyedi megállónév
+    // determinisztikussá teszi, és közben a város-szűrőt is méri.
+    const szallito = await createUser({ role: 'carrier' });
+    const felado = await createUser({ role: 'shipper' });
+    const varos = `Tesztfalva${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+    const { rows } = await db.query(
+      `INSERT INTO carrier_routes
+         (carrier_id, title, waypoints, departure_at, status, is_template)
+       VALUES ($1, 'Normál járat',
+               $2::jsonb,
+               NOW() + INTERVAL '2 days', 'open', FALSE)
+       RETURNING id`,
+      [szallito.id, JSON.stringify([{ name: varos, lat: 46.25, lng: 20.14 }])],
+    );
+    const lista = await request(app)
+      .get(`/carrier-routes?city=${encodeURIComponent(varos)}`)
+      .set('Authorization', `Bearer ${felado.token}`);
+    expect(lista.status).toBe(200);
+    const talalt = (lista.body.routes || lista.body || []).some((r) => r.id === rows[0].id);
+    expect(
+      talalt,
+      'A normál, nyitott, jövőbeli indulású járat sem jelenik meg a böngészőben '
+      + '— a sablon-szűrő túl széles lett, és az élő hirdetéseket is elvitte.',
+    ).toBe(true);
+  });
+});

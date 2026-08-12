@@ -121,7 +121,26 @@ router.post('/towing/request', authRequired, writeRateLimit, async (req, res) =>
     search_radius_km,
   } = req.body || {};
 
-  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+  // ⚠️ A `Number(null)` NULLA, ÉS AZ VÉGES (2026-08-12, lefedettségi kör).
+  // Ezért a `null`, az üres string, a `[]` és a `false` mind ÁTMENT a kapun,
+  // és a segélykérés a (0,0) koordinátára — a Guineai-öbölbe — került, 201-es
+  // válasszal. Épp az a valós eset, amire a hibaüzenet íródott: a frontend
+  // `null`-t küld letiltott helymeghatározásnál. A bajba jutott sikeres
+  // beküldést látott és várt, miközben a téglalapos lekérdezés nulla mentőst
+  // talált. Ezért TÍPUS-ellenőrzés kell, nem csak `isFinite`.
+  // ⚠️ NEM `parseFloat` — az a MAGYAR TIZEDESVESSZŐT elfogadná: a
+  // `parseFloat('47,4979')` a vesszőnél megáll és 47-et ad, vagyis a
+  // segélykérés ~55 km-rel odébb kerülne. A `Number()` ilyenkor NaN-t ad,
+  // ezért az marad — csak előtte kizárjuk azt, amit a `Number()` NULLÁVÁ
+  // alakít (null, '', [], false), mert az volt az eredeti hiba.
+  const szam = (v) => (
+    (typeof v === 'number' || (typeof v === 'string' && v.trim() !== ''))
+      ? Number(v) : NaN
+  );
+  const latSzam = szam(lat);
+  const lngSzam = szam(lng);
+  if (!Number.isFinite(latSzam) || !Number.isFinite(lngSzam)
+      || Math.abs(latSzam) > 90 || Math.abs(lngSzam) > 180) {
     return res.status(400).json({ error: 'GPS pozíció szükséges. Engedélyezd a helymeghatározást.' });
   }
   if (!ISSUE_TYPES.includes(issue_type)) {

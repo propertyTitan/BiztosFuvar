@@ -185,6 +185,68 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **⚠️⚠️ A CI-KAPU VAK VOLT — és a lefedettség 90% fölé (2026-08-12, PR #176)**
+  — a lefedettségi munka mellékterméke a projekt eddigi legsúlyosabb
+  infrastruktúra-találata. **A `backend-tests.yml` teszt-lépése PIROS SUITE
+  MELLETT IS ÁTMENT**: egy biztosan bukó teszt mellett a `npx vitest run` és a
+  CI parancsa (`npm run test:coverage`) egyaránt **0-s kilépési kóddal**
+  végzett; a riport helyesen kiírta, hogy „Tests 1 failed", a build mégis zöld
+  lett. A CLAUDE.md azt rögzítette, hogy „N teszt fut CI-ben minden PR-en" —
+  futni futott, de **NEM KAPUZOTT**; ténylegesen csak a függőség-audit és a
+  lefedettség-őr buktatta el a buildet (azok saját `process.exit`-tel élnek).
+  **Az ok A/B-vel izolálva**: a `pg.stop()` (embedded-postgres) a
+  gyerekfolyamat kilövésekor felülírja a vitest által beállított
+  `process.exitCode`-ot — teardown nélkül a kód helyesen 1, csak az
+  `fs.rmSync`-kel szintén 1, a `pg.stop()`-pal 0. A web-suite nem érintett
+  (nincs globalSetup), az E2E sem (külön Playwright-futtató) — **ezért buktak
+  el E2E-hibák, miközben a backend mindig „zöld" volt.** ⚠️ Ugyanaz a
+  hibaosztály, amit a projekt már megtalált a vitest `coverage.thresholds`-ánál
+  („kiírja a sértést, de nulla kóddal lép ki") — csak egy szinttel feljebb, a
+  TELJES teszt-kapun. `ci-kapu-or.test.js`: alfolyamatban valóban lefuttat egy
+  bukó tesztet és nem-nulla kódot követel (visszamérve piros).
+  ⚠️ **SZABÁLY MOSTANTÓL: minden kapunál mérd le, hogy a bukás TÉNYLEG
+  megbuktatja-e a buildet — a „fut a CI-ben" nem azonos a „kapuz"-zal.**
+  **HÁROM TERMÉKHIBA, amit 11 kör audit nem talált meg** (egyik sem biztonsági
+  rés — ezért nem is keresték; mind olyan számolás, amit a FELHASZNÁLÓ LÁT):
+  **(1)** a szállítói dashboard „Nettó bevétel"-e az `accepted_price_huf *
+  0.9 - 400` képlettel számolt — a 2026-07-03-án HATÁLYON KÍVÜL HELYEZETT
+  escrow-modell jutalékával —, tehát fuvaronként 10% + 400 Ft-tal KEVESEBBET
+  mutatott, miközben a /fuvarozoknak oldal írásban ígéri a 100%-ot: a saját
+  ígéretünket cáfoltuk meg a kínálati oldal felé. **(2)** a segélykérés a
+  **(0,0) koordinátára** került, mert a `Number(null)` NULLA, és az VÉGES —
+  a puszta `isFinite`-kapu a `null`-t, üres stringet, `[]`-t, `false`-t is
+  elfogadta, 201-es válasszal; épp ez a VALÓS eset (a frontend `null`-t küld
+  letiltott helymeghatározásnál), a bajba jutott sikeres beküldést látott,
+  miközben nulla mentőst találtunk. ⚠️ A javításom ELSŐ változata
+  `parseFloat`-ot használt — az a magyar tizedesvesszőt elfogadta volna
+  (`parseFloat('47,4979')` = 47, ~55 km-rel odébb); egy ügynök tesztje kapta
+  el, `Number()`-re szigorítva. **(3)** az árkalkulátor (publikus, auth
+  nélküli konverziós belépő) `weight_kg=Infinity`-re „null Ft" becslést adott,
+  negatív súlyra negatív ÉS MEGFORDÍTOTT ársávot — az emelet-mezők ugyanabban
+  a kezelőben, 14 sorral lejjebb már kaptak határellenőrzést.
+  **AZ ŐRIZETLEN INPUT-OSZTÁLY: A QUERY STRING** — a `hulyebiztos-matrix` a
+  PATH-paramétereket és a kérés-TÖRZSET mutálja, a query stringet SOHA; az új
+  `query-string-matrix` azonnal talált három élő 500-ast (`/admin/jobs?limit=-5`,
+  `/admin/users?limit=abc`, `/payments/admin/log?offset=-5`).
+  **MOCK-CSAPDA** (két ügynök találta meg egymástól függetlenül, ezért
+  repó-szintű): a `vi.spyOn().mockRejectedValue()` NEM mér kezeletlen
+  elutasítást (a vitest belsőleg rákapcsolódik a mock ígéretére) → a
+  „fire-and-forget hiba nem szabadulhat el" teszt a mockkal MEGÍRHATATLAN,
+  akkor is zöld, ha a `.catch()` eltűnik; nyers metódus-csere kell
+  (`mock-csapda-or.test.js` dokumentálja). **LEFEDETTSÉG**: sorok 74,3% →
+  **93,63%**, utasítások **92,28%**, függvények **88,01%**, elágazások 61,9% →
+  **86,50%**; padló 90/89/84/83. A párhuzamos ügynök-munkát a
+  **`GOFUVAR_TEST_PG_PORT`** tette lehetővé (a beágyazott Postgres portja
+  eddig fixen 54331 volt, két futás kizárta egymást). Backend **1616/1616**.
+  ⚠️ **SAJÁT HIBÁIM**: (a) HARMADSZOR írtam vakon zöld állítást — a `typeof
+  x === 'number'` szűrő kihagyta a bizonyítandó esetet, mert a JSON a
+  végtelent `null`-ként adja tovább (7 piros → 8 piros a javítás után);
+  (b) a teszt-szerződéseket megint TIPPELTEM olvasás helyett (`/towing/requests`
+  valójában egyes szám, a `/calculator/estimate` GET nem POST, a driver-stats
+  válasz-alakja) → 9 bukó teszt egy körben; (c) flaky tesztem a saját járatát
+  a TELJES (limitált) listában kereste; (d) a 11. köri javításom hiányos volt:
+  a sablon-járatokat a RÉSZLETNÉZETEN kapuztam, a LISTÁN nem — megint
+  „a védelem azon az úton épül meg, ahol felfedezték".
 - **ELÁGAZÁS-LEFEDETTSÉG 80% FÖLÉ + 12 TERMÉKKÓD-HIBA (2026-08-12, PR #175)**
   — a tesztelő kérése. Elágazás **67,24% → 80,54%**, sorok 79,12% → **89,26%**,
   a suite **843 → 1289 teszt**. A padló megemelve (branches 55→77, lines
@@ -1859,12 +1921,17 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
    Fallback ha a gh valamiért nem megy: **közvetlen `git merge --no-ff`
    main-re + push** — a Vercel/Railway így is auto-deployol.
 7. Migráció ha kell: `cd backend && npm run db:migrate` (a prod Neon ellen)
-8. Vercel + Railway automatikusan deployol; **739 teszt fut CI-ben minden
-   PR-en és main-pushon** (~3 perc összesen):
+8. Vercel + Railway automatikusan deployol; **~1800 teszt fut CI-ben minden
+   PR-en és main-pushon**. ⚠️ **2026-08-12-ig a backend teszt-lépése NEM
+   KAPUZOTT** (piros suite mellett is átment, mert a `pg.stop()` felülírta a
+   kilépési kódot) — javítva, `ci-kapu-or.test.js` őrzi. Lefedettség: sorok
+   93,63% / utasítások 92,28% / függvények 88,01% / elágazások 86,50%, padló
+   90/89/84/83 (`scripts/lefedettseg-or.js`). Az alábbi bontás a 2026-08-07-i
+   állapot, csak a fő osztályok bemutatására:
    - **87 web unit** (Vitest, `web-tests.yml`) — benne a
      **link-integritás osztály-teszt**: minden statikus belső href-hez
      léteznie kell App Router oldalnak (a /adatvedelem-404 osztálya ellen)
-   - **556 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
+   - **1616 backend üzleti szabály** (Vitest + supertest + embedded-postgres,
      `backend-tests.yml`): díj-fizetési guard + consent a /pay-en, kód
      brute-force lockout, lemondás pénzmozgás nélkül, sofőr-lemondás →
      díjmentes reopen, licit-visszaállítás sofőr-cserénél, adat-scrub/IDOR,

@@ -36,10 +36,22 @@ jobs:
       - name: Függőség-audit (éles függőségek, magas/kritikus)
         run: node ../scripts/fuggoseg-audit.js .
 
+      # ⚠️ EZ A LÉPÉS 2026-08-12-IG NEM KAPUZOTT. Piros suite mellett is
+      # átment: a `pg.stop()` (embedded-postgres) a gyerekfolyamat kilövésekor
+      # felülírta a vitest által beállított `process.exitCode`-ot, így a
+      # parancs 0-val végzett, miközben a riport kiírta a „Tests N failed"-et.
+      # A javítás a `backend/tests/global-setup.js` teardownjában van; hogy ne
+      # nyílhasson ki újra némán, a `tests/ci-kapu-or.test.js` egy
+      # ALFOLYAMATBAN lefuttat egy biztosan bukó tesztet, és nem-nulla
+      # kilépési kódot követel. Ha ez a fájl valaha eltűnik, a kapu védtelen.
       - name: Tesztek futtatása lefedettséggel
         run: npm run test:coverage
 
       # Külön lépés: a vitest a küszöb-sértést kiírja, de NULLA kóddal lép ki
       # (lemérve) — ez a szkript az, ami tényleg elbuktatja a buildet.
+      # ⚠️ UGYANAZ A HIBAOSZTÁLY, mint fent, csak egy szinttel lejjebb: a
+      # „kiírja a hibát, de nullával lép ki" kétszer is előfordult ebben a
+      # fájlban. Új kapunál MINDIG mérd le, hogy a bukás tényleg piros buildet
+      # ad — a „fut a CI-ben" nem azonos a „kapuz"-zal.
       - name: Lefedettség-őr (nem csúszhat vissza)
         run: node ../scripts/lefedettseg-or.js .
