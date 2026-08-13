@@ -32,7 +32,9 @@ import AxeBuilder from '@axe-core/playwright';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loginAs } from './helpers';
-import { OLDALAK, keszitsFixtures, Fixtures } from './oldal-leltar';
+import {
+  OLDALAK, keszitsFixtures, varjStabilOldalt, Fixtures,
+} from './oldal-leltar';
 
 // ⚠️ MIÉRT FÁJL, ÉS NEM MODUL-SZINTŰ TÖMB (2026-08-12, mért tapasztalat):
 // a Playwright BUKÁS UTÁN ÚJRAINDÍTJA a worker-folyamatot, tehát a modul-
@@ -95,18 +97,32 @@ test.describe('akadálymentesítés: axe-core minden oldalon', () => {
       }
 
       await page.goto(oldal.url(F));
-      // A kliens-oldali lekérések befejezésére várunk: a hiányzó gomb-címke
-      // vagy a rossz aria-attribútum jellemzően a betöltött ÁLLAPOTBAN
-      // jelenik meg, nem a csontvázon.
-      await page.waitForLoadState('networkidle').catch(() => {});
+      // A kliens-oldali lekérések befejezésére ÉS az esetleges átirányítás
+      // lezajlására várunk — enélkül az axe-elemzés menet közben szállna el
+      // („Execution context was destroyed"), ahogy a CI-ban meg is tette.
+      await varjStabilOldalt(page);
 
       // Interakcióval feltáruló állapot (pl. szerkesztő-űrlap) megnyitása.
       if (oldal.allapot) await oldal.allapot(page);
 
-      const eredmeny = await new AxeBuilder({ page })
+      const elemez = () => new AxeBuilder({ page })
         .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
         .disableRules(Object.keys(SZABALY_KIVETELEK))
         .analyze();
+
+      let eredmeny;
+      try {
+        eredmeny = await elemez();
+      } catch (err) {
+        // Egy KÉSŐI átirányítás (pl. az auth-ellenőrzés befejeztével) elsöpörheti
+        // a végrehajtási környezetet az elemzés közben. A megállapodás bevárása
+        // után egyszer újrapróbáljuk. KÉTSZERI elszállásnál viszont elbukunk:
+        // a néma újrapróbálkozás-ciklus pont az a hamis zöld lenne, ami ellen
+        // az egész mérés szól.
+        if (!/Execution context was destroyed/i.test(String(err))) throw err;
+        await varjStabilOldalt(page);
+        eredmeny = await elemez();
+      }
 
       for (const v of eredmeny.violations) {
         naplozz({

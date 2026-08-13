@@ -185,3 +185,47 @@ export async function keszitsFixtures(): Promise<Fixtures> {
 }
 
 export { loginAs };
+
+/**
+ * Megvárja, amíg az oldal MEGÁLLAPODIK — vagyis nincs több folyamatban lévő
+ * navigáció.
+ *
+ * ⚠️ MIÉRT KELL (2026-08-12, CI-ban mért hiba): a `/a` egy átirányító rövid
+ * URL, a `/dashboard` pedig kliens-oldalon irányít át a szerep szerinti
+ * nézetre. A `networkidle` ezeknél NEM elég: közvetlenül utána még lezajlik
+ * egy navigáció, és az épp futó `page.$$eval` / axe-elemzés
+ * „Execution context was destroyed" hibával elszáll.
+ *
+ * Lokálisan végig zöld volt, a CI-ban elbukott — időzítés-függő, tehát
+ * pontosan az a fajta flaky teszt, amit nem szabad a main-en hagyni.
+ *
+ * A 16-os render-mérés azért immunis, mert `page.locator(...).innerText()`-et
+ * használ, ami automatikusan újrapróbál; a `$$eval` és az axe nem.
+ */
+export async function varjStabilOldalt(
+  page: import('@playwright/test').Page,
+  maxMs = 8000,
+): Promise<void> {
+  await page.waitForLoadState('networkidle').catch(() => {});
+
+  const hatarido = Date.now() + maxMs;
+  let elozo = '';
+  let stabilOta = 0;
+
+  while (Date.now() < hatarido) {
+    const mostani = page.url();
+    if (mostani === elozo) {
+      stabilOta += 200;
+      // Két egymást követő, 400 ms-on át változatlan URL: megállapodott.
+      if (stabilOta >= 400) break;
+    } else {
+      elozo = mostani;
+      stabilOta = 0;
+    }
+    await page.waitForTimeout(200);
+  }
+
+  // A hidratálás/átirányítás utáni utolsó renderelés befejezése.
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await page.locator('body').waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
+}

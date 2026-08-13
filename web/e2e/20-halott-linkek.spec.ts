@@ -31,7 +31,9 @@ import { test, expect, Page } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import { loginAs } from './helpers';
-import { OLDALAK, keszitsFixtures, Fixtures } from './oldal-leltar';
+import {
+  OLDALAK, keszitsFixtures, varjStabilOldalt, Fixtures,
+} from './oldal-leltar';
 
 type Link = {
   honnan: string;
@@ -79,7 +81,7 @@ test.beforeAll(async () => { F = await keszitsFixtures(); });
 
 /** Egy oldal összes kattintható hivatkozásának begyűjtése. */
 async function gyujtsLinkeket(page: Page, honnan: string): Promise<Link[]> {
-  return page.$$eval('a[href]', (elemek) => elemek.map((a) => {
+  const kiolvas = () => page.$$eval('a[href]', (elemek) => elemek.map((a) => {
     const el = a as HTMLAnchorElement;
     return {
       href: el.getAttribute('href') || '',
@@ -87,7 +89,21 @@ async function gyujtsLinkeket(page: Page, honnan: string): Promise<Link[]> {
       ujAblak: el.getAttribute('target') === '_blank',
       rel: el.getAttribute('rel') || '',
     };
-  })).then((lista) => lista.map((l) => ({ ...l, honnan })));
+  }));
+
+  let lista;
+  try {
+    lista = await kiolvas();
+  } catch (err) {
+    // Ha épp egy késői átirányítás söpörte el a végrehajtási környezetet,
+    // egyszer újrapróbáljuk a megállapodás bevárása után. KÉTSZERI elszállás
+    // viszont HIBA — a néma újrapróbálkozás-ciklus pont az a hamis zöld
+    // lenne, ami ellen az egész mérés szól.
+    if (!/Execution context was destroyed/i.test(String(err))) throw err;
+    await varjStabilOldalt(page);
+    lista = await kiolvas();
+  }
+  return lista.map((l) => ({ ...l, honnan }));
 }
 
 test.describe('halott linkek: begyűjtés a renderelt oldalakról', () => {
@@ -99,7 +115,7 @@ test.describe('halott linkek: begyűjtés a renderelt oldalakról', () => {
         await loginAs(page, F[oldal.szereplo]);
       }
       await page.goto(oldal.url(F));
-      await page.waitForLoadState('networkidle').catch(() => {});
+      await varjStabilOldalt(page);
       if (oldal.allapot) await oldal.allapot(page);
 
       for (const link of await gyujtsLinkeket(page, oldal.minta)) {
@@ -179,9 +195,18 @@ test.describe('halott linkek: a célok tényleges ellenőrzése', () => {
   });
 
   test('a külső hivatkozások alakja helyes, és noopener védi őket', async () => {
+    // ⚠️ Deduplikálás: a CI `retries: 1`-gyel fut, tehát egy újrapróbált
+    // begyűjtő teszt MÉGEGYSZER a naplóba írja ugyanazokat a linkeket.
+    const latott = new Set<string>();
     const kulsoLinkek = naploOlvas()
       .filter((b): b is Extract<Bejegyzes, { fajta: 'kulso' }> => b.fajta === 'kulso')
-      .map((b) => b.link);
+      .map((b) => b.link)
+      .filter((l) => {
+        const kulcs = `${l.honnan}|${l.href}`;
+        if (latott.has(kulcs)) return false;
+        latott.add(kulcs);
+        return true;
+      });
 
     expect(
       kulsoLinkek.length,
@@ -225,9 +250,9 @@ test.describe('halott linkek: a célok tényleges ellenőrzése', () => {
   });
 
   test('a gyűjtés közben nem találtunk nyilvánvalóan elrontott hivatkozást', () => {
-    const gyanusak = naploOlvas()
+    const gyanusak = [...new Set(naploOlvas()
       .filter((b): b is Extract<Bejegyzes, { fajta: 'gyanus' }> => b.fajta === 'gyanus')
-      .map((b) => b.uzenet);
+      .map((b) => b.uzenet))];
 
     expect(
       gyanusak,
