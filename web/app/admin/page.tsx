@@ -17,6 +17,7 @@
 // Csak admin role látja; a veszélyes műveletek ConfirmDialog mögött.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { api, photoUrl } from '@/api';
 import { getSocket } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
@@ -27,6 +28,7 @@ import {
   LayoutDashboard, IdCard, Users as UsersIcon, Package, Route as RouteIcon,
   Scale, Banknote, Lock, Unlock, LogOut, Trash2, MessageSquare, Search,
   ShieldCheck, CircleDot, RefreshCw, Mail, Megaphone, Info, Send,
+  Landmark, ChevronRight,
 } from 'lucide-react';
 
 type TabId = 'attekintes' | 'kyc' | 'felhasznalok' | 'uzenetek' | 'fuvarok' | 'jaratok' | 'vitak';
@@ -447,6 +449,26 @@ export default function AdminPanel() {
       {/* ═══════════ ÁTTEKINTÉS ═══════════ */}
       {tab === 'attekintes' && (
         <>
+          {/* Belső dokumentumok — nem üzemeltetési adat, de csak itt érhető el
+              (cégadatok és forgalmi várakozások vannak bennük). */}
+          <Link
+            href="/admin/bank-felkeszules"
+            className="card"
+            style={{
+              marginTop: 20, display: 'flex', alignItems: 'center', gap: 14,
+              textDecoration: 'none', color: 'inherit',
+            }}
+          >
+            <Landmark size={22} style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700 }}>CIB kártyaelfogadás — felkészülési anyag</div>
+              <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+                Mit kérdezhet a bank, és mit kell rá válaszolni. Letölthető, offline is olvasható.
+              </div>
+            </div>
+            <ChevronRight size={18} style={{ flexShrink: 0, opacity: 0.6 }} />
+          </Link>
+
           {/* Élő jelenlét */}
           <div className="card" style={{
             marginTop: 20, display: 'flex', alignItems: 'center', gap: 24, flexWrap: 'wrap',

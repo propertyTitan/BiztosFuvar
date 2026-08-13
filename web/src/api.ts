@@ -796,6 +796,17 @@ export const api = {
   adminPaymentLog: (limit = 50) =>
     request<any[]>(`/payments/admin/log?limit=${limit}`),
 
+  /**
+   * Belső, banki felkészülési anyag. SZÁNDÉKOSAN a szerverről jön, nem a
+   * frontend bundle-ből: a kliens-oldali admin-kapu csak a megjelenítést
+   * állítja meg, a bundle-be sütött szöveget bárki letölthetné bejelentkezés
+   * nélkül (ez az első változatban tényleg így volt, lemérve).
+   */
+  adminBankFelkeszules: () =>
+    request<import('@/lib/bankFelkeszules').BankDokumentum>(
+      '/admin/dokumentumok/bank-felkeszules',
+    ),
+
   // ---------- Admin: fuvarok / járatok / foglalások / userek ----------
 
   adminJobs: (opts: { status?: string; search?: string; limit?: number } = {}) => {

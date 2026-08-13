@@ -697,3 +697,30 @@ label {
 @media (max-width: 859px) {
   .steps-thread { display: none; }
 }
+
+/* ── NYOMTATÁS ────────────────────────────────────────────────────────
+   A banki felkészülési anyagot (és bármely más oldalt) a böngésző
+   „Nyomtatás → PDF-be mentés" funkciójával PDF-fé lehet alakítani. Ehhez
+   a felület vezérlői (gombok, navigáció) nem kellenek a papírra: amit a
+   `no-print` osztály jelöl, az nyomtatásnál eltűnik.
+
+   A sötét téma nyomtatásnál kikapcsol: fekete háttérrel a lap olvashatatlan
+   lenne, és feleslegesen fogyasztaná a festéket. */
+@media print {
+  .no-print,
+  header, footer, nav { display: none !important; }
+
+  html, body {
+    background: #fff !important;
+    color: #111827 !important;
+  }
+
+  .container { max-width: none !important; padding: 0 !important; }
+
+  /* Ne törjön szét szakasz, táblázat vagy kiemelt doboz két oldal között. */
+  section, table, blockquote { break-inside: avoid; }
+  h1, h2, h3 { break-after: avoid; }
+
+  /* A link-URL kiírása papíron zavaró lenne — a dokumentum úgyis önálló. */
+  a[href]::after { content: none !important; }
+}

@@ -1,0 +1,302 @@
+{
+  "cim": "CIB kártyaelfogadás — felkészülési anyag",
+  "alcim": "Tiszta Hód Kft. · GoFuvar · belső, nem publikus",
+  "szakaszok": [
+    {
+      "cim": "1. A legfontosabb mondat",
+      "lenyeg": "Ne minősítsenek marketplace-nek — ezen múlik minden más.",
+      "blokkok": [
+        {
+          "fajta": "bekezdes",
+          "szoveg": "Amint a bank azt hiszi, hogy pénzt közvetítesz a felek közt, átsorolnak payment facilitator / marketplace kategóriába. Az sokkal szigorúbb: letéti kezelés, harmadik félnek kifizetés, magasabb díj, esetleg visszatartott tartalék (rolling reserve), rosszabb esetben elutasítás. A ti helyzetetek ennél sokkal egyszerűbb — de ezt az első percben tisztázni kell."
+        },
+        {
+          "fajta": "idezet",
+          "szoveg": "A platformon kizárólag a saját szolgáltatási díjunkat szedjük be — a kapcsolatfelvételi díjat, 500 vagy 1.000 Ft-ot. A fuvardíj soha nem folyik át rajtunk: azt a feladó közvetlenül a szállítónak fizeti készpénzben vagy átutalással. Nem vagyunk fuvarozó, és nem kezelünk mások pénzét. A kártyás tranzakció a mi saját, azonnal teljesülő szolgáltatásunkról szól."
+        },
+        {
+          "fajta": "bekezdes",
+          "szoveg": "Ha ez tiszta, onnantól egy egyszerű, alacsony kockázatú webshop vagytok — csak a termék digitális, és azonnal teljesül."
+        }
+      ]
+    },
+    {
+      "cim": "2. Cég és tulajdonos (KYB)",
+      "blokkok": [
+        {
+          "fajta": "tabla",
+          "fejlec": [
+            "Amit kérdeznek",
+            "A válasz"
+          ],
+          "sorok": [
+            [
+              "Cégnév",
+              "Tiszta Hód Korlátolt Felelősségű Társaság"
+            ],
+            [
+              "Székhely",
+              "6800 Hódmezővásárhely, Szántó Kovács János utca 144."
+            ],
+            [
+              "Cégjegyzékszám",
+              "06-09-020646"
+            ],
+            [
+              "Adószám",
+              "24750792-2-06"
+            ],
+            [
+              "Ügyvezető / aláíró",
+              "Jovány Gyula (ügyvezető, cégtulajdonos)"
+            ],
+            [
+              "Kapcsolat",
+              "info@gofuvar.hu · +36 20 397 9223"
+            ],
+            [
+              "Tényleges tulajdonos (UBO)",
+              "Nyilatkozat kell róla — a 25% fölötti tulajdonost névvel"
+            ],
+            [
+              "Politikai közszereplő (PEP)",
+              "Nyilatkozat kell, nemleges"
+            ],
+            [
+              "Meglévő kártyaelfogadás",
+              "Nincs. A CIB a számlavezető bank"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "cim": "3. Az üzleti modell",
+      "lenyeg": "Közvetítő vagyunk, nem fuvarozó. A díjunk azonnal teljesül.",
+      "blokkok": [
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Mit adtok el pontosan?",
+          "valasz": "Nem fuvart. Egy kapcsolatfelvételi szolgáltatást: a díj megfizetése után a feladó megkapja a kiválasztott szállító elérhetőségét, és onnantól ők szerződnek egymással közvetlenül."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Mikor teljesül a szolgáltatás?",
+          "valasz": "Azonnal, a fizetés pillanatában — a kontakt másodperceken belül megjelenik. Ez a legerősebb érvünk a visszaterhelési kockázat ellen."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Ki felel, ha a fuvar rosszul sül el?",
+          "valasz": "A felek egymás közt, a Ptk. szerint. A platform közvetítő, nem szerződő fél a fuvarozási szerződésben — ezt az ÁSZF 5.2 pontja rögzíti."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Van előfizetés vagy ismétlődő terhelés?",
+          "valasz": "Nincs. Kizárólag egyszeri fizetések. (A recurring külön szabályozott — jó hír nekik.)"
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Fizethet a feladó másképp is?",
+          "valasz": "A fuvardíjat igen — készpénzben vagy átutalással, közvetlenül a szállítónak (ÁSZF 4.2). A kapcsolatfelvételi díj az, ami kártyával jön hozzátok."
+        }
+      ]
+    },
+    {
+      "cim": "4. Számok",
+      "lenyeg": "Ezt készítsd elő előre — később összevetik a valósággal.",
+      "blokkok": [
+        {
+          "fajta": "tabla",
+          "fejlec": [
+            "Mit kérdeznek",
+            "A válasz"
+          ],
+          "sorok": [
+            [
+              "Átlagos tranzakció",
+              "500–1.000 Ft bruttó (≤50.000 Ft fuvardíjig 500, felette 1.000)"
+            ],
+            [
+              "Devizanem",
+              "HUF"
+            ],
+            [
+              "Külföldi kártya",
+              "Igen — EU/EGT lefedettség, diaszpóra-feladók"
+            ],
+            [
+              "Darabszám induláskor",
+              "Néhány tíz tranzakció / hó"
+            ],
+            [
+              "Havi forgalom induláskor",
+              "Pár tízezer forint"
+            ],
+            [
+              "Szezonalitás",
+              "Nincs erős szezon; költözési csúcs nyáron és hónapfordulón"
+            ]
+          ]
+        },
+        {
+          "fajta": "kitoltendo",
+          "cim": "Ezt döntsd el a tárgyalás ELŐTT: a 12–18 hónapos forgalmi cél",
+          "szoveg": "A belső anyagokban két, egymásnak ellentmondó szám szerepel: „havi 2–3 M Ft bevétel 18 hónap után\", illetve „stabil ~300+ fuvar/hó\". 500–1.000 Ft-os díjjal 300 fuvar/hó az 150–300 ezer Ft havi forgalom, nem 2–3 millió — a 2–3 M-hez havi ~3.000 tranzakció kellene. A 2–3 M-es szám a régi, 10% + 400 Ft-os escrow-modellből maradt ott. Adj a banknak egy alulról védhető számot. Ha túllősz és nem jön, az kellemetlen; ha alullősz és jobb lesz, az csak jó hír."
+        }
+      ]
+    },
+    {
+      "cim": "5. Kockázat és visszaterhelés (chargeback)",
+      "lenyeg": "Itt van a nagy előnyötök — mondd ki hangosan.",
+      "blokkok": [
+        {
+          "fajta": "idezet",
+          "szoveg": "A szolgáltatás azonnal teljesül — a fizetés után másodpercekkel megjelenik a kontakt. Nincs szállítási idő, nincs postázás, nincs olyan ablak, amiben a vevő azt mondhatná, hogy nem kapta meg. Minden tranzakcióról automatikus e-számla megy, és a rendszer naplózza a fizetést, a hozzájárulást és a kontakt-felfedés időpontját."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Mi a visszatérítési politika?",
+          "valasz": "A díj nem visszatérítendő, mert azonnal teljesült. Ezt a 45/2014. Korm. r. 29. § (1) a) pontja alapozza meg, és a vevő a fizetés előtt külön jelölőnégyzettel nyilatkozik róla — a nyilatkozat szövege és időbélyege elmentve."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Tehát semmilyen orvoslás nincs?",
+          "valasz": "De van, és ezt érdemes elmondani: ha a szállító meghiúsul, a feladó díjmentesen újraválaszthat. Vagyis nem „elvettük a pénzt és annyi\" — a panaszra van érdemi orvoslás, ami csökkenti a visszaterhelés esélyét."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Volt korábbi chargeback?",
+          "valasz": "Nem volt, mert még nincs kártyaelfogadás."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Tiltott vagy magas kockázatú tevékenység?",
+          "valasz": "Nincs: se felnőtt tartalom, se szerencsejáték, kripto, dohány, gyógyszer, fegyver, se előfizetés."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Milyen bizonyítékot tudtok adni vitás tranzakciónál?",
+          "valasz": "Fizetési napló, a hozzájárulás rögzített időbélyege, a kontakt-felfedés időpontja, és a kiállított számla. Minden tranzakció visszakereshető."
+        }
+      ]
+    },
+    {
+      "cim": "6. A weboldal, amit ellenőrizni fognak",
+      "lenyeg": "A kockázati osztály végignézi a gofuvar.hu-t jóváhagyás előtt.",
+      "blokkok": [
+        {
+          "fajta": "lista",
+          "elemek": [
+            "ÁSZF, adatkezelési tájékoztató, panaszkezelés — megvan",
+            "Cégadatok, székhely, adószám, cégjegyzékszám a láblécben — megvan",
+            "Kapcsolat: e-mail és telefonszám — megvan",
+            "Árak egyértelműen, bruttóban — megvan",
+            "Visszatérítési és lemondási feltételek külön megtalálhatóan (ÁSZF) — megvan",
+            "Elfogadott kártyalogók (Visa / Mastercard) — MÉG NINCS kint, jóváhagyás után kell"
+          ]
+        },
+        {
+          "fajta": "figyelem",
+          "cim": "Indulás előtt ellenőrizd: robots.txt",
+          "szoveg": "A robots.txt jelenleg „Disallow: /\" értéken áll. Ha a bank kockázatkezelője nem éri el rendesen az oldalt, az kérdést szül. Élesítéskor „Allow: /\"-ra kell váltani — ez amúgy is a launch-lista része."
+        }
+      ]
+    },
+    {
+      "cim": "7. Technikai kérdések",
+      "blokkok": [
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Melyik integrációt használjátok?",
+          "valasz": "vPOS, szerver-oldali indítás, átirányítás a bank fizetőoldalára."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Kell azonnali visszajelzés?",
+          "valasz": "Igen, és ez nálunk kritikus: a kontakt felfedése a fizetés visszaigazolásán múlik. Webhook / callback kell, másodperces visszajelzéssel."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "Ki fejleszt?",
+          "valasz": "Házon belül. A fizetési szolgáltató-absztrakció készen áll, csak a CIB API-ját kell bekötni."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "PCI DSS megfelelés?",
+          "valasz": "Kártyaadatot nem tárolunk és nem is látunk — a fizetés a bank oldalán történik. Ez a legegyszerűbb megfelelési szint (SAQ A). Mondd ki magadtól."
+        }
+      ]
+    },
+    {
+      "cim": "8. A kellemetlen kérdések",
+      "lenyeg": "Ezekre készülj fel szó szerint.",
+      "blokkok": [
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "„Ez marketplace, ugye? A szállítóknak is ti fizettek?\"",
+          "valasz": "Nem. A fuvardíj sosem érint minket — készpénz vagy közvetlen átutalás a felek közt. Mi csak a saját díjunkat számlázzuk, a saját nevünkben."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "„Nem visszatérítendő a díj? Az panaszokat fog szülni.\"",
+          "valasz": "Azonnal teljesülő digitális szolgáltatás, jogszabályi alapon, előzetes és rögzített vevői nyilatkozattal. Emellett meghiúsult szállítónál díjmentes újraválasztás jár — a panaszra van érdemi orvoslás."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "„500 forintos tranzakciók? Ez nekünk nem éri meg.\"",
+          "valasz": "Ez valós üzleti kockázat, nem jogi. Ha tranzakciónkénti FIX díjat is felszámolnak az 1,6% mellett, az egy 500 Ft-os tételen brutális arány. Kérdezd meg konkrétan, és ha van fix tétel, kérdezd meg, mekkora forgalomtól engedik el."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "„Ki felel, ha a csomag elveszik?\"",
+          "valasz": "A felek egymás közt. A platform nem fuvarozó. Kártyás vitánál a mi tranzakciónk a kapcsolatfelvételi díjról szól, nem a fuvarról."
+        },
+        {
+          "fajta": "kerdes-valasz",
+          "kerdes": "„Van pénzügyi beszámolótok?\"",
+          "valasz": "A Tiszta Hód Kft. működő cég, van múltja — ez segít. A GoFuvar viszont indulás előtt áll, nulla árbevétellel. Ezt mondd meg őszintén, mert úgyis látják."
+        }
+      ]
+    },
+    {
+      "cim": "9. Amit vigyél magaddal",
+      "blokkok": [
+        {
+          "fajta": "lista",
+          "elemek": [
+            "Cégkivonat (30 napnál nem régebbi)",
+            "Aláírási címpéldány",
+            "Ügyvezető személyi igazolvány és lakcímkártya",
+            "UBO- és PEP-nyilatkozat",
+            "Legutolsó éves beszámoló",
+            "Bankszámlaszám (CIB)",
+            "Az ÁSZF és az adatkezelési tájékoztató linkje",
+            "Egy féloldalas leírás a modellről — az 1. szakasz idézete bőven elég"
+          ]
+        }
+      ]
+    },
+    {
+      "cim": "10. Amit TE kérdezz meg",
+      "lenyeg": "A fix díj a legfontosabb — 500 Ft-os tételen ez dönt.",
+      "blokkok": [
+        {
+          "fajta": "lista",
+          "elemek": [
+            "Van-e tranzakciónkénti FIX díj az 1,6% mellett? Mekkora, és mitől engedik el?",
+            "Havi alapdíj / rendelkezésre állási díj?",
+            "Minimum forgalmi elvárás?",
+            "Kiutalási ütem — mikor kerül a pénz a CIB-számlára?",
+            "Webhook / callback: mennyi a késleltetés, és garantált-e az újraküldés?",
+            "Tesztkörnyezet és API-dokumentáció elérhetősége",
+            "Apple Pay és Google Pay támogatás",
+            "Nem-magyar kártyák elfogadása, van-e eltérő díj",
+            "Milyen MCC-kódra sorolnak? Közvetítői / üzleti szolgáltatás legyen — NE fuvarozás, mert nem vagyunk fuvarozó. Az MCC a díjat és a szabályokat is befolyásolja",
+            "Rolling reserve (visszatartott tartalék) van-e, és milyen feltétellel oldják fel?",
+            "Szerződés futamideje, felmondási feltétel, van-e kilépési díj?"
+          ]
+        }
+      ]
+    }
+  ]
+}

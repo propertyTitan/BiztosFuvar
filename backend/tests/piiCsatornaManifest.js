@@ -86,6 +86,9 @@ const PII_CSATORNA_MANIFEST = {
   'GET /admin/messages': 'admin',
   'GET /admin/kyc-documents': 'admin',
   'GET /admin/live': 'admin',
+  // Belső dokumentum, nulla felhasználói adattal — a besorolás így is
+  // kötelező, hogy ne lehessen kapuzatlan végpontot csendben élesíteni.
+  'GET /admin/dokumentumok/bank-felkeszules': 'admin',
   'GET /admin/dm/threads': 'admin',
   'GET /admin/dm/broadcasts': 'admin',
   'GET /admin/dm/with/:userId': 'admin',

@@ -55,6 +55,7 @@ const ROUTE_MANIFEST = {
   'GET /admin/kyc-documents': { access: 'admin' },
   'PATCH /admin/kyc-documents/:id': { access: 'admin' },
   'GET /admin/live': { access: 'admin' },
+  'GET /admin/dokumentumok/bank-felkeszules': { access: 'admin' },
   'GET /admin/messages': { access: 'admin' },
   'GET /admin/users/:id': { access: 'admin' },
   'GET /admin/dm/threads': { access: 'admin' },
