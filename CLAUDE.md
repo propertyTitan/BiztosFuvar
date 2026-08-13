@@ -185,6 +185,52 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ## 6. Mit készítünk a launchhoz
 
 ### ✅ Kész (élesedett)
+- **AKADÁLYMENTESÍTÉS + HALOTT LINKEK — mérve (2026-08-12, PR #177)** — a
+  tesztelő kérdése: „broken links 0? accessibility 0 critical és 0 serious?"
+  ⚠️ **ERRE A PROJEKTNEK NEM VOLT VÁLASZA**: akadálymentesítési mérés
+  egyáltalán nem futott (a 08-kontraszt-audit egy saját kontraszt-számoló —
+  EGY WCAG-kritérium a sokból, a szabvány szintjeit nem is ismerte).
+  **EREDMÉNY (mérve): 0 critical / 0 serious — 50 oldal-állapoton; 0 halott
+  belső link — 33 egyedi útvonal, 1034 begyűjtött hivatkozás; 6 külső link,
+  mind ép alakú + noopener.** A mérés NÉGY oldalon talált hibát, mind javítva:
+  **(1)** 16 ŰRLAPMEZŐ VOLT CÍMKÉZETLEN (critical) — a `<label>Hossz (cm)`
+  ott volt a mező mellett, de NEM VOLT HOZZÁKÖTVE (nincs `htmlFor`/`id`):
+  vizuálisan címke, a képernyőolvasónak „szerkesztőmező", név nélkül, négyszer
+  egymás után (járat-foglalás mérete/súlya, profil szerkesztő-űrlap,
+  járat-hirdetés, fuvarfeladás, fotó-feltöltők, ajánlói kód/link);
+  **(2)** a járat-hirdetés „Útba esik mód" kapcsolója `div role="button"` volt
+  BENNE checkboxszal (serious, `nested-interactive`) — a felolvasó „gomb"-ot
+  mondott, billentyűzettel az Enter a divet, a Szóköz a checkboxot kezelte;
+  `<label>`-lé alakítva mindez natív. ⚠️ **KÉT SAJÁT VAKON-ZÖLD HIBA,
+  méréssel elkapva**: (a) a **Playwright BUKÁS UTÁN ÚJRAINDÍTJA A WORKER-T**,
+  tehát a modul-szintű gyűjtés elveszik — az első változatom „nincs sértés"
+  összegzést írt, MIKÖZBEN négy oldal elbukott (a gyűjtés ezért fájlba megy,
+  a törlés a `globalSetup`-ba került, mert a `beforeAll` minden bukás után
+  újra lefutna és a bizonyítékot törölné); (b) **EGY OLDALNAK TÖBB ÁLLAPOTA
+  VAN** — szándékos regresszióval lemérve: egy lecsatolt címke a profil
+  szerkesztő-űrlapján NEM buktatta el a mérést, mert az űrlap a kezdeti
+  renderelésben nem is létezik → új `allapot` hook a leltárban (utána a
+  regresszió pirosra vált). **EGY LELTÁR, HÁROM FOGYASZTÓ**: az 51 oldalas
+  lista a 16-os specből közös `e2e/oldal-leltar.ts`-be került — három külön
+  lista szétcsúszott volna, és az önvédő őr csak az egyiket védte volna.
+  **A LINK-MÉRÉS MIÉRT ÚJ**: a meglévő `linkIntegrity.test.ts` a .tsx
+  FORRÁSFÁJLOK statikus hrefjeit egyezteti az app/-pal — nem látja az
+  adat-vezérelt (`landings.ts` = .ts!), a dinamikus és a külső linkeket, és a
+  fájl LÉTEZÉSE nem garantálja, hogy az oldal nem 404-et renderel. Az új
+  mérés a böngészőben gyűjt és MEGNYITJA mindet (visszamérve: beszúrt halott
+  linkre piros, és megmondja, melyik 49 oldalról érhető el).
+  ⚠️ **CI-FLAKINESS, amit lokálisan NEM lehetett látni**: a `/a` (rövid
+  átirányító URL) és a `/dashboard` szerver-oldali `redirect()`-tel dolgozik,
+  a `/dashboard` célja auth-ellenőrzést futtat → késői navigáció söpörte el a
+  futó mérést („Execution context was destroyed"). Lokálisan 208/208 zöld
+  volt, a CI-ban 3 bukó. Javítás: `varjStabilOldalt()` (URL 400 ms-on át
+  változatlan) + EGYSZERI újrapróba (kétszeri elszállás elbukik — a néma
+  retry-ciklus pont a hamis zöld lenne). A 16-os spec azért volt immunis,
+  mert `locator.innerText()`-et használ, ami auto-újrapróbál.
+  ⚠️ SZÁNDÉKOSAN NEM mérünk: `color-contrast` (a 08-as alaposabban — világos
+  ÉS sötét téma), `moderate`/`minor` nem buktat (a megszokott piros build
+  épp a súlyosat engedné át), külső linkeket nem töltünk le (CI-flakiness —
+  csak az alakjukat és a `noopener`-t nézzük). E2E **208/208**.
 - **⚠️⚠️ A CI-KAPU VAK VOLT — és a lefedettség 90% fölé (2026-08-12, PR #176)**
   — a lefedettségi munka mellékterméke a projekt eddigi legsúlyosabb
   infrastruktúra-találata. **A `backend-tests.yml` teszt-lépése PIROS SUITE
@@ -1944,7 +1990,7 @@ NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
      - **scrub-ALLOWLIST**: kívülálló pontosan a felsorolt publikus
        job-mezőket kaphatja — új DB-oszlop = a teszt elhasal, tudatos
        döntés kell (a paid_at-szivárgás osztálya ellen)
-   - **96 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
+   - **208 böngészős E2E** (Playwright, `e2e-tests.yml` — teljes stack:
      beágyazott PG:54332 ← backend:4100 ← Next:3100, valódi Google Places,
      Maps-kulcs repo-secretből): regisztráció; fuvarfeladás Places-címmel;
      teljes pénz-út két böngészőben (licit → elfogadás → „Fizetésre vár"
