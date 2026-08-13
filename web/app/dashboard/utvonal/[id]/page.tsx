@@ -227,20 +227,20 @@ export default function FeladoUtvonalReszletek() {
         <h3>Csomagod adatai</h3>
         <div className="grid-2">
           <div>
-            <label>Hossz (cm)</label>
-            <input className="input" type="number" min={1} value={length} onChange={(e) => setLength(e.target.value.replace(/[^0-9]/g, ''))} required />
+            <label htmlFor="foglalas-hossz">Hossz (cm)</label>
+            <input id="foglalas-hossz" className="input" type="number" min={1} value={length} onChange={(e) => setLength(e.target.value.replace(/[^0-9]/g, ''))} required />
           </div>
           <div>
-            <label>Szélesség (cm)</label>
-            <input className="input" type="number" min={1} value={width} onChange={(e) => setWidth(e.target.value.replace(/[^0-9]/g, ''))} required />
+            <label htmlFor="foglalas-szelesseg">Szélesség (cm)</label>
+            <input id="foglalas-szelesseg" className="input" type="number" min={1} value={width} onChange={(e) => setWidth(e.target.value.replace(/[^0-9]/g, ''))} required />
           </div>
           <div>
-            <label>Magasság (cm)</label>
-            <input className="input" type="number" min={1} value={height} onChange={(e) => setHeight(e.target.value.replace(/[^0-9]/g, ''))} required />
+            <label htmlFor="foglalas-magassag">Magasság (cm)</label>
+            <input id="foglalas-magassag" className="input" type="number" min={1} value={height} onChange={(e) => setHeight(e.target.value.replace(/[^0-9]/g, ''))} required />
           </div>
           <div>
-            <label>Súly (kg)</label>
-            <input className="input" type="number" step="0.1" min={0.1} value={weight} onChange={(e) => setWeight(e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.'))} required />
+            <label htmlFor="foglalas-suly">Súly (kg)</label>
+            <input id="foglalas-suly" className="input" type="number" step="0.1" min={0.1} value={weight} onChange={(e) => setWeight(e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.'))} required />
           </div>
         </div>
 
@@ -324,8 +324,8 @@ export default function FeladoUtvonalReszletek() {
           <p style={{ color: 'var(--warning)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
         )}
 
-        <label>Megjegyzés a szállítónak (opcionális)</label>
-        <textarea
+        <label htmlFor="foglalas-megjegyzes">Megjegyzés a szállítónak (opcionális)</label>
+        <textarea id="foglalas-megjegyzes"
           className="input"
           rows={2}
           value={notes}
