@@ -66,6 +66,24 @@ router.get('/admin/live', ...adminOnly, (req, res) => {
   res.json(realtime.getPresence());
 });
 
+// ── Belső dokumentumok ───────────────────────────────────────────────
+//
+// ⚠️ MIÉRT A SZERVERRŐL, ÉS NEM A FRONTEND BUNDLE-BŐL (2026-08-13, mért hiba):
+// az első változatban a felkészülési anyag szövege a React-oldalon élt. A
+// kliens-oldali admin-kapu (nem-admin → átirányítás) csak a MEGJELENÍTÉST
+// állítja meg — a szöveg maga bekerült a publikus JS-chunkba, és bárki
+// letölthette bejelentkezés nélkül. Lemérve: a `.next/static/chunks/.../
+// bank-felkeszules/page-*.js` tartalmazta a teljes anyagot.
+//
+// Ugyanaz a mintázat, amit a projekt már többször megtalált: a védelem azon a
+// rétegen épült meg, ahol felfedezték (a képernyőn), az egyenértékű úton (a
+// letölthető kódban) nem. Ezért a tartalom mostantól admin-kapus végpontról jön.
+const BANK_FELKESZULES = require('../../../shared/bank-felkeszules.json');
+
+router.get('/admin/dokumentumok/bank-felkeszules', ...adminOnly, (req, res) => {
+  res.json(BANK_FELKESZULES);
+});
+
 // ===================== FOTÓ-MEGŐRZÉSI ZÁROLÁS =====================
 
 // PATCH /admin/photo-hold — fuvar vagy foglalás fotóinak zárolása/feloldása

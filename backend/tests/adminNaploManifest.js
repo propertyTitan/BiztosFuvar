@@ -53,6 +53,13 @@ const ADMIN_NAPLO_MANIFEST = {
       + 'a kód mégis küldte, és a hozzáférés nyomtalan volt). A részletnézet, '
       + 'ami elérhetőséget ad, naplózott.',
   },
+  'GET /admin/dokumentumok/bank-felkeszules': {
+    kivetel: 'Belső, statikus felkészülési anyag a banki tárgyaláshoz '
+      + '(shared/bank-felkeszules.json). NULLA felhasználói adatot tartalmaz: '
+      + 'nincs benne se név, se elérhetőség, se azonosító, és nem is nyúl az '
+      + 'adatbázishoz. A napló célja a SZEMÉLYES ADATHOZ való hozzáférés '
+      + 'nyomon követése — itt nincs mit követni.',
+  },
   'GET /admin/dm/broadcasts': {
     kivetel: 'A SAJÁT körüzeneteink naplója (tárgy, szöveg, célcsoport, '
       + 'darabszám) — a platform által küldött tartalom, nem felhasználói adat. '

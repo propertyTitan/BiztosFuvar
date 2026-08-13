@@ -134,6 +134,14 @@ export const OLDALAK: Oldal[] = [
 
   // Admin
   { minta: '/admin', url: () => '/admin', szereplo: 'admin' },
+  {
+    // Belső, admin-kapus felkészülési anyag a banki tárgyaláshoz. Statikus
+    // tartalom, szerverre nem megy kérés — a mérés így is fedi (renderel-e,
+    // van-e akadálymentesítési hiba, halott link).
+    minta: '/admin/bank-felkeszules',
+    url: () => '/admin/bank-felkeszules',
+    szereplo: 'admin',
+  },
 ];
 
 /** Szándékosan kihagyott oldalak — mindegyikhez írásos indokkal. */

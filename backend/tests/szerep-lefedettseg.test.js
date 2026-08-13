@@ -579,6 +579,7 @@ describe('Admin felület: minden nézet és művelet lefut', () => {
       ['routes', '/admin/routes'], ['bookings', '/admin/bookings'],
       ['kyc', '/admin/kyc-documents'], ['live', '/admin/live'],
       ['fizetési napló', '/payments/admin/log'],
+      ['banki felkészülési anyag', '/admin/dokumentumok/bank-felkeszules'],
     ]) {
       await sikeres(`GET ${ut} (${cim})`, request(app).get(ut).set(auth(V.admin.token)));
     }
