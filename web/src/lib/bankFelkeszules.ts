@@ -1,7 +1,7 @@
 // =====================================================================
 //  BANKI (CIB) FELKÉSZÜLÉSI ANYAG — a kártyaelfogadás tárgyalásához
 //
-//  ⚠️ A TARTALOM NEM ITT VAN, hanem a `shared/bank-felkeszules.json`-ben, és
+//  ⚠️ A TARTALOM NEM ITT VAN, hanem a `backend/src/data/bank-felkeszules.json`-ben, és
 //  admin-kapus végpontról (`GET /admin/dokumentumok/bank-felkeszules`) jön.
 //
 //  MIÉRT: az első változatban a szöveg ebben a modulban élt. A kliens-oldali

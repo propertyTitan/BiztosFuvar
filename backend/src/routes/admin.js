@@ -78,7 +78,19 @@ router.get('/admin/live', ...adminOnly, (req, res) => {
 // Ugyanaz a mintázat, amit a projekt már többször megtalált: a védelem azon a
 // rétegen épült meg, ahol felfedezték (a képernyőn), az egyenértékű úton (a
 // letölthető kódban) nem. Ezért a tartalom mostantól admin-kapus végpontról jön.
-const BANK_FELKESZULES = require('../../../shared/bank-felkeszules.json');
+// ⚠️ A FÁJL A BACKEND-EN BELÜL VAN, NEM A REPÓ GYÖKERÉBEN LÉVŐ `shared/`-BEN.
+// Első nekifutásra oda tettem — és az ÉLES BACKEND NEM INDULT EL TŐLE (502,
+// „Application failed to respond"): a Railway a `backend/` könyvtárat
+// deployolja, a repó gyökerét NEM, tehát a `require` boot-időben elszállt, és
+// vele az EGÉSZ szerver — nem csak ez az egy végpont.
+//
+// A `shared/` mappa eddig KIZÁRÓLAG tesztekből volt hivatkozva (PII-korpusz),
+// ahol a teljes repó ki van csekkolva — ezért nem derült ki korábban, hogy
+// éles kódból nem elérhető. Ez volt az ELSŐ éles kódú hivatkozás rá.
+//
+// SZABÁLY: a backend futásidejű kódja SOHA nem hivatkozhat a `backend/`
+// könyvtáron kívülre. Erre őr is van: `deploy-gyoker-or.test.js`.
+const BANK_FELKESZULES = require('../data/bank-felkeszules.json');
 
 router.get('/admin/dokumentumok/bank-felkeszules', ...adminOnly, (req, res) => {
   res.json(BANK_FELKESZULES);

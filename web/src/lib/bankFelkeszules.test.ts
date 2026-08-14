@@ -19,7 +19,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { bankDokumentumHtml, type BankDokumentum } from './bankFelkeszules';
 
-const ADAT_UT = path.resolve(__dirname, '..', '..', '..', 'shared', 'bank-felkeszules.json');
+// ⚠️ A backend/ ALATT van, nem a repó gyökerében lévő `shared/`-ben: a Railway
+// csak a `backend/` könyvtárat deployolja, és az első változat (shared/) miatt
+// az ÉLES SZERVER EL SEM INDULT (502). Lásd `backend/tests/deploy-gyoker-or.test.js`.
+const ADAT_UT = path.resolve(
+  __dirname, '..', '..', '..', 'backend', 'src', 'data', 'bank-felkeszules.json',
+);
 const dok: BankDokumentum = JSON.parse(fs.readFileSync(ADAT_UT, 'utf8'));
 
 describe('a letölthető dokumentum', () => {
@@ -116,7 +121,7 @@ describe('titok-tartás: a tartalom nem lehet a frontend forrásában', () => {
       + 'bundle-be sütött szöveget bárki letöltheti bejelentkezés nélkül, a\n'
       + '`/_next/static/chunks/` alól. Az első változatban ez tényleg így volt,\n'
       + 'és méréssel derült ki.\n\n'
-      + 'A tartalom helye: `shared/bank-felkeszules.json`, és a\n'
+      + 'A tartalom helye: `backend/src/data/bank-felkeszules.json`, és a\n'
       + '`GET /admin/dokumentumok/bank-felkeszules` végponton át jön.',
     ).toEqual([]);
   });
