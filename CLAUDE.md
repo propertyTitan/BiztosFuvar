@@ -2071,6 +2071,21 @@ git log --oneline -20
 
 ## 9. Tipikus hibakezelés / amit látnod kell
 
+- **⚠️ „Application failed to respond" (502) az API-n = a backend EL SEM
+  INDULT.** Nem terhelés, nem DB: boot-idejű hiba. Leggyakoribb ok egy
+  `require`, ami nem oldható fel ÉLESBEN. **A Railway CSAK a `backend/`
+  könyvtárat deployolja, a repó gyökerét NEM** — tehát a `backend/`-en kívülre
+  mutató relatív hivatkozás (pl. `require('../../../shared/valami.json')`)
+  lokálisan és a CI-ban működik, élesben viszont leállítja az EGÉSZ szervert.
+  Megtörtént 2026-08-14-én (PR #179 után), és sem a lokális futás, sem az 5
+  zöld CI-check nem fogta meg — ott a teljes repó ki van csekkolva.
+  ⚠️ A `shared/` mappa CSAK TESZTEKBŐL hivatkozható (PII-korpusz,
+  oldal-leltár); éles kódból SOHA. Ha a backendnek adatfájl kell, tedd a
+  `backend/src/data/` alá. Őrzi: `tests/deploy-gyoker-or.test.js` (minden
+  relatív require-t feloldva ellenőriz — kilép-e a `backend/`-ből, illetve
+  létezik-e egyáltalán a cél).
+
+
 - **Build fail Vercelen** → SWC parse error, általában láthatatlan karakter
   egy file-ban. Megoldás: a file-t Write-tal újraírni tisztán.
 - **Railway nem deployol** → ellenőrizni Settings → Source → Branch (= `main`?)
