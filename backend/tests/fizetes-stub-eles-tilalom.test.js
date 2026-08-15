@@ -61,15 +61,45 @@ describe('paymentProvider: az éles+stub kombináció felismerése', () => {
     expect(paymentProvider.manualConfirmAllowed()).toBe(false);
   });
 
-  it('a guardot SEMMILYEN env-kapcsoló nem oldja fel', () => {
+  it('a guardot EGYETLEN kapcsoló oldja fel — más semmi', () => {
     elesFutas();
-    // Egy „vész-kapcsoló" elfelejtve maradna bekapcsolva pont a launchkor, és
-    // épp azt a rést nyitná ki, ami ellen az egész véd. Ezért nincs ilyen.
-    process.env.ALLOW_STUB_PAYMENTS = 'true';
+    // ⚠️ EZ A TESZT 2026-08-15-ÉN MEGVÁLTOZOTT, USER-DÖNTÉS MIATT.
+    //
+    // Eredetileg azt rögzítette, hogy SEMMILYEN env-kapcsoló nem oldja fel a
+    // guardot — az indoklás („egy vész-kapcsoló elfelejtve maradna bekapcsolva
+    // pont a launchkor") VÁLTOZATLANUL érvényes. A védelem mellékhatása
+    // viszont az volt, hogy a fizetés UTÁNI fél rendszer élesben egyáltalán
+    // nem tesztelhető, amíg a CIB nem él. A user döntése: legyen kapcsoló,
+    // a launchnál vissza (lásd CLAUDE.md 6. szakasz, nagybetűs figyelmeztetés).
+    //
+    // Amit ez a teszt MOST rögzít: PONTOSAN EGY kapcsoló létezik, más nem —
+    // egy elgépelt vagy „kreatív" env nem nyithatja ki a pénz-utat.
     process.env.SKIP_PAYMENT_GUARD = 'true';
+    process.env.DISABLE_PAYMENT_GUARD = 'true';
+    process.env.PAYMENT_TEST_MODE = 'true';
     expect(paymentProvider.isUnsafeStub()).toBe(true);
-    expect(paymentProvider.manualConfirmAllowed()).toBe(false);
+    expect(
+      paymentProvider.manualConfirmAllowed(),
+      'Egy NEM dokumentált env-változó kinyitotta a kézi fizetés-nyugtázást. '
+      + 'Csak az ALLOW_STUB_PAYMENTS teheti — az szerepel a launch-kapu '
+      + 'listáján, tehát azt keresik és törlik élesítéskor.',
+    ).toBe(false);
     delete process.env.SKIP_PAYMENT_GUARD;
+    delete process.env.DISABLE_PAYMENT_GUARD;
+    delete process.env.PAYMENT_TEST_MODE;
+  });
+
+  it('a PUBLIKUS webhook-kapu a teszt-üzemben is ZÁRVA marad', () => {
+    elesFutas();
+    process.env.ALLOW_STUB_PAYMENTS = 'true';
+    expect(
+      paymentProvider.isUnsafeStub(),
+      '⚠️ A teszt-üzem kinyitotta a PSP-callbackot. A kézi nyugtázás '
+      + 'hitelesített és csak a SAJÁT fuvarodra hat; a callback viszont '
+      + 'hitelesítés NÉLKÜLI — ott egy hamisított POST BÁRKI fuvarját '
+      + 'fizetettnek jelölhetné.',
+    ).toBe(true);
+    delete process.env.ALLOW_STUB_PAYMENTS;
   });
 });
 

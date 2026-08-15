@@ -20,6 +20,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useToast } from '@/components/ToastProvider';
+import TesztFizetesSav from '@/components/TesztFizetesSav';
 
 type LoadedData = {
   title: string;
@@ -121,6 +122,7 @@ function FizetesStubContent() {
         minHeight: '60vh',
       }}
     >
+      <TesztFizetesSav />
       {/* Fizetőoldal fejléce (provider-semleges) */}
       <div
         style={{
