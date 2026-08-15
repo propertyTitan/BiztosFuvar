@@ -316,7 +316,19 @@ process.on('uncaughtException', (err) => {
       );
       return;
     }
-    if (paymentProvider.isUnsafeStub()) {
+    if (paymentProvider.stubEngedelyezve()) {
+      // ⚠️⚠️⚠️ TESZT-ÜZEM: a stub-fizetés ÉLESBEN IS engedélyezve van.
+      // User-döntés (2026-08-15): a tesztelő így tudja végigjárni a fizetés
+      // utáni szakaszt, amíg a CIB nem él. LAUNCH ELŐTT KÖTELEZŐ KIVENNI.
+      const uzenet = `[FIZETÉS] 🚨🚨🚨 TESZT-ÜZEM AKTÍV (${paymentProvider.STUB_ENGEDELY_ENV}=true) — `
+        + 'a kézi fizetés-nyugtázás ÉLESBEN IS NYITVA van, tehát BÁRKI fizetés '
+        + 'nélkül „fizetettnek" jelölheti a SAJÁT fuvarát, és ingyen megkapja a '
+        + 'kontaktot. A platform EGYETLEN bevétele így megkerülhető. '
+        + `‼️ LAUNCH ELŐTT TÖRÖLD a(z) ${paymentProvider.STUB_ENGEDELY_ENV} env-változót a Railway-en. `
+        + '(A PSP-callback SZÁNDÉKOSAN zárva marad — az publikus végpont.)';
+      console.error(uzenet);
+      if (Sentry) Sentry.captureMessage(uzenet, 'error');
+    } else if (paymentProvider.isUnsafeStub()) {
       // BIZTONSÁGOS MÓD (2026-08-09, audit 3. kör). A szerver ELINDUL — a
       // launch előtt a „prod + stub" a normál üzem (a platform még nem szed
       // díjat), és egy boot-leállás itt csak annyit ért el, hogy az éles API

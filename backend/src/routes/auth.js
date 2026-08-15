@@ -453,9 +453,16 @@ router.get('/me', authRequired, async (req, res) => {
   // a gomb rejtve marad). tax_data: a DAC7-kártya állapota (kell-e még
   // adóazonosító, blokkolt-e már az ajánlattétel, mi a határidő).
   const { computeTaxDataState } = require('../services/dac7');
+  // ⚠️ payment_test_mode: a webes felület ebből tudja, hogy ki kell-e írnia a
+  // látható „TESZT FIZETÉSI MÓD" figyelmeztetést a fizetési kártyára.
+  // Ez a legerősebb védelem az ellen, hogy a teszt-üzem NÉMÁN bent maradjon
+  // élesben: nem az emlékezetre épül, hanem arra, hogy egy valódi felhasználó
+  // is AZONNAL LÁTJA. Lásd: services/paymentProvider.js.
+  const paymentProvider = require('../services/paymentProvider');
   res.json({
     ...rows[0],
     company_nav_available: navTaxpayer.isConfigured(),
+    payment_test_mode: paymentProvider.stubEngedelyezve(),
     tax_data: computeTaxDataState(rows[0]),
   });
 });

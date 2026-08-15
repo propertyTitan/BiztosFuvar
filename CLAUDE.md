@@ -1765,6 +1765,39 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   fordítás ~3/31 oldal volt) — az i18n-infra él, külföldi launchnál
   kész fordítással tér vissza
 
+### 🚨🚨🚨 LAUNCH ELŐTT KÖTELEZŐ — A TESZT FIZETÉSI ÜZEM KIKAPCSOLÁSA 🚨🚨🚨
+
+> **`ALLOW_STUB_PAYMENTS` = TÖRLENDŐ A RAILWAY ENV-BŐL A LAUNCH ELŐTT.**
+>
+> **EZ A LEGELSŐ TEENDŐ AZ ÉLESÍTÉSKOR — MINDEN MÁS ELŐTT.**
+>
+> **MI TÖRTÉNIK, HA BENT MARAD:** BÁRKI fizetés nélkül „fizetettnek"
+> jelölheti a SAJÁT fuvarát, és ingyen megkapja a szállító elérhetőségét.
+> **A PLATFORM EGYETLEN BEVÉTELE (a kapcsolatfelvételi díj) TELJESEN
+> MEGKERÜLHETŐ.** Nem részlegesen — teljesen.
+>
+> **MIÉRT VAN EGYÁLTALÁN BEKAPCSOLVA (2026-08-15, user-döntés):** a védelem
+> mellékhatása az volt, hogy a fizetés UTÁNI fél rendszer (felvétel, átvételi
+> kód, kézbesítés, értékelés, vita) élesben EGYÁLTALÁN nem tesztelhető, amíg a
+> CIB nem él — a tesztelő ezen elakadt. A user döntése: kapcsoljuk ki, a
+> launchnál vissza. Az aggály (hogy elfelejtve bent marad) ettől NEM szűnt meg.
+>
+> **AMI NEM AZ EMLÉKEZETRE ÉPÜL:**
+> 1. minden boot-nál hangos hibalog + **Sentry-riasztás** (`error` szinten);
+> 2. **LÁTHATÓ, sárga „TESZT FIZETÉSI MÓD" sáv** a fizetési kártyán és a
+>    stub-oldalon (`TesztFizetesSav.tsx`) — ha bent maradna élesben, egy
+>    VALÓDI FELHASZNÁLÓ is azonnal látja. Ez a legerősebb védelem, mert nem
+>    kell hozzá senki figyelme;
+> 3. ez a szakasz, a launch-kapu lista ELŐTT.
+>
+> **AMIT A KAPCSOLÓ SZÁNDÉKOSAN NEM NYIT KI:** a `/payments/*/callback`
+> PUBLIKUS webhookot. A kézi nyugtázás hitelesített, és csak a SAJÁT fuvarodra
+> hat; a callback viszont hitelesítés nélküli, ott egy hamisított POST BÁRKI
+> fuvarját fizetettnek jelölhetné. Őrzi: `tests/teszt-fizetesi-uzem.test.js`.
+>
+> **ELLENŐRZÉS ÉLESÍTÉS UTÁN:** a fizetési kártyán NEM szabad látszania a
+> sárga sávnak. Ha látszik, az env még bent van.
+
 ### 🔴 Launch-kapu — adatvédelmi/jogi ellenőrzőlista (2026-07-18 felmérés)
 
 > **A launch-előkészítésnél (QVIK-élesítés környékén) ezt a listát KÖTELEZŐ
@@ -2071,6 +2104,21 @@ git log --oneline -20
 
 ## 9. Tipikus hibakezelés / amit látnod kell
 
+- **⚠️ „Application failed to respond" (502) az API-n = a backend EL SEM
+  INDULT.** Nem terhelés, nem DB: boot-idejű hiba. Leggyakoribb ok egy
+  `require`, ami nem oldható fel ÉLESBEN. **A Railway CSAK a `backend/`
+  könyvtárat deployolja, a repó gyökerét NEM** — tehát a `backend/`-en kívülre
+  mutató relatív hivatkozás (pl. `require('../../../shared/valami.json')`)
+  lokálisan és a CI-ban működik, élesben viszont leállítja az EGÉSZ szervert.
+  Megtörtént 2026-08-14-én (PR #179 után), és sem a lokális futás, sem az 5
+  zöld CI-check nem fogta meg — ott a teljes repó ki van csekkolva.
+  ⚠️ A `shared/` mappa CSAK TESZTEKBŐL hivatkozható (PII-korpusz,
+  oldal-leltár); éles kódból SOHA. Ha a backendnek adatfájl kell, tedd a
+  `backend/src/data/` alá. Őrzi: `tests/deploy-gyoker-or.test.js` (minden
+  relatív require-t feloldva ellenőriz — kilép-e a `backend/`-ből, illetve
+  létezik-e egyáltalán a cél).
+
+
 - **Build fail Vercelen** → SWC parse error, általában láthatatlan karakter
   egy file-ban. Megoldás: a file-t Write-tal újraírni tisztán.
 - **Railway nem deployol** → ellenőrizni Settings → Source → Branch (= `main`?)
@@ -2096,7 +2144,9 @@ git log --oneline -20
 3. Ha **QVIK-helyzet**: kérdezd meg, megjött-e a fizetés-elfogadási
    jogosultság (a Barion 2026-07-11 óta VÉGLEG elvetve — ne hozd fel)
 3/b. Ha **launch-előkészítés** zajlik (QVIK megjött / launch-dátum szóba
-   kerül): **KÖTELEZŐEN hozd fel a 6. szakasz 🔴 Launch-kapu adatvédelmi/
+   kerül): **🚨 ELŐSZÖR az `ALLOW_STUB_PAYMENTS` env TÖRLÉSE a Railway-en 🚨**
+   (6. szakasz legeleje — enélkül a kapcsolatfelvételi díj TELJESEN
+   megkerülhető), majd **KÖTELEZŐEN hozd fel a 6. szakasz 🔴 Launch-kapu adatvédelmi/
    jogi ellenőrzőlistáját** és menj végig rajta a userrel (ő kérte,
    2026-07-18) — plusz: robots.txt `Allow: /`-ra, számlázás-aktiválás
    (a kód KÉSZ, PR #95 — `SZAMLAZZ_AGENT_KEY` + `INVOICE_PROVIDER=szamlazz_hu`

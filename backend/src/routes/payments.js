@@ -302,6 +302,12 @@ async function handleProviderCallback(req, res) {
   // `{"PaymentId":"…","Status":"Succeeded"}` POST fizetés nélkül felfedné a
   // kontaktot. Ilyen állapotban semmit nem dolgozunk fel (a boot amúgy is
   // leáll — ez a második védvonal, ha valaki felülbírálja).
+  // ⚠️ A TESZT-ÜZEM (ALLOW_STUB_PAYMENTS) SZÁNDÉKOSAN NEM NYITJA KI EZT AZ ÁGAT.
+  // A kézi nyugtázás (`/confirm-payment`) hitelesített, és csak a SAJÁT
+  // fuvaradra hat — ezért teszteléshez elfogadható kockázat. Ez a callback
+  // viszont PUBLIKUS és hitelesítés NÉLKÜLI: ha kinyitnánk, egy hamisított
+  // POST-tal BÁRKI BÁRMELYIK fuvart fizetettnek jelölhetné, beleértve máséit
+  // is. A tesztelésnek nincs is rá szüksége (a stub-oldal a kézi utat hívja).
   if (paymentProvider.isUnsafeStub()) {
     console.error('[fee-webhook] ⛔ ELDOBVA: éles futás stub providerrel — a callback nem dolgozható fel hitelesen.');
     return res.status(503).json({ error: 'A fizetés-feldolgozás nem elérhető (hibás szolgáltató-konfiguráció).' });

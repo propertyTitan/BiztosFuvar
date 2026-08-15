@@ -11,6 +11,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
 import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, CheckCircle2 } from 'lucide-react';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
+import TesztFizetesSav from '@/components/TesztFizetesSav';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
@@ -455,6 +456,9 @@ export default function FuvarReszletek() {
           )}
           {(job.status === 'accepted' || job.paid_at) && (
             <>
+              {/* Csak akkor jelenik meg, ha a szerver TESZT-ÜZEMBEN fut
+                  (ALLOW_STUB_PAYMENTS) — lásd a komponens fejlécét. */}
+              <TesztFizetesSav />
               <p style={{ marginBottom: 4 }}>
                 Fuvardíj (készpénzben a szállítónak):{' '}
                 <strong>

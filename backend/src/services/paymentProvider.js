@@ -69,9 +69,32 @@ function active() {
 // futásidejű guard adja, nem a leállás. Bevétel-kiesést itt nem lehet némán
 // elszenvedni: ha nincs kulcs, senki nem tud fizetni, az azonnal látszik.
 //
-// SZÁNDÉKOSAN NINCS env-kapcsoló a guard feloldására: az elfelejtve maradna
-// bekapcsolva pont a launchkor, és épp azt a rést nyitná ki, ami ellen az
-// egész véd.
+// ⚠️⚠️⚠️ 2026-08-15, USER-DÖNTÉS: MÉGIS VAN KAPCSOLÓ — TESZTELÉSHEZ ⚠️⚠️⚠️
+//
+// Az eredeti szöveg itt azt írta, hogy „SZÁNDÉKOSAN NINCS env-kapcsoló a guard
+// feloldására: az elfelejtve maradna bekapcsolva pont a launchkor". Ez az
+// aggály VÁLTOZATLANUL ÉRVÉNYES — de a védelem mellékhatása az lett, hogy a
+// fizetés UTÁNI fél rendszer (felvétel, átvételi kód, kézbesítés, értékelés,
+// vita) élesben EGYÁLTALÁN NEM TESZTELHETŐ, amíg a CIB nem él. A tesztelő
+// ezen elakadt. A user döntése: kapcsoljuk ki, a launchnál vissza.
+//
+// ‼️ LAUNCH ELŐTT KÖTELEZŐ: `ALLOW_STUB_PAYMENTS` TÖRLÉSE A RAILWAY ENV-BŐL.
+//    Enélkül BÁRKI fizetés nélkül „fizetettnek" jelölheti a saját fuvarát, és
+//    ingyen megkapja a kontaktot — a platform EGYETLEN bevétele kerülhető meg.
+//
+// AMI NEM AZ EMLÉKEZETRE ÉPÜL (mert az elfelejtődik):
+//   1. minden boot-nál HANGOS figyelmeztetés + Sentry-riasztás;
+//   2. a webes felületen LÁTHATÓ, sárga „TESZT FIZETÉSI MÓD" sáv a fizetési
+//      kártyán — ha valaha bent maradna élesben, azt egy valódi felhasználó is
+//      azonnal látja (ez a legerősebb védelem: nem kell hozzá senki figyelme);
+//   3. a launch-kapu ellenőrzőlista első sora (CLAUDE.md 6. szakasz).
+const STUB_ENGEDELY_ENV = 'ALLOW_STUB_PAYMENTS';
+
+/** Kifejezetten engedélyezve van-e a stub-fizetés élesben (TESZT-ÜZEM)? */
+function stubEngedelyezve() {
+  return String(process.env[STUB_ENGEDELY_ENV] || '').toLowerCase() === 'true';
+}
+
 function isProduction() {
   return process.env.NODE_ENV === 'production';
 }
@@ -87,11 +110,16 @@ function isUnsafeStub() {
  * hiteles forrás, kulcs-hiány esetén sem nyílik meg a megkerülő ág.
  */
 function manualConfirmAllowed() {
+  // A TESZT-ÜZEM (ALLOW_STUB_PAYMENTS=true) élesben is kinyitja — lásd a fenti
+  // figyelmeztetést. Launch előtt az env-változót TÖRÖLNI kell.
+  if (stubEngedelyezve()) return active().isStub();
   return active().isStub() && !isUnsafeStub();
 }
 
 module.exports = {
   name,
+  stubEngedelyezve,
+  STUB_ENGEDELY_ENV,
   providers: Object.keys(PROVIDERS),
   active,
   isStub: () => active().isStub(),
