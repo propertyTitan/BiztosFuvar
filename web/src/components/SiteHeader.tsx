@@ -15,7 +15,7 @@ import {
   Home, Target, Route, User, Truck, Shield,
   Bell, BellRing, Bot, LogOut, ChevronDown, Package, Plus, Mail,
 } from 'lucide-react';
-import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
+import { useCurrentUser, clearCurrentUser, frissitCurrentUser } from '@/lib/auth';
 import { photoUrl } from '@/api';
 import { api } from '@/api';
 import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
@@ -26,6 +26,24 @@ import { useTranslation } from '@/lib/i18n';
 export default function SiteHeader() {
   const user = useCurrentUser();
   const router = useRouter();
+
+  // ── RÉGI SESSION-ÖK AVATAR-VISSZATÖLTÉSE (2026-08-16) ────────────────
+  // A PR #182 előtt bejelentkezett felhasználók tárolt user-objektumában
+  // NINCS avatar_url mező (undefined) — és azt semmi nem frissítette volna a
+  // következő bejelentkezésig. Ez az egyszeri visszatöltés a /auth/me-ből
+  // pótolja. A `!== undefined` őrfeltétel miatt pontosan egyszer fut le:
+  // a merge után a mező már string VAGY null, tehát definiált — friss
+  // bejelentkezésnél pedig eleve az, így felesleges kérés sincs.
+  useEffect(() => {
+    if (!user || user.avatar_url !== undefined) return;
+    let el = true;
+    api.getMyProfile()
+      .then((p: any) => {
+        if (el) frissitCurrentUser({ avatar_url: p.avatar_url ?? null });
+      })
+      .catch(() => { /* következő oldalbetöltésnél újra próbálkozik */ });
+    return () => { el = false; };
+  }, [user]);
   const toast = useToast();
   const { t } = useTranslation();
   const [unread, setUnread] = useState(0);
