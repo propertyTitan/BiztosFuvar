@@ -439,6 +439,18 @@ export default function SoforFuvarokLista() {
                       Ellenőrzött cég
                     </span>
                   )}
+                  {/* Számla-igény: már a LISTÁBAN látszik, hogy erre a
+                      fuvarra számlát kell adni. Magánszemély szállító így nem
+                      megy bele feleslegesen az ajánlattételbe (2026-08-15). */}
+                  {(j as any).invoice_requested && (
+                    <span
+                      className="pill"
+                      style={{ background: 'rgba(217,119,6,0.16)', color: 'var(--text)', fontWeight: 800, fontSize: 11 }}
+                      title="A feladó számlát kér a fuvardíjról — a számlát a szállító állítja ki, nem a GoFuvar."
+                    >
+                      Számla kell
+                    </span>
+                  )}
                   {(j as any).source_store && (
                     <span
                       className="pill"

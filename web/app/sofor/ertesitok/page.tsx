@@ -11,6 +11,10 @@ import { useToast } from '@/components/ToastProvider';
 import { Loading, EmptyState } from '@/components/StateView';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
+import FieldError, { redBorder } from '@/components/FieldError';
+import {
+  sanitizeNumericInput, parseNumericInput, moneyFieldError, weightFieldError,
+} from '@/lib/formValidation';
 
 const RADIUS_OPTIONS = [10, 25, 50, 100];
 
@@ -31,6 +35,24 @@ export default function ErtesitokOldal() {
   const [radius, setRadius] = useState(25);
   const [minPrice, setMinPrice] = useState('');
   const [maxWeight, setMaxWeight] = useState('');
+  // Mezőszintű hibák — a fuvarfeladással azonos megjelenítés (tesztelői
+  // kérés, 2026-08-15): piros keret + a mező alatt konkrét magyarázat.
+  // `probaltMenteni`: a hibákat csak az első mentési kísérlet UTÁN mutatjuk,
+  // hogy ne piroslás fogadja a felhasználót, amint megnyitja az űrlapot.
+  const [probaltMenteni, setProbaltMenteni] = useState(false);
+  const [fromHiba, setFromHiba] = useState<string | null>(null);
+  const [toHiba, setToHiba] = useState<string | null>(null);
+
+  const arHiba = moneyFieldError(parseNumericInput(minPrice), { label: 'Minimum ár', required: false });
+  // A max. súly OPCIONÁLIS itt (a `weightFieldError` alapból kötelezőnek
+  // veszi), ezért üresen nem hibázunk — csak ha tényleg írt bele valamit.
+  const sulyHiba = maxWeight.trim() === ''
+    ? null
+    : weightFieldError(parseNumericInput(maxWeight));
+  const teruletHiba = !(from?.label || fromText).trim()
+    ? 'Kérjük, töltsd ki: Felvételi környék.'
+    : fromHiba;
+  const mutat = (h: string | null) => (probaltMenteni ? h : null);
 
   async function load() {
     setLoading(true);
@@ -55,8 +77,13 @@ export default function ErtesitokOldal() {
     // a szöveget küldjük, és a szerver geokódolja (kényelmi tartalék).
     const fromName = (from?.label || fromText).trim();
     const toName = (to?.label || toText).trim();
-    if (!fromName) {
-      toast.error('Hiányzó felvételi környék', 'Írj be egy várost, vagy válassz a listából.');
+
+    // A hibákat mostantól MEZŐNKÉNT mutatjuk (piros keret + magyarázat), nem
+    // csak egy eltűnő toastban — a felhasználó így látja, MELYIK mezőt kell
+    // javítania. A toast megmarad másodlagos jelzésnek.
+    setProbaltMenteni(true);
+    if (!fromName || fromHiba || toHiba || arHiba || sulyHiba) {
+      toast.error('Nézd át az űrlapot', 'Néhány mező javításra szorul — a hibás mezők pirosan keretezve.');
       return;
     }
     setSaving(true);
@@ -67,8 +94,8 @@ export default function ErtesitokOldal() {
         from_lat: from?.lat ?? null, from_lng: from?.lng ?? null, from_label: fromName,
         to_lat: to?.lat ?? null, to_lng: to?.lng ?? null, to_label: toName || null,
         radius_km: radius,
-        min_price_huf: minPrice ? Number(minPrice) : null,
-        max_weight_kg: maxWeight ? Number(maxWeight) : null,
+        min_price_huf: parseNumericInput(minPrice) === '' ? null : Number(parseNumericInput(minPrice)),
+        max_weight_kg: parseNumericInput(maxWeight) === '' ? null : Number(parseNumericInput(maxWeight)),
       } as any);
       toast.success('Figyelő létrehozva', 'Értesítünk, ha új illeszkedő fuvar érkezik.');
       resetForm();
@@ -124,22 +151,39 @@ export default function ErtesitokOldal() {
       {showForm && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 style={{ marginTop: 0 }}>Új útvonal-figyelő</h2>
+          {/* `requireArea`: legalább TELEPÜLÉS-szint kell — az ország vagy a
+              megye nem elég (tesztelői észrevétel, 2026-08-15). Házszámot
+              viszont NEM követelünk: a figyelő egy KÖRZETRE szól, ott a
+              „Szeged" a helyes megadás. */}
           <AddressAutocomplete
             label="Felvételi környék *"
             value={fromText}
-            onChange={(addr, lat, lng) => { setFrom({ label: addr, lat, lng }); setFromText(addr); }}
-            onTextChange={(t) => { setFromText(t); if (!t) setFrom(null); }}
+            requireArea
+            onImprecise={(m) => setFromHiba(m || null)}
+            onChange={(addr, lat, lng) => {
+              setFrom({ label: addr, lat, lng }); setFromText(addr); setFromHiba(null);
+            }}
+            onTextChange={(t) => { setFromText(t); if (!t) { setFrom(null); setFromHiba(null); } }}
             placeholder="pl. Budapest, vagy egy konkrét cím"
           />
+          <FieldError>{mutat(teruletHiba)}</FieldError>
+
           <AddressAutocomplete
             label="Célterület (opcionális)"
             value={toText}
-            onChange={(addr, lat, lng) => { setTo({ label: addr, lat, lng }); setToText(addr); }}
-            onTextChange={(t) => { setToText(t); if (!t) setTo(null); }}
+            requireArea
+            onImprecise={(m) => setToHiba(m || null)}
+            onChange={(addr, lat, lng) => {
+              setTo({ label: addr, lat, lng }); setToText(addr); setToHiba(null);
+            }}
+            onTextChange={(t) => { setToText(t); if (!t) { setTo(null); setToHiba(null); } }}
             placeholder="Hagyd üresen, ha bárhová mehet"
           />
+          <FieldError>{mutat(toHiba)}</FieldError>
+
           <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-            💡 Elég csak a város nevét beírni (pl. <strong>Eger</strong>) — ha nem választasz a listából, automatikusan felismerjük.
+            💡 Elég a település neve (pl. <strong>Eger</strong>) — házszám nem kell.
+            Egy egész ország vagy megye viszont túl tág: minden fuvarra riasztást kapnál.
           </p>
 
           <label>Sugár a pont(ok) körül</label>
@@ -159,14 +203,39 @@ export default function ErtesitokOldal() {
 
           <div className="grid-2" style={{ marginTop: 8 }}>
             <div>
-              <label>Minimum ár (Ft) — opcionális</label>
-              <input className="input" type="number" inputMode="numeric" value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)} placeholder="pl. 10000" />
+              <label htmlFor="figyelo-min-ar">Minimum ár (Ft) — opcionális</label>
+              {/* `sanitizeNumericInput`: a mínuszjel BE SEM ÍRHATÓ (tesztelői
+                  észrevétel, 2026-08-15) — a `min` attribútum önmagában csak a
+                  natív űrlap-ellenőrzéskor szólna, gépelés közben nem. */}
+              <input
+                id="figyelo-min-ar"
+                className="input"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={minPrice}
+                onChange={(e) => setMinPrice(sanitizeNumericInput(e.target.value))}
+                placeholder="pl. 10000"
+                title="Csak ennél drágább fuvarokról értesítünk. Hagyd üresen, ha mindegy."
+                style={mutat(arHiba) ? redBorder : undefined}
+              />
+              <FieldError>{mutat(arHiba)}</FieldError>
             </div>
             <div>
-              <label>Max. súly (kg) — opcionális</label>
-              <input className="input" type="number" inputMode="numeric" value={maxWeight}
-                onChange={(e) => setMaxWeight(e.target.value)} placeholder="pl. 500" />
+              <label htmlFor="figyelo-max-suly">Max. súly (kg) — opcionális</label>
+              <input
+                id="figyelo-max-suly"
+                className="input"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={maxWeight}
+                onChange={(e) => setMaxWeight(sanitizeNumericInput(e.target.value))}
+                placeholder="pl. 500"
+                title="Csak ennél könnyebb csomagokról értesítünk. Hagyd üresen, ha mindegy."
+                style={mutat(sulyHiba) ? redBorder : undefined}
+              />
+              <FieldError>{mutat(sulyHiba)}</FieldError>
             </div>
           </div>
 

@@ -16,6 +16,11 @@ import { api, Job, Bid, photoUrl } from '@/api';
 import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
+import FieldError, { redBorder } from '@/components/FieldError';
+import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
+import {
+  sanitizeNumericInput, parseNumericInput, moneyFieldError, intFieldError,
+} from '@/lib/formValidation';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
@@ -116,11 +121,22 @@ export default function SoforFuvarReszletek() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Mezőszintű hibajelzés — a fuvarfeladással AZONOS megjelenítés (tesztelői
+  // kérés, 2026-08-15): piros keret + a mező alatt konkrét magyarázat.
+  // Eddig csak egy eltűnő toast volt, ami nem mondta meg, MELYIK mező rossz.
+  const [probaltMenteni, setProbaltMenteni] = useState(false);
+  const dijHiba = moneyFieldError(parseNumericInput(bidAmount), { label: 'Ajánlott fuvardíj' });
+  const etaHiba = bidEta.trim() === ''
+    ? null
+    : intFieldError(parseNumericInput(bidEta), { label: 'Érkezés a felvételre', min: 1, max: 10080 });
+  const mutat = (h: string | null) => (probaltMenteni ? h : null);
+
   async function submitBid(e: React.FormEvent) {
     e.preventDefault();
+    setProbaltMenteni(true);
     const amount = parseInt(bidAmount, 10);
-    if (!amount || amount <= 0) {
-      toast.error('Érvénytelen összeg', 'Érvényes ajánlati összeget adj meg (Ft).');
+    if (dijHiba || etaHiba) {
+      toast.error('Nézd át az űrlapot', 'A hibás mezők pirosan keretezve, alattuk a magyarázat.');
       return;
     }
     if (!returnPolicy) {
@@ -391,6 +407,13 @@ export default function SoforFuvarReszletek() {
               <strong>{job.distance_km} km</strong>
             </div>
           )}
+        </div>
+
+        {/* A feladó számlát kér a fuvardíjról — ezt AJÁNLATTÉTEL ELŐTT kell
+            látnia a szállítónak (magánszemély nem tud számlát adni). */}
+        <SzamlaIgenyJelzes kert={(job as any).invoice_requested} nezet="szallito" />
+
+        <div className="grid-2">
           {job.suggested_price_huf != null && (
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Javasolt fuvardíj</div>
@@ -527,27 +550,36 @@ export default function SoforFuvarReszletek() {
           <form onSubmit={submitBid}>
             <div className="grid-2">
               <div>
-                <label>Ajánlott fuvardíj (Ft)</label>
+                <label htmlFor="ajanlat-dij">Ajánlott fuvardíj (Ft)</label>
+                {/* `sanitizeNumericInput`: a mínuszjel BE SEM ÍRHATÓ. */}
                 <input
+                  id="ajanlat-dij"
                   className="input"
                   type="number"
                   min={1}
                   value={bidAmount}
-                  onChange={(e) => setBidAmount(e.target.value)}
+                  onChange={(e) => setBidAmount(sanitizeNumericInput(e.target.value))}
                   placeholder="pl. 58000"
+                  title="Ennyiért vállalod a fuvart. Az összeget készpénzben kapod, levonás nélkül."
                   required
+                  style={mutat(dijHiba) ? redBorder : undefined}
                 />
+                <FieldError>{mutat(dijHiba)}</FieldError>
               </div>
               <div>
-                <label>Érkezés a felvételre (perc)</label>
+                <label htmlFor="ajanlat-eta">Érkezés a felvételre (perc)</label>
                 <input
+                  id="ajanlat-eta"
                   className="input"
                   type="number"
                   min={1}
                   value={bidEta}
-                  onChange={(e) => setBidEta(e.target.value)}
+                  onChange={(e) => setBidEta(sanitizeNumericInput(e.target.value))}
                   placeholder="opcionális"
+                  title="Hány perc múlva tudsz a felvételi címen lenni? Üresen hagyható."
+                  style={mutat(etaHiba) ? redBorder : undefined}
                 />
+                <FieldError>{mutat(etaHiba)}</FieldError>
               </div>
             </div>
             {/* Élő kifizetés-előnézet — kápé, levonás nélkül */}
@@ -627,8 +659,9 @@ export default function SoforFuvarReszletek() {
                     type="number"
                     min={1}
                     value={returnFee}
-                    onChange={(e) => setReturnFee(e.target.value)}
+                    onChange={(e) => setReturnFee(sanitizeNumericInput(e.target.value))}
                     placeholder="pl. 3000"
+                    title="Ennyiért viszed vissza a csomagot, ha a címzett nem veszi át."
                   />
                 </div>
               )}

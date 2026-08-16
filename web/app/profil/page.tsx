@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
-import { useCurrentUser, setCurrentUser } from '@/lib/auth';
+import { useCurrentUser, setCurrentUser , frissitCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
@@ -132,6 +132,12 @@ export default function ProfilOldal() {
       // profil-mezők közül; szabadon írható értékre nem szabad fájl-törlést
       // alapozni — lásd backend/src/routes/auth.js.)
       setProfile((prev: any) => ({ ...prev, avatar_url: url }));
+      // ⚠️ A FEJLÉCET IS FRISSÍTENI KELL (2026-08-15, tesztelői észrevétel).
+      // Eddig csak ez az oldal frissült; a jobb felső sarokban lévő kép nem
+      // változott — se azonnal, se ki-/bejelentkezés után, mert a tárolt
+      // user-objektum egyáltalán nem tartalmazott avatart. Ez az esemény
+      // minden `useCurrentUser()` hookot újrarendel, újratöltés nélkül.
+      frissitCurrentUser({ avatar_url: url });
       toast.success('Profilkép mentve!');
     } catch (err: any) {
       toast.error('Hiba', err.message);

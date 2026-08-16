@@ -18,6 +18,11 @@ const { requireText } = require('../utils/text');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { detectContactLeak } = require('../utils/contactGuard');
 const { uuidParam } = require('../middleware/validateParams');
+// ⚠️ ÉRTESÍTÉSEK (2026-08-15, tesztelői kérés). A modul EDDIG NULLA
+// értesítést küldött: a feladó nem tudta meg, hogy kérdés érkezett, a kérdező
+// pedig nem tudta meg, hogy válaszoltak. Egy megválaszolatlan kérdés a
+// szállítót elviszi a fuvartól — ez közvetlenül konverzió-veszteség.
+const { createNotification } = require('../services/notifications');
 
 const router = express.Router();
 
@@ -96,6 +101,22 @@ router.post('/jobs/:jobId/questions', authRequired, requireVerifiedEmail, writeR
       [req.params.jobId, req.user.sub, questionCheck.value],
     );
     res.status(201).json(rows[0]);
+
+    // A válasz már elment — az értesítés ne késleltesse, és a hibája ne
+    // buktassa meg a kérdés mentését.
+    const { rows: cim } = await db.query('SELECT title FROM jobs WHERE id = $1', [req.params.jobId]);
+    createNotification({
+      user_id: job.shipper_id,
+      type: 'job_question',
+      title: '❓ Kérdés érkezett a fuvarodra',
+      // ⚠️ A kérdés SZÖVEGE szándékosan NEM kerül az értesítésbe: a
+      // `notifications` sorai hosszan megmaradnak, és a szabad szövegben
+      // elérhetőség is lehet (a kontakt-szűrő a kérdésre fut, az értesítésre
+      // nem). A felhasználó egy kattintással elolvassa a fuvar oldalán.
+      body: `Valaki kérdést tett fel a(z) "${cim[0]?.title || 'fuvar'}" fuvaroddal kapcsolatban. `
+        + 'Válaszolj minél előbb — a szállítók ez alapján döntenek az ajánlattételről.',
+      link: `/dashboard/fuvar/${req.params.jobId}`,
+    }).catch((e) => console.warn('[questions] értesítés hiba:', e.message));
   } catch (err) {
     console.error('[questions] POST hiba:', err.message);
     res.status(500).json({ error: 'Mentési hiba' });
@@ -116,7 +137,7 @@ router.post('/questions/:id/answer', authRequired, writeRateLimit, async (req, r
   try {
     // Csak a fuvar feladója válaszolhat
     const { rows: qRows } = await db.query(
-      `SELECT q.id, q.job_id, j.shipper_id
+      `SELECT q.id, q.job_id, q.asker_id, j.shipper_id, j.title
          FROM job_questions q
          JOIN jobs j ON j.id = q.job_id
         WHERE q.id = $1`,
@@ -138,6 +159,16 @@ router.post('/questions/:id/answer', authRequired, writeRateLimit, async (req, r
       [answerCheck.value, req.user.sub, req.params.id],
     );
     res.json(rows[0]);
+
+    // A KÉRDEZŐ értesítése — enélkül sosem tudta meg, hogy válaszoltak, és a
+    // fuvar nyitva maradt, miközben ő már továbblépett.
+    createNotification({
+      user_id: q.asker_id,
+      type: 'job_question_answered',
+      title: '💬 Válasz érkezett a kérdésedre',
+      body: `A feladó válaszolt a(z) "${q.title || 'fuvar'}" fuvarra feltett kérdésedre.`,
+      link: `/sofor/fuvar/${q.job_id}`,
+    }).catch((e) => console.warn('[questions] válasz-értesítés hiba:', e.message));
   } catch (err) {
     console.error('[questions] answer hiba:', err.message);
     res.status(500).json({ error: 'Mentési hiba' });

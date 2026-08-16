@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job, CarrierRoute } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { FileText, Route as RouteIcon, MapPin, Flag, Calendar } from 'lucide-react';
+import { FileText, Hourglass, Route as RouteIcon, MapPin, Flag, Calendar } from 'lucide-react';
 
 const JOB_STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -46,6 +46,11 @@ export default function SajatHirdeteseim() {
       .finally(() => setLoading(false));
   }, []);
 
+  // Elfogadott, de még ki nem fizetett fuvarok — ezekre vár teendő.
+  const fizetesreVar = jobs.filter(
+    (j) => j.status === 'accepted' && !(j as any).paid_at,
+  );
+
   return (
     <div>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -60,6 +65,67 @@ export default function SajatHirdeteseim() {
           <Link className="btn btn-secondary" href="/sofor/uj-utvonal">+ Új fix áras</Link>
         </div>
       </div>
+
+      {/* ── FIZETÉSRE VÁR ────────────────────────────────────────────────
+          Tesztelői kérés (2026-08-15): „egy fizetésre vár rész, ahol
+          felsorolja a kapcsolatfelvételi díj fizetésére váró fuvarokat."
+
+          SZÁNDÉKOSAN A LISTA TETEJÉN, és csak akkor jelenik meg, ha van ilyen
+          fuvar. Ez TEENDŐ, nem böngészési kategória: egy külön fülön el
+          lehetne mellette menni, itt viszont szembejön. Ha nincs mit fizetni,
+          nyoma sincs — nem zajos.
+
+          A platform EGYETLEN bevétele ezen a lépcsőn akad el a leggyakrabban. */}
+      {!loading && fizetesreVar.length > 0 && (
+        <div
+          className="card"
+          style={{
+            marginTop: 16,
+            borderColor: 'var(--warning, #d97706)',
+            background: 'rgba(217,119,6,0.08)',
+          }}
+        >
+          <h3 style={{ margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Hourglass size={18} />
+            Fizetésre vár ({fizetesreVar.length})
+          </h3>
+          <p className="muted" style={{ margin: '0 0 12px', fontSize: 13 }}>
+            Ezekre megegyeztetek a szállítóval. A kapcsolatfelvételi díj megfizetése
+            után kapjátok meg egymás elérhetőségét, és indulhat a fuvar.
+          </p>
+          {fizetesreVar.map((j) => (
+            <Link
+              key={j.id}
+              href={`/dashboard/fuvar/${j.id}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                padding: '10px 12px',
+                marginBottom: 8,
+                borderRadius: 8,
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {j.title}
+                </strong>
+                <span className="muted" style={{ fontSize: 12 }}>
+                  Megegyezett fuvardíj: {(j.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft
+                </span>
+              </div>
+              <span className="btn" style={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                Fizetés
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
 
       {loading && <ListSkeleton rows={3} />}
       {error && (
