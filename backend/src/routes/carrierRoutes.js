@@ -331,12 +331,59 @@ router.patch(
     if (!allowed.includes(status)) {
       return res.status(400).json({ error: 'Érvénytelen státusz' });
     }
+
+    // ⚠️ JÁRAT-LEMONDÁS ÉS A FOGLALÁSOK (2026-08-16, tesztelői észrevétel).
+    // Eddig a járat lemondása a foglalásokhoz NEM nyúlt: a függő foglalás
+    // örökre „elfogadásra várakozik" maradt — a feladó várt egy járatra, ami
+    // már nem létezik, és erről senki nem szólt neki.
+    if (status === 'cancelled') {
+      // FIZETETT, aktív foglalással a járat nem mondható le kézen-közön — a
+      // feladó pénzt adott ezért az útért. Előbb a foglalást kell rendezni
+      // (a route-bookings/:id/cancel útján, aminek szabályai vannak erre).
+      // Ugyanaz az elv, mint az admin-törlés HAS_ACTIVE_PAID guardja.
+      const { rows: fizetett } = await db.query(
+        `SELECT COUNT(*)::int AS db FROM route_bookings
+          WHERE route_id = $1 AND paid_at IS NOT NULL
+            AND status NOT IN ('delivered', 'cancelled', 'rejected')`,
+        [req.params.id],
+      );
+      if (fizetett[0].db > 0) {
+        return res.status(409).json({
+          error: 'Ezen a járaton fizetett, aktív foglalás van — előbb azt kell rendezni (a foglalás lemondásával), csak utána mondható le a járat.',
+          code: 'HAS_ACTIVE_PAID',
+        });
+      }
+    }
+
     const { rows } = await db.query(
       `UPDATE carrier_routes SET status = $1, updated_at = NOW()
         WHERE id = $2 AND carrier_id = $3 RETURNING *`,
       [status, req.params.id, req.user.sub],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Nem található vagy nincs jogosultság' });
+
+    if (status === 'cancelled') {
+      // A függő (nem fizetett) foglalások lezárása + a feladók értesítése.
+      const { rows: fuggok } = await db.query(
+        `UPDATE route_bookings
+            SET status = 'cancelled'
+          WHERE route_id = $1
+            AND status IN ('pending', 'confirmed')
+            AND paid_at IS NULL
+          RETURNING id, shipper_id`,
+        [req.params.id],
+      );
+      for (const f of fuggok) {
+        createNotification({
+          user_id: f.shipper_id,
+          type: 'booking_cancelled',
+          title: 'A járatot lemondták',
+          body: `A szállító lemondta a járatot, amelyre foglalásod volt (${rows[0].title || 'járat'}). A foglalásod ezzel lezárult — díjat nem fizettél, teendőd nincs. Nézz szét a többi induló járat közt!`,
+          link: '/dashboard/utvonalak',
+        }).catch((e) => console.warn('[notifications] route cancel booking hiba:', e.message));
+      }
+    }
+
     res.json((await attachPrices(rows))[0]);
   },
 );
@@ -405,10 +452,18 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
     if (vehicle_description !== undefined) { sets.push(`vehicle_description = $${idx++}`); params.push(vehicle_description || null); }
     if (is_ride_along !== undefined)      { sets.push(`is_ride_along = $${idx++}`);      params.push(!!is_ride_along); }
     if (status !== undefined) {
-      const allowed = ['draft', 'open', 'full', 'cancelled'];
+      // ⚠️ A lemondás CSAK a /status végponton mehet (2026-08-16): ott van a
+      // fizetett-foglalás guard és a függő foglalások lezárása + értesítése.
+      // Ha itt is engednénk, a védelem megint csak az egyik úton épülne meg —
+      // pontosan az a mintázat, amit a projekt már sokszor megtalált.
+      const allowed = ['draft', 'open', 'full'];
       if (!allowed.includes(status)) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Érvénytelen státusz' });
+        return res.status(400).json({
+          error: status === 'cancelled'
+            ? 'A járat lemondása a Lemondás gombbal történik (a foglalások rendezése miatt).'
+            : 'Érvénytelen státusz',
+        });
       }
       sets.push(`status = $${idx++}`);
       params.push(status);

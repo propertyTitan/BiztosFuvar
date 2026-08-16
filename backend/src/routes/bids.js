@@ -186,11 +186,44 @@ router.post('/jobs/:jobId/bids', authRequired, requireDriverKYC, writeRateLimit,
       exchangeFrozenAt = frozen.frozenAt;
     }
 
+    // ⚠️ ELUTASÍTOTT AJÁNLAT UTÁN ÚJRA LEHET PRÓBÁLKOZNI (2026-08-16,
+    // tesztelői észrevétel). A bids-en UNIQUE (job_id, carrier_id) él, és a
+    // korábbi kód a 23505-re csak annyit mondott: „Már tettél ajánlatot".
+    // Csakhogy az alku során elutasított (vagy visszavont) ajánlat SORA
+    // megmarad — a szállító így SOHA TÖBBÉ nem tudott ajánlatot tenni arra a
+    // fuvarra, hiába nyitott újra a licit. Egy jobb árral visszatérni pedig
+    // legitim: pont ettől verseny a verseny.
+    //
+    // Az ON CONFLICT ezért az elutasított/visszavont sort ÉLESZTI ÚJRA az új
+    // értékekkel. A WHERE-feltétel miatt a 'pending' és az 'accepted' sort NEM
+    // bántja: arra továbbra is a 409 jár (ott tényleg „már tettél ajánlatot"),
+    // az elfogadott ajánlatot pedig felülírni súlyos hiba lenne.
     const { rows } = await db.query(
       `INSERT INTO bids (job_id, carrier_id, amount_huf, currency, exchange_rate, exchange_rate_frozen_at, message, eta_minutes, return_policy, return_fee_huf)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       ON CONFLICT (job_id, carrier_id) DO UPDATE SET
+         amount_huf = EXCLUDED.amount_huf,
+         currency = EXCLUDED.currency,
+         exchange_rate = EXCLUDED.exchange_rate,
+         exchange_rate_frozen_at = EXCLUDED.exchange_rate_frozen_at,
+         message = EXCLUDED.message,
+         eta_minutes = EXCLUDED.eta_minutes,
+         return_policy = EXCLUDED.return_policy,
+         return_fee_huf = EXCLUDED.return_fee_huf,
+         status = 'pending',
+         counter_amount_huf = NULL,
+         counter_by = NULL,
+         counter_at = NULL,
+         created_at = NOW()
+       WHERE bids.status IN ('rejected', 'withdrawn')
+       RETURNING *`,
       [jobId, req.user.sub, numAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null, return_policy, returnFeeClean],
     );
+    // Ha a WHERE nem engedte az UPDATE-et (pending/accepted sor), a Postgres
+    // NULLA sort ad vissza — ez a „már tettél ajánlatot" eset.
+    if (!rows[0]) {
+      return res.status(409).json({ error: 'Már tettél ajánlatot erre a fuvarra — az még függőben van, a feladó látja. Új ajánlatot akkor tehetsz, ha az lezárult.' });
+    }
     realtime.emitToJob(jobId, 'bids:new', rows[0]);
 
     // Értesítés a feladónak: új licit érkezett (in-app + email)

@@ -41,10 +41,19 @@ export default function SoforLicitjeim() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Csoportosítás a szállítónak érthető szempontok szerint
+  // Csoportosítás a szállítónak érthető szempontok szerint.
+  //
+  // ⚠️ A LEMONDOTT HIRDETÉS KÜLÖN KOSÁR (2026-08-16, tesztelői észrevétel).
+  // Eddig CSAK a bid_status számított: egy 'pending' ajánlat, aminek a
+  // FUVARJÁT időközben lemondták, örökre az „Elfogadásra várakozik" alatt
+  // ült — a szállító hiába várt egy hirdetésre, ami már nem létezik.
+  const jobLezart = (r: Row) => ['cancelled', 'expired'].includes((r as any).job_status);
+  const cancelled = rows.filter((r) => r.bid_status !== 'accepted' && jobLezart(r));
   const accepted = rows.filter((r) => r.bid_status === 'accepted');
-  const pending = rows.filter((r) => r.bid_status === 'pending');
-  const lost = rows.filter((r) => r.bid_status === 'rejected' || r.bid_status === 'withdrawn');
+  const pending = rows.filter((r) => r.bid_status === 'pending' && !jobLezart(r));
+  const lost = rows.filter(
+    (r) => (r.bid_status === 'rejected' || r.bid_status === 'withdrawn') && !jobLezart(r),
+  );
 
   function Row({ r }: { r: Row }) {
     // Nyertes-e: ha ez a licit elfogadott, vagy ha a fuvar carrier_id-ja én vagyok
@@ -143,8 +152,29 @@ export default function SoforLicitjeim() {
 
       {lost.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>✗ Nem nyert ({lost.length})</h2>
+          {/* Átfogalmazva (2026-08-16, tesztelői kérés): a „Nem nyert" úgy
+              hangzott, mintha a szállító veszített volna valamit. Ez nem
+              verseny-eredmény, csak annyi: ezúttal másik ajánlatot fogadtak
+              el — és elutasított ajánlat után újra lehet próbálkozni. */}
+          <h2 style={{ marginTop: 24 }}>Lezárult ajánlatok ({lost.length})</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+            Ezekre a fuvarokra másik ajánlatot fogadtak el, vagy visszavontad
+            a sajátodat. Ha a hirdetés újra nyitott, tehetsz új ajánlatot.
+          </p>
           {lost.map((r) => (
+            <Row key={r.bid_id} r={r} />
+          ))}
+        </>
+      )}
+
+      {cancelled.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 24 }}>A hirdetést visszavonták ({cancelled.length})</h2>
+          <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+            Ezeket a fuvarokat a feladó időközben lemondta — az ajánlatod ezzel
+            lezárult, teendőd nincs.
+          </p>
+          {cancelled.map((r) => (
             <Row key={r.bid_id} r={r} />
           ))}
         </>

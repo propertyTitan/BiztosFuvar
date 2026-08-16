@@ -10,7 +10,7 @@ import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import { Loading, EmptyState } from '@/components/StateView';
 import ConfirmDialog from '@/components/ConfirmDialog';
-import AddressAutocomplete from '@/components/AddressAutocomplete';
+import AddressAutocomplete, { areaPrecisionError } from '@/components/AddressAutocomplete';
 import FieldError, { redBorder } from '@/components/FieldError';
 import {
   sanitizeNumericInput, parseNumericInput, moneyFieldError, weightFieldError,
@@ -72,6 +72,41 @@ export default function ErtesitokOldal() {
     setRadius(25); setMinPrice(''); setMaxWeight('');
   }
 
+  /**
+   * A BEGÉPELT (listából nem kiválasztott) szöveg feloldása településsé.
+   *
+   * ⚠️ 2026-08-16, tesztelői észrevétel: „lehet nem létező települést adni".
+   * A kiválasztás nélkül begépelt szöveg eddig nyersen ment a szervernek, és
+   * a Nominatim-fallback jóhiszeműen megpróbálta értelmezni — egy elgépelt
+   * vagy kitalált nevet is „felismerhetett" valami egészen másnak. Itt a
+   * Google Geocoderrel oldjuk fel, és ugyanazt a település-szintű mércét
+   * követeljük, mint a listás választásnál (areaPrecisionError). Ha nem
+   * ismerjük fel: mezőszintű hiba, nem néma tipp.
+   */
+  async function feloldTerulet(szoveg: string): Promise<
+    { label: string; lat: number; lng: number } | { hiba: string }
+  > {
+    const g = (window as any).google;
+    if (!g?.maps?.Geocoder) {
+      return { hiba: 'A térkép-szolgáltatás most nem érhető el — válassz a legördülő listából.' };
+    }
+    try {
+      const geocoder = new g.maps.Geocoder();
+      const { results } = await geocoder.geocode({ address: szoveg, region: 'hu' });
+      const r = results?.[0];
+      if (!r) return { hiba: `Nem találtunk ilyen települést: „${szoveg}”. Ellenőrizd a nevet, vagy válassz a listából.` };
+      const gond = areaPrecisionError(r);
+      if (gond) return { hiba: gond };
+      return {
+        label: r.formatted_address,
+        lat: r.geometry.location.lat(),
+        lng: r.geometry.location.lng(),
+      };
+    } catch {
+      return { hiba: `Nem találtunk ilyen települést: „${szoveg}”. Ellenőrizd a nevet, vagy válassz a listából.` };
+    }
+  }
+
   async function createAlert() {
     // Elsődlegesen a listából választott koordináta; ha csak beírta a várost,
     // a szöveget küldjük, és a szerver geokódolja (kényelmi tartalék).
@@ -86,13 +121,41 @@ export default function ErtesitokOldal() {
       toast.error('Nézd át az űrlapot', 'Néhány mező javításra szorul — a hibás mezők pirosan keretezve.');
       return;
     }
+
+    // A csak begépelt (nem kiválasztott) helyeket ITT oldjuk fel — nem
+    // létező település nem mehet át (mezőszintű hibát kap).
+    let fromVegso = from;
+    let toVegso = to;
+    if (!fromVegso && fromName) {
+      const f = await feloldTerulet(fromName);
+      if ('hiba' in f) {
+        setFromHiba(f.hiba);
+        toast.error('Nézd át az űrlapot', 'A felvételi környéket nem ismertük fel.');
+        return;
+      }
+      fromVegso = f;
+      setFrom(f); setFromText(f.label);
+    }
+    if (!toVegso && toName) {
+      const t2 = await feloldTerulet(toName);
+      if ('hiba' in t2) {
+        setToHiba(t2.hiba);
+        toast.error('Nézd át az űrlapot', 'A célterületet nem ismertük fel.');
+        return;
+      }
+      toVegso = t2;
+      setTo(t2); setToText(t2.label);
+    }
+
     setSaving(true);
     try {
       const label = toName ? `${fromName} → ${toName}` : `${fromName} (${radius} km)`;
       await api.createCarrierAlert({
         label,
-        from_lat: from?.lat ?? null, from_lng: from?.lng ?? null, from_label: fromName,
-        to_lat: to?.lat ?? null, to_lng: to?.lng ?? null, to_label: toName || null,
+        from_lat: fromVegso?.lat ?? null, from_lng: fromVegso?.lng ?? null,
+        from_label: fromVegso?.label || fromName,
+        to_lat: toVegso?.lat ?? null, to_lng: toVegso?.lng ?? null,
+        to_label: toVegso?.label || toName || null,
         radius_km: radius,
         min_price_huf: parseNumericInput(minPrice) === '' ? null : Number(parseNumericInput(minPrice)),
         max_weight_kg: parseNumericInput(maxWeight) === '' ? null : Number(parseNumericInput(maxWeight)),

@@ -6,6 +6,7 @@
 // A 60 napos határidő lejárta után (me.tax_data.blocked) piros változat:
 // az új ajánlattétel addig felfüggesztve, amíg az adat meg nem érkezik.
 import { useState } from 'react';
+import FieldError, { redBorder } from '@/components/FieldError';
 import { Receipt } from 'lucide-react';
 import { api } from '@/api';
 import { useToast } from '@/components/ToastProvider';
@@ -15,6 +16,30 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
   const [taxId, setTaxId] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [address, setAddress] = useState(profile?.billing_address || '');
+  // Mezőszintű hibajelzés (2026-08-16, tesztelői kérés): eddig csak egy
+  // eltűnő toast szólt — nem látszott, MELYIK mező rossz és MIT kell tenni.
+  // A backend a saját ellenőrzését is lefuttatja; itt az elgépeléseket fogjuk
+  // meg, hogy a hiba a mezőnél jelenjen meg, ne egy általános üzenetben.
+  const [probalt, setProbalt] = useState(false);
+  const tisztaTaxId = taxId.replace(/\s/g, '');
+  const taxIdHiba = tisztaTaxId === ''
+    ? 'Kérjük, töltsd ki: Adóazonosító jel.'
+    : (!/^8\d{9}$/.test(tisztaTaxId)
+      ? 'Az adóazonosító jel 8-cal kezdődő, pontosan 10 számjegyű szám — az adókártyádon találod.'
+      : null);
+  const szuletesHiba = (() => {
+    if (!birthDate) return 'Kérjük, add meg a születési dátumod.';
+    const d = new Date(birthDate);
+    const kor = (Date.now() - d.getTime()) / (365.25 * 86400000);
+    if (Number.isNaN(d.getTime()) || d.getFullYear() < 1900) return 'Érvénytelen dátum.';
+    if (kor < 18) return 'Szállítóként 18 éves kortól használható a platform — ellenőrizd az évszámot.';
+    if (kor > 120) return 'Ellenőrizd az évszámot — ez a dátum túl régi.';
+    return null;
+  })();
+  const cimHiba = address.trim().length < 5
+    ? 'Add meg a teljes lakcímed: irányítószám, település, utca, házszám.'
+    : null;
+  const mutat = (h: string | null) => (probalt ? h : null);
   const [saving, setSaving] = useState(false);
 
   const state = profile?.tax_data;
@@ -33,6 +58,11 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setProbalt(true);
+    if (taxIdHiba || szuletesHiba || cimHiba) {
+      toast.error('Nézd át a mezőket', 'A hibás mezők pirossal jelölve — alattuk a magyarázat.');
+      return;
+    }
     setSaving(true);
     try {
       await api.saveTaxData({
@@ -88,8 +118,9 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
             value={taxId}
             onChange={(e) => setTaxId(e.target.value)}
             required
-            style={{ marginTop: 4 }}
+            style={{ marginTop: 4, ...(mutat(taxIdHiba) ? redBorder : {}) }}
           />
+          <FieldError>{mutat(taxIdHiba)}</FieldError>
         </label>
         <label style={{ fontSize: 13, fontWeight: 600 }}>
           Születési dátum
@@ -102,8 +133,9 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
             title="Jövőbeli dátum nem adható meg. Szállítóként 18 éves kortól használható a platform."
             onChange={(e) => setBirthDate(e.target.value)}
             required
-            style={{ marginTop: 4 }}
+            style={{ marginTop: 4, ...(mutat(szuletesHiba) ? redBorder : {}) }}
           />
+          <FieldError>{mutat(szuletesHiba)}</FieldError>
         </label>
         <label style={{ fontSize: 13, fontWeight: 600 }}>
           Lakcím
@@ -115,8 +147,9 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             required
-            style={{ marginTop: 4 }}
+            style={{ marginTop: 4, ...(mutat(cimHiba) ? redBorder : {}) }}
           />
+          <FieldError>{mutat(cimHiba)}</FieldError>
         </label>
         <button className="btn" type="submit" disabled={saving} style={{ alignSelf: 'flex-start' }}>
           {saving ? 'Mentés…' : 'Adatok mentése'}

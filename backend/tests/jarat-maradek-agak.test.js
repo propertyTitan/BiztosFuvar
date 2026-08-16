@@ -318,7 +318,13 @@ describe('Járat szerkesztés: az időpont-kapu szerkesztéssel sem kerülhető 
     expect(sor.description, 'a nem küldött leírás felülíródott').toBe('Eredeti leírás');
   });
 
-  it('a járat a teljes szerkesztéssel is lemondható (érvényes státusz átmegy)', async () => {
+  it('a teljes szerkesztésen a lemondás NEM megy — csak a /status végponton', async () => {
+    // ⚠️ SZÁNDÉKOS VISELKEDÉS-VÁLTOZÁS (2026-08-16). Ez a teszt eredetileg
+    // azt rögzítette, hogy a teljes PATCH-en is lemondható a járat. Csakhogy
+    // a lemondáshoz azóta KÖVETKEZMÉNYEK tartoznak (a /status végponton): a
+    // fizetett-foglalás guard és a függő foglalások lezárása + a feladók
+    // értesítése. Ha a teljes PATCH-en is engednénk, a védelem megint csak
+    // az egyik úton épülne meg. A teszt ezért ma az ELLENKEZŐJÉT őrzi.
     const szallito = await createUser({ role: 'carrier' });
     const felado = await createUser({ role: 'shipper' });
     const varos = egyediNev('Lemondasfalva');
@@ -331,15 +337,21 @@ describe('Járat szerkesztés: az időpont-kapu szerkesztéssel sem kerülhető 
 
     const res = await request(app).patch(`/carrier-routes/${jarat.id}`).set(auth(szallito.token))
       .send({ status: 'cancelled', title: 'Lemondott járat' });
-    expect(res.status, 'a fehérlistás státusz sem menthető a teljes szerkesztésen').toBe(200);
-    expect(res.body.status).toBe('cancelled');
+    expect(
+      res.status,
+      'A teljes szerkesztő PATCH-en átment a lemondás — így megkerülhető a '
+      + 'fizetett-foglalás guard és a foglalások rendezése (az a /status '
+      + 'végponton él).',
+    ).toBe(400);
+    expect(res.body.error).toMatch(/Lemondás gombbal/i);
 
+    // A járat állapota érintetlen — továbbra is nyitott.
     const lista = await request(app).get(`/carrier-routes?city=${encodeURIComponent(varos)}`)
       .set(auth(felado.token));
     expect(
       lista.body.map((r) => r.id),
-      'a lemondott járat továbbra is foglalható a feladói böngészőben',
-    ).not.toContain(jarat.id);
+      'a járat eltűnt a böngészőből, pedig a lemondásnak meg kellett hiúsulnia',
+    ).toContain(jarat.id);
   });
 });
 

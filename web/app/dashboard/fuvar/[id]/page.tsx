@@ -666,9 +666,16 @@ export default function FuvarReszletek() {
       {['in_progress', 'delivered'].includes(job.status) && (
         <div className="card" style={{ marginTop: 16, background: '#fefce8', borderColor: 'var(--warning)' }}>
           <h2 style={{ marginTop: 0 }}>Probléma van a fuvarral?</h2>
+          {/* Átfogalmazva (2026-08-16, tesztelői kérés). A régi szöveg rögtön
+              a vitával kezdte — az új előbb az egyeztetésre terel (a legtöbb
+              gond ott megoldódik), és megmondja, mi történik a vita után. */}
           <p className="muted" style={{ marginBottom: 12 }}>
-            Ha a csomagod sérült, nem érkezett meg, vagy egyéb gond van — indíts egy vitás esetet,
-            és az admin felülvizsgálja a helyzetet.
+            Előbb mindig a szállítóval egyeztess — a legtöbb kérdés (késés,
+            időpont-csúszás) a beszélgetésben megoldódik. Ha a csomag sérült,
+            elveszett, vagy nem tudtok megegyezni, nyiss vitás esetet: ilyenkor
+            az ügyfélszolgálat átnézi a fotókat és az előzményeket, és
+            közvetít a megoldásban. A fuvar fotói a vita idejére zárolásra
+            kerülnek, bizonyítékként.
           </p>
           <button
             type="button"

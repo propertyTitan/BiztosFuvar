@@ -1173,6 +1173,33 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
     [j.id],
   );
 
+  // ⚠️ AZ AJÁNLATTEVŐK ÉRTESÍTÉSE (2026-08-16, tesztelői észrevétel).
+  // Ha a feladó a LICIT-SZAKASZBAN mondja le a fuvart (még nincs carrier_id),
+  // a lenti „másik fél" értesítés CÍMZETT NÉLKÜL marad — a függő ajánlatot
+  // adó szállítók SEMMIT nem tudtak meg róla: az ajánlatuk némán, örökre
+  // „elfogadásra várakozik" maradt volna a szemükben. (Elfogadásról már ment
+  // értesítés — a lemondásról nem: megint az egyik ág épült csak meg.)
+  if (iAmShipper && !j.carrier_id) {
+    const { rows: fuggoAjanlatok } = await db.query(
+      `SELECT carrier_id FROM bids WHERE job_id = $1 AND status = 'pending'`,
+      [j.id],
+    );
+    for (const b of fuggoAjanlatok) {
+      createNotification({
+        user_id: b.carrier_id,
+        type: 'job_cancelled',
+        title: 'A hirdetést visszavonták',
+        body: `A(z) "${j.title || 'fuvar'}" hirdetést a feladó visszavonta — az erre tett ajánlatod ezzel lezárult. Nézd meg a többi elérhető fuvart!`,
+        link: '/sofor/fuvarok',
+      }).catch((e) => console.warn('[notifications] bidder job_cancelled hiba:', e.message));
+    }
+    // Az ajánlatok le is zárulnak, hogy a listákban ne „várakozzanak" tovább.
+    await db.query(
+      `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND status = 'pending'`,
+      [j.id],
+    );
+  }
+
   // Notifikáció a másik félnek (in-app + email)
   const otherUserId = iAmShipper ? j.carrier_id : j.shipper_id;
   const otherEmail = iAmShipper ? j.carrier_email : j.shipper_email;
