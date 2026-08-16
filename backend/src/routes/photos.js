@@ -222,6 +222,18 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     await db.query(`UPDATE jobs SET status = 'in_progress', updated_at = NOW() WHERE id = $1`, [jobId]);
     realtime.emitToJob(jobId, 'job:picked_up', { job_id: jobId, photo });
 
+    // ⚠️ A FELADÓ ÉRTESÍTÉSE A FELVÉTELRŐL (2026-08-16, tesztelői észrevétel).
+    // Eddig a felvételről CSAK a címzett kapott SMS-t és a fuvar-szoba
+    // socket-eseményt — a FELADÓ, akinek a csomagjáról van szó, SEMMIT. Ha
+    // épp nem nézte az oldalt, nem tudta meg, hogy a csomagja elindult.
+    createNotification({
+      user_id: job.shipper_id,
+      type: 'job_picked_up',
+      title: '📦 A szállító felvette a csomagod',
+      body: `A(z) "${job.title || 'fuvar'}" csomagját a szállító átvette és fotóval igazolta — a fuvar úton van. A kézbesítésről is értesítünk.`,
+      link: `/dashboard/fuvar/${jobId}`,
+    }).catch((e) => console.warn('[notifications] job_picked_up hiba:', e.message));
+
     // AZ EGYETLEN CÍMZETT-SMS (2026-07-13 user-döntés): a csomag
     // felvételekor megy ki, az átvételhez szükséges adatokkal — 6 jegyű
     // kód + a szállító neve/telefonszáma. Minden más értesítés email/in-app
@@ -537,6 +549,11 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     );
     realtime.emitToUser(booking.shipper_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
     realtime.emitToUser(booking.carrier_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
+
+    // ⚠️ A feladó felvétel-értesítése a foglalási ágon MÁR LÉTEZIK (lentebb,
+    // a meglévő booking_picked_up) — az első javításom ide egy DUPLIKÁTUMOT
+    // tett, mert nem olvastam 40 sorral tovább. A fuvar-ágon viszont tényleg
+    // hiányzott (ott pótoltuk).
 
     // AZ EGYETLEN CÍMZETT-SMS a foglalás-ágon is (2026-07-13): felvételkor,
     // kód + szállító elérhetőség. Ékezet nélkül (1 GSM-szegmens).

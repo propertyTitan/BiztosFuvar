@@ -51,6 +51,16 @@ export default function SajatHirdeteseim() {
     (j) => j.status === 'accepted' && !(j as any).paid_at,
   );
 
+  // ⚠️ SZEKCIONÁLÁS (2026-08-16, tesztelői észrevétel): eddig MINDEN feladott
+  // fuvar egyetlen listában állt — a kézbesített és a lemondott is a
+  // teljesítendők közt. A szállítói oldal (CarryingJobs) már régóta
+  // szekcionál; a feladói nem. Megint a fél-oldalon megépült minta.
+  const aktivJobok = jobs.filter(
+    (j) => !['delivered', 'completed', 'cancelled', 'expired'].includes(j.status),
+  );
+  const teljesitett = jobs.filter((j) => ['delivered', 'completed'].includes(j.status));
+  const lemondott = jobs.filter((j) => ['cancelled', 'expired'].includes(j.status));
+
   return (
     <div>
       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -136,7 +146,7 @@ export default function SajatHirdeteseim() {
 
       {/* Feladott fuvarok */}
       <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <FileText size={20} /> Feladott fuvarjaim ({jobs.length})
+        <FileText size={20} /> Feladott fuvarjaim ({aktivJobok.length})
       </h2>
       {!loading && jobs.length === 0 && (
         <EmptyState
@@ -147,7 +157,7 @@ export default function SajatHirdeteseim() {
           cta={<Link className="btn" href="/dashboard/uj-fuvar">Fuvar feladása</Link>}
         />
       )}
-      {jobs.map((j) => (
+      {aktivJobok.map((j) => (
         <Link
           key={j.id}
           href={`/dashboard/fuvar/${j.id}`}
@@ -172,6 +182,60 @@ export default function SajatHirdeteseim() {
           </div>
         </Link>
       ))}
+
+      {/* Teljesített fuvarok — összecsukott, kompakt lista: nem teendő,
+          csak előzmény. A tesztelő kérése: „valahogy le kéne zárni a fuvart,
+          mert most a teljesített fuvar a többi teljesítendő között van." */}
+      {teljesitett.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 28, fontSize: 17 }}>✓ Teljesített ({teljesitett.length})</h2>
+          {teljesitett.map((j) => (
+            <Link
+              key={j.id}
+              href={`/dashboard/fuvar/${j.id}`}
+              className="card"
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                gap: 12, textDecoration: 'none', color: 'inherit', marginTop: 8,
+                padding: '10px 14px', opacity: 0.85,
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {j.title}
+              </span>
+              <span className="pill pill-delivered" style={{ flexShrink: 0 }}>
+                {JOB_STATUS_LABEL[j.status] || j.status}
+              </span>
+            </Link>
+          ))}
+        </>
+      )}
+
+      {/* Lemondott fuvarok — szintén külön, halványan. */}
+      {lemondott.length > 0 && (
+        <>
+          <h2 style={{ marginTop: 28, fontSize: 17 }}>Lemondott ({lemondott.length})</h2>
+          {lemondott.map((j) => (
+            <Link
+              key={j.id}
+              href={`/dashboard/fuvar/${j.id}`}
+              className="card"
+              style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                gap: 12, textDecoration: 'none', color: 'inherit', marginTop: 8,
+                padding: '10px 14px', opacity: 0.65,
+              }}
+            >
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {j.title}
+              </span>
+              <span className="pill pill-cancelled" style={{ flexShrink: 0 }}>
+                {JOB_STATUS_LABEL[j.status] || j.status}
+              </span>
+            </Link>
+          ))}
+        </>
+      )}
 
       {/* Fix áras útvonalak */}
       <h2 style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>

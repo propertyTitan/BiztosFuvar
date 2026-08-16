@@ -17,6 +17,7 @@
 // 'confirmed' állapotából — BUG-041 fix).
 
 import { useRef, useState } from 'react';
+import FieldError, { redBorder } from '@/components/FieldError';
 import { api } from '@/api';
 import { useToast } from './ToastProvider';
 
@@ -42,13 +43,21 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
   const [dropoffFile, setDropoffFile] = useState<File | null>(null);
   const [deliveryCode, setDeliveryCode] = useState('');
   const [busy, setBusy] = useState(false);
+  // Mezőszintű hibajelzés (2026-08-16, tesztelői kérés): eddig CSAK egy
+  // eltűnő toast szólt — a felhasználó nem látta, MELYIK mezőnél és MIT kell
+  // tennie. Ugyanaz a piros keret + magyarázat, mint a többi űrlapon.
+  const [pickupHiba, setPickupHiba] = useState<string | null>(null);
+  const [dropoffFotoHiba, setDropoffFotoHiba] = useState<string | null>(null);
+  const [kodHiba, setKodHiba] = useState<string | null>(null);
 
   async function submitPickup() {
     if (busy) return;
     if (!pickupFile) {
-      toast.error('Hiányzó fotó', 'Előbb válassz vagy készíts egy fotót a csomagról.');
+      setPickupHiba('Készíts egy fotót az átvett csomagról — enélkül a felvétel nem igazolható.');
+      toast.error('Még hiányzik a fotó', 'A felvétel igazolásához fotó kell a csomagról — a gombbal tudod elkészíteni vagy kiválasztani.');
       return;
     }
+    setPickupHiba(null);
     setBusy(true);
     try {
       if (entity === 'booking') {
@@ -69,15 +78,25 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
 
   async function submitDropoff() {
     if (busy) return;
-    if (!dropoffFile) {
-      toast.error('Hiányzó fotó', 'Előbb válassz vagy készíts egy fotót az átadott csomagról.');
-      return;
-    }
     const code = deliveryCode.trim();
-    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
-      toast.error('Hibás kód', 'Az átvételi kód pontosan 6 számjegy.');
+    // MINDKÉT hibát egyszerre jelezzük, nem egyenként — a felhasználó egy
+    // körben lássa az összes teendőt.
+    const fotoGond = !dropoffFile
+      ? 'Készíts egy fotót az átadott csomagról — enélkül a kézbesítés nem igazolható.'
+      : null;
+    const kodGond = code.length !== 6 || !/^\d{6}$/.test(code)
+      ? (code.length === 0
+        ? 'Írd be a 6 számjegyű átvételi kódot — az átvevő (a címzett vagy a feladó) tudja megmondani.'
+        : `Az átvételi kód pontosan 6 számjegy — most ${code.length} számjegyet írtál be.`)
+      : null;
+    setDropoffFotoHiba(fotoGond);
+    setKodHiba(kodGond);
+    if (fotoGond || kodGond) {
+      toast.error('Nézd át a mezőket', 'A hiányzó lépések pirossal jelölve — alattuk a teendő.');
       return;
     }
+    // Típus-szűkítés a TS-nek — a fenti ellenőrzés már garantálja.
+    if (!dropoffFile) return;
     setBusy(true);
     try {
       if (entity === 'booking') {
@@ -129,17 +148,21 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
         <label
           htmlFor={`${idPrefix}pickup-photo`}
           className="btn btn-secondary"
-          style={{ display: 'inline-block', cursor: 'pointer', marginTop: 4 }}
+          style={{
+            display: 'inline-block', cursor: 'pointer', marginTop: 4,
+            ...(pickupHiba ? redBorder : {}),
+          }}
         >
           Fotó kiválasztása / készítése
         </label>
+        <FieldError>{pickupHiba}</FieldError>
         <input
           id={`${idPrefix}pickup-photo`}
           ref={pickupInputRef}
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={(e) => setPickupFile(e.target.files?.[0] || null)}
+          onChange={(e) => { setPickupFile(e.target.files?.[0] || null); setPickupHiba(null); }}
           style={{ display: 'none' }}
         />
 
@@ -178,17 +201,21 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
         <label
           htmlFor={`${idPrefix}dropoff-photo`}
           className="btn btn-secondary"
-          style={{ display: 'inline-block', cursor: 'pointer', marginTop: 4 }}
+          style={{
+            display: 'inline-block', cursor: 'pointer', marginTop: 4,
+            ...(dropoffFotoHiba ? redBorder : {}),
+          }}
         >
           Fotó kiválasztása / készítése
         </label>
+        <FieldError>{dropoffFotoHiba}</FieldError>
         <input
           id={`${idPrefix}dropoff-photo`}
           ref={dropoffInputRef}
           type="file"
           accept="image/*"
           capture="environment"
-          onChange={(e) => setDropoffFile(e.target.files?.[0] || null)}
+          onChange={(e) => { setDropoffFile(e.target.files?.[0] || null); setDropoffFotoHiba(null); }}
           style={{ display: 'none' }}
         />
 
@@ -199,17 +226,23 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
         )}
 
         <div style={{ marginTop: 12, maxWidth: 220 }}>
-          <label style={{ fontSize: 13, fontWeight: 600 }}>Átvételi kód (6 számjegy)</label>
+          <label htmlFor={`${idPrefix}atveteli-kod`} style={{ fontSize: 13, fontWeight: 600 }}>Átvételi kód (6 számjegy)</label>
           <input
+            id={`${idPrefix}atveteli-kod`}
             className="input"
             inputMode="numeric"
             pattern="\d*"
             maxLength={6}
             value={deliveryCode}
-            onChange={(e) => setDeliveryCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            onChange={(e) => { setDeliveryCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setKodHiba(null); }}
             placeholder="••••••"
-            style={{ letterSpacing: 4, fontSize: 18, textAlign: 'center' }}
+            title="A 6 számjegyű kódot az átvevő mondja meg — SMS-ben kapta a felvételkor."
+            style={{
+              letterSpacing: 4, fontSize: 18, textAlign: 'center',
+              ...(kodHiba ? redBorder : {}),
+            }}
           />
+          <FieldError>{kodHiba}</FieldError>
         </div>
 
         <div>

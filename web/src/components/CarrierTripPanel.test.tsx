@@ -25,7 +25,10 @@ describe('CarrierTripPanel — felvétel (accepted)', () => {
 
     await user.click(screen.getByText(/Felvétel igazolása/));
 
-    expect(toast.error).toHaveBeenCalledWith('Hiányzó fotó', expect.any(String));
+    // Átfogalmazva + mezőszintű hiba (2026-08-16, tesztelői kérés): a toast
+    // mellett a fotó-gomb alatt is megjelenik, MIT kell tenni.
+    expect(toast.error).toHaveBeenCalledWith('Még hiányzik a fotó', expect.any(String));
+    expect(screen.getByRole('alert').textContent).toMatch(/fotót az átvett csomagról/i);
     expect(uploadJobPhoto).not.toHaveBeenCalled();
   });
 
@@ -43,17 +46,22 @@ describe('CarrierTripPanel — felvétel (accepted)', () => {
 });
 
 describe('CarrierTripPanel — kézbesítés (in_progress)', () => {
-  it('fotó nélkül "Hiányzó fotó"', async () => {
+  it('fotó nélkül mezőszintű hibát kap (fotó ÉS kód egyszerre jelezve)', async () => {
     const user = userEvent.setup();
     render(<CarrierTripPanel jobId="j1" status="in_progress" paid onDone={vi.fn()} />);
 
     await user.click(screen.getByRole('button', { name: /Kézbesítés igazolása/ }));
 
-    expect(toast.error).toHaveBeenCalledWith('Hiányzó fotó', expect.any(String));
+    // Az új viselkedés SZÁNDÉKOSAN egyszerre jelzi az összes hiányt (fotó +
+    // kód), nem egyenként adagolja — a felhasználó egy körben lássa a teendőit.
+    expect(toast.error).toHaveBeenCalledWith('Nézd át a mezőket', expect.any(String));
+    const hibak = screen.getAllByRole('alert').map((e) => e.textContent || '');
+    expect(hibak.some((h) => /fotót az átadott csomagról/i.test(h))).toBe(true);
+    expect(hibak.some((h) => /átvételi kódot/i.test(h))).toBe(true);
     expect(uploadJobPhoto).not.toHaveBeenCalled();
   });
 
-  it('fotóval de hibás (rövid) kóddal "Hibás kód"', async () => {
+  it('fotóval de hibás (rövid) kóddal a kód-mezőnél jelez, számjegy-számmal', async () => {
     const user = userEvent.setup();
     render(<CarrierTripPanel jobId="j1" status="in_progress" paid onDone={vi.fn()} />);
 
@@ -61,7 +69,10 @@ describe('CarrierTripPanel — kézbesítés (in_progress)', () => {
     await user.type(screen.getByPlaceholderText('••••••'), '1234');
     await user.click(screen.getByRole('button', { name: /Kézbesítés igazolása/ }));
 
-    expect(toast.error).toHaveBeenCalledWith('Hibás kód', expect.any(String));
+    expect(toast.error).toHaveBeenCalledWith('Nézd át a mezőket', expect.any(String));
+    // A hibaüzenet megmondja, HÁNY számjegy van beírva — a felhasználó látja,
+    // mennyi hiányzik.
+    expect(screen.getByRole('alert').textContent).toMatch(/4 számjegyet/);
     expect(uploadJobPhoto).not.toHaveBeenCalled();
   });
 
