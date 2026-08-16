@@ -16,6 +16,7 @@ import {
   Bell, BellRing, Bot, LogOut, ChevronDown, Package, Plus, Mail,
 } from 'lucide-react';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
+import { photoUrl } from '@/api';
 import { api } from '@/api';
 import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
@@ -234,23 +235,52 @@ export default function SiteHeader() {
                   color: 'var(--text)',
                 }}
               >
-                {/* A monogram-kör hozza a márka-kéket a világos fejlécen */}
-                <div
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
-                    color: '#fff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14,
-                    fontWeight: 800,
-                  }}
-                >
-                  {initial}
-                </div>
+                {/* Profilkép, ha van — különben monogram-kör.
+                    ⚠️ 2026-08-15 (tesztelői észrevétel): eddig MINDIG csak
+                    monogram volt, mert a tárolt user-objektum nem tartalmazott
+                    avatart. A tesztelő hiába cserélt képet a profilon, a jobb
+                    felső sarok nem változott — se azonnal, se ki-/bejelentkezés
+                    után. A kép cseréje mostantól azonnal ide is átüt
+                    (`frissitCurrentUser`). */}
+                {user.avatar_url ? (
+                  <img
+                    src={photoUrl(user.avatar_url)}
+                    alt=""
+                    width={30}
+                    height={30}
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                      display: 'block',
+                      flexShrink: 0,
+                    }}
+                    onError={(e) => {
+                      // Törött/lejárt kép: essünk vissza monogramra, ne
+                      // maradjon ott egy törött-kép ikon a fejlécben.
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: '50%',
+                      background: 'linear-gradient(135deg, var(--primary), var(--primary-light))',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      fontWeight: 800,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {initial}
+                  </div>
+                )}
                 <span style={{ fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {user.full_name?.split(' ')[0] || user.email?.split('@')[0]}
                 </span>

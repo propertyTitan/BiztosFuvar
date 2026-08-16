@@ -411,6 +411,47 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
           }).catch((e) => console.warn('[email] payment_due (deal) hiba:', e.message));
         });
       }
+    } else {
+      // ⚠️ A GYAKORI ÁG, AMI EDDIG KIMARADT (2026-08-15, tesztelői észrevétel).
+      //
+      // Amikor a FELADÓ fogadja el a szállító ajánlatát — ez a tipikus eset —,
+      // eddig SEMMILYEN maradandó értesítést nem kapott: se in-app, se e-mail.
+      // Csak egy pár másodpercre felvillanó toast volt. Aki elnavigált vagy
+      // frissített, annak nem maradt semmi a kezében arról, hogy MOST fizetnie
+      // kell — a harangban sem volt sor, a postaládájában sem levél.
+      //
+      // A fizetési emlékeztető-kör csak 24 óra múlva szólal meg; addig a
+      // tranzakció csendben állt. A platform EGYETLEN bevétele múlik ezen a
+      // lépcsőn.
+      //
+      // ⚠️ Ez ugyanaz a mintázat, amit a projekt már sokszor megtalált: a
+      // fizetési visszahozó háló a MÁSIK ágra épült meg (amikor a szállító
+      // fogad el), mert azt fedezték fel — az egyenértékű, sőt gyakoribb úton
+      // nem. „A védelem azon az úton épül meg, ahol felfedezték."
+      await createNotification({
+        user_id: info.shipper_id || bid.shipper_id,
+        type: 'payment_due',
+        title: '✅ Megegyeztetek — most a kapcsolatfelvételi díj jön',
+        body: `Elfogadtad ${info.carrier_name || 'a szállító'} ajánlatát a(z) `
+          + `"${info.title || 'fuvar'}" fuvarra ${priceTxt} Ft-ért. A folytatáshoz `
+          + 'fizesd meg a kapcsolatfelvételi díjat — utána megkapjátok egymás '
+          + 'elérhetőségét. A fuvardíjat készpénzben (vagy megállapodás szerint '
+          + 'átutalással) közvetlenül a szállítónak adod.',
+        link: `/dashboard/fuvar/${bid.job_id}`,
+      });
+      if (info.shipper_email) {
+        setImmediate(() => {
+          sendPaymentDueEmail({
+            to: info.shipper_email,
+            shipperName: info.shipper_name,
+            jobTitle: info.title,
+            jobId: bid.job_id,
+            agreedPriceHuf: agreedPrice,
+            feeHuf: calculateConnectionFee(agreedPrice),
+            reminderNo: 0,
+          }).catch((e) => console.warn('[email] payment_due (elfogadas) hiba:', e.message));
+        });
+      }
     }
   } catch (e) {
     console.warn('[notifications] deal_closed hiba:', e.message);

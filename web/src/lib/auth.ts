@@ -14,6 +14,16 @@ export type CurrentUser = {
   role: Role;
   full_name?: string;
   account_type?: 'individual' | 'company';
+  /**
+   * Profilkép. A fejléc ebből rajzolja a kis kört; ha nincs, monogram jön.
+   *
+   * ⚠️ 2026-08-15 (tesztelői észrevétel): eddig NEM volt itt, ezért a fejléc
+   * SOHA nem mutatott avatart — a tesztelő hiába cserélt képet a profilon, a
+   * jobb felső sarok nem változott, és ki-/bejelentkezés sem segített (a
+   * bejelentkezési válasz sem hozta). A `frissitCurrentUser` gondoskodik
+   * arról, hogy kép-csere után AZONNAL frissüljön, újratöltés nélkül.
+   */
+  avatar_url?: string | null;
 };
 
 const EVENT = 'gofuvar:auth';
@@ -21,6 +31,18 @@ const EVENT = 'gofuvar:auth';
 export function setCurrentUser(user: CurrentUser, token: string) {
   window.localStorage.setItem('gofuvar_user', JSON.stringify(user));
   window.localStorage.setItem('gofuvar_token', token);
+  window.dispatchEvent(new Event(EVENT));
+}
+
+/**
+ * A tárolt user RÉSZLEGES frissítése (pl. profilkép-csere után), a token
+ * érintetlenül hagyásával. Ugyanazt az eseményt küldi, mint a be-/kijelentkezés,
+ * így minden `useCurrentUser()` hook azonnal újrarendel — nem kell újratölteni.
+ */
+export function frissitCurrentUser(patch: Partial<CurrentUser>) {
+  const jelenlegi = readUser();
+  if (!jelenlegi) return;
+  window.localStorage.setItem('gofuvar_user', JSON.stringify({ ...jelenlegi, ...patch }));
   window.dispatchEvent(new Event(EVENT));
 }
 

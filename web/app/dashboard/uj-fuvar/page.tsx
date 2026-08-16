@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
+import FieldError, { REQ, redBorder } from '@/components/FieldError';
 import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
 import {
@@ -112,18 +113,9 @@ const initialForm: FormState = {
   recipient_email: '',
 };
 
-const REQ = { color: 'var(--danger-text)', fontWeight: 700 } as const;
-const redBorder = { border: '2px solid var(--danger)', boxShadow: '0 0 0 3px rgba(239,68,68,0.15)' } as const;
-
-/** Egy mező alatti piros hibaüzenet — csak akkor, ha van mit mondani. */
-function FieldError({ children }: { children: string | null }) {
-  if (!children) return null;
-  return (
-    <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, margin: '4px 0 0' }}>
-      {children}
-    </p>
-  );
-}
+// A mezőszintű hibajelzés KÖZÖS (2026-08-15): az útvonal-figyelő és az
+// ajánlattétel is ugyanezt használja, hogy a felhasználó mindenhol ugyanazt
+// a visszajelzést kapja. Lásd `components/FieldError.tsx`.
 
 export default function UjFuvar() {
   const router = useRouter();

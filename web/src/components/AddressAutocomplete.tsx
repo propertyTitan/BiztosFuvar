@@ -34,6 +34,12 @@ type Props = {
   required?: boolean;
   /** Házszámig pontos címet követel meg (fuvar felvétel/lerakodás). */
   requirePrecise?: boolean;
+  /**
+   * Gyengébb fokozat: legalább TELEPÜLÉS-szintű találat kell (ország/megye
+   * nem elég), de házszám NEM. Az útvonal-figyelőhöz való — lásd
+   * `areaPrecisionError`.
+   */
+  requireArea?: boolean;
   /** requirePrecise mellett: a kiválasztott találat túl pontatlan volt. */
   onImprecise?: (message: string) => void;
 };
@@ -71,6 +77,34 @@ export function precisionError(
   return 'Ez csak egy település / terület. Add meg a pontos címet utcával és házszámmal, majd válassz a legördülő listából.';
 }
 
+/**
+ * Elég pontos-e a találat egy TERÜLET-figyeléshez (útvonal-figyelő)?
+ *
+ * ⚠️ MÁS SZINT, MINT A `precisionError` (2026-08-15, tesztelői észrevétel).
+ * A fuvar felvételi pontjához házszám kell — az útvonal-figyelőhöz viszont
+ * NEM: ott a szállító egy KÖRZETRE iratkozik fel, és a „Szeged" tökéletes
+ * megadás. Amit itt ki kell zárni, az a túl TÁG találat: az ország vagy a
+ * megye. „Magyarország + 50 km" értelmetlen figyelő — a szállító minden
+ * fuvarra riasztást kapna, majd kikapcsolná az egészet.
+ *
+ * Elfogadjuk tehát a település-szintet és minden annál pontosabbat.
+ *
+ * Visszatérés: null, ha rendben — különben a usernek szóló hibaüzenet.
+ */
+export function areaPrecisionError(
+  place: google.maps.places.PlaceResult,
+): string | null {
+  const telepulesSzint = ['locality', 'postal_town', 'sublocality', 'postal_code',
+    'route', 'street_number', 'premise', 'subpremise', 'neighborhood'];
+  if (telepulesSzint.some((t) => hasComponent(place, t))) return null;
+
+  if (hasComponent(place, 'country')
+    && !hasComponent(place, 'administrative_area_level_1')) {
+    return 'Ez egy egész ország — add meg legalább a települést (pl. „Szeged”).';
+  }
+  return 'Ez túl tág terület (megye/régió) — add meg legalább a települést (pl. „Szeged”).';
+}
+
 export default function AddressAutocomplete({
   label,
   value,
@@ -79,6 +113,7 @@ export default function AddressAutocomplete({
   placeholder,
   required,
   requirePrecise,
+  requireArea,
   onImprecise,
 }: Props) {
   const apiKey = getGoogleMapsApiKey();
@@ -143,6 +178,19 @@ export default function AddressAutocomplete({
         const rescued = await rescueWithGeocoder(typed);
         setChecking(false);
         if (!rescued) onImprecise?.(problem);
+        return;
+      }
+    }
+
+    // Gyengébb fokozat (útvonal-figyelő): elég a település, de az ország/megye
+    // nem. Itt NINCS geocoder-mentőág: a `requirePrecise` azért használja, mert
+    // a Places ritkán kínál házszámos javaslatot — település-szinten viszont
+    // mindig ad, tehát ha ez pontatlan, az tényleg a user választása volt.
+    if (requireArea) {
+      const gond = areaPrecisionError(place);
+      if (gond) {
+        onTextChange?.(formatted);
+        onImprecise?.(gond);
         return;
       }
     }

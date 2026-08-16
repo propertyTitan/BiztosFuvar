@@ -22,6 +22,8 @@
 // =====================================================================
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import FieldError from '@/components/FieldError';
+import { sanitizeNumericInput } from '@/lib/formValidation';
 
 export type DialogField = {
   key: string;
@@ -92,12 +94,22 @@ export default function ConfirmDialog({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  const [probaltKuldeni, setProbaltKuldeni] = useState(false);
   if (!open) return null;
 
   const missingRequired = fields.some((f) => f.required && !(values[f.key] || '').trim());
+  // Szám-mezőn a 0 és a negatív nem elfogadható (az ellenajánlat összege is
+  // ezen az úton jön) — eddig a gomb csak NÉMÁN nem csinált semmit.
+  const rosszSzam = fields.some((f) => f.type === 'number'
+    && (values[f.key] || '').trim() !== ''
+    && !(Number(values[f.key]) > 0));
 
   function submit() {
-    if (missingRequired) return;
+    if (missingRequired || rosszSzam) {
+      // A hibák mostantól LÁTHATÓAK a mezők alatt, nem csak a gomb tiltásában.
+      setProbaltKuldeni(true);
+      return;
+    }
     onConfirm(values);
   }
 
@@ -164,14 +176,36 @@ export default function ConfirmDialog({
               <input
                 className="input"
                 type={f.type === 'number' ? 'number' : 'text'}
+                inputMode={f.type === 'number' ? 'numeric' : undefined}
+                min={f.type === 'number' ? 0 : undefined}
                 value={values[f.key] || ''}
-                onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                onChange={(e) => setValues((v) => ({
+                  ...v,
+                  // ⚠️ Szám-mezőn a mínuszjel BE SEM ÍRHATÓ (tesztelői
+                  // észrevétel, 2026-08-15). A dialógus adja az ELLENAJÁNLAT
+                  // összegét is — egy negatív ellenajánlat értelmetlen, és a
+                  // `min` attribútum önmagában csak a natív űrlap-ellenőrzésnél
+                  // szólna, gépelés közben nem.
+                  [f.key]: f.type === 'number'
+                    ? sanitizeNumericInput(e.target.value)
+                    : e.target.value,
+                }))}
                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
                 placeholder={f.placeholder}
                 autoFocus={i === 0}
                 style={{ marginTop: 0 }}
               />
             )}
+            {/* Mezőszintű magyarázat — a felhasználó lássa, MIÉRT nem enged
+                tovább a gomb (tesztelői kérés: egységes hibajelzés). */}
+            <FieldError>
+              {probaltKuldeni && f.required && !(values[f.key] || '').trim()
+                ? `Kérjük, töltsd ki: ${f.label}.`
+                : (probaltKuldeni && f.type === 'number' && (values[f.key] || '').trim() !== ''
+                  && !(Number(values[f.key]) > 0)
+                  ? `${f.label}: 0-nál nagyobb számot adj meg.`
+                  : null)}
+            </FieldError>
           </label>
         ))}
 

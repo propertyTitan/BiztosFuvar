@@ -409,7 +409,11 @@ router.post('/login', loginRateLimit, async (req, res) => {
   // régi sorokban vegyes írásmód lehet, ezért itt is LOWER-rel hasonlítunk —
   // különben a "Tester@…" fiók nem tudna "tester@…"-ként belépni.
   const { rows } = await db.query(
-    'SELECT id, role, email, full_name, password_hash, token_version FROM users WHERE LOWER(email) = LOWER($1)',
+    // ⚠️ avatar_url IS KELL (2026-08-15, tesztelői észrevétel): a fejléc eddig
+    // CSAK monogramot mutatott, mert a bejelentkezéskor eltárolt user-objektum
+    // nem is tartalmazott avatart. Ezért nem változott a kép a jobb felső
+    // sarokban — se profil-módosítás után, se ki- és bejelentkezéssel.
+    'SELECT id, role, email, full_name, avatar_url, password_hash, token_version FROM users WHERE LOWER(email) = LOWER($1)',
     [email.trim()],
   );
   const user = rows[0];

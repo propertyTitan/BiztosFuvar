@@ -12,6 +12,7 @@ import { api, Job, Bid, photoUrl } from '@/api';
 import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, CheckCircle2 } from 'lucide-react';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import TesztFizetesSav from '@/components/TesztFizetesSav';
+import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
@@ -448,8 +449,16 @@ export default function FuvarReszletek() {
             ))}
         </div>
 
+        {/* Visszaigazolás: a feladó látja, hogy a számla-kérése átment, és
+            hogy azt a SZÁLLÍTÓ teljesíti, nem a platform.
+            ⚠️ SZÁNDÉKOSAN A FIZETÉSI KÁRTYÁN KÍVÜL: a fuvardíj számlájáról
+            szól, nem a kapcsolatfelvételi díjról. A kártyán belül úgy tűnne,
+            mintha a platform díjáról lenne szó. */}
+        <SzamlaIgenyJelzes kert={(job as any).invoice_requested} nezet="felado" />
+
         {/* Kapcsolatfelvételi díj + fizetés */}
         <div className="card">
+
           <h2>Fizetés</h2>
           {job.status !== 'accepted' && !job.paid_at && (
             <p className="muted">Még nincs elfogadott ajánlat — elfogadás után itt fizeted a kapcsolatfelvételi díjat.</p>
