@@ -87,7 +87,17 @@ export async function loginAs(page: Page, user: E2EUser) {
       window.localStorage.setItem('gofuvar_cookie_consent', JSON.stringify({ necessary: true }));
     },
     {
-      u: { id: user.id, email: user.email, role: user.role, full_name: user.full_name },
+      // ⚠️ Az avatar_url: null NEM elhagyható (2026-08-16). Ha a mező
+      // HIÁNYZIK (undefined), a fejléc „régi session"-nek nézi, és MINDEN
+      // oldalbetöltésnél elindítja az egyszeri /auth/me visszatöltést — ez a
+      // teljes E2E-suite-ban oldalanként +1 kérés, ami a rate limitet nyomja,
+      // és más specekben okoz véletlenszerű bukást (a 07-lemondás így bukott
+      // el egy teljes futásban). A legacy-viselkedést a 21-es spec KÜLÖN,
+      // szándékosan avatar_url nélküli seeddel méri.
+      u: {
+        id: user.id, email: user.email, role: user.role,
+        full_name: user.full_name, avatar_url: null,
+      },
       token: user.token,
     },
   );

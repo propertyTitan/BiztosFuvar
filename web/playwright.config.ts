@@ -46,6 +46,10 @@ export default defineConfig({
         GEMINI_API_KEY: '',
         R2_ACCESS_KEY_ID: '',
         R2_SECRET_ACCESS_KEY: '',
+        // A suite 214 tesztje egy IP-ről súrolta a 300/perc globális limitet
+        // → véletlenszerű 429-es bukások. Ez az override CSAK itt él; élesben
+        // az alapértelmezett 300 marad (lásd rateLimit.js).
+        E2E_GLOBAL_RATE_LIMIT_MAX: '3000',
       },
     },
     {

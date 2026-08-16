@@ -120,9 +120,18 @@ const aiChatRateLimit = createRateLimit({
   message: 'A GoFuvar segéddel percenként max 20 üzenetet válthatsz.',
 });
 
+// ⚠️ AZ E2E_GLOBAL_RATE_LIMIT_MAX KIZÁRÓLAG A TESZT-HARNESSNEK VALÓ
+// (2026-08-16). A Playwright-suite 214 tesztre nőtt, és egy gépről, egy
+// IP-ről hajtja a teljes stacket — a futás elején már súrolta a 300/perc
+// plafont, amitől VÉLETLENSZERŰ tesztek buktak 429-cel (először a
+// 07-lemondás, aztán a 08-kontraszt + 09-stale-state, mindig más). A valós
+// felhasználói forgalomra a 300/perc/IP bőven elég és marad az alapérték;
+// az override-ot a playwright.config.ts webServer-env-je állítja be.
+// ÉLESBEN EZT SOHA NE ÁLLÍTSD BE — a Railway env-ben nincs és ne is legyen.
+const e2eGlobalisMax = Number(process.env.E2E_GLOBAL_RATE_LIMIT_MAX);
 const globalRateLimit = createRateLimit({
   windowMs: 60_000,
-  max: 300,
+  max: Number.isFinite(e2eGlobalisMax) && e2eGlobalisMax > 0 ? e2eGlobalisMax : 300,
   keyBy: 'ip',
   name: 'global',
   message: 'Túl sok kérés érkezett erről az IP-ről.',

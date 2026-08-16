@@ -84,6 +84,16 @@ function BejelentkezesContent() {
           email: (res.user as any).email,
           role: res.user.role as Role,
           full_name: (res.user as any).full_name,
+          account_type: (res.user as any).account_type,
+          // ⚠️ 2026-08-16: EZ A MEZŐ HIÁNYZOTT — és emiatt a fejléc-avatar
+          // javítása (PR #182) NEM MŰKÖDÖTT. A backend a login-válaszban már
+          // küldte az avatar_url-t, de ez a kézzel írt mező-lista itt a
+          // küszöbön ELDOBTA: a tárolt user-objektumba nem került be, a
+          // fejléc pedig abból dolgozik. Ezért nem segített a ki- és
+          // bejelentkezés sem. Tanulság: a válasz „tartalmazza" még nem
+          // jelenti, hogy a kliens „eltárolja" — a láncot a TÁROLÁSIG kell
+          // követni.
+          avatar_url: (res.user as any).avatar_url ?? null,
         },
         res.token,
       );
