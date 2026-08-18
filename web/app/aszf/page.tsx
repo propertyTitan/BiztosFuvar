@@ -18,8 +18,8 @@ export default function AszfPage() {
     >
       <h1 style={{ marginBottom: 4 }}>Általános Szerződési Feltételek (ÁSZF)</h1>
       <p className="muted" style={{ margin: 0 }}>
-        <strong>Platform:</strong> GoFuvar (gofuvar.hu és a mobilalkalmazások)<br />
-        <strong>Hatályos:</strong> 2026. július 3-tól
+        <strong>Platform:</strong> GoFuvar (gofuvar.hu)<br />
+        <strong>Hatályos:</strong> 2026. augusztus 18-tól (első változat: 2026. július 3.)
       </p>
 
       <h2 style={{ marginTop: 32 }}>1. A Szolgáltató adatai és Elérhetőségei</h2>
@@ -145,7 +145,7 @@ export default function AszfPage() {
         fix áras foglalás sofőri megerősítése, illetve azonnali fuvar sofőri elvállalása után).
         A díj ellenében a Szolgáltató <strong>azonnal átadja a Feladónak a Sofőr kapcsolatfelvételi
         adatait</strong> (név, telefonszám, e-mail cím), a Sofőrnek a Feladóét, és elindítja a
-        fuvar-folyamatot támogató szolgáltatásokat (címzetti SMS-értesítések, átvételi kód,
+        fuvar-folyamatot támogató szolgáltatásokat (címzetti SMS-értesítés a felvételkor, átvételi kód,
         fotó-bizonyíték, vita-funkció).
       </p>
       <p>
@@ -300,7 +300,7 @@ export default function AszfPage() {
 
       <h3 style={{ marginTop: 24 }}>5.6. DAC7</h3>
       <p>
-        A Szolgáltató az adózás rendjéről szóló jogszabályok és a 2011/16/EU Tanácsi irányelv (DAC7)
+        A Szolgáltató az adózás rendjéről szóló jogszabályok és a 2011/16/EU tanácsi irányelvet módosító (EU) 2021/514 tanácsi irányelv (DAC7), valamint az azt átültető magyar jogszabályok (Aktv.)
         szerint <strong>adatot szolgáltat a Nemzeti Adó- és Vámhivatal (NAV) felé</strong> a Sofőrök
         platformon keresztül elért bevételeiről. Mivel a fuvardíj a Felek között közvetlenül mozog
         (4.2. pont), az adatszolgáltatás a <strong>Platformon rögzített, megállapodott fuvardíjakon</strong>{' '}
