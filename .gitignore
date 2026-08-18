@@ -41,3 +41,4 @@ backend/reports/
 
 # Claude Code session-állományok (worktree-k, futásidejű state)
 .claude/worktrees/
+scratch/

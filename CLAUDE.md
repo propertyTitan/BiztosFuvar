@@ -184,56 +184,27 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 
 ## 6. Mit készítünk a launchhoz
 
-### 🐞 TESZTELŐI HIBA — fizetési szöveg-elcsúszás — ✅ DIAGNOSZTIZÁLVA, JAVÍTÁSRA VÁR
+### ✅ LEZÁRVA — fizetési szöveg-elcsúszás (2026-08-18, PR #186)
 
-> **A képernyőkép megérkezett (2026-08-18), a web-session kielemezte.**
-> A tesztelő képén a „Fizetés" kártya látszik (Fuvardíj: 1 Ft,
-> Kapcsolatfelvételi díj: 500 Ft — ezek a sorok JÓK), alatta viszont a
-> **consent-checkbox label esett össze**: a keretezett doboz több száz px
-> magasra nyúlt, a checkbox árván lebeg benne, a label-szöveg
-> („Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása)…") pedig a
-> jobb szélen egy **~1 karakter széles oszlopban, betűnként törve,
-> függőlegesen** jelenik meg.
+> A tesztelő képernyőképes hibája javítva. ⚠️ **A VALÓDI GYÖKÉROK MÁS VOLT,
+> mint az első (mobil-sessionös) diagnózis**: nem motorfüggő flex-viselkedés,
+> hanem a globals.css `input { width: 100% }` szabálya, ami a consent
+> JELÖLŐNÉGYZETÉT is teljes szélességűre nyújtotta (492 px!) — a
+> `flexShrink: 0`-s checkbox az egész sort elfoglalta, a szöveg-span 0-ra
+> szorult, és a `.card` öröklött `overflow-wrap: anywhere` szabálya betűnként,
+> függőlegesen törte (több ezer px magas doboz). **Chromiumban IS
+> reprodukálódott** — az őr-teszt első futása fogta meg (span w=0, h=5460) —,
+> a „motorfüggő, Chrome-ban nem jön elő" állítás a rossz fixture műterméke
+> volt. A többi checkbox csak azért ép, mert mind kap kézi inline `width`-et.
 >
-> **GYÖKÉROK (két tényező együtt):**
-> 1. `web/app/globals.css` ~481. sor: a `.card { overflow-wrap: anywhere }`
->    öröklődik a kártya MINDEN szövegére, és az `anywhere` a szöveg
->    **min-content szélességét ~1 karakterre** csökkenti (ez szándékos volt
->    a cím+pill sorok miatt — NE vedd ki, mást is véd).
-> 2. A consent-label `display: flex` (checkbox + `<span>`), de a `<span>`-en
->    **nincs explicit flex-szabály** (default `flex: 0 1 auto`). Így a span
->    szélessége a tartalmától függ, és a tesztelő böngésző-motorja a
->    min-content-re (≈1 betű) ejtette le, ahelyett hogy a maradék helyet
->    töltené ki. Chrome desktopon nem reprodukálódik — motorfüggő, de a fix
->    minden motoron determinisztikussá teszi a layoutot.
+> Javítás (3 réteg): a globális szabály alól checkbox/radio kivétel
+> (`input:not([type='checkbox']):not([type='radio'])` — az OSZTÁLYT zárja);
+> explicit checkbox-méret; `flex: 1 1 0%` + `minWidth: 0` a szövegen. A
+> duplikált consent-markup (fuvar + foglalás ág) KÖZÖS komponensbe vonva
+> (`FeeConsentLabel.tsx`) — a jogi szöveg egy forrásból jön. Őr:
+> `e2e/22-consent-label-torhetetlen.spec.ts` (390 px-en méri a szélességet
+> és magasságot; visszamérve piros a javítás nélkül).
 >
-> **A JAVÍTÁS (mindkét előfordulási helyen!):** a consent-label `<span>`-jére
-> explicit méretezés: `style={{ flex: '1 1 0%', minWidth: 0 }}`. Ezzel a span
-> szélessége = konténer − checkbox − gap (a szabad helyből számolódik, nem a
-> tartalom min-szélességéből), és az `overflow-wrap: anywhere` már csak a
-> valóban túl hosszú szavakat töri, nem az egészet.
->
-> **HOL (a markup duplikálva van):**
-> 1. `web/app/dashboard/fuvar/[id]/page.tsx` — a „Fizetés" kártya
->    consent-labelje (~508–536. sor, `feeConsent` checkbox + span)
-> 2. `web/src/components/fuvarjaim/Bookings.tsx` — ugyanez a consent-label
->    (~215–240. sor, `consented[b.id]` checkbox + span)
->
-> Érdemes közben a két duplikált labelt EGY közös komponensbe kivonni
-> (pl. `web/src/components/FeeConsentLabel.tsx`), hogy legközelebb ne két
-> helyen kelljen javítani — de ha sietsz, a két inline style-fix is elég.
->
-> **ŐR-TESZT:** a 11-mobil-overflow E2E spec mellé: 390 px-es viewportban a
-> consent-label `<span>` szélessége legyen > 100 px (vagy: a label magassága
-> < 200 px) egy `accepted` státuszú fuvar fizetési kártyáján. Ez az
-> „1 betűs oszlop" osztályt fogja végleg.
->
-> A szokásos flow: feature-branch → PR → CI → merge.
->
-> **KONTEXTUS:** a tesztelő két hibaköre (22 tétel) a PR #181–#185-tel
-> LEZÁRVA, ez az egyetlen nyitott UI-hiba. A teszt-üzem
-> (`ALLOW_STUB_PAYMENTS=true`) élesben AKTÍV, ezért a fizetési kártyán a
-> sárga sáv LÁTSZIK — az a képen nem hiba, hanem szándékos jelzés.
 > Másik nyitott (döntésre váró, NEM javítandó) tétel: a címzett-telefonszám
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").

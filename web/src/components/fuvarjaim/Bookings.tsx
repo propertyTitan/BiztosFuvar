@@ -11,6 +11,7 @@ import { api, RouteBooking } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
+import FeeConsentLabel from '@/components/FeeConsentLabel';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ReviewBox from '@/components/ReviewBox';
 import { ListSkeleton, EmptyState, ErrorState } from '@/components/StateView';
@@ -212,32 +213,10 @@ export default function FoglalasaimOldal() {
             )}
             {b.status === 'confirmed' && !b.paid_at && (
               <div style={{ marginTop: 10 }}>
-                <label
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'flex-start',
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                    padding: 10,
-                    borderRadius: 8,
-                    border: '1px solid var(--border)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={!!consented[b.id]}
-                    onChange={(e) => setConsented((c) => ({ ...c, [b.id]: e.target.checked }))}
-                    style={{ marginTop: 2, flexShrink: 0 }}
-                  />
-                  <span>
-                    Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása){' '}
-                    <strong>azonnali teljesítését</strong>, és tudomásul veszem, hogy a
-                    teljesítés után <strong>elállási jogomat elvesztem</strong>{' '}
-                    (45/2014. Korm. r. 29. § (1) a)). A díj nem visszatérítendő.
-                  </span>
-                </label>
+                <FeeConsentLabel
+                  checked={!!consented[b.id]}
+                  onChange={(v) => setConsented((c) => ({ ...c, [b.id]: v }))}
+                />
                 <button
                   type="button"
                   onClick={() => startPayment(b.id)}

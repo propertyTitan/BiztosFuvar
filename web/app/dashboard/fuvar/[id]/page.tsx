@@ -13,6 +13,7 @@ import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, CheckCircle2 } fr
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import TesztFizetesSav from '@/components/TesztFizetesSav';
 import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
+import FeeConsentLabel from '@/components/FeeConsentLabel';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
@@ -505,35 +506,19 @@ export default function FuvarReszletek() {
                 </div>
               ) : job.status === 'accepted' ? (
                 <>
-                  <label
-                    style={{
-                      display: 'flex',
-                      gap: 10,
-                      alignItems: 'flex-start',
-                      fontSize: 13,
-                      lineHeight: 1.5,
-                      padding: 12,
-                      borderRadius: 8,
-                      border: '1px solid var(--border)',
-                      marginTop: 12,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={feeConsent}
-                      onChange={(e) => setFeeConsent(e.target.checked)}
-                      style={{ marginTop: 3, flexShrink: 0 }}
-                    />
-                    <span>
-                      Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása){' '}
-                      <strong>azonnali teljesítését</strong>, és tudomásul veszem,
-                      hogy a teljesítés után <strong>elállási jogomat elvesztem</strong>{' '}
-                      (45/2014. Korm. rendelet 29. § (1) a)). A díj nem
-                      visszatérítendő; ha a fuvar a szállító hibájából hiúsul meg,
-                      díjmentesen választhatok másik szállítót ugyanerre a fuvarra.
-                    </span>
-                  </label>
+                  {/* A consent-label KÖZÖS komponens (2026-08-18): a tesztelőnél
+                      a szöveg betűnként, függőlegesen tört — a javítás és a
+                      magyarázat a FeeConsentLabel-ben. */}
+                  <FeeConsentLabel
+                    checked={feeConsent}
+                    onChange={setFeeConsent}
+                    zaroMondat={
+                      <>
+                        ha a fuvar a szállító hibájából hiúsul meg, díjmentesen
+                        választhatok másik szállítót ugyanerre a fuvarra.
+                      </>
+                    }
+                  />
                   <button
                     type="button"
                     onClick={startPayment}
