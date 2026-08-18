@@ -184,33 +184,51 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 
 ## 6. Mit készítünk a launchhoz
 
-### 🐞 NYITOTT TESZTELŐI HIBA — fizetési szöveg-elcsúszás (mobil-sessionnek)
+### 🐞 TESZTELŐI HIBA — fizetési szöveg-elcsúszás — ✅ DIAGNOSZTIZÁLVA, JAVÍTÁSRA VÁR
 
-> **Ha ez a session egy KÉPERNYŐKÉPET kap a fizetési oldalról, ezért kapja.**
-> A tesztelő jelentette (2026-08-15, kétszer is): „fizetésnél a szöveg
-> elcsúszott", pontosítva: **„egymás alatt vannak a betűk"** — vagyis egy
-> konténer szélessége összeesett, és a szöveg betűnként/szavanként törik
-> függőlegesbe. Asztali gépről nem reprodukálható ránézésre; valószínűleg
-> mobil-szélességen jön elő.
+> **A képernyőkép megérkezett (2026-08-18), a web-session kielemezte.**
+> A tesztelő képén a „Fizetés" kártya látszik (Fuvardíj: 1 Ft,
+> Kapcsolatfelvételi díj: 500 Ft — ezek a sorok JÓK), alatta viszont a
+> **consent-checkbox label esett össze**: a keretezett doboz több száz px
+> magasra nyúlt, a checkbox árván lebeg benne, a label-szöveg
+> („Kérem a szolgáltatás (kapcsolatfelvételi adatok átadása)…") pedig a
+> jobb szélen egy **~1 karakter széles oszlopban, betűnként törve,
+> függőlegesen** jelenik meg.
 >
-> **HOL KERESD (a gyanúsítottak sorrendben):**
-> 1. `web/app/dashboard/fuvar/[id]/page.tsx` — a „Fizetés" kártya (~450–530.
->    sor): fuvardíj-sor, „Kapcsolatfelvételi díj (bevezető ár)" sor, FIZETVE
->    címke, fizetés-gomb, consent-checkbox blokk.
-> 2. `web/src/components/TesztFizetesSav.tsx` — a sárga „TESZT FIZETÉSI MÓD"
->    sáv UGYANEZEN a kártyán ül (2026-08-15 óta él; flex + ikon + szöveg).
-> 3. `web/app/fizetes-stub/page.tsx` — a stub-fizetőoldal (ide visz a
->    „Fizetés" gomb teszt-üzemben; a sáv ide is be van kötve).
-> 4. `web/src/components/SzamlaIgenyJelzes.tsx` — szintén a kártya FÖLÖTT
->    jelenhet meg (flex + ikon).
+> **GYÖKÉROK (két tényező együtt):**
+> 1. `web/app/globals.css` ~481. sor: a `.card { overflow-wrap: anywhere }`
+>    öröklődik a kártya MINDEN szövegére, és az `anywhere` a szöveg
+>    **min-content szélességét ~1 karakterre** csökkenti (ez szándékos volt
+>    a cím+pill sorok miatt — NE vedd ki, mást is véd).
+> 2. A consent-label `display: flex` (checkbox + `<span>`), de a `<span>`-en
+>    **nincs explicit flex-szabály** (default `flex: 0 1 auto`). Így a span
+>    szélessége a tartalmától függ, és a tesztelő böngésző-motorja a
+>    min-content-re (≈1 betű) ejtette le, ahelyett hogy a maradék helyet
+>    töltené ki. Chrome desktopon nem reprodukálódik — motorfüggő, de a fix
+>    minden motoron determinisztikussá teszi a layoutot.
 >
-> **MIT CSINÁLJ:** a képről azonosítsd, MELYIK elem esett össze (oldal +
-> szöveg alapján a fenti fájlokból megtalálod), javítsd (tipikus ok: flex-
-> gyerek `minWidth: 0` nélkül / szűk konténerben `display:flex` szöveg körül /
-> hiányzó `flex: 1`), és a szokásos módon: feature-branch → PR → CI → merge.
-> A 08-kontraszt és a 11-mobil-overflow E2E specek a szomszédos hibaosztályt
-> őrzik — érdemes megnézni, tud-e a javításról őr-teszt születni (390 px-es
-> viewportban a kártya elemeinek szélessége ne essen össze).
+> **A JAVÍTÁS (mindkét előfordulási helyen!):** a consent-label `<span>`-jére
+> explicit méretezés: `style={{ flex: '1 1 0%', minWidth: 0 }}`. Ezzel a span
+> szélessége = konténer − checkbox − gap (a szabad helyből számolódik, nem a
+> tartalom min-szélességéből), és az `overflow-wrap: anywhere` már csak a
+> valóban túl hosszú szavakat töri, nem az egészet.
+>
+> **HOL (a markup duplikálva van):**
+> 1. `web/app/dashboard/fuvar/[id]/page.tsx` — a „Fizetés" kártya
+>    consent-labelje (~508–536. sor, `feeConsent` checkbox + span)
+> 2. `web/src/components/fuvarjaim/Bookings.tsx` — ugyanez a consent-label
+>    (~215–240. sor, `consented[b.id]` checkbox + span)
+>
+> Érdemes közben a két duplikált labelt EGY közös komponensbe kivonni
+> (pl. `web/src/components/FeeConsentLabel.tsx`), hogy legközelebb ne két
+> helyen kelljen javítani — de ha sietsz, a két inline style-fix is elég.
+>
+> **ŐR-TESZT:** a 11-mobil-overflow E2E spec mellé: 390 px-es viewportban a
+> consent-label `<span>` szélessége legyen > 100 px (vagy: a label magassága
+> < 200 px) egy `accepted` státuszú fuvar fizetési kártyáján. Ez az
+> „1 betűs oszlop" osztályt fogja végleg.
+>
+> A szokásos flow: feature-branch → PR → CI → merge.
 >
 > **KONTEXTUS:** a tesztelő két hibaköre (22 tétel) a PR #181–#185-tel
 > LEZÁRVA, ez az egyetlen nyitott UI-hiba. A teszt-üzem
