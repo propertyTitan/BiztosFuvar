@@ -567,7 +567,15 @@ a.card:hover, .home-hub-card:hover {
 .callout-info *, .callout-success *, .callout-warning *, .callout-danger * { color: var(--text); }
 
 /* ── Inputs ── */
-.input, input, select, textarea {
+/* ⚠️ A checkbox és a radio KIVÉTEL a width: 100% alól (2026-08-18, tesztelői
+   képernyőkép): a globális szabály a JELÖLŐNÉGYZETET is teljes szélességűre
+   nyújtotta. Egy flex-sorban ülő, `flexShrink: 0`-s checkbox így az EGÉSZ
+   sort elfoglalta, a mellette lévő szöveg 0 szélességre szorult, és az
+   `overflow-wrap: anywhere` (a .card öröklött szabálya) BETŰNKÉNT,
+   függőlegesen törte — a fizetési consent-doboz több ezer px magasra nyúlt.
+   A többi checkbox csak azért volt ép, mert mind kapott kézi inline
+   `width: 20`-at — ez a szabály-szintű javítás az egész osztályt zárja. */
+.input, input:not([type='checkbox']):not([type='radio']), select, textarea {
   width: 100%;
   padding: 10px 14px;
   border: 1.5px solid var(--border);
