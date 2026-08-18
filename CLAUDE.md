@@ -184,6 +184,42 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 
 ## 6. Mit készítünk a launchhoz
 
+### 🐞 NYITOTT TESZTELŐI HIBA — fizetési szöveg-elcsúszás (mobil-sessionnek)
+
+> **Ha ez a session egy KÉPERNYŐKÉPET kap a fizetési oldalról, ezért kapja.**
+> A tesztelő jelentette (2026-08-15, kétszer is): „fizetésnél a szöveg
+> elcsúszott", pontosítva: **„egymás alatt vannak a betűk"** — vagyis egy
+> konténer szélessége összeesett, és a szöveg betűnként/szavanként törik
+> függőlegesbe. Asztali gépről nem reprodukálható ránézésre; valószínűleg
+> mobil-szélességen jön elő.
+>
+> **HOL KERESD (a gyanúsítottak sorrendben):**
+> 1. `web/app/dashboard/fuvar/[id]/page.tsx` — a „Fizetés" kártya (~450–530.
+>    sor): fuvardíj-sor, „Kapcsolatfelvételi díj (bevezető ár)" sor, FIZETVE
+>    címke, fizetés-gomb, consent-checkbox blokk.
+> 2. `web/src/components/TesztFizetesSav.tsx` — a sárga „TESZT FIZETÉSI MÓD"
+>    sáv UGYANEZEN a kártyán ül (2026-08-15 óta él; flex + ikon + szöveg).
+> 3. `web/app/fizetes-stub/page.tsx` — a stub-fizetőoldal (ide visz a
+>    „Fizetés" gomb teszt-üzemben; a sáv ide is be van kötve).
+> 4. `web/src/components/SzamlaIgenyJelzes.tsx` — szintén a kártya FÖLÖTT
+>    jelenhet meg (flex + ikon).
+>
+> **MIT CSINÁLJ:** a képről azonosítsd, MELYIK elem esett össze (oldal +
+> szöveg alapján a fenti fájlokból megtalálod), javítsd (tipikus ok: flex-
+> gyerek `minWidth: 0` nélkül / szűk konténerben `display:flex` szöveg körül /
+> hiányzó `flex: 1`), és a szokásos módon: feature-branch → PR → CI → merge.
+> A 08-kontraszt és a 11-mobil-overflow E2E specek a szomszédos hibaosztályt
+> őrzik — érdemes megnézni, tud-e a javításról őr-teszt születni (390 px-es
+> viewportban a kártya elemeinek szélessége ne essen össze).
+>
+> **KONTEXTUS:** a tesztelő két hibaköre (22 tétel) a PR #181–#185-tel
+> LEZÁRVA, ez az egyetlen nyitott UI-hiba. A teszt-üzem
+> (`ALLOW_STUB_PAYMENTS=true`) élesben AKTÍV, ezért a fizetési kártyán a
+> sárga sáv LÁTSZIK — az a képen nem hiba, hanem szándékos jelzés.
+> Másik nyitott (döntésre váró, NEM javítandó) tétel: a címzett-telefonszám
+> minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
+> előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
+
 ### ✅ Kész (élesedett)
 - **AKADÁLYMENTESÍTÉS + HALOTT LINKEK — mérve (2026-08-12, PR #177)** — a
   tesztelő kérdése: „broken links 0? accessibility 0 critical és 0 serious?"
