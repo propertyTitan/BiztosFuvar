@@ -49,7 +49,14 @@ export default function SoforLicitjeim() {
   // ült — a szállító hiába várt egy hirdetésre, ami már nem létezik.
   const jobLezart = (r: Row) => ['cancelled', 'expired'].includes((r as any).job_status);
   const cancelled = rows.filter((r) => r.bid_status !== 'accepted' && jobLezart(r));
-  const accepted = rows.filter((r) => r.bid_status === 'accepted');
+  // ⚠️ A LEZÁRT fuvar nem marad itt (2026-08-20, tesztelői észrevétel): az
+  // elfogadott ajánlat fuvarja a kézbesítés után a „Vállalt fuvarok →
+  // Teljesített" alatt él — ha itt is örökre listáznánk, ugyanaz a fuvar
+  // KÉT fülön szerepelne. Az „Elfogadva" a still-aktív munkákat mutatja.
+  const accepted = rows.filter(
+    (r) => r.bid_status === 'accepted'
+      && !['delivered', 'completed', 'cancelled', 'expired'].includes((r as any).job_status),
+  );
   const pending = rows.filter((r) => r.bid_status === 'pending' && !jobLezart(r));
   const lost = rows.filter(
     (r) => (r.bid_status === 'rejected' || r.bid_status === 'withdrawn') && !jobLezart(r),

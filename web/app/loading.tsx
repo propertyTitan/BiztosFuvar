@@ -92,11 +92,16 @@ export default function RootLoading() {
       </p>
 
       <style>{`
+        /* ⚠️ A 🚛 emoji NATÍVAN BALRA NÉZ (Apple/Google/Noto fontokban).
+           Az eredeti animáció fordítva tükrözött — a teherautó MINDKÉT
+           irányban farolva ment (tesztelői észrevétel, 2026-08-20).
+           Ezért: jobbra menet scaleX(-1) (megfordítjuk, hogy jobbra
+           nézzen), balra menet natív (tükrözés nélkül). */
         @keyframes gofuvar-truck {
-          0%   { transform: translateX(-10px); }
-          50%  { transform: translateX(230px); }
-          51%  { transform: translateX(230px) scaleX(-1); }
-          100% { transform: translateX(-10px) scaleX(-1); }
+          0%   { transform: translateX(-10px) scaleX(-1); }
+          50%  { transform: translateX(230px) scaleX(-1); }
+          51%  { transform: translateX(230px); }
+          100% { transform: translateX(-10px); }
         }
         @keyframes gofuvar-dust {
           0%   { transform: translateX(-20px); opacity: 0; }
