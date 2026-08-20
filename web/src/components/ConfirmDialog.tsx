@@ -95,6 +95,8 @@ export default function ConfirmDialog({
   }, [open, onClose]);
 
   const [probaltKuldeni, setProbaltKuldeni] = useState(false);
+  // Hol kezdődött az utolsó egérgomb-lenyomás? (lásd a backdrop kommentjét)
+  const hatterenNyomtak = useRef(false);
   if (!open) return null;
 
   const missingRequired = fields.some((f) => f.required && !(values[f.key] || '').trim());
@@ -128,7 +130,18 @@ export default function ConfirmDialog({
         WebkitBackdropFilter: 'blur(6px)',
         animation: 'gofuvar-fade-in 0.2s ease-out',
       }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      // ⚠️ NEM elég a puszta onClick (2026-08-20, tesztelői észrevétel): a
+      // `click` esemény ott sül el, ahol az egérgombot FELENGEDIK. Aki a
+      // dialóguson BELÜL kezd szöveget kijelölni (pl. az ellenajánlat
+      // összegét), és a húzást a háttér fölött engedi el, annak a kattintás
+      // a háttéren csattan — és a dialógus a beírt adatával együtt eltűnt.
+      // Ezért csak akkor zárunk, ha a lenyomás ÉS a felengedés is a
+      // háttéren történt.
+      onMouseDown={(e) => { hatterenNyomtak.current = e.target === e.currentTarget; }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && hatterenNyomtak.current) onClose();
+        hatterenNyomtak.current = false;
+      }}
     >
       <div
         ref={dialogRef}
