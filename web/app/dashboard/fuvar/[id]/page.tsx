@@ -264,7 +264,11 @@ export default function FuvarReszletek() {
           halott kód volt: a scrub a feladótól MINDIG elveszi a címzett
           `delivery_code`-ját, a `sender_delivery_code` viszont mindig
           létezik, így a feltétele sosem teljesült. */}
-      {(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled', 'disputed'].includes(job.status) && (() => {
+      {/* ⚠️ CSAK elfogadás után (2026-08-21, Manus-teszt): a kód eddig már
+          az AJÁNLATVÁRÓ állapotban is látszott — ott még szállító sincs,
+          a kódnak semmi szerepe, csak zavart keltett. A kód akkor kell,
+          amikor a kézbesítés valóban közeleg. */}
+      {(job as any).sender_delivery_code && ['accepted', 'in_progress'].includes(job.status) && (() => {
         const vanCimzett = Boolean(job.recipient_name || job.recipient_phone);
         const kod = (job as any).sender_delivery_code as string;
         return (

@@ -19,7 +19,9 @@
 //  a fuvart. Ezt a határt a backend scrubja adja, ez a spec őrzi a UI-n.
 // =====================================================================
 import { test, expect } from '@playwright/test';
-import { createUser, createJob, loginAs, getDeliveryCode } from './helpers';
+import {
+  createUser, createJob, loginAs, getDeliveryCode, setJobAccepted, dbQuery,
+} from './helpers';
 
 test('MÁS veszi át → vészhelyzeti kódként jelenik meg, a címzett kódja nélkül', async ({ page }) => {
   const shipper = await createUser('shipper', 'Feladó Ferenc');
@@ -27,6 +29,10 @@ test('MÁS veszi át → vészhelyzeti kódként jelenik meg, a címzett kódja 
     recipient_name: 'Címzett Cecília',
     recipient_phone: '+36301112233',
   });
+  // A kód-kártya CSAK elfogadás után jelenik meg (2026-08-21, Manus-teszt):
+  // ajánlatváró állapotban még szállító sincs, a kódnak ott nincs szerepe.
+  const carrier1 = await createUser('carrier', 'Kód Károly');
+  await setJobAccepted(job.id, carrier1.id, { paid: true });
 
   await loginAs(page, shipper);
   await page.goto(`/dashboard/fuvar/${job.id}`);
@@ -52,6 +58,8 @@ test('a FELADÓ veszi át → normál átvételi kód, nincs vészhelyzet-szöve
     recipient_name: undefined,
     recipient_phone: undefined,
   });
+  const carrier2 = await createUser('carrier', 'Kód Kálmán');
+  await setJobAccepted(job.id, carrier2.id, { paid: true });
 
   await loginAs(page, shipper);
   await page.goto(`/dashboard/fuvar/${job.id}`);
@@ -64,4 +72,32 @@ test('a FELADÓ veszi át → normál átvételi kód, nincs vészhelyzet-szöve
   // Nincs címzett — a riasztó vészhelyzet-szöveg félrevezető lenne
   await expect(page.getByText(/Vészhelyzeti kód/i)).toHaveCount(0);
   await expect(page.getByText(/A címzett a saját átvételi kódját/i)).toHaveCount(0);
+});
+
+
+test('AJÁNLATVÁRÓ állapotban a kód-kártya NEM látszik (Manus-teszt, 2026-08-21)', async ({ page }) => {
+  // Ajánlatváró fuvarnál még szállító sincs — a kódnak semmi szerepe, a
+  // riasztó kártya csak zavart keltett. A kód elfogadás után jelenik meg.
+  const shipper = await createUser('shipper', 'Korai Kata');
+  const job = await createJob(shipper, {
+    recipient_name: undefined,
+    recipient_phone: undefined,
+  });
+
+  await loginAs(page, shipper);
+  await page.goto(`/dashboard/fuvar/${job.id}`);
+  await page.waitForLoadState('networkidle').catch(() => {});
+
+  await expect(page.getByText(/Átvételi kódod/i)).toHaveCount(0);
+  await expect(page.getByText(/Vészhelyzeti kód/i)).toHaveCount(0);
+
+  const { rows } = await dbQuery('SELECT sender_delivery_code FROM jobs WHERE id = $1', [job.id]);
+  const sajatKod = rows[0]?.sender_delivery_code;
+  if (sajatKod) {
+    const oldalSzoveg = await page.locator('body').innerText();
+    expect(
+      oldalSzoveg.includes(sajatKod),
+      'A feladó saját kódja már ajánlatváró állapotban is a képernyőn van.',
+    ).toBe(false);
+  }
 });
