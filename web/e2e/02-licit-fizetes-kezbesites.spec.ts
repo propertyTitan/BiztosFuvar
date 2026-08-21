@@ -75,7 +75,7 @@ test('licit → elfogadás → fizetés → felvétel → kézbesítés kóddal'
   await carrierPage.locator('#dropoff-photo').setInputFiles({
     name: 'atadas.png', mimeType: 'image/png', buffer: TINY_PNG,
   });
-  await carrierPage.getByPlaceholder('••••••').fill(code);
+  await carrierPage.getByPlaceholder('6 számjegy').fill(code);
   await carrierPage.getByRole('button', { name: /Kézbesítés igazolása/ }).click();
   await expect(carrierPage.getByText(/kézbesítve|lezárult/i).first()).toBeVisible({ timeout: 20_000 });
 

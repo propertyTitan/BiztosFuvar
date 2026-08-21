@@ -909,6 +909,14 @@ export default function UjFuvar() {
           style={show('price') ? redBorder : undefined}
         />
         <FieldError>{show('price')}</FieldError>
+        {/* Egyértelműsítés (2026-08-21, Manus-teszt): a mezőből nem derült
+            ki, hogy ez nem végleges ár. Azonnali fuvarnál viszont AZ. */}
+        {!form.is_instant && (
+          <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>
+            Ez a kiinduló árad, nem végleges: a szállítók ennél magasabb vagy
+            alacsonyabb ajánlatot is tehetnek — te döntöd el, melyiket fogadod el.
+          </p>
+        )}
 
         {/* Okos ár-tartomány — horgony a feladónak */}
         {estimate && (
