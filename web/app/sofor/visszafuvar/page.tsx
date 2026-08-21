@@ -14,6 +14,7 @@
 // =====================================================================
 
 import { useEffect, useState } from 'react';
+import { ListSkeleton } from '@/components/StateView';
 import Link from 'next/link';
 import { api, BackhaulGroup } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
@@ -54,7 +55,7 @@ export default function VisszafuvarPage() {
         egyezés.
       </p>
 
-      {loading && <p className="muted">Betöltés…</p>}
+      {loading && <ListSkeleton rows={3} />}
       {error && <p style={{ color: 'var(--danger-text)' }}>{error}</p>}
 
       {!loading && !error && groups.length === 0 && (

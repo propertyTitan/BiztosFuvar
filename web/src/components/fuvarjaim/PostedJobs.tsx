@@ -151,7 +151,7 @@ export default function SajatHirdeteseim() {
           miközben lentebb, az Előzmények közt ott volt. A cím ne mondjon
           mást, mint a valóság. */}
       <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <FileText size={20} /> Feladott fuvarjaim ({jobs.length})
+        <FileText size={20} /> Feladott fuvarjaim ({loading ? '…' : jobs.length})
       </h2>
       {!loading && jobs.length > 0 && aktivJobok.length === 0 && (
         <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
@@ -253,7 +253,7 @@ export default function SajatHirdeteseim() {
 
       {/* Fix áras útvonalak */}
       <h2 style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <RouteIcon size={20} /> Járataim ({routes.length})
+        <RouteIcon size={20} /> Járataim ({loading ? '…' : routes.length})
       </h2>
       {!loading && routes.length === 0 && (
         <EmptyState

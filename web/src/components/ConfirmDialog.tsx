@@ -137,6 +137,9 @@ export default function ConfirmDialog({
       // a háttéren csattan — és a dialógus a beírt adatával együtt eltűnt.
       // Ezért csak akkor zárunk, ha a lenyomás ÉS a felengedés is a
       // háttéren történt.
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
       onMouseDown={(e) => { hatterenNyomtak.current = e.target === e.currentTarget; }}
       onClick={(e) => {
         if (e.target === e.currentTarget && hatterenNyomtak.current) onClose();
@@ -223,7 +226,11 @@ export default function ConfirmDialog({
         ))}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
+          {/* GF-FT-07 (Manus): a dialógus fókuszoltan nyílik — mezős
+              változatban az első mező (autoFocus), mező nélküliben a
+              Mégse gomb kapja, hogy az Enter ne hajtson végre véletlenül
+              veszélyes műveletet. */}
+          <button type="button" className="btn btn-secondary" onClick={onClose} autoFocus={fields.length === 0}>
             {cancelLabel}
           </button>
           <button

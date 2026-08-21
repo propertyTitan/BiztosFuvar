@@ -313,7 +313,7 @@ export default function AiChatWidget() {
             )}
           </div>
 
-          <form
+          <form noValidate
             onSubmit={(e) => {
               e.preventDefault();
               send(input);

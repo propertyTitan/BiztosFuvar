@@ -191,7 +191,7 @@ export default function AiChatPage() {
           )}
         </div>
 
-        <form
+        <form noValidate
           onSubmit={(e) => {
             e.preventDefault();
             send(input);

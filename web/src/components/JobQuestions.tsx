@@ -148,7 +148,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
 
       {/* Kérdés-feltevő űrlap (nem a shipper, nyitott fuvar) */}
       {canAsk && (
-        <form onSubmit={submitQuestion} style={{ marginTop: 12, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+        <form noValidate onSubmit={submitQuestion} style={{ marginTop: 12, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
           <textarea
             value={newQuestion}
             onChange={(e) => onQuestionChange(e.target.value)}

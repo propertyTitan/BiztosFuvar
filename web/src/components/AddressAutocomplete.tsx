@@ -205,6 +205,15 @@ export default function AddressAutocomplete({
         <label>{label}</label>
         <input
           className="input"
+          onKeyDown={(e) => {
+            // ⚠️ GF-FT-01 (Manus, 2026-08-21): az Enter a javaslat kiválasztása
+            // KÖZBEN az egész űrlapot beküldte (implicit form submit). A
+            // beküldés pillanatában a kiválasztás még aszinkron futott
+            // (requirePrecise → geocoder-mentőág), így a MÁR HELYES cím is
+            // „hiányzóként" pirosodott be. Az Enter itt csak a kiválasztásé —
+            // a preventDefault a Google widget kezelését nem érinti.
+            if (e.key === 'Enter') e.preventDefault();
+          }}
           value={value}
           onChange={(e) => onTextChange?.(e.target.value)}
           placeholder="Google Maps kulcs hiányzik – kézi beírás"
@@ -246,6 +255,15 @@ export default function AddressAutocomplete({
       >
         <input
           className="input"
+          onKeyDown={(e) => {
+            // ⚠️ GF-FT-01 (Manus, 2026-08-21): az Enter a javaslat kiválasztása
+            // KÖZBEN az egész űrlapot beküldte (implicit form submit). A
+            // beküldés pillanatában a kiválasztás még aszinkron futott
+            // (requirePrecise → geocoder-mentőág), így a MÁR HELYES cím is
+            // „hiányzóként" pirosodott be. Az Enter itt csak a kiválasztásé —
+            // a preventDefault a Google widget kezelését nem érinti.
+            if (e.key === 'Enter') e.preventDefault();
+          }}
           value={value}
           onChange={(e) => {
             typedRef.current = e.target.value;

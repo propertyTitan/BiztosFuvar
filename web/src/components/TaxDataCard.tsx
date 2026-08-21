@@ -105,7 +105,7 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
         Az adatokat kizárólag a NAV felé történő éves, törvényi adatszolgáltatáshoz
         használjuk. A fuvardíjadból a platform továbbra sem von le semmit.
       </p>
-      <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <form noValidate onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <label style={{ fontSize: 13, fontWeight: 600 }}>
           Adóazonosító jel <span className="muted">(10 számjegy, az adókártyádon)</span>
           <input

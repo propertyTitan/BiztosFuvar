@@ -547,7 +547,7 @@ export default function SoforFuvarReszletek() {
             </div>
           )}
 
-          <form onSubmit={submitBid}>
+          <form noValidate onSubmit={submitBid}>
             <div className="grid-2">
               <div>
                 <label htmlFor="ajanlat-dij">Ajánlott fuvardíj (Ft)</label>
