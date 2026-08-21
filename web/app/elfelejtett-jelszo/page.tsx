@@ -58,7 +58,7 @@ export default function ElfelejtettJelszo() {
           </p>
         </div>
       ) : (
-        <form onSubmit={onSubmit} style={{ marginTop: 24 }}>
+        <form noValidate onSubmit={onSubmit} style={{ marginTop: 24 }}>
           <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600 }}>
             Email cím
           </label>

@@ -171,7 +171,7 @@ function BejelentkezesContent() {
           : 'Pár másodperc az egész. Ingyenes, és nincs havidíj.'}
       </p>
 
-      <form onSubmit={onSubmit} className="card">
+      <form noValidate onSubmit={onSubmit} className="card">
         {mode === 'register' && refCode && (
           <div style={{
             background: 'var(--success-light)', border: '1px solid var(--success)',

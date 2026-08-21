@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { api } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
-import { ListSkeleton, EmptyState } from '@/components/StateView';
+import {ListSkeleton, EmptyState, Loading } from '@/components/StateView';
 import { BellOff } from 'lucide-react';
 
 type Notification = {
@@ -76,7 +76,7 @@ export default function ErtesitesekOldal() {
     } catch {}
   }
 
-  if (!mounted) return <p className="muted">Betöltés…</p>;
+  if (!mounted) return <Loading />;
   if (!user) return <p>Lépj be a <a href="/bejelentkezes">bejelentkezés</a> oldalon.</p>;
 
   const unreadCount = items.filter((n) => !n.read_at).length;

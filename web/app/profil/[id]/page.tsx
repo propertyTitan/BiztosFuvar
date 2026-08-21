@@ -4,6 +4,7 @@
 // statisztikáit, értékeléseit, járműadatait. A licit kártyákról
 // ide kattint a feladó, hogy eldöntse kit fogad el.
 import { useEffect, useState } from 'react';
+import { Loading } from '@/components/StateView';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
 import CompanyVerifiedBadge from '@/components/CompanyVerifiedBadge';
@@ -28,7 +29,7 @@ export default function PublikusProfil() {
   }, [id]);
 
   if (error) return <div className="card" style={{ borderColor: 'var(--danger)' }}>Hiba: {error}</div>;
-  if (!profile) return <p>Betöltés…</p>;
+  if (!profile) return <Loading />;
 
   const memberSince = new Date(profile.created_at).toLocaleDateString('hu-HU', {
     year: 'numeric', month: 'long',

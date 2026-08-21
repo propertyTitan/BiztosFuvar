@@ -11,7 +11,7 @@ import { api } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
-import { ListSkeleton, EmptyState } from '@/components/StateView';
+import {ListSkeleton, EmptyState, Loading } from '@/components/StateView';
 import { Inbox, Megaphone, Send } from 'lucide-react';
 
 type AdminMessage = {
@@ -84,7 +84,7 @@ export default function UzenetekOldal() {
     }
   }
 
-  if (!mounted) return <p className="muted">Betöltés…</p>;
+  if (!mounted) return <Loading />;
   if (!user) return <p>Lépj be a <a href="/bejelentkezes">bejelentkezés</a> oldalon.</p>;
 
   return (

@@ -174,7 +174,7 @@ export default function ChatBox({ entityKey, entityId }: Props) {
       </div>
 
       {/* Input */}
-      <form
+      <form noValidate
         onSubmit={(e) => {
           e.preventDefault();
           send();
@@ -207,7 +207,10 @@ export default function ChatBox({ entityKey, entityId }: Props) {
           className="btn"
           style={{ padding: '8px 16px', fontSize: 13 }}
         >
-          Küldés
+          {/* GF-FT-05 (Manus): a gomb eddig nem mutatta, hogy dolgozik — a
+              felhasználó azt hihette, elveszett az üzenet, és újraküldte.
+              Hibánál a beírt szöveg megmarad, az újraküldés egy kattintás. */}
+          {sending ? 'Küldés…' : 'Küldés'}
         </button>
       </form>
     </div>

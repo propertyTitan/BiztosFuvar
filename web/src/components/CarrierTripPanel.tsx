@@ -39,6 +39,7 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
   const toast = useToast();
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const dropoffInputRef = useRef<HTMLInputElement>(null);
+  const kodInputRef = useRef<HTMLInputElement>(null);
   const [pickupFile, setPickupFile] = useState<File | null>(null);
   const [dropoffFile, setDropoffFile] = useState<File | null>(null);
   const [deliveryCode, setDeliveryCode] = useState('');
@@ -110,6 +111,13 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
       toast.success('Csomag kézbesítve', 'A fuvar lezárult. Köszönjük!');
       onDone();
     } catch (e: any) {
+      // ⚠️ GF-FT-02 (Manus, 2026-08-21): a szerver-oldali elutasítás (rossz
+      // kód, zárolás) eddig CSAK toastban szólt, ami pár másodperc után
+      // eltűnt — a szállító a kapuban állva nem tudta, rossz kódot írt-e,
+      // vagy a hálózat halt el. A hiba mostantól TARTÓSAN a kód-mező alatt
+      // marad, és a mező fókuszt kap az azonnali javításhoz.
+      setKodHiba(e.message);
+      kodInputRef.current?.focus();
       toast.error('Sikertelen kézbesítés', e.message);
     } finally {
       setBusy(false);
@@ -242,6 +250,7 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
         <div style={{ marginTop: 12, maxWidth: 220 }}>
           <label htmlFor={`${idPrefix}atveteli-kod`} style={{ fontSize: 13, fontWeight: 600 }}>Átvételi kód (6 számjegy)</label>
           <input
+            ref={kodInputRef}
             id={`${idPrefix}atveteli-kod`}
             className="input"
             inputMode="numeric"

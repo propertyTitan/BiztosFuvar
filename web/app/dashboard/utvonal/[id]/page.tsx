@@ -210,7 +210,7 @@ export default function FeladoUtvonalReszletek() {
       {/* Foglalás form — saját posztnál nem jelenítjük meg, hogy el se
           lehessen kezdeni a foglalást. A backend is 403-mal utasítja el. */}
       {!isMine && (
-      <form
+      <form noValidate
         className="card"
         onSubmit={submit}
         // Enter a cím-autocomplete legördülőjéből választáskor ne küldje el

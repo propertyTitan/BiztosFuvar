@@ -3,6 +3,7 @@
 // Jelszó-visszaállítás form. A token a query-paramban érkezik.
 
 import { useEffect, useState, Suspense } from 'react';
+import { Loading } from '@/components/StateView';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/api';
@@ -70,7 +71,7 @@ function JelszoResetInner() {
         Add meg az új jelszavadat. Minimum 8 karakter.
       </p>
 
-      <form onSubmit={onSubmit} style={{ marginTop: 24 }}>
+      <form noValidate onSubmit={onSubmit} style={{ marginTop: 24 }}>
         <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600 }}>
           Új jelszó
         </label>
@@ -131,7 +132,7 @@ function JelszoResetInner() {
 
 export default function JelszoReset() {
   return (
-    <Suspense fallback={<p>Betöltés…</p>}>
+    <Suspense fallback={<Loading />}>
       <JelszoResetInner />
     </Suspense>
   );

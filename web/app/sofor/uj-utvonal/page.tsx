@@ -6,6 +6,7 @@
 //   meglévő útvonalat, és a mentéskor PATCH-et hív POST helyett.
 // - Mentés draft-ként vagy publikálás azonnal
 import { Suspense, useEffect, useState } from 'react';
+import { ListSkeleton } from '@/components/StateView';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api, Waypoint } from '@/api';
 import { PACKAGE_SIZES, PackageSizeId } from '@/lib/packageSizes';
@@ -181,9 +182,9 @@ function UjUtvonalContent() {
           : 'Hirdesd meg az útvonalat amit bejársz — a feladók a csomagjaikat felkínálhatják rá. Te döntöd el, milyen méretű csomagokat viszel, és mennyiért.'}
       </p>
 
-      {loading && <p>Betöltés…</p>}
+      {loading && <ListSkeleton rows={3} />}
 
-      <form className="card" onSubmit={(e) => { e.preventDefault(); submit(true); }}>
+      <form noValidate className="card" onSubmit={(e) => { e.preventDefault(); submit(true); }}>
         <h2 style={{ marginTop: 0 }}>Útvonal</h2>
         <CityTagsInput
           label="Városok (INDULÁS → megállók → CÉL)"

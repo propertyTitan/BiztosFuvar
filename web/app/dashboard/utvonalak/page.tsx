@@ -135,7 +135,7 @@ export default function FeladoiUtvonalBongeszo() {
         </div>
       </div>
 
-      <form className="card" onSubmit={onFilter} style={{ marginTop: 16 }}>
+      <form noValidate className="card" onSubmit={onFilter} style={{ marginTop: 16 }}>
         <label>Szűrés</label>
         <div className="row" style={{ alignItems: 'end', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 180 }}>
