@@ -65,7 +65,7 @@ test('foglalás végrehajtása: szállító pickup + kód-lezárás → feladó 
   await carrierPage.locator(`#${idPrefix}dropoff-photo`).setInputFiles({
     name: 'atadas.png', mimeType: 'image/png', buffer: TINY_PNG,
   });
-  await carrierPage.getByPlaceholder('••••••').fill(code);
+  await carrierPage.getByPlaceholder('6 számjegy').fill(code);
   await carrierPage.getByRole('button', { name: /Kézbesítés igazolása/ }).click();
   await expect(carrierPage.getByText(/Kézbesítve/).first()).toBeVisible({ timeout: 20_000 });
 

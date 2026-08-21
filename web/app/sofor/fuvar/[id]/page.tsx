@@ -780,7 +780,9 @@ export default function SoforFuvarReszletek() {
       )}
 
       {/* Értékelés — delivered / completed állapotban */}
-      {['delivered', 'completed'].includes(job.status) && (
+      {/* A 'disputed' is — lásd a feladói oldal azonos kommentjét. */}
+      {(['delivered', 'completed'].includes(job.status)
+        || (job.status === 'disputed' && (job as any).delivered_at)) && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Star size={20} color="var(--warning)" fill="var(--warning)" /> Értékeld a feladót

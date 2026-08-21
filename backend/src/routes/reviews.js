@@ -54,13 +54,21 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
 
   if (job_id) {
     const { rows } = await db.query(
-      'SELECT shipper_id, carrier_id, title, status FROM jobs WHERE id = $1',
+      'SELECT shipper_id, carrier_id, title, status, delivered_at FROM jobs WHERE id = $1',
       [job_id],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
     const j = rows[0];
-    if (!['delivered', 'completed'].includes(j.status)) {
-      return res.status(409).json({ error: 'Értékelni csak lezárt (delivered/completed) fuvart lehet.' });
+    // ⚠️ A KÉZBESÍTÉS UTÁNI VITA NEM VESZI EL AZ ÉRTÉKELÉST (2026-08-21,
+    // Manus-teszt): a kézbesített fuvarra nyitott vita 'disputed'-be tette a
+    // státuszt, és ezzel az értékelés végleg eltűnt — pedig az élmény pont
+    // ilyenkor a legfontosabb visszajelzés, és a vita meg az értékelés két
+    // külön csatorna. A kézbesítés ELŐTTI vitában viszont továbbra sem lehet
+    // értékelni: ott a szolgáltatás (a kézbesítés) még meg sem történt.
+    const ertekelheto = ['delivered', 'completed'].includes(j.status)
+      || (j.status === 'disputed' && j.delivered_at);
+    if (!ertekelheto) {
+      return res.status(409).json({ error: 'Értékelni a kézbesítés után lehet (vitatott fuvarnál is, ha a csomag már kézbesült).' });
     }
     if (j.shipper_id !== req.user.sub && j.carrier_id !== req.user.sub) {
       return res.status(403).json({ error: 'Csak az érintett felek értékelhetnek.' });
@@ -71,7 +79,7 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
 
   if (booking_id) {
     const { rows } = await db.query(
-      `SELECT b.shipper_id, r.carrier_id, r.title, b.status
+      `SELECT b.shipper_id, r.carrier_id, r.title, b.status, b.delivered_at
          FROM route_bookings b
          JOIN carrier_routes r ON r.id = b.route_id
         WHERE b.id = $1`,
@@ -79,8 +87,10 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Foglalás nem található' });
     const b = rows[0];
-    if (!['delivered', 'completed'].includes(b.status)) {
-      return res.status(409).json({ error: 'Értékelni csak lezárt (delivered/completed) foglalást lehet.' });
+    const bErtekelheto = ['delivered', 'completed'].includes(b.status)
+      || (b.status === 'disputed' && b.delivered_at);
+    if (!bErtekelheto) {
+      return res.status(409).json({ error: 'Értékelni a kézbesítés után lehet (vitatott foglalásnál is, ha a csomag már kézbesült).' });
     }
     if (b.shipper_id !== req.user.sub && b.carrier_id !== req.user.sub) {
       return res.status(403).json({ error: 'Csak az érintett felek értékelhetnek.' });
@@ -203,7 +213,7 @@ router.post('/jobs/:jobId/reviews', authRequired, writeRateLimit, async (req, re
   const legacyLeak = detectContactLeak(comment);
   if (legacyLeak) return res.status(400).json({ error: legacyLeak, code: 'CONTACT_LEAK' });
   const { rows: jobRows } = await db.query(
-    'SELECT shipper_id, carrier_id, title, status FROM jobs WHERE id = $1',
+    'SELECT shipper_id, carrier_id, title, status, delivered_at FROM jobs WHERE id = $1',
     [job_id],
   );
   const job = jobRows[0];
@@ -211,8 +221,12 @@ router.post('/jobs/:jobId/reviews', authRequired, writeRateLimit, async (req, re
   if (![job.shipper_id, job.carrier_id].includes(req.user.sub)) {
     return res.status(403).json({ error: 'Nincs jogosultság' });
   }
-  if (!['delivered', 'completed'].includes(job.status)) {
-    return res.status(409).json({ error: 'Csak teljesített fuvarra adható értékelés' });
+  // Ugyanaz a szabály, mint a fő /reviews végponton (2026-08-21): a
+  // kézbesítés utáni vita nem veszi el az értékelést. KÉT végpont — a
+  // védelem ne csak az egyiken éljen.
+  if (!(['delivered', 'completed'].includes(job.status)
+    || (job.status === 'disputed' && job.delivered_at))) {
+    return res.status(409).json({ error: 'Értékelni a kézbesítés után lehet (vitatott fuvarnál is, ha a csomag már kézbesült).' });
   }
   const revieweeId = job.shipper_id === req.user.sub ? job.carrier_id : job.shipper_id;
   try {

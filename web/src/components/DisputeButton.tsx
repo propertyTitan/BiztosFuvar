@@ -28,7 +28,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
 
   const handleSubmit = async () => {
     if (description.trim().length < 20) {
-      toast.error('Tul rovid leiras', 'Minimum 20 karakter - ird le mi a problema.');
+      toast.error('Túl rövid leírás', 'Minimum 20 karakter — írd le, mi a probléma.');
       return;
     }
     setSubmitting(true);
@@ -38,11 +38,11 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
         booking_id: bookingId,
         description: description.trim(),
       });
-      toast.success('Vita megnyitva', 'Egy admin hamarosan ellenorzi es felveszi veled a kapcsolatot.');
+      toast.success('Vita megnyitva', 'Az ügyfélszolgálat átnézi és e-mailben jelentkezik.');
       setOpen(false);
       setDescription('');
     } catch (e: any) {
-      toast.error('Nem sikerult', e.message);
+      toast.error('Nem sikerült', e.message);
     } finally {
       setSubmitting(false);
     }

@@ -163,7 +163,14 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
           accept="image/*"
           capture="environment"
           onChange={(e) => { setPickupFile(e.target.files?.[0] || null); setPickupHiba(null); }}
-          style={{ display: 'none' }}
+          // ⚠️ NEM display:none (2026-08-21): az kivenné a fókusz-sorrendből —
+          // billentyűzettel (és egyes automatizált eszközökkel) elérhetetlen
+          // volt a fotó-feltöltés. Látványra rejtett, de fókuszálható: Tab-bal
+          // ráállva az Enter nyitja a fájlválasztót/kamerát.
+          style={{
+            position: 'absolute', width: 1, height: 1, opacity: 0,
+            overflow: 'hidden', clipPath: 'inset(50%)',
+          }}
         />
 
         {pickupFile && (
@@ -216,7 +223,14 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
           accept="image/*"
           capture="environment"
           onChange={(e) => { setDropoffFile(e.target.files?.[0] || null); setDropoffFotoHiba(null); }}
-          style={{ display: 'none' }}
+          // ⚠️ NEM display:none (2026-08-21): az kivenné a fókusz-sorrendből —
+          // billentyűzettel (és egyes automatizált eszközökkel) elérhetetlen
+          // volt a fotó-feltöltés. Látványra rejtett, de fókuszálható: Tab-bal
+          // ráállva az Enter nyitja a fájlválasztót/kamerát.
+          style={{
+            position: 'absolute', width: 1, height: 1, opacity: 0,
+            overflow: 'hidden', clipPath: 'inset(50%)',
+          }}
         />
 
         {dropoffFile && (
@@ -235,7 +249,12 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
             maxLength={6}
             value={deliveryCode}
             onChange={(e) => { setDeliveryCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setKodHiba(null); }}
-            placeholder="••••••"
+            // ⚠️ NEM "••••••" (2026-08-21, Manus-teszt): a hat pötty
+            // placeholder-ként pont úgy nézett ki, mint egy KITÖLTÖTT
+            // jelszó-mező — az ÜRES mezőt kitöltöttnek lehetett hinni, és a
+            // lezárás "érthetetlenül" elutasította. A placeholder mondja meg,
+            // MIT kell ide írni, ne imitáljon beírt titkot.
+            placeholder="6 számjegy"
             title="A 6 számjegyű kódot az átvevő mondja meg — SMS-ben kapta a felvételkor."
             style={{
               letterSpacing: 4, fontSize: 18, textAlign: 'center',

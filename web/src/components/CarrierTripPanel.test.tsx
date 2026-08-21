@@ -66,7 +66,7 @@ describe('CarrierTripPanel — kézbesítés (in_progress)', () => {
     render(<CarrierTripPanel jobId="j1" status="in_progress" paid onDone={vi.fn()} />);
 
     await user.upload(document.getElementById('dropoff-photo') as HTMLInputElement, file());
-    await user.type(screen.getByPlaceholderText('••••••'), '1234');
+    await user.type(screen.getByPlaceholderText('6 számjegy'), '1234');
     await user.click(screen.getByRole('button', { name: /Kézbesítés igazolása/ }));
 
     expect(toast.error).toHaveBeenCalledWith('Nézd át a mezőket', expect.any(String));
@@ -82,7 +82,7 @@ describe('CarrierTripPanel — kézbesítés (in_progress)', () => {
     render(<CarrierTripPanel jobId="j1" status="in_progress" paid onDone={onDone} />);
 
     await user.upload(document.getElementById('dropoff-photo') as HTMLInputElement, file());
-    await user.type(screen.getByPlaceholderText('••••••'), '123456');
+    await user.type(screen.getByPlaceholderText('6 számjegy'), '123456');
     await user.click(screen.getByRole('button', { name: /Kézbesítés igazolása/ }));
 
     expect(uploadJobPhoto).toHaveBeenCalledWith('j1', expect.any(File), 'dropoff', { deliveryCode: '123456' });

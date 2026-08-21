@@ -145,9 +145,19 @@ export default function SajatHirdeteseim() {
       )}
 
       {/* Feladott fuvarok */}
+      {/* ⚠️ A számláló az ÖSSZES fuvart mutatja (2026-08-21, Manus-teszt):
+          a csak-aktív számlálás miatt egy lezárt fuvarú feladó „Feladott
+          fuvarjaim (0)"-t látott, és joggal hitte, hogy a fuvarja ELTŰNT —
+          miközben lentebb, az Előzmények közt ott volt. A cím ne mondjon
+          mást, mint a valóság. */}
       <h2 style={{ marginTop: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-        <FileText size={20} /> Feladott fuvarjaim ({aktivJobok.length})
+        <FileText size={20} /> Feladott fuvarjaim ({jobs.length})
       </h2>
+      {!loading && jobs.length > 0 && aktivJobok.length === 0 && (
+        <p className="muted" style={{ margin: '4px 0 0', fontSize: 13 }}>
+          Most nincs aktív fuvarod — a lezártakat lentebb, az <strong>Előzmények</strong> között találod.
+        </p>
+      )}
       {!loading && jobs.length === 0 && (
         <EmptyState
           compact
@@ -183,12 +193,16 @@ export default function SajatHirdeteseim() {
         </Link>
       ))}
 
-      {/* Teljesített fuvarok — összecsukott, kompakt lista: nem teendő,
-          csak előzmény. A tesztelő kérése: „valahogy le kéne zárni a fuvart,
-          mert most a teljesített fuvar a többi teljesítendő között van." */}
+      {/* Előzmények — közös fejléc a lezárt szekcióknak, hogy a listának
+          látható, megnevezett helye legyen (Manus-teszt, 2026-08-21). */}
+      {(teljesitett.length > 0 || lemondott.length > 0) && (
+        <h2 style={{ marginTop: 32, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          Előzmények
+        </h2>
+      )}
       {teljesitett.length > 0 && (
         <>
-          <h2 style={{ marginTop: 28, fontSize: 17 }}>✓ Teljesített ({teljesitett.length})</h2>
+          <h3 style={{ marginTop: 16, fontSize: 16 }}>✓ Teljesített ({teljesitett.length})</h3>
           {teljesitett.map((j) => (
             <Link
               key={j.id}
@@ -214,7 +228,7 @@ export default function SajatHirdeteseim() {
       {/* Lemondott fuvarok — szintén külön, halványan. */}
       {lemondott.length > 0 && (
         <>
-          <h2 style={{ marginTop: 28, fontSize: 17 }}>Lemondott ({lemondott.length})</h2>
+          <h3 style={{ marginTop: 16, fontSize: 16 }}>Lemondott ({lemondott.length})</h3>
           {lemondott.map((j) => (
             <Link
               key={j.id}

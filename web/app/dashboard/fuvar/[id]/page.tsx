@@ -264,7 +264,7 @@ export default function FuvarReszletek() {
           halott kód volt: a scrub a feladótól MINDIG elveszi a címzett
           `delivery_code`-ját, a `sender_delivery_code` viszont mindig
           létezik, így a feltétele sosem teljesült. */}
-      {(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled'].includes(job.status) && (() => {
+      {(job as any).sender_delivery_code && !['delivered', 'completed', 'cancelled', 'disputed'].includes(job.status) && (() => {
         const vanCimzett = Boolean(job.recipient_name || job.recipient_phone);
         const kod = (job as any).sender_delivery_code as string;
         return (
@@ -603,8 +603,11 @@ export default function FuvarReszletek() {
             </div>
           )}
 
-          {/* Lemondás gomb — bárhol elérhető, ha a fuvar még lemondható */}
-          {!['in_progress', 'delivered', 'completed', 'cancelled'].includes(job.status) && (
+          {/* Lemondás gomb — bárhol elérhető, ha a fuvar még lemondható.
+              ⚠️ A 'disputed' IS kizárt (2026-08-21, Manus-teszt): a szerver
+              már tiltotta (409), de a gomb látszott — vitatott állapotban a
+              lemondás azt sugallta volna, hogy ki lehet lépni a vita alól. */}
+          {!['in_progress', 'delivered', 'completed', 'cancelled', 'disputed'].includes(job.status) && (
             <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
               <button
                 type="button"
@@ -645,6 +648,21 @@ export default function FuvarReszletek() {
           )}
         </div>
       </div>
+
+      {/* Vita folyamatban — TARTÓS jelzés (2026-08-21, Manus-teszt: a vita
+          megnyitása után csak egy pár másodperces toast szólt; aki azt
+          elmulasztotta, nem tudta, létrejött-e a vita). */}
+      {job.status === 'disputed' && (
+        <div className="card" style={{ marginTop: 16, borderColor: 'var(--warning, #d97706)', background: 'rgba(217,119,6,0.08)' }}>
+          <h2 style={{ marginTop: 0 }}>⚖️ Vita folyamatban</h2>
+          <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+            A vitát megkaptuk, az ügyfélszolgálat átnézi a fotókat és az
+            előzményeket, és e-mailben jelentkezik. A fuvar fotói a vita
+            idejére bizonyítékként zárolva vannak. A vita lezárásáig a fuvar
+            nem mondható le.
+          </p>
+        </div>
+      )}
 
       {/* Vita indítása — in_progress vagy delivered státuszban,
           ha valami baj van a csomaggal / szállítással / szállítóval. */}
@@ -703,7 +721,12 @@ export default function FuvarReszletek() {
       )}
 
       {/* Értékelés — delivered / completed állapotban */}
-      {['delivered', 'completed'].includes(job.status) && (
+      {/* A 'disputed' is szerepel (2026-08-21, Manus-teszt): a kézbesítés
+          utáni vita elrejtette az értékelést — pedig az élmény pont ilyenkor
+          a legfontosabb visszajelzés. A vita és az értékelés két külön
+          csatorna. */}
+      {(['delivered', 'completed'].includes(job.status)
+        || (job.status === 'disputed' && (job as any).delivered_at)) && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Star size={20} color="var(--warning)" fill="var(--warning)" /> Értékeld a szállítót
