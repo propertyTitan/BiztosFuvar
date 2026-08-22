@@ -2,10 +2,12 @@
 //  Téma (világos / sötét) — a döntési logika EGYETLEN helye
 //
 //  Három állapot:
-//    'system' — az operációs rendszer beállítását követi (ALAPÉRTELMEZÉS,
-//               és élőben követi is, ha a user az OS-ben átvált)
+//    'system' — az operációs rendszer beállítását követi (élőben is, ha a
+//               user az OS-ben átvált) — KIFEJEZETT választással érhető el
 //    'light'  — kényszerített világos
-//    'dark'   — kényszerített sötét
+//    'dark'   — kényszerített sötét (ALAPÉRTELMEZÉS, 2026-08-22, user-döntés:
+//               „sokkal jobban néz ki az oldal" — tárolt választás nélkül
+//               mindenki ezt kapja; a kapcsoló marad, bárki átválthat)
 //
 //  A tényleges témát a <html data-theme="light|dark"> attribútum hordozza,
 //  amire a globals.css épül. A `system` SOSEM kerül az attribútumba —
@@ -23,19 +25,19 @@ export const THEME_STORAGE_KEY = 'gofuvar_theme';
 /** A komponensek erre az eseményre frissítik magukat (más tab / másik gomb). */
 export const THEME_EVENT = 'gofuvar:theme';
 
-/** Érvényes-e a tárolt érték? (Bármi más → 'system'.) */
+/** Érvényes-e a tárolt érték? (Bármi más → 'dark' — ez az alapértelmezés.) */
 export function normalizeChoice(value: unknown): ThemeChoice {
-  return value === 'light' || value === 'dark' || value === 'system' ? value : 'system';
+  return value === 'light' || value === 'dark' || value === 'system' ? value : 'dark';
 }
 
-/** A mentett választás. SSR-en 'system' (nincs localStorage). */
+/** A mentett választás. SSR-en és hibánál 'dark' (az alapértelmezés). */
 export function readThemeChoice(): ThemeChoice {
-  if (typeof window === 'undefined') return 'system';
+  if (typeof window === 'undefined') return 'dark';
   try {
     return normalizeChoice(window.localStorage.getItem(THEME_STORAGE_KEY));
   } catch {
     // privát mód / letiltott storage — ne dőljön el az oldal miatta
-    return 'system';
+    return 'dark';
   }
 }
 
@@ -64,8 +66,11 @@ export function applyResolvedTheme(resolved: ResolvedTheme) {
  */
 export function setThemeChoice(choice: ThemeChoice) {
   try {
-    if (choice === 'system') window.localStorage.removeItem(THEME_STORAGE_KEY);
-    else window.localStorage.setItem(THEME_STORAGE_KEY, choice);
+    // ⚠️ A 'system' is ELTÁROLÓDIK (2026-08-22). Korábban a 'system' törölte
+    // a bejegyzést („nincs kulcs = rendszer-mód") — de az alapértelmezés
+    // mostantól a SÖTÉT, tehát a hiányzó kulcs dark-ot jelent: ha a 'system'
+    // választás nem íródna ki, a következő betöltésre elveszne.
+    window.localStorage.setItem(THEME_STORAGE_KEY, choice);
   } catch { /* storage letiltva — a téma a munkamenetre akkor is átáll */ }
   applyResolvedTheme(resolveTheme(choice, prefersDark()));
   window.dispatchEvent(new Event(THEME_EVENT));
@@ -94,8 +99,11 @@ export const THEME_LABELS: Record<ThemeChoice, string> = {
  * Ha a kulcs vagy az attribútum neve változik, ITT IS át kell írni —
  * a `theme.test.ts` erre külön figyel.
  */
+// ⚠️ 2026-08-22 (user-döntés): tárolt választás nélkül az alap a SÖTÉT téma.
+// A 'system' csak KIFEJEZETT (eltárolt) választásként követi az OS-t.
 export const THEME_BOOT_SCRIPT = `(function(){try{
 var c=localStorage.getItem('${THEME_STORAGE_KEY}');
-if(c!=='light'&&c!=='dark'){c=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}
+if(c==='system'){c=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}
+else if(c!=='light'&&c!=='dark'){c='dark';}
 document.documentElement.setAttribute('data-theme',c);
-}catch(e){document.documentElement.setAttribute('data-theme','light');}})();`;
+}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;

@@ -1,5 +1,6 @@
 // Téma-kapcsoló (2026-08-04, tesztelői kérés): a user maga válthat világos és
-// sötét között, a rendszer-beállítás marad az alapértelmezés.
+// sötét között; az alapértelmezés a SÖTÉT téma (2026-08-22, user-döntés),
+// a rendszer-mód kifejezett választásként érhető el.
 //
 // Ez a spec a teljes bekötést őrzi — amit unit-teszttel nem lehet: a <head>-be
 // tett boot-szkript tényleg fut-e a festés előtt (nincs világos villanás),
@@ -10,7 +11,9 @@ import { test, expect } from '@playwright/test';
 const themeButton = /Téma:/;
 
 test.describe('téma-kapcsoló', () => {
-  test('alapból az operációs rendszer beállítását követi', async ({ browser }) => {
+  test('alapból SÖTÉT — az operációs rendszer beállításától függetlenül', async ({ browser }) => {
+    // 2026-08-22 (user-döntés): tárolt választás nélkül a téma dark,
+    // világos OS-en is. A kapcsoló marad, bárki átválthat.
     const darkCtx = await browser.newContext({ colorScheme: 'dark' });
     const darkPage = await darkCtx.newPage();
     await darkPage.goto('/');
@@ -20,7 +23,7 @@ test.describe('téma-kapcsoló', () => {
     const lightCtx = await browser.newContext({ colorScheme: 'light' });
     const lightPage = await lightCtx.newPage();
     await lightPage.goto('/');
-    await expect(lightPage.locator('html')).toHaveAttribute('data-theme', 'light');
+    await expect(lightPage.locator('html')).toHaveAttribute('data-theme', 'dark');
     await lightCtx.close();
   });
 
@@ -30,23 +33,26 @@ test.describe('téma-kapcsoló', () => {
     await page.goto('/');
 
     const html = page.locator('html');
-    await expect(html).toHaveAttribute('data-theme', 'light');
-    const lightBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-
-    // rendszer(világos) → világos
-    await page.getByRole('button', { name: themeButton }).click();
-    await expect(html).toHaveAttribute('data-theme', 'light');
-
-    // világos → sötét: a háttér ténylegesen megváltozik
-    await page.getByRole('button', { name: themeButton }).click();
+    // Friss állapot: az alapértelmezett SÖTÉT (világos OS mellett is).
     await expect(html).toHaveAttribute('data-theme', 'dark');
     const darkBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(darkBg).not.toBe(lightBg);
 
-    // sötét → rendszer (a context világos) — a mentett választás törlődik
+    // sötét → rendszer (a context világos) — a 'system' ELTÁROLÓDIK
+    // (nem törlődik: a hiányzó kulcs már dark-ot jelentene)
     await page.getByRole('button', { name: themeButton }).click();
     await expect(html).toHaveAttribute('data-theme', 'light');
-    expect(await page.evaluate(() => localStorage.getItem('gofuvar_theme'))).toBeNull();
+    expect(await page.evaluate(() => localStorage.getItem('gofuvar_theme'))).toBe('system');
+    const lightBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+    expect(lightBg).not.toBe(darkBg);
+
+    // rendszer → világos
+    await page.getByRole('button', { name: themeButton }).click();
+    await expect(html).toHaveAttribute('data-theme', 'light');
+    expect(await page.evaluate(() => localStorage.getItem('gofuvar_theme'))).toBe('light');
+
+    // világos → sötét: a háttér ténylegesen visszavált
+    await page.getByRole('button', { name: themeButton }).click();
+    await expect(html).toHaveAttribute('data-theme', 'dark');
 
     await ctx.close();
   });
