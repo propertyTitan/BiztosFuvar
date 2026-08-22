@@ -36,11 +36,13 @@ describe('normalizeChoice', () => {
     expect(normalizeChoice('system')).toBe('system');
   });
 
-  it('bármi másra „system" (sérült/idegen localStorage-érték)', () => {
-    expect(normalizeChoice(null)).toBe('system');
-    expect(normalizeChoice('DARK')).toBe('system');
-    expect(normalizeChoice('{}')).toBe('system');
-    expect(normalizeChoice(42)).toBe('system');
+  it('bármi másra „dark" — ez az alapértelmezés (2026-08-22, user-döntés)', () => {
+    // Tárolt választás nélkül (és sérült értékre) az oldal SÖTÉT témával
+    // indul — nem az OS-t követi. A rendszer-mód kifejezett választás maradt.
+    expect(normalizeChoice(null)).toBe('dark');
+    expect(normalizeChoice('DARK')).toBe('dark');
+    expect(normalizeChoice('{}')).toBe('dark');
+    expect(normalizeChoice(42)).toBe('dark');
   });
 });
 
@@ -76,11 +78,15 @@ describe('setThemeChoice / readThemeChoice', () => {
     expect(readThemeChoice()).toBe('dark');
   });
 
-  it('„system" TÖRLI a bejegyzést, és az OS szerint old fel', () => {
+  it('„system" ELTÁROLÓDIK, és az OS szerint old fel', () => {
+    // ⚠️ Korábban a 'system' törölte a kulcsot („nincs kulcs = rendszer-mód").
+    // Az alapértelmezés most a SÖTÉT, tehát a hiányzó kulcs dark-ot jelent —
+    // ha a 'system' nem íródna ki, a választás a következő betöltésre
+    // elveszne, és a user hiába váltott rendszer-módra.
     setThemeChoice('dark');
     mockSystemDark(true);
     setThemeChoice('system');
-    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBeNull();
+    expect(window.localStorage.getItem(THEME_STORAGE_KEY)).toBe('system');
     expect(readThemeChoice()).toBe('system');
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
   });
@@ -109,7 +115,16 @@ describe('THEME_BOOT_SCRIPT — a festés előtti szkript', () => {
     expect(THEME_BOOT_SCRIPT).toContain(THEME_STORAGE_KEY);
   });
 
-  it('mentett választás nélkül az OS-t követi', () => {
+  it('mentett választás nélkül SÖTÉT — az OS-től függetlenül', () => {
+    // 2026-08-22 (user-döntés): az alapértelmezés a dark, világos OS-en is.
+    mockSystemDark(true);
+    expect(runBootScript()).toBe('dark');
+    mockSystemDark(false);
+    expect(runBootScript()).toBe('dark');
+  });
+
+  it('a KIFEJEZETT „system" választás viszont az OS-t követi', () => {
+    window.localStorage.setItem(THEME_STORAGE_KEY, 'system');
     mockSystemDark(true);
     expect(runBootScript()).toBe('dark');
     mockSystemDark(false);

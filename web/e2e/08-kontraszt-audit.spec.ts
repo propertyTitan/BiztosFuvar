@@ -129,6 +129,14 @@ test('kontraszt-audit: light + dark módban minden fő oldalon 0 probléma', asy
     for (const plan of plans) {
       const ctx = await browser.newContext({ colorScheme: scheme, viewport: { width: 1280, height: 900 } });
       const page = await ctx.newPage();
+      // ⚠️ 2026-08-22: az alapértelmezett téma a SÖTÉT lett (user-döntés) —
+      // az OS-jelzés (colorScheme) önmagában már nem váltja a témát. A kért
+      // témát KIFEJEZETT tárolt választásként állítjuk be, ahogy egy valódi
+      // felhasználó tenné a kapcsolóval; a lenti data-theme ellenőrzés
+      // változatlanul őrzi, hogy tényleg az fut, amit auditálunk.
+      await page.addInitScript((valasztas) => {
+        window.localStorage.setItem('gofuvar_theme', valasztas);
+      }, scheme);
       if (plan.user) await loginAs(page, plan.user);
       for (const route of plan.routes) {
         await page.goto(route, { waitUntil: 'domcontentloaded' }).catch(() => page.goto(route, { waitUntil: 'domcontentloaded' }));
