@@ -5,7 +5,7 @@
 // Először megjelenik a látogatóknak, akik még nem nyilatkoztak.
 // A választást localStorage-ben tároljuk, így csak egyszer látja.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 const STORAGE_KEY = 'gofuvar_cookie_consent';
@@ -14,6 +14,7 @@ type Choice = 'accept' | 'decline';
 
 export default function CookieConsentBanner() {
   const [show, setShow] = useState(false);
+  const savRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -31,10 +32,31 @@ export default function CookieConsentBanner() {
     window.dispatchEvent(new CustomEvent('gofuvar:cookie-consent', { detail: choice }));
   }
 
+  // ⚠️ A SÁV NE TAKARJON EL KATTINTHATÓ ELEMEKET (2026-08-22, Manus-teszt:
+  // GF-FT-07 + a süti-észrevétel EGY hiba). A sáv fixen az alsó szélen ül,
+  // és a lap aljára eső gombokat (Fuvar lemondása, ajánlat-elfogadás)
+  // FIZIKAILAG eltakarta — az első kattintás a sávot találta el, és némán
+  // elveszett: úgy tűnt, „a modal nem nyílik meg". Amíg a sáv látszik, a
+  // lap annyi alsó margót kap, hogy minden tartalom a sáv FÖLÉ görgethető.
+  useEffect(() => {
+    if (!show) return undefined;
+    const igazit = () => {
+      const magassag = savRef.current?.offsetHeight ?? 0;
+      document.body.style.paddingBottom = magassag ? `${magassag + 8}px` : '';
+    };
+    igazit();
+    window.addEventListener('resize', igazit);
+    return () => {
+      window.removeEventListener('resize', igazit);
+      document.body.style.paddingBottom = '';
+    };
+  }, [show]);
+
   if (!show) return null;
 
   return (
     <div
+      ref={savRef}
       role="dialog"
       aria-label="Süti nyilatkozat"
       style={{

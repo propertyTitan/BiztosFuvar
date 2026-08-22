@@ -193,9 +193,22 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
             className="btn"
             onClick={submitPickup}
             disabled={busy}
+            aria-busy={busy}
             style={{ marginTop: 12 }}
           >
-            {busy ? 'Feltöltés…' : 'Felvétel igazolása → fuvar indítása'}
+            {/* Feltöltés közben spinner is (Manus, 2026-08-22): a puszta
+                szöveg-csere nem volt elég feltűnő, a felhasználó újra
+                kattinthatott volna. */}
+            {busy ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span aria-hidden style={{
+                  width: 14, height: 14, borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff',
+                  animation: 'gofuvar-spin 0.8s linear infinite', display: 'inline-block',
+                }} />
+                Feltöltés…
+              </span>
+            ) : 'Felvétel igazolása → fuvar indítása'}
           </button>
         </div>
       </div>
@@ -279,9 +292,19 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
             className="btn"
             onClick={submitDropoff}
             disabled={busy}
+            aria-busy={busy}
             style={{ marginTop: 12 }}
           >
-            {busy ? 'Feltöltés…' : 'Kézbesítés igazolása → fuvar lezárása'}
+            {busy ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                <span aria-hidden style={{
+                  width: 14, height: 14, borderRadius: '50%',
+                  border: '2px solid rgba(255,255,255,0.4)', borderTopColor: '#fff',
+                  animation: 'gofuvar-spin 0.8s linear infinite', display: 'inline-block',
+                }} />
+                Feltöltés…
+              </span>
+            ) : 'Kézbesítés igazolása → fuvar lezárása'}
           </button>
         </div>
       </div>
