@@ -236,12 +236,16 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   állapot beragad — nincs siker-toast, se navigáció. Javaslat:
 >   idempotenciakulcs + feldolgozási állapot lezárása. (Szintén a
 >   „beragadó submit" osztály — GF-001/002/012-vel együtt kezelendő.)
-> - **GF-004 (SMS/PIN):** a felület „SMS elküldve"-t jelez, de a címzett NEM
->   kap üzenetet; a normál PIN-út blokkol. ⚠️ ELŐBB a Railway-log/Sentry:
->   a SeeMe ISMERT hibamódjai (code=13 = IP-allowlist elfordult, code=7 =
->   egyenleg elfogyott — lásd 9. szakasz) — lehet KONFIG-hiba, nem kód.
->   Emellett jogos a jelentés UI-kritikája: sikerállapot csak kézbesítési
->   visszaigazolás után + újraküldés-gomb.
+> - **GF-004 (SMS/PIN):** ✅ **LEZÁRVA (2026-08-30)** — a gyökérok tényleg
+>   konfig volt, nem kód: Railway-logból bizonyítva `code=13 Your
+>   152.55.177.90 IP address is not allowed` (a Railway Hobby kimenő IP-je
+>   megint elfordult; legalább 08-20 óta minden SMS némán kiesett). VÉGLEGES
+>   megoldás (user-döntés): a SeeMe IP-szűrőjébe a TELJES tartomány
+>   (0.0.0.0–255.255.255.255) felvéve — az osztály megszűnt. Éles
+>   füstteszttel bizonyítva (`[sms] küldve: ***9223`). Ráadás védelem:
+>   SMS-újraküldési sor (079-es migráció + smsRetry.js — lásd a ✅ lista
+>   tetejét). A jelentés UI-kritikája (sikerállapot csak kézbesítési
+>   visszaigazolás után + újraküldés-gomb) NYITVA — termék-kör.
 > - **GF-005 (Fuvarfeladás):** az opcionális címzett-e-mail mező hibás
 >   értéket (pl. „hibas-email") is elfogad, miközben e-mailes követési
 >   linket ígér. Javaslat: trim + szintaktikai validáció kliens- ÉS
@@ -340,6 +344,38 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > ami a javítás NÉLKÜL igazoltan piros.
 
 ### ✅ Kész (élesedett)
+- **SMS-KIESÉS VÉGLEG MEGOLDVA: SeeMe IP-tartomány + újraküldési sor
+  (2026-08-30)** — a visszatérő code=13 hiba (a Railway Hobby kimenő IP-je
+  elfordul → a SeeMe minden küldést eldob) 08-20 és 08-30 között ÉLESBEN
+  10 napig minden címzetti SMS-t némán elnyelt (Railway-logból bizonyítva:
+  `code=13 Your 152.55.177.90 IP address is not allowed`). **(1) GYÖKÉR-FIX
+  (user-döntés):** a SeeMe IP-szűrőjébe a TELJES tartomány
+  (0.0.0.0–255.255.255.255) felvéve — a CLAUDE.md korábbi „az allowlist NEM
+  kikapcsolható" állítása PONTATLAN volt: kikapcsoló gomb nincs, de a szűrő
+  IP-TARTOMÁNYT is elfogad, a teljes tartomány = gyakorlati kikapcsolás
+  (Novitax-tudástár dokumentálja). Az API-kulcs marad az egyetlen védelem —
+  pontosan ahogy a Twilio és minden normális gateway működik; a kulcs
+  rotálva (2026-07-13), csak env-ben él, a Sentry-scrub a szivárgási útját
+  zárja. Worst case kulcs-szivárgásnál a feltöltött egyenleg meríthető.
+  Alternatíva lett volna a Railway Pro static outbound IP ($20/hó) — nem
+  kellett. Éles füstteszt zöld (`[sms] küldve: ***9223 (2 szegmens, 38 Ft)`).
+  **(2) ÚJRAKÜLDÉSI SOR (079-es migráció, prodon lefutott):** az
+  újrapróbálható hiba (code=13/7 + hálózati) eddig VÉGLEGES veszteség volt —
+  a Sentry riasztott, de az SMS a hiba elhárítása után sem ment ki.
+  Mostantól `sms_retry_queue`-ba kerül, a `services/smsRetry.js` köre 10
+  percenként újrapróbálja (atomi claim, nincs dupla küldés), 48 órás
+  ablakban; a lejárt sort a napi retenció törli
+  (`purgeExpiredSmsRetryQueue`, Sentry-jelzéssel — az VÉGLEGES
+  kézbesítetlenség). NEM újrapróbálható kód (rossz szám, tiltott feladó)
+  nem kerül sorba. **(3) E-MAIL RIASZTÁS:** code=13/7-nél a Sentry mellé
+  KÖZVETLEN e-mail az info@gofuvar.hu-ra (hibamódonként max 6 óránként) —
+  a Sentryt senki nem nézi naponta, a leveleket igen. Őr:
+  `sms-ujrakuldesi-sor.test.js` (9 teszt; a duplikáció-védelem szándékos
+  regresszióval visszamérve piros); a szegmens-őr kivétele önvédő (a
+  smsRetry CSAK szó szerint továbbíthat — ha fogalmazni kezdene, piros).
+  Backend **1656/1656**. ⚠️ A retenciós manifest + hibatűrés-mátrix +
+  KOR_NEVEK bővítve; a `purgeExpiredSmsRetryQueue` TOVÁBBDOBJA a hibát
+  (PII-ígéretet véd).
 - **AKADÁLYMENTESÍTÉS + HALOTT LINKEK — mérve (2026-08-12, PR #177)** — a
   tesztelő kérdése: „broken links 0? accessibility 0 critical és 0 serious?"
   ⚠️ **ERRE A PROJEKTNEK NEM VOLT VÁLASZA**: akadálymentesítési mérés
@@ -1785,11 +1821,14 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
   ékezetes SMS a user telefonján, 38 Ft = 2 UCS-2 szegmens). Út közben
   javítva a gateway-hívás (PR #83: az érvénytelen callback=0 miatt a SeeMe
   ELDOBTA a küldést; from→sender, válasz-parser query-string formára).
-  ⚠️ KRITIKUS TANULSÁG: a SeeMe-nél az IP-allowlist NEM kikapcsolható —
-  a Railway kimenő IP-je engedélyezve, de ha valaha ELFORDUL → code=13 →
-  minden SMS némán kiesik → SENTRY-RIASZTÁS figyeli (sms.js
-  reportSmsFailure); teendő ilyenkor: SeeMe admin → Gateway hozzáférés →
-  az új IP hozzáadása (az IP a hibaüzenetben olvasható). Feladó-azonosító:
+  ⚠️ IP-ALLOWLIST — MEGOLDVA (2026-08-30, user-döntés): a korábbi „NEM
+  kikapcsolható" nyilvántartás pontatlan volt — a SeeMe IP-szűrője
+  TARTOMÁNYT is elfogad, és a 0.0.0.0–255.255.255.255 felvétele gyakorlati
+  kikapcsolás (a Railway Hobby elforduló kimenő IP-je így már nem tud
+  code=13-at okozni; az API-kulcs a védelem). Ha code=13 mégis jönne, a
+  tartomány-szabály tűnt el a SeeMe adminból. Ráadás: sms_retry_queue
+  (a code=13/7 + hálózati hibás SMS 48 órán át újrapróbálódik) + e-mail
+  riasztás az info@-ra (részletek a ✅ lista tetején). Feladó-azonosító:
   SEEME_SENDER env-vel kapcsolható be, ha a "GoFuvar" sender jóváhagyott.
   Teszt-eszközök: scripts/sms-teszt.js (kulcs kézzel) + sms-e2e-fustteszt.js.
   💰 ÁR-TERV (user, 2026-07-13): a 38 Ft/fuvar (ékezetes, 2 szegmens, 19
@@ -2283,11 +2322,16 @@ git log --oneline -20
   Nézd a Neon compute-kvótát/csomagot a console.neon.tech-en. Teszt: a
   `/tracking/:token` végpont 500-at ad ha a DB döglött, 404-et ha él.
 - **PG SSL warning a Railway logokban** → nem hiba, csak figyelmeztetés
-- **SMS nem megy ki** → Railway log, keresés: `sms`. `[sms] SeeMe elutasítás
-  code=13` = a Railway kimenő IP elfordult → SeeMe admin → Gateway
-  hozzáférés → új IP engedélyezése (az IP a hibaüzenetben); erre Sentry-
-  riasztás is jön. code=7 = SeeMe egyenleg elfogyott (feltöltés).
-  Gyors kézi teszt: `SEEME_API_KEY=... node scripts/sms-teszt.js +36...`
+- **SMS nem megy ki** → Railway log, keresés: `sms`. code=13/7-nél a Sentry
+  MELLETT e-mail riasztás is megy az info@gofuvar.hu-ra, és az SMS NEM vész
+  el: a `sms_retry_queue` 48 órán át 10 percenként újrapróbálja — a hiba
+  elhárítása után magától kimegy. `code=13` = IP nincs engedélyezve;
+  2026-08-30 óta a SeeMe IP-szűrőjében a TELJES tartomány
+  (0.0.0.0–255.255.255.255) engedélyezett, tehát code=13 csak akkor jöhet,
+  ha a tartomány-szabály ELTŰNT → SeeMe admin → SMS Gateway → IP-szűrés →
+  a tartomány újrafelvétele. code=7 = SeeMe egyenleg elfogyott (feltöltés).
+  Gyors kézi teszt: `SEEME_API_KEY=... node scripts/sms-teszt.js +36...`;
+  teljes lánc: `node scripts/sms-e2e-fustteszt.js +36...`
 - **Robotok / noindex** → src `web/public/robots.txt` jelenleg `Disallow: /` — élesedéskor `Allow: /`-ra
 
 ---

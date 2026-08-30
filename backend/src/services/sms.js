@@ -55,9 +55,11 @@ function removeAccents(str) {
  * legalattomosabb üzemzavar: a küldés fire-and-forget, a user semmit nem
  * lát belőle. Kiemelt eset a SeeMe code=13 — az azt jelenti, hogy a
  * Railway KIMENŐ IP-JE ELFORDULT, és nincs rajta a SeeMe engedélyezett
- * IP-listáján (a lista a SeeMe-nél nem kikapcsolható!) → teendő: SeeMe
- * admin → Gateway hozzáférés → az új IP hozzáadása (az IP magában a
- * hibaüzenetben olvasható).
+ * IP-listáján. ⚠️ 2026-08-30 (user-döntés): a SeeMe IP-szűrőjébe a TELJES
+ * tartomány (0.0.0.0–255.255.255.255) felvéve — az API-kulcs a valódi
+ * védelem (mint minden normális SMS-gateway-nél) —, tehát a code=13
+ * osztálynak MEG KELLETT szűnnie. Ha mégis code=13 jön, a tartomány-szabály
+ * tűnt el a SeeMe adminból: Gateway hozzáférés → IP-tartomány újrafelvétele.
  */
 function reportSmsFailure(code, message, phone) {
   if (!process.env.SENTRY_DSN) return;
@@ -73,6 +75,76 @@ function reportSmsFailure(code, message, phone) {
     });
   } catch (_) {
     // A riasztás hibája sosem érintheti a fő folyamatot.
+  }
+}
+
+// ── Újraküldési sor + üzemeltetői e-mail riasztás (2026-08-30) ──────────
+//
+// A két TAPASZTALT éles hibamód (code=13 IP-allowlist, code=7 egyenleg)
+// eddig VÉGLEGES veszteség volt: a Sentry riasztott, de az SMS elveszett —
+// a hiba elhárítása után sem ment ki. 2026-08-20 és 08-30 között élesben
+// pontosan ez történt: 10 napig egyetlen címzett sem kapta meg a kódot.
+// Mostantól a sikertelen (újrapróbálható) küldés DB-sorba kerül, és a
+// smsRetry.js köre 48 órán át újrapróbálja. A Sentry mellé közvetlen
+// e-mail is megy az üzemeltetőnek — a Sentryt nem nézi naponta, a leveleit
+// igen. Az e-mail hibamódonként legfeljebb 6 óránként ismétlődik.
+
+// Ezekre a hibákra van értelme újrapróbálkozni: a 13 (IP) és a 7 (egyenleg)
+// üzemeltetői beavatkozással megjavul, az üzenet maga hibátlan. Minden más
+// kód (rossz szám, tiltott feladó…) újraküldve is ugyanúgy elhasalna.
+const RETRYABLE_CODES = ['7', '13'];
+const ALERT_THROTTLE_MS = 6 * 60 * 60 * 1000;
+const lastAlertAt = new Map();
+
+/** Teszt-horog: a throttle-állapot nullázása (másra ne használd). */
+function resetSmsAlertThrottle() {
+  lastAlertAt.clear();
+}
+
+async function queueForRetry(phone, message, reason) {
+  try {
+    const db = require('../db');
+    await db.query(
+      'INSERT INTO sms_retry_queue (phone, message, last_error) VALUES ($1, $2, $3)',
+      [phone, message, String(reason || 'ismeretlen').slice(0, 300)],
+    );
+    console.log(`[sms-retry] sorba téve: ${maskPhone(phone)} (${reason})`);
+    return true;
+  } catch (err) {
+    // A sorba tétel hibája nem ronthatja tovább a küldési utat.
+    console.error('[sms-retry] sorba tétel sikertelen:', err.message);
+    return false;
+  }
+}
+
+async function alertOpsByEmail(code) {
+  const kod = String(code);
+  const most = Date.now();
+  const utolso = lastAlertAt.get(kod) || 0;
+  if (most - utolso < ALERT_THROTTLE_MS) return;
+  lastAlertAt.set(kod, most);
+
+  const teendo = kod === '13'
+    ? 'A SeeMe elutasítja a Railway kimenő IP-jét. A 2026-08-30-i döntés óta a teljes '
+      + 'IP-tartomány (0.0.0.0–255.255.255.255) engedélyezve van — ha mégis code=13 jön, '
+      + 'a tartomány-szabály eltűnt: SeeMe admin → SMS Gateway → IP-szűrés → a tartomány újrafelvétele.'
+    : kod === '7'
+      ? 'Elfogyott a SeeMe-egyenleg. Teendő: egyenleg-feltöltés a SeeMe adminban.'
+      : `A SeeMe code=${kod} hibával utasítja el a küldést — részletek a Railway logban ([sms] sorok).`;
+
+  try {
+    await require('./email').sendEmail({
+      to: process.env.SMS_ALERT_EMAIL || 'info@gofuvar.hu',
+      subject: `⚠️ GoFuvar: SMS-küldés akadozik (SeeMe code=${kod})`,
+      html: `<p>A címzetti SMS-küldés a SeeMe-nél elakad (code=${kod}).</p>`
+        + `<p><strong>${teendo}</strong></p>`
+        + '<p>Az érintett SMS-ek NEM vesznek el: a rendszer 48 órán át újrapróbálja őket, '
+        + 'a hiba elhárítása után maguktól kimennek. Ez a riasztás hibamódonként '
+        + 'legfeljebb 6 óránként ismétlődik.</p>',
+    });
+  } catch (err) {
+    // A riasztás hibája sosem érintheti a küldési utat.
+    console.error('[sms-retry] riasztó e-mail sikertelen:', err.message);
   }
 }
 
@@ -105,9 +177,14 @@ function normalizePhone(phone) {
  *
  * @param {string} to — telefonszám
  * @param {string} message — SMS szöveg (ékezeteket automatikusan eltávolítjuk)
+ * @param {object} [opts]
+ * @param {boolean} [opts.queueOnFailure=true] — újrapróbálható hibánál a
+ *        sorba tétel. Az újraküldő kör (smsRetry.js) FALSE-szal hív, hogy a
+ *        sikertelen újrapróba ne duplikálja a saját sorát.
  * @returns {Promise<{ok: boolean, stub?: boolean, result?: string}>}
  */
-async function sendSms(to, message) {
+async function sendSms(to, message, opts = {}) {
+  const { queueOnFailure = true } = opts;
   if (!to || !message) {
     console.warn('[sms] hiányzó paraméter:', { to: !!to, message: !!message });
     return { ok: false };
@@ -149,8 +226,13 @@ async function sendSms(to, message) {
       return { ok: true, result: text.trim() };
     }
 
-    console.warn(`[sms] SeeMe elutasítás: ${maskPhone(phone)} → code=${parsed.get('code')} ${parsed.get('message') || text}`);
-    reportSmsFailure(parsed.get('code'), parsed.get('message') || text, phone);
+    const hibaKod = parsed.get('code');
+    console.warn(`[sms] SeeMe elutasítás: ${maskPhone(phone)} → code=${hibaKod} ${parsed.get('message') || text}`);
+    reportSmsFailure(hibaKod, parsed.get('message') || text, phone);
+    if (queueOnFailure && RETRYABLE_CODES.includes(String(hibaKod))) {
+      await queueForRetry(phone, cleanMessage, `code=${hibaKod}`);
+      await alertOpsByEmail(hibaKod);
+    }
     return { ok: false, error: text };
   } catch (err) {
     console.error('[sms] küldés sikertelen:', err.message);
@@ -158,8 +240,16 @@ async function sendSms(to, message) {
     if (process.env.SENTRY_DSN) {
       try { require('@sentry/node').captureException(err); } catch (_) { /* no-op */ }
     }
+    // Hálózati hiba jellemzően átmeneti → az üzenet újrapróbálást érdemel.
+    // E-mail riasztás itt nincs (a Sentry captureException már jelez).
+    if (queueOnFailure) {
+      await queueForRetry(phone, cleanMessage, `halozat: ${err.message}`);
+    }
     return { ok: false, error: err.message };
   }
 }
 
-module.exports = { sendSms, removeAccents, normalizePhone, isStub, smsSegments };
+module.exports = {
+  sendSms, removeAccents, normalizePhone, isStub, smsSegments,
+  RETRYABLE_CODES, resetSmsAlertThrottle,
+};

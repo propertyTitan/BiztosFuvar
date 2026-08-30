@@ -5,10 +5,11 @@
 //  TAPASZTALT éles hibamódot nevez meg:
 //
 //    code=13 → a Railway kimenő IP-je nincs engedélyezve a SeeMe-nél.
-//              Az IP-allowlist a SeeMe-nél NEM kikapcsolható, és a Railway
-//              IP-je elfordulhat. Ilyenkor MINDEN SMS NÉMÁN kiesik — a
-//              címzett sosem kapja meg az átvételi kódot, és semmi nem szól,
-//              hacsak a Sentry-riasztás nem megy ki.
+//              2026-08-30 óta a SeeMe IP-szűrőjében a TELJES tartomány
+//              (0.0.0.0–255.255.255.255) engedélyezve van (user-döntés),
+//              tehát ez az osztály elvileg megszűnt — de ha a tartomány-
+//              szabály valaha eltűnne, MINDEN SMS NÉMÁN kiesne: a riasztás
+//              és az újraküldési sor (sms-ujrakuldesi-sor.test.js) a háló.
 //    code=7  → elfogyott a SeeMe-egyenleg. Ugyanaz a néma kiesés.
 //
 //  Ez az egyetlen csatorna, amin a CÍMZETT (aki nem felhasználónk) megkapja

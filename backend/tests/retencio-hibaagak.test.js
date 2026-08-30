@@ -79,7 +79,10 @@ const NYELI_A_HIBAT = [
 // (2026-08-11): a néma nyelés miatt egy elrontott UPDATE hónapokig futhatott
 // volna, miközben a napló „0 anonimizált sort" mutat, és a fuvarok PII-ja
 // határidő nélkül bent marad.
-const TOVABBDOBJA = ['anonymizeOldJobs', 'purgeDormantAccounts'];
+// A `purgeExpiredSmsRetryQueue` is továbbdob (2026-08-30): a lejárt sor
+// törlése PII-ígéret (telefonszám + átvételi kód legfeljebb ~72 óráig él) —
+// ha a törlés csendben hasalna el, a sor határidő nélkül gyűjtené a PII-t.
+const TOVABBDOBJA = ['anonymizeOldJobs', 'purgeDormantAccounts', 'purgeExpiredSmsRetryQueue'];
 
 describe('Hibatűrés-mátrix: egy elszállt SQL nem üthet ki egy egész napot', () => {
   it('a besorolás LEFEDI a napi kör összes lépését (új kör nem csúszhat be osztályozatlanul)', () => {

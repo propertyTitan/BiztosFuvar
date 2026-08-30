@@ -37,6 +37,9 @@ const { telepulesSzint } = require('../utils/address');
 const DEFAULT_RETENTION_DAYS = 30;
 const HOLD_RETENTION_YEARS = 5;
 const ADMIN_DM_RETENTION_YEARS = 3;
+// Az SMS-újraküldési sor élettartama — EGY forrásból (smsRetry.js), hogy a
+// „meddig próbálkozunk" és a „mikor törlünk" ne csúszhasson szét.
+const { QUEUE_MAX_AGE_HOURS: SMS_RETRY_MAX_AGE_HOURS } = require('./smsRetry');
 // Számviteli bizonylat — Számv. tv. 169. § (2). Ez a rendszer LEGHOSSZABB
 // megőrzési ideje, és szándékosan az: jogszabályi kötelezettség, nem a mi
 // döntésünk. Rövidíteni nem szabad, de nyolc év után elévül.
@@ -232,6 +235,31 @@ async function purgeOldLocationPings() {
     console.error('[retention] GPS-purge hiba:', err.message);
     return 0;
   }
+}
+
+/**
+ * Az SMS-újraküldési sor lejárt (48 óránál régebbi) sorainak törlése.
+ * A sor tartalma PII (címzett-telefonszám + átvételi kód a szövegben) —
+ * a kézbesített sort a smsRetry.js kör azonnal törli, ide csak az jut el,
+ * amit 48 órán át SEM sikerült kiküldeni. Az VÉGLEGES kézbesítetlenség,
+ * ezért Sentry-jelzést is kap (a címzett sosem kapta meg a kódot).
+ * @returns {Promise<number>} a törölt sorok száma
+ */
+async function purgeExpiredSmsRetryQueue() {
+  // ⚠️ A hibát TOVÁBBDOBJUK (a 2026-08-11-i „néma elnyelés" tanulság):
+  // a runDailyRetention körönkénti catch-e naplózza + riaszt.
+  const { rowCount } = await db.query(
+    `DELETE FROM sms_retry_queue WHERE created_at < NOW() - make_interval(hours => $1)`,
+    [SMS_RETRY_MAX_AGE_HOURS],
+  );
+  if (rowCount > 0) {
+    const uzenet = `[retention] ${rowCount} SMS VÉGLEGESEN kézbesítetlen maradt (48 órán át sem ment ki) — a címzett(ek) nem kapták meg az átvételi kódot`;
+    console.error(uzenet);
+    if (process.env.SENTRY_DSN) {
+      try { require('@sentry/node').captureMessage(uzenet, 'error'); } catch (_) { /* no-op */ }
+    }
+  }
+  return rowCount || 0;
 }
 
 /**
@@ -1174,6 +1202,7 @@ async function runDailyRetention() {
     'purgeOldEscrowTransactions',
     'purgeOldTaxData',
     'purgeDormantAccounts',
+    'purgeExpiredSmsRetryQueue',
   ];
 
   const eredmeny = {};
@@ -1249,6 +1278,7 @@ module.exports = {
   anonymizeOldCarrierRoutes, purgeOldDisputes, purgeOldInvoices,
   lastSuccessfulRetentionRun,
   purgeEmergencyLocations, purgeOldDeletedAccounts, purgeOldKycDocHistory, runDailyRetention,
+  purgeExpiredSmsRetryQueue, SMS_RETRY_MAX_AGE_HOURS,
   DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS, INVOICE_RETENTION_YEARS,
   SOS_LOCATION_RETENTION_DAYS, SOS_EVENT_RETENTION_YEARS,
   JOB_PII_RETENTION_YEARS,
