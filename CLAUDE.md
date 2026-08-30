@@ -209,6 +209,136 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
 
+### 🐞 MANUS-JELENTÉS (2026-08-30) — külső AI-tesztelő hibajegyzéke, 24 tétel — FELDOLGOZÁSRA VÁR
+
+> **A user 2026-08-30-án feltöltötte a Manus (külső AI-tesztelő) teljes
+> hibajegyzékét** (`GoFuvar_hibajegyzek_20260830.csv`, GF-001…GF-024:
+> 11×P1, 11×P2, 2×P3). Ez a szekció a TELJES lista — a terminálos session
+> dolga feldolgozni. ⚠️ **MIELŐTT nekiállsz**: (1) a korábbi Manus-körök
+> (PR ~#189–#193, „manus-3-kor", „manus-4-kor") már javíthattak egyes
+> tételeket — MINDEN tételt előbb ellenőrizz a friss main ellen, és ami már
+> jó, azt jelöld itt lezártnak; (2) a ⚠️-val jelölt tételek USER-DÖNTÉST
+> vagy meglévő user-döntéssel való ütközés-feloldást igényelnek — azokat NE
+> javítsd egyoldalúan, előbb kérdezd a usert.
+>
+> **P1 — kritikus (11):**
+>
+> - **GF-001 (Regisztráció):** sikeres backend-regisztráció után a gomb
+>   „Regisztráció" állapotban beragad, nincs átirányítás az
+>   e-mail-megerősítéshez. Javaslat: determinista sikerkezelés + timeout +
+>   „Folytatás" CTA + idempotencia.
+> - **GF-002 (Belépés):** sikeres login után a UI „Belépés" állapotban marad
+>   (a session létrejön, közvetlen URL működik, csak a redirect marad el;
+>   mindkét szerepkörrel reprodukált). Javaslat: auth-válasz ↔ router
+>   szinkron, 10 mp timeout, retry/continue CTA. (GF-001-gyel közös gyökér
+>   valószínű.)
+> - **GF-003 (Ajánlattétel):** érvényes ajánlat létrejön, de a „Küldés"
+>   állapot beragad — nincs siker-toast, se navigáció. Javaslat:
+>   idempotenciakulcs + feldolgozási állapot lezárása. (Szintén a
+>   „beragadó submit" osztály — GF-001/002/012-vel együtt kezelendő.)
+> - **GF-004 (SMS/PIN):** a felület „SMS elküldve"-t jelez, de a címzett NEM
+>   kap üzenetet; a normál PIN-út blokkol. ⚠️ ELŐBB a Railway-log/Sentry:
+>   a SeeMe ISMERT hibamódjai (code=13 = IP-allowlist elfordult, code=7 =
+>   egyenleg elfogyott — lásd 9. szakasz) — lehet KONFIG-hiba, nem kód.
+>   Emellett jogos a jelentés UI-kritikája: sikerállapot csak kézbesítési
+>   visszaigazolás után + újraküldés-gomb.
+> - **GF-005 (Fuvarfeladás):** az opcionális címzett-e-mail mező hibás
+>   értéket (pl. „hibas-email") is elfogad, miközben e-mailes követési
+>   linket ígér. Javaslat: trim + szintaktikai validáció kliens- ÉS
+>   szerver-oldalon, mezőszintű hibával.
+> - **GF-006 (Szerepkör/menü):** a Szállító mód állapota ÁTSZIVÁROG másik
+>   (feladói) fiókba — kijelentkezés után az új fiók szállítói fejlécet
+>   lát. A stale-state osztály (BUG-015/030) rokona. Javaslat:
+>   kijelentkezéskor módállapot-törlés, belépéskor szerver-oldali
+>   inicializálás.
+> - **GF-007 (Cím-autocomplete):** a javaslat Enterrel való kiválasztása
+>   BEKÜLDI az egész űrlapot (mindkét címmezőn); lerakodásnál látható
+>   koordináta ellenére címhibát ad. Javaslat: az Enter csak az opciót
+>   fogadja el (preventDefault), külön submit. ⚠️ Az E2E-k pont
+>   ArrowDown+Enterrel választanak — a javítás után a specek is
+>   ellenőrizendők.
+> - **GF-008 (Adatvédelem):** ⚠️ USER-DÖNTÉS KELL — pontos (házszám-szintű)
+>   felvételi/lerakodási cím látható MINDEN KYC-s szállítónak elfogadás
+>   előtt. Ez a CLAUDE.md-ben régóta nyitott „nyitott fuvar cím-pontossága"
+>   TERMÉKDÖNTÉS (a szállítónak áraznia kell tudni ↔ adatvédelem; az
+>   adatvédelmi körök eddig tudatosan NEM szűkítették). A Manus javaslata:
+>   elfogadás előtt csak körzet/irányítószám. Hozd fel a usernek.
+> - **GF-009 (Útvonalillesztés):** 75,5 kg-os fuvar ajánlódik „legfeljebb
+>   25 kg" L-kategóriás járathoz az Útba eső fuvaroknál. Üzleti szabály
+>   megerősítendő, de a kapacitás-szűrés (tömeg/méret) szerver-oldalon
+>   jogosnak tűnik.
+> - **GF-010 (Biztonság/üzleti szabály):** ⚠️ ÜTKÖZIK EGY USER-DÖNTÉSSEL,
+>   tisztázandó — a feladói VÉSZHELYZETI kód (sender_delivery_code) már a
+>   kapcsolatfelvételi díj fizetése ELŐTT látszik az elfogadott fuvaron.
+>   A 2026-08-06-i döntés szerint a feladó a SAJÁT kódját mindig látja
+>   (csak a címzettét nem) — de az akkor még fizetés-kapu nélkül született.
+>   Kérdés a usernek: a saját vészkód is csak paid_at után látsszon-e
+>   (a Manus ezt javasolja + naplózott felfedést).
+> - **GF-011 (Adatminőség/launch):** 1 Ft-os, 1×1×1 cm-es teszt-fuvarok
+>   láthatók a nyitott piactérben. Launch előtti DB-tisztítás + QA-jelölés
+>   (a launch-checklistre is fel kell venni; részben az
+>   ALLOW_STUB_PAYMENTS teszt-üzem velejárója).
+>
+> **P2 — közepes (11):**
+>
+> - **GF-012 (Profil):** érvénytelen mentés (üres név, hibás telefon, túl
+>   hosszú rendszám) beragad, ok-közlés nélkül. Egységes validációs
+>   hibaséma + timeout.
+> - **GF-013 (Űrlapvalidáció):** üres beküldésnél több felületen nincs
+>   használható visszajelzés — minden hibás mező egyszerre jelezve + fókusz
+>   az elsőre + aria-invalid/role=alert.
+> - **GF-014 (Ajánlói kód):** BÁRMELY beírt kódra zöld „Meghívóval
+>   regisztrálsz" jelenik meg szerver-ellenőrzés NÉLKÜL. Debounce-os
+>   szerver-validáció, addig semleges állapot.
+> - **GF-015 (Hibaállapot):** kijavított mező után a régi hibaüzenet
+>   megmarad több űrlapon — mező-újraértékelés input/blur-kor.
+> - **GF-016 (Chat):** az üzenet a másik félnél csak frissítés után jelenik
+>   meg — realtime/polling + cache-invalidáció (a socket-infra megvan,
+>   valószínű bekötés-hiány az adott nézetben).
+> - **GF-017 (Értesítések):** olvasatlan-számláló és „Összes olvasva" csak
+>   frissítés után konzisztens; néha duplikált események — egységes
+>   store + dedup + optimista frissítés.
+> - **GF-018 (Járat-piszkozat):** üres „Mentés piszkozatként" visszajelzés
+>   nélkül — tiltó üzenet VAGY sikeres részleges mentés, de valamelyik
+>   legyen explicit.
+> - **GF-019 (Numerikus bevitel):** ⚠️ RÉSZBEN TUDATOS — a negatív előjel
+>   némán törlődik (a 2026-08-04-i „negatív be sem írható" beviteli szűrés
+>   szándékos volt), de a Manus jogos pontja: a -100→100 NÉMA átalakítás
+>   megtévesztő, és nincs üzleti ár-minimum figyelmeztetés (1 Ft-os fuvar
+>   simán feladható). Javaslat: a tiltott karakter NE forduljon értékké +
+>   ársáv-figyelmeztetés alacsony árnál. A „ne módosíts némán" elv már
+>   kimondott szabály (12,5 cm ≠ 125 cm eset).
+> - **GF-020 (Mobil/UI):** kritikus mobil-folyamatok 3000–5000 px hosszúak,
+>   a fő CTA több képernyőnyire — wizard/lépéses folyamat, összecsukható
+>   térkép, sticky állapotsáv. (Nagyobb UX-munka — külön kör, ne a
+>   gyorsjavításokkal együtt.)
+> - **GF-021 (Hozzáférhetőség):** autocomplete- és chat-mezők programozott
+>   címke nélkül; több gomb 26–36 px magas (44×44 a mobil-minimum). ⚠️ A
+>   PR #177-es a11y-mérés 0 critical/serious-t hozott — ellenőrizd, hogy a
+>   Manus mást mér-e (touch-target pl. nálunk SZÁNDÉKOSAN nem buktat), és
+>   ami jogos, kerüljön a mért leltárba is.
+> - **GF-022 (Sütisáv):** 320×700-on a sáv 252 px = a képernyő 36%-a. ⚠️ A
+>   PR #193 (manus-4-kor) már nyúlt a süti-sávhoz — ellenőrizd a friss
+>   main-en, maradt-e teendő (egysoros mobil-változat, gyors elrejtés).
+>
+> **P3 — alacsony (2):**
+>
+> - **GF-023 (Lokalizáció):** magyar UI-ban „Hungary" + angol
+>   térkép-vezérlők — címformázás lokalizálása + Google Maps `language=hu`
+>   paraméter.
+> - **GF-024 (Szövegezés):** a fizetési/átvételi fogalmak keverednek
+>   („sikeres fuvar", „biztonságos fizetés", felvétel/átvétel) — egységes
+>   terminológia-szótár + UI-szöveg audit. ⚠️ A szövegőr (13-as spec) és a
+>   meglévő szöveg-szabályok (licit→ajánlat, sofőr→szállító, QR tilos)
+>   adják a keretet — oda illeszd be az új fogalmi döntéseket is.
+>
+> **Javasolt feldolgozási sorrend:** (1) a „beragadó submit/redirect"
+> osztály EGYBEN (GF-001/002/003/012 — közös gyökér valószínű, pl. a
+> sikerválasz-kezelés/router-szinkron); (2) GF-004 SMS-diagnózis (log!);
+> (3) a többi P1 a user-döntésesek (GF-008/010) kivételével; (4) P2-k
+> osztályonként; (5) P3. Minden javításhoz a bevált módszertan: őr-teszt,
+> ami a javítás NÉLKÜL igazoltan piros.
+
 ### ✅ Kész (élesedett)
 - **AKADÁLYMENTESÍTÉS + HALOTT LINKEK — mérve (2026-08-12, PR #177)** — a
   tesztelő kérdése: „broken links 0? accessibility 0 critical és 0 serious?"
