@@ -351,7 +351,9 @@ export const api = {
   login: (email: string, password: string) =>
     request<{ token: string; user: { id: string; role: string; email: string; full_name: string } }>(
       '/auth/login',
-      { method: 'POST', body: JSON.stringify({ email, password }) },
+      // Cold startnál az első kérés lassú (lásd register) — a belépés ne
+      // bukjon időtúllépésre csak azért, mert a szerver épp ébred.
+      { method: 'POST', body: JSON.stringify({ email, password }), timeoutMs: 35_000 },
     ),
 
   register: (body: {
@@ -364,7 +366,9 @@ export const api = {
   }) =>
     request<{ token: string; user: { id: string; role: string; email: string; full_name: string } }>(
       '/auth/register',
-      { method: 'POST', body: JSON.stringify(body) },
+      // Cold startnál (Railway/Neon ébredés) az ELSŐ kérés 15-30 mp is lehet
+      // (Manus-mérés) — a regisztrációnak tágabb keret jár, mint az átlagnak.
+      { method: 'POST', body: JSON.stringify(body), timeoutMs: 35_000 },
     ),
 
   createJob: (job: NewJobInput) =>

@@ -5,7 +5,7 @@
 // - A városok tag-ekként jelennek meg fölötte, ×-szel eltávolíthatók
 // - A sorrend megőrződik (első = kiindulás, utolsó = cél)
 // - Minden tag tartalmazza a lat/lng-t is, amit a Places API-tól kapunk
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 import type { Waypoint } from '@/api';
@@ -28,6 +28,9 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
   });
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [inputKey, setInputKey] = useState(0);
+  // GF-021 (2026-08-30): a címke a mezőhöz kötve — enélkül a felolvasónak
+  // név nélküli szerkesztőmező (a PR #177-ben javított osztály).
+  const inputId = useId();
 
   function handlePlaceChanged() {
     const place = autocompleteRef.current?.getPlace();
@@ -77,7 +80,7 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
 
   return (
     <div>
-      {label && <label>{label}</label>}
+      {label && <label htmlFor={inputId}>{label}</label>}
 
       {/* A meglévő tagek */}
       {value.length > 0 && (
@@ -165,7 +168,17 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
           }}
         >
           <input
+            id={inputId}
             className="input"
+            onKeyDown={(e) => {
+              // ⚠️ GF-007 (Manus-regresszió, 2026-08-30): a #192-es Enter-fék
+              // csak az AddressAutocomplete-be került be — EBBŐL a mezőből az
+              // Enter (a városjavaslat kiválasztása) továbbra is beküldte a
+              // TELJES járat-űrlapot. Ugyanaz a minta: a védelem azon az úton
+              // épült meg, ahol felfedezték. A preventDefault a Google widget
+              // kiválasztás-kezelését nem érinti.
+              if (e.key === 'Enter') e.preventDefault();
+            }}
             placeholder={
               placeholder ||
               (value.length === 0
@@ -176,7 +189,7 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
           />
         </Autocomplete>
       ) : (
-        <input className="input" disabled placeholder="Térkép betöltése…" />
+        <input id={inputId} className="input" disabled placeholder="Térkép betöltése…" />
       )}
       <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
         Legalább 2 város kell: a kiindulás és a cél. Közben annyi megállót adhatsz hozzá, amennyit akarsz.

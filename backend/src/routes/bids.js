@@ -69,28 +69,41 @@ router.get('/bids/mine', authRequired, async (req, res) => {
         j.distance_km,
         j.suggested_price_huf,
         j.accepted_price_huf,
-        j.carrier_id      AS job_carrier_id
+        j.carrier_id      AS job_carrier_id,
+        j.paid_at         AS job_paid_at
        FROM bids b
        JOIN jobs j ON j.id = b.job_id
       WHERE b.carrier_id = $1
       ORDER BY b.created_at DESC`,
     [req.user.sub],
   );
-  // ⚠️ ELKELT FUVARNÁL KÖZELÍTŐ CÍM (2026-08-11, 9. mérés B1).
-  // A válasz eddig NYERS volt: a vesztes ajánlattevő ÖRÖKRE megtartotta a
-  // házszámig pontos fel- és lerakodási címet, minden valaha leadott
-  // ajánlatához. A `scrubJobForUser` ezzel szemben azt a szabályt követi, hogy
-  // a pontosság csak addig indokolt, amíg a fuvar ELVÁLLALHATÓ — utána
-  // településre kerekít. A kijelölt szállító természetesen továbbra is a
-  // pontos címet kapja: neki oda kell mennie.
-  const { telepulesSzint } = require('../utils/address');
+  // ⚠️ ELKELT FUVARNÁL KÖZELÍTŐ CÍM (2026-08-11, 9. mérés B1) + GF-008
+  // (2026-08-30, Manus-regresszió): a szállítói RÉSZLETEZŐ már utca-szintet
+  // adott fizetés előtt, de EZ A LISTA saját ajánlat után házszámos címet
+  // mutatott — megint „a védelem azon az úton épült meg, ahol felfedezték".
+  // Az egységes szabály MINDEN reprezentációra:
+  //   · kijelölt szállító + FIZETVE  → pontos cím (oda kell mennie);
+  //   · nyitott fuvar / kijelölt, de fizetetlen → UTCA-szint (házszám nélkül);
+  //   · elkelt/lezárt, nem az enyém  → település-szint.
+  const { telepulesSzint, utcaSzint } = require('../utils/address');
   const NYITOTT = ['bidding', 'pending'];
   res.json(rows.map((r) => {
-    if (NYITOTT.includes(r.job_status) || r.job_carrier_id === req.user.sub) return r;
+    // A paid_at belső döntési adat — a (vesztes) ajánlattevőre nem tartozik
+    // a másik ügylet fizetési állapota (BUG-038 osztálya).
+    const { job_paid_at, ...ki } = r;
+    const enVagyok = r.job_carrier_id === req.user.sub;
+    if (enVagyok && job_paid_at) return ki;
+    if (NYITOTT.includes(r.job_status) || enVagyok) {
+      return {
+        ...ki,
+        pickup_address: utcaSzint(ki.pickup_address),
+        dropoff_address: utcaSzint(ki.dropoff_address),
+      };
+    }
     return {
-      ...r,
-      pickup_address: telepulesSzint(r.pickup_address),
-      dropoff_address: telepulesSzint(r.dropoff_address),
+      ...ki,
+      pickup_address: telepulesSzint(ki.pickup_address),
+      dropoff_address: telepulesSzint(ki.dropoff_address),
     };
   }));
 });

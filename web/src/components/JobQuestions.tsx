@@ -150,6 +150,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
       {canAsk && (
         <form noValidate onSubmit={submitQuestion} style={{ marginTop: 12, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
           <textarea
+            aria-label="Kérdés a fuvarról"
             value={newQuestion}
             onChange={(e) => onQuestionChange(e.target.value)}
             placeholder="Pl. Be tudjátok pakolni az 5. emeletre? Van lift?"
@@ -228,6 +229,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
                   {isShipper && (
                     <div style={{ marginTop: 8 }}>
                       <textarea
+                        aria-label="Válasz a kérdésre"
                         value={answerDrafts[q.id] || ''}
                         onChange={(e) => onAnswerChange(q.id, e.target.value)}
                         placeholder="Válaszolj nyíltan — mindenki látja, így segítesz a többi szállítónak is."

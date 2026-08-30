@@ -168,6 +168,25 @@ export default function SoforFuvarReszletek() {
       setReturnFee('');
       await load();
     } catch (err: any) {
+      // GF-003 (Manus-regresszió, 2026-08-30): lassú szervernél a kliens
+      // időkerete lejárhat, MIKÖZBEN a szerver az ajánlatot már rögzítette
+      // (a bids-en UNIQUE (job_id, carrier_id) — duplikátum NEM jöhet létre,
+      // de a felhasználó HAMIS hibát látott, és az újrapróbálás zavaros 409-et
+      // adott). Időtúllépésnél ezért visszakérdezünk: beérkezett-e közben?
+      const idotullepes = /nem válaszolt időben/i.test(err.message || '');
+      if (idotullepes) {
+        try {
+          const enyem = (await api.myBids()).find(
+            (b: any) => b.job_id === id && b.bid_status === 'pending',
+          );
+          if (enyem) {
+            toast.success('Az ajánlatod beérkezett', 'A szerver lassan válaszolt, de az ajánlat rögzült — nem kell újraküldeni.');
+            setBidAmount(''); setBidEta(''); setBidMessage(''); setReturnPolicy(''); setReturnFee('');
+            await load();
+            return;
+          }
+        } catch { /* ha a visszakérdezés is elhal, marad az eredeti hibaüzenet */ }
+      }
       toast.error('Ajánlatküldési hiba', err.message);
     } finally {
       setSubmitting(false);

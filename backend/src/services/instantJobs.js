@@ -109,13 +109,19 @@ async function notifyNearbyCarriersOfInstantJob(job) {
     // azonnal villogjon az új instant job (ne kelljen refresh).
     // ⚠️ 2026-08-09: `emitGlobal` → `emitToFeed` — a payload pontos címet és
     // GPS-t tartalmaz, ezt csak hitelesített kapcsolat kaphatja.
+    // GF-008 (2026-08-30): a feed-payload is a fizetés-előtti szabályt követi
+    // — utca-szintű cím + ~110 m-re kerekített koordináta (a jobs:new már a
+    // scrubJobForUser-en át kapja ugyanezt; ez a kézzel épített payload
+    // kimaradt volna).
+    const { utcaSzint } = require('../utils/address');
+    const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 1000) / 1000);
     realtime.emitToFeed('jobs:new-instant', {
       job_id: job.id,
       title: job.title,
-      pickup_address: job.pickup_address,
-      dropoff_address: job.dropoff_address,
-      pickup_lat: job.pickup_lat,
-      pickup_lng: job.pickup_lng,
+      pickup_address: utcaSzint(job.pickup_address),
+      dropoff_address: utcaSzint(job.dropoff_address),
+      pickup_lat: kerekit(job.pickup_lat),
+      pickup_lng: kerekit(job.pickup_lng),
       suggested_price_huf: job.suggested_price_huf,
       instant_expires_at: job.instant_expires_at,
     });

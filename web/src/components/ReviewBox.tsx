@@ -135,6 +135,7 @@ export default function ReviewBox({ entityKey, entityId, onDone }: Props) {
           </div>
 
           <textarea
+            aria-label="Értékelés szövege (opcionális)"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
             placeholder="Opcionális megjegyzés…"

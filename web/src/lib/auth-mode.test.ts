@@ -107,3 +107,34 @@ describe('Forrás-őr: a módhoz csak a helpereken át szabad nyúlni', () => {
     ).toEqual([]);
   });
 });
+
+describe('Mód-inicializálás szerver-adatból (GF-006 regresszió, 2026-08-30)', () => {
+  it('driver-terms-es fiók ELSŐ belépéskor szállító-módban indul', async () => {
+    const { initStoredModeFromProfile } = await import('./auth');
+    setCurrentUser(userA, 'token-a');
+    initStoredModeFromProfile({ role: 'shipper', driver_terms_accepted_at: '2026-08-01T00:00:00Z' });
+    expect(
+      readStoredMode(),
+      'A szállítóként működő fiók (driver_terms) első belépéskor „Feladó '
+      + 'mód"-ban nyílt — a Manus ezt mód-átszivárgásként érzékelte (GF-006).',
+    ).toBe('driver');
+  });
+
+  it('sima feladó fióknál marad az alapértelmezés (nincs mentett mód)', async () => {
+    const { initStoredModeFromProfile } = await import('./auth');
+    setCurrentUser(userA, 'token-a');
+    initStoredModeFromProfile({ role: 'shipper', driver_terms_accepted_at: null });
+    expect(readStoredMode()).toBeNull();
+  });
+
+  it('a MENTETT preferencia erősebb a szerver-adatnál', async () => {
+    const { initStoredModeFromProfile } = await import('./auth');
+    setCurrentUser(userA, 'token-a');
+    writeStoredMode('shipper');
+    initStoredModeFromProfile({ role: 'carrier', driver_terms_accepted_at: '2026-08-01T00:00:00Z' });
+    expect(
+      readStoredMode(),
+      'A szerver-inicializálás felülírta a felhasználó saját mód-választását.',
+    ).toBe('shipper');
+  });
+});

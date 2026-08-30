@@ -93,6 +93,20 @@ export function writeStoredMode(mode: AppMode) {
   window.dispatchEvent(new Event('gofuvar:mode-change'));
 }
 
+/**
+ * Belépés utáni mód-inicializálás SZERVER-adatból (GF-006, Manus-regresszió
+ * 2026-08-30). A user-kulcsos tárolás megszüntette az átszivárgást, de egy
+ * szállító ELSŐ belépésekor (nincs még mentett módja) a default 'shipper'
+ * volt — a fejléc „Feladó mód"-ot mutatott, ami a tesztelőnek pont úgy
+ * nézett ki, mintha a másik fiók módja szivárgott volna át. A tényleges
+ * szállítói működés jele a driver_terms (a users.role a web-flow-ban NEM
+ * szegmentál — CLAUDE.md szabály). A MENTETT preferencia mindig erősebb.
+ */
+export function initStoredModeFromProfile(u: { role?: string; driver_terms_accepted_at?: string | null }) {
+  if (readStoredMode()) return;
+  if (u.role === 'carrier' || u.driver_terms_accepted_at) writeStoredMode('driver');
+}
+
 function readUser(): CurrentUser | null {
   if (typeof window === 'undefined') return null;
   const raw = window.localStorage.getItem('gofuvar_user');
