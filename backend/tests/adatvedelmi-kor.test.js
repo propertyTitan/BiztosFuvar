@@ -51,7 +51,7 @@ describe('Fuvar-lista: a nyitott piactéren kívül csak a saját ügyletek', ()
     expect(szallitoRes.body.length).toBe(1);
   });
 
-  it('a NYITOTT piactér változatlanul böngészhető, pontos címmel', async () => {
+  it('a NYITOTT piactér böngészhető: UTCA-szintű címmel (házszám a díj után)', async () => {
     const felado = await createUser({ role: 'shipper' });
     const szallito = await createUser({ role: 'carrier' });
     await createJob({ shipperId: felado.id, status: 'bidding' });
@@ -60,8 +60,11 @@ describe('Fuvar-lista: a nyitott piactéren kívül csak a saját ügyletek', ()
     expect(res.status).toBe(200);
     const sajat = res.body.find((j) => j.pickup_address);
     expect(sajat, 'a szállító nem látja a böngészhető fuvarokat').toBeTruthy();
-    // A böngészéshez a PONTOS cím kell — ez a szolgáltatás lényege
-    expect(sajat.pickup_address).toContain('Teszt u. 1');
+    // GF-008 (user-döntés, 2026-08-30): a böngészéshez az UTCA elég — a
+    // házszám + ház-pontos koordináta a kapcsolatfelvételi díj után jár.
+    // (Ez a teszt korábban a pontos címet kodifikálta — a döntés felülírta.)
+    expect(sajat.pickup_address).toContain('Teszt u');
+    expect(sajat.pickup_address).not.toContain('1');
     expect(sajat.approximate_location).toBeUndefined();
   });
 

@@ -93,7 +93,10 @@ describe('Fuvar-adatok láthatósága (scrub)', () => {
 
   it('a feladó látja a saját vész-kódját és a tokent, a címzett kódját NEM', async () => {
     const shipper = await createUser();
-    const job = await createJob({ shipperId: shipper.id });
+    // GF-010 (user-döntés, 2026-08-30): a saját vészkód is csak a díj
+    // kifizetése UTÁN jár — a fixture ezért fizetett. A fizetés ELŐTTI
+    // elrejtést a cim-es-veszkod-fizetesig.test.js méri.
+    const job = await createJob({ shipperId: shipper.id, paid: true });
 
     const res = await getJob(job.id, shipper.token);
 

@@ -268,7 +268,11 @@ export default function FuvarReszletek() {
           az AJÁNLATVÁRÓ állapotban is látszott — ott még szállító sincs,
           a kódnak semmi szerepe, csak zavart keltett. A kód akkor kell,
           amikor a kézbesítés valóban közeleg. */}
-      {(job as any).sender_delivery_code && ['accepted', 'in_progress'].includes(job.status) && (() => {
+      {/* ⚠️ CSAK a díj kifizetése után (GF-010, user-döntés 2026-08-30):
+          a backend-scrub fizetés előtt már ki sem adja a kódot — ez a
+          feltétel a védelem UI-tükre (a felvétel úgyis paid_at mögött van,
+          a kódnak előtte semmi szerepe). */}
+      {(job as any).sender_delivery_code && job.paid_at && ['accepted', 'in_progress'].includes(job.status) && (() => {
         const vanCimzett = Boolean(job.recipient_name || job.recipient_phone);
         const kod = (job as any).sender_delivery_code as string;
         return (

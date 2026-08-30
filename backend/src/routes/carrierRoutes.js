@@ -22,6 +22,7 @@ const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { findJobsAlongRoute } = require('../services/routeAlong');
 const { scrubJobForUser } = require('./jobs');
+const { utcaSzint } = require('../utils/address');
 const {
   sendBookingReceivedEmail,
   sendBookingConfirmedEmail,
@@ -66,7 +67,19 @@ function scrubBookingForUser(booking, user) {
   const { delivery_code, tracking_token, ...rest } = booking;
   if (booking.paid_at) return rest;
   const { recipient_name, recipient_phone, recipient_email, ...preFee } = rest;
-  return preFee;
+  // GF-008 (user-döntés, 2026-08-30): a pontos (házszámos) cím a foglalási
+  // ágon is csak a díj után — a megerősítéshez az utca-szint + kerekített
+  // koordináta elég (a fuvar-ág scrubJobForUser-ével azonos szabály).
+  const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 1000) / 1000);
+  return {
+    ...preFee,
+    pickup_address: utcaSzint(preFee.pickup_address),
+    dropoff_address: utcaSzint(preFee.dropoff_address),
+    pickup_lat: kerekit(preFee.pickup_lat),
+    pickup_lng: kerekit(preFee.pickup_lng),
+    dropoff_lat: kerekit(preFee.dropoff_lat),
+    dropoff_lng: kerekit(preFee.dropoff_lng),
+  };
 }
 router.param('id', uuidParam);
 
