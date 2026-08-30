@@ -17,7 +17,7 @@ const { calculateConnectionFee } = require('../services/connectionFee');
 const { useVoucherIfAvailable } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { firstContactLeak } = require('../utils/contactGuard');
-const { telepulesSzint } = require('../utils/address');
+const { telepulesSzint, utcaSzint } = require('../utils/address');
 
 const router = express.Router();
 
@@ -54,9 +54,15 @@ function scrubJobForUser(job, user) {
   const isAdmin = user?.role === 'admin';
   if (isAdmin) return job;
   if (isShipper) {
-    // Feladó látja a saját vészhelyzeti kódját, de a címzett kódját NEM
+    // Feladó látja a saját vészhelyzeti kódját, de a címzett kódját NEM.
     const { delivery_code, ...rest } = job;
-    return rest;
+    // GF-010 (user-döntés, 2026-08-30): a SAJÁT vészhelyzeti kód is csak a
+    // díj kifizetése UTÁN — előtte semmi szerepe (a felvétel úgyis paid_at
+    // mögött van), a riasztó kód-kártya csak zavart keltett, és a kód idő
+    // előtti kiadása semmit nem nyer.
+    if (job.paid_at) return rest;
+    const { sender_delivery_code, ...unpaid } = rest;
+    return unpaid;
   }
   const {
     delivery_code, sender_delivery_code, tracking_token, ...rest
@@ -70,7 +76,9 @@ function scrubJobForUser(job, user) {
     // még nincs), és a szállító kiolvassa a feladó számát a recipient-ből.
     if (job.paid_at) return rest;
     const { recipient_name, recipient_phone, recipient_email, ...carrierPreFee } = rest;
-    return carrierPreFee;
+    // GF-008 (user-döntés, 2026-08-30): a PONTOS (házszámos) cím is csak a
+    // díj után — addig utca-szint + ~110 m-re kerekített koordináta.
+    return utcaSzintHely(carrierPreFee);
   }
   // Kívülálló (pl. licitálni készülő vagy vesztes szállító): címzett-PII,
   // Barion-adatok ÉS a fizetési státusz sem jár (BUG-038: a vesztes
@@ -109,7 +117,30 @@ function scrubJobForUser(job, user) {
   } = rest;
 
   if (!NYITOTT_STATUSZOK.includes(job.status)) return kozelitoHely(publicFields);
-  return publicFields;
+  // GF-008 (user-döntés, 2026-08-30): a NYITOTT piactéren böngésző (nem fél)
+  // is csak utca-szintű címet lát — a házszám és a ház-pontos koordináta a
+  // díj megfizetése után jár. Az árazáshoz az utca + távolság + méretek
+  // elegendők; a pontos lakcím fizetés előtt csak learatható adat volt.
+  return utcaSzintHely(publicFields);
+}
+
+/**
+ * A címet utca-szintre rövidíti (házszám le), a koordinátát ~110 m-re
+ * (3 tizedes) kerekíti — a pontos koordinátából a házszám visszafejthető
+ * lenne, a két védelem csak együtt ér valamit (ugyanaz a lecke, mint a
+ * kozelitoHely-nél). Böngészéshez, ajánlattételhez ez a pontosság elég.
+ */
+function utcaSzintHely(job) {
+  const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 1000) / 1000);
+  return {
+    ...job,
+    pickup_address: utcaSzint(job.pickup_address),
+    dropoff_address: utcaSzint(job.dropoff_address),
+    pickup_lat: kerekit(job.pickup_lat),
+    pickup_lng: kerekit(job.pickup_lng),
+    dropoff_lat: kerekit(job.dropoff_lat),
+    dropoff_lng: kerekit(job.dropoff_lng),
+  };
 }
 
 /**

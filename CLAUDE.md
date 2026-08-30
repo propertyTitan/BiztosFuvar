@@ -167,6 +167,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 | Kapcsolatfelvételi díj | **EGYSZERŰSÍTETT LAUNCH-ÁRAZÁS (2026-07-15, user + ügyvezető döntése — elsődleges cél a USER-GYŰJTÉS)**: ≤50 000 Ft fuvardíjig → **500 Ft** / felette → **1.000 Ft**, bruttó, BEVEZETŐ ár (mindenhol így kommunikálva!). A korábbi 4 sávos (500/1490/2490/3990) struktúra hatályon kívül. NEM visszatérítendő (45/2014. 29.§(1)a consent-checkbox a fizetésnél); a fuvarra szól: sofőr-meghiúsulásnál díjmentes újraválasztás, másik fuvarra NEM vihető át. **2026-ban a bevezető sávos ár marad; díjemelés legkorábban 2027-től** (user döntése, 2026-07-06; korábbi emelési jelzés: stabil ~300+ fuvar/hó). **2026-07-11 fontolgatás (NEM döntés): feladói B2B-előfizetés** — 3.990 Ft/hó, mellette minden feladás fix 400 Ft kapcsolatfelvételi díj (sávtól függetlenül); break-even a feladónak: ~2-4 közepes/nagy fuvar/hó → önszelektáló, a visszatérő céges feladót fogja meg. ⚠️ A 2026-07-15-i egyszerűsített árazással (500/1000) ez a matek ELAVULT — ha a B2B-csomag napirendre kerül, újraszámolandó. Feltételek ha egyszer élesedik: fair-use plafon (viszonteladó-arbitrázs ellen), céges/KYB-fiókhoz kötés javasolt, recurring fizetés kell; legkorábban 2027, a team/multi-user + sofőr-előfizetéssel egy polcon ("GoFuvar Business") |
 | Sofőr díjmentessége | **2026-ban a sofőr BIZTOSAN díjmentes** (user döntése, 2026-07-06): a fuvardíj 100% kápé, a platform a sofőrtől semmit nem szed. A megfontolt **sofőr-előfizetés** (990 Ft/hó, ELSŐ HÓNAP INGYEN, token-alapú auto-megújítás) NEM 2026-os — legkorábban **2027**, és CSAK ha (a) a Barion recurring/token fizetés él, (b) van sűrű fuvarforgalom (a sofőr egy nap alatt visszakeresi). **2026-07-11 user-pontosítás:** ársáv **1.000–2.000 Ft/hó**, trigger: **~500–1000 AKTÍV sofőr** (javasolt mérce: aktív = havi ≥1 teljesített fuvar — a fuvarsűrűség a valódi feltétel, nem a regisztrált darabszám); még csak fontolgatás, nem döntés. Jogi: auto-megújítás fogyasztóvédelmi tájékoztatás + könnyű lemondás + terhelés előtti emlékeztető. Kártyát nem a regisztrációnál, hanem az ingyen hónap vége felé / első fuvarnál javasolt kérni (kínálat-megtartás) |
 | Kontakt-kapuzás | Telefonszám/email CSAK a díj megfizetése után látszik (ez a kikerülés-védelem lényege; chat contactGuard fizetés előtt szűr) |
+| Cím + vészkód a díj előtt | **2026-08-30 user-döntés (Manus GF-008/010)**: a díj megfizetése ELŐTT a szállító (böngésző ÉS kijelölt) csak UTCA-SZINTŰ címet lát (házszám nélkül, koordináta ~110 m-re kerekítve — `utcaSzint`, utils/address.js); a feladó SAJÁT vészhelyzeti kódja (sender_delivery_code) is csak `paid_at` után jár (backend-scrub + UI). A pontos cím/kód a díj után. Ezzel a régóta nyitott „nyitott fuvar cím-pontossága" termékdöntés LEZÁRVA |
 | Lemondási díj | **NINCS** — lemondás ingyenes, de a befizetett díj nem jár vissza |
 | Kárfelelősség | NINCS platform-szabta kárplafon — a platform nem felel, a Feladó és a Sofőr a Ptk. szerint rendezi egymás közt (ÁSZF 5.2) |
 | Coverage | **Európa-szintű** (lat 34-71, lng -10..32) — magyar fő piac, EU mellesleg |
@@ -267,25 +268,35 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   fogadja el (preventDefault), külön submit. ⚠️ Az E2E-k pont
 >   ArrowDown+Enterrel választanak — a javítás után a specek is
 >   ellenőrizendők.
-> - **GF-008 (Adatvédelem):** ⚠️ USER-DÖNTÉS KELL — pontos (házszám-szintű)
->   felvételi/lerakodási cím látható MINDEN KYC-s szállítónak elfogadás
->   előtt. Ez a CLAUDE.md-ben régóta nyitott „nyitott fuvar cím-pontossága"
->   TERMÉKDÖNTÉS (a szállítónak áraznia kell tudni ↔ adatvédelem; az
->   adatvédelmi körök eddig tudatosan NEM szűkítették). A Manus javaslata:
->   elfogadás előtt csak körzet/irányítószám. Hozd fel a usernek.
+> - **GF-008 (Adatvédelem):** ✅ **ELDÖNTVE + JAVÍTVA (2026-08-30,
+>   user-döntés: „a fizetésig csak az utca látszódjon, a házszám ne")** —
+>   a régóta nyitott „nyitott fuvar cím-pontossága" termékdöntés ezzel
+>   LEZÁRVA. Új szabály: a böngésző (nem fél) ÉS a kijelölt, de még nem
+>   fizetett szállító UTCA-SZINTŰ címet kap (`utcaSzint` az
+>   utils/address.js-ben — tartalom-alapú, fail-closed házszám-eltávolítás;
+>   irányítószám marad) + a koordináta ~110 m-re (3 tizedes) kerekítve —
+>   a pontos koordinátából a házszám visszafejthető lenne, a két védelem
+>   csak együtt ér. A pontos cím a díj után jár; a feladó a sajátját mindig
+>   látja. A foglalási ág szállító-oldala azonos szabályt kapott. Őr:
+>   `cim-es-veszkod-fizetesig.test.js`. ⚠️ Két régi teszt a PONTOS címet
+>   kodifikálta („a böngészéshez a pontos cím kell — ez a szolgáltatás
+>   lényege") — a döntés felülírta, a tesztek igazítva.
 > - **GF-009 (Útvonalillesztés):** ✅ **JAVÍTVA (2026-08-30)** — az
 >   along-jobs ajánló mostantól a járat LEGNAGYOBB meghirdetett
 >   méretkategóriájához méri a fuvart (`jobFitsCapacity`, routeAlong.js):
 >   ismert túlsúly/túlméret kiszűrve, HIÁNYZÓ adat nem zár ki (arról a
 >   szállító dönt). Őr: `utba-eso-kapacitas.test.js` (a szűrő nélkül
 >   igazoltan piros; a pg NUMERIC-string csapdáját is méri).
-> - **GF-010 (Biztonság/üzleti szabály):** ⚠️ ÜTKÖZIK EGY USER-DÖNTÉSSEL,
->   tisztázandó — a feladói VÉSZHELYZETI kód (sender_delivery_code) már a
->   kapcsolatfelvételi díj fizetése ELŐTT látszik az elfogadott fuvaron.
->   A 2026-08-06-i döntés szerint a feladó a SAJÁT kódját mindig látja
->   (csak a címzettét nem) — de az akkor még fizetés-kapu nélkül született.
->   Kérdés a usernek: a saját vészkód is csak paid_at után látsszon-e
->   (a Manus ezt javasolja + naplózott felfedést).
+> - **GF-010 (Biztonság/üzleti szabály):** ✅ **ELDÖNTVE + JAVÍTVA
+>   (2026-08-30, user-döntés: a vészkód is csak fizetés után)** — a
+>   2026-08-06-i „a feladó a saját kódját mindig látja" döntés PONTOSÍTVA:
+>   a saját vészkód (sender_delivery_code) is csak `paid_at` után jár. A
+>   kapu a BACKEND-SCRUBBAN él (fizetés előtt ki sem megy a válaszban), a
+>   frontend kód-kártya ennek UI-tükre. A felvétel úgyis paid_at mögött
+>   van, a kódnak fizetés előtt semmi szerepe. A foglalási ág feladói
+>   `delivery_code`-ja VÁLTOZATLAN (az nem vészkód — dokumentált külön
+>   döntés). Őr: `cim-es-veszkod-fizetesig.test.js` + a 15-ös E2E-spec új
+>   ellenpróbája (elfogadott+fizetetlen → kód sehol).
 > - **GF-011 (Adatminőség/launch):** ✅ LAUNCH-CHECKLISTRE VÉVE (2026-08-30,
 >   a 🚨 STUB-szakaszban): a teszt-fuvarok takarítása a launch-élesítés
 >   kötelező lépése lett. ⚠️ A Manus-körök alatt SZÁNDÉKOSAN nem törlünk —

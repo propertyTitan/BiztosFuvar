@@ -101,3 +101,34 @@ test('AJÁNLATVÁRÓ állapotban a kód-kártya NEM látszik (Manus-teszt, 2026-
     ).toBe(false);
   }
 });
+
+test('ELFOGADOTT, de FIZETETLEN fuvaron a kód-kártya NEM látszik (GF-010, 2026-08-30)', async ({ page }) => {
+  // User-döntés: a feladó SAJÁT vészhelyzeti kódja is csak a kapcsolat-
+  // felvételi díj kifizetése után jár — előtte a felvétel úgysem indulhat
+  // (paid_at guard), a kódnak semmi szerepe. A backend-scrub fizetés előtt
+  // ki sem adja; ez a teszt a teljes láncot méri a felületen.
+  const shipper = await createUser('shipper', 'Fizetetlen Fanni');
+  const job = await createJob(shipper, {
+    recipient_name: undefined,
+    recipient_phone: undefined,
+  });
+  const carrier3 = await createUser('carrier', 'Kód Kelemen');
+  await setJobAccepted(job.id, carrier3.id, { paid: false });
+
+  await loginAs(page, shipper);
+  await page.goto(`/dashboard/fuvar/${job.id}`);
+  await page.waitForLoadState('networkidle').catch(() => {});
+
+  await expect(page.getByText(/Átvételi kódod/i)).toHaveCount(0);
+  await expect(page.getByText(/Vészhelyzeti kód/i)).toHaveCount(0);
+
+  const { rows } = await dbQuery('SELECT sender_delivery_code FROM jobs WHERE id = $1', [job.id]);
+  const sajatKod = rows[0]?.sender_delivery_code;
+  if (sajatKod) {
+    const oldalSzoveg = await page.locator('body').innerText();
+    expect(
+      oldalSzoveg.includes(sajatKod),
+      'A feladó saját kódja már a díj kifizetése ELŐTT a képernyőn van (GF-010).',
+    ).toBe(false);
+  }
+});
