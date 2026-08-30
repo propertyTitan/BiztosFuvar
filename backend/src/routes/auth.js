@@ -790,6 +790,21 @@ router.get('/me/driver-dashboard', authRequired, async (req, res) => {
   });
 });
 
+// GET /auth/referral-check?code=X — ÉL-E egy ajánlói kód (GF-014, Manus
+// 2026-08-30). A regisztrációs űrlap eddig BÁRMILYEN beírt kódra zöld
+// „Meghívóval regisztrálsz!" jelvényt mutatott, szerver-ellenőrzés nélkül —
+// az elgépelt kóddal regisztráló azt hitte, jár majd a jutalom, pedig az
+// attribúció némán elmaradt. PUBLIKUS (a regisztráló még nincs belépve),
+// ezért: CSAK {valid:boolean} megy vissza (se név, se azonosító — a kód
+// birtoklása önmagában ne érjen adatot), és rate-limitelt (enumeráció ellen).
+router.get('/referral-check', loginRateLimit, async (req, res) => {
+  const { resolveReferrerId } = require('../services/referral');
+  const referrerId = await resolveReferrerId(
+    typeof req.query.code === 'string' ? req.query.code.slice(0, 32) : '',
+  );
+  res.json({ valid: Boolean(referrerId) });
+});
+
 // GET /auth/referral — az ajánlói programom: kód, link, eddigi sikeres
 // ajánlások száma, és hány felhasználható ingyenes kapcsolatfelvétel vár.
 router.get('/referral', authRequired, async (req, res) => {

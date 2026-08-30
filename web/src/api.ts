@@ -719,6 +719,10 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ consent }) },
     ),
 
+  /** Él-e egy ajánlói kód (GF-014) — publikus, csak {valid} jön vissza. */
+  referralCheck: (code: string) =>
+    request<{ valid: boolean }>(`/auth/referral-check?code=${encodeURIComponent(code)}`),
+
   /** Az ajánlói programom: kód, megosztható link, eddigi ajánlások, kuponok. */
   getReferralInfo: () =>
     request<{

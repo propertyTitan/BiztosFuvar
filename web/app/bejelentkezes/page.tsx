@@ -8,7 +8,7 @@
 // Query param-mal lehet előre beállítani a fület:
 //   /bejelentkezes              → alapból "login"
 //   /bejelentkezes?mode=register → alapból "register" (landing CTA-hoz)
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { api } from '@/api';
@@ -24,6 +24,26 @@ function BejelentkezesContent() {
   // Ajánlói kód: a linkből (?ref=…) előtöltve, de a regisztrációs mezőben
   // kézzel is beírható/módosítható (akinek csak a kódot adták, nem a linket).
   const [refCode, setRefCode] = useState((searchParams.get('ref') || '').trim().toUpperCase());
+  // GF-014 (Manus, 2026-08-30): a zöld „Meghívóval regisztrálsz!" jelvény
+  // eddig BÁRMILYEN beírt kódra megjelent, szerver-ellenőrzés nélkül — az
+  // elgépelt kóddal regisztráló azt hitte, jár a jutalom, pedig az
+  // attribúció némán elmaradt. Most debounce-os szerver-ellenőrzés fut, és
+  // a jelvény csak IGAZOLT kódra zöld; ismeretlen kódnál szelíd
+  // figyelmeztetés (a regisztrációt nem blokkolja — a backend enélkül is
+  // átengedi, csak attribúció nélkül).
+  const [refStatus, setRefStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  useEffect(() => {
+    if (!refCode) { setRefStatus('idle'); return; }
+    setRefStatus('checking');
+    let elavult = false;
+    const t = setTimeout(() => {
+      api.referralCheck(refCode)
+        .then((r) => { if (!elavult) setRefStatus(r.valid ? 'valid' : 'invalid'); })
+        // Hálózati hibánál nem ijesztgetünk: semleges állapot marad.
+        .catch(() => { if (!elavult) setRefStatus('idle'); });
+    }, 400);
+    return () => { elavult = true; clearTimeout(t); };
+  }, [refCode]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -172,7 +192,7 @@ function BejelentkezesContent() {
       </p>
 
       <form noValidate onSubmit={onSubmit} className="card">
-        {mode === 'register' && refCode && (
+        {mode === 'register' && refCode && refStatus === 'valid' && (
           <div style={{
             background: 'var(--success-light)', border: '1px solid var(--success)',
             borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 14,
@@ -180,6 +200,16 @@ function BejelentkezesContent() {
           }}>
             🎉 Meghívóval regisztrálsz! Miután teljesíted az első fuvarodat,
             az ismerősöd egy ingyenes kapcsolatfelvételt kap.
+          </div>
+        )}
+        {mode === 'register' && refCode && refStatus === 'invalid' && (
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 14,
+            color: 'var(--muted)',
+          }}>
+            Ezt az ajánlói kódot nem találjuk — ellenőrizd, jól írtad-e be.
+            A regisztráció enélkül is működik.
           </div>
         )}
         {mode === 'register' && (

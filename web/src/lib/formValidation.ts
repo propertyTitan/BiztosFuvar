@@ -126,6 +126,51 @@ export function emailError(raw: string): string | null {
   return null;
 }
 
+// ── Profil-űrlap validátorok (GF-012/015, Manus 2026-08-30) ─────────────
+// A PATCH /auth/me szerver-szabályainak KLIENS-oldali tükrei — a mentés
+// eddig csak toastban közölte az okot, mezőszintű jelzés nélkül.
+
+/** Teljes név: 2–100 karakter, nem állhat csak szóközből (backend-szabály). */
+export function nameError(raw: string): string | null {
+  const trimmed = (raw || '').trim();
+  if (trimmed.length < 2) return 'A név legalább 2 karakter — nem állhat üresen vagy csak szóközből.';
+  if (trimmed.length > 100) return 'A név legfeljebb 100 karakter lehet.';
+  return null;
+}
+
+/**
+ * Opcionális telefonszám (profil): üresen érvényes; kitöltve 6–15 számjegy
+ * (a PATCH /auth/me szabálya — a címzett-telefon 9-es minimuma ott marad).
+ */
+export function optionalPhoneError(raw: string): string | null {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return null;
+  if (/[a-zA-Z]/.test(trimmed)) {
+    return 'A telefonszám csak számokat tartalmazhat (+, szóköz, kötőjel megengedett).';
+  }
+  const digits = trimmed.replace(/\D/g, '');
+  if (digits.length < 6 || digits.length > 15) {
+    return 'Érvénytelen telefonszám — 6–15 számjegy, pl. +36 20 123 4567.';
+  }
+  return null;
+}
+
+/** Rendszám: üresen érvényes; kitöltve 2–12 karakter, betű/szám/kötőjel. */
+export function plateError(raw: string): string | null {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return null;
+  if (!/^[A-Za-z0-9-]{2,12}$/.test(trimmed)) {
+    return 'Érvénytelen rendszám — 2–12 karakter, csak betű, szám és kötőjel.';
+  }
+  return null;
+}
+
+/** Bemutatkozás: legfeljebb 1000 karakter (backend-szabály). */
+export function bioError(raw: string): string | null {
+  if ((raw || '').length > 1000) return 'A bemutatkozás legfeljebb 1000 karakter lehet.';
+  return null;
+}
+
 export function phoneError(raw: string): string | null {
   const trimmed = (raw || '').trim();
   if (!trimmed) return 'Kérjük, töltsd ki: Címzett telefonszáma.';

@@ -304,34 +304,45 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >
 > **P2 — közepes (11):**
 >
-> - **GF-012 (Profil):** RÉSZBEN JAVÍTVA (2026-08-30): a „beragad" fele az
->   időkeret-osztállyal megoldva (GF-001/002/003) — a kérés véges időn belül
->   magyar hibával tér vissza. NYITVA: az érvénytelen mentés mezőszintű
->   ok-közlése (a GF-013/015 validációs körrel együtt kezelendő).
-> - **GF-013 (Űrlapvalidáció):** üres beküldésnél több felületen nincs
->   használható visszajelzés — minden hibás mező egyszerre jelezve + fókusz
->   az elsőre + aria-invalid/role=alert.
-> - **GF-014 (Ajánlói kód):** BÁRMELY beírt kódra zöld „Meghívóval
->   regisztrálsz" jelenik meg szerver-ellenőrzés NÉLKÜL. Debounce-os
->   szerver-validáció, addig semleges állapot.
-> - **GF-015 (Hibaállapot):** kijavított mező után a régi hibaüzenet
->   megmarad több űrlapon — mező-újraértékelés input/blur-kor.
-> - **GF-016 (Chat):** az üzenet a másik félnél csak frissítés után jelenik
->   meg — realtime/polling + cache-invalidáció (a socket-infra megvan,
->   valószínű bekötés-hiány az adott nézetben).
-> - **GF-017 (Értesítések):** olvasatlan-számláló és „Összes olvasva" csak
->   frissítés után konzisztens; néha duplikált események — egységes
->   store + dedup + optimista frissítés.
-> - **GF-018 (Járat-piszkozat):** üres „Mentés piszkozatként" visszajelzés
->   nélkül — tiltó üzenet VAGY sikeres részleges mentés, de valamelyik
->   legyen explicit.
-> - **GF-019 (Numerikus bevitel):** ⚠️ RÉSZBEN TUDATOS — a negatív előjel
->   némán törlődik (a 2026-08-04-i „negatív be sem írható" beviteli szűrés
->   szándékos volt), de a Manus jogos pontja: a -100→100 NÉMA átalakítás
->   megtévesztő, és nincs üzleti ár-minimum figyelmeztetés (1 Ft-os fuvar
->   simán feladható). Javaslat: a tiltott karakter NE forduljon értékké +
->   ársáv-figyelmeztetés alacsony árnál. A „ne módosíts némán" elv már
->   kimondott szabály (12,5 cm ≠ 125 cm eset).
+> - **GF-012 (Profil):** ✅ **JAVÍTVA (2026-08-30, P2-kör)** — mezőszintű,
+>   ÉLŐ validáció a profil-űrlapon (név 2–100 / telefon 6–15 számjegy /
+>   rendszám 2–12 / bio ≤1000 — a PATCH /auth/me szabályainak kliens-tükrei
+>   a formValidation.ts-ben), fókusz az első hibás mezőre, aria-invalid.
+>   A „beragad" felét már az időkeret-osztály (GF-001/002/003) oldotta meg.
+> - **GF-013 (Űrlapvalidáció):** ✅ **JAVÍTVA (2026-08-30, P2-kör)** — az
+>   uj-fuvar űrlapon hibás submitnál az ELSŐ hibás mező fókuszt kap és
+>   képernyőre görgetődik; a FieldError már eddig is role="alert" volt, a
+>   mezők aria-invalid-ot kaptak. (Minden hibás mező egyszerre jelzése már
+>   a 2026-08-04-i kör óta élt — a `tried`-kapus errors-térkép.)
+> - **GF-014 (Ajánlói kód):** ✅ **JAVÍTVA (2026-08-30, P2-kör)** — új
+>   publikus `GET /auth/referral-check` (rate-limitelt, CSAK {valid} megy
+>   vissza — a kód birtoklása nem ér adatot; routeManifest-indoklással);
+>   a regisztrációs űrlap 400 ms-os debounce-szal ellenőriz, a zöld jelvény
+>   csak IGAZOLT kódra jön, ismeretlenre szelíd figyelmeztetés (nem blokkol
+>   — a backend attribúció nélkül átengedi). Őr: referral-check.test.js.
+> - **GF-015 (Hibaállapot):** ✅ **JAVÍTVA (2026-08-30, P2-kör)** — a
+>   profil-űrlap hibái minden renderben újraszámolódnak (javításkor azonnal
+>   törlődnek); az uj-fuvar eddig is így működött.
+> - **GF-016/017 (Chat + Értesítések frissessége):** ✅ **GYÖKÉROK JAVÍTVA
+>   (2026-08-30, P2-kör)** — a Socket.IO `auth` callbackje csak CONNECT-kor
+>   fut: ha a socket a belépés ELŐTT nyílt (token nélkül, pl. a landingen),
+>   a handshake tokentelen maradt, a szerver a `user:join`-t helyesen
+>   eldobta, és MINDEN user-szobás esemény (chat, értesítés, fizetési
+>   visszaigazolás) némán elveszett a teljes újratöltésig — pontosan a
+>   Manus „csak frissítés után" tünete. Javítás: a setCurrentUser (belépés)
+>   újraköti a socketet a friss tokennel (`refreshSocketAuth`; változatlan
+>   tokennél no-op, így a profil-mentés nem okoz churn-t). Őr:
+>   auth-socket.test.ts (a hívás kivételével piros). Ha a tünet a javítás
+>   után is előjön, akkor jöhet a nézet-szintű vizsgálat (dedup/store).
+> - **GF-018 (Járat-piszkozat):** ✅ **JAVÍTVA (2026-08-30, P2-kör)** —
+>   hiányos űrlapnál a „Mentés piszkozatként"/„Publikálás" kattintás
+>   explicit toastban sorolja a hiányzó mezőket (eddig némán nem történt
+>   semmi — a hiány-lista csak a gombok alatt látszott).
+> - **GF-019 (Numerikus bevitel):** ✅ RÉSZBEN JAVÍTVA (2026-08-30, P2-kör):
+>   a mínuszjel eldobása többé NEM néma — a mező alatt jelzés szól
+>   („Negatív érték nem adható meg — a mínuszjelet elhagytuk"), a szűrés
+>   maga marad (2026-08-04-i döntés). ⚠️ NYITVA (üzleti döntés): ár-minimum
+>   figyelmeztetés (1 Ft-os fuvar ma feladható) — user-döntést vár.
 > - **GF-020 (Mobil/UI):** kritikus mobil-folyamatok 3000–5000 px hosszúak,
 >   a fő CTA több képernyőnyire — wizard/lépéses folyamat, összecsukható
 >   térkép, sticky állapotsáv. (Nagyobb UX-munka — külön kör, ne a
@@ -341,9 +352,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   PR #177-es a11y-mérés 0 critical/serious-t hozott — ellenőrizd, hogy a
 >   Manus mást mér-e (touch-target pl. nálunk SZÁNDÉKOSAN nem buktat), és
 >   ami jogos, kerüljön a mért leltárba is.
-> - **GF-022 (Sütisáv):** 320×700-on a sáv 252 px = a képernyő 36%-a. ⚠️ A
->   PR #193 (manus-4-kor) már nyúlt a süti-sávhoz — ellenőrizd a friss
->   main-en, maradt-e teendő (egysoros mobil-változat, gyors elrejtés).
+> - **GF-022 (Sütisáv):** ✅ **JAVÍTVA (2026-08-30, P2-kör)** — ≤480 px-en
+>   kompakt változat (rövid szöveg + link, kisebb padding); a takarás-védő
+>   body-margó (PR #193) változatlan. Őr: a 23-as spec új tesztje 320×700-on
+>   plafont mér (≤210 px — a kompakt kikapcsolásával visszamérve piros).
 >
 > **P3 — alacsony (2):**
 >

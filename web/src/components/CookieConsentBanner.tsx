@@ -15,11 +15,24 @@ type Choice = 'accept' | 'decline';
 export default function CookieConsentBanner() {
   const [show, setShow] = useState(false);
   const savRef = useRef<HTMLDivElement>(null);
+  // GF-022 (Manus, 2026-08-30): 320 px széles kijelzőn a teljes szöveg
+  // ~252 px magas sávot adott — a képernyő 36%-át. Kis kijelzőn tömör
+  // változat megy (a lényeg + link változatlan), nagyon a teljes.
+  const [kompakt, setKompakt] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const existing = window.localStorage.getItem(STORAGE_KEY);
     if (!existing) setShow(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const mq = window.matchMedia('(max-width: 480px)');
+    const kovet = () => setKompakt(mq.matches);
+    kovet();
+    mq.addEventListener('change', kovet);
+    return () => mq.removeEventListener('change', kovet);
   }, []);
 
   function decide(choice: Choice) {
@@ -62,28 +75,40 @@ export default function CookieConsentBanner() {
       style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1100,
         background: 'var(--bg)', borderTop: '1px solid var(--border)',
-        padding: 16, boxShadow: '0 -4px 20px rgba(0,0,0,0.12)',
+        padding: kompakt ? '10px 12px' : 16, boxShadow: '0 -4px 20px rgba(0,0,0,0.12)',
       }}
     >
       <div
         style={{
           maxWidth: 1100, margin: '0 auto',
-          display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap',
+          display: 'flex', gap: kompakt ? 10 : 16, alignItems: 'center', flexWrap: 'wrap',
         }}
       >
-        <div style={{ flex: '1 1 360px', fontSize: 14, lineHeight: 1.5 }}>
+        <div style={{ flex: '1 1 240px', fontSize: kompakt ? 13 : 14, lineHeight: 1.5 }}>
           {/* ⚠️ 2026-08-11: a szöveg korábban HOZZÁJÁRULÁST kért — miközben a
               tájékoztató kimondja, hogy a működéshez szükséges sütikhez nem
               kérünk külön hozzájárulást, és a két gomb hatása azonos is volt.
               Egy látszat-választás rosszabb, mint a nyílt tájékoztatás. */}
-          🍪 A GoFuvar <strong>kizárólag a működéshez szükséges</strong> sütiket és
-          böngészői tárolókat használ (bejelentkezés, nézet- és téma-választás).
-          Marketing- vagy analitikai sütit nem helyezünk el, és nem követünk
-          harmadik feleken keresztül — ezekhez nem is kérünk hozzájárulást.
-          Részletek az{' '}
-          <Link href="/adatkezeles" style={{ color: 'var(--primary-text)' }}>
-            Adatkezelési tájékoztatóban
-          </Link>.
+          {kompakt ? (
+            <>
+              🍪 Csak a <strong>működéshez szükséges</strong> sütiket használjuk —
+              marketing/analitika nincs, hozzájárulás nem kell.{' '}
+              <Link href="/adatkezeles" style={{ color: 'var(--primary-text)' }}>
+                Részletek
+              </Link>.
+            </>
+          ) : (
+            <>
+              🍪 A GoFuvar <strong>kizárólag a működéshez szükséges</strong> sütiket és
+              böngészői tárolókat használ (bejelentkezés, nézet- és téma-választás).
+              Marketing- vagy analitikai sütit nem helyezünk el, és nem követünk
+              harmadik feleken keresztül — ezekhez nem is kérünk hozzájárulást.
+              Részletek az{' '}
+              <Link href="/adatkezeles" style={{ color: 'var(--primary-text)' }}>
+                Adatkezelési tájékoztatóban
+              </Link>.
+            </>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button

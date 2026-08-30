@@ -110,6 +110,9 @@ describe('Publikus végpontok', () => {
     await sikeres('GET /calculator/estimate', request(app)
       .get('/calculator/estimate')
       .query({ pickup_lat: 47.4979, pickup_lng: 19.0402, dropoff_lat: 46.253, dropoff_lng: 20.1414, weight_kg: 5 }));
+    // GF-014: a regisztrációs űrlap élő ajánlóikód-ellenőrzése (publikus).
+    await sikeres('GET /auth/referral-check', request(app)
+      .get('/auth/referral-check').query({ code: 'NEMLETEZO' }));
   });
 
   it('privát fájl CSAK érvényes aláírással olvasható (KYC disk-fallback)', async () => {

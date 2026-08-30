@@ -5,6 +5,7 @@
 // bármikor visszaadja az aktuális role-t. A login/logout hívásokkor
 // a komponens re-render-el (custom event a storage update-re).
 import { useEffect, useState } from 'react';
+import { refreshSocketAuth } from './socket';
 
 export type Role = 'shipper' | 'carrier' | 'admin';
 
@@ -31,6 +32,10 @@ const EVENT = 'gofuvar:auth';
 export function setCurrentUser(user: CurrentUser, token: string) {
   window.localStorage.setItem('gofuvar_user', JSON.stringify(user));
   window.localStorage.setItem('gofuvar_token', token);
+  // GF-016/017 (2026-08-30): ha a socket a belépés ELŐTT nyílt (token
+  // nélkül), újra kell kötni, hogy a handshake-be bekerüljön a friss token —
+  // különben a chat + értesítések élő frissítése a teljes újratöltésig halott.
+  refreshSocketAuth();
   window.dispatchEvent(new Event(EVENT));
 }
 

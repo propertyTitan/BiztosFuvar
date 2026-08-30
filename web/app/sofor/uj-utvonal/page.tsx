@@ -11,6 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { api, Waypoint } from '@/api';
 import { PACKAGE_SIZES, PackageSizeId } from '@/lib/packageSizes';
 import CityTagsInput from '@/components/CityTagsInput';
+import { useToast } from '@/components/ToastProvider';
 
 type SizeRow = {
   enabled: boolean;
@@ -19,6 +20,7 @@ type SizeRow = {
 
 function UjUtvonalContent() {
   const router = useRouter();
+  const toast = useToast();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
   const isEdit = !!editId;
@@ -135,8 +137,13 @@ function UjUtvonalContent() {
 
   async function submit(publishNow: boolean) {
     if (!canSubmit) {
-      // BUG-024: a "mi hiányzik" lista a gombok alatt amúgy is látszik —
-      // ugyanazt a szöveget nem írjuk ki még egyszer hibaként
+      // GF-018 (Manus, 2026-08-30): a kattintás eddig NÉMÁN nem csinált
+      // semmit (a hiány-lista a gombok alatt látszott ugyan, de a
+      // felhasználó a gombra nézett). Most explicit toast is szól.
+      toast.error(
+        publishNow ? 'A publikáláshoz még hiányzik' : 'A piszkozat mentéséhez még hiányzik',
+        missingFields.join(' · '),
+      );
       return;
     }
     setError(null);

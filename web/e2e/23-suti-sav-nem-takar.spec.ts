@@ -82,3 +82,20 @@ test('friss sessionben a lap-alji gomb ELSŐ kattintásra működik (a süti-sá
     'A lemondás-dialógus nem nyílt meg az ELSŐ kattintásra.',
   ).toBeVisible({ timeout: 5_000 });
 });
+
+test('320 px-es kijelzőn a süti-sáv KOMPAKT — nem eheti meg a képernyő harmadát (GF-022)', async ({ page }) => {
+  // Manus-mérés (2026-08-30): 320×700-on a sáv 252 px = a képernyő 36%-a
+  // volt. A kompakt mobil-változat rövidebb szöveggel megy; a plafon a
+  // képernyő ~30%-a — fölötte a sáv megint tartalmat nyomna ki.
+  await page.setViewportSize({ width: 320, height: 700 });
+  await page.goto('/');
+  const sav = page.getByRole('dialog', { name: /Süti nyilatkozat/i });
+  await expect(sav).toBeVisible();
+  const box = await sav.boundingBox();
+  expect(box, 'a sáv nem mérhető').toBeTruthy();
+  expect(
+    box!.height,
+    `A süti-sáv ${Math.round(box!.height)} px magas 320×700-on — a Manus által ` +
+      'mért 252 px-es (36%-os) állapot tért vissza: a kompakt változat nem él.',
+  ).toBeLessThanOrEqual(210);
+});
