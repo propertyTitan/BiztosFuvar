@@ -49,7 +49,43 @@ export function frissitCurrentUser(patch: Partial<CurrentUser>) {
 export function clearCurrentUser() {
   window.localStorage.removeItem('gofuvar_user');
   window.localStorage.removeItem('gofuvar_token');
+  // GF-006 (Manus, 2026-08-30): a régi, GLOBÁLIS mód-kulcs kijelentkezéskor
+  // bent maradt, és a KÖVETKEZŐ (másik!) fiók örökölte — egy feladó szállítói
+  // fejlécet kapott. A mód azóta felhasználóhoz kötött (lásd lent), a globális
+  // kulcsot itt csak takarítjuk, hogy régi böngészőkben se szivárogjon át.
+  window.localStorage.removeItem('gofuvar_mode');
   window.dispatchEvent(new Event(EVENT));
+}
+
+// ── Feladó/Szállító mód — FELHASZNÁLÓHOZ kötve (GF-006, 2026-08-30) ──────
+//
+// A mód (melyik nézetet látja: feladó vagy szállító) korábban egyetlen
+// globális 'gofuvar_mode' kulcsban élt: kijelentkezés után a következő fiók
+// ÖRÖKÖLTE az előző módját. Mostantól a kulcs a user id-jával képződik —
+// másik fiókhoz át nem szivárog, ugyanaz a fiók viszont visszakapja a saját
+// beállítását. Minden olvasó/író EZEKEN a helpereken megy (HomeHub,
+// SiteHeader, not-found) — közvetlen localStorage-hozzáférés a módhoz TILOS.
+
+export type AppMode = 'shipper' | 'driver';
+
+function modeKey(userId: string) {
+  return `gofuvar_mode:${userId}`;
+}
+
+/** A BEJELENTKEZETT user tárolt módja; nincs user vagy nincs mentés → null. */
+export function readStoredMode(): AppMode | null {
+  const u = readUser();
+  if (!u) return null;
+  const v = window.localStorage.getItem(modeKey(u.id));
+  return v === 'shipper' || v === 'driver' ? v : null;
+}
+
+/** Mód mentése a bejelentkezett userhez + a fejléc mód-chipjének értesítése. */
+export function writeStoredMode(mode: AppMode) {
+  const u = readUser();
+  if (!u) return;
+  window.localStorage.setItem(modeKey(u.id), mode);
+  window.dispatchEvent(new Event('gofuvar:mode-change'));
 }
 
 function readUser(): CurrentUser | null {

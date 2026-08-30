@@ -312,7 +312,21 @@ router.get('/carrier-routes/:id/along-jobs', authRequired, requireVerifiedEmail,
     ? JSON.parse(route.waypoints)
     : route.waypoints;
 
-  const jobs = await findJobsAlongRoute(waypoints, req.user.sub);
+  // GF-009 (Manus, 2026-08-30): a járat plafonja a LEGNAGYOBB meghirdetett
+  // méretkategória — az e fölötti fuvart (pl. 75,5 kg egy L-plafonos,
+  // max 25 kg-os járatnál) nem ajánljuk, a szállító úgysem tudná elvinni.
+  const { rows: meretek } = await db.query(
+    'SELECT size FROM carrier_route_prices WHERE route_id = $1',
+    [req.params.id],
+  );
+  const SORREND = ['S', 'M', 'L', 'XL'];
+  const maxSizeId = meretek
+    .map((r) => r.size)
+    .filter((s) => SORREND.includes(s))
+    .sort((a, b) => SORREND.indexOf(a) - SORREND.indexOf(b))
+    .pop() || null;
+
+  const jobs = await findJobsAlongRoute(waypoints, req.user.sub, undefined, { maxSizeId });
   // ⚠️ SCRUB kötelező (2026-08-09, biztonsági audit): a findJobsAlongRoute
   // SELECT j.*-ot ad vissza (nyers sor), ami tartalmazza az átvételi kódot,
   // a címzett PII-t és a tracking_tokent. Enélkül egy szállító a saját járata

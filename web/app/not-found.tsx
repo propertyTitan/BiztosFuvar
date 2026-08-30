@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowRight, Home, Package, SearchX, Truck } from 'lucide-react';
+import { readStoredMode, writeStoredMode } from '@/lib/auth';
 
 type Mode = 'driver' | 'shipper';
 
@@ -34,12 +35,9 @@ export default function NotFound() {
   const [currentMode, setCurrentMode] = useState<Mode | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('gofuvar_mode');
-    if (saved === 'driver' || saved === 'shipper') {
-      setCurrentMode(saved as Mode);
-    } else {
-      setCurrentMode('shipper');
-    }
+    // Felhasználóhoz kötött mód (GF-006) — a helper a bejelentkezett user
+    // kulcsát olvassa; kijelentkezett látogatónál a feladó-nézet a default.
+    setCurrentMode(readStoredMode() ?? 'shipper');
   }, []);
 
   const intended = guessModeFromPath(path);
@@ -47,9 +45,8 @@ export default function NotFound() {
     currentMode && intended && currentMode !== intended;
 
   function switchMode(m: Mode) {
-    localStorage.setItem('gofuvar_mode', m);
-    // Kicsi késleltetés, hogy a localStorage mentés biztos megtörténjen,
-    // aztán visszanavigálunk a főoldalra, ahol a HomeHub olvassa az új módot.
+    writeStoredMode(m);
+    // A HomeHub a főoldalon a user-kulcsos módot olvassa vissza.
     router.push('/');
   }
 

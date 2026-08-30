@@ -111,6 +111,21 @@ export function moneyFieldError(
  * hogy legyen benne értelmes mennyiségű számjegy. A cél nem a formátum-
  * rendőrség, hanem hogy a szállító tudja hívni a címzettet.
  */
+/**
+ * Opcionális e-mail mező hibája (GF-005, Manus 2026-08-30): üresen érvényes,
+ * de ha ki van töltve, szintaktikailag helyesnek kell lennie — a címzett-
+ * e-mailre követési linket ígérünk, hibás címre a levél némán elveszne.
+ * Ugyanaz a minta, mint a backend regisztrációs ellenőrzése (auth.js).
+ */
+export function emailError(raw: string): string | null {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed)) {
+    return 'Az e-mail cím érvénytelen (pl. nev@email.hu) — javítsd, vagy hagyd üresen.';
+  }
+  return null;
+}
+
 export function phoneError(raw: string): string | null {
   const trimmed = (raw || '').trim();
   if (!trimmed) return 'Kérjük, töltsd ki: Címzett telefonszáma.';

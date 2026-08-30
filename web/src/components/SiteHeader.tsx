@@ -15,7 +15,7 @@ import {
   Home, Target, Route, User, Truck, Shield,
   Bell, BellRing, Bot, LogOut, ChevronDown, Package, Plus, Mail,
 } from 'lucide-react';
-import { useCurrentUser, clearCurrentUser, frissitCurrentUser } from '@/lib/auth';
+import { useCurrentUser, clearCurrentUser, frissitCurrentUser, readStoredMode } from '@/lib/auth';
 import { photoUrl } from '@/api';
 import { api } from '@/api';
 import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
@@ -81,8 +81,9 @@ export default function SiteHeader() {
   const [activeMode, setActiveMode] = useState<'driver' | 'shipper' | null>(null);
   useEffect(() => {
     const readMode = () => {
-      const m = window.localStorage.getItem('gofuvar_mode');
-      setActiveMode(m === 'driver' || m === 'shipper' ? m : 'shipper');
+      // Felhasználóhoz kötött mód (GF-006) — a helper a bejelentkezett user
+      // kulcsát olvassa, másik fiók módja nem szivároghat ide.
+      setActiveMode(readStoredMode() ?? 'shipper');
     };
     if (user) readMode(); else setActiveMode(null);
     window.addEventListener('gofuvar:mode-change', readMode);
