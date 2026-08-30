@@ -40,6 +40,11 @@ function smsKuldoFajlok(mappa = SRC_DIR, elotag = '') {
     const rel = elotag ? `${elotag}/${b.name}` : b.name;
     if (b.isDirectory()) { ki.push(...smsKuldoFajlok(ut, rel)); continue; }
     if (!b.name.endsWith('.js')) continue;
+    // KIVÉTEL (2026-08-30): az újraküldő kör nem FOGALMAZ SMS-t, hanem egy
+    // MÁR MEGMÉRT sablon tárolt másolatát küldi tovább változatlanul — új
+    // szegmens-költség nem keletkezhet. Hogy a kivétel ne lazulhasson fel,
+    // külön teszt őrzi, hogy a továbbítás tényleg szó szerinti (lásd lent).
+    if (rel === 'services/smsRetry.js') continue;
     const forras = readFileSync(ut, 'utf8');
     // HÍVÁST keresünk, nem DEKLARÁCIÓT: a services/sms.js maga definiálja a
     // függvényt (`async function sendSms(to, message)`), az nem küldés.
@@ -120,6 +125,20 @@ function legrosszabbHossz(sablon, nevCap, telHossz) {
 }
 
 describe('Felvételkori SMS a címzettnek', () => {
+  it('a kivételezett újraküldő kör NEM fogalmaz szöveget (szó szerinti továbbítás)', () => {
+    // A smsRetry.js ki van véve a sablon-mérés alól azzal az indokkal, hogy
+    // csak tárolt (már megmért) üzenetet továbbít. Ez a teszt tartja igaznak
+    // az indokot: ha ott valaha új szöveg-összefűzés jelenne meg a küldésben,
+    // az őr újra pirosra vált, és a fájlt vissza kell venni a mérés alá.
+    const forras = readFileSync(`${SRC_DIR}/services/smsRetry.js`, 'utf8');
+    expect(
+      /sendSms\(row\.phone,\s*row\.message,/.test(forras),
+      'A smsRetry.js sendSms-hívása már nem szó szerint továbbítja a tárolt '
+      + 'üzenetet (row.phone, row.message) — a szegmens-mérés alóli kivétele '
+      + 'így nem indokolható: vedd vissza a fájlt a sablon-mérés alá.',
+    ).toBe(true);
+  });
+
   it('minden SMS-küldés sablonja megtalálható', () => {
     const hivasok = (FORRAS.match(/sendSms\(/g) || []).length;
     expect(hivasok, 'nem találtam sendSms hívást — az őr vak').toBeGreaterThan(0);

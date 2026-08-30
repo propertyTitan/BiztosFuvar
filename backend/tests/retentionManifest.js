@@ -45,6 +45,7 @@ const RETENTION_MANIFEST = {
   kyc_doc_history:     { szabaly: '5 év az utolsó használattól (purgeOldKycDocHistory)' },
   kyc_documents:       { szabaly: 'a nyers fotó 30 nap a döntés után, pending 60 nap plafonnal (purgeOldKycFiles); a sor a fiókkal CASCADE' },
   users:               { szabaly: 'DAC7-adat (adóazonosító, születési dátum) 5 év után törlődik (purgeOldTaxData); a fiók maga a felhasználó döntése' },
+  sms_retry_queue:     { szabaly: 'kézbesítéskor azonnal törlődik (smsRetry.js); 48 óra után nincs több próba, a lejárt sort a napi kör törli (purgeExpiredSmsRetryQueue)' },
 
   // ── Indokolt kivételek (NINCS időzített törlés) ──────────────────────
   carrier_alerts: {

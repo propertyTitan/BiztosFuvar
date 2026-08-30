@@ -431,4 +431,14 @@ if (process.env.DATABASE_URL) {
   setTimeout(() => { runPaymentReminders().catch(() => {}); }, 150 * 1000).unref();
   setInterval(() => { runPaymentReminders().catch(() => {}); }, DAY_MS).unref();
   console.log('[payment-reminder] napi fizetetlen-fuvar emlékeztető kör ütemezve');
+
+  // SMS-újraküldési kör (2026-08-30): a SeeMe-nél elakadt (code=13/7,
+  // hálózati hiba) SMS-eket 10 percenként újrapróbálja, 48 órás ablakban —
+  // a hiba elhárítása után a bennragadt átvételi kódok maguktól kimennek.
+  // A boot utáni első futás korai (2 perc): egy deploy-újraindulás ne
+  // késleltesse az épp bennragadt SMS-eket.
+  const { runSmsRetryQueue } = require('./services/smsRetry');
+  setTimeout(() => { runSmsRetryQueue().catch(() => {}); }, 2 * 60 * 1000).unref();
+  setInterval(() => { runSmsRetryQueue().catch(() => {}); }, 10 * 60 * 1000).unref();
+  console.log('[sms-retry] újraküldési kör ütemezve (10 percenként, 48 órás ablak)');
 }
