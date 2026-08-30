@@ -210,7 +210,57 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
 
-### 🔄 MANUS REGRESSZIÓS ÚJRATESZT (2026-08-30, 2. futás) — a 24 tétel KÜLSŐ verdiktje — MARADÉK FELDOLGOZANDÓ
+### 🔄 MANUS REGRESSZIÓS ÚJRATESZT (2026-08-30, 2. futás) — FELDOLGOZVA (este, 3. javítási kör)
+
+> **✅ A MARADÉK FELDOLGOZVA (2026-08-30 este).** Tételes állás:
+>
+> - **GF-001/002:** headless repróval a FRISS prod-buildön a teljes
+>   regisztráció HIBÁTLAN (201 → session → email-kapu). Két azonosított
+>   valós mechanizmus: **(a)** a „Regisztráció" FÜL és a „Fiók létrehozása"
+>   submit-gomb összetéveszthető — a saját repróm is elsőre a FÜLET
+>   kattintotta, és a tünet PONTOSAN a jelentett („semmi nem történik, se
+>   session"); **(b)** cold startnál az első kérés 15-30 mp, a 15 mp-es
+>   kliens-keret lejárt, MIKÖZBEN a fiók létrejött. Javítás: login/register
+>   35 mp keretet kapott + időtúllépés után CSENDES belépési próba
+>   ugyanazokkal az adatokkal (ha a fiók közben létrejött, beléptet — nem
+>   hamis hibát mutat). A kezelő szerep-független (GF-002 szállítói ág is).
+> - **GF-003:** a backend MÁR IDEMPOTENS VOLT (bids UNIQUE (job_id,
+>   carrier_id) — duplikátum NEM jöhet létre); a kliens mostantól
+>   időtúllépés után visszakérdez („beérkezett-e közben?"), és ha igen,
+>   sikert mutat hamis hiba helyett.
+> - **GF-006:** a gyökér NEM átszivárgás volt, hanem az első belépés
+>   'shipper' defaultja (a user-kulcsos tárolás után nincs mentett mód) —
+>   a fejléc „Feladó mód"-ja így nézett ki. Most a mód SZERVER-adatból
+>   inicializál (login-válasz + driver_terms_accepted_at / carrier role);
+>   a mentett preferencia erősebb. Őr: auth-mode.test.ts (8 teszt).
+> - **GF-007:** a CityTagsInput-ból (járat-űrlap városmezője) HIÁNYZOTT az
+>   Enter-fék — a #192 csak az AddressAutocomplete-et fedte. Pótolva.
+> - **GF-008:** a `/bids/mine` (nyitott + kijelölt-fizetetlen → utca-szint;
+>   a paid_at nem szivárog a vesztesnek) és a `jobs:new-instant`
+>   feed-payload javítva; a `jobs:new` feed a scrubon át már fedve volt, a
+>   lane-alert település-szintű. Őr bővítve; egy régi teszt MEGINT a régi
+>   viselkedést kodifikálta („a pontos cím maga a szolgáltatás") — igazítva.
+> - **GF-013:** aria-invalid + aria-describedby mind a 10 uj-fuvar mezőn
+>   (FieldError id-t kapott).
+> - **GF-018:** a friss buildön BIZONYÍTOTTAN működik (24-es E2E-spec:
+>   üres piszkozat → explicit toast) — a verdikt valószínűleg deploy-közi
+>   mérés volt (a #200 17:40-kor merge-ölt).
+> - **GF-019:** a jelzés a #200 óta él az uj-fuvar mind a 6 szám-mezőjén —
+>   ha a Manus MÁS felületen látta, konkrét mező kell tőle.
+> - **GF-021:** CityTagsInput címke bekötve + 4 komponens-textarea
+>   aria-label (kérdés/válasz, értékelés, vita); a ConfirmDialog wrapping
+>   label-je eleve jó volt. MARADÉK: H1→H3 címsor-szint audit (kis kör).
+> - **GF-023:** a nyelvi paraméter csak az ÚJ geokódolásra hat — a 080-as
+>   migráció a TÁROLT címek „, Hungary"-ját cserélte „, Magyarország"-ra
+>   (jobs + route_bookings + waypoints; prodon lefutott).
+> - **Cold start launch-kockázat (PDF):** a 35 mp-es auth-keret + a
+>   register/ajánlat helyreállítás a tüneti felét kezeli; az érdemi
+>   megoldás (Neon autosuspend ki / Railway min. példány) FIZETŐS
+>   infra-döntés — user dönt (lásd „1. skálázási lépcső", 2026-08-09).
+>
+> Az alábbi az EREDETI verdikt-lista (történeti):
+
+### 🔄 MANUS REGRESSZIÓS ÚJRATESZT (2026-08-30, 2. futás) — a 24 tétel KÜLSŐ verdiktje — EREDETI LISTA (történeti)
 
 > **A user feltöltötte a Manus regressziós újratesztjének eredményét**
 > (`GoFuvar_regresszios_statuszok_20260830.csv`) — a Manus a javítási körök

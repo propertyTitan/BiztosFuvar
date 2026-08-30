@@ -100,6 +100,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }:
               fotó-bizonyítékok és a fuvar adatai rendelkezésre állnak.
             </p>
             <textarea
+              aria-label="A vita leírása"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Pl. A csomag sérülten érkezett, képet csatolok. (min. 20 karakter)"

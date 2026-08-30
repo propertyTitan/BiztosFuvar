@@ -466,9 +466,11 @@ export default function UjFuvar() {
           onChange={(e) => set('title', e.target.value)}
           placeholder="Pl. Költöztetés Budapest → Debrecen"
           required
+          aria-invalid={Boolean(show('title'))}
+          aria-describedby={show('title') ? 'hiba-title' : undefined}
           style={show('title') ? redBorder : undefined}
         />
-        <FieldError>{show('title')}</FieldError>
+        <FieldError id="hiba-title">{show('title')}</FieldError>
 
         <label htmlFor="fuvar-reszletes-leiras">Részletes leírás</label>
         <textarea id="fuvar-reszletes-leiras"
@@ -782,9 +784,11 @@ export default function UjFuvar() {
               onChange={(e) => setNumeric('length_cm', e.target.value)}
               placeholder="pl. 120"
               required
+              aria-invalid={Boolean(show('length'))}
+              aria-describedby={show('length') ? 'hiba-length' : undefined}
               style={show('length') ? redBorder : undefined}
             />
-            <FieldError>{show('length') || (negativJelzes.length_cm ? NEGATIV_UZENET : null)}</FieldError>
+            <FieldError id="hiba-length">{show('length') || (negativJelzes.length_cm ? NEGATIV_UZENET : null)}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-szelesseg">Szélesség (cm) <span style={REQ}>*</span></label>
@@ -801,9 +805,11 @@ export default function UjFuvar() {
               onChange={(e) => setNumeric('width_cm', e.target.value)}
               placeholder="pl. 80"
               required
+              aria-invalid={Boolean(show('width'))}
+              aria-describedby={show('width') ? 'hiba-width' : undefined}
               style={show('width') ? redBorder : undefined}
             />
-            <FieldError>{show('width') || (negativJelzes.width_cm ? NEGATIV_UZENET : null)}</FieldError>
+            <FieldError id="hiba-width">{show('width') || (negativJelzes.width_cm ? NEGATIV_UZENET : null)}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-magassag">Magasság (cm) <span style={REQ}>*</span></label>
@@ -820,9 +826,11 @@ export default function UjFuvar() {
               onChange={(e) => setNumeric('height_cm', e.target.value)}
               placeholder="pl. 100"
               required
+              aria-invalid={Boolean(show('height'))}
+              aria-describedby={show('height') ? 'hiba-height' : undefined}
               style={show('height') ? redBorder : undefined}
             />
-            <FieldError>{show('height') || (negativJelzes.height_cm ? NEGATIV_UZENET : null)}</FieldError>
+            <FieldError id="hiba-height">{show('height') || (negativJelzes.height_cm ? NEGATIV_UZENET : null)}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-suly">Súly (kg) <span style={REQ}>*</span></label>
@@ -836,9 +844,11 @@ export default function UjFuvar() {
               onChange={(e) => setNumeric('weight_kg', e.target.value)}
               placeholder="pl. 350"
               required
+              aria-invalid={Boolean(show('weight'))}
+              aria-describedby={show('weight') ? 'hiba-weight' : undefined}
               style={show('weight') ? redBorder : undefined}
             />
-            <FieldError>{show('weight') || (negativJelzes.weight_kg ? NEGATIV_UZENET : null)}</FieldError>
+            <FieldError id="hiba-weight">{show('weight') || (negativJelzes.weight_kg ? NEGATIV_UZENET : null)}</FieldError>
           </div>
         </div>
         {volumeM3 != null && (
@@ -936,9 +946,11 @@ export default function UjFuvar() {
           onChange={(e) => setNumeric('suggested_price_huf', e.target.value)}
           placeholder={form.is_instant ? 'pl. 12000 (a szállító készpénzben, levonás nélkül kapja)' : 'pl. 65000'}
           required
+          aria-invalid={Boolean(show('price'))}
+          aria-describedby={show('price') ? 'hiba-price' : undefined}
           style={show('price') ? redBorder : undefined}
         />
-        <FieldError>{show('price') || (negativJelzes.suggested_price_huf ? NEGATIV_UZENET : null)}</FieldError>
+        <FieldError id="hiba-price">{show('price') || (negativJelzes.suggested_price_huf ? NEGATIV_UZENET : null)}</FieldError>
         {/* Egyértelműsítés (2026-08-21, Manus-teszt): a mezőből nem derült
             ki, hogy ez nem végleges ár. Azonnali fuvarnál viszont AZ. */}
         {!form.is_instant && (
@@ -998,9 +1010,11 @@ export default function UjFuvar() {
           value={raw.declared_value_huf}
           onChange={(e) => setNumeric('declared_value_huf', e.target.value)}
           placeholder="pl. 50000"
+          aria-invalid={Boolean(show('declared'))}
+          aria-describedby={show('declared') ? 'hiba-declared' : undefined}
           style={show('declared') ? redBorder : undefined}
         />
-        <FieldError>{show('declared') || (negativJelzes.declared_value_huf ? NEGATIV_UZENET : null)}</FieldError>
+        <FieldError id="hiba-declared">{show('declared') || (negativJelzes.declared_value_huf ? NEGATIV_UZENET : null)}</FieldError>
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
           Opcionális, de ajánlott. A szállító ez alapján méri fel a felelősségét:
           egy 500.000 Ft-os tárgy szállítása más hozzáállást igényel, mint egy
@@ -1068,9 +1082,11 @@ export default function UjFuvar() {
                   onChange={(e) => set('recipient_name', e.target.value)}
                   placeholder="pl. Kiss Anna"
                   required
+                  aria-invalid={Boolean(show('recipientName'))}
+                  aria-describedby={show('recipientName') ? 'hiba-recipientName' : undefined}
                   style={show('recipientName') ? redBorder : undefined}
                 />
-                <FieldError>{show('recipientName')}</FieldError>
+                <FieldError id="hiba-recipientName">{show('recipientName')}</FieldError>
               </div>
               <div>
                 <label htmlFor="uj-cimzett-tel">Címzett telefonszáma <span style={REQ}>*</span></label>
@@ -1084,9 +1100,11 @@ export default function UjFuvar() {
                   onChange={(e) => set('recipient_phone', e.target.value)}
                   placeholder="+36 30 123 4567"
                   required
+                  aria-invalid={Boolean(show('recipientPhone'))}
+                  aria-describedby={show('recipientPhone') ? 'hiba-recipientPhone' : undefined}
                   style={show('recipientPhone') ? redBorder : undefined}
                 />
-                <FieldError>{show('recipientPhone')}</FieldError>
+                <FieldError id="hiba-recipientPhone">{show('recipientPhone')}</FieldError>
               </div>
             </div>
             <div>
@@ -1100,9 +1118,11 @@ export default function UjFuvar() {
                 value={form.recipient_email}
                 onChange={(e) => set('recipient_email', e.target.value)}
                 placeholder="anna@email.hu"
+                aria-invalid={Boolean(show('recipientEmail'))}
+                aria-describedby={show('recipientEmail') ? 'hiba-recipientEmail' : undefined}
                 style={show('recipientEmail') ? redBorder : undefined}
               />
-              <FieldError>{show('recipientEmail')}</FieldError>
+              <FieldError id="hiba-recipientEmail">{show('recipientEmail')}</FieldError>
               <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                 Ha megadod, a címzett emailben is kapja a követési linket.
               </p>

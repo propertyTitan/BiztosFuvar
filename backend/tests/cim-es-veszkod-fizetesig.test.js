@@ -197,3 +197,53 @@ describe('utcaSzint — tartalom-alapú házszám-eltávolítás', () => {
     expect(eredmeny).toContain('Szatymaz');
   });
 });
+
+describe('GF-008 regresszió: a szabály MINDEN listán él (Manus 2. futás)', () => {
+  it('/bids/mine: saját ajánlat után sincs házszám a nyitott fuvar címében', async () => {
+    // A Manus-regresszió találata: a RÉSZLETEZŐ már maszkolt, de ez a lista
+    // saját ajánlat után házszámos címet adott — a védelem csak azon az
+    // úton épült meg, ahol felfedezték.
+    const shipper = await createUser();
+    const carrier = await createUser({ role: 'carrier' });
+    const job = await createJob({
+      shipperId: shipper.id, carrierId: null, status: 'bidding', paid: false,
+      pickupAddress: HAZSZAMOS_PICKUP, dropoffAddress: HAZSZAMOS_DROPOFF,
+    });
+    await db.query(
+      `INSERT INTO bids (job_id, carrier_id, amount_huf, return_policy) VALUES ($1, $2, 12000, 'included')`,
+      [job.id, carrier.id],
+    );
+
+    const res = await request(app)
+      .get('/bids/mine')
+      .set('Authorization', `Bearer ${carrier.token}`);
+    expect(res.status).toBe(200);
+    const sor = res.body.find((b) => b.job_id === job.id);
+    expect(sor).toBeTruthy();
+    expect(sor.pickup_address).toContain('Váci út');
+    expect(
+      sor.pickup_address.includes('12'),
+      `Az Ajánlataim lista házszámos címet ad fizetés előtt: "${sor.pickup_address}"`,
+    ).toBe(false);
+    expect(sor.job_paid_at, 'a paid_at belső adat — nem való a listába').toBeUndefined();
+  });
+
+  it('/bids/mine: kijelölt + FIZETETT szállítónak viszont pontos cím jár', async () => {
+    const shipper = await createUser();
+    const carrier = await createUser({ role: 'carrier' });
+    const job = await createJob({
+      shipperId: shipper.id, carrierId: carrier.id, status: 'accepted', paid: true,
+      pickupAddress: HAZSZAMOS_PICKUP, dropoffAddress: HAZSZAMOS_DROPOFF,
+    });
+    await db.query(
+      `INSERT INTO bids (job_id, carrier_id, amount_huf, status, return_policy) VALUES ($1, $2, 12000, 'accepted', 'included')`,
+      [job.id, carrier.id],
+    );
+
+    const res = await request(app)
+      .get('/bids/mine')
+      .set('Authorization', `Bearer ${carrier.token}`);
+    const sor = res.body.find((b) => b.job_id === job.id);
+    expect(sor.pickup_address).toBe(HAZSZAMOS_PICKUP);
+  });
+});

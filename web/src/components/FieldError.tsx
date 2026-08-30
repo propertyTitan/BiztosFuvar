@@ -31,10 +31,12 @@ export const redBorder = {
  * `role="alert"`: a képernyőolvasó felolvassa, amikor megjelenik. Enélkül a
  * vak felhasználó csak annyit érzékelne, hogy az űrlap „nem csinál semmit".
  */
-export default function FieldError({ children }: { children: string | null }) {
+export default function FieldError({ children, id }: { children: string | null; id?: string }) {
   if (!children) return null;
   return (
-    <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, margin: '4px 0 0' }}>
+    // Az `id` az input `aria-describedby`-jának célpontja (GF-013): a
+    // felolvasó így a MEZŐHÖZ kötve mondja el a hibát, nem csak bemondja.
+    <p id={id} role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, margin: '4px 0 0' }}>
       {children}
     </p>
   );

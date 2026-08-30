@@ -12,7 +12,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import { api } from '@/api';
-import { setCurrentUser, homeForRole, Role } from '@/lib/auth';
+import { setCurrentUser, homeForRole, initStoredModeFromProfile, Role } from '@/lib/auth';
 
 type Mode = 'login' | 'register';
 
@@ -98,6 +98,29 @@ function BejelentkezesContent() {
               } : {}),
             });
 
+      belepesUtan(res);
+    } catch (err: any) {
+      // GF-001/002 (Manus-regresszió, 2026-08-30): cold startnál a kérés a
+      // kliens időkereténél tovább tarthat, MIKÖZBEN a szerver feldolgozza —
+      // regisztrációnál a fiók ilyenkor MÁR LÉTREJÖTT, csak a válasz veszett
+      // el. Időtúllépés után ezért egy csendes belépési próbát teszünk
+      // ugyanazokkal az adatokkal: ha él a fiók, be is léptetjük, nem hamis
+      // hibát mutatunk.
+      const idotullepes = /nem válaszolt időben/i.test(err?.message || '');
+      if (idotullepes) {
+        try {
+          const res2 = await api.login(email, password);
+          belepesUtan(res2);
+          return;
+        } catch { /* marad az eredeti hibaüzenet */ }
+      }
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function belepesUtan(res: { token: string; user: any }) {
       setCurrentUser(
         {
           id: res.user.id,
@@ -117,12 +140,10 @@ function BejelentkezesContent() {
         },
         res.token,
       );
+      // GF-006: első belépéskor (nincs mentett mód) a szerver-adat dönt —
+      // egy szállító fiókja szállító-módban nyíljon, ne „Feladó mód"-ban.
+      initStoredModeFromProfile(res.user as any);
       router.push(homeForRole(res.user.role as Role));
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
   }
 
   function switchMode(m: Mode) {

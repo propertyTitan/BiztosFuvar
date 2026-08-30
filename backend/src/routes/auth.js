@@ -413,7 +413,12 @@ router.post('/login', loginRateLimit, async (req, res) => {
     // CSAK monogramot mutatott, mert a bejelentkezéskor eltárolt user-objektum
     // nem is tartalmazott avatart. Ezért nem változott a kép a jobb felső
     // sarokban — se profil-módosítás után, se ki- és bejelentkezéssel.
-    'SELECT id, role, email, full_name, avatar_url, password_hash, token_version FROM users WHERE LOWER(email) = LOWER($1)',
+    // ⚠️ driver_terms_accepted_at IS KELL (GF-006, Manus-regresszió
+    // 2026-08-30): a web-regisztráció mindenkit 'shipper'-ként hoz létre, a
+    // tényleges szállítói működés jele a driver_terms (CLAUDE.md szabály) —
+    // a kliens ebből inicializálja a Feladó/Szállító módot első belépéskor,
+    // különben egy szállító fiókja „Feladó mód"-ban nyílik.
+    'SELECT id, role, email, full_name, avatar_url, driver_terms_accepted_at, password_hash, token_version FROM users WHERE LOWER(email) = LOWER($1)',
     [email.trim()],
   );
   const user = rows[0];

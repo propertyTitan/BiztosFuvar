@@ -97,8 +97,10 @@ describe('GET /bids/mine', () => {
     const vesztes = await createUser({ role: 'carrier' });
 
     const nyitott = await createJob({ shipperId: felado.id, status: 'bidding', carrierId: null });
+    // GF-008: a kijelölt szállítónak a pontos cím csak a díj UTÁN jár —
+    // a „neki oda kell mennie" eset fizetett fuvart feltételez.
     const elkelt = await createJob({
-      shipperId: felado.id, carrierId: nyertes.id, status: 'accepted',
+      shipperId: felado.id, carrierId: nyertes.id, status: 'accepted', paid: true,
     });
     await ajanlat({ jobId: nyitott.id, carrierId: vesztes.id });
     await ajanlat({ jobId: elkelt.id, carrierId: vesztes.id, status: 'rejected' });
@@ -108,9 +110,13 @@ describe('GET /bids/mine', () => {
     const nyitottSor = veszteseRes.body.find((r) => r.job_id === nyitott.id);
     const elkeltSor = veszteseRes.body.find((r) => r.job_id === elkelt.id);
 
-    expect(nyitottSor.pickup_address,
-      'a MÉG ELVÁLLALHATÓ fuvarnál a pontos cím maga a szolgáltatás — ezt nem szabad elvenni')
-      .toBe('Budapest, Teszt u. 1.');
+    // GF-008 (user-döntés, 2026-08-30) felülírta a korábbi elvárást: a
+    // nyitott fuvarnál is UTCA-szint jár (házszám a díj után) — a teszt
+    // korábban a pontos címet kodifikálta.
+    expect(nyitottSor.pickup_address).toContain('Teszt u');
+    expect(nyitottSor.pickup_address.includes('1'),
+      'a nyitott fuvar címében fizetés előtt nem lehet házszám (GF-008)')
+      .toBe(false);
     expect(elkeltSor.pickup_address,
       'az ELKELT fuvarnál a vesztes ajánlattevő nem tarthatja meg örökre a házszámig '
       + 'pontos lakcímet — településszintre kell rövidülnie')
