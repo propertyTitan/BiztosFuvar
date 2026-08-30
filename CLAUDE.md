@@ -223,19 +223,21 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >
 > **P1 — kritikus (11):**
 >
-> - **GF-001 (Regisztráció):** sikeres backend-regisztráció után a gomb
->   „Regisztráció" állapotban beragad, nincs átirányítás az
->   e-mail-megerősítéshez. Javaslat: determinista sikerkezelés + timeout +
->   „Folytatás" CTA + idempotencia.
-> - **GF-002 (Belépés):** sikeres login után a UI „Belépés" állapotban marad
->   (a session létrejön, közvetlen URL működik, csak a redirect marad el;
->   mindkét szerepkörrel reprodukált). Javaslat: auth-válasz ↔ router
->   szinkron, 10 mp timeout, retry/continue CTA. (GF-001-gyel közös gyökér
->   valószínű.)
-> - **GF-003 (Ajánlattétel):** érvényes ajánlat létrejön, de a „Küldés"
->   állapot beragad — nincs siker-toast, se navigáció. Javaslat:
->   idempotenciakulcs + feldolgozási állapot lezárása. (Szintén a
->   „beragadó submit" osztály — GF-001/002/012-vel együtt kezelendő.)
+> - **GF-001/002/003 (beragadó submit-osztály):** ✅ **OSZTÁLY-SZINTEN
+>   JAVÍTVA (2026-08-30)** — a közös gyökér: a web `request()` wrapperében
+>   a fetch-nek NEM VOLT IDŐKERETE, így egy elakadt kapcsolat ÖRÖKRE pörgő
+>   gombot hagyott BÁRMELYIK űrlapon, hibaüzenet és kiút nélkül; ráadásul
+>   hálózati hibánál a nyers ANGOL „Failed to fetch" ment a felhasználónak.
+>   Javítás EGY helyen (`fetchWithTimeout`): 15 mp alap-időkeret (feltöltés
+>   60/90 mp, AI-chat 45 mp, link-preview 30 mp) + magyar időtúllépés/
+>   hálózati üzenetek + HTTP/2-n az üres statusText miatti „API hiba"
+>   helyett státuszkódos fallback. Őr: `api-idokeretek.test.ts` — VALÓDI
+>   nem-válaszoló szerverrel mér (a javítás nélkül igazoltan piros).
+>   ⚠️ A „sikeres login/regisztráció után elmarad a redirect" állítást
+>   REPRODUKÁLNI NEM SIKERÜLT: a happy path E2E-vel fedett és zöld, a
+>   korábbi körökben pedig a Manus KÉTSZER bizonyítottan deploy előtti
+>   bundle-t tesztelt — valószínű ugyanaz a műtermék. Ha újra jelentkezik
+>   friss oldalbetöltés után, konkrét repró kell.
 > - **GF-004 (SMS/PIN):** ✅ **LEZÁRVA (2026-08-30)** — a gyökérok tényleg
 >   konfig volt, nem kód: Railway-logból bizonyítva `code=13 Your
 >   152.55.177.90 IP address is not allowed` (a Railway Hobby kimenő IP-je
@@ -285,9 +287,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >
 > **P2 — közepes (11):**
 >
-> - **GF-012 (Profil):** érvénytelen mentés (üres név, hibás telefon, túl
->   hosszú rendszám) beragad, ok-közlés nélkül. Egységes validációs
->   hibaséma + timeout.
+> - **GF-012 (Profil):** RÉSZBEN JAVÍTVA (2026-08-30): a „beragad" fele az
+>   időkeret-osztállyal megoldva (GF-001/002/003) — a kérés véges időn belül
+>   magyar hibával tér vissza. NYITVA: az érvénytelen mentés mezőszintű
+>   ok-közlése (a GF-013/015 validációs körrel együtt kezelendő).
 > - **GF-013 (Űrlapvalidáció):** üres beküldésnél több felületen nincs
 >   használható visszajelzés — minden hibás mező egyszerre jelezve + fókusz
 >   az elsőre + aria-invalid/role=alert.
