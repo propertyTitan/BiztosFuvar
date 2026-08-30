@@ -262,14 +262,60 @@ function getToken(): string | null {
   return window.localStorage.getItem('gofuvar_token');
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+// ── Időkeret + magyar hálózati hibák (2026-08-30, Manus GF-001/002/003/012) ──
+//
+// A „beragadó submit" osztály gyökere: a fetch-nek NEM volt időkerete, így
+// egy elakadt kapcsolat (mobil-hálózat, szerver-elakadás, fél-nyitott TCP)
+// ÖRÖKRE pörgő gombot hagyott minden űrlapon — hibaüzenet és kiút nélkül.
+// Ráadásul a hálózati hibák a böngésző nyers, ANGOL szövegével („Failed to
+// fetch") jutottak el a felhasználóig. Egyetlen helyen javítjuk, az összes
+// űrlap örökli: véges időn belül érdemi magyar üzenet + újrapróbálható állapot.
+const API_TIMEOUT_MS = 15_000;
+
+export const HALOZATI_HIBA_UZENET = 'Nem sikerült elérni a szervert. Ellenőrizd az internetkapcsolatod, és próbáld újra.';
+export const IDOTULLEPES_UZENET = 'A szerver nem válaszolt időben. Próbáld újra — ha ismétlődik, írj nekünk: info@gofuvar.hu.';
+
+type ApiInit = RequestInit & { timeoutMs?: number };
+
+/**
+ * Minden kimenő kérés ezen megy át: időkeret + magyar hálózati hibaüzenet.
+ *
+ * ⚠️ Az időtúllépést SAJÁT flaggel azonosítjuk, nem a hiba nevéből
+ * (TimeoutError/AbortError) — az első változat névre illesztett, és a
+ * valódi beragadt-szerver teszt azonnal megfogta: környezettől függően az
+ * abort más-más néven (akár TypeError-ba csomagolva) érkezik.
+ */
+export async function fetchWithTimeout(url: string, init: ApiInit = {}): Promise<Response> {
+  const { timeoutMs = API_TIMEOUT_MS, ...rest } = init;
+  // Ha a hívó saját signalt ad (ma senki), azt tiszteletben tartjuk —
+  // a kettő összefésülése többet bonyolítana, mint amennyit érne.
+  if (rest.signal || typeof AbortController === 'undefined') {
+    try {
+      return await fetch(url, rest);
+    } catch {
+      throw new Error(HALOZATI_HIBA_UZENET);
+    }
+  }
+  const vezerlo = new AbortController();
+  let lejart = false;
+  const ora = setTimeout(() => { lejart = true; vezerlo.abort(); }, timeoutMs);
+  try {
+    return await fetch(url, { ...rest, signal: vezerlo.signal });
+  } catch {
+    throw new Error(lejart ? IDOTULLEPES_UZENET : HALOZATI_HIBA_UZENET);
+  } finally {
+    clearTimeout(ora);
+  }
+}
+
+async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(init.headers as Record<string, string> | undefined),
   };
   const token = getToken();
   if (token) headers['Authorization'] = `Bearer ${token}`;
-  const res = await fetch(`${BASE_URL}${path}`, { ...init, headers });
+  const res = await fetchWithTimeout(`${BASE_URL}${path}`, { ...init, headers });
   if (!res.ok) {
     // Token lejárt / érvénytelen → automatikus kijelentkezés + átirányítás.
     // KIVÉTEL az anonim auth-végpontok (login, regisztráció, jelszó-reset):
@@ -284,7 +330,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       window.location.href = '/bejelentkezes';
       throw new Error('A munkameneted lejárt. Kérlek, jelentkezz be újra.');
     }
-    const errorData = await res.json().catch(() => ({ error: res.statusText }));
+    // ⚠️ HTTP/2 alatt a res.statusText ÜRES sztring — a korábbi
+    // `{ error: res.statusText }` fallback élesben mindig a semmitmondó
+    // „API hiba" szövegre esett vissza. A státuszkóddal legalább kereshető.
+    const errorData = await res.json().catch(() => ({} as { error?: string; code?: string }));
     if (res.status === 403 && typeof window !== 'undefined') {
       const kycCodes = ['IDENTITY_KYC_REQUIRED', 'DRIVER_KYC_REQUIRED', 'COMPANY_KYC_REQUIRED'];
       if (errorData.code === 'OUTSIDE_COVERAGE') {
@@ -293,7 +342,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
         window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code } }));
       }
     }
-    throw new Error(errorData.error || 'API hiba');
+    throw new Error(errorData.error || `Hiba történt (HTTP ${res.status}). Próbáld újra pár perc múlva.`);
   }
   return res.json();
 }
@@ -467,13 +516,15 @@ export const api = {
     if (opts?.deliveryCode) form.append('delivery_code', opts.deliveryCode);
 
     const token = getToken();
-    const res = await fetch(`${BASE_URL}/jobs/${jobId}/photos`, {
+    // Feltöltésnél tágabb időkeret: lassú mobilneten egy nagy fotó is beleférjen.
+    const res = await fetchWithTimeout(`${BASE_URL}/jobs/${jobId}/photos`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: form,
+      timeoutMs: 60_000,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const err = await res.json().catch(() => ({ error: undefined }));
       throw new Error(err.error || 'Fotó feltöltés sikertelen');
     }
     return res.json();
@@ -492,13 +543,14 @@ export const api = {
     if (opts?.deliveryCode) form.append('delivery_code', opts.deliveryCode);
 
     const token = getToken();
-    const res = await fetch(`${BASE_URL}/route-bookings/${bookingId}/photos`, {
+    const res = await fetchWithTimeout(`${BASE_URL}/route-bookings/${bookingId}/photos`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: form,
+      timeoutMs: 60_000,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const err = await res.json().catch(() => ({ error: undefined }));
       throw new Error(err.error || 'Fotó feltöltés sikertelen');
     }
     return res.json();
@@ -986,6 +1038,8 @@ export const api = {
     request<{ reply: string }>('/ai/chat', {
       method: 'POST',
       body: JSON.stringify({ message, history }),
+      // A Gemini-válasz lassabb lehet a szokásos API-hívásnál.
+      timeoutMs: 45_000,
     }),
 
   // ==================== AUTÓMENTÉS ====================
@@ -1054,13 +1108,15 @@ export const api = {
     form.append('file', file);
     form.append('doc_type', docType);
     const token = getToken();
-    const res = await fetch(`${BASE_URL}/auth/kyc-document`, {
+    // A KYC-nél az AI-elemzés is a válaszidőben van — tág időkeret kell.
+    const res = await fetchWithTimeout(`${BASE_URL}/auth/kyc-document`, {
       method: 'POST',
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       body: form,
+      timeoutMs: 90_000,
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
+      const err = await res.json().catch(() => ({ error: undefined }));
       // BUG-019: a duplikátum-409 az okot ai_reason-ben küldi, error mező
       // nélkül — enélkül a user csak generikus "sikertelen"-t látott
       throw new Error(err.error || err.ai_reason || 'KYC dokumentum feltöltés sikertelen');
@@ -1104,7 +1160,7 @@ export const api = {
     if (params.pickup_has_elevator != null) qs.set('pickup_has_elevator', String(params.pickup_has_elevator));
     if (params.dropoff_floor != null) qs.set('dropoff_floor', String(params.dropoff_floor));
     if (params.dropoff_has_elevator != null) qs.set('dropoff_has_elevator', String(params.dropoff_has_elevator));
-    const res = await fetch(`${BASE_URL}/calculator/estimate?${qs.toString()}`);
+    const res = await fetchWithTimeout(`${BASE_URL}/calculator/estimate?${qs.toString()}`);
     if (!res.ok) throw new Error('Kalkulátor hiba');
     return res.json() as Promise<{
       distance_km: number;
@@ -1178,7 +1234,8 @@ export const api = {
 
   // ---------- "Hozasd el" — hirdetés-link előnézet ----------
   linkPreview: async (url: string) => {
-    const res = await fetch(`${BASE_URL}/link-preview?url=${encodeURIComponent(url)}`);
+    // A szerver külső oldalt tölt le hozzá — tágabb keret, mint az átlag.
+    const res = await fetchWithTimeout(`${BASE_URL}/link-preview?url=${encodeURIComponent(url)}`, { timeoutMs: 30_000 });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Nem támogatott link');
     return data as {
