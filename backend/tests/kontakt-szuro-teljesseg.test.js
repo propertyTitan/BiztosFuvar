@@ -29,7 +29,9 @@ describe('F1 — a NÉV is átmegy a kontakt-szűrőn', () => {
       full_name: TELEFON, phone: '+36201112233',
     });
     expect(res.status).toBe(400);
-    expect(res.body.code).toBe('CONTACT_LEAK');
+    // 2026-08-30 (REG-P1-NEW-01): a számjegyes nevet már a név-szabály fogja
+    // meg (előbb fut, erősebb) — a lényeg változatlan: a szám nem megy át.
+    expect(res.body.code).toBe('NAME_HAS_DIGITS');
   });
 
   it('PATCH /auth/me — a névbe utólag sem írható elérhetőség', async () => {
@@ -37,7 +39,7 @@ describe('F1 — a NÉV is átmegy a kontakt-szűrőn', () => {
     const res = await request(app).patch('/auth/me').set(auth(u.token))
       .send({ full_name: 'Kovacs Bela 0630 123 4567' });
     expect(res.status).toBe(400);
-    expect(res.body.code).toBe('CONTACT_LEAK');
+    expect(res.body.code).toBe('NAME_HAS_DIGITS');
 
     // Kontroll: a normál név továbbra is megy
     __resetRateLimitsForTests();

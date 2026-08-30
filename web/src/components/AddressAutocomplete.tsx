@@ -130,6 +130,22 @@ export default function AddressAutocomplete({
   // javított — ez a komponens kimaradt.
   const inputId = useId();
 
+  // ⚠️ GF-007, HARMADIK kör (Manus 3. futás, 2026-08-30): a React-szintű
+  // Enter-fék (input onKeyDown + form onKeyDown) NEM ELÉG — a Google Places
+  // saját, natív listener-e a mezőn stopPropagation-nel elnyelheti az
+  // eseményt, MIELŐTT a React (a gyökéren delegált) kezelői futnának, és
+  // ilyenkor az implicit form-submit mégis elsül. A CAPTURE-fázisú natív
+  // listener a célelemen MINDEN bubble-listener előtt fut — a preventDefault
+  // így garantált, a Google kiválasztás-kezelését pedig nem érinti (ezt az
+  // E2E ArrowDown+Enter mintája őrzi: ha a kiválasztás törne el, piros).
+  const enterFekRef = (el: HTMLInputElement | null) => {
+    if (!el || (el as any).__gofuvarEnterFek) return;
+    (el as any).__gofuvarEnterFek = true;
+    el.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') e.preventDefault();
+    }, true);
+  };
+
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   // Amit a user ténylegesen BEGÉPELT (a widget kiválasztáskor felülírja a
   // mező tartalmát, ezért külön őrizzük — a házszám sokszor csak ebben van).
@@ -212,6 +228,7 @@ export default function AddressAutocomplete({
         <label htmlFor={inputId}>{label}</label>
         <input
           id={inputId}
+          ref={enterFekRef}
           className="input"
           onKeyDown={(e) => {
             // ⚠️ GF-FT-01 (Manus, 2026-08-21): az Enter a javaslat kiválasztása
@@ -263,6 +280,7 @@ export default function AddressAutocomplete({
       >
         <input
           id={inputId}
+          ref={enterFekRef}
           className="input"
           onKeyDown={(e) => {
             // ⚠️ GF-FT-01 (Manus, 2026-08-21): az Enter a javaslat kiválasztása

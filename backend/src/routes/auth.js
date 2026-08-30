@@ -40,6 +40,38 @@ function generateAuthToken() {
 function hashAuthToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
+
+// ── E-mail-megerősítő token, v2 (REG-P1-NEW-02, Manus 3. futás) ─────────
+//
+// A régi (véletlen, hash-elt, EGYSZER használatos) token két úton halt meg
+// a felhasználó kattintása ELŐTT: (1) a levelező link-ellenőrzője
+// megnyitotta és ELFOGYASZTOTTA; (2) az „Új link kérése" ÚJ tokent
+// generált és felülírta a régit — az ELSŐ levél linkje érvénytelenné vált,
+// pedig senki nem kattintott rá. Mindkettő „Érvénytelen vagy már
+// felhasznált" hibát adott az első kézi kattintásra.
+//
+// A v2 token DETERMINISZTIKUS és ÁLLAPOTMENTES: `v2.<userId>.<HMAC>` a
+// szerver-oldali pepperrel aláírva. Következmények:
+//   · a megerősítés IDEMPOTENS — akárhány megnyitás sikert ad;
+//   · az újraküldött levél UGYANAZT a linket viszi — a régi levél linkje
+//     sosem hal meg;
+//   · nincs tárolt token-állapot, amit el lehetne fogyasztani.
+// Biztonság: a token célja a postafiók-hozzáférés bizonyítása; mást nem
+// tud, mint az email_verified-et igazra állítani (idempotens, nem
+// visszaélhető képesség). A régi, kiküldött linkek a legacy hash-ágon
+// továbbra is működnek (ott is null-ozás NÉLKÜL).
+function makeVerifyTokenV2(userId) {
+  return `v2.${userId}.${require('../utils/pepper').hmac(`email-verify:${userId}`)}`;
+}
+function verifyTokenV2UserId(token) {
+  const m = /^v2\.([0-9a-fA-F-]{36})\.([0-9a-f]{64})$/.exec(String(token || ''));
+  if (!m) return null;
+  const expected = require('../utils/pepper').hmac(`email-verify:${m[1]}`);
+  const kapott = Buffer.from(m[2], 'utf8');
+  const vart = Buffer.from(expected, 'utf8');
+  if (kapott.length !== vart.length || !crypto.timingSafeEqual(kapott, vart)) return null;
+  return m[1];
+}
 function getWebBase() {
   return process.env.WEB_BASE_URL || 'http://localhost:3000';
 }
@@ -55,6 +87,17 @@ function cleanFullName(v) {
   const t = v.trim();
   if (t.length < 2 || t.length > 100) return null;
   return t;
+}
+
+// REG-P1-NEW-01 (user-döntés, 2026-08-30): SZEMÉLYNÉVBEN NINCS SZÁMJEGY.
+// A kontakt-szűrő 9+ számjegyes szabálya dátum-szerű neveknél (pl.
+// „1988.02.12") zavaró „telefonszám nem írható le" hibát adott, és
+// konverziót veszített (Manus 3. futás). A számjegy-tiltás egyszerre
+// ERŐSEBB díj-védelem (szám nélkül telefonszám sem írható a névbe) és
+// értelmes hibaüzenet. Az e-mail-minta szűrése (contactGuard) a néven marad.
+const NEV_SZAMJEGY_HIBA = 'A név nem tartalmazhat számokat.';
+function nevbenSzamjegy(nev) {
+  return /\d/.test(nev);
 }
 
 /** Jelszó: 8–128 karakter, és trim után is legalább 8 érdemi karakter
@@ -160,6 +203,9 @@ router.post('/register', registerRateLimit, async (req, res) => {
   if (!cleanName) {
     return res.status(400).json({ error: 'Érvénytelen név — 2–100 karakter, nem állhat csak szóközből.' });
   }
+  if (nevbenSzamjegy(cleanName)) {
+    return res.status(400).json({ error: NEV_SZAMJEGY_HIBA, code: 'NAME_HAS_DIGITS' });
+  }
   if (typeof normEmail !== 'string' || normEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normEmail)) {
     return res.status(400).json({ error: 'Érvénytelen e-mail cím formátum.' });
   }
@@ -238,11 +284,12 @@ router.post('/register', registerRateLimit, async (req, res) => {
       navTaxpayer.verifyCompanyUser(user.id).catch(() => {});
     }
 
-    // Email küldés — best-effort, soha nem akasztjuk meg vele a registert
+    // Email küldés — best-effort, soha nem akasztjuk meg vele a registert.
+    // v2 token (idempotens, állapotmentes — lásd makeVerifyTokenV2).
     sendEmailVerificationEmail({
       to: normEmail,
       fullName: cleanName,
-      verifyUrl: `${getWebBase()}/email-megerositese?token=${verifyToken}`,
+      verifyUrl: `${getWebBase()}/email-megerositese?token=${makeVerifyTokenV2(user.id)}`,
     }).catch((e) => console.warn('[auth] verify mail küldés hiba:', e.message));
 
     res.status(201).json({ user, token: signToken(user) });
@@ -345,18 +392,38 @@ router.get('/verify-email', async (req, res) => {
   const { token } = req.query || {};
   if (!token) return res.status(400).json({ error: 'Hiányzó token' });
   try {
+    // v2 (idempotens, állapotmentes): akárhányszor nyitják meg — a levelező
+    // link-ellenőrzője, majd a felhasználó kézzel —, mindig sikert ad.
+    const v2UserId = verifyTokenV2UserId(String(token));
+    if (v2UserId) {
+      const { rows } = await db.query(
+        `UPDATE users SET email_verified = true, updated_at = NOW()
+          WHERE id = $1 RETURNING id`,
+        [v2UserId],
+      );
+      if (rows.length === 0) {
+        return res.status(400).json({ error: 'Ez a link egy már törölt fiókhoz tartozik.' });
+      }
+      return res.json({ ok: true });
+    }
+
+    // Legacy (a v2 előtt kiküldött levelek): hash-alapú keresés — a tokent
+    // NEM nullázzuk többé, így az ismételt megnyitás (link-ellenőrző után a
+    // kézi kattintás) itt is sikert ad.
     const tokenHash = hashAuthToken(String(token));
     const { rows } = await db.query(
       `UPDATE users
           SET email_verified = true,
-              email_verification_token_hash = NULL,
               updated_at = NOW()
         WHERE email_verification_token_hash = $1
         RETURNING id, email`,
       [tokenHash],
     );
     if (rows.length === 0) {
-      return res.status(400).json({ error: 'Érvénytelen vagy már felhasznált link.' });
+      return res.status(400).json({
+        error: 'Ez a link már nem érvényes. Ha több megerősítő levelet is kaptál, a LEGFRISSEBB levél linkjét nyisd meg — vagy kérj újat a belépés utáni képernyőn.',
+        code: 'VERIFY_LINK_STALE',
+      });
     }
     res.json({ ok: true });
   } catch (err) {
@@ -383,16 +450,17 @@ router.post('/resend-verification', authRequired, async (req, res) => {
         });
       }
     }
-    const verifyToken = generateAuthToken();
-    const verifyHash = hashAuthToken(verifyToken);
+    // v2: az újraküldött levél UGYANAZT az (idempotens) linket viszi — a
+    // korábbi levelek linkje NEM hal meg (REG-P1-NEW-02: eddig az új token
+    // felülírta a régit, és az első levél „érvénytelen"-t adott).
     await db.query(
-      `UPDATE users SET email_verification_token_hash = $1, email_verification_sent_at = NOW() WHERE id = $2`,
-      [verifyHash, user.id],
+      `UPDATE users SET email_verification_sent_at = NOW() WHERE id = $1`,
+      [user.id],
     );
     sendEmailVerificationEmail({
       to: user.email,
       fullName: user.full_name,
-      verifyUrl: `${getWebBase()}/email-megerositese?token=${verifyToken}`,
+      verifyUrl: `${getWebBase()}/email-megerositese?token=${makeVerifyTokenV2(user.id)}`,
     }).catch((e) => console.warn('[auth] resend mail hiba:', e.message));
     res.json({ ok: true });
   } catch (err) {
@@ -511,6 +579,9 @@ router.patch('/me', authRequired, async (req, res) => {
     const cleaned = cleanFullName(req.body.full_name);
     if (!cleaned) {
       return res.status(400).json({ error: 'Érvénytelen név — 2–100 karakter, nem állhat csak szóközből.' });
+    }
+    if (nevbenSzamjegy(cleaned)) {
+      return res.status(400).json({ error: NEV_SZAMJEGY_HIBA, code: 'NAME_HAS_DIGITS' });
     }
     req.body.full_name = cleaned;
   }

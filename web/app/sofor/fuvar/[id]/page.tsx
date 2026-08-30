@@ -131,6 +131,8 @@ export default function SoforFuvarReszletek() {
     : intFieldError(parseNumericInput(bidEta), { label: 'Érkezés a felvételre', min: 1, max: 10080 });
   const mutat = (h: string | null) => (probaltMenteni ? h : null);
 
+  const [lassuKuldes, setLassuKuldes] = useState(false);
+
   async function submitBid(e: React.FormEvent) {
     e.preventDefault();
     setProbaltMenteni(true);
@@ -152,6 +154,10 @@ export default function SoforFuvarReszletek() {
       }
     }
     setSubmitting(true);
+    // GF-003 UX (Manus 3. futás): lassú szervernél (cold start, 15+ mp) a
+    // generikus „Küldés…" azt sugallta, elakadt — 8 mp után jelezzük, hogy
+    // a kérés még él, csak a szerver lassú.
+    const lassuTimer = setTimeout(() => setLassuKuldes(true), 8000);
     try {
       await api.placeBid(id, {
         amount_huf: amount,
@@ -189,6 +195,8 @@ export default function SoforFuvarReszletek() {
       }
       toast.error('Ajánlatküldési hiba', err.message);
     } finally {
+      clearTimeout(lassuTimer);
+      setLassuKuldes(false);
       setSubmitting(false);
     }
   }
@@ -687,7 +695,9 @@ export default function SoforFuvarReszletek() {
             </div>
 
             <button className="btn" type="submit" disabled={submitting} style={{ marginTop: 16 }}>
-              {submitting ? 'Küldés…' : 'Ajánlat elküldése'}
+              {submitting
+                ? (lassuKuldes ? 'A kérés még feldolgozás alatt — a szerver lassan válaszol…' : 'Küldés…')
+                : 'Ajánlat elküldése'}
             </button>
           </form>
         </div>
