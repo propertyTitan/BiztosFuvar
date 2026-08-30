@@ -210,6 +210,77 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
 
+### 🆕 MANUS P1 CÉLZOTT REGRESSZIÓ (2026-08-30, 3. futás) — 8/10 P1 JAVÍTVA + 2 ÚJ P1 A REGISZTRÁCIÓBAN — FELDOLGOZANDÓ
+
+> **A user feltöltötte a Manus 3., kizárólag P1-ekre (GF-001–010) célzott
+> regressziós jelentését** (tiszta klienssel, stabil build-ujjlenyomat
+> mellett). Ez az AKTUÁLIS külső állás a P1-ekre — a lenti 2. futásos
+> szekciók státuszait a GF-001–010 körben EZ ÍRJA FELÜL.
+>
+> **✅ Javítva (8): GF-001, GF-003, GF-004, GF-005, GF-006, GF-008,
+> GF-009, GF-010.** A regisztráció lezárul + auto-login + navigáció
+> (GF-001); az ajánlat nem duplikálódik és ~15 mp után lezár (GF-003);
+> a mód-átszivárgás megszűnt (GF-006); a szállítói nézet SEHOL nem mutat
+> házszámot ajánlat előtt/után/elfogadás után-fizetés előtt (GF-008);
+> fizetés előtt se PIN, se vészkód (GF-010). A piactéri biztonsági
+> kontrollok (címmaszkolás, kapacitás-szűrés, PIN-védelem) MŰKÖDNEK.
+>
+> **🟡 GF-002 — Részben javítva, INTERMITTÁLÓ:** a feladói belépés jó; a
+> szállítói ágon UGYANAZON a builden egyszer beragadt a gomb (miközben a
+> session létrejött), egy későbbi ismétlés viszont hibátlanul navigált.
+> Flaky — csak ismételt próbákkal látható. Manus elfogadási feltétele:
+> **20 feladói + 20 szállítói belépés 0 beragadt gombbal**; javaslata:
+> az auth-válasz + session-store + router-állapot EGY tranzakcióban
+> záruljon le, 10 mp timeout + „Folytatás" CTA. (CI-be: többszöri
+> auth-loop mindkét szerepkörrel.)
+>
+> **🔴 GF-007 — Nem javítva:** az ArrowDown+Enter kiválasztás továbbra is
+> lefuttatja a TELJES űrlap validációját (hiba-toast + kötelező-mező
+> hibák). Elfogadási feltétel: egérrel, érintéssel ÉS billentyűzettel is
+> 0 korai submit mindkét címmezőn. (Javítás után az E2E-k
+> ArrowDown+Enter mintája ellenőrizendő.)
+>
+> **🚨 KÉT ÚJ P1 — a REGISZTRÁCIÓS folyamatban (launch-blockerek):**
+>
+> - **REG-P1-NEW-01 — kontakt-szűrő false positive a regisztráción:**
+>   dátumszerű számokat tartalmazó NÉV-re telefonszám-tiltást ad, és a
+>   dedikált (strukturált) telefonmezőt is a kontakt-szűrő kezeli. A
+>   számok eltávolítása + üres telefon után a regisztráció sikerül —
+>   vagyis a szűrő KONVERZIÓT VESZÍT. Javaslat: a `detectContactLeak`
+>   CSAK a nyilvánosan megjelenő szabad-szöveges mezőkön fusson
+>   (mező-alapú allowlist); a névnek név-validátor, a telefonmezőnek
+>   E.164-validátor; tesztkészlet dátumokra/évszámokra/irányítószámokra/
+>   rendelési azonosítókra.
+> - **REG-P1-NEW-02 — az ELSŐ e-mail-megerősítő link „Érvénytelen vagy
+>   már felhasznált":** friss QA-fiók levelében a link első KÉZI
+>   megnyitása hibát adott (user mobilfotóval igazolta). Fő gyanú: a
+>   megerősítés állapotmódosító GET, és egy e-mail-biztonsági
+>   linkszkenner ELFOGYASZTJA az egyszer használatos tokent, mielőtt a
+>   user kattint. Javaslat: a GET NE módosítson állapotot — a tényleges
+>   megerősítés explicit POST/gomb-kattintás legyen, idempotens
+>   token-kezeléssel; külön üzenet lejárt / felhasznált / érvénytelen
+>   tokenre + „Új megerősítő e-mail kérése" CTA. Elfogadási feltétel:
+>   friss fiókok 20/20 esetben ELSŐ kattintásra megerősíthetők,
+>   linkszkenner mellett is.
+>
+> **⚙️ UX/teljesítmény-jegyzet (GF-003-hoz):** az ajánlatküldés/elfogadás
+> ~15 mp-ig csak generikus „Küldés…"-t mutat — 8-10 mp után legyen „A
+> kérés még feldolgozás alatt" állapot + idempotenciakulcs + explicit
+> siker-toast (gyenge hálózaton a dupla kattintás ellen).
+>
+> **🎯 Manus launch-verdikt (3. futás):** nyilvános launch TOVÁBBRA SEM
+> javasolt; zárt béta mehet. **Release-gate sorrend:** (1) REG-P1-NEW-02
+> e-mail-link; (2) GF-002 intermittáló auth (20/20 mérce); (3)
+> REG-P1-NEW-01 szűrő-allowlist; (4) GF-007 Enter; (5) GF-003 UX; (6)
+> GF-005 szerver-oldali e-mail-validáció (kliens-bypass ellen 4xx).
+> Nyilvános marketing-kampány csak az első NÉGY gate teljesítése után.
+>
+> **🧹 Állapot-jegyzet:** a 300 kg-os QA-fuvar most „Elfogadva /
+> Fizetésre vár" státuszban áll (szándékosan nem ment rajta fizetés/SMS);
+> a regisztrációs 5/óra limitből 3 kísérlet fogyott, 1 új QA-fiók jött
+> létre. Minden javításnál a bevált módszertan: őr-teszt, ami a javítás
+> nélkül igazoltan piros.
+
 ### 🔄 MANUS REGRESSZIÓS ÚJRATESZT (2026-08-30, 2. futás) — FELDOLGOZVA (este, 3. javítási kör)
 
 > **✅ A MARADÉK FELDOLGOZVA (2026-08-30 este).** Tételes állás:
