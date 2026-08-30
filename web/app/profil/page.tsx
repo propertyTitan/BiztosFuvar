@@ -13,6 +13,8 @@ import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
 import ReferralCard from '@/components/ReferralCard';
 import TaxDataCard from '@/components/TaxDataCard';
+import FieldError, { redBorder } from '@/components/FieldError';
+import { nameError, optionalPhoneError, plateError, bioError } from '@/lib/formValidation';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -67,7 +69,38 @@ export default function ProfilOldal() {
     return () => window.removeEventListener('gofuvar:kyc-updated', loadProfile);
   }, [me]);
 
+  // GF-012/015 (Manus, 2026-08-30): mezőszintű, ÉLŐ validáció — a hibás
+  // mentés eddig csak toastban közölte az okot, és a kijavított mező hibája
+  // nem tűnt el. A hibák minden renderben újraszámolódnak (javításkor
+  // azonnal törlődnek), de csak mentés-próba után jelennek meg.
+  const profilHibak = {
+    fullName: nameError(fullName),
+    phone: optionalPhoneError(phone),
+    vehiclePlate: plateError(vehiclePlate),
+    bio: bioError(bio),
+  };
+  const [mentesProba, setMentesProba] = useState(false);
+  const profilHiba = (k: keyof typeof profilHibak) => (mentesProba ? profilHibak[k] : null);
+
   async function save() {
+    setMentesProba(true);
+    const elsoHibas = (Object.keys(profilHibak) as Array<keyof typeof profilHibak>)
+      .find((k) => profilHibak[k] !== null);
+    if (elsoHibas) {
+      const mezoId: Record<string, string> = {
+        fullName: 'profil-teljes-nev',
+        phone: 'profil-telefon',
+        vehiclePlate: 'profil-rendszam',
+        bio: 'profil-bemutatkozas',
+      };
+      toast.error('Hibás mező', profilHibak[elsoHibas]!);
+      const cel = document.getElementById(mezoId[elsoHibas]);
+      if (cel) {
+        cel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (cel as HTMLElement).focus({ preventScroll: true });
+      }
+      return;
+    }
     setSaving(true);
     try {
       const updated = await api.updateMyProfile({
@@ -413,7 +446,10 @@ export default function ProfilOldal() {
                   value={fullName}
               maxLength={100}
                   onChange={(e) => setFullName(e.target.value)}
+                  aria-invalid={Boolean(profilHiba('fullName'))}
+                  style={profilHiba('fullName') ? redBorder : undefined}
                 />
+                <FieldError>{profilHiba('fullName')}</FieldError>
               </div>
               <div>
                 <label htmlFor="profil-telefon">Telefon</label>
@@ -422,7 +458,10 @@ export default function ProfilOldal() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="+36 30 123 4567"
+                  aria-invalid={Boolean(profilHiba('phone'))}
+                  style={profilHiba('phone') ? redBorder : undefined}
                 />
+                <FieldError>{profilHiba('phone')}</FieldError>
               </div>
             </div>
             <label htmlFor="profil-bemutatkozas">Bemutatkozás</label>
@@ -432,7 +471,10 @@ export default function ProfilOldal() {
               value={bio}
               onChange={(e) => setBio(e.target.value)}
               placeholder="Pár szó magadról… (pl. 10 éves tapasztalat költöztetésben)"
+              aria-invalid={Boolean(profilHiba('bio'))}
+              style={profilHiba('bio') ? redBorder : undefined}
             />
+            <FieldError>{profilHiba('bio')}</FieldError>
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
@@ -454,7 +496,10 @@ export default function ProfilOldal() {
                   value={vehiclePlate}
                   onChange={(e) => setVehiclePlate(e.target.value)}
                   placeholder="pl. ABC-123"
+                  aria-invalid={Boolean(profilHiba('vehiclePlate'))}
+                  style={profilHiba('vehiclePlate') ? redBorder : undefined}
                 />
+                <FieldError>{profilHiba('vehiclePlate')}</FieldError>
               </div>
             </div>
           </div>

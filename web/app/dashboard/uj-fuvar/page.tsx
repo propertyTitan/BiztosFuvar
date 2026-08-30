@@ -143,8 +143,16 @@ export default function UjFuvar() {
   });
 
   /** Szám-mező onChange: szűrt nyers szöveg + belőle származtatott érték. */
+  // GF-019 (Manus, 2026-08-30): a beviteli szűrés a mínuszjelet eddig NÉMÁN
+  // dobta el — a beillesztett „-100"-ból szó nélkül 100 lett. A szűrés
+  // marad (negatív be sem írható — 2026-08-04-i döntés), de mostantól
+  // MEGMONDJUK: a mező alatt jelzés, amíg a következő tiszta bevitel nem jön.
+  const [negativJelzes, setNegativJelzes] = useState<Partial<Record<NumKey, boolean>>>({});
+  const NEGATIV_UZENET = 'Negatív érték nem adható meg — a mínuszjelet elhagytuk, ellenőrizd az értéket.';
+
   function setNumeric(key: NumKey, input: string) {
     const s = sanitizeNumericInput(input);
+    setNegativJelzes((prev) => ({ ...prev, [key]: input.includes('-') }));
     setRaw((prev) => ({ ...prev, [key]: s }));
     setForm((prev) => ({ ...prev, [key]: parseNumericInput(s) }));
   }
@@ -312,6 +320,27 @@ export default function UjFuvar() {
           ? 'A lerakodás helyét válaszd ki a legördülő listából, házszámmal együtt.'
           : null);
       toast.error('Hiányzó vagy hibás mező', firstProblem || 'Nézd át a pirossal jelölt mezőket.');
+      // GF-013 (Manus, 2026-08-30): az ELSŐ hibás mező fókuszt kap és a
+      // képernyőre görgetjük — hosszú mobil-űrlapon a toast önmagában nem
+      // mondja meg, HOL a hiba.
+      const mezoId: Record<string, string> = {
+        title: 'uj-cim',
+        length: 'uj-hossz',
+        width: 'uj-szelesseg',
+        height: 'uj-magassag',
+        weight: 'uj-suly',
+        price: 'uj-ar',
+        recipientName: 'uj-cimzett-nev',
+        recipientPhone: 'uj-cimzett-tel',
+        recipientEmail: 'uj-cimzett-email',
+      };
+      const elsoHibasKulcs = (Object.keys(errors) as Array<keyof typeof errors>)
+        .find((k) => errors[k] !== null);
+      const cel = elsoHibasKulcs ? document.getElementById(mezoId[elsoHibasKulcs] || '') : null;
+      if (cel) {
+        cel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        (cel as HTMLElement).focus({ preventScroll: true });
+      }
       return;
     }
     setSubmitting(true);
@@ -755,7 +784,7 @@ export default function UjFuvar() {
               required
               style={show('length') ? redBorder : undefined}
             />
-            <FieldError>{show('length')}</FieldError>
+            <FieldError>{show('length') || (negativJelzes.length_cm ? NEGATIV_UZENET : null)}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-szelesseg">Szélesség (cm) <span style={REQ}>*</span></label>
@@ -774,7 +803,7 @@ export default function UjFuvar() {
               required
               style={show('width') ? redBorder : undefined}
             />
-            <FieldError>{show('width')}</FieldError>
+            <FieldError>{show('width') || (negativJelzes.width_cm ? NEGATIV_UZENET : null)}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-magassag">Magasság (cm) <span style={REQ}>*</span></label>
@@ -793,7 +822,7 @@ export default function UjFuvar() {
               required
               style={show('height') ? redBorder : undefined}
             />
-            <FieldError>{show('height')}</FieldError>
+            <FieldError>{show('height') || (negativJelzes.height_cm ? NEGATIV_UZENET : null)}</FieldError>
           </div>
           <div>
             <label htmlFor="uj-suly">Súly (kg) <span style={REQ}>*</span></label>
@@ -809,7 +838,7 @@ export default function UjFuvar() {
               required
               style={show('weight') ? redBorder : undefined}
             />
-            <FieldError>{show('weight')}</FieldError>
+            <FieldError>{show('weight') || (negativJelzes.weight_kg ? NEGATIV_UZENET : null)}</FieldError>
           </div>
         </div>
         {volumeM3 != null && (
@@ -909,7 +938,7 @@ export default function UjFuvar() {
           required
           style={show('price') ? redBorder : undefined}
         />
-        <FieldError>{show('price')}</FieldError>
+        <FieldError>{show('price') || (negativJelzes.suggested_price_huf ? NEGATIV_UZENET : null)}</FieldError>
         {/* Egyértelműsítés (2026-08-21, Manus-teszt): a mezőből nem derült
             ki, hogy ez nem végleges ár. Azonnali fuvarnál viszont AZ. */}
         {!form.is_instant && (
@@ -971,7 +1000,7 @@ export default function UjFuvar() {
           placeholder="pl. 50000"
           style={show('declared') ? redBorder : undefined}
         />
-        <FieldError>{show('declared')}</FieldError>
+        <FieldError>{show('declared') || (negativJelzes.declared_value_huf ? NEGATIV_UZENET : null)}</FieldError>
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
           Opcionális, de ajánlott. A szállító ez alapján méri fel a felelősségét:
           egy 500.000 Ft-os tárgy szállítása más hozzáállást igényel, mint egy

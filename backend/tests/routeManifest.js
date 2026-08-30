@@ -85,6 +85,10 @@ const ROUTE_MANIFEST = {
   'POST /auth/tax-data': { access: 'auth' },
   'POST /auth/verify-company': { access: 'auth' },
   'GET /auth/referral': { access: 'auth' },
+  'GET /auth/referral-check': {
+    access: 'public',
+    why: 'a regisztrációs űrlap élő kód-ellenőrzése (GF-014) — a regisztráló még nincs belépve; CSAK {valid:boolean} megy vissza, rate-limitelt (loginRateLimit) az enumeráció ellen',
+  },
   'GET /auth/users/:id/profile': { access: 'auth' },
   'GET /me/admin-messages': { access: 'auth' },
   'POST /me/admin-messages': { access: 'auth' },

@@ -11,6 +11,9 @@ import { io, Socket } from 'socket.io-client';
 let socket: Socket | null = null;
 let joinedUserId: string | null = null;
 let connectHandler: (() => void) | null = null;
+// A legutóbbi CONNECT-nél a handshake-be került token — a refreshSocketAuth
+// ebből tudja, hogy kell-e egyáltalán újrakötni.
+let lastAuthToken: string | null = null;
 
 export function getSocket(): Socket {
   if (typeof window === 'undefined') {
@@ -25,7 +28,8 @@ export function getSocket(): Socket {
       // fuvar-események, chat) csak hitelesített kapcsolat léphet be.
       // Függvényként adjuk át, így reconnectkor mindig a friss token megy.
       auth: (cb) => {
-        cb({ token: window.localStorage.getItem('gofuvar_token') || undefined });
+        lastAuthToken = window.localStorage.getItem('gofuvar_token') || null;
+        cb({ token: lastAuthToken || undefined });
       },
     });
   }
@@ -86,6 +90,32 @@ export function subscribeFeed(handlers: Record<string, (payload: any) => void>):
  * Kijelentkezéskor / profilváltáskor hívandó. Leszedi a listener-eket,
  * kilép az aktuális user szobájából, és eldobja a socket instance-t.
  */
+/**
+ * BELÉPÉS UTÁN hívandó (GF-016/017 gyökere, 2026-08-30): ha már él egy —
+ * jellemzően a belépés ELŐTT, token nélkül nyitott — socket, újrakötjük,
+ * hogy a handshake a friss tokennel menjen. Az `auth` callback csak
+ * CONNECT-kor fut; enélkül a szerver a `user:join`-t némán eldobja (a
+ * szobát a handshake-tokenből azonosítja, helyesen), és a chat + az
+ * értesítések élő frissítése a következő TELJES újratöltésig halott —
+ * pontosan a Manus „csak frissítés után jelenik meg" tünete.
+ */
+export function refreshSocketAuth() {
+  if (!socket) return;
+  // Ha a handshake-token nem változott (pl. profil-mentés hívja a
+  // setCurrentUser-t ugyanazzal a tokennel), nincs miért újrakötni.
+  const friss = window.localStorage.getItem('gofuvar_token') || null;
+  if (lastAuthToken === friss) return;
+  if (connectHandler) {
+    socket.off('connect', connectHandler);
+    connectHandler = null;
+  }
+  joinedUserId = null;
+  socket.disconnect();
+  // Az emit-ek a reconnect alatt pufferelődnek (socket.io), a feed és a
+  // user-szoba connect-handlerei újra beiratkoznak — adat nem vész el.
+  socket.connect();
+}
+
 export function disconnectSocket() {
   if (!socket) return;
   if (connectHandler) {
