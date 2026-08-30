@@ -69,7 +69,7 @@ async function requireIdentityKYC(req, res, next) {
     if (!u) return res.status(401).json({ error: 'Felhasználó nem található' });
     if (u.identity_kyc_status !== 'verified') {
       return res.status(403).json({
-        error: 'A biztonságos fizetéshez és a csomagod védelméhez kérjük, igazold a profilod.',
+        error: 'A platform biztonsága és a csomagok védelme érdekében kérjük, igazold a profilod.',
         code: 'IDENTITY_KYC_REQUIRED',
         identity_kyc_status: u.identity_kyc_status,
       });
@@ -98,7 +98,7 @@ async function requireDriverKYC(req, res, next) {
     // megszűnt (2026-07-07): a nem-motoros futárokat is engedjük.
     if (u.identity_kyc_status !== 'verified') {
       return res.status(403).json({
-        error: 'A biztonságos fizetéshez és a csomagod védelméhez kérjük, igazold a profilod.',
+        error: 'A platform biztonsága és a csomagok védelme érdekében kérjük, igazold a profilod.',
         code: 'IDENTITY_KYC_REQUIRED',
         identity_kyc_status: u.identity_kyc_status,
       });

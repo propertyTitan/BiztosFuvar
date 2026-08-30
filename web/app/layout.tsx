@@ -53,7 +53,7 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://gofuvar.hu'),
   openGraph: {
     title: 'GoFuvar – Közösségi fuvartőzsde',
-    description: 'Csomagod van? Szállítód is lesz. Biztonságos fizetés, fotó bizonyíték, 6 jegyű átvételi kód.',
+    description: 'Csomagod van? Szállítód is lesz. A fuvardíj közvetlenül a szállítóé — fotó bizonyíték és 6 jegyű átvételi kód véd.',
     type: 'website',
     locale: 'hu_HU',
     siteName: 'GoFuvar',

@@ -80,7 +80,7 @@ export default function PublikusProfil() {
               </span>
             )}
             <span style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 999, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
-              ✅ {totalDeliveries} sikeres fuvar
+              ✅ {totalDeliveries} teljesített fuvar
             </span>
           </div>
         </div>

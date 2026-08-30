@@ -341,17 +341,18 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > - **GF-019 (Numerikus bevitel):** ✅ RÉSZBEN JAVÍTVA (2026-08-30, P2-kör):
 >   a mínuszjel eldobása többé NEM néma — a mező alatt jelzés szól
 >   („Negatív érték nem adható meg — a mínuszjelet elhagytuk"), a szűrés
->   maga marad (2026-08-04-i döntés). ⚠️ NYITVA (üzleti döntés): ár-minimum
->   figyelmeztetés (1 Ft-os fuvar ma feladható) — user-döntést vár.
+>   maga marad (2026-08-04-i döntés). ✅ USER-DÖNTÉS (2026-08-30): ár-minimum
+>   figyelmeztetés EGYELŐRE NEM KELL — a tétel ezzel teljesen lezárva.
 > - **GF-020 (Mobil/UI):** kritikus mobil-folyamatok 3000–5000 px hosszúak,
 >   a fő CTA több képernyőnyire — wizard/lépéses folyamat, összecsukható
 >   térkép, sticky állapotsáv. (Nagyobb UX-munka — külön kör, ne a
 >   gyorsjavításokkal együtt.)
-> - **GF-021 (Hozzáférhetőség):** autocomplete- és chat-mezők programozott
->   címke nélkül; több gomb 26–36 px magas (44×44 a mobil-minimum). ⚠️ A
->   PR #177-es a11y-mérés 0 critical/serious-t hozott — ellenőrizd, hogy a
->   Manus mást mér-e (touch-target pl. nálunk SZÁNDÉKOSAN nem buktat), és
->   ami jogos, kerüljön a mért leltárba is.
+> - **GF-021 (Hozzáférhetőség):** ✅ RÉSZBEN JAVÍTVA (2026-08-30): az
+>   AddressAutocomplete címkéi mostantól a mezőhöz kötöttek (useId +
+>   htmlFor — pontosan a PR #177-ben 16 mezőn javított osztály, ez a
+>   komponens kimaradt), a chat-mező aria-label-t kapott (a placeholder
+>   gépeléskor eltűnik). A touch-target (44×44) kérdés a GF-020-as
+>   mobil-UX körhöz tartozik — a mérésünk azt tudatosan nem buktatja.
 > - **GF-022 (Sütisáv):** ✅ **JAVÍTVA (2026-08-30, P2-kör)** — ≤480 px-en
 >   kompakt változat (rövid szöveg + link, kisebb padding); a takarás-védő
 >   body-margó (PR #193) változatlan. Őr: a 23-as spec új tesztje 320×700-on
@@ -359,14 +360,26 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >
 > **P3 — alacsony (2):**
 >
-> - **GF-023 (Lokalizáció):** magyar UI-ban „Hungary" + angol
->   térkép-vezérlők — címformázás lokalizálása + Google Maps `language=hu`
->   paraméter.
-> - **GF-024 (Szövegezés):** a fizetési/átvételi fogalmak keverednek
->   („sikeres fuvar", „biztonságos fizetés", felvétel/átvétel) — egységes
->   terminológia-szótár + UI-szöveg audit. ⚠️ A szövegőr (13-as spec) és a
->   meglévő szöveg-szabályok (licit→ajánlat, sofőr→szállító, QR tilos)
->   adják a keretet — oda illeszd be az új fogalmi döntéseket is.
+> - **GF-023 (Lokalizáció):** ✅ **JAVÍTVA (2026-08-30)** — a Google Maps
+>   JS API mind a 6 betöltési helyen `language: 'hu'` + `region: 'HU'`
+>   beállítást kapott (közös konstans a lib/maps.ts-ben — a loader-opcióknak
+>   AZONOSNAK kell lenniük, különben a lib újratöltési hibát dob): a
+>   térkép-vezérlők magyarul szólnak, a címek „Magyarország"-gal jönnek.
+>   Külföldi launchnál az i18n-nel együtt válik dinamikussá.
+> - **GF-024 (Szövegezés):** ✅ **JAVÍTVA (2026-08-30)** — két ÉRDEMI
+>   találattal: **(1)** a landing/meta „Biztonságos fizetés" ígérete
+>   ESCROW-KORI MARADVÁNY volt (a kápé-modellben a platform a fuvardíjhoz
+>   nem nyúl) → „A fuvardíj közvetlenül a szállítóé — fotó bizonyíték és
+>   6 jegyű átvételi kód véd"; **(2)** a „Csak sikeres fuvar után fizetsz"
+>   bullet HAMIS volt (a kapcsolatfelvételi díj az ajánlat ELFOGADÁSAKOR
+>   esedékes, nem visszatérítendő) → „Csak akkor fizetsz, ha szállítót
+>   választasz". Továbbá: „sikeres fuvar" → „teljesített fuvar" (a
+>   Fuvarjaim-fül terminológiája) a publikus profilon + hu.json-ban; a
+>   KYC-kapu üzenete provider-semleges. ⚠️ SZÖVEG-SZABÁLY (szövegőr, 13-as
+>   spec, 2 új tiltás): marketing-oldalon TILOS a „biztonságos fizetés"
+>   (félrevezető a kápé-modellben) és a „sikeres fuvar után fizet…" (hamis
+>   ígéret). A felvétel/átvétel fogalompár rendben volt (felvétel = a
+>   szállító veszi fel; átvétel = a címzett veszi át, átvételi kód).
 >
 > **Javasolt feldolgozási sorrend:** (1) a „beragadó submit/redirect"
 > osztály EGYBEN (GF-001/002/003/012 — közös gyökér valószínű, pl. a

@@ -21,9 +21,9 @@
 //  (útvonal-figyelő) és az ár-kalkulátor szándékosan NEM használja — ott a
 //  város-szintű megadás a helyes viselkedés.
 // =====================================================================
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
-import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey } from '@/lib/maps';
+import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 type Props = {
   label: string;
@@ -121,7 +121,14 @@ export default function AddressAutocomplete({
     googleMapsApiKey: apiKey,
     id: GOOGLE_MAPS_ID,
     libraries: GOOGLE_MAPS_LIBRARIES,
+    language: GOOGLE_MAPS_LANGUAGE,
+    region: GOOGLE_MAPS_REGION,
   });
+  // GF-021 (Manus, 2026-08-30): a címke eddig NEM volt a mezőhöz kötve
+  // (nincs htmlFor/id) — vizuálisan címke, a képernyőolvasónak név nélküli
+  // szerkesztőmező. Ugyanaz az osztály, amit a PR #177 16 mezőn már
+  // javított — ez a komponens kimaradt.
+  const inputId = useId();
 
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   // Amit a user ténylegesen BEGÉPELT (a widget kiválasztáskor felülírja a
@@ -202,8 +209,9 @@ export default function AddressAutocomplete({
   if (!apiKey) {
     return (
       <div>
-        <label>{label}</label>
+        <label htmlFor={inputId}>{label}</label>
         <input
+          id={inputId}
           className="input"
           onKeyDown={(e) => {
             // ⚠️ GF-FT-01 (Manus, 2026-08-21): az Enter a javaslat kiválasztása
@@ -226,15 +234,15 @@ export default function AddressAutocomplete({
   if (!isLoaded) {
     return (
       <div>
-        <label>{label}</label>
-        <input className="input" value={value} disabled placeholder="Térkép betöltése…" />
+        <label htmlFor={inputId}>{label}</label>
+        <input id={inputId} className="input" value={value} disabled placeholder="Térkép betöltése…" />
       </div>
     );
   }
 
   return (
     <div>
-      <label>{label}</label>
+      <label htmlFor={inputId}>{label}</label>
       <Autocomplete
         onLoad={(ac) => { autocompleteRef.current = ac; }}
         onPlaceChanged={handlePlaceChanged}
@@ -254,6 +262,7 @@ export default function AddressAutocomplete({
         }}
       >
         <input
+          id={inputId}
           className="input"
           onKeyDown={(e) => {
             // ⚠️ GF-FT-01 (Manus, 2026-08-21): az Enter a javaslat kiválasztása

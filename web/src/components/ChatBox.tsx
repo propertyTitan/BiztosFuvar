@@ -191,6 +191,9 @@ export default function ChatBox({ entityKey, entityId }: Props) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Írj üzenetet…"
+          // GF-021: a placeholder eltűnik gépeléskor — a képernyőolvasónak
+          // tartós, programozott név kell.
+          aria-label="Üzenet szövege"
           disabled={sending}
           style={{
             flex: 1,

@@ -13,7 +13,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, InfoWindow, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import Link from 'next/link';
 import { CarrierRoute } from '@/api';
-import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey } from '@/lib/maps';
+import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 const containerStyle = { width: '100%', height: '560px', borderRadius: '12px' };
 const HUNGARY_CENTER = { lat: 47.1625, lng: 19.5033 };
@@ -29,6 +29,8 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
     googleMapsApiKey: apiKey,
     id: GOOGLE_MAPS_ID,
     libraries: GOOGLE_MAPS_LIBRARIES,
+    language: GOOGLE_MAPS_LANGUAGE,
+    region: GOOGLE_MAPS_REGION,
   });
   const mapRef = useRef<google.maps.Map | null>(null);
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);

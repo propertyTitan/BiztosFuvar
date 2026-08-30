@@ -108,8 +108,8 @@ export default function LandingPage() {
           maxWidth: 580, margin: '0 auto 32px', lineHeight: 1.5,
         }}>
           Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá — vagy foglalj
-          helyet egy útba eső szállító induló járatán. Biztonságos fizetés,
-          fotó bizonyíték, 6 jegyű átvételi kód.
+          helyet egy útba eső szállító induló járatán. A fuvardíj közvetlenül a
+          szállítóé — fotó bizonyíték és 6 jegyű átvételi kód véd.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link href="/bejelentkezes?mode=register" className="btn"
@@ -128,7 +128,10 @@ export default function LandingPage() {
         }}>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={15} color="var(--success)" /> Ingyenes regisztráció</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={15} color="var(--success)" /> Nincs havidíj</span>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={15} color="var(--success)" /> Csak sikeres fuvar után fizetsz</span>
+          {/* GF-024 (2026-08-30): a korábbi „Csak sikeres fuvar után fizetsz"
+              HAMIS ígéret volt — a kapcsolatfelvételi díj az ajánlat
+              elfogadásakor esedékes, nem a fuvar sikere után. */}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Check size={15} color="var(--success)" /> Csak akkor fizetsz, ha szállítót választasz</span>
         </div>
 
         {/* A termék maga: telefon-mockup, amin épp ajánlatok érkeznek —

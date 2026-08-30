@@ -7,7 +7,7 @@
 // - Minden tag tartalmazza a lat/lng-t is, amit a Places API-tól kapunk
 import { useRef, useState } from 'react';
 import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
-import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey } from '@/lib/maps';
+import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 import type { Waypoint } from '@/api';
 
 type Props = {
@@ -23,6 +23,8 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
     googleMapsApiKey: apiKey,
     id: GOOGLE_MAPS_ID,
     libraries: GOOGLE_MAPS_LIBRARIES,
+    language: GOOGLE_MAPS_LANGUAGE,
+    region: GOOGLE_MAPS_REGION,
   });
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [inputKey, setInputKey] = useState(0);
