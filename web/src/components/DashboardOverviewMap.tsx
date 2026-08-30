@@ -7,7 +7,7 @@ import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import Link from 'next/link';
 import { Job } from '@/api';
 import { subscribeJob } from '@/lib/socket';
-import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey } from '@/lib/maps';
+import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 const containerStyle = { width: '100%', height: '380px', borderRadius: '12px' };
 
@@ -19,6 +19,8 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
     googleMapsApiKey: apiKey,
     id: GOOGLE_MAPS_ID,
     libraries: GOOGLE_MAPS_LIBRARIES,
+    language: GOOGLE_MAPS_LANGUAGE,
+    region: GOOGLE_MAPS_REGION,
   });
   const mapRef = useRef<google.maps.Map | null>(null);
 

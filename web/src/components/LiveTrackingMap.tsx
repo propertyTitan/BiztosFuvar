@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import { subscribeJob } from '@/lib/socket';
 import { api, Job } from '@/api';
-import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey } from '@/lib/maps';
+import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 type Props = { job: Job };
 
@@ -23,6 +23,8 @@ export default function LiveTrackingMap({ job }: Props) {
     googleMapsApiKey: apiKey,
     id: GOOGLE_MAPS_ID,
     libraries: GOOGLE_MAPS_LIBRARIES,
+    language: GOOGLE_MAPS_LANGUAGE,
+    region: GOOGLE_MAPS_REGION,
   });
 
   const [driver, setDriver] = useState<{ lat: number; lng: number } | null>(null);

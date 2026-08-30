@@ -86,6 +86,20 @@ const TILTOTT: Rule[] = [
       + 'kommunikáljuk (PR #48). A PWA-manifeszt ezt 2026-08-09-ig meglévő '
       + 'funkcióként hirdette.',
   },
+  {
+    pattern: /biztonságos\s+fizetés/i,
+    miert: 'GF-024 (2026-08-30): escrow-kori maradvány — a kápé-modellben a '
+      + 'platform a fuvardíjhoz nem nyúl, a „biztonságos fizetés" ígéret '
+      + 'félrevezető. A bizalmi üzenet: fotó bizonyíték + 6 jegyű átvételi kód. '
+      + '(A fizetőoldal a kapcsolatfelvételi díjról legitim módon beszélhet — '
+      + 'az nem marketing-oldal, nincs ebben a listában.)',
+  },
+  {
+    pattern: /sikeres\s+fuvar\s+után\s+fizet/i,
+    miert: 'GF-024 (2026-08-30): HAMIS ígéret volt — a kapcsolatfelvételi díj az '
+      + 'ajánlat ELFOGADÁSAKOR esedékes és nem visszatérítendő (ÁSZF 4.), nem a '
+      + 'fuvar sikere után. Helyette: „Csak akkor fizetsz, ha szállítót választasz".',
+  },
 ];
 
 test.describe('szövegőr: tiltott kifejezések a marketing-oldalakon', () => {
