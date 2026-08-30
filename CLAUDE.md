@@ -249,12 +249,15 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > **🔴 Nem javítva (6):**
 >
 > - **GF-001:** a Manus ÚJRA reprodukálta: érvényes regisztráció tartós
->   „Regisztráció…" állapotban, se redirect, se munkamenet. ⚠️ A lenti
->   saját jegyzet szerint ez korábban nem volt reprodukálható és kétszer
->   deploy előtti bundle-nek bizonyult — MOST ELŐSZÖR ellenőrizd a
->   teszt-időpontot a deploy-időbélyeg ellen; ha a friss bundle-ön is áll,
->   akkor a register-út VALÓDI hibája (promise/timeout-kezelés a
->   register-ágon — a fetchWithTimeout önmagában nem oldotta meg).
+>   „Regisztráció…" állapotban, se redirect, se munkamenet. ⚠️ **A
+>   STALE-BUNDLE HIPOTÉZIS MEGDŐLT** (a PDF-jelentés igazolja): a Manus a
+>   teszt előtt TELJES kliens-állapotot törölt (cache, cookie, local/
+>   sessionStorage, IndexedDB, service worker, Cache Storage), és a deployt
+>   3 lekéréssel ellenőrizte — mindhárom azonos HTML ETag-et
+>   (6ad8b99b526782d291bbd9adfb968e6f) és Next.js asset-manifest
+>   SHA-256-ot adott. Tehát ez a register-út VALÓDI hibája a friss buildön
+>   (promise/timeout-kezelés a register-ágon — a fetchWithTimeout önmagában
+>   nem oldotta meg); nem deploy-műtermék, nyomozás helyett javítani kell.
 > - **GF-006:** fiókváltás után a mód-átszivárgás VÁLTOZATLANUL fennáll
 >   (Feladó mód a szállítói fiók fejlécében). Kijelentkezéskor
 >   módállapot-törlés + belépéskor szerver-oldali inicializálás.
@@ -269,10 +272,35 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   címformázó rétegben országnév-lokalizáció kell.
 >
 > **Javasolt sorrend a maradékra:** (1) GF-008 lista-szivárgás (adatvédelmi
-> P1, kontakt-kapuzás integritása); (2) GF-001 deploy-ellenőrzéssel +
+> P1, kontakt-kapuzás integritása); (2) GF-001 (valódi hiba, lásd fent) +
 > GF-002 szállítói ág + GF-003 idempotencia (a submit-osztály lezárása);
 > (3) GF-006, GF-007; (4) GF-018, GF-019, GF-013, GF-021; (5) GF-023.
 > Minden javításnál őr-teszt, ami a javítás nélkül igazoltan piros.
+>
+> **A PDF-JELENTÉS TÖBBLET-INFÓI (a CSV-ben nincsenek benne):**
+>
+> - **✅ A teljes E2E magfolyamat kétfiókos kontrollal VÉGIGMENT**: feladás →
+>   ajánlat → elfogadás → szimulált 500 Ft díj-fizetés → felvételi fotó →
+>   VALÓDI SMS-kód a jóváhagyott számra → kézbesítési fotó + kód → „Lerakva".
+>   Kontrollfuvar: `2c487f47-038d-4918-96b1-d6fda42bbd59`.
+> - **⚠️ ÚJ LAUNCH-KOCKÁZAT — Railway cold start / teljesítmény**: a
+>   háttérhívások (auth, értesítés, fizetés, fájlfeltöltés) felmelegedés
+>   mellett több másodpercet, a fizetési és fotófeltöltési lépések
+>   esetenként **15–30 másodpercet** vettek igénybe; időtúllépés után az
+>   „Újrapróbálom" nem minden esetben állította helyre az oldalt. A Manus
+>   ezt nem GF-tételként, hanem launch-kockázatként sorolta be. Javaslata:
+>   Railway min. aktív példányszám / cold-start beállítás, DB-kapcsolatok
+>   és API-timeoutok felülvizsgálata + idempotens fizetési/ajánlati
+>   műveletek. (⚠️ A Neon-alvás ismert — 3. szakasz —, de a 15–30 mp-es
+>   fizetés/feltöltés ennél több lehet; érdemes külön megnézni.)
+> - **🧹 Takarítási jegyzet (GF-011-hez)**: a GF-009-hez létrehozott 300
+>   kg-os QA-hirdetés NYITVA MARADT
+>   (`8d53fbb6-f1ea-4978-99bd-3eacf447207f`) — a launch előtti
+>   teszt-adat-takarításnál ezt is törölni kell (a Manus-körök alatt még NE).
+> - **🎯 A Manus launch-verdiktje**: „a rendszer jelenleg inkább felügyelt
+>   ZÁRT BÉTÁRA, nem teljes nyilvános launchra kész" — a következő
+>   mérföldkő a GF-001/002/003/006/007/008 EGYÜTTES lezárása, majd
+>   ugyanezen hat tétel célzott újratesztje tiszta buildből.
 
 ### 🐞 MANUS-JELENTÉS (2026-08-30) — külső AI-tesztelő hibajegyzéke, 24 tétel — FELDOLGOZÁSRA VÁR
 
