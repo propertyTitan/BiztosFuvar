@@ -32,6 +32,17 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
   // név nélküli szerkesztőmező (a PR #177-ben javított osztály).
   const inputId = useId();
 
+  // GF-007 (3. kör): natív, capture-fázisú Enter-fék — a Google saját
+  // listener-e a React-kezelők elől elnyelheti az eseményt; a capture
+  // mindenki előtt fut. (Részletek: AddressAutocomplete azonos blokkja.)
+  const enterFekRef = (el: HTMLInputElement | null) => {
+    if (!el || (el as any).__gofuvarEnterFek) return;
+    (el as any).__gofuvarEnterFek = true;
+    el.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') e.preventDefault();
+    }, true);
+  };
+
   function handlePlaceChanged() {
     const place = autocompleteRef.current?.getPlace();
     if (!place) return;
@@ -169,6 +180,7 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
         >
           <input
             id={inputId}
+            ref={enterFekRef}
             className="input"
             onKeyDown={(e) => {
               // ⚠️ GF-007 (Manus-regresszió, 2026-08-30): a #192-es Enter-fék

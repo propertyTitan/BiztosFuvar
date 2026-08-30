@@ -122,7 +122,9 @@ describe('POST /auth/register — hibaágak', () => {
       'telefonszámot tartalmazó NÉVVEL létre lehetett hozni fiókot — a szám minden '
       + 'ajánlaton és a publikus profilon látszana, a díj örökre megkerülhető lenne',
     ).toBe(400);
-    expect(res.body.code).toBe('CONTACT_LEAK');
+    // 2026-08-30 (REG-P1-NEW-01): a számjegyes név már a NÉV-SZABÁLYBA
+    // ütközik (erősebb védelem: számjegy nélkül telefonszám sem írható be).
+    expect(res.body.code).toBe('NAME_HAS_DIGITS');
   });
 
   it('kapcsolat-szivárgás a CÉGNÉVBEN és a jármű-leírásban is 400', async () => {
@@ -439,7 +441,10 @@ describe('E-mail-megerősítés', () => {
     expect(hamis.status, 'kitalált tokennel meg lehetett erősíteni egy címet').toBe(400);
   });
 
-  it('a megerősítő link EGYSZER használható, és tényleg megerősít', async () => {
+  it('a megerősítő link IDEMPOTENS: többször is megnyitható (REG-P1-NEW-02)', async () => {
+    // ⚠️ Ez a teszt korábban az EGYSZER-használatosságot kodifikálta — az
+    // okozta a Manus-hibát: a levelező link-ellenőrzője elfogyasztotta a
+    // tokent, és a felhasználó KÉZI kattintása „érvénytelen"-t kapott.
     const u = await createUser({ role: 'shipper', emailVerified: false });
     const nyers = 'e'.repeat(64);
     const hash = require('crypto').createHash('sha256').update(nyers).digest('hex');
@@ -447,12 +452,11 @@ describe('E-mail-megerősítés', () => {
 
     const elso = await request(app).get(`/auth/verify-email?token=${nyers}`);
     expect(elso.status, JSON.stringify(elso.body)).toBe(200);
-    const { rows } = await db.query('SELECT email_verified, email_verification_token_hash FROM users WHERE id = $1', [u.id]);
+    const { rows } = await db.query('SELECT email_verified FROM users WHERE id = $1', [u.id]);
     expect(rows[0].email_verified, 'a link nem erősítette meg a címet').toBe(true);
-    expect(rows[0].email_verification_token_hash, 'a felhasznált token bennmaradt a DB-ben').toBeNull();
 
     const masodik = await request(app).get(`/auth/verify-email?token=${nyers}`);
-    expect(masodik.status, 'a megerősítő link újra felhasználható volt').toBe(400);
+    expect(masodik.status, 'az ismételt megnyitásnak is sikert kell adnia (link-ellenőrző eset)').toBe(200);
   });
 
   it('resend-verification: már megerősített fiók nem kap új tokent', async () => {
@@ -489,13 +493,19 @@ describe('E-mail-megerősítés', () => {
       + 'így soha nem tudná feloldani a fiókját',
     ).toBe(200);
     const { rows } = await db.query(
-      'SELECT email_verification_token_hash, email_verification_sent_at FROM users WHERE id = $1', [u.id],
+      'SELECT email_verification_sent_at FROM users WHERE id = $1', [u.id],
     );
-    expect(rows[0].email_verification_token_hash, 'nem készült megerősítő token').toMatch(/^[0-9a-f]{64}$/);
+    // v2 (2026-08-30): a token determinisztikus és állapotmentes — a DB-be
+    // nem kerül hash, csak a küldés ideje (a 60 mp-es fékhez).
     expect(rows[0].email_verification_sent_at, 'nem rögzült a küldés ideje (a 60 mp-es fék nem működne)').toBeTruthy();
   });
 
-  it('resend-verification: 60 mp után ÚJ token kerül a DB-be (a régi érvénytelenné válik)', async () => {
+  it('resend-verification: 60 mp után küld, és a KORÁBBI link érvényes marad', async () => {
+    // ⚠️ Ez a teszt korábban az ELLENKEZŐJÉT kodifikálta („új token, a régi
+    // érvénytelen") — PONTOSAN az a viselkedés, ami a Manus REG-P1-NEW-02
+    // hibáját okozta: az első levél linkje meghalt egy újraküldéstől.
+    // A v2 determinisztikus token óta az újraküldés nem ír DB-tokent, és a
+    // korábbi (legacy) link is életben marad.
     const u = await createUser({ role: 'shipper', emailVerified: false });
     await db.query(
       `UPDATE users SET email_verification_token_hash = 'regi-hash',
@@ -505,8 +515,10 @@ describe('E-mail-megerősítés', () => {
     const res = await request(app).post('/auth/resend-verification').set(auth(u.token));
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     const { rows } = await db.query('SELECT email_verification_token_hash FROM users WHERE id = $1', [u.id]);
-    expect(rows[0].email_verification_token_hash, 'nem cserélődött ki a megerősítő token').not.toBe('regi-hash');
-    expect(rows[0].email_verification_token_hash).toMatch(/^[0-9a-f]{64}$/);
+    expect(
+      rows[0].email_verification_token_hash,
+      'az újraküldés FELÜLÍRTA a korábbi tokent — az első levél linkje meghalna (REG-P1-NEW-02)',
+    ).toBe('regi-hash');
   });
 });
 

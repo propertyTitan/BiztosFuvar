@@ -210,7 +210,46 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
 
-### 🆕 MANUS P1 CÉLZOTT REGRESSZIÓ (2026-08-30, 3. futás) — 8/10 P1 JAVÍTVA + 2 ÚJ P1 A REGISZTRÁCIÓBAN — FELDOLGOZANDÓ
+### 🆕 MANUS P1 CÉLZOTT REGRESSZIÓ (3. futás) — FELDOLGOZVA (2026-08-30 éjjel, 4. javítási kör)
+
+> **✅ A 3. futás minden tétele kezelve.** Tételesen:
+>
+> - **REG-P1-NEW-02 (e-mail-link):** a gyökér KETTŐS volt, a kód igazolta:
+>   (1) a token EGYSZER használatos volt — egy levelező-linkellenőrző
+>   elfogyasztotta a kézi kattintás előtt; (2) az „Új link kérése" ÚJ
+>   tokent generált és FELÜLÍRTA a régit — az első levél linkje meghalt.
+>   Megoldás: **v2 token — determinisztikus, HMAC-aláírt, állapotmentes**
+>   (`v2.<userId>.<HMAC>` a pepperrel): a megerősítés IDEMPOTENS, az
+>   újraküldés UGYANAZT a linket viszi, nincs elfogyasztható állapot; a
+>   legacy linkek is idempotensek lettek (nulázás kivéve). ⚠️ KÉT régi
+>   teszt pont a hibás viselkedést kodifikálta („egyszer használható";
+>   „új token, a régi érvénytelen") — átírva az új szabályra. Őr:
+>   reg-p1-kor.test.js (8 teszt).
+> - **REG-P1-NEW-01 (név-szűrő):** FÉLIG volt igaz — a telefonmezőt SOSEM
+>   szűrte a contactGuard (téves diagnózis), a dátumos név viszont tényleg
+>   zavaró telefon-hibát kapott. User-döntés: **személynévben nincs
+>   számjegy** (NAME_HAS_DIGITS, értelmes üzenettel) — erősebb díj-védelem
+>   ÉS jobb konverzió; az e-mail-minta szűrése a néven marad; cégnév/jármű
+>   változatlan. Register + PATCH /me.
+> - **GF-002 (intermittáló belépés):** navigációs WATCHDOG — ha a sikeres
+>   belépés után 2 mp-cel még a login-oldalon állunk, kemény
+>   window.location navigáció pótolja (gyökértől függetlenül garantálja a
+>   továbblépést; a teljes újratöltés friss bundle-t + friss socketet hoz).
+> - **GF-007 (Enter, HARMADIK kör):** a React-szintű fékek (input + form
+>   onKeyDown) NEM elegek — a Google Places natív listener-e
+>   stopPropagation-nel elnyelheti az eseményt a React (gyökér-delegált)
+>   kezelői elől. Megoldás: **natív, CAPTURE-fázisú Enter-fék** magán a
+>   mezőn (AddressAutocomplete + CityTagsInput) — az mindenki előtt fut.
+>   Az E2E ArrowDown+Enter mintája őrzi, hogy a kiválasztás működik.
+> - **GF-003 UX:** 8 mp után a „Küldés…" gomb „A kérés még feldolgozás
+>   alatt — a szerver lassan válaszol…" szövegre vált az ajánlatküldésnél.
+> - **A gate-lista 6. pontja (GF-005 szerver-oldali e-mail-validáció) már a
+>   #198 óta él** (400 RECIPIENT_EMAIL_INVALID, őr-teszttel) — a Manusnak
+>   visszajelezhető.
+>
+> Az EREDETI 3. futásos verdikt (történeti):
+
+### 🆕 MANUS P1 CÉLZOTT REGRESSZIÓ (2026-08-30, 3. futás) — 8/10 P1 JAVÍTVA + 2 ÚJ P1 A REGISZTRÁCIÓBAN — EREDETI LISTA (történeti)
 
 > **A user feltöltötte a Manus 3., kizárólag P1-ekre (GF-001–010) célzott
 > regressziós jelentését** (tiszta klienssel, stabil build-ujjlenyomat
