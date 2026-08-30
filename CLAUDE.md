@@ -246,15 +246,19 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   SMS-újraküldési sor (079-es migráció + smsRetry.js — lásd a ✅ lista
 >   tetejét). A jelentés UI-kritikája (sikerállapot csak kézbesítési
 >   visszaigazolás után + újraküldés-gomb) NYITVA — termék-kör.
-> - **GF-005 (Fuvarfeladás):** az opcionális címzett-e-mail mező hibás
->   értéket (pl. „hibas-email") is elfogad, miközben e-mailes követési
->   linket ígér. Javaslat: trim + szintaktikai validáció kliens- ÉS
->   szerver-oldalon, mezőszintű hibával.
-> - **GF-006 (Szerepkör/menü):** a Szállító mód állapota ÁTSZIVÁROG másik
->   (feladói) fiókba — kijelentkezés után az új fiók szállítói fejlécet
->   lát. A stale-state osztály (BUG-015/030) rokona. Javaslat:
->   kijelentkezéskor módállapot-törlés, belépéskor szerver-oldali
->   inicializálás.
+> - **GF-005 (Fuvarfeladás):** ✅ **JAVÍTVA (2026-08-30)** — a címzett-e-mail
+>   mindkét oldalon validált: web `emailError` (formValidation.ts, mezőszintű
+>   magyar hibával az uj-fuvar űrlapon) + backend `RECIPIENT_EMAIL_INVALID`
+>   (400, a regisztrációs e-mail mintájával). Üresen továbbra is érvényes
+>   (opcionális mező), trimmelve mentődik.
+> - **GF-006 (Szerepkör/menü):** ✅ **JAVÍTVA (2026-08-30)** — a gyökér: a
+>   mód egyetlen GLOBÁLIS `gofuvar_mode` kulcsban élt, és a logout nem
+>   törölte → a következő (másik!) fiók örökölte. Mostantól a kulcs a user
+>   id-jával képződik (`gofuvar_mode:<id>`, readStoredMode/writeStoredMode a
+>   lib/auth.ts-ben) — másik fiókhoz nem szivárog, a saját beállítás viszont
+>   megmarad; a logout a régi globális kulcsot is takarítja. Őr:
+>   `auth-mode.test.ts` + forrás-őr (közvetlen localStorage-hozzáférés a
+>   módhoz piros). Az adatkezelési tájékoztató localStorage-táblája igazítva.
 > - **GF-007 (Cím-autocomplete):** a javaslat Enterrel való kiválasztása
 >   BEKÜLDI az egész űrlapot (mindkét címmezőn); lerakodásnál látható
 >   koordináta ellenére címhibát ad. Javaslat: az Enter csak az opciót
@@ -267,10 +271,12 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   TERMÉKDÖNTÉS (a szállítónak áraznia kell tudni ↔ adatvédelem; az
 >   adatvédelmi körök eddig tudatosan NEM szűkítették). A Manus javaslata:
 >   elfogadás előtt csak körzet/irányítószám. Hozd fel a usernek.
-> - **GF-009 (Útvonalillesztés):** 75,5 kg-os fuvar ajánlódik „legfeljebb
->   25 kg" L-kategóriás járathoz az Útba eső fuvaroknál. Üzleti szabály
->   megerősítendő, de a kapacitás-szűrés (tömeg/méret) szerver-oldalon
->   jogosnak tűnik.
+> - **GF-009 (Útvonalillesztés):** ✅ **JAVÍTVA (2026-08-30)** — az
+>   along-jobs ajánló mostantól a járat LEGNAGYOBB meghirdetett
+>   méretkategóriájához méri a fuvart (`jobFitsCapacity`, routeAlong.js):
+>   ismert túlsúly/túlméret kiszűrve, HIÁNYZÓ adat nem zár ki (arról a
+>   szállító dönt). Őr: `utba-eso-kapacitas.test.js` (a szűrő nélkül
+>   igazoltan piros; a pg NUMERIC-string csapdáját is méri).
 > - **GF-010 (Biztonság/üzleti szabály):** ⚠️ ÜTKÖZIK EGY USER-DÖNTÉSSEL,
 >   tisztázandó — a feladói VÉSZHELYZETI kód (sender_delivery_code) már a
 >   kapcsolatfelvételi díj fizetése ELŐTT látszik az elfogadott fuvaron.
@@ -278,10 +284,10 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   (csak a címzettét nem) — de az akkor még fizetés-kapu nélkül született.
 >   Kérdés a usernek: a saját vészkód is csak paid_at után látsszon-e
 >   (a Manus ezt javasolja + naplózott felfedést).
-> - **GF-011 (Adatminőség/launch):** 1 Ft-os, 1×1×1 cm-es teszt-fuvarok
->   láthatók a nyitott piactérben. Launch előtti DB-tisztítás + QA-jelölés
->   (a launch-checklistre is fel kell venni; részben az
->   ALLOW_STUB_PAYMENTS teszt-üzem velejárója).
+> - **GF-011 (Adatminőség/launch):** ✅ LAUNCH-CHECKLISTRE VÉVE (2026-08-30,
+>   a 🚨 STUB-szakaszban): a teszt-fuvarok takarítása a launch-élesítés
+>   kötelező lépése lett. ⚠️ A Manus-körök alatt SZÁNDÉKOSAN nem törlünk —
+>   a tesztelő fiókjai érintetlenek maradnak, hogy újra végig tudjon menni.
 >
 > **P2 — közepes (11):**
 >
@@ -1991,6 +1997,14 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >
 > **ELLENŐRZÉS ÉLESÍTÉS UTÁN:** a fizetési kártyán NEM szabad látszania a
 > sárga sávnak. Ha látszik, az env még bent van.
+>
+> **UGYANEKKOR KÖTELEZŐ: TESZT-ADAT TAKARÍTÁS (Manus GF-011, 2026-08-30).**
+> A teszt-üzem alatt feladott teszt-fuvarok (1 Ft-os, 1×1×1 cm-es tételek,
+> Manus/tesztelő fiókok hirdetései) a NYITOTT piactérben látszanak — launch
+> előtt a prod DB-ből törlendők (a tesztelő-fiókokkal együtt eldöntendő:
+> törlés vagy megtartás). ⚠️ ADDIG NE töröld őket, amíg a Manus-körök
+> futnak — a tesztelő fiókjai szándékosan érintetlenek, hogy újra végig
+> tudjon menni a folyamaton.
 
 ### 🔴 Launch-kapu — adatvédelmi/jogi ellenőrzőlista (2026-07-18 felmérés)
 

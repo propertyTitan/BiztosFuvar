@@ -7,7 +7,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/api';
-import { useCurrentUser } from '@/lib/auth';
+import { useCurrentUser, readStoredMode, writeStoredMode } from '@/lib/auth';
 import { useTranslation, formatPrice } from '@/lib/i18n';
 import {
   FileText, Route as RouteIcon, ShoppingBag, Target, BarChart3, Tag,
@@ -67,17 +67,17 @@ export default function HomeHub() {
     api.unreadNotificationCount().then((r) => setUnread(r.count)).catch(() => {});
     api.getDriverDashboard().then(setDriver).catch(() => {});
     api.getGameStats().then(setGameStats).catch(() => {});
-    // Tárolt mód visszaolvasása
-    const saved = localStorage.getItem('gofuvar_mode');
-    if (saved === 'shipper' || saved === 'driver') setMode(saved as Mode);
+    // Tárolt mód visszaolvasása — FELHASZNÁLÓHOZ kötve (GF-006): másik fiók
+    // módja nem szivároghat át, a sajátja viszont megmarad.
+    const saved = readStoredMode();
+    setMode(saved ?? 'shipper');
   }, [user]);
 
   function switchMode(m: Mode) {
     setMode(m);
-    localStorage.setItem('gofuvar_mode', m);
-    // A fejléc mód-chipje is frissüljön (BUG-034: a főoldalt elhagyva nem
-    // látszott, melyik mód aktív)
-    window.dispatchEvent(new Event('gofuvar:mode-change'));
+    // A helper a fejléc mód-chipjét is értesíti (BUG-034: a főoldalt
+    // elhagyva is látszódjon, melyik mód aktív)
+    writeStoredMode(m);
   }
 
   if (!user) return null;

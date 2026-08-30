@@ -439,7 +439,7 @@ export default function AdatkezelesPage() {
           <tr><td style={{ padding: 8 }}>gofuvar_user</td><td style={{ padding: 8 }}>Felhasználói profil cache</td><td style={{ padding: 8 }}>7 nap</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_locale</td><td style={{ padding: 8 }}>Nyelvi preferencia</td><td style={{ padding: 8 }}>1 év</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_theme</td><td style={{ padding: 8 }}>Világos / sötét téma választása</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
-          <tr><td style={{ padding: 8 }}>gofuvar_mode</td><td style={{ padding: 8 }}>Feladó / szállító nézet</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
+          <tr><td style={{ padding: 8 }}>gofuvar_mode:&lt;azonosító&gt;</td><td style={{ padding: 8 }}>Feladó / szállító nézet (fiókonként külön)</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_fee_info_dismissed</td><td style={{ padding: 8 }}>Elrejtett tájékoztató sáv</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_kyc_welcome_&lt;azonosító&gt;</td><td style={{ padding: 8 }}>Egyszer megjelenő üdvözlő ablak</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_prefill (munkamenet)</td><td style={{ padding: 8 }}>„Hozasd el" űrlap-előtöltés</td><td style={{ padding: 8 }}>a lap bezárásáig</td></tr>

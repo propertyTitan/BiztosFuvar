@@ -358,6 +358,15 @@ router.post('/', authRequired, writeRateLimit, async (req, res) => {
       });
     }
   }
+  // GF-005 (Manus, 2026-08-30): a címzett-e-mail opcionális, de ha meg van
+  // adva, követési linket ígérünk rá — hibás címre a levél némán a semmibe
+  // ment volna. Ugyanaz a minta, mint a regisztrációs e-mailnél (auth.js).
+  if (recipientEmail && (recipientEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(recipientEmail))) {
+    return res.status(400).json({
+      error: 'A címzett e-mail címe érvénytelen (pl. nev@email.hu) — javítsd, vagy hagyd üresen.',
+      code: 'RECIPIENT_EMAIL_INVALID',
+    });
+  }
 
   // --- Azonnali fuvar (is_instant) validáció ---
   // Az instant fuvarnál nincs licit: a suggested_price_huf a VÉGSŐ ár.

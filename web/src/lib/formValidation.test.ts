@@ -5,7 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   MAX_DIM_CM, MAX_HUF, MAX_WEIGHT_KG,
   intFieldError, moneyFieldError, weightFieldError,
-  phoneError, parseNumericInput, sanitizeNumericInput,
+  phoneError, emailError, parseNumericInput, sanitizeNumericInput,
 } from './formValidation';
 
 describe('beviteli szűrés — negatív be sem írható', () => {
@@ -127,5 +127,28 @@ describe('phoneError — címzett telefonszáma', () => {
     expect(phoneError('hívj fel')).toMatch(/csak számokat/i);
     expect(phoneError('123')).toMatch(/rövid/i);
     expect(phoneError('1234567890123456789')).toMatch(/hosszú/i);
+  });
+});
+
+describe('emailError — opcionális címzett-email (GF-005, Manus 2026-08-30)', () => {
+  it('üresen érvényes (a mező opcionális)', () => {
+    expect(emailError('')).toBeNull();
+    expect(emailError('   ')).toBeNull();
+  });
+
+  it('érvényes címeket elfogad', () => {
+    expect(emailError('anna@email.hu')).toBeNull();
+    expect(emailError('  nev.masodik+cimke@sub.domain.co.uk  ')).toBeNull();
+  });
+
+  it('a Manus-repró („hibas-email") és társai hibát kapnak', () => {
+    // Követési linket ígérünk a címre — hibás címre a levél némán elveszne.
+    expect(emailError('hibas-email')).toMatch(/érvénytelen/i);
+    expect(emailError('nev@')).toMatch(/érvénytelen/i);
+    expect(emailError('@domain.hu')).toMatch(/érvénytelen/i);
+    expect(emailError('nev@domain')).toMatch(/érvénytelen/i);
+    expect(emailError('nev@domain.h')).toMatch(/érvénytelen/i);
+    expect(emailError('szó köz@domain.hu')).toMatch(/érvénytelen/i);
+    expect(emailError(`${'a'.repeat(250)}@x.hu`)).toMatch(/érvénytelen/i);
   });
 });

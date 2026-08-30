@@ -249,3 +249,53 @@ describe('Fuvar-feladás: negatív és tört értékek', () => {
     expect(res.status).toBe(201);
   });
 });
+
+// GF-005 (Manus, 2026-08-30): az opcionális címzett-e-mail eddig BÁRMIT
+// elfogadott („hibas-email"), pedig követési linket ígérünk rá — a levél
+// némán a semmibe ment volna. A szabálynak a szerveren is állnia kell.
+describe('Címzett-e-mail szintaxis (GF-005)', () => {
+  it('hibás e-mail (a Manus-repró) → 400 RECIPIENT_EMAIL_INVALID', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post('/jobs')
+      .set('Authorization', `Bearer ${user.token}`)
+      .send(jobBody({
+        recipient_name: 'Kiss Anna',
+        recipient_phone: '+36 30 123 4567',
+        recipient_email: 'hibas-email',
+      }));
+
+    expect(res.status).toBe(400);
+    expect(res.body.code).toBe('RECIPIENT_EMAIL_INVALID');
+  });
+
+  it('érvényes e-mail → létrejön, trimmelve mentve', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post('/jobs')
+      .set('Authorization', `Bearer ${user.token}`)
+      .send(jobBody({
+        recipient_name: 'Kiss Anna',
+        recipient_phone: '+36 30 123 4567',
+        recipient_email: '  anna@email.hu  ',
+      }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.recipient_email).toBe('anna@email.hu');
+  });
+
+  it('üres/kihagyott e-mail továbbra is rendben (opcionális mező)', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post('/jobs')
+      .set('Authorization', `Bearer ${user.token}`)
+      .send(jobBody({
+        recipient_name: 'Kiss Anna',
+        recipient_phone: '+36 30 123 4567',
+        recipient_email: '   ',
+      }));
+
+    expect(res.status).toBe(201);
+    expect(res.body.recipient_email).toBeNull();
+  });
+});

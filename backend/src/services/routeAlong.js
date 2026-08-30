@@ -20,8 +20,43 @@
 
 const db = require('../db');
 const { distanceMeters } = require('../utils/geo');
+const { PACKAGE_SIZES } = require('../constants');
 
 const ALONG_RADIUS_KM = 15;
+
+/**
+ * GF-009 (Manus, 2026-08-30): belefér-e a fuvar a járat LEGNAGYOBB
+ * meghirdetett méretkategóriájába. A Manus-repró: 75,5 kg-os fuvar
+ * ajánlódott egy „legfeljebb 25 kg" (L-plafonos) járathoz — a szállító
+ * fizikailag nem tudta volna elvinni, az ajánlás csak zaj.
+ *
+ * Szabály: az ISMERT adat kizárhat (nyilvánvaló túlsúly/túlméret), a
+ * HIÁNYZÓ adat nem — arról a szállító dönt (a fuvarok szabad szövegesek,
+ * nem minden feladó ad meg mindent).
+ */
+function jobFitsCapacity(job, maxSizeId) {
+  if (!maxSizeId) return true;
+  const max = PACKAGE_SIZES.find((s) => s.id === maxSizeId);
+  if (!max) return true;
+
+  const weight = Number(job.weight_kg);
+  if (job.weight_kg != null && Number.isFinite(weight) && weight > max.max_weight_kg) {
+    return false;
+  }
+
+  const dims = [job.length_cm, job.width_cm, job.height_cm];
+  if (dims.every((d) => d != null && Number.isFinite(Number(d)))) {
+    // Oldal-sorrendtől függetlenül: a legnagyobb oldal a kategória
+    // legnagyobb oldalához mérve, stb. (ugyanaz az elv, mint a
+    // classifyPackage-ben).
+    const sorted = dims.map(Number).sort((a, b) => b - a);
+    const catDims = [max.max_length_cm, max.max_width_cm, max.max_height_cm].sort((a, b) => b - a);
+    if (sorted[0] > catDims[0] || sorted[1] > catDims[1] || sorted[2] > catDims[2]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /**
  * Egy útvonal waypoint-jai mentén keres passzoló nyitott fuvarokat.
@@ -29,9 +64,11 @@ const ALONG_RADIUS_KM = 15;
  * @param {Array<{lat:number, lng:number, name?:string}>} waypoints
  * @param {string} carrierId — kizárjuk a saját feladásait
  * @param {number} [radiusKm=15]
+ * @param {{maxSizeId?: ('S'|'M'|'L'|'XL'|null)}} [opts] — a járat legnagyobb
+ *        meghirdetett méretkategóriája; az ezt meghaladó fuvar kiszűrve (GF-009)
  * @returns {Promise<Array<Job & {along_pickup_wp:number, along_dropoff_wp:number, along_detour_km:number}>>}
  */
-async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_KM) {
+async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_KM, opts = {}) {
   if (!Array.isArray(waypoints) || waypoints.length < 2) return [];
 
   // Bounding box: az egész útvonal mentén keresünk. A legkisebb és
@@ -74,6 +111,9 @@ async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_
   // ahol i < j (tehát a csomag az útvonal irányába halad).
   const results = [];
   for (const job of rows) {
+    // Kapacitás-szűrés (GF-009): a járat plafonját meghaladó fuvar ki.
+    if (!jobFitsCapacity(job, opts.maxSizeId || null)) continue;
+
     let bestPickupWp = -1;
     let bestPickupDist = Infinity;
     let bestDropoffWp = -1;
@@ -123,4 +163,4 @@ async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_
   return results;
 }
 
-module.exports = { findJobsAlongRoute, ALONG_RADIUS_KM };
+module.exports = { findJobsAlongRoute, jobFitsCapacity, ALONG_RADIUS_KM };

@@ -21,7 +21,7 @@ import { useCurrentUser } from '@/lib/auth';
 import {
   MAX_DIM_CM, MAX_WEIGHT_KG,
   intFieldError, moneyFieldError, weightFieldError,
-  sanitizeNumericInput, parseNumericInput, phoneError,
+  sanitizeNumericInput, parseNumericInput, phoneError, emailError,
 } from '@/lib/formValidation';
 
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB – egyezik a backend limittel
@@ -175,6 +175,7 @@ export default function UjFuvar() {
       ? 'Kérjük, töltsd ki: Címzett neve.'
       : null,
     recipientPhone: form.other_recipient ? phoneError(form.recipient_phone) : null,
+    recipientEmail: form.other_recipient ? emailError(form.recipient_email) : null,
   };
   const show = (key: keyof typeof errors) => (tried ? errors[key] : null);
 
@@ -1066,10 +1067,13 @@ export default function UjFuvar() {
                 className="input"
                 type="email"
                 autoComplete="email"
+                title="Opcionális. Ha megadod, a címzett e-mailben kapja a követési linket."
                 value={form.recipient_email}
                 onChange={(e) => set('recipient_email', e.target.value)}
                 placeholder="anna@email.hu"
+                style={show('recipientEmail') ? redBorder : undefined}
               />
+              <FieldError>{show('recipientEmail')}</FieldError>
               <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                 Ha megadod, a címzett emailben is kapja a követési linket.
               </p>
