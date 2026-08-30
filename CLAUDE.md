@@ -210,6 +210,70 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
 
+### 🔄 MANUS REGRESSZIÓS ÚJRATESZT (2026-08-30, 2. futás) — a 24 tétel KÜLSŐ verdiktje — MARADÉK FELDOLGOZANDÓ
+
+> **A user feltöltötte a Manus regressziós újratesztjének eredményét**
+> (`GoFuvar_regresszios_statuszok_20260830.csv`) — a Manus a javítási körök
+> UTÁN újra végigment a tételeken. Ez a KÜLSŐ, független verdikt; ahol
+> ellentmond a lenti (saját) státusz-jegyzeteknek, ezt kell hinni, VAGY
+> bizonyítottan cáfolni (pl. deploy-időbélyeg vs teszt-időpont).
+> GF-011 és GF-020 NEM szerepelt az újratesztben (nem lettek újramérve).
+>
+> **✅ Javítva (11):** GF-004 (SMS megérkezett, kóddal lezárható),
+> GF-005, GF-009, GF-010 (fizetés előtt már egyik kód sem látszik),
+> GF-012, GF-014, GF-015, GF-016, GF-017, GF-022 (sütisáv 252→124,5 px,
+> 17,8% viewport), GF-024. Ezekhez nincs blokkoló teendő.
+>
+> **🟡 Részben javítva (5) — ez a maradék munka magja:**
+>
+> - **GF-002:** a feladói belépés jól átirányít, de a **SZÁLLÍTÓI ág
+>   továbbra is beragadhat** (session létrejön, redirect elmarad).
+>   Teendő: az auth utáni redirect + gombállapot szerepkör-független
+>   egységesítése.
+> - **GF-003:** időtúllépésnél már van használható hiba, DE **a backend
+>   közben LÉTREHOZZA az ajánlatot** — a user hamis hibát lát, és
+>   újrapróbálásnál duplikálhat. Teendő: idempotenciakulcs VAGY
+>   újrapróbálás előtti státusz-visszakérdezés („létrejött-e már?").
+> - **GF-008:** ⚠️ **ÉLŐ CÍM-SZIVÁRGÁS MARADT** — a szállítói RÉSZLETEZŐ
+>   elfogadás előtt már maszkol, de az **„Ajánlataim" lista saját ajánlat
+>   után HÁZSZÁMOS címet mutat**. Ugyanaz a jól ismert minta: „a védelem
+>   azon az úton épül meg, ahol felfedezték". Teendő: egységes
+>   SZERVER-oldali címmaszkolás MINDEN listán és API-reprezentációban
+>   (bids/mine, along-jobs, backhaul, feed — mind ellenőrizendő), +
+>   őr-teszt az összes útra.
+> - **GF-013:** hibaösszegzés már van, de nincs első-hibamező-fókusz és
+>   aria-invalid/aria-describedby kapcsolat.
+> - **GF-021:** látható gomb/link már mind címkézett, de maradt címkézetlen
+>   autocomplete + textarea, és H1→H3 címsor-ugrás.
+>
+> **🔴 Nem javítva (6):**
+>
+> - **GF-001:** a Manus ÚJRA reprodukálta: érvényes regisztráció tartós
+>   „Regisztráció…" állapotban, se redirect, se munkamenet. ⚠️ A lenti
+>   saját jegyzet szerint ez korábban nem volt reprodukálható és kétszer
+>   deploy előtti bundle-nek bizonyult — MOST ELŐSZÖR ellenőrizd a
+>   teszt-időpontot a deploy-időbélyeg ellen; ha a friss bundle-ön is áll,
+>   akkor a register-út VALÓDI hibája (promise/timeout-kezelés a
+>   register-ágon — a fetchWithTimeout önmagában nem oldotta meg).
+> - **GF-006:** fiókváltás után a mód-átszivárgás VÁLTOZATLANUL fennáll
+>   (Feladó mód a szállítói fiók fejlécében). Kijelentkezéskor
+>   módállapot-törlés + belépéskor szerver-oldali inicializálás.
+> - **GF-007:** az autocomplete Enter továbbra is teljes űrlap-submitot
+>   vált ki. (Javítás után az E2E-k ArrowDown+Enter mintája ellenőrizendő!)
+> - **GF-018:** üres járat „Mentés piszkozatként" továbbra is néma.
+> - **GF-019:** a -100 továbbra is némán 100 lesz; 1 Ft-os ár
+>   figyelmeztetés nélkül elfogadható. (A „ne módosíts némán" elv sérül —
+>   a beviteli szűrés maradhat, de a néma átalakítás nem.)
+> - **GF-023:** a magyar felületen továbbra is „Hungary" országnév több
+>   címnél — a PR #201 Maps-nyelvi paramétere ezt nem fedte le;
+>   címformázó rétegben országnév-lokalizáció kell.
+>
+> **Javasolt sorrend a maradékra:** (1) GF-008 lista-szivárgás (adatvédelmi
+> P1, kontakt-kapuzás integritása); (2) GF-001 deploy-ellenőrzéssel +
+> GF-002 szállítói ág + GF-003 idempotencia (a submit-osztály lezárása);
+> (3) GF-006, GF-007; (4) GF-018, GF-019, GF-013, GF-021; (5) GF-023.
+> Minden javításnál őr-teszt, ami a javítás nélkül igazoltan piros.
+
 ### 🐞 MANUS-JELENTÉS (2026-08-30) — külső AI-tesztelő hibajegyzéke, 24 tétel — FELDOLGOZÁSRA VÁR
 
 > **A user 2026-08-30-án feltöltötte a Manus (külső AI-tesztelő) teljes
