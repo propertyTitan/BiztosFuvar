@@ -364,12 +364,27 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   belépés után 2 mp-cel még a login-oldalon állunk, kemény
 >   window.location navigáció pótolja (gyökértől függetlenül garantálja a
 >   továbblépést; a teljes újratöltés friss bundle-t + friss socketet hoz).
-> - **GF-007 (Enter, HARMADIK kör):** a React-szintű fékek (input + form
->   onKeyDown) NEM elegek — a Google Places natív listener-e
->   stopPropagation-nel elnyelheti az eseményt a React (gyökér-delegált)
->   kezelői elől. Megoldás: **natív, CAPTURE-fázisú Enter-fék** magán a
->   mezőn (AddressAutocomplete + CityTagsInput) — az mindenki előtt fut.
->   Az E2E ArrowDown+Enter mintája őrzi, hogy a kiválasztás működik.
+> - **GF-007 (Enter) — ✅ VÉGLEG LEZÁRVA (2026-08-31, PR #207; a user ÉS a
+>   saját prod-mérés is megerősítette):** a 3. körös capture-fék a submitot
+>   megfogta, de ÉLESBEN MÉRVE a Google Enter-kiválasztását tette
+>   NEM-DETERMINISZTIKUSSÁ (3-ból 2 kiesés) — a felhasználónak ez ugyanúgy
+>   „az Enter rossz" volt. ⚠️ A TANULSÁG: az Enter körül HÁROM szereplő
+>   versenyzett (böngésző implicit submit, Google Places saját listener-e,
+>   a mi fékjeink), és a sorrend sosem volt a kezünkben — ezért „javult
+>   meg" háromszor úgy, hogy negyedszer is előjött. A VÉGLEGES elv: az
+>   Entert TELJESEN átvettük — submit soha; a kijelölt javaslat szövege
+>   (vagy a begépelt cím) a SAJÁT Geocoder-feloldásunkon megy át
+>   (`resolveText` az AddressAutocomplete-ben + CityTagsInput
+>   város-változata, latest-ref mintával); a Google widget
+>   Enter-kezelésére SEMMI nem támaszkodik. A szintetikus egér-esemény
+>   köztes ötlete is elvetve (isTrusted=false, a Google eldobhatja —
+>   mérve flaky). PROD-MÉRÉS (#207 után, 3 motor × 2 kör × 2 címmező):
+>   Chromium/Firefox/WebKit mind 0 toast, 0 mező-hiba, 0 submit-esemény,
+>   minden cím megerősítve. Őr: 25-ös E2E-spec (3 ismétlés; a feloldás
+>   kivételével flaky-piros). ⚠️ A Manus közbeni „továbbra sem javított"
+>   jelentése a #207 ELŐTTI buildről szólt — külső tesztjelentésnél MINDIG
+>   vesd össze a teszt időpontját a deploy-időbélyeggel, MIELŐTT javítani
+>   kezdesz.
 > - **GF-003 UX:** 8 mp után a „Küldés…" gomb „A kérés még feldolgozás
 >   alatt — a szerver lassan válaszol…" szövegre vált az ajánlatküldésnél.
 > - **A gate-lista 6. pontja (GF-005 szerver-oldali e-mail-validáció) már a
