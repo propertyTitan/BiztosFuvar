@@ -39,9 +39,50 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
     if (!el || (el as any).__gofuvarEnterFek) return;
     (el as any).__gofuvarEnterFek = true;
     el.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (e.key === 'Enter') e.preventDefault();
+      if (e.key !== 'Enter') return;
+      // Implicit form-submit SOHA (a fék eddig is élt) —
+      e.preventDefault();
+      // — DE a fék mellékhatásaként a Google saját Enter-kiválasztása
+      // NEM-DETERMINISZTIKUSSÁ vált (élesben mérve: 3 futásból 2-ben nem
+      // választott). Ezért a kiválasztást MI végezzük el: a látható
+      // javaslat-lista kijelölt (vagy első) elemére szintetikus mousedown
+      // megy — a Google arra választ, és az egér-út bizonyítottan stabil.
+      const pac = Array.from(document.querySelectorAll('.pac-container'))
+        .find((c) => (c as HTMLElement).offsetWidth > 0);
+      const item = pac && (pac.querySelector('.pac-item-selected') || pac.querySelector('.pac-item'));
+      let szoveg = (el as HTMLInputElement).value;
+      if (item) {
+        const query = item.querySelector('.pac-item-query')?.textContent || '';
+        const tobbi = Array.from(item.childNodes)
+          .filter((n) => !(n instanceof Element
+            && (n.classList.contains('pac-icon') || n.classList.contains('pac-item-query'))))
+          .map((n) => n.textContent || '').join(' ').trim();
+        szoveg = `${query}${tobbi ? `, ${tobbi}` : ''}`.trim() || szoveg;
+      }
+      enterActionRef.current(szoveg);
     }, true);
   };
+
+  /** Determinisztikus Enter-feloldás (GF-007, 4. kör) — város-szint. */
+  async function resolveCityText(szoveg: string) {
+    const query = String(szoveg || '').trim();
+    if (!query || !window.google?.maps?.Geocoder) return;
+    try {
+      const geocoder = new window.google.maps.Geocoder();
+      const { results } = await geocoder.geocode({ address: query, region: 'hu' });
+      const hit = results?.[0];
+      const loc = hit?.geometry?.location;
+      if (!hit || !loc) return;
+      const nev = hit.address_components?.find((c) => c.types.includes('locality'))?.long_name || query;
+      const formatted = hit.formatted_address || nev;
+      onChange([...value, {
+        name: nev, formatted_address: formatted, lat: loc.lat(), lng: loc.lng(), order: value.length,
+      }]);
+      setInputKey((k) => k + 1);
+    } catch { /* marad a lista-kattintás */ }
+  }
+  const enterActionRef = useRef<(szoveg: string) => void>(() => {});
+  enterActionRef.current = (szoveg: string) => { void resolveCityText(szoveg); };
 
   function handlePlaceChanged() {
     const place = autocompleteRef.current?.getPlace();
