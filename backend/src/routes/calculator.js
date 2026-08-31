@@ -75,6 +75,13 @@ router.get('/calculator/estimate', (req, res) => {
       !Number.isFinite(dLat) || !Number.isFinite(dLng)) {
     return res.status(400).json({ error: 'Hiányzó koordináták' });
   }
+  // SEC-009 (Manus biztonsági audit, 2026-08-31): a véges-szám kapu a
+  // TARTOMÁNYT nem nézte — lat=91 / lng=999 is 200-as „becslést" adott
+  // (a PR #176-os fix a súlyt fedte, a koordinátát nem — megint a „védelem
+  // ott épül, ahol felfedezték" minta).
+  if (Math.abs(pLat) > 90 || Math.abs(dLat) > 90 || Math.abs(pLng) > 180 || Math.abs(dLng) > 180) {
+    return res.status(400).json({ error: 'Érvénytelen koordináta (lat −90..90, lng −180..180).' });
+  }
 
   const distKm = +(distanceMeters(pLat, pLng, dLat, dLng) / 1000).toFixed(2);
 

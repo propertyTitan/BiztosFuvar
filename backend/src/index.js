@@ -79,6 +79,23 @@ const app = express();
 // az X-Forwarded-For header alapján a rate limiter a valódi kliens IP-t lássa.
 app.set('trust proxy', 1);
 
+// ── Biztonsági fejlécek (SEC-002/010, Manus biztonsági audit 2026-08-31) ──
+// Az `X-Powered-By: Express` fölösleges fingerprint volt.
+app.disable('x-powered-by');
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  // SEC-010: az API-válaszok (profil, KYC-metaadat, üzenetek, fizetés)
+  // érzékenyek — semmilyen közbenső/böngésző-cache nem tárolhatja őket.
+  // A /uploads statikus fájljai KIVÉTELEK (publikus fotók, cache-elhetők) —
+  // ott az express.static a saját fejléceit adja.
+  if (!req.path.startsWith('/uploads')) {
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+  }
+  next();
+});
+
 // CORS: prod-ban a CORS_ORIGIN env-ben felsorolt domain-eket engedjük
 // (vesszővel elválasztva), fejlesztéskor pedig mindent (*). A Socket.IO
 // transzport külön CORS-t használ a realtime.js-ben.
