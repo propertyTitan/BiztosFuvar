@@ -307,7 +307,9 @@ router.post('/register', registerRateLimit, async (req, res) => {
 // regisztrálva nálunk (enumeration védelem).
 router.post('/forgot-password', loginRateLimit, async (req, res) => {
   const { email } = req.body || {};
-  if (!email) return res.status(400).json({ error: 'Email kötelező' });
+  if (typeof email !== 'string' || !email.trim()) {
+    return res.status(400).json({ error: 'Email kötelező' });
+  }
   const generic = {
     ok: true,
     message: 'Ha létezik fiók ezzel az e-mail címmel, küldtünk egy linket a jelszó visszaállításához. Nézd meg a postaládád (és a spam-mappát is).',
@@ -342,7 +344,9 @@ router.post('/forgot-password', loginRateLimit, async (req, res) => {
 // POST /auth/reset-password — új jelszó beállítása a tokennel
 router.post('/reset-password', loginRateLimit, async (req, res) => {
   const { token, password } = req.body || {};
-  if (!token || !password) return res.status(400).json({ error: 'Hiányzó adatok' });
+  if (typeof token !== 'string' || typeof password !== 'string' || !token || !password) {
+    return res.status(400).json({ error: 'Hiányzó adatok' });
+  }
   if (password.length < 8) return res.status(400).json({ error: 'A jelszó minimum 8 karakter legyen' });
   try {
     const tokenHash = hashAuthToken(token);
@@ -472,7 +476,14 @@ router.post('/resend-verification', authRequired, async (req, res) => {
 // POST /auth/login — percenként max 10 próbálkozás IP-nként (brute force védelem)
 router.post('/login', loginRateLimit, async (req, res) => {
   const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ error: 'Hiányzó mezők' });
+  // SEC-008 (Manus biztonsági audit): nem-string email/password (szám, tömb,
+  // objektum, null) eddig 500-at adott — az `email.trim()` dobott. A
+  // hülyebiztos-matrix ezt azért nem fogta meg, mert a fuzz-célok kézzel
+  // válogatott sablon-listáján az auth-végpontok nem szerepeltek (az őr-rés
+  // is zárva: FUZZ_TARGETS bővítve).
+  if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+    return res.status(400).json({ error: 'Hiányzó vagy hibás mezők' });
+  }
   // Email-egyezés kis/nagybetűtől függetlenül: a regisztráció normalizál, de a
   // régi sorokban vegyes írásmód lehet, ezért itt is LOWER-rel hasonlítunk —
   // különben a "Tester@…" fiók nem tudna "tester@…"-ként belépni.

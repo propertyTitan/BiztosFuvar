@@ -210,7 +210,43 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
 
-### 🔐 MANUS BIZTONSÁGI AUDIT (2026-08-31) — 9 megállapítás: 1 magas, 4 közepes, 4 alacsony — FELDOLGOZANDÓ
+### 🔐 MANUS BIZTONSÁGI AUDIT — GYORS KÖR KÉSZ (2026-08-31 este), 3 tétel USER-DÖNTÉSRE VÁR
+
+> **✅ AZONNAL JAVÍTVA (SEC-001, 002, 008, 009, 010):**
+>
+> - **SEC-001 + SEC-002 (web):** next.config headers — `frame-ancestors
+>   'none'` + `X-Frame-Options: DENY` (clickjacking zárva) + nosniff +
+>   Referrer-Policy + Permissions-Policy (geolocation=self — SOS/követés
+>   használja). ⚠️ TELJES (script-src-es) CSP szándékosan NINCS még — az a
+>   SEC-003-as session-körhöz tartozik (inline stílusok + Maps + socket).
+> - **SEC-002 (API):** `X-Powered-By` kikapcsolva + nosniff/frame-deny/
+>   referrer minden válaszon.
+> - **SEC-010:** `Cache-Control: private, no-store, max-age=0` MINDEN
+>   API-válaszon (a /uploads statikus út kivétel — az cache-elhető marad).
+> - **SEC-008:** a gyökér a login `email.trim()`-je volt nem-string
+>   inputon → 500. ⚠️ AZ ŐR-RÉS VOLT AZ ÉRDEKESEBB: a hülyebiztos-matrix
+>   fuzz-céljai KÉZZEL VÁLOGATOTT sablon-listán futnak, és az
+>   auth-végpontok nem voltak rajta — pont az az osztály, amit a matrix
+>   elvben véd. A lista bővítve (login + forgot- + reset-password), a
+>   login/forgot/reset típus-kapukat kapott; visszamérve: a fix nélkül a
+>   bővített matrix piros.
+> - **SEC-009:** lat [−90,90] / lng [−180,180] kapu az árbecslőn (a PR
+>   #176-os fix a súlyt fedte, a koordinátát nem).
+> - Őr: `sec-fejlecek.test.js` (fejlécek + no-store + uploads-kivétel +
+>   koordináta-tartomány).
+>
+> **⚠️ USER-DÖNTÉSRE VÁR (nagy tételek):**
+>
+> - **SEC-011 (Next 14→15/16 migráció, P0):** időzítési döntés — launch
+>   előtt vagy után. JAVASLAT: MOST, amíg nincs éles forgalom (sosem lesz
+>   olcsóbb), külön körben, teljes E2E-regresszióval.
+> - **SEC-003+004+005 (session-átépítés):** HttpOnly refresh + rövid
+>   access token + logout-visszavonás — web+mobile+socket együtt
+>   tervezendő, NEM darabokban. Külön tervezős kör.
+>
+> Az EREDETI audit-lista (történeti):
+
+### 🔐 MANUS BIZTONSÁGI AUDIT (2026-08-31) — 9 megállapítás: 1 magas, 4 közepes, 4 alacsony — EREDETI LISTA (történeti)
 
 > **A user feltöltötte a Manus tulajdonosi felhatalmazással végzett,
 > nem-destruktív black-box web- és API-biztonsági auditját**
