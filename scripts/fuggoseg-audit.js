@@ -30,18 +30,6 @@ const ELFOGADOTT_CSOMAGONKENT = {
     // Jelenleg nincs elfogadott kivétel — minden magas/kritikus javítva.
   },
   web: {
-    next: {
-      ok: 'A DoS az Image Optimizer ellen SELF-HOSTED telepítést érint. A GoFuvar '
-        + 'Vercelen fut, ahol a képoptimalizálás platform-szinten történik, nem a '
-        + 'mi Node-folyamatunkban.',
-      megoldas: 'Next.js 14 → 16 fő verzióugrás (külön feladat, saját regressziós körrel).',
-    },
-    postcss: {
-      ok: 'Az XSS a CSS-stringify kimenetén keresztül támad, és BUILD IDEJŰ eszköz. '
-        + 'A támadónak a fordításkor kellene CSS-t injektálnia — a build a mi '
-        + 'repónkból, a mi CI-nkban fut, külső CSS-input nincs.',
-      megoldas: 'A Next.js fő verzióugrásával jön a javított postcss.',
-    },
   },
 };
 

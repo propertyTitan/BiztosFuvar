@@ -189,12 +189,16 @@ test.describe('járat-hirdetés űrlap: múltbeli időpont', () => {
 
     // A naptár is korlátoz (min attribútum), de a kézzel beírt/beillesztett
     // értéket a JS-ág fogja meg — ezt teszteljük.
-    await idopont.fill('2020-01-01T08:00');
-
-    await expect(
-      page.getByText(/Ez az időpont már elmúlt/i),
-      'A user nem kapott figyelmeztetést a múltbeli indulásra',
-    ).toBeVisible();
+    //
+    // ⚠️ Next 16 / React 19 (SEC-011 migráció): a hidratáció időzítése
+    // eltolódott — ha a fill a hidratáció ELŐTT fut, az input-esemény
+    // elveszik, és a figyelmeztetés nem jelenik meg (valódi felhasználót
+    // nem érint: ő másodpercekkel később gépel). A toPass újra kitölt,
+    // amíg a reaktív válasz meg nem érkezik — a szerződés változatlan.
+    await expect(async () => {
+      await idopont.fill('2020-01-01T08:00');
+      await expect(page.getByText(/Ez az időpont már elmúlt/i)).toBeVisible({ timeout: 1500 });
+    }, 'A user nem kapott figyelmeztetést a múltbeli indulásra').toPass({ timeout: 15_000 });
 
     let kuldott = false;
     page.on('request', (r) => {

@@ -210,7 +210,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
 
-### 🔐 MANUS BIZTONSÁGI AUDIT — GYORS KÖR KÉSZ (2026-08-31 este), 3 tétel USER-DÖNTÉSRE VÁR
+### 🔐 MANUS BIZTONSÁGI AUDIT — FELDOLGOZVA (gyors kör + SEC-011 kész; session-kör tudatosan halasztva)
 
 > **✅ AZONNAL JAVÍTVA (SEC-001, 002, 008, 009, 010):**
 >
@@ -235,14 +235,26 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > - Őr: `sec-fejlecek.test.js` (fejlécek + no-store + uploads-kivétel +
 >   koordináta-tartomány).
 >
-> **⚠️ USER-DÖNTÉSRE VÁR (nagy tételek):**
+> **✅ SEC-011 KÉSZ (2026-08-31 este, user-döntés: „mehet"):** Next.js
+> 14.2.5 → **16.3.3** + React 18 → **19.2** egy ugrással. A migráció
+> meglepően kicsi volt, MERT az architektúra kliens-nehéz: a
+> biztonság-kritikus logika a külön Express-backendben él, a Next főleg
+> megjelenítő réteg — EGYETLEN szerver-komponens használt `params`-ot
+> (a /fuvar/[utvonal] SEO-landing, async-ra írva), minden más oldal
+> 'use client' + hookok (változatlan API). Mérések: tsc + build tiszta,
+> web unit 117/117, 16-os oldal-leltár spec 52/52 (minden oldal renderel),
+> konzol-tisztaság + téma + Enter-spec zöld. A függőség-audit 0 magas
+> sérülékenységet jelez, a next/postcss ÍRÁSOS KIVÉTELEK TÖRÖLVE a
+> fuggoseg-audit.js-ből (az őr maga jelezte: „már nem sérülékeny").
 >
-> - **SEC-011 (Next 14→15/16 migráció, P0):** időzítési döntés — launch
->   előtt vagy után. JAVASLAT: MOST, amíg nincs éles forgalom (sosem lesz
->   olcsóbb), külön körben, teljes E2E-regresszióval.
-> - **SEC-003+004+005 (session-átépítés):** HttpOnly refresh + rövid
->   access token + logout-visszavonás — web+mobile+socket együtt
->   tervezendő, NEM darabokban. Külön tervezős kör.
+> **⏸️ SEC-003+004+005 (session-átépítés) — TUDATOSAN HALASZTVA
+> (2026-08-31, user-döntés):** a localStorage-token ellopásához XSS vagy
+> kompromittált script kellene — az audit egyiket sem találta, third-party
+> script nincs, a stored-XSS zárva; a védelem határhaszna MA kicsi, az ára
+> (web+mobile+socket auth-átépítés a frissen stabilizált belépés után)
+> nagy. TRIGGER az újranyitásra: CIB-élesítés VAGY valódi felhasználói
+> volumen — akkor HttpOnly refresh + 10-30 perces access + logout-
+> visszavonás EGYÜTT, tervezett körben.
 >
 > Az EREDETI audit-lista (történeti):
 
