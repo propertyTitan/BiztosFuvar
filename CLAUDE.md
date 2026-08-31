@@ -210,6 +210,99 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > minimum 9 számjegy — a tesztelő 10-et javasolt, de a magyar mobilszám
 > előhívó nélkül pont 9 (user: „egyelőre hagyjuk").
 
+### 🔐 MANUS BIZTONSÁGI AUDIT (2026-08-31) — 9 megállapítás: 1 magas, 4 közepes, 4 alacsony — FELDOLGOZANDÓ
+
+> **A user feltöltötte a Manus tulajdonosi felhatalmazással végzett,
+> nem-destruktív black-box web- és API-biztonsági auditját**
+> (gofuvar.hu + api.gofuvar.hu). **Kritikus, azonnal kihasználható hibát
+> NEM talált.** Launch-döntése: zárt béta mehet, széles nyilvános launch
+> a SEC-011 lezárásáig NEM javasolt.
+>
+> **A 9 megállapítás (prioritás-sorrendben):**
+>
+> - **SEC-011 (MAGAS, P0) — EOL Next.js 14.2.35:** a 14.x ág 2026
+>   augusztusától nem támogatott (15.x Maintenance / 16.x Active LTS a
+>   támogatott); az OSV 21 verzió-szintű találatot ad rá (8 magas, 11
+>   közepes — nem mind bizonyított GoFuvar-exploit, konfigurációfüggő).
+>   A júliusi-augusztusi hivatalos javítások DoS/SSRF/cache-confusion/
+>   middleware-bypass/RCE kategóriákat fedtek. Javítás: migráció min.
+>   15.5.24-re, preferáltan 16.3.3-ra + React + lockfile + TELJES E2E/SSR
+>   regresszió. ⚠️ EZ A KORÁBBAN ÍRÁSOS INDOKLÁSSAL ELFOGADOTT KOCKÁZAT
+>   (függőség-audit, PR #176 környéke: „next 14→16 fő verzióugrás") —
+>   az auditor most P0-ra emelte; a nagy migráció miatt ÜTEMEZÉSI
+>   USER-DÖNTÉS is (launch előtt vagy közvetlenül utána).
+> - **SEC-001 (közepes, P1) — Clickjacking-védelem hiánya:** nincs CSP
+>   `frame-ancestors` és nincs `X-Frame-Options` — idegen iframe PoC-ban
+>   betöltötte a teljes felületet. Javítás: `frame-ancestors 'none'` +
+>   `X-Frame-Options: DENY` minden HTML-válaszra. GYORS FIX — az auditor
+>   a 0-48 órás ablakba tette a SEC-011 mellé.
+> - **SEC-003 (közepes, P1) — Bearer token localStorage-ban:** a JWT
+>   JavaScriptből olvasható; jövőbeli XSS/kompromittált script ellophatja
+>   (most nincs igazolt XSS, de az OWASP tiltja a session-id
+>   localStorage-tárolását). Javítás: rövid access token CSAK memóriában
+>   + rotált refresh token HttpOnly/Secure/SameSite sütiben + szigorú CSP.
+>   ⚠️ ARCHITEKTÚRA-VÁLTÁS (web + mobile API-kliens + socket-auth is
+>   érintett) — külön kör, nem gyorsjavítás.
+> - **SEC-004 (közepes, P1) — 7 napos access token + hiányos claimek:**
+>   604800 mp élettartam; `iss`/`aud`/`jti` nincs; az `email` claim
+>   fölösleges PII a tokenben (az `alg:none`-t helyesen elutasítja).
+>   Javítás: 10-30 perces access token + iss/aud/jti + minimális claimek
+>   + refresh-rotáció. (A SEC-003-mal EGYÜTT kezelendő.)
+> - **SEC-005 (közepes, P1) — a kijelentkezés nem vonja vissza a tokent:**
+>   UI-logout után a régi bearer tokennel a /auth/me továbbra is 200.
+>   ⚠️ A `token_version` MECHANIZMUS MÁR LÉTEZIK (admin force-logout +
+>   jelszó-reset bump-olja) — „csak" a sima logout nincs rákötve. Sima
+>   token_version-bump viszont MINDEN eszközt kiléptetne → jti/session-
+>   szintű visszavonás vagy eszköz-tudatos megoldás kell; a jelszócsere/
+>   fióktiltás már ma is visszavon.
+> - **SEC-002 (alacsony, P2) — hiányos security headerek + fingerprint:**
+>   nincs CSP, `X-Content-Type-Options`, `Referrer-Policy`,
+>   `Permissions-Policy`; az API `X-Powered-By: Express`-t küld. (HSTS
+>   megvan, TLS 1.0/1.1 zárva, CORS-allowlist jól működik.)
+> - **SEC-008 (alacsony, P2) — login 500 hibás JSON-típusokra:** null/
+>   szám/tömb/objektum email-password mezőkre 500 (injekciós stringekre
+>   helyesen 401). ⚠️ ELLENTMOND a hülyebiztos-matrix SZ1 („soha 500")
+>   garanciájának — ELŐSZÖR azt nézd meg, MIÉRT nem fogta meg az őr a
+>   login-t (kivétel-lista? rate-limit miatti skip? a mátrix csak a
+>   sablonban szereplő mezőket mutálja?) — az őr-rés zárása többet ér,
+>   mint az egyedi fix.
+> - **SEC-009 (alacsony, P2) — árbecslő elfogad érvénytelen koordinátát:**
+>   lat 91 / 999 → 200-as becslés (a hiányzó/nem-numerikus paramétert és
+>   a szélsőséges tömeget már helyesen kezeli — a PR #176-os kalkulátor-fix
+>   a koordináta-tartományt NEM fedte le). Javítás: lat [-90,90] /
+>   lng [-180,180] + véges-szám kapu minden kalkulációs/létrehozó
+>   végponton.
+> - **SEC-010 (alacsony, P2) — nincs `no-store` az érzékeny válaszokon:**
+>   profil- és KYC-metaadat válaszok cache-elhetők. Javítás:
+>   `Cache-Control: private, no-store, max-age=0` minden bearer-védett
+>   profil/KYC/üzenet/fizetés/export válaszra.
+>
+> **✅ Amit az audit IGAZOLTAN JÓNAK talált** (megnyugtató lista): TLS +
+> HSTS; CORS-allowlist nem tükröz támadói origint; hibás/hiányzó/alg:none
+> JWT → 401; admin-végpontok 403 nem-adminnak; idegen fiók a fuvar
+> fotóira/üzeneteire/ajánlataira 403/404; címmaszkolás + koordináta-
+> durvítás működik (házszám NEM szivárog, a publikus lista PIN/kontakt/
+> token-mentes); 30 friss kliens-bundle-ben nincs titok-szivárgás;
+> sourcemapek nem publikusak; SSRF-szűrés (loopback + séma) tart;
+> .env/.git/backup útvonalak zárva; malformed multipart → 400.
+> **Két korábbi cím-gyanút (SEC-006/007) az auditor VISSZAVONT** — a
+> feladó-szállító összevetés igazolta a maszkolást (irányítószám ≠
+> házszám false positive volt).
+>
+> **Javasolt sorrend (az auditor szerint):** (1) 0-48 óra: SEC-011
+> Next.js-migráció + SEC-001 frame-ancestors; (2) 1. biztonsági sprint:
+> SEC-003+004+005 (session-architektúra egyben) + SEC-002+010 (header/
+> cache-policy); (3) 1-2 sprint: SEC-008+009 (séma-validáció). Reteszt-
+> gate: támogatott Next-verzió, iframe-blokk, nincs localStorage-token,
+> logout utáni 401, ≤30 perces token, malformed login 400/422, koordináta
+> 400/422, no-store, + a GF-001–010 funkcionális regresszió újrafuttatása.
+>
+> ⚠️ SORREND-JAVASLAT ITTHONRÓL: a SEC-001 (2 sor header) + SEC-009 +
+> SEC-010 + SEC-002 OLCSÓ és kockázatmentes — ezek mehetnek azonnal egy
+> PR-ben. A SEC-011 (Next 14→16) NAGY, kockázatos migráció launch előtt —
+> user-döntés az időzítésről. A SEC-003/004/005 session-átépítés együtt
+> tervezendő (web+mobile+socket), NE ess neki darabokban.
+
 ### 🆕 MANUS P1 CÉLZOTT REGRESSZIÓ (3. futás) — FELDOLGOZVA (2026-08-30 éjjel, 4. javítási kör)
 
 > **✅ A 3. futás minden tétele kezelve.** Tételesen:
