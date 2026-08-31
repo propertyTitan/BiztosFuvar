@@ -130,19 +130,40 @@ export default function AddressAutocomplete({
   // javított — ez a komponens kimaradt.
   const inputId = useId();
 
-  // ⚠️ GF-007, HARMADIK kör (Manus 3. futás, 2026-08-30): a React-szintű
-  // Enter-fék (input onKeyDown + form onKeyDown) NEM ELÉG — a Google Places
-  // saját, natív listener-e a mezőn stopPropagation-nel elnyelheti az
-  // eseményt, MIELŐTT a React (a gyökéren delegált) kezelői futnának, és
-  // ilyenkor az implicit form-submit mégis elsül. A CAPTURE-fázisú natív
-  // listener a célelemen MINDEN bubble-listener előtt fut — a preventDefault
-  // így garantált, a Google kiválasztás-kezelését pedig nem érinti (ezt az
-  // E2E ArrowDown+Enter mintája őrzi: ha a kiválasztás törne el, piros).
+  // ⚠️ GF-007, NEGYEDIK kör (2026-08-31). A történet tanulsága: az Enter
+  // körül HÁROM szereplő versenyzett (böngésző implicit submit, Google
+  // Places kiválasztás, a mi fékjeink), és a sorrendjük nem volt a kezünkben.
+  // A 3. körös capture-fék a submitot megfogta, de ÉLESBEN MÉRVE a Google
+  // kiválasztását nem-determinisztikussá tette (3 futásból 2-ben nem
+  // választott). A végleges elv: az Enter viselkedését TELJESEN átvesszük —
+  // a submit mindig tiltva, a kiválasztást pedig MI hajtjuk végre a látható
+  // javaslat-lista kijelölt elemén (szintetikus egér-esemény — az egér-út
+  // bizonyítottan determinisztikus). Őr: 25-ös E2E-spec.
   const enterFekRef = (el: HTMLInputElement | null) => {
     if (!el || (el as any).__gofuvarEnterFek) return;
     (el as any).__gofuvarEnterFek = true;
     el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') e.preventDefault();
+      if (e.key !== 'Enter') return;
+      // Implicit form-submit SOHA (a fék eddig is élt) —
+      e.preventDefault();
+      // — DE a fék mellékhatásaként a Google saját Enter-kiválasztása
+      // NEM-DETERMINISZTIKUSSÁ vált (élesben mérve: 3 futásból 2-ben nem
+      // választott). Ezért a kiválasztást MI végezzük el: a látható
+      // javaslat-lista kijelölt (vagy első) elemére szintetikus mousedown
+      // megy — a Google arra választ, és az egér-út bizonyítottan stabil.
+      const pac = Array.from(document.querySelectorAll('.pac-container'))
+        .find((c) => (c as HTMLElement).offsetWidth > 0);
+      const item = pac && (pac.querySelector('.pac-item-selected') || pac.querySelector('.pac-item'));
+      let szoveg = (el as HTMLInputElement).value;
+      if (item) {
+        const query = item.querySelector('.pac-item-query')?.textContent || '';
+        const tobbi = Array.from(item.childNodes)
+          .filter((n) => !(n instanceof Element
+            && (n.classList.contains('pac-icon') || n.classList.contains('pac-item-query'))))
+          .map((n) => n.textContent || '').join(' ').trim();
+        szoveg = `${query}${tobbi ? `, ${tobbi}` : ''}`.trim() || szoveg;
+      }
+      enterActionRef.current(szoveg);
     }, true);
   };
 
@@ -182,6 +203,47 @@ export default function AddressAutocomplete({
       return false;
     }
   }
+
+  /**
+   * DETERMINISZTIKUS Enter-feloldás (GF-007, 4. kör): a kijelölt javaslat
+   * szövegét (vagy a begépelt szöveget) a SAJÁT Geocoder-utunkon oldjuk
+   * fel — a Google widget Enter-kezelésére nem támaszkodunk többé (élesben
+   * mérve nem-determinisztikus volt, a szintetikus egér-esemény pedig
+   * isTrusted=false, amit a Google eldobhat).
+   */
+  async function resolveText(szoveg: string) {
+    const query = szoveg.trim();
+    if (!query || !window.google?.maps?.Geocoder) return;
+    setChecking(true);
+    try {
+      const geocoder = new window.google.maps.Geocoder();
+      const { results } = await geocoder.geocode({ address: query, region: 'hu' });
+      const hit = results?.[0];
+      const loc = hit?.geometry?.location;
+      if (!hit || !loc) {
+        onImprecise?.('Nem találtuk ezt a címet — pontosítsd, vagy válassz a legördülő listából.');
+        return;
+      }
+      const place = hit as unknown as google.maps.places.PlaceResult;
+      const gond = requirePrecise ? precisionError(place)
+        : requireArea ? areaPrecisionError(place) : null;
+      if (gond) {
+        onTextChange?.(hit.formatted_address || query);
+        onImprecise?.(gond);
+        return;
+      }
+      onImprecise?.('');
+      onChange(hit.formatted_address || query, loc.lat(), loc.lng());
+    } catch {
+      // Hálózati/kvóta-hiba: nem rontunk semmit — a lista-kattintás él.
+    } finally {
+      setChecking(false);
+    }
+  }
+  // Mindig a LEGFRISSEBB propokkal futó változat (a natív listener egyszer
+  // kötődik, a React-closure elavulna nélküle).
+  const enterActionRef = useRef<(szoveg: string) => void>(() => {});
+  enterActionRef.current = (szoveg) => { void resolveText(szoveg); };
 
   async function handlePlaceChanged() {
     const place = autocompleteRef.current?.getPlace();
