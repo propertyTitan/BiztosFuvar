@@ -8,8 +8,10 @@ export function generateStaticParams() {
   return allRouteSlugs().map((utvonal) => ({ utvonal }));
 }
 
-export function generateMetadata({ params }: { params: { utvonal: string } }): Metadata {
-  const c = getRouteLanding(params.utvonal);
+// Next 15+ (SEC-011 migráció): a `params` aszinkron lett.
+export async function generateMetadata({ params }: { params: Promise<{ utvonal: string }> }): Promise<Metadata> {
+  const { utvonal } = await params;
+  const c = getRouteLanding(utvonal);
   if (!c) return { title: 'Fuvar — GoFuvar' };
   return {
     title: c.metaTitle,
@@ -19,8 +21,9 @@ export function generateMetadata({ params }: { params: { utvonal: string } }): M
   };
 }
 
-export default function RouteLandingPage({ params }: { params: { utvonal: string } }) {
-  const c = getRouteLanding(params.utvonal);
+export default async function RouteLandingPage({ params }: { params: Promise<{ utvonal: string }> }) {
+  const { utvonal } = await params;
+  const c = getRouteLanding(utvonal);
   if (!c) notFound();
   return <LandingTemplate config={c} />;
 }
