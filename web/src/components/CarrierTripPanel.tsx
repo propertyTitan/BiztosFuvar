@@ -137,7 +137,7 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
           A feladó még nem fizette meg a kapcsolatfelvételi díjat. A csomagot
           csak a díj beérkezése után vedd át — addig a felvétel igazolása nem
           elérhető. Amint a fizetés megtörténik, ez az oldal automatikusan
-          frissül. A fuvardíjat készpénzben kapod a feladótól.
+          frissül. A fuvardíjat közvetlenül a feladótól kapod — készpénzben vagy átutalással, ahogy megegyeztetek.
         </p>
       </div>
     );

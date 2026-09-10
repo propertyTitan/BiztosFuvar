@@ -944,7 +944,7 @@ export default function UjFuvar() {
           title="Kerek forintösszeg. Negatív és tört (filléres) érték nem adható meg."
           value={raw.suggested_price_huf}
           onChange={(e) => setNumeric('suggested_price_huf', e.target.value)}
-          placeholder={form.is_instant ? 'pl. 12000 (a szállító készpénzben, levonás nélkül kapja)' : 'pl. 65000'}
+          placeholder={form.is_instant ? 'pl. 12000 (a szállító levonás nélkül kapja)' : 'pl. 65000'}
           required
           aria-invalid={Boolean(show('price'))}
           aria-describedby={show('price') ? 'hiba-price' : undefined}

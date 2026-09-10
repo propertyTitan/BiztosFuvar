@@ -246,7 +246,7 @@ export default function UtvonalReszletek() {
           >
             ✅ <strong>Kézbesítve</strong>
             {b.delivered_at && ` — ${new Date(b.delivered_at).toLocaleString('hu-HU')}`}.
-            A fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben jár neked.
+            A fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) közvetlenül neked jár — készpénzben vagy átutalással, ahogy megegyeztetek.
           </div>
         )}
       </div>

@@ -352,7 +352,7 @@ export default function FeladoUtvonalReszletek() {
           A foglalást a szállítónak meg kell erősítenie. A megerősítés után egy kis
           kapcsolatfelvételi díjat fizetsz (bevezető ár), megkapod a szállító
           elérhetőségét, és a fuvar a szokásos módon megy: pickup fotó,
-          átvételi kód — a fuvardíjat készpénzben adod át a szállítónak.
+          átvételi kód — a fuvardíjat közvetlenül a szállítónak fizeted (készpénzben vagy átutalással).
         </p>
       </form>
       )}

@@ -170,7 +170,7 @@ export default function HozasdElTool() {
       {/* Miért jó */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginTop: 16 }}>
         {[
-          { icon: ShieldCheck, tint: 'var(--success)', title: 'Biztonságos', desc: 'Készpénzes fizetés a szállítónak, fotó + 6 jegyű kód az átvételhez.' },
+          { icon: ShieldCheck, tint: 'var(--success)', title: 'Biztonságos', desc: 'A fuvardíj közvetlenül a szállítóé, fotó + 6 jegyű kód az átvételhez.' },
           { icon: Leaf, tint: 'var(--success)', title: 'Zöld és olcsóbb', desc: 'Gyakran olyan szállító viszi, aki amúgy is arra megy.' },
           { icon: Check, tint: 'var(--primary)', title: 'Pár perc', desc: 'A link beillesztése után pár kattintás az egész.' },
         ].map((f) => {

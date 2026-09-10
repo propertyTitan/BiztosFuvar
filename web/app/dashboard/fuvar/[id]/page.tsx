@@ -205,7 +205,7 @@ export default function FuvarReszletek() {
     setAcceptingBidId(bidId);
     try {
       await api.acceptBid(bidId);
-      toast.success('Ajánlat elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig készpénzben adod át neki.');
+      toast.success('Ajánlat elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig közvetlenül neki fizeted (készpénzben vagy átutalással, ahogy megegyeztek).');
       await loadAll();
     } catch (err: any) {
       toast.error('Hiba az ajánlat elfogadásakor', err.message);
@@ -478,7 +478,7 @@ export default function FuvarReszletek() {
                   (ALLOW_STUB_PAYMENTS) — lásd a komponens fejlécét. */}
               <TesztFizetesSav />
               <p style={{ marginBottom: 4 }}>
-                Fuvardíj (készpénzben a szállítónak):{' '}
+                Fuvardíj (közvetlenül a szállítónak):{' '}
                 <strong>
                   {(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft
                 </strong>
@@ -545,7 +545,7 @@ export default function FuvarReszletek() {
                   <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>
                     A díj ellenében azonnal megkapod a szállító telefonszámát, és
                     elindul a fuvar-folyamat (SMS a címzettnek, átvételi kód,
-                    fotó-bizonyíték). A fuvardíjat készpénzben adod át a szállítónak.
+                    fotó-bizonyíték). A fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek.
                   </p>
                 </>
               ) : null}
@@ -576,8 +576,8 @@ export default function FuvarReszletek() {
                     <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{job.contact.email}</div>
                   )}
                   <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-                    💵 Ne feledd: a fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
-                    készpénzben fizeted a szállítónak.
+                    Ne feledd: a fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
+                    közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek.
                   </div>
                 </div>
               )}

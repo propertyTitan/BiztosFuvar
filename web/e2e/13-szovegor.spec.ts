@@ -95,6 +95,18 @@ const TILTOTT: Rule[] = [
       + 'az nem marketing-oldal, nincs ebben a listában.)',
   },
   {
+    // 2026-09-10 (user-döntés): a fuvardíj fizetési módját a felek döntik el —
+    // készpénz VAGY átutalás. A „készpénzes fizetés/fuvardíj" cím, a „kápé"
+    // szleng, és a „készpénzben adod/kapod/jár" a közeli „átutalás" említése
+    // nélkül mind kizárólagosságot sugall. A helyes minta: „közvetlenül a
+    // szállítónak — készpénzben vagy átutalással, ahogy megegyeztek".
+    pattern: /kápé|készpénzes\s+(fizetés|fuvardíj|fuvar|modell)|(kizárólag|csak)\s+készpénz|készpénzben\s+(adod|adsz|fizeted|fizetsz|kapod|kapsz|rendezed|jár|megy|a\s+tiéd|a\s+szállítóé)(?![^.]{0,80}átutalás)/i,
+    miert: '2026-09-10 user-döntés: a fuvardíjat a felek úgy rendezik, ahogy '
+      + 'megegyeznek (készpénz VAGY átutalás) — a felület sehol nem szűkítheti '
+      + 'készpénzre. Minta: „közvetlenül a szállítónak — készpénzben vagy '
+      + 'átutalással, ahogy megegyeztek".',
+  },
+  {
     pattern: /sikeres\s+fuvar\s+után\s+fizet/i,
     miert: 'GF-024 (2026-08-30): HAMIS ígéret volt — a kapcsolatfelvételi díj az '
       + 'ajánlat ELFOGADÁSAKOR esedékes és nem visszatérítendő (ÁSZF 4.), nem a '

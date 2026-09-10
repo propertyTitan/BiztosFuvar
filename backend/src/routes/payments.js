@@ -186,7 +186,7 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
     const summary = [
       `feladó: ${d.shipper_id || '?'}`,
       `kapcsolatfelvételi díj: ${platformFee} ${currency} (${vatLabel})`,
-      `fuvardíj (kápé, szállítónak): ${d.accepted_price_huf || d.price_huf || '?'} ${currency}`,
+      `fuvardíj (közvetlenül a szállítónak): ${d.accepted_price_huf || d.price_huf || '?'} ${currency}`,
       invoice ? `számla: ${invoice.id}` : null,
     ].filter(Boolean).join(' · ');
 
@@ -209,7 +209,7 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
         user_id: d.carrier_id,
         type: entity.type === 'job' ? 'job_paid' : 'booking_paid',
         title: '🤝 Indulhat a fuvar!',
-        body: `"${title}" — a feladó kifizette a kapcsolatfelvételi díjat. Mostantól látjátok egymás elérhetőségét; a fuvardíjat készpénzben kapod.`,
+        body: `"${title}" — a feladó kifizette a kapcsolatfelvételi díjat. Mostantól látjátok egymás elérhetőségét; a fuvardíjat közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek).`,
         link: entity.type === 'job' ? `/sofor/fuvar/${d.job_id}` : `/sofor/utvonal/${d.route_id}`,
       }).catch(() => {});
       realtime.emitToUser(d.carrier_id, entity.type === 'job' ? 'job:paid' : 'route-booking:paid', {

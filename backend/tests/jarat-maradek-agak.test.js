@@ -544,7 +544,8 @@ describe('A kifizetett díj visszaigazolása', () => {
     expect(feladoiLevel.html, 'a visszaigazolásból hiányzik a megfizetett díj összege').toMatch(/1\s*000|1\.000/);
     expect(
       feladoiLevel.html,
-      'a visszaigazolás nem mondja meg, hogy a fuvardíj készpénzben jár a szállítónak',
-    ).toMatch(/készpénz/i);
+      'a visszaigazolás nem mondja meg, hogy a fuvardíj közvetlenül a szállítónak jár',
+    ).toMatch(/közvetlenül a szállítónak/);
+    expect(feladoiLevel.html, 'a fizetési mód készpénzre szűkül (2026-09-10: átutalás is)').toMatch(/átutalás/);
   });
 });

@@ -41,8 +41,10 @@ szerződés kizárólag a Feladó és a Sofőr között jön létre.
 ### Fő feature-ek (mind élesedett)
 - Licites fuvar + fix áras útvonal-foglalás + visszafuvar matching + instant ("UberFuvar")
 - KYC AI-val (Gemini olvas ID-t, kor-ellenőrzés, admin jóváhagyás)
-- **Készpénzes modell (2026-07-03)**: a fuvardíj KÁPÉBAN megy a sofőrnek
-  (100%, levonás nélkül); a platform sávos KAPCSOLATFELVÉTELI DÍJAT szed a
+- **Közvetlen fizetési modell (2026-07-03; 2026-09-10-től készpénz VAGY
+  átutalás)**: a fuvardíj KÖZVETLENÜL a szállítóé (100%, levonás nélkül) —
+  a felek döntik el, készpénzben vagy átutalással rendezik; a platform
+  sávos KAPCSOLATFELVÉTELI DÍJAT szed a
   feladótól elfogadáskor (QVIK, sima díjfizetés — NEM kell escrow!);
   kontakt-felfedés csak a díj után; az escrow-kód dormant (később
   "Védett fizetés" opció lehet)
@@ -163,7 +165,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 
 | | Mit |
 |---|---|
-| Üzleti modell | **KÖZVETLEN FIZETÉS a felek közt (2026-07-03 pivot, felelősséget vállalta)**: a fuvardíj 100%-a a sofőré, a platform NEM kezeli; bevétel = kapcsolatfelvételi díj. A korábbi 10%+400 escrow-modell hatályon kívül (kód dormant, később "Védett fizetés" opció). ⚠️ **2026-07-15 pontosítás**: a fizetés NEM korlátozott készpénzre — a felek megállapodhatnak **átutalásban is** (pl. cég-cég közt); az ÁSZF 4.2 + chatbot ezt megengedi. A "készpénz" csak a C2C-marketing egyszerű ALAPÜZENETE (landing marad kápé-fókuszú a fő perszónákhoz), a lényeg: a díj sosem folyik át a platformon |
+| Üzleti modell | **KÖZVETLEN FIZETÉS a felek közt (2026-07-03 pivot, felelősséget vállalta)**: a fuvardíj 100%-a a sofőré, a platform NEM kezeli; bevétel = kapcsolatfelvételi díj. A korábbi 10%+400 escrow-modell hatályon kívül (kód dormant, később "Védett fizetés" opció). ⚠️ **2026-07-15 pontosítás**: a fizetés NEM korlátozott készpénzre — a felek megállapodhatnak **átutalásban is** (pl. cég-cég közt); az ÁSZF 4.2 + chatbot ezt megengedi. ~~A "készpénz" csak a C2C-marketing egyszerű ALAPÜZENETE (landing marad kápé-fókuszú)~~ → **2026-09-10 user-döntés: a felület SEHOL nem szűkíti készpénzre** — a fuvardíjat a felek úgy rendezik, ahogy megegyeznek (készpénz VAGY átutalás). SZÖVEG-SZABÁLY: „közvetlenül a szállítónak — készpénzben vagy átutalással, ahogy megegyeztek"; TILOS a „készpénzes fizetés/fuvardíj" cím, a „kápé" szleng, és a „készpénzben adod/kapod/jár" a közeli „átutalás" nélkül (a szövegőr, 13-as spec őrzi a marketing-oldalakon + manifeszten). A landing, a feladói/szállítói felület, az e-mailek, az in-app értesítések, a chatbot-tudás és az ÁSZF 4.2 mind átírva (2026-09-10). A lényeg változatlan: a díj sosem folyik át a platformon |
 | Kapcsolatfelvételi díj | **EGYSZERŰSÍTETT LAUNCH-ÁRAZÁS (2026-07-15, user + ügyvezető döntése — elsődleges cél a USER-GYŰJTÉS)**: ≤50 000 Ft fuvardíjig → **500 Ft** / felette → **1.000 Ft**, bruttó, BEVEZETŐ ár (mindenhol így kommunikálva!). A korábbi 4 sávos (500/1490/2490/3990) struktúra hatályon kívül. NEM visszatérítendő (45/2014. 29.§(1)a consent-checkbox a fizetésnél); a fuvarra szól: sofőr-meghiúsulásnál díjmentes újraválasztás, másik fuvarra NEM vihető át. **2026-ban a bevezető sávos ár marad; díjemelés legkorábban 2027-től** (user döntése, 2026-07-06; korábbi emelési jelzés: stabil ~300+ fuvar/hó). **2026-07-11 fontolgatás (NEM döntés): feladói B2B-előfizetés** — 3.990 Ft/hó, mellette minden feladás fix 400 Ft kapcsolatfelvételi díj (sávtól függetlenül); break-even a feladónak: ~2-4 közepes/nagy fuvar/hó → önszelektáló, a visszatérő céges feladót fogja meg. ⚠️ A 2026-07-15-i egyszerűsített árazással (500/1000) ez a matek ELAVULT — ha a B2B-csomag napirendre kerül, újraszámolandó. Feltételek ha egyszer élesedik: fair-use plafon (viszonteladó-arbitrázs ellen), céges/KYB-fiókhoz kötés javasolt, recurring fizetés kell; legkorábban 2027, a team/multi-user + sofőr-előfizetéssel egy polcon ("GoFuvar Business") |
 | Sofőr díjmentessége | **2026-ban a sofőr BIZTOSAN díjmentes** (user döntése, 2026-07-06): a fuvardíj 100% kápé, a platform a sofőrtől semmit nem szed. A megfontolt **sofőr-előfizetés** (990 Ft/hó, ELSŐ HÓNAP INGYEN, token-alapú auto-megújítás) NEM 2026-os — legkorábban **2027**, és CSAK ha (a) a Barion recurring/token fizetés él, (b) van sűrű fuvarforgalom (a sofőr egy nap alatt visszakeresi). **2026-07-11 user-pontosítás:** ársáv **1.000–2.000 Ft/hó**, trigger: **~500–1000 AKTÍV sofőr** (javasolt mérce: aktív = havi ≥1 teljesített fuvar — a fuvarsűrűség a valódi feltétel, nem a regisztrált darabszám); még csak fontolgatás, nem döntés. Jogi: auto-megújítás fogyasztóvédelmi tájékoztatás + könnyű lemondás + terhelés előtti emlékeztető. Kártyát nem a regisztrációnál, hanem az ingyen hónap vége felé / első fuvarnál javasolt kérni (kínálat-megtartás) |
 | Kontakt-kapuzás | Telefonszám/email CSAK a díj megfizetése után látszik (ez a kikerülés-védelem lényege; chat contactGuard fizetés előtt szűr) |
@@ -797,6 +799,17 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > ami a javítás NÉLKÜL igazoltan piros.
 
 ### ✅ Kész (élesedett)
+- **FUVARDÍJ: KÉSZPÉNZ VAGY ÁTUTALÁS — a készpénz-kizárólagosság kivezetve
+  (2026-09-10, user-döntés)** — a fogalmazás-audit (3 ügynök: marketing /
+  feladói / szállítói+e-mail) 45 helyen talált „készpénzben adod/kapod/jár",
+  „Készpénzes fizetés", „kápé" szöveget, ami a fizetési módot készpénzre
+  szűkítette. Mind átírva a „közvetlenül a szállítónak — készpénzben vagy
+  átutalással, ahogy megegyeztek" mintára: landing + SEO-landingek + meta +
+  manifeszt, feladói/szállítói fuvar- és járat-oldalak, fizetőoldal, 8
+  e-mail-sablon, 9 in-app értesítés, chatbot-tudás (gemini.js), ÁSZF 4.2. A
+  6 érintett teszt mostantól a KÉT lehetőség meglétét őrzi (/közvetlenül a
+  szállítónak/ + /átutalás/), a szövegőr (13-as spec) új tiltással. A
+  „kápé" szó a felületről eltűnt (regiszter-kérdés is volt).
 - **SMS-KIESÉS VÉGLEG MEGOLDVA: SeeMe IP-tartomány + újraküldési sor
   (2026-08-30)** — a visszatérő code=13 hiba (a Railway Hobby kimenő IP-je
   elfordul → a SeeMe minden küldést eldob) 08-20 és 08-30 között ÉLESBEN

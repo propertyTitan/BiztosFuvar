@@ -172,9 +172,9 @@ export default function AszfPage() {
       </p>
       <p>
         <strong>4.2. Fuvardíj — közvetlen fizetés a Felek között:</strong> A fuvardíjat a Feladó{' '}
-        <strong>közvetlenül a Sofőrnek fizeti meg</strong> — jellemzően készpénzben a csomag
-        átvételekor vagy kézbesítésekor, de a Felek megállapodása alapján bármely más közvetlen
-        fizetési mód (például banki átutalás) is alkalmazható. A Szolgáltató a fuvardíjat semmilyen
+        <strong>közvetlenül a Sofőrnek fizeti meg</strong> — a Felek megállapodása szerint
+        készpénzben (jellemzően a csomag átvételekor vagy kézbesítésekor) vagy banki átutalással;
+        bármely más közvetlen fizetési mód is alkalmazható. A Szolgáltató a fuvardíjat semmilyen
         formában nem szedi be, nem tartja letétben, abból nem von le semmit, és a fuvardíj
         megfizetéséért vagy elmaradásáért nem felel. A fuvardíj-fizetéssel kapcsolatos igényeket a
         Felek egymás között, a Ptk. szabályai szerint rendezik.

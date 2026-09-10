@@ -277,7 +277,7 @@ export default function FoglalasaimOldal() {
             >
               <CheckCircle2 size={14} style={{ verticalAlign: -2 }} /> <strong>Kézbesítve</strong>
               {b.delivered_at && ` — ${new Date(b.delivered_at).toLocaleString('hu-HU')}`}.
-              Ne feledd: a fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben jár a szállítónak.
+              Ne feledd: a fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) közvetlenül a szállítónak jár — készpénzben vagy átutalással, ahogy megegyeztetek.
             </div>
             <ReviewBox entityKey="booking_id" entityId={b.id} onDone={load} />
           </div>

@@ -344,7 +344,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           user_id: info.shipper_id,
           type: 'job_delivered',
           title: '📦 A csomagod megérkezett!',
-          body: `${info.carrier_name || 'A szállító'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj készpénzben jár a szállítónak.`,
+          body: `${info.carrier_name || 'A szállító'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
           link: `/dashboard/fuvar/${jobId}`,
         });
 
@@ -373,7 +373,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
               <p>Szia ${esc(info.shipper_name) || 'GoFuvar felhasználó'}!</p>
               <p>Nagyszerű hír — <strong>${esc(info.carrier_name) || 'a szállító'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${esc(info.title)}"</strong> fuvarban!</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
-              <p>A 6 jegyű átvételi kód ellenőrizve. A fuvardíj készpénzben jár a szállítónak — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
+              <p>A 6 jegyű átvételi kód ellenőrizve. A fuvardíj közvetlenül a szállítónak jár — készpénzben vagy átutalással, ahogy megegyeztetek; ha még nem rendezted, kérjük, tedd meg vele közvetlenül.</p>
               <p>Ha bármi probléma van a csomagoddal, a fuvar részletek oldalán tudsz vitás esetet nyitni.</p>
             `;
             sendEmail({
@@ -613,7 +613,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
       user_id: booking.shipper_id,
       type: 'booking_delivered',
       title: '📦 A csomagod megérkezett!',
-      body: `A(z) "${booking.route_title || 'foglalás'}" csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj készpénzben jár a szállítónak.`,
+      body: `A(z) "${booking.route_title || 'foglalás'}" csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
       link: '/dashboard/foglalasaim',
     }).catch(() => {});
     setImmediate(async () => {
@@ -644,7 +644,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
               <p>Szia ${esc(shipper.full_name) || 'GoFuvar felhasználó'}!</p>
               <p>A foglalásod csomagja sikeresen kézbesítve — a 6 jegyű átvételi kód ellenőrizve.</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
-              <p>A fuvardíj készpénzben jár a szállítónak — ha még nem adtad át, kérjük rendezd vele közvetlenül.</p>
+              <p>A fuvardíj közvetlenül a szállítónak jár — készpénzben vagy átutalással, ahogy megegyeztetek; ha még nem rendezted, kérjük, tedd meg vele közvetlenül.</p>
               <p>Ha bármi probléma van a csomagoddal, a Foglalásaim oldalon tudsz vitás esetet nyitni.</p>
             ` }),
           }).catch((e) => console.warn('[email] booking_delivered hiba:', e.message));

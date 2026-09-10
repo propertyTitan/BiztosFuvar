@@ -408,8 +408,9 @@ describe('Kézbesítéskor kimenő levelek', () => {
     expect(feladoi, 'a feladó nem kap értesítést a kézbesítésről').toBeTruthy();
     expect(
       feladoi.html,
-      'a feladói levél nem emlékeztet, hogy a fuvardíj készpénzben jár a szállítónak',
-    ).toMatch(/készpénz/i);
+      'a feladói levél nem emlékeztet, hogy a fuvardíj közvetlenül a szállítónak jár',
+    ).toMatch(/közvetlenül a szállítónak/);
+    expect(feladoi.html, 'a fizetési mód készpénzre szűkül (2026-09-10: átutalás is)').toMatch(/átutalás/);
   });
 
   it('foglalás-ág: ugyanígy a feladó és a címzett is levelet kap (az ikerpár nem csúszhat szét)', async () => {
@@ -435,7 +436,8 @@ describe('Kézbesítéskor kimenő levelek', () => {
 
     const feladoi = levelek.find((l) => l.to?.[0] === felado.email);
     expect(feladoi, 'a foglalás-ágon a feladó nem kap értesítést a kézbesítésről').toBeTruthy();
-    expect(feladoi.html, 'a foglalás-ági feladói levél nem szól a készpénzes fuvardíjról').toMatch(/készpénz/i);
+    expect(feladoi.html, 'a foglalás-ági feladói levél nem szól a közvetlen fuvardíjról').toMatch(/közvetlenül a szállítónak/);
+    expect(feladoi.html, 'a fizetési mód készpénzre szűkül (2026-09-10: átutalás is)').toMatch(/átutalás/);
   });
 });
 

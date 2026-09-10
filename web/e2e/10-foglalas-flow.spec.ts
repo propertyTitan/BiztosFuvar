@@ -75,7 +75,7 @@ test('foglalás végrehajtása: szállító pickup + kód-lezárás → feladó 
   await loginAs(shipperPage, shipper);
   await shipperPage.goto('/fuvarjaim?tab=foglalasaim');
   await expect(shipperPage.getByText(/Kézbesítve/).first()).toBeVisible({ timeout: 20_000 });
-  await expect(shipperPage.getByText(/készpénzben jár a szállítónak/).first()).toBeVisible();
+  await expect(shipperPage.getByText(/közvetlenül a szállítónak jár/).first()).toBeVisible();
 
   // --- 4. DB-végállapot ---
   const { rows: final } = await dbQuery(

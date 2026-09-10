@@ -452,7 +452,8 @@ describe('Díj-visszaigazolás (45/2014. Korm. r. 18. §) — jogi tartalom', ()
 
   it('készpénzes fuvardíj csak akkor szerepel, ha van összeg', async () => {
     const van = await level('sendFeeConfirmationEmail', { jobTitle: 'X', feeHuf: 500, cashHuf: 15000 });
-    expect(van.html, 'a készpénzes emlékeztető kimaradt').toMatch(/készpénzben/);
+    expect(van.html, 'a fuvardíj-emlékeztető kimaradt').toMatch(/közvetlenül a szállítónak/);
+    expect(van.html, 'a fizetési mód készpénzre szűkül (2026-09-10 user-döntés: átutalás is)').toMatch(/átutalás/);
     expect(van.html).toMatch(/15\D?000 Ft/);
 
     const nincs = await level('sendFeeConfirmationEmail', { jobTitle: 'X', feeHuf: 500 });
@@ -600,9 +601,10 @@ describe('Ajánlat- és foglalás-levelek: a készpénzes modell konzisztensen',
     expect(l.html, 'az elfogadott összeg nem szerepel').toMatch(/20\D?000 Ft/);
     expect(
       l.html,
-      'nem közli, hogy a fuvardíj készpénzben, levonás nélkül jár — ez a '
+      'nem közli, hogy a fuvardíj közvetlenül a feladótól jár — ez a '
       + 'szállítói értékajánlat lényege',
-    ).toMatch(/készpénzben/);
+    ).toMatch(/közvetlenül a feladótól/);
+    expect(l.html, 'a fizetési mód készpénzre szűkül (2026-09-10: átutalás is)').toMatch(/átutalás/);
   });
 
   it('a foglalás-elutasítás közli, hogy nem volt pénzmozgás', async () => {
