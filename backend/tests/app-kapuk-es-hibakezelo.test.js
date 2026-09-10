@@ -22,13 +22,14 @@
 //   (4) CORS: enélkül a teljes web-alkalmazás elnémul a böngészőben.
 // =====================================================================
 import {
-  describe, it, expect, beforeEach, afterAll,
+  describe, it, expect, beforeEach, afterAll, vi,
 } from 'vitest';
 import request from 'supertest';
 
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const net = require('net');
 
 const { app } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
@@ -95,6 +96,52 @@ describe('Központi hibakezelő: a kérésben lévő hiba nem a mi hibánk', () 
       + 'Sentry-riasztást kapunk minden próbálkozásra.',
     ).toBe(413);
     expect(res.body.code).toBe('PAYLOAD_TOO_LARGE');
+  });
+
+  it('a test előtt megszakított kérés → nem „Szerverhiba", nem Sentry-riasztás', async () => {
+    // 2026-09-10, ÉLES ESET: egy WordPress-scanner POST-jai `Content-Length:
+    // 616`-ot ígértek, de a test sosem érkezett meg (a kliens bontott). A
+    // raw-body ilyenkor `request.aborted` típusú, 400-as hibát ad — ez a
+    // KLIENS hibája, és a kliens már nincs is a vonalban —, mi mégis
+    // `[error]`-ként naplóztuk és Sentry-be küldtük: 12 riasztás egyetlen
+    // scanner-körből, e-mail a tulajdonosnak. Ugyanaz az osztály, mint a
+    // csonka JSON (fent): a kérés-feldolgozó réteg hibája sosem szerverhiba.
+    //
+    // A kliens-oldalt NEM lehet supertesttel játszani (az mindig teljes
+    // kérést küld) — nyers socket: fejlécek + ígért hossz, aztán bontás.
+    const hibaNaplo = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const { port } = app.address();
+      await new Promise((resolve, reject) => {
+        const sock = net.connect(port, '127.0.0.1', () => {
+          sock.write(
+            'POST /auth/login HTTP/1.1\r\n'
+            + 'Host: localhost\r\n'
+            + 'Content-Type: application/json\r\n'
+            + 'Content-Length: 616\r\n\r\n',
+          );
+          // A test SOHA nem jön — bontás, mint a scanner (és mint egy
+          // elejtett mobil-kapcsolat).
+          setTimeout(() => { sock.destroy(); resolve(); }, 50);
+        });
+        sock.on('error', reject);
+      });
+      // A hibakezelő a socket bontása UTÁN, aszinkron fut le.
+      await new Promise((r) => setTimeout(r, 200));
+
+      const szerverhibak = hibaNaplo.mock.calls.filter((c) => c[0] === '[error]');
+      expect(
+        szerverhibak.map((c) => String(c[1] && c[1].message)),
+        'A MEGSZAKÍTOTT KÉRÉST SZERVERHIBAKÉNT NAPLÓZTUK.\n\n'
+        + 'A `[error]` napló-sor és a Sentry.captureException ugyanazon az ágon\n'
+        + 'ül: ha ez a sor megjelenik, a Sentry is riaszt — minden bot-scanner\n'
+        + 'és minden elejtett mobil-kapcsolat egy-egy hamis riasztás, e-maillel.\n'
+        + 'A raw-body `request.aborted` (és a body-parser többi 4xx-es, `type`-os\n'
+        + 'hibája) a KLIENS hibája: 4xx, napló és Sentry nélkül.',
+      ).toEqual([]);
+    } finally {
+      hibaNaplo.mockRestore();
+    }
   });
 
   it('érvénytelen azonosító-formátum → 400 (a Postgres hibája nem szivárog ki)', async () => {

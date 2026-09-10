@@ -288,6 +288,32 @@ app.use((err, _req, res, _next) => {
       code: 'PAYLOAD_TOO_LARGE',
     });
   }
+
+  // ⚠️ MEGSZAKÍTOTT KÉRÉS + a kérés-feldolgozó réteg többi 4xx-e (2026-09-10,
+  // éles Sentry-riasztás). Egy WordPress-scanner POST-jai `Content-Length:
+  // 616`-ot ígértek, de a test sosem érkezett meg — a kliens bontott. A
+  // raw-body ilyenkor `request.aborted` típusú, 400-as hibát dob: ez a KLIENS
+  // hibája, és a kliens már nincs is a vonalban, mi mégis `[error]`-ként
+  // naplóztuk és Sentry-be küldtük (12 riasztás egyetlen scanner-körből,
+  // e-mail a tulajdonosnak). Ugyanez jön elejtett mobil-kapcsolatból is.
+  //
+  // OSZTÁLY-SZINTŰ szabály, hogy ne típusonként vadásszuk: a body-parser /
+  // raw-body MINDEN hibája 4xx státusszal ÉS szöveges `type`-pal érkezik
+  // (request.aborted, charset.unsupported, encoding.unsupported,
+  // request.size.invalid, parameters.too.many, stream.not.readable, …) —
+  // egyik sem szerverhiba, egyik sem Sentry-ügy. A fenti két konkrét ág a
+  // saját magyar üzenetét tartja, a többi ide esik. A saját kódunk sehol nem
+  // dob `type`-os, státuszos hibát (ellenőrizve), így ütközés nincs.
+  // Őr: app-kapuk-es-hibakezelo.test.js (nyers sockettel, a test elhagyásával).
+  const parserStatus = Number(err && (err.status || err.statusCode));
+  if (err && typeof err.type === 'string' && parserStatus >= 400 && parserStatus < 500) {
+    const megszakadt = err.type === 'request.aborted';
+    return res.status(parserStatus).json({
+      error: megszakadt ? 'A kérés megszakadt. Próbáld újra.' : 'A kérés hibás formátumú. Próbáld újra.',
+      code: megszakadt ? 'REQUEST_ABORTED' : 'MALFORMED_BODY',
+    });
+  }
+
   console.error('[error]', err);
   if (Sentry) Sentry.captureException(err);
   const body = { error: 'Szerverhiba' };
