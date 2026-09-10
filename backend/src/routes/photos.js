@@ -270,8 +270,13 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           const sofor = nev
             ? ` Szállító: ${nev}${tel ? ` ${tel}` : ''}.`
             : '';
+          // ⚠️ 3 SZEGMENS (2026-09-10, user-döntés): a címzett eddig nem tudta
+          // meg, hogy a kódot CSAK átadáskor szabad kimondania — előre bediktálva
+          // a kód elveszti a bizonyíték-értékét. A mondat +~35 karakter → 3 UCS-2
+          // szegmens (~57 Ft/fuvar, +19 Ft); a user vállalta. Az őr
+          // (sms-szegmens-or) a 3-as plafont ÉS a mondat meglétét tartja.
           sendSms(pi.recipient_phone,
-            `GoFuvar: úton a csomagod! Átvételi kód: ${pi.delivery_code}.${sofor} Egyeztess vele! Adatkezelés: gofuvar.hu/a`,
+            `GoFuvar: úton a csomagod! Átvételi kód: ${pi.delivery_code} – csak az átadáskor add meg a szállítónak.${sofor} Egyeztess vele az érkezésről! Adatkezelés: gofuvar.hu/a`,
           ).catch(() => {});
         }
       } catch (e) {
@@ -566,14 +571,19 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
           );
           const c = cRows[0] || {};
           const { sendSms } = require('../services/sms');
-          // Ugyanaz a 2-szegmenses korlát és normalizálás, mint a fuvar-ágon.
+          // Ugyanaz a 3-szegmenses korlát és normalizálás, mint a fuvar-ágon.
           const tel = (c.phone || '').replace(/[^\d+]/g, '');
           const nev = (c.full_name || '').slice(0, 14);
           const sofor = nev
             ? ` Szállító: ${nev}${tel ? ` ${tel}` : ''}.`
             : '';
+          // ⚠️ 3 SZEGMENS (2026-09-10, user-döntés): a címzett eddig nem tudta
+          // meg, hogy a kódot CSAK átadáskor szabad kimondania — előre bediktálva
+          // a kód elveszti a bizonyíték-értékét. A mondat +~35 karakter → 3 UCS-2
+          // szegmens (~57 Ft/fuvar, +19 Ft); a user vállalta. Az őr
+          // (sms-szegmens-or) a 3-as plafont ÉS a mondat meglétét tartja.
           sendSms(booking.recipient_phone,
-            `GoFuvar: úton a csomagod! Átvételi kód: ${booking.delivery_code}.${sofor} Egyeztess vele! Adatkezelés: gofuvar.hu/a`,
+            `GoFuvar: úton a csomagod! Átvételi kód: ${booking.delivery_code} – csak az átadáskor add meg a szállítónak.${sofor} Egyeztess vele az érkezésről! Adatkezelés: gofuvar.hu/a`,
           ).catch(() => {});
         }
       } catch (e) {

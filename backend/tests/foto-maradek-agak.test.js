@@ -339,7 +339,7 @@ describe('Tárolóhiba: a fotó mentőágon is megmarad', () => {
 //  6. A FELVÉTELKORI CÍMZETT-SMS — futásidejű tartalom
 // =====================================================================
 describe('Felvételkori SMS: a címzett egyetlen csatornája', () => {
-  it('a CÍMZETT számára megy, tartalmazza a kódot, a nevet vágja, a számot normalizálja, és 2 szegmensbe fér', async () => {
+  it('a CÍMZETT számára megy, tartalmazza a kódot, a nevet vágja, a számot normalizálja, és 3 szegmensbe fér', async () => {
     const felado = await createUser({ role: 'shipper' });
     const szallito = await createUser({ role: 'carrier' });
     // A tárolt telefonszám a felhasználó SAJÁT formázása lehet (szóközökkel),
@@ -363,16 +363,21 @@ describe('Felvételkori SMS: a címzett egyetlen csatornája', () => {
     const [szam, szoveg] = kem.mock.calls[0];
     expect(szam, 'az SMS nem a CÍMZETT számára ment').toBe('+36301112233');
     expect(szoveg, 'az SMS-ből hiányzik az átvételi kód — a címzett nem tudja átvenni a csomagot').toContain('135791');
-    expect(szoveg, 'a szállító neve nincs 14 karakterre vágva (3. szegmens = +19 Ft/fuvar)')
+    expect(szoveg, 'a szállító neve nincs 14 karakterre vágva (4. szegmens = +19 Ft/fuvar)')
       .not.toContain('Nagybetűs Szállítófőnök Kázmér');
     expect(szoveg, 'a szállító neve teljesen kimaradt — a címzett nem tudja, kit vár').toContain('Nagybetűs Szál');
     expect(szoveg, 'a telefonszám a tárolt, szóközös alakban ment ki (hosszabb és rosszabbul hívható)')
       .toContain('+36301234567');
     expect(szoveg, 'az adatkezelési tájékoztató mutatója hiányzik (GDPR 14. cikk)').toMatch(/gofuvar\.hu\/a/);
+    // 2026-09-10 (user-döntés): a „csak az átadáskor add meg" mondat miatt a
+    // plafon 2 → 3 szegmens (201 kar); a +19 Ft vállalt ár. A mondat
+    // meglétét is itt mérjük — ne vesszen ki, ha valaki spórolni kezd.
+    expect(szoveg, 'az SMS nem mondja meg, hogy a kódot csak átadáskor szabad kimondani')
+      .toContain('csak az átadáskor add meg');
     expect(
       szoveg.length,
-      `az SMS ${szoveg.length} karakter — 134 fölött 3 szegmensbe kerül (~+19 Ft/fuvar)`,
-    ).toBeLessThanOrEqual(134);
+      `az SMS ${szoveg.length} karakter — 201 fölött 4 szegmensbe kerül (~+19 Ft/fuvar)`,
+    ).toBeLessThanOrEqual(201);
   });
 });
 

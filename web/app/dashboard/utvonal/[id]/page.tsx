@@ -1,5 +1,7 @@
 'use client';
 
+import { kapcsolatfelvetelDijHuf, ft } from '@/lib/connectionFee';
+
 // Feladó: egy konkrét szállítói útvonal részletei + foglalás form.
 // - Az útvonal, árak, időpont
 // - Foglalás form: csomag méretei + súly + pickup/dropoff cím autocomplete
@@ -349,8 +351,8 @@ export default function FeladoUtvonalReszletek() {
           </p>
         )}
         <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-          A foglalást a szállítónak meg kell erősítenie. A megerősítés után egy kis
-          kapcsolatfelvételi díjat fizetsz (bevezető ár), megkapod a szállító
+          A foglalást a szállítónak meg kell erősítenie. A megerősítés után
+          kapcsolatfelvételi díjat fizetsz ({priceForSelectedSize ? `${ft(kapcsolatfelvetelDijHuf(priceForSelectedSize.price_huf))} Ft` : '500 vagy 1 000 Ft'}, bevezető ár, nem visszatérítendő), megkapod a szállító
           elérhetőségét, és a fuvar a szokásos módon megy: pickup fotó,
           átvételi kód — a fuvardíjat közvetlenül a szállítónak fizeted (készpénzben vagy átutalással).
         </p>

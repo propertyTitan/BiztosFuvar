@@ -1,5 +1,6 @@
 // =====================================================================
-//  SMS-ŐR: 14. cikk szerinti tájékoztatás, 2 szegmensen belül (2026-08-10)
+//  SMS-ŐR: 14. cikk szerinti tájékoztatás, 3 szegmensen belül (2026-08-10;
+//  2 → 3 szegmens: 2026-09-10, user-döntés — lásd lent)
 //
 //  A CSAK TELEFONSZÁMMAL megadott címzett a rendszer legvédtelenebb
 //  érintettje: nincs fiókja, nem fogadott el semmit, az adatait valaki más
@@ -8,8 +9,14 @@
 //  14. cikk (3) b) szerint „legkésőbb az első közléskor" tájékoztatni kell.
 //
 //  A tájékoztatás ugyanakkor NEM kerülhet pénzbe: a szöveg ékezetes (UCS-2),
-//  ahol 2 összefűzött szegmens = 134 karakter. Egy karakterrel túllépve a
-//  küldés 3 szegmenssé válik (~+19 Ft MINDEN fuvaron).
+//  ahol egy összefűzött szegmens 67 karakter. Egy karakterrel túllépve a
+//  küldés egy szegmenssel drágább (~+19 Ft MINDEN fuvaron).
+//
+//  ⚠️ 2026-09-10 (user-döntés): a plafon 2 → 3 szegmens. A címzett eddig
+//  nem tudta meg, hogy a kódot CSAK átadáskor szabad kimondania — előre
+//  bediktálva a kód elveszti a bizonyíték-értékét. A mondat nem fért a 134
+//  karakterbe; a +19 Ft/fuvar vállalt ár. Az őr ezért kettőt tart: a
+//  3-as plafont ÉS hogy a „csak az átadáskor” mondat benne legyen.
 //
 //  Ez az őr a kettőt EGYSZERRE tartja: legyen benne a mutató, és férjen bele.
 //  Enélkül a következő szövegmódosítás vagy a tájékoztatást ejtené, vagy
@@ -19,7 +26,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 
 // UCS-2 (ékezetes) SMS: 70 kar egy szegmensben, összefűzve 67/szegmens.
-const KET_SZEGMENS_MAX = 134;
+const HAROM_SZEGMENS_MAX = 201;
 
 // ⚠️ MINDEN route-fájl (2026-08-11). Az őr korábban CSAK a photos.js-t
 // olvasta, és a sablont a „GoFuvar: úton a csomagod!" nyitómondathoz kötötte
@@ -160,20 +167,32 @@ describe('Felvételkori SMS a címzettnek', () => {
     }
   });
 
-  it('a legrosszabb eset is 2 szegmensen belül marad (nem drágul az üzem)', () => {
+  it('a kódot CSAK átadáskor szabad kimondani — ez benne van a szövegben', () => {
+    // 2026-09-10: e mondat nélkül a címzett előre bediktálhatja a kódot
+    // (telefonban, üzenetben), és a lezárás bizonyíték-értéke elvész.
+    for (const s of sablonok()) {
+      expect(
+        s,
+        'A felvételkori SMS nem mondja meg a címzettnek, hogy a kódot csak az '
+        + 'átadáskor adja meg — ezért fizetjük a 3. szegmenst, ne vesszen ki.',
+      ).toMatch(/csak az átadáskor add meg/);
+    }
+  });
+
+  it('a legrosszabb eset is 3 szegmensen belül marad (nem drágul tovább az üzem)', () => {
     const telHossz = telefonMaxHossz();
     for (const { fajl, sablon, nevCap } of kuldesek()) {
       expect(nevCap, `nem találtam név-plafont a ${fajl}-ban`).toBeGreaterThan(0);
       const hossz = legrosszabbHossz(sablon, nevCap, telHossz);
       expect(
         hossz,
-        `Az SMS legrosszabb esete ${hossz} karakter, a 2 szegmenses határ ${KET_SZEGMENS_MAX}. `
-        + 'Túllépve MINDEN fuvar SMS-e 3 szegmenses lesz (~+19 Ft/fuvar). '
+        `Az SMS legrosszabb esete ${hossz} karakter, a 3 szegmenses határ ${HAROM_SZEGMENS_MAX}. `
+        + 'Túllépve MINDEN fuvar SMS-e 4 szegmenses lesz (~+19 Ft/fuvar). '
         + `(A számítás a TÉNYLEGESEN engedélyezett ${telHossz} karakteres telefonszámmal `
         + 'megy, nem egy szép, rövid példával — egy szóközös magyar formázás is belefér.)\n'
         + 'Rövidítsd a szöveget, a név-plafont, vagy VÁGD a telefonszámot a sablonban — '
         + 'a 14. cikk szerinti mutatót viszont NE vedd ki belőle.',
-      ).toBeLessThanOrEqual(KET_SZEGMENS_MAX);
+      ).toBeLessThanOrEqual(HAROM_SZEGMENS_MAX);
     }
   });
 });

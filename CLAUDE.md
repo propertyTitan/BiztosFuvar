@@ -51,9 +51,13 @@ szerződés kizárólag a Feladó és a Sofőr között jön létre.
 - 6 jegyű átvételi kód + QR kód
 - **1 db SMS-modell (2026-07-13, user-döntés)**: a címzett EGYETLEN SMS-t kap,
   a csomag FELVÉTELEKOR (átvételi kód + sofőr neve/telefonszáma + "egyeztess
-  vele az érkezésről"); **ÉKEZETESEN megy (user-döntés, minőség)** → UCS-2,
-  max 2 szegmens (~40-60 Ft/fuvar; név 22 karakterre vágva, worst case 131
-  kar — a sendSms már NEM ékezettelenít, a removeAccents export megmaradt
+  vele az érkezésről"); **ÉKEZETESEN megy (user-döntés, minőség)** → UCS-2.
+  ⚠️ **2026-09-10 (user-döntés): + „csak az átadáskor add meg a szállítónak"
+  mondat → max 3 szegmens (~57 Ft/fuvar, worst case 188 kar; név 14
+  karakterre vágva)** — a címzett eddig nem tudta, hogy a kódot nem szabad
+  előre bediktálnia; a +19 Ft vállalt ár. Az őr (`sms-szegmens-or`) a 3-as
+  plafont ÉS a mondat meglétét tartja. (Korábban: max 2 szegmens, ~38 Ft;
+  a sendSms már NEM ékezettelenít, a removeAccents export megmaradt
   spórolás-tartaléknak); minden más értesítés email/in-app — kézbesítésről
   email a feladónak + a címzettnek is, ha van email-címe. A korábbi 5 SMS-ből
   a feladáskori KI (túl korai volt: sofőr sem volt még), az 5km/300m KI (GPS
@@ -799,6 +803,19 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > ami a javítás NÉLKÜL igazoltan piros.
 
 ### ✅ Kész (élesedett)
+- **A DÍJ LÁTHATÓ A DÖNTÉS ELŐTT + SMS „csak átadáskor" (2026-09-10,
+  user-döntés a fogalmazás-audit 1-2. tételére)** — (1) a kapcsolatfelvételi
+  díj eddig CSAK az ajánlat elfogadása UTÁN jelent meg: a feladó a
+  leghosszabb űrlapon díj-említés nélkül ment végig, és az ajánlatok közül
+  úgy választott, hogy nem tudta, a 45 000 és az 55 000 Ft-os ajánlat
+  kétszeres díjat jelent. Most: a feladási űrlapon („A feladás ingyenes…
+  Ennél az árnál: 500 Ft"), MINDEN ajánlat-kártyán (a tényleges/ellenajánlati
+  összegből számolva), a járat-foglalásnál és a fizetés-kártyán elfogadás
+  előtt is látszik; a főoldal „500 Ft-tól" helyett „500 / 1 000 Ft"-ot mond.
+  Web-oldali tükör: `web/src/lib/connectionFee.ts` (a backend képlete;
+  őr: `dij-sav-web-szinkron.test.js` a backendben BETÖLTI a web-modult és a
+  sávhatár két oldalán egymáshoz méri — elcsúszás = piros). (2) A címzetti
+  SMS: lásd a 2. szakasz SMS-bulletjét (3 szegmens).
 - **FUVARDÍJ: KÉSZPÉNZ VAGY ÁTUTALÁS — a készpénz-kizárólagosság kivezetve
   (2026-09-10, user-döntés)** — a fogalmazás-audit (3 ügynök: marketing /
   feladói / szállítói+e-mail) 45 helyen talált „készpénzben adod/kapod/jár",

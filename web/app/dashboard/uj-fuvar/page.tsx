@@ -1,5 +1,7 @@
 'use client';
 
+import { kapcsolatfelvetelDijHuf, DIJ_SZABALY_SZOVEG, ft } from '@/lib/connectionFee';
+
 // =====================================================================
 //  Új fuvar feladása – feladói űrlap.
 //
@@ -998,6 +1000,22 @@ export default function UjFuvar() {
             és az első elfogadó nyer.
           </p>
         )}
+
+        {/* A DÍJ LÁTHATÓVÁ TÉTELE A FELADÁSNÁL (2026-09-10, fogalmazás-audit
+            + user-döntés): eddig a feladó a leghosszabb űrlapon úgy ment végig,
+            hogy egy szó sem esett a kapcsolatfelvételi díjról — az első említés
+            az ajánlat ELFOGADÁSA UTÁN jött. A sáv (50 000 Ft) az árnál dől el,
+            ezért itt élőben számoljuk; a hiteles összeg elfogadáskor a backendé. */}
+        <div className="callout callout-info" style={{ marginTop: 10, padding: '10px 14px' }}>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
+            <strong>A feladás ingyenes.</strong> Kapcsolatfelvételi díjat csak akkor fizetsz,
+            ha szállítót választasz: {DIJ_SZABALY_SZOVEG}.
+            {Number(form.suggested_price_huf) > 0 && (
+              <> Ennél az árnál: <strong>{ft(kapcsolatfelvetelDijHuf(Number(form.suggested_price_huf)))} Ft</strong>.</>
+            )}
+            {' '}A fuvardíjat közvetlenül a szállítónak fizeted.
+          </p>
+        </div>
 
         {/* --- Csomag értéke --- */}
         <h2 style={{ marginTop: 24 }}>Csomag értéke</h2>
