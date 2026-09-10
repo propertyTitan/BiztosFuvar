@@ -2774,6 +2774,11 @@ git log --oneline -20
   létezik-e egyáltalán a cél).
 
 
+- **Railway = Node 24 (2026-09-10 óta, `backend/.node-version`)** — a CI
+  Node 22 + npm 11-gyel fut, a lokális fejlesztés Node 24; a suite mindkettőn
+  zöld. Node-verziót a Railway-en CSAK ezzel a fájllal váltsunk (Railpack
+  prioritás: RAILPACK_NODE_VERSION env > devEngines > engines.node > .nvmrc
+  > .node-version)
 - **Build fail Vercelen** → SWC parse error, általában láthatatlan karakter
   egy file-ban. Megoldás: a file-t Write-tal újraírni tisztán.
 - **Railway nem deployol** → ellenőrizni Settings → Source → Branch (= `main`?)
@@ -2824,9 +2829,12 @@ git log --oneline -20
   fát, tehát a registry-változás önmagában eltörheti a buildet — a Railway
   is Node 22 + npm 10-zel épít (`NODE_ENV=production` NEM véd: az npm a
   dev-fát is feloldja, csak nem telepíti). Javítás (2026-09-10): npm 11 a 3
-  workflow-ban (`npm install -g npm@11` lépés) és a Railway-en
-  (`backend/package.json` → `"packageManager": "npm@11.11.0"`, Railpack a
-  mise-en át telepíti). LEMÉRVE: egy commitolt lockfile mellett az npm 10
+  workflow-ban (`npm install -g npm@11` lépés) és a Railway-en **Node 24**
+  (`backend/.node-version` = `24` → bundled npm 11). ⚠️ A `packageManager:
+  npm@11.11.0` mező NEM MŰKÖDÖTT a Railpackkel (PR #212, build 0a011f93):
+  a Corepack „előkészítette" az npm 11-et, de az `npm install` a mise-féle
+  Node 22 bundled npm 10.9.8-ával futott és elhalt — az éles API-t nem
+  érintette (bukott build = a régi deployment marad). LEMÉRVE: egy commitolt lockfile mellett az npm 10
   `npm install`-ja és `npm ci`-ja is hibátlan — a lockfile verziókövetése
   a robusztus, végleges védelem (user-döntés, mert a projekt eddig tudatosan
   nem követte). Diagnózis-recept: `cp backend/package.json /tmp/x/ && cd
