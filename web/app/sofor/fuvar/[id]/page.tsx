@@ -282,7 +282,7 @@ export default function SoforFuvarReszletek() {
                 }}
                 title={`Díj fizetve: ${new Date(job.paid_at).toLocaleString('hu-HU')}`}
               >
-                <BadgeCheck size={13} style={{ verticalAlign: -2 }} /> DÍJ FIZETVE — <Banknote size={13} style={{ verticalAlign: -2 }} /> fuvardíj kápéban
+                <BadgeCheck size={13} style={{ verticalAlign: -2 }} /> DÍJ FIZETVE — <Banknote size={13} style={{ verticalAlign: -2 }} /> fuvardíj közvetlenül a feladótól
               </span>
             ) : (
               <span
@@ -326,8 +326,8 @@ export default function SoforFuvarReszletek() {
             <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{job.contact.email}</div>
           )}
           <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            💵 A fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
-            <strong> készpénzben</strong> kapod a feladótól — a GoFuvar nem von le belőle semmit.
+            A fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
+            <strong> közvetlenül a feladótól</strong> kapod — készpénzben vagy átutalással, ahogy megegyeztek; a GoFuvar nem von le belőle semmit.
           </div>
         </div>
       )}
@@ -542,12 +542,12 @@ export default function SoforFuvarReszletek() {
               <strong style={{ fontSize: 14 }}>💰 Fontos az ajánlattétel előtt!</strong>
               <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>
                 Az általad megadott összeg <strong>100%-ban a tiéd</strong>, és{' '}
-                <strong>készpénzben</strong> kapod a feladótól — a GoFuvar semmit
+                <strong>közvetlenül a feladótól</strong> kapod (készpénzben vagy átutalással, ahogy megegyeztek) — a GoFuvar semmit
                 nem von le belőle. (A platform kapcsolatfelvételi díját a feladó
                 fizeti.)
               </p>
               <p style={{ fontSize: 13, margin: '6px 0 0', lineHeight: 1.5 }}>
-                Példa: ha 10.000 Ft-ot adsz meg → te <strong>10.000 Ft</strong>-ot kapsz kézhez, készpénzben.
+                Példa: ha 10.000 Ft-ot adsz meg → te <strong>10.000 Ft</strong>-ot kapsz, levonás nélkül.
               </p>
               <label
                 style={{
@@ -587,7 +587,7 @@ export default function SoforFuvarReszletek() {
                   value={bidAmount}
                   onChange={(e) => setBidAmount(sanitizeNumericInput(e.target.value))}
                   placeholder="pl. 58000"
-                  title="Ennyiért vállalod a fuvart. Az összeget készpénzben kapod, levonás nélkül."
+                  title="Ennyiért vállalod a fuvart. Az összeget közvetlenül a feladótól kapod, levonás nélkül."
                   required
                   style={mutat(dijHiba) ? redBorder : undefined}
                 />
@@ -625,7 +625,7 @@ export default function SoforFuvarReszletek() {
                   }}
                 >
                   Te kapsz: <strong style={{ color: 'var(--success-text)', fontSize: 16 }}>{total.toLocaleString('hu-HU')} Ft</strong>
-                  {' '}— készpénzben, levonás nélkül 💵
+                  {' '}— közvetlenül a feladótól, levonás nélkül
                 </div>
               );
             })()}

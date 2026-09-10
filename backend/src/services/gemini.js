@@ -172,9 +172,8 @@ KÉT FŐ MÓD
    - Elfogadás után a feladó egy KIS kapcsolatfelvételi díjat fizet bankkártyával
      → azonnal megkapja a szállító telefonszámát és elindul a fuvar-folyamat
    - A FUVARDÍJAT a feladó KÖZVETLENÜL a szállítónak fizeti — a platform nem kezeli.
-     Jellemzően készpénzben (a csomag átvételekor/kézbesítésekor), DE a felek
-     megállapodhatnak más közvetlen módban is, pl. BANKI ÁTUTALÁS (különösen
-     cégek között). A lényeg: a fuvardíj sosem folyik át a platformon, 100%-a
+     Készpénzben VAGY banki átutalással — ahogy a felek megegyeznek; a
+     platform egyik módot sem írja elő (cégek között gyakori az átutalás). A lényeg: a fuvardíj sosem folyik át a platformon, 100%-a
      a szállítóé, levonás nélkül
    - A szállító felveszi a csomagot → fotót készít
    - Lerakja a címzettnél → a címzett bediktálja a 6 jegyű átvételi PIN-t
@@ -185,13 +184,14 @@ KÉT FŐ MÓD
    - Fix árat ad meg méretkategóriánként: S / M / L / XL
    - A feladó foglal helyet a járaton
    - A szállító megerősíti → a feladó kapcsolatfelvételi díjat fizet → ugyanaz a
-     felvétel/lerakás flow, a fuvardíj készpénzben jár a szállítónak
+     felvétel/lerakás flow, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás)
 
 ═══════════════════════════════════════
 FIZETÉS ÉS DÍJAK
 ═══════════════════════════════════════
 
-- A FUVARDÍJ KÉSZPÉNZBEN jár a szállítónak — a platform a fuvardíjat nem kezeli,
+- A FUVARDÍJ KÖZVETLENÜL a szállítónak jár (készpénzben vagy átutalással, ahogy
+  megegyeznek) — a platform a fuvardíjat nem kezeli,
   nem tartja letétben és nem is közvetíti
 - A platform egyetlen díja a KAPCSOLATFELVÉTELI DÍJ, amit a feladó fizet
   bankkártyával/azonnali fizetéssel az ajánlat elfogadásakor. BEVEZETŐ árak:
@@ -241,7 +241,7 @@ A csomagod védelme 4 rétegű:
 - A címzett a csomag FELVÉTELEKOR SMS-ben kapja meg a kódot és a szállító elérhetőségét (emailben tracking linket is kap, ha a feladó megadta az email-címét)
 - Az átadás: a címzett bediktálja a 6 jegyű PIN-t a szállítónak (QR kód NINCS,
   2026-08-06-i döntés: fölöslegesen bonyolította a folyamatot)
-- Ha a kód helyes → a fuvar automatikusan lezárul (a fuvardíjat a szállító készpénzben kapja)
+- Ha a kód helyes → a fuvar automatikusan lezárul (a fuvardíjat a szállító közvetlenül a feladótól kapja)
 
 ═══════════════════════════════════════
 SMS ÉS EMAIL ÉRTESÍTÉSEK A CÍMZETTNEK
@@ -291,7 +291,7 @@ SZÁLLÍTÓ FUNKCIÓK
 
 - Fuvarok böngészése: közelség szerint rendezve (GPS alapján)
 - Ajánlattétel: összeg + becsült érkezési idő + üzenet
-- A szállító az elfogadott összeg 100%-át kapja, KÉSZPÉNZBEN — a platform semmit
+- A szállító az elfogadott összeg 100%-át kapja, KÖZVETLENÜL a feladótól (készpénz vagy átutalás) — a platform semmit
   nem von le belőle (a kapcsolatfelvételi díjat a feladó fizeti)
 - Útvonal hirdetés: "Holnap megyek Budapest → Szeged, viszek csomagot S/M/L/XL"
 - "Útba esik" mód: szállító jelöli hogy amúgy is megy erre → olcsóbb árak

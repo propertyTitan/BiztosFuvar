@@ -130,7 +130,7 @@ export default function SoforLicitjeim() {
         <EmptyState
           icon={<Tag size={28} aria-hidden />}
           title="Még nem tettél ajánlatot"
-          description="Böngéssz az elérhető fuvarok között, és tegyél ajánlatot arra, ami útba esik — a fuvardíj 100%-a a tiéd, készpénzben."
+          description="Böngéssz az elérhető fuvarok között, és tegyél ajánlatot arra, ami útba esik — a fuvardíj 100%-a a tiéd, levonás nélkül."
           cta={<Link className="btn" href="/sofor/fuvarok">Elérhető fuvarok</Link>}
         />
       )}

@@ -1041,7 +1041,7 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
         user_id: j.carrier_id,
         type: 'job_paid',
         title: '🤝 Indulhat a fuvar!',
-        body: `${j.shipper_name || 'A feladó'} kifizette a kapcsolatfelvételi díjat a(z) "${j.title}" fuvarhoz. Mostantól látjátok egymás elérhetőségét — a fuvardíjat (${(j.accepted_price_huf || 0).toLocaleString('hu-HU')} Ft) készpénzben kapod.`,
+        body: `${j.shipper_name || 'A feladó'} kifizette a kapcsolatfelvételi díjat a(z) "${j.title}" fuvarhoz. Mostantól látjátok egymás elérhetőségét — a fuvardíjat (${(j.accepted_price_huf || 0).toLocaleString('hu-HU')} Ft) közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek).`,
         link: `/sofor/fuvar/${j.id}`,
       });
     } catch (e) {
@@ -1471,7 +1471,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
         user_id: job.shipper_id,
         type: 'instant_accepted',
         title: '⚡ Szállító vállalta az azonnali fuvart!',
-        body: `${parties.carrier_name || 'Egy szállító'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat készpénzben adod a szállítónak.`,
+        body: `${parties.carrier_name || 'Egy szállító'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás, ahogy megegyeztek).`,
         link: `/dashboard/fuvar/${job.id}`,
       });
     } catch (e) {

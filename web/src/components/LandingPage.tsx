@@ -23,8 +23,8 @@ const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; s
   // ŐSZINTÉN jelöljük: "Hamarosan" badge, jövő időben fogalmazva.
   { icon: MapPin, tint: '#db2777', title: 'Élő GPS követés', soon: true,
     desc: 'A GoFuvar mobilalkalmazással érkezik: valós időben követheted majd a szállítód pozícióját a térképen.' },
-  { icon: ShieldCheck, tint: 'var(--success)', title: 'Készpénzes fizetés, kis díj',
-    desc: 'A fuvardíjat készpénzben adod a szállítónak — a platformnak csak egy kis kapcsolatfelvételi díjat fizetsz (bevezető áron már 500 Ft-tól).' },
+  { icon: ShieldCheck, tint: 'var(--success)', title: 'Közvetlen fizetés, kis díj',
+    desc: 'A fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek. A platformnak csak egy kis kapcsolatfelvételi díjat fizetsz (bevezető áron már 500 Ft-tól).' },
   { icon: Camera, tint: '#0891b2', title: 'Fotó bizonyíték',
     desc: 'A szállító felvételi és lerakodási fotóval igazolja a csomag állapotát — vita esetén ez a bizonyíték.' },
   { icon: KeyRound, tint: 'var(--warning)', title: '6 jegyű átvételi kód',
@@ -40,12 +40,12 @@ const STEPS = [
   { num: '2', title: 'Válassz szállítót', dot: 'var(--primary)',
     desc: 'Fogadd el a neked tetsző ajánlatot, vagy foglalj egy induló járaton. Egy kis kapcsolatfelvételi díj után azonnal megkapod a szállító elérhetőségét.' },
   { num: '3', title: 'Vedd át a kóddal', dot: 'var(--success)',
-    desc: 'Felvételkor a címzett SMS-ben kapja az átvételi kódot és a szállító számát. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat készpénzben rendezed a szállítóval.' },
+    desc: 'Felvételkor a címzett SMS-ben kapja az átvételi kódot és a szállító számát. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat közvetlenül a szállítóval rendezed, készpénzben vagy átutalással.' },
 ];
 
 const TRUST = [
   { stat: '500 Ft-tól', label: 'kapcsolatfelvételi díj (bevezető ár)' },
-  { stat: '100%', label: 'a fuvardíjból a szállítóé — készpénzben' },
+  { stat: '100%', label: 'a fuvardíjból a szállítóé — közvetlenül, levonás nélkül' },
   { stat: '6 jegyű', label: 'kód zárja le az átadást' },
   { stat: '24/7', label: 'AI segéd válaszol' },
 ];
@@ -325,7 +325,7 @@ export default function LandingPage() {
               <li>Vagy foglalj helyet egy induló járaton</li>
               <li>Kis díj után azonnal megkapod a szállító elérhetőségét</li>
               <li>Felvételkor a címzett SMS-ben kapja az átvételi kódot</li>
-              <li>Add át a 6 jegyű kódot, a fuvardíjat kápéban rendezed</li>
+              <li>Add át a 6 jegyű kódot, a fuvardíjat közvetlenül a szállítóval rendezed</li>
             </ul>
           </div>
           <div style={{
@@ -340,9 +340,9 @@ export default function LandingPage() {
               <li>Autó, bicikli, gyalog vagy tömegközlekedés — bármivel mehet</li>
               <li>Böngéssz az elérhető fuvarok között és tegyél ajánlatot</li>
               <li>Vagy hirdesd meg a járatodat fix árakkal</li>
-              <li>A fuvardíj 100%-a a tiéd, készpénzben — nincs levonás</li>
+              <li>A fuvardíj 100%-a a tiéd — készpénzben vagy átutalással, nincs levonás</li>
               <li>Igazold a felvételt és lerakodást fotóval</li>
-              <li>Kérd az átvételi kódot → fuvar lezárva, a kápé a tiéd</li>
+              <li>Kérd az átvételi kódot → fuvar lezárva, a fuvardíj a tiéd</li>
             </ul>
           </div>
         </div>
@@ -367,7 +367,7 @@ export default function LandingPage() {
             </h2>
             <p style={{ color: 'var(--text)', margin: 0, lineHeight: 1.6, fontSize: 16, maxWidth: 560 }}>
               Töltsd meg az üres kilométereidet és a visszautaidat rendszeres fuvarokkal.
-              A fuvardíj <strong>100%-a a tiéd, készpénzben</strong> — a platform a te
+              A fuvardíj <strong>100%-a a tiéd</strong>, készpénzben vagy átutalással — a platform a te
               díjadból nem von le jutalékot.
             </p>
           </div>

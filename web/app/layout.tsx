@@ -44,11 +44,11 @@ export const metadata: Metadata = {
     template: '%s | GoFuvar',
   },
   description:
-    'Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá, vagy foglalj helyet egy útba eső szállító induló járatán. A fuvardíjat készpénzben fizeted a szállítónak — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
+    'Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá, vagy foglalj helyet egy útba eső szállító induló járatán. A fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás) — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
   keywords: [
     'fuvar', 'szállítás', 'csomag', 'költöztetés', 'szállító', 'fuvartőzsde',
     'GoFuvar', 'közösségi szállítás', 'árajánlat', 'fix áras fuvar',
-    'készpénzes fuvar', 'Magyarország',
+    'jutalékmentes fuvar', 'Magyarország',
   ],
   metadataBase: new URL('https://gofuvar.hu'),
   openGraph: {
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'GoFuvar – Közösségi fuvartőzsde',
-    description: 'Csomagod van? Szállítód is lesz. Készpénzes fizetés a szállítónak, 6 jegyű átvételi kód.',
+    description: 'Csomagod van? Szállítód is lesz. A fuvardíj közvetlenül a szállítóé, 6 jegyű átvételi kód.',
     images: ['/og-image.png'],
   },
   manifest: '/manifest.webmanifest',

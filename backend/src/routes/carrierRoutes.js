@@ -865,7 +865,7 @@ router.post(
           user_id: b.shipper_id,
           type: 'booking_confirmed',
           title: '✅ A szállító megerősítette a foglalásod!',
-          body: `${info.carrier_name || 'A szállító'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat készpénzben adod a szállítónak.`,
+          body: `${info.carrier_name || 'A szállító'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás, ahogy megegyeztek).`,
           link: `/dashboard/foglalasaim`,
         });
         if (info.shipper_email) {
@@ -1089,7 +1089,7 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
       user_id: b.carrier_id,
       type: 'booking_paid',
       title: '🤝 Indulhat a foglalás!',
-      body: `${b.shipper_name || 'A feladó'} kifizette a kapcsolatfelvételi díjat a(z) "${b.route_title}" foglaláshoz. A fuvardíjat (${b.price_huf.toLocaleString('hu-HU')} Ft) készpénzben kapod.`,
+      body: `${b.shipper_name || 'A feladó'} kifizette a kapcsolatfelvételi díjat a(z) "${b.route_title}" foglaláshoz. A fuvardíjat (${b.price_huf.toLocaleString('hu-HU')} Ft) közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek).`,
       link: `/sofor/utvonal/${b.route_id}`,
     });
   } catch (e) {

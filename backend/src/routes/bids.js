@@ -416,8 +416,8 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
       type: 'bid_accepted',
       title: '🎉 Megállapodás!',
       body: acceptedBy === 'carrier'
-        ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, KÉSZPÉNZBEN kapod. A feladó most fizeti a kapcsolatfelvételi díjat, utána megkapjátok egymás elérhetőségét és indulhatsz.`
-        : `A(z) "${info.title || 'fuvar'}" fuvarra tett ajánlatodat elfogadták ${priceTxt} Ft-ért — a teljes összeget KÉSZPÉNZBEN kapod. Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
+        ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). A feladó most fizeti a kapcsolatfelvételi díjat, utána megkapjátok egymás elérhetőségét és indulhatsz.`
+        : `A(z) "${info.title || 'fuvar'}" fuvarra tett ajánlatodat elfogadták ${priceTxt} Ft-ért — a teljes összeget közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
       link: `/sofor/fuvar/${bid.job_id}`,
     });
     if (info.carrier_email) {
@@ -441,7 +441,7 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
         user_id: info.shipper_id || bid.shipper_id,
         type: 'counter_accepted',
         title: '✅ Elfogadták az ellenajánlatodat',
-        body: `A szállító elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd meg a kapcsolatfelvételi díjat a folytatáshoz — a fuvardíjat készpénzben adod majd a szállítónak.`,
+        body: `A szállító elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd meg a kapcsolatfelvételi díjat a folytatáshoz — a fuvardíjat közvetlenül a szállítónak fizeted majd (készpénz vagy átutalás, ahogy megegyeztek).`,
         link: `/dashboard/fuvar/${bid.job_id}`,
       });
       if (info.shipper_email) {
@@ -481,8 +481,8 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
         body: `Elfogadtad ${info.carrier_name || 'a szállító'} ajánlatát a(z) `
           + `"${info.title || 'fuvar'}" fuvarra ${priceTxt} Ft-ért. A folytatáshoz `
           + 'fizesd meg a kapcsolatfelvételi díjat — utána megkapjátok egymás '
-          + 'elérhetőségét. A fuvardíjat készpénzben (vagy megállapodás szerint '
-          + 'átutalással) közvetlenül a szállítónak adod.',
+          + 'elérhetőségét. A fuvardíjat közvetlenül a szállítónak fizeted — '
+          + 'készpénzben vagy átutalással, ahogy megegyeztek.',
         link: `/dashboard/fuvar/${bid.job_id}`,
       });
       if (info.shipper_email) {

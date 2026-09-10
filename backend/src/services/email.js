@@ -243,7 +243,7 @@ async function sendBidAcceptedEmail({ to, carrierName, jobTitle, jobId, amountHu
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
     <p>Nagyszerű hírek — a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvar feladója elfogadta az ajánlatodat!</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(amountHuf)} Ft</p>
-    <p>A teljes összeget <strong>készpénzben</strong> kapod a feladótól. Amint a feladó megfizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét és elindulhatsz. A fuvart a felvételi fotóval és a 6 jegyű átvételi kóddal tudod majd lezárni.</p>
+    <p>A teljes összeget <strong>közvetlenül a feladótól</strong> kapod — készpénzben vagy átutalással, ahogy megegyeztek. Amint a feladó megfizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét és elindulhatsz. A fuvart a felvételi fotóval és a 6 jegyű átvételi kóddal tudod majd lezárni.</p>
   `;
   return sendEmail({
     to,
@@ -274,7 +274,7 @@ async function sendPaymentDueEmail({ to, shipperName, jobTitle, jobId, agreedPri
   const bodyHtml = `
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
     ${intro}
-    <p>Már csak a <strong>kapcsolatfelvételi díjat</strong> kell megfizetned${feeHuf ? ` (<strong>${formatHuf(feeHuf)} Ft</strong>)` : ''} — utána azonnal megkapjátok egymás elérhetőségét, és indulhat a fuvar. A fuvardíjat magát <strong>készpénzben</strong> adod majd a szállítónak, azt a platform nem kezeli.</p>
+    <p>Már csak a <strong>kapcsolatfelvételi díjat</strong> kell megfizetned${feeHuf ? ` (<strong>${formatHuf(feeHuf)} Ft</strong>)` : ''} — utána azonnal megkapjátok egymás elérhetőségét, és indulhat a fuvar. A fuvardíjat magát <strong>közvetlenül a szállítónak</strong> fizeted majd — készpénzben vagy átutalással, ahogy megegyeztek —, azt a platform nem kezeli.</p>
     ${reminderNo >= 2 ? '<p style="color:#b45309">Ha nem fizeted meg a díjat, a megállapodás elévülhet, és a szállító másik fuvart vállalhat.</p>' : ''}
   `;
   return sendEmail({
@@ -300,7 +300,7 @@ async function sendJobPaidEmail({ to, carrierName, jobTitle, jobId, amountHuf, s
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
     <p><strong>${escapeHtml(shipperName) || 'A feladó'}</strong> kifizette a kapcsolatfelvételi díjat a(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarhoz — mostantól látjátok egymás elérhetőségét.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(amountHuf)} Ft</p>
-    <p>Indulhatsz! A fuvardíjat <strong>készpénzben</strong> kapod a feladótól. A fuvart a felvételi fotóval és a 6 jegyű átvételi kóddal zárod le.</p>
+    <p>Indulhatsz! A fuvardíjat <strong>közvetlenül a feladótól</strong> kapod — készpénzben vagy átutalással, ahogy megegyeztek. A fuvart a felvételi fotóval és a 6 jegyű átvételi kóddal zárod le.</p>
   `;
   return sendEmail({
     to,
@@ -358,9 +358,9 @@ async function sendFeeConfirmationEmail({
       (45/2014. Korm. rendelet 29. § (1) a)). A díj nem visszatérítendő; ha a fuvar a
       szállító hibájából hiúsul meg, díjmentesen választhatok másik szállítót ugyanerre a fuvarra."
     </div>
-    ${cashHuf ? `<p>💵 Emlékeztető: a fuvardíjat (<strong>${formatHuf(cashHuf)} Ft</strong>)
-    <strong>készpénzben</strong> fizeted közvetlenül a szállítónak — a GoFuvar a fuvardíjat
-    nem kezeli.</p>` : ''}
+    ${cashHuf ? `<p>Emlékeztető: a fuvardíjat (<strong>${formatHuf(cashHuf)} Ft</strong>)
+    <strong>közvetlenül a szállítónak</strong> fizeted — készpénzben vagy átutalással, ahogy
+    megegyeztek; a GoFuvar a fuvardíjat nem kezeli.</p>` : ''}
     <p style="font-size:13px;color:#666">Ha a szállító visszalép vagy nem elérhető, a fuvar
     oldalán díjmentesen választhatsz másik szállítót ugyanerre a fuvarra — a díj másik
     fuvarra nem vihető át. A díjról a számlát külön küldjük. Részletek:
@@ -387,7 +387,7 @@ async function sendBookingReceivedEmail({ to, carrierName, routeTitle, routeId, 
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
     <p><strong>${escapeHtml(shipperName) || 'Egy feladó'}</strong> foglalt helyet a(z) <strong>"${escapeHtml(routeTitle)}"</strong> járatodra.</p>
     <p style="font-size:24px;font-weight:800;color:#1e40af;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
-    <p>Erősítsd meg a foglalást — a feladó a kapcsolatfelvételi díj megfizetése után látja az elérhetőségedet, a fuvardíjat készpénzben kapod tőle.</p>
+    <p>Erősítsd meg a foglalást — a feladó a kapcsolatfelvételi díj megfizetése után látja az elérhetőségedet, a fuvardíjat közvetlenül tőle kapod (készpénz vagy átutalás, ahogy megegyeztek).</p>
   `;
   return sendEmail({
     to,
@@ -410,7 +410,7 @@ async function sendBookingConfirmedEmail({ to, shipperName, routeTitle, bookingI
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
     <p><strong>${escapeHtml(carrierName) || 'A szállító'}</strong> elfogadta a foglalásodat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> járaton.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
-    <p>Most tudod megfizetni a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig készpénzben adod át neki. A foglalásod a "Foglalásaim" menüpontban érhető el.</p>
+    <p>Most tudod megfizetni a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig közvetlenül neki fizeted (készpénz vagy átutalás, ahogy megegyeztek). A foglalásod a "Foglalásaim" menüpontban érhető el.</p>
   `;
   return sendEmail({
     to,
@@ -433,7 +433,7 @@ async function sendBookingPaidEmail({ to, carrierName, routeTitle, bookingId, pr
     <p>Szia ${escapeHtml(carrierName) || 'GoFuvar felhasználó'}!</p>
     <p><strong>${escapeHtml(shipperName) || 'A feladó'}</strong> kifizette a kapcsolatfelvételi díjat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> járatodra szóló foglaláshoz.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
-    <p>A fuvardíjat <strong>készpénzben</strong> kapod a feladótól a csomag átadásakor/kézbesítésekor.</p>
+    <p>A fuvardíjat <strong>közvetlenül a feladótól</strong> kapod — készpénzben vagy átutalással, ahogy megegyeztek.</p>
   `;
   return sendEmail({
     to,
@@ -493,7 +493,7 @@ async function sendCancellationEmail({
   `;
   if (recipientIsShipper) {
     bodyHtml += `
-      <p>Pénzmozgás nem történt a lemondással: a fuvardíj készpénzben járt volna a szállítónak, így nincs mit visszatéríteni. Ha már fizettél kapcsolatfelvételi díjat, az a fuvarra érvényes marad — a fuvar oldalán díjmentesen választhatsz másik szállítót a korábbi ajánlatok közül.</p>
+      <p>Pénzmozgás nem történt a lemondással: a fuvardíj közvetlenül a szállítónak járt volna, a platformon át nem folyik, így nincs mit visszatéríteni. Ha már fizettél kapcsolatfelvételi díjat, az a fuvarra érvényes marad — a fuvar oldalán díjmentesen választhatsz másik szállítót a korábbi ajánlatok közül.</p>
     `;
   }
   if (!recipientIsShipper) {

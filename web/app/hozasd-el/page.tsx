@@ -6,7 +6,7 @@ import HozasdElTool from '@/components/HozasdElTool';
 export const metadata: Metadata = {
   title: 'Hozasd el az online vásárlásod — GoFuvar',
   description:
-    'IKEA-ban, OBI-ban, Praktikerben vagy a Jófogáson vásároltál bútort vagy nagyobb tárgyat? Másold be a termék linkjét, és a GoFuvar szállítójai elhozzák — készpénzes fizetés a szállítónak, fotó bizonyíték + 6 jegyű átvételi kód.',
+    'IKEA-ban, OBI-ban, Praktikerben vagy a Jófogáson vásároltál bútort vagy nagyobb tárgyat? Másold be a termék linkjét, és a GoFuvar szállítójai elhozzák — a fuvardíjat közvetlenül a szállítónak fizeted, fotó bizonyíték + 6 jegyű átvételi kód.',
   keywords: [
     'ikea szállítás', 'obi szállítás', 'praktiker szállítás', 'jófogás szállítás',
     'bútorszállítás', 'használt bútor elszállítás', 'online vásárlás fuvar', 'GoFuvar',

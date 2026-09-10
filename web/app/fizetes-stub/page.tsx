@@ -222,10 +222,10 @@ function FizetesStubContent() {
                 marginBottom: 12,
               }}
             >
-              💵 A fuvardíjat (
+              A fuvardíjat (
               <strong>{data.cashHuf.toLocaleString('hu-HU')} Ft</strong>
-              ) NEM itt fizeted: azt <strong>készpénzben</strong> adod át a
-              szállítónak.
+              ) NEM itt fizeted: azt <strong>közvetlenül a szállítónak</strong> rendezed —
+              készpénzben vagy átutalással, ahogy megegyeztetek.
             </div>
 
             <div
