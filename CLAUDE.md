@@ -2815,6 +2815,22 @@ git log --oneline -20
   blokkolja (`responseDetails: Blocked by Railway WAF`). Semmi teendő, amíg
   csak 4xx. Lekérdezés: `railway logs --http --json --since <ISO> --filter
   '@httpStatus:404'` (a CLI 500 sort ad vissza, szűrni kell)
+- **`npm install` elhal a CI-ben / Railway-buildben: „Cannot read properties
+  of null (reading 'edgesOut')"** → az npm 10 (a Node 22/20 beépített npm-je)
+  peer-feloldási hibája, amit a registry-ben MEGJELENT ÚJ csomag vált ki, nem
+  a kód (2026-09-10: a `vitest` transzitív peer-halmaza; a 08-31-i zöld CI
+  után új commit nélkül lett piros). ⚠️ Mivel a package-lock.json NINCS
+  verziókövetve, MINDEN friss install (CI, Railway, Vercel) újra feloldja a
+  fát, tehát a registry-változás önmagában eltörheti a buildet — a Railway
+  is Node 22 + npm 10-zel épít (`NODE_ENV=production` NEM véd: az npm a
+  dev-fát is feloldja, csak nem telepíti). Javítás (2026-09-10): npm 11 a 3
+  workflow-ban (`npm install -g npm@11` lépés) és a Railway-en
+  (`backend/package.json` → `"packageManager": "npm@11.11.0"`, Railpack a
+  mise-en át telepíti). LEMÉRVE: egy commitolt lockfile mellett az npm 10
+  `npm install`-ja és `npm ci`-ja is hibátlan — a lockfile verziókövetése
+  a robusztus, végleges védelem (user-döntés, mert a projekt eddig tudatosan
+  nem követte). Diagnózis-recept: `cp backend/package.json /tmp/x/ && cd
+  /tmp/x && npx -y npm@10 install --package-lock-only` reprodukál lokálisan
 - **Robotok / noindex** → src `web/public/robots.txt` jelenleg `Disallow: /` — élesedéskor `Allow: /`-ra
 
 ---
