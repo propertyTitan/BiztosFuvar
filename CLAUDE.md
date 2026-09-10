@@ -2793,6 +2793,28 @@ git log --oneline -20
   a tartomány újrafelvétele. code=7 = SeeMe egyenleg elfogyott (feltöltés).
   Gyors kézi teszt: `SEEME_API_KEY=... node scripts/sms-teszt.js +36...`;
   teljes lánc: `node scripts/sms-e2e-fustteszt.js +36...`
+- **„Nem jött SMS" a teszt-fuvarnál** → ELŐSZÖR nézd meg, van-e a fuvaron
+  `recipient_phone`. Az 1 db SMS-modellben az SMS KIZÁRÓLAG a CÍMZETTNEK megy
+  a felvételi fotónál — ha a feladó nem pipálta be a „Nem én veszem át a
+  csomagot"-ot (recipient_* NULL), SMS SZÁNDÉKOSAN nem megy, a kód az appban
+  látszik („🔐 Átvételi kódod" kártya). 2026-09-10-én pont ez volt: a
+  teszt-fuvar címzett nélkül ment végig (`closed_by_code_type =
+  sender_emergency`), az `sms_retry_queue` üres, a logban `[sms]` sor sincs
+  — nem hiba. SMS-teszthez címzett-telefonszám kell a feladáskor
+- **Sentry-riasztás „BadRequestError: request aborted"** → NEM szerverhiba:
+  egy kliens (jellemzően bot-scanner vagy elejtett mobil-kapcsolat)
+  Content-Length-et ígért, de a test nélkül bontott. 2026-09-10 óta a
+  központi hibakezelő a body-parser/raw-body MINDEN 4xx-es, `type`-os hibáját
+  kliens-hibaként kezeli (400 `REQUEST_ABORTED`/`MALFORMED_BODY`, napló és
+  Sentry nélkül; őr: app-kapuk-es-hibakezelo.test.js nyers sockettel). Ha
+  mégis jön ilyen riasztás, a szabály sérült
+- **404/403-hullám a Railway HTTP-logban** (több száz kérés EGY IP-ről 1 perc
+  alatt: `.env*`, `.git/config`, `wp-json`, `/wp/`…) → automata
+  titok-/WordPress-scanner, nem célzott támadás; mind 404 (nincs mit
+  találni — a Manus-audit igazolta), a POST-jaikat a Railway WAF 403-mal
+  blokkolja (`responseDetails: Blocked by Railway WAF`). Semmi teendő, amíg
+  csak 4xx. Lekérdezés: `railway logs --http --json --since <ISO> --filter
+  '@httpStatus:404'` (a CLI 500 sort ad vissza, szűrni kell)
 - **Robotok / noindex** → src `web/public/robots.txt` jelenleg `Disallow: /` — élesedéskor `Allow: /`-ra
 
 ---
