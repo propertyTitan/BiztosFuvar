@@ -2,7 +2,6 @@
   "name": "gofuvar-backend",
   "version": "0.2.0",
   "private": true,
-  "packageManager": "npm@11.11.0",
   "description": "GoFuvar backend API – Express + PostgreSQL + Gemini + Socket.IO",
   "main": "src/index.js",
   "scripts": {
