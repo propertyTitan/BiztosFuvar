@@ -163,7 +163,7 @@ const USECASES: LandingConfig[] = [
       { icon: Banknote, tint: 'var(--success)', title: 'A szállító ajánl, te döntesz', desc: 'A szállítók árajánlatot tesznek a fuvarodra; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
     ],
     faq: [
-      { q: 'Mennyibe kerül a bútorszállítás?', a: 'Feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján; a szállítók erre tesznek árajánlatot, te pedig a neked megfelelőt elfogadod. A GoFuvar egy sávos kapcsolatfelvételi díjat számít az elfogadáskor.' },
+      { q: 'Mennyibe kerül a bútorszállítás?', a: 'Feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján; a szállítók erre tesznek árajánlatot, te pedig a neked megfelelőt elfogadod. A GoFuvar ezen felül csak egy kapcsolatfelvételi díjat számít az elfogadáskor: 500 Ft 50 000 Ft fuvardíjig, felette 1 000 Ft (bevezető ár).' },
       { q: 'Felviszik az emeletre?', a: 'Ha a feladásnál jelzed a bepakolási igényt (emelet, lift), a szállító ezt előre látja és beárazza.' },
     ],
   },
@@ -205,7 +205,7 @@ const USECASES: LandingConfig[] = [
       { icon: Banknote, tint: 'var(--success)', title: 'A szállító ajánl, te döntesz', desc: 'A szállítók árajánlatot tesznek a fuvarodra; te a neked megfelelőt elfogadod, vagy ellenajánlatot teszel. Az okos árazó segít belőni a reális sávot.' },
     ],
     faq: [
-      { q: 'Mennyibe kerül egy kis költözés?', a: 'Feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján; a szállítók erre tesznek árajánlatot, te pedig a neked megfelelőt elfogadod. A GoFuvar egy sávos kapcsolatfelvételi díjat számít az elfogadáskor.' },
+      { q: 'Mennyibe kerül egy kis költözés?', a: 'Feladáskor az okos árazó ad egy ajánlott sávot a távolság, súly és méret alapján; a szállítók erre tesznek árajánlatot, te pedig a neked megfelelőt elfogadod. A GoFuvar ezen felül csak egy kapcsolatfelvételi díjat számít az elfogadáskor: 500 Ft 50 000 Ft fuvardíjig, felette 1 000 Ft (bevezető ár).' },
       { q: 'Nagyobb költözésre is jó?', a: 'Ami elfér egy autóban vagy furgonban, azt egy fuvarral; nagyobb mennyiséget több fordulóval vagy nagyobb járművű szállítóval. A feladásnál jelöld a méretet, hogy a megfelelő szállító vállalja.' },
     ],
   },

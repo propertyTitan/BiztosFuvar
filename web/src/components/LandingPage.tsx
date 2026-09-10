@@ -24,7 +24,7 @@ const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; s
   { icon: MapPin, tint: '#db2777', title: 'Élő GPS követés', soon: true,
     desc: 'A GoFuvar mobilalkalmazással érkezik: valós időben követheted majd a szállítód pozícióját a térképen.' },
   { icon: ShieldCheck, tint: 'var(--success)', title: 'Közvetlen fizetés, kis díj',
-    desc: 'A fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek. A platformnak csak egy kis kapcsolatfelvételi díjat fizetsz (bevezető áron már 500 Ft-tól).' },
+    desc: 'A fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek. A platformnak csak egy kis kapcsolatfelvételi díjat fizetsz (bevezető ár: 500 Ft, 50 000 Ft feletti fuvardíjnál 1 000 Ft).' },
   { icon: Camera, tint: '#0891b2', title: 'Fotó bizonyíték',
     desc: 'A szállító felvételi és lerakodási fotóval igazolja a csomag állapotát — vita esetén ez a bizonyíték.' },
   { icon: KeyRound, tint: 'var(--warning)', title: '6 jegyű átvételi kód',
@@ -38,13 +38,13 @@ const STEPS = [
   { num: '1', title: 'Hirdesd meg a fuvart', dot: 'var(--primary)',
     desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.' },
   { num: '2', title: 'Válassz szállítót', dot: 'var(--primary)',
-    desc: 'Fogadd el a neked tetsző ajánlatot, vagy foglalj egy induló járaton. Egy kis kapcsolatfelvételi díj után azonnal megkapod a szállító elérhetőségét.' },
+    desc: 'Fogadd el a neked tetsző ajánlatot, vagy foglalj egy induló járaton. Egy kis kapcsolatfelvételi díj (500 vagy 1 000 Ft, bevezető ár) után azonnal megkapod a szállító elérhetőségét.' },
   { num: '3', title: 'Vedd át a kóddal', dot: 'var(--success)',
     desc: 'Felvételkor a címzett SMS-ben kapja az átvételi kódot és a szállító számát. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat közvetlenül a szállítóval rendezed, készpénzben vagy átutalással.' },
 ];
 
 const TRUST = [
-  { stat: '500 Ft-tól', label: 'kapcsolatfelvételi díj (bevezető ár)' },
+  { stat: '500 / 1 000 Ft', label: 'kapcsolatfelvételi díj (bevezető ár)' },
   { stat: '100%', label: 'a fuvardíjból a szállítóé — közvetlenül, levonás nélkül' },
   { stat: '6 jegyű', label: 'kód zárja le az átadást' },
   { stat: '24/7', label: 'AI segéd válaszol' },
@@ -323,7 +323,7 @@ export default function LandingPage() {
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 16 }}>
               <li>Hirdesd meg a fuvart — a szállítók ajánlatot tesznek rá</li>
               <li>Vagy foglalj helyet egy induló járaton</li>
-              <li>Kis díj után azonnal megkapod a szállító elérhetőségét</li>
+              <li>Kis díj (500 / 1 000 Ft) után azonnal megkapod a szállító elérhetőségét</li>
               <li>Felvételkor a címzett SMS-ben kapja az átvételi kódot</li>
               <li>Add át a 6 jegyű kódot, a fuvardíjat közvetlenül a szállítóval rendezed</li>
             </ul>

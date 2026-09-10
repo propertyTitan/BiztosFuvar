@@ -1,5 +1,7 @@
 'use client';
 
+import { kapcsolatfelvetelDijHuf, DIJ_SZABALY_SZOVEG, ft } from '@/lib/connectionFee';
+
 // Egy konkrét fuvar nézete a feladó számára:
 // - Élő követés Google Maps-en + Socket.IO szállító piros pötty
 // - Licitek listája (ha még bidding)
@@ -470,7 +472,7 @@ export default function FuvarReszletek() {
 
           <h2>Fizetés</h2>
           {job.status !== 'accepted' && !job.paid_at && (
-            <p className="muted">Még nincs elfogadott ajánlat — elfogadás után itt fizeted a kapcsolatfelvételi díjat.</p>
+            <p className="muted">Még nincs elfogadott ajánlat — elfogadás után itt fizeted a kapcsolatfelvételi díjat ({DIJ_SZABALY_SZOVEG}).</p>
           )}
           {(job.status === 'accepted' || job.paid_at) && (
             <>
@@ -854,6 +856,14 @@ export default function FuvarReszletek() {
               <div style={{ paddingLeft: 52, marginTop: 8 }}>
                 <ReturnPolicyBadge bid={b} />
               </div>
+              {/* A díj az ajánlat-kártyán (2026-09-10): a sáv a VÁLASZTÁSNÁL dől el —
+                  a 45 000 és az 55 000 Ft-os ajánlat kétszeres díjat jelent, ezt
+                  a feladónak a döntés előtt kell látnia, nem elfogadás után. */}
+              <p className="muted" style={{ fontSize: 12, margin: '6px 0 0', paddingLeft: 52 }}>
+                Kapcsolatfelvételi díj elfogadás után:{' '}
+                <strong>{ft(kapcsolatfelvetelDijHuf(b.counter_amount_huf ?? b.amount_huf))} Ft</strong>
+                {' '}(bevezető ár, nem visszatérítendő)
+              </p>
               {b.counter_by === 'shipper' && b.counter_amount_huf != null ? (
                 <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
                   <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({b.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a szállító válaszára vár.
