@@ -735,25 +735,24 @@ router.get('/', authRequired, requireVerifiedEmail, async (req, res) => {
   // a szállító számára, ha a piactéren 200-nál több frissebb volt (épp a
   // forgalom-növekedéssel jött volna elő). Haversine az adatbázisban,
   // távolság szerinti rendezéssel.
-  let tavolsagExpr = null;
-  if (vanKoord) {
+  // Sugárral: SQL-szűrés + távolság szerinti sorrend (a közeli, régebbi fuvar is
+  // bekerül a 200-ba); sugár nélkül a megszokott frissességi sorrend, a
+  // távolság csak annotáció (JS-ben, lent).
+  if (vanKoord && rKm !== null) {
     params.push(la);
     const iLat = params.length;
     params.push(ln);
     const iLng = params.length;
-    tavolsagExpr = `(2 * 6371000 * asin(sqrt(`
+    const tavolsagExpr = `(2 * 6371000 * asin(sqrt(`
       + `power(sin(radians(j.pickup_lat::float8 - $${iLat}::float8) / 2), 2)`
       + ` + cos(radians($${iLat}::float8)) * cos(radians(j.pickup_lat::float8))`
       + ` * power(sin(radians(j.pickup_lng::float8 - $${iLng}::float8) / 2), 2))))`;
-    sql += ' AND j.pickup_lat IS NOT NULL AND j.pickup_lng IS NOT NULL';
-    if (rKm !== null) {
-      params.push(rKm * 1000);
-      sql += ` AND ${tavolsagExpr} <= $${params.length}`;
-    }
+    params.push(rKm * 1000);
+    sql += ` AND j.pickup_lat IS NOT NULL AND j.pickup_lng IS NOT NULL AND ${tavolsagExpr} <= $${params.length}`;
+    sql += ` ORDER BY ${tavolsagExpr} ASC, j.is_instant DESC, j.created_at DESC LIMIT 200`;
+  } else {
+    sql += ' ORDER BY j.is_instant DESC, j.created_at DESC LIMIT 200';
   }
-  sql += tavolsagExpr
-    ? ` ORDER BY ${tavolsagExpr} ASC, j.is_instant DESC, j.created_at DESC LIMIT 200`
-    : ' ORDER BY j.is_instant DESC, j.created_at DESC LIMIT 200';
   const { rows } = await db.query(sql, params);
   let jobs = rows;
   if (vanKoord) {

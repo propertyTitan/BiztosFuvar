@@ -309,6 +309,7 @@ const SABLONOK = {
   sendBookingRejectedEmail: ['shipperName', 'routeTitle'],
   sendCancellationEmail: ['recipientName', 'jobTitle'],
   sendRecipientTrackingEmail: ['recipientName', 'jobTitle', 'deliveryCode'],
+  sendRecipientPickupEmail: ['recipientName', 'jobTitle', 'deliveryCode', 'carrierName', 'carrierPhone'],
   sendEmailVerificationEmail: ['fullName'],
   sendPasswordResetEmail: ['fullName'],
   sendTaxDataRequestEmail: ['name'],

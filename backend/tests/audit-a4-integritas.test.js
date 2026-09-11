@@ -209,8 +209,9 @@ describe('5. sugár-keresés az SQL-ben', () => {
     const felado = await createUser();
     const szallito = await createUser({ role: 'carrier' });
     // a KÖZELI fuvar régebbi (created_at hátra tolva)
-    const kozeli = await createJob({ shipperId: felado.id, status: 'bidding' }); // Budapest 47.4979,19.0402
-    await db.query(`UPDATE jobs SET created_at = NOW() - INTERVAL '2 days' WHERE id = $1`, [kozeli.id]);
+    // Egyedi hely (Miskolc), hogy a többi tesztfájl budapesti fuvarjai ne zavarjanak a sugárban
+    const kozeli = await createJob({ shipperId: felado.id, status: 'bidding' });
+    await db.query(`UPDATE jobs SET created_at = NOW() - INTERVAL '2 days', pickup_lat = 48.1035, pickup_lng = 20.7784 WHERE id = $1`, [kozeli.id]);
     // 201 távoli, friss fuvar (Szeged környéke) egyetlen INSERT-tel
     await db.query(
       `INSERT INTO jobs (shipper_id, title, description, pickup_address, pickup_lat, pickup_lng, dropoff_address, dropoff_lat, dropoff_lng,
@@ -220,9 +221,9 @@ describe('5. sugár-keresés az SQL-ben', () => {
          FROM generate_series(1, 201) g`,
       [felado.id],
     );
-    const r = await request(app).get('/jobs').query({ lat: 47.4979, lng: 19.0402, radius_km: 5 }).set(auth(szallito.token));
+    const r = await request(app).get('/jobs').query({ lat: 48.10, lng: 20.78, radius_km: 5 }).set(auth(szallito.token));
     expect(r.status, JSON.stringify(r.body).slice(0, 200)).toBe(200);
-    expect(r.body.some((j) => j.id === kozeli.id), 'a 3 km-es fuvar hiányzik — a sugár-szűrés a LIMIT 200 UTÁN futott').toBe(true);
+    expect(r.body.some((j) => j.id === kozeli.id), 'a ~0,4 km-es fuvar hiányzik — a sugár-szűrés a LIMIT 200 UTÁN futott').toBe(true);
     expect(r.body.every((j) => j.distance_to_pickup_km <= 5)).toBe(true);
     const rossz = await request(app).get('/jobs').query({ lat: 'abc', lng: 19 }).set(auth(szallito.token));
     expect(rossz.status).toBe(400);

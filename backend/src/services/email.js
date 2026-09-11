@@ -638,7 +638,7 @@ async function sendRecipientPickupEmail({
           <div style="font-size:36px;font-weight:800;letter-spacing:6px;font-family:monospace">${escapeHtml(deliveryCode)}</div>
           <div style="font-size:12px;color:#666;margin-top:8px"><strong>Csak az átadáskor add meg a szállítónak</strong> — előre bediktálva a kód elveszti a bizonyíték-értékét.</div>
         </div>
-        ${carrierName ? `<p>🚗 Szállító: <strong>${escapeHtml(carrierName)}</strong>${carrierPhone ? ` — <a href="tel:${escapeHtml(carrierPhone)}">${escapeHtml(carrierPhone)}</a>` : ''}<br><span style="font-size:13px;color:#666">Egyeztess vele az érkezésről!</span></p>` : ''}
+        ${(carrierName || carrierPhone) ? `<p>🚗 Szállító: <strong>${escapeHtml(carrierName || '')}</strong>${carrierPhone ? ` — <a href="tel:${escapeHtml(carrierPhone)}">${escapeHtml(carrierPhone)}</a>` : ''}<br><span style="font-size:13px;color:#666">Egyeztess vele az érkezésről!</span></p>` : ''}
         <a href="${escapeHtml(trackingUrl)}" style="display:block;text-align:center;background:#1e40af;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px">
           📍 Küldemény követése
         </a>
