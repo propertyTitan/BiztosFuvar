@@ -333,9 +333,23 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   `lib/navigacio.ts`, nyílt átirányítás ellen). ⚠️ htmlFor: a mért a11y
 >   0 critical/serious (PR #177), a `<label>`-számlálás wrapping label-eket
 >   talált — nem nyúltam hozzá.
-> - **B3 ⏳:** `PATCH /jobs/:id` szerkesztés (bidding állapotban) + felvételi
->   ablak mezők a feladásban + ajánlat-nélküli nudge (24 h, 0 ajánlat →
->   in-app + e-mail tippekkel; új `jobs.no_offer_nudge_at` oszlop).
+> - **B3 ✅ (`audit-b3-szerkesztes-nudge.test.js`, web `idoablak.test.ts`;
+>   082-es migráció — a merge után a prodon futtatandó):** (1) **`PATCH
+>   /jobs/:id`** — a feladó a még nyitott (bidding/pending) fuvarján
+>   javíthatja a címet, leírást, ajánlott árat, súlyt/méretet, felvételi
+>   időablakot, cipelés/emelet/lift, deklarált értéket (a felvételi/lerakodási
+>   cím NEM — arra tették az ajánlatokat); ugyanaz a validáció és
+>   kontakt-szűrő, mint a feladásnál; a függő ajánlattevők `job_updated`
+>   értesítést kapnak; a web fuvar-oldalon „Hirdetés szerkesztése” dialógus
+>   (cím/leírás/ár). Eddig egy elgépelt ár csak lemondás + újrafeladással
+>   volt javítható. (2) **Felvételi időablak** két `datetime-local` mező a
+>   feladáson (opcionális; kliens-szabályok `lib/idoablak.ts`: nem múlt,
+>   vége ≥ kezdet, ≤60 nap) és megjelenítés a szállítói fuvar-oldalon. (3)
+>   **„Nincs ajánlat” nudge** (`services/noOfferNudge.js`, napi kör):
+>   bidding + `NO_OFFER_NUDGE_AFTER_HOURS` (alap 24) + 0 ajánlat → EGYSZER
+>   in-app + e-mail három tippel (ár +10–20 %, tágabb időablak, leírás +
+>   fotó) és a szerkesztés linkjével; `jobs.no_offer_nudge_at` (belső
+>   könyvelés — scrub + anonimizálás-manifest besorolva).
 > - **C ⏳ (P2-lista):** halott státuszok, lejárt azonnali fuvarok,
 >   webhook-index, lemondás-értesítés link, disputed-kézbesítés
 >   utóhatásai, retention_runs purge, photos/messages XOR, CORS
