@@ -817,6 +817,7 @@ export const api = {
       login_count: number;
       last_seen_at: string | null;
       total_active_seconds: number;
+      can_bid?: boolean | null;
     }>>(`/admin/users?limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`),
 
   /** KYC dokumentumok listája státusz szerint (alapból a függőben lévők). */

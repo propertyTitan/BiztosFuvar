@@ -861,17 +861,13 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   const feeHuf = j.connection_fee_huf
     || calculateConnectionFee(j.accepted_price_huf || j.suggested_price_huf || 0);
 
-  // Idempotens: ha már van gateway_url, csak visszaadjuk.
-  if (j.barion_gateway_url) {
-    return res.json({
-      payment_id: j.barion_payment_id,
-      gateway_url: j.barion_gateway_url,
-      fee_huf: feeHuf,
-      is_stub: String(j.barion_gateway_url).startsWith('stub:'),
-      reused: true,
-    });
-  }
-
+  // ⚠️ A KUPON A GATEWAY-ÚJRAHASZNÁLAT ELŐTT (2026-09-11, Codex-audit P1-01,
+  // user-döntés D2): a licit-elfogadás és az azonnali fuvar MINDIG létrehoz
+  // egy fizetési munkamenetet (stubban is), és a lenti „reused" ág feltétel
+  // nélkül azt adta vissza — a kupon-ág a valódi folyamaton HOLT KÓD volt: az
+  // ajánlói program ígért ingyenes kapcsolatfelvétele sosem váltódott be
+  // (a tesztek gateway nélküli fixture-ön zöldek voltak). Őr:
+  // kupon-pay-sorrend.test.js.
   // ── INGYEN FELADÁS: kupon beváltása (ajánlói program / szint-kupon) ──
   // Ha a feladónak van felhasználható kupon, és a díj a kupon plafonja
   // alatt van, a Barion-fizetést KIHAGYJUK: a kupon a teljes díjat
@@ -901,6 +897,18 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
     maybeGrantReferralReward(j.shipper_id, { role: 'shipper', jobId: j.id }).catch(() => {});
     return res.json({ ok: true, paid_via_voucher: true, fee_huf: 0, gateway_url: null });
   }
+
+  // Idempotens: ha már van gateway_url, csak visszaadjuk.
+  if (j.barion_gateway_url) {
+    return res.json({
+      payment_id: j.barion_payment_id,
+      gateway_url: j.barion_gateway_url,
+      fee_huf: feeHuf,
+      is_stub: String(j.barion_gateway_url).startsWith('stub:'),
+      reused: true,
+    });
+  }
+
 
   let barionRes;
   try {
@@ -1084,27 +1092,47 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
 //   - paid_at + connection_fee_huf MARAD (a díj már teljesített kontakt-
 //     átadást fedez, az újraválasztás díjmentes)
 async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
-  await db.query(
-    `UPDATE jobs
-        SET status = 'bidding',
-            carrier_id = NULL,
-            accepted_price_huf = NULL,
-            reopened_count = reopened_count + 1,
-            updated_at = NOW()
-      WHERE id = $1 AND status = 'accepted'`,
-    [j.id],
-  );
-  if (failedCarrierId) {
-    await db.query(
-      `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND carrier_id = $2`,
-      [j.id, failedCarrierId],
+  // ⚠️ TRANZAKCIÓ + rowCount (2026-09-11, Codex-audit P0-04): három külön
+  // UPDATE volt, tranzakció nélkül, és a fuvar-UPDATE guardját (status =
+  // 'accepted') senki nem ellenőrizte — ha nem fogott, a licitek akkor is
+  // átálltak (fél-siker: a fuvar nem nyílt újra, de az ajánlatok „pending"-re
+  // ugrottak). Most: egy tranzakció, és ha a fuvar nem 'accepted', semmi nem
+  // változik, false-t adunk vissza (a hívó 409-cel jelzi).
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const ujranyit = await client.query(
+      `UPDATE jobs
+          SET status = 'bidding',
+              carrier_id = NULL,
+              accepted_price_huf = NULL,
+              reopened_count = reopened_count + 1,
+              updated_at = NOW()
+        WHERE id = $1 AND status = 'accepted'`,
+      [j.id],
     );
+    if (ujranyit.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return false;
+    }
+    if (failedCarrierId) {
+      await client.query(
+        `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND carrier_id = $2`,
+        [j.id, failedCarrierId],
+      );
+    }
+    await client.query(
+      `UPDATE bids SET status = 'pending'
+        WHERE job_id = $1 AND status = 'rejected' AND carrier_id <> $2`,
+      [j.id, failedCarrierId || '00000000-0000-0000-0000-000000000000'],
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
-  await db.query(
-    `UPDATE bids SET status = 'pending'
-      WHERE job_id = $1 AND status = 'rejected' AND carrier_id <> $2`,
-    [j.id, failedCarrierId || '00000000-0000-0000-0000-000000000000'],
-  );
   // A leváltott szállítót ki kell tenni a fuvar élő szobájából — különben a
   // nyitva hagyott füle tovább kapná az ÚJ szállító GPS-pingjeit és fotóit.
   if (failedCarrierId) {
@@ -1112,6 +1140,7 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
   }
   realtime.emitToJob(j.id, 'job:reopened', { job_id: j.id, reason: reason || null });
   realtime.emitToFeed('jobs:reopened', { job_id: j.id });
+  return true;
 }
 
 // POST /jobs/:id/cancel
@@ -1173,7 +1202,10 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
 
   // === SZÁLLÍTÓ-LEMONDÁS elfogadott fuvaron → díjmentes újranyitás ===
   if (iAmCarrier && j.status === 'accepted') {
-    await reopenJobForNewDriver(j, { failedCarrierId: j.carrier_id, reason });
+    const ujranyitva = await reopenJobForNewDriver(j, { failedCarrierId: j.carrier_id, reason });
+    if (!ujranyitva) {
+      return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
+    }
     try {
       await createNotification({
         user_id: j.shipper_id,
@@ -1189,7 +1221,10 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
   }
 
   // === FELADÓ-LEMONDÁS (vagy szállító-lemondás nem-elfogadott állapotban) ===
-  await db.query(
+  // Feltételes (P0-04): a tiltólista a SELECT-elt állapotra nézett; az UPDATE
+  // ugyanazt kényszeríti ki a DB-ben, hogy egy közben elindult felvétel
+  // (in_progress) ne íródjon felül lemondással.
+  const lemond = await db.query(
     `UPDATE jobs
         SET status = 'cancelled',
             cancelled_at = NOW(),
@@ -1198,9 +1233,13 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
             cancellation_fee_huf = 0,
             refund_huf = 0,
             updated_at = NOW()
-      WHERE id = $3`,
+      WHERE id = $3
+        AND status NOT IN ('in_progress', 'delivered', 'completed', 'cancelled', 'disputed')`,
     [req.user.sub, reason || null, j.id],
   );
+  if (lemond.rowCount === 0) {
+    return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
+  }
 
   // Ha a díj-fizetés még függőben volt ('held' = elindított, de be nem
   // fejezett Barion-fizetés), zárjuk le refunded-ként, hogy a főkönyv ne
@@ -1327,7 +1366,10 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
   }
 
   const failedCarrierId = j.carrier_id;
-  await reopenJobForNewDriver(j, { failedCarrierId, reason });
+  const ujranyitva = await reopenJobForNewDriver(j, { failedCarrierId, reason });
+  if (!ujranyitva) {
+    return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
+  }
 
   // A leváltott szállító értesítése
   if (failedCarrierId) {

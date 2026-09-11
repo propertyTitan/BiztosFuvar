@@ -87,12 +87,24 @@ async function requireDriverKYC(req, res, next) {
     const { rows } = await db.query(
       `SELECT identity_kyc_status, driver_terms_accepted_at,
               account_type, personal_tax_id, tax_data_requested_at,
-              tax_data_reminder_count
+              tax_data_reminder_count, can_bid
          FROM users WHERE id = $1`,
       [req.user.sub],
     );
     const u = rows[0];
     if (!u) return res.status(401).json({ error: 'Felhasználó nem található' });
+    // ⚠️ FELFÜGGESZTÉS (2026-09-11, Codex-audit P1-03, user-döntés D4): a
+    // `can_bid` az adminon írható volt, de egyetlen jogosultsági kapu sem
+    // olvasta (a jogosítvány-kori maradvány dormant lett) — az admin azt
+    // hitte, letiltotta a szállítót, az tovább licitált. Mostantól ez a
+    // szállítói moderáció valódi eszköze: ajánlattétel, járat-hirdetés,
+    // azonnali elfogadás (és a mentős regisztráció) egyaránt tiltva.
+    if (u.can_bid === false) {
+      return res.status(403).json({
+        error: 'A szállítói fiókod fel van függesztve. Ha kérdésed van, írj az info@gofuvar.hu címre.',
+        code: 'CARRIER_SUSPENDED',
+      });
+    }
     // A személyi igazolvány (identity KYC) a SZÁLLÍTÓI tevékenységhez kötelező
     // (2026-07-19 óta a feladónak nem kell). A jogosítvány-követelmény
     // megszűnt (2026-07-07): a nem-motoros futárokat is engedjük.

@@ -180,7 +180,8 @@ describe('Közös felület: profil, értesítések, üzenetek', () => {
   it('profil olvasása és szerkesztése', async () => {
     await sikeres('GET /auth/me', request(app).get('/auth/me').set(auth(V.felado.token)));
     await sikeres('PATCH /auth/me', request(app).patch('/auth/me')
-      .set(auth(V.felado.token)).send({ full_name: 'Módosított Név', bio: 'rövid bemutatkozás' }));
+      // A név NEM módosul: igazolt fióknál zárolt (2026-09-11, KYC_NAME_LOCKED).
+      .set(auth(V.felado.token)).send({ bio: 'rövid bemutatkozás' }));
     await sikeres('GET /auth/users/:id/profile', request(app)
       .get(`/auth/users/${V.szallito.id}/profile`).set(auth(V.felado.token)));
     await sikeres('GET /auth/referral', request(app).get('/auth/referral').set(auth(V.felado.token)));
