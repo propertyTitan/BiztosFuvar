@@ -342,6 +342,16 @@ export default function SiteHeader() {
                     {/* Mobilon a fő nav (Fuvarok / Útvonalak) rejtve van — itt
                         érhető el, hogy keskeny képernyőn se vesszen el. */}
                     <div className="only-mobile-menu">
+                      {/* Mobilon a fejléc mód-chipje rejtve van — itt látszik, melyik mód
+                          aktív, és hol lehet váltani (2026-09-11, teljes audit B1) */}
+                      {activeMode && (
+                        <DropdownItem
+                          href="/"
+                          icon={activeMode === 'driver' ? <Truck size={16} /> : <Package size={16} />}
+                          label={activeMode === 'driver' ? 'Szállító mód — váltás a főoldalon' : 'Feladó mód — váltás a főoldalon'}
+                          onClick={() => setMenuOpen(false)}
+                        />
+                      )}
                       {/* Mobilon is az aktív mód linkjei (BUG-034 folytatás) */}
                       {activeMode === 'driver' ? (
                         <>

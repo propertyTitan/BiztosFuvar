@@ -308,6 +308,10 @@ export async function fetchWithTimeout(url: string, init: ApiInit = {}): Promise
   }
 }
 
+// Profil-cache állapot (lásd api.getMyProfile)
+const PROFIL_CACHE_TTL_MS = 15_000;
+let profilCache: { token: string; at: number; p: Promise<any> } | null = null;
+
 async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -342,7 +346,12 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
         window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code } }));
       }
     }
-    throw new Error(errorData.error || `Hiba történt (HTTP ${res.status}). Próbáld újra pár perc múlva.`);
+    // A hibakód a hívóhoz is eljut (2026-09-11, B1): kód-alapú kezelés
+    // (pl. PHONE_REQUIRED → profil) szöveg-illesztés nélkül.
+    const hiba = new Error(errorData.error || `Hiba történt (HTTP ${res.status}). Próbáld újra pár perc múlva.`);
+    (hiba as Error & { code?: string; status?: number }).code = errorData.code;
+    (hiba as Error & { code?: string; status?: number }).status = res.status;
+    throw hiba;
   }
   return res.json();
 }
@@ -478,6 +487,10 @@ export const api = {
       `/bids/${bidId}/counter`,
       { method: 'POST', body: JSON.stringify({ amount }) },
     ),
+
+  /** A szállító visszavonja a saját, még függő ajánlatát (2026-09-11, A4/B1). */
+  withdrawBid: (bidId: string) =>
+    request<{ ok: true; status: 'withdrawn' }>(`/bids/${bidId}/withdraw`, { method: 'POST' }),
 
   /** A szállító elfogadja a feladó ellenajánlatát → megállapodás. */
   acceptCounter: (bidId: string) =>
@@ -970,12 +983,29 @@ export const api = {
 
   // ---------- Profile ----------
 
-  getMyProfile: () =>
-    request<any>('/auth/me'),
+  // ⚠️ PROFIL-CACHE (2026-09-11, teljes audit B1). Öt komponens (fejléc,
+  // HomeHub, e-mail-kapu, nyilatkozat-kapu, teszt-fizetési sáv) mind a
+  // betöltéskor hívta a /auth/me-t — minden oldalváltás 5 azonos kérés,
+  // Neon-körrel. Rövid TTL + token-kulcs: fiókváltásnál nem szivárog, a
+  // profil-módosító hívások (`invalidateMyProfile`) frissre kényszerítik.
+  getMyProfile: (opts?: { fresh?: boolean }) => {
+    const token = getToken() || '';
+    const most = Date.now();
+    if (!opts?.fresh && profilCache && profilCache.token === token && most - profilCache.at < PROFIL_CACHE_TTL_MS) {
+      return profilCache.p;
+    }
+    const p = request<any>('/auth/me');
+    profilCache = { token, at: most, p };
+    p.catch(() => { if (profilCache?.p === p) profilCache = null; });
+    return p;
+  },
+  invalidateMyProfile: () => { profilCache = null; },
 
   /** Szállítói egyszeri nyilatkozat elfogadása (jogszabályok + KRESZ betartása). */
-  acceptDriverTerms: () =>
-    request<{ ok: true; driver_terms_accepted_at: string }>('/auth/accept-driver-terms', { method: 'POST' }),
+  acceptDriverTerms: () => {
+    profilCache = null;
+    return request<{ ok: true; driver_terms_accepted_at: string }>('/auth/accept-driver-terms', { method: 'POST' });
+  },
 
   /** DAC7 adóügyi adatok megadása (magánszemély szállító, adóazonosító jel). */
   saveTaxData: (body: { personal_tax_id: string; birth_date: string; address: string }) =>
@@ -993,8 +1023,10 @@ export const api = {
   updateMyProfile: (data: {
     full_name?: string; phone?: string; vehicle_type?: string;
     vehicle_plate?: string; bio?: string; avatar_url?: string;
-  }) =>
-    request<any>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) }),
+  }) => {
+    profilCache = null;
+    return request<any>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) });
+  },
 
   getUserProfile: (id: string) =>
     request<any>(`/auth/users/${id}/profile`),

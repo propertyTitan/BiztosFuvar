@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job, CarrierRoute } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 import { FileText, Hourglass, Route as RouteIcon, MapPin, Flag, Calendar } from 'lucide-react';
 
 const JOB_STATUS_LABEL: Record<string, string> = {
@@ -67,12 +68,16 @@ export default function SajatHirdeteseim() {
         <div>
           <h2 style={{ marginTop: 0, marginBottom: 4 }}>Saját hirdetéseim</h2>
           <p className="muted" style={{ margin: 0 }}>
-            Minden, amit TE adtál fel — feladott fuvarok és induló járatok egy helyen.
+            {JARAT_ENGEDELYEZVE
+              ? 'Minden, amit TE adtál fel — feladott fuvarok és induló járatok egy helyen.'
+              : 'Minden, amit TE adtál fel — a feladott fuvarjaid egy helyen.'}
           </p>
         </div>
         <div className="row" style={{ gap: 8 }}>
           <Link className="btn" href="/dashboard/uj-fuvar">+ Új fuvar</Link>
-          <Link className="btn btn-secondary" href="/sofor/uj-utvonal">+ Új fix áras</Link>
+          {JARAT_ENGEDELYEZVE && (
+            <Link className="btn btn-secondary" href="/sofor/uj-utvonal">+ Új fix áras</Link>
+          )}
         </div>
       </div>
 
@@ -251,11 +256,14 @@ export default function SajatHirdeteseim() {
         </>
       )}
 
-      {/* Fix áras útvonalak */}
+      {/* Fix áras útvonalak — a járat-ág kapcsolója mögött (2026-09-11, B1):
+          a Codex-audit D1 után ez a szekció szivárogtatta a rejtett funkciót */}
+      {JARAT_ENGEDELYEZVE && (
       <h2 style={{ marginTop: 32, display: 'flex', alignItems: 'center', gap: 8 }}>
         <RouteIcon size={20} /> Járataim ({loading ? '…' : routes.length})
       </h2>
-      {!loading && routes.length === 0 && (
+      )}
+      {JARAT_ENGEDELYEZVE && !loading && routes.length === 0 && (
         <EmptyState
           compact
           icon={<RouteIcon size={22} aria-hidden />}
@@ -264,7 +272,7 @@ export default function SajatHirdeteseim() {
           cta={<Link className="btn btn-secondary" href="/sofor/uj-utvonal">Járat hirdetése</Link>}
         />
       )}
-      {routes.map((r) => {
+      {JARAT_ENGEDELYEZVE && routes.map((r) => {
         const first = r.waypoints[0]?.name || '?';
         const last = r.waypoints[r.waypoints.length - 1]?.name || '?';
         return (
