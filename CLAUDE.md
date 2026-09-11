@@ -228,7 +228,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > payload scrub + admin szerepváltás session-visszavonással + e-mail-kapu
 > POST /jobs, /bids, /bookings; (2) ✅ állapotgép-guardok (P0-04),
 > törlés vs bizonyíték-zárolás (P0-06), `can_bid` kapu + KYC-név zár
-> (P1-03), kupon-sorrend (D2); (3) retenciós `ok` általánosítása (P1-09),
+> (P1-03), kupon-sorrend (D2); (3) ✅ retenciós `ok` általánosítása (P1-09),
 > graceful shutdown + async scrypt + /health/ready; (4) web: járat-ág
 > feature-flag mögé (D1), ár-összehasonlító ki (D3), SEO-apróságok
 > (canonical www, title-duplázás, sitemap-dátum); (5) lockfile + `npm ci`
@@ -849,6 +849,24 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > ami a javítás NÉLKÜL igazoltan piros.
 
 ### ✅ Kész (élesedett)
+- **CODEX-AUDIT 3. CSOMAG (2026-09-11)** — (a) P1-09: mind a 22 napi
+  retenciós kör TOVÁBBDOBJA a hibáját (16 `return 0` + 4 kieső-ágú catch
+  átírva); az orchestrator izolál, maszkolva naplóz, `ok=false`-t ír és
+  riaszt. Eddig 21 kör nyelte a DB-hibát → a `retention_runs.ok` hamisan
+  zöld volt, a watchdog hallgatott, a PII bent maradt. A
+  `retencio-hibaagak` mátrixában a „nyeli" osztály ÜRES (a mátrix saját
+  kommentje szerint is az volt a rossz alapértelmezés). Az `anonymizeOldJobs`
+  BELSŐ cím-rövidítő rész-lépése továbbra is nyel (nem napi kör; a fő
+  anonimizálást nem buktathatja — meglévő teszt őrzi). Új őr:
+  `retencio-ok-hamis-zold.test.js` (DB-hiba mellett ok=false + a kör neve).
+  (b) P1-15: `GET /health/ready` (SELECT 1, 2 mp; 503 ha nincs DB) —
+  ⚠️ a Railway healthcheck SZÁNDÉKOSAN a `/health` marad (egy Neon cold
+  start ne indítson konténer-újraindítást); őr: `health-ready.test.js` +
+  routeManifest/szerep-lefedettség. Szabályos leállás SIGTERM/SIGINT-re
+  (server.close + pool.end, 10 mp erő-kilépés) — eddig minden deploy elvágta
+  a futó kéréseket. (c) P2-01: `scryptSync` → aszinkron `crypto.scrypt`
+  (hash + verify; formátum változatlan, régi hash-ek érvényesek) — a belépés
+  többé nem blokkolja az event loopot.
 - **CODEX-AUDIT 2. CSOMAG (2026-09-11)** — (a) P0-04 állapotgép-guardok: a
   foglalás-elutasítás, a foglalás- és fuvar-lemondás, a felvételi fotó és az
   újranyitás UPDATE-je mind FELTÉTELES (`AND status = …`) + `rowCount` →
