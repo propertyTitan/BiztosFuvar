@@ -43,28 +43,66 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-/**
- * Nyers küldés Resend API-n keresztül (vagy STUB mode-ban csak log).
- * Sose dob hibát — ha el is akad, csendben naplóz és null-al tér vissza,
- * hogy az eredeti tranzakció (pl. fizetés nyugtázás) ne forduljon meg
- * attól, hogy a maileküldő szolgáltató épp nincs elérhető.
- *
- * @param {object} opts
- * @param {string} opts.to – címzett email
- * @param {string} opts.subject – tárgy
- * @param {string} opts.html – HTML body
- * @param {string} [opts.text] – plain-text body (auto-generált ha nincs)
- */
-async function sendEmail({ to, subject, html, text }) {
-  if (!to || !subject || !html) {
-    console.warn('[email] hiányos adat:', { to: maskEmail(to), subject });
-    return null;
-  }
-  if (isStub()) {
-    // A body-t NEM logoljuk: tartalmazhat átvételi kódot / tracking linket.
-    console.log('[email STUB]', { to: maskEmail(to), subject });
-    return { stub: true, id: `stub-${Date.now()}` };
-  }
+// ── E-MAIL-KIESÉS: ÚJRAPRÓBA + RIASZTÁS (2026-09-11, teljes audit A3) ───────
+//
+// Eddig egy sikertelen küldés EGYETLEN `console.error` volt a Railway-logban,
+// amit senki nem néz — és 21 hívóhely `.catch(() => console.warn(...))`-nal
+// nyelte el a maradékot. Az e-mail a platform FŐ csatornája (megerősítő
+// link, díj-visszaigazolás, fizetési felhívás, vita): egy Resend-kiesés vagy
+// egy lejárt kulcs napokig észrevétlen maradt volna, miközben a
+// felhasználók „nem jött meg a levél"-lel küzdenek.
+//
+//  (1) ÁTMENETI hiba (429 / 5xx / hálózat) → rövid backoffos újrapróba
+//      (alapból 1 s, 4 s — env: EMAIL_RETRY_BACKOFF_MS="1000,4000"). Az
+//      újrapróba ugyanabban a hívásban fut, a hívó megvárja: a 21 hívóhely
+//      többsége úgyis setImmediate-ből hív, a kérés-útra kötöttek (pl. a
+//      regisztrációs megerősítő) 35 mp-es kliens-keretben futnak.
+//  (2) VÉGLEGES hiba (4xx, vagy az újrapróbák is elbuktak) → Sentry-riasztás,
+//      hibamódonként (státusz-osztály) 10 percenként legfeljebb egyszer, a
+//      közben összegyűlt kiesések SZÁMÁVAL. E-mail-riasztás itt nem lehet
+//      (pont az e-mail nem megy) — az SMS-ág e-mail-riasztása a párja.
+//  PII: a riasztásban a címzett maszkolva, a tárgy maskInText-tel; body soha.
+//  Őr: tests/audit-a3-email-riasztas.test.js.
+// ─────────────────────────────────────────────────────────────────────────
+const RIASZTAS_ABLAK_MS = 10 * 60 * 1000;
+const kiesesek = new Map(); // hibamód → { db, utolsoRiasztas }
+
+function backoffLista() {
+  const raw = process.env.EMAIL_RETRY_BACKOFF_MS || '1000,4000';
+  return raw.split(',').map((x) => Number(x.trim())).filter((n) => Number.isFinite(n) && n >= 0);
+}
+
+function atmenetiHiba(status) {
+  return status === 429 || (status >= 500 && status <= 599) || status === 'network';
+}
+
+function riasztEmailKieses(hibamod, { to, subject, reszlet }) {
+  const most = Date.now();
+  const v = kiesesek.get(hibamod) || { db: 0, utolsoRiasztas: 0 };
+  v.db += 1;
+  kiesesek.set(hibamod, v);
+  if (most - v.utolsoRiasztas < RIASZTAS_ABLAK_MS) return; // fojtva — a számláló nő
+  const db = v.db;
+  v.db = 0;
+  v.utolsoRiasztas = most;
+  try {
+    const Sentry = require('@sentry/node');
+    Sentry.captureMessage(`[email] ${db} e-mail elveszett (${hibamod}) az elmúlt 10 percben`, {
+      level: 'error',
+      tags: { csatorna: 'email', hibamod: String(hibamod) },
+      extra: {
+        utolso_cimzett: maskEmail(to),
+        utolso_targy: maskInText(String(subject || '').slice(0, 60)),
+        reszlet: maskInText(String(reszlet || '').slice(0, 200)),
+      },
+    });
+  } catch { /* a riasztás hibája sosem érintheti a küldést */ }
+}
+
+/** Tesztekhez: a fojtás-állapot nullázása. */
+function __resetEmailAlertsForTests() { kiesesek.clear(); }
+
+async function egyszerKuld({ to, subject, html, text }) {
   try {
     const res = await fetch(RESEND_API_URL, {
       method: 'POST',
@@ -87,14 +125,54 @@ async function sendEmail({ to, subject, html, text }) {
       // e-mail-cím került a Railway-logba — miközben ennek a fájlnak minden
       // más log-sora maskEmail-t használ. Egyetlen kilógó sor volt.
       console.error('[email] Resend hiba:', res.status, maskInText(body.slice(0, 300)));
-      return null;
+      return { ok: false, status: res.status, reszlet: body.slice(0, 200) };
     }
     const json = await res.json();
-    return { stub: false, id: json.id || null };
+    return { ok: true, id: json.id || null };
   } catch (err) {
     console.error('[email] hálózati hiba:', err.message);
+    return { ok: false, status: 'network', reszlet: err.message };
+  }
+}
+
+/**
+ * Nyers küldés Resend API-n keresztül (vagy STUB mode-ban csak log).
+ * Sose dob hibát — ha el is akad, naplóz + riaszt, és null-al tér vissza,
+ * hogy az eredeti tranzakció (pl. fizetés nyugtázás) ne forduljon meg
+ * attól, hogy a maileküldő szolgáltató épp nincs elérhető.
+ *
+ * @param {object} opts
+ * @param {string} opts.to – címzett email
+ * @param {string} opts.subject – tárgy
+ * @param {string} opts.html – HTML body
+ * @param {string} [opts.text] – plain-text body (auto-generált ha nincs)
+ */
+async function sendEmail({ to, subject, html, text }) {
+  if (!to || !subject || !html) {
+    console.warn('[email] hiányos adat:', { to: maskEmail(to), subject });
     return null;
   }
+  if (isStub()) {
+    // A body-t NEM logoljuk: tartalmazhat átvételi kódot / tracking linket.
+    console.log('[email STUB]', { to: maskEmail(to), subject });
+    return { stub: true, id: `stub-${Date.now()}` };
+  }
+  const varakozasok = backoffLista();
+  let utolso = null;
+  for (let kiserlet = 0; kiserlet <= varakozasok.length; kiserlet++) {
+    if (kiserlet > 0) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, varakozasok[kiserlet - 1]));
+      console.warn(`[email] újrapróba ${kiserlet}/${varakozasok.length}: ${maskEmail(to)}`);
+    }
+    // eslint-disable-next-line no-await-in-loop
+    utolso = await egyszerKuld({ to, subject, html, text });
+    if (utolso.ok) return { stub: false, id: utolso.id };
+    if (!atmenetiHiba(utolso.status)) break; // végleges (4xx) — nincs értelme ismételni
+  }
+  const hibamod = utolso.status === 'network' ? 'network' : `http-${String(utolso.status)[0]}xx`;
+  riasztEmailKieses(hibamod, { to, subject, reszlet: utolso.reszlet });
+  return null;
 }
 
 // ---------- HTML email sablon (egyszerű wrapper) ----------
@@ -691,6 +769,7 @@ async function sendAdminMessageEmail({ to, name, bodyText }) {
 }
 
 module.exports = {
+  __resetEmailAlertsForTests,
   // A wrapHtml exportálva, hogy a levél-váz viselkedése MÉRHETŐ legyen
   // (2026-08-12): a heading nélküli hívás korábban „undefined" címsort adott.
   wrapHtml,

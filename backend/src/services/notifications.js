@@ -36,7 +36,16 @@ async function createNotification({ user_id, type, title, body = null, link = nu
     });
     return notif;
   } catch (err) {
+    // Riasztás (2026-09-11, teljes audit A3): az in-app értesítés a harang és
+    // a push forrása — ha a beszúrás elhasal, a felhasználó SEMMIT nem lát
+    // az eseményről (fizetés, elfogadás, vita), és eddig ez csak a
+    // Railway-logban látszott.
     console.error('[notifications] beszúrás hiba:', err.message);
+    try {
+      require('@sentry/node').captureException(err, {
+        tags: { csatorna: 'notification', tipus: String(type) },
+      });
+    } catch { /* a riasztás hibája sosem érintheti a hívót */ }
     return null;
   }
 }
