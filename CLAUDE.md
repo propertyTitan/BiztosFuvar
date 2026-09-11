@@ -269,11 +269,34 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   korlát: NINCS DB-alapú újraküldési sor (az SMS-nek van, mert ott 10
 >   napos kiesés volt) — ha a Sentry ismétlődő e-mail-kiesést mutat, az a
 >   következő lépcső (`email_retry_queue` az smsRetry.js mintájára).
-> - **A4 ⏳:** dispute UNIQUE nyitott index + XOR; `POST /bids/:id/withdraw`
->   + withdrawn a reopenben; accepted+fizetetlen fuvar auto-újranyitása N
->   nap után; FK-k (reviews/escrow SET NULL + rating újraszámolás);
->   sugár-keresés SQL-ben; fotó-feltöltési limitek; címzett-e-mail a
->   felvételhez kötve.
+> - **A4 ✅ (`audit-a4-integritas.test.js`, 12 őr — 9 piros a forrás nélkül,
+>   3 a 081-es migráció DB-kényszereit méri; 081 a prodon LEFUTOTT):**
+>   (1) **Vita**: XOR (pontosan egy ügylet) + részleges UNIQUE index a
+>   nyitott vitákra (job/booking) — öt párhuzamos nyitásból egy 201, a többi
+>   409 (`DISPUTE_ALREADY_OPEN`), mindkét azonosító → 400. (2) **`POST
+>   /bids/:id/withdraw`**: a szállító visszavonja a függő ajánlatát (a
+>   feladó `bid_withdrawn` értesítést kap; a reopen a 'withdrawn'-t NEM
+>   éleszti, az újra-ajánlás engedi); ⚠️ a web-gomb a B csomagban. (3)
+>   **Fizetetlen megállapodás lejáratása** (`runPaymentExpiry`, a napi
+>   emlékeztető-kör része): 2 emlékeztető + `PAYMENT_EXPIRE_AFTER_HOURS`
+>   (alap 72 h) után a fuvar 'cancelled' (`cancel_reason
+>   'payment_expired'`), a függő díj-sor 'refunded', mindkét fél in-app +
+>   e-mail. DÖNTÉS: lezárás, NEM újranyitás — egy hat napja nem reagáló
+>   feladó fuvarja zombi-hirdetés lenne. (4) **FK-k**: `reviews.reviewer_id`
+>   / `job_id` / `booking_id` ON DELETE SET NULL (a törölt értékelő vagy a
+>   törölt fuvar nem viszi el a MÁSIK fél kapott csillagát; a törölt ember
+>   szabad szövege a fiók-törléskor ürül; a profil „Törölt felhasználó"-t
+>   mutat; a 078-as XOR „legfeljebb egy"-re enyhült); `escrow_transactions.
+>   job_id` SET NULL (a pénzügyi sor túléli a fuvar törlését — Számv. tv. 8
+>   év). (5) **Sugár-keresés az SQL-ben** (haversine + távolság szerinti
+>   sorrend, csak `radius_km`-mel; koordináta/sugár-kapu 400) — eddig a
+>   `LIMIT 200` UTÁN, JS-ben szűrt: a 200 legfrissebbnél régebbi közeli
+>   fuvar láthatatlan volt. (6) **Fotó-plafon**: 10/típus/ügylet
+>   (`PHOTO_MAX_PER_KIND`, 400 `PHOTO_LIMIT`). (7) **Címzetti e-mail**:
+>   feladáskor KÓD NÉLKÜL (a sablon megmondja, mikor jön), a kód +
+>   szállító elérhetőség a FELVÉTELKOR megy (`sendRecipientPickupEmail`,
+>   fuvar + foglalás ág, az SMS párja) — a 2026-08-11 óta nyitott
+>   „elgépelt címre érvényes kód" kérdés így zárult.
 > - **B ⏳ (web):** járat-szivárgás 4 helyen (PostedJobs, sofor/fuvarok üres
 >   CTA, HomeHub foglalásaim, fizetes-stub vissza-link); telefonszám
 >   kötelező a szállítónak (backend-kapu + UI); DriverTermsGate mégse/ESC;
