@@ -17,6 +17,7 @@ const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 // absztrakciót használja — a foglalási ág is ide igazítva.
 const paymentProvider = require('../services/paymentProvider');
 const { calculateConnectionFee } = require('../services/connectionFee');
+const { konyvelDijFizetes } = require('../services/feePayment');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
@@ -1089,11 +1090,21 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
     });
   }
 
-  const { rows: updated } = await db.query(
-    `UPDATE route_bookings SET paid_at = NOW() WHERE id = $1 RETURNING paid_at`,
-    [b.id],
-  );
-  const paidAt = updated[0].paid_at;
+  // ⚠️ KÖZÖS KÖNYVELÉSI MAG (2026-09-11, teljes audit A2) — a fuvar-ág párja:
+  // állapot-őr + napló + számla, a csupasz UPDATE helyett.
+  const k = await konyvelDijFizetes({
+    entityType: 'booking', entityId: b.id,
+    paymentId: b.barion_payment_id || `manual-booking-${b.id}`, eventType: 'manual',
+    feeHuf: b.connection_fee_huf || calculateConnectionFee(b.price_huf),
+    currency: b.currency || 'HUF', shipperId: b.shipper_id, carrierId: b.carrier_id,
+  });
+  if (k.konyvelve === 0) {
+    return res.status(409).json({
+      error: 'A foglalás állapota időközben megváltozott (pl. lemondták) — frissítsd az oldalt.',
+      code: 'STATE_CHANGED',
+    });
+  }
+  const paidAt = k.paidAt;
 
   // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §)
   if (b.shipper_email) {

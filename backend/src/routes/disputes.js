@@ -199,6 +199,63 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
     }
   }
 
+  // ⚠️ E-MAIL A MÁSIK FÉLNEK + RIASZTÁS AZ ADMINNAK (2026-09-11, teljes audit
+  // A2). Eddig CSAK in-app értesítés ment a másik félnek, az adminnak SEMMI:
+  // egy vita napokig állhatott, ha senki nem nyitotta meg az admin panelt.
+  // A vita a fuvart 'disputed'-be teszi (lemondás tiltva) — a felek és az
+  // admin számára ez a legsürgősebb esemény, amit a platform kezel.
+  // PII-minimum: a levél a vita TÉNYÉT és a linket viszi, a leírást nem.
+  // Lazy require, hogy a tesztek a modul-objektumon át tudják elkapni.
+  setImmediate(async () => {
+    const emailSvc = require('../services/email');
+    try {
+      if (againstUser) {
+        const { rows: masikFel } = await db.query(
+          'SELECT email, full_name FROM users WHERE id = $1', [againstUser],
+        );
+        if (masikFel[0]?.email) {
+          const baseUrl = process.env.PUBLIC_URL || 'https://www.gofuvar.hu';
+          await emailSvc.sendEmail({
+            to: masikFel[0].email,
+            subject: '⚖️ Vitás esetet nyitottak az egyik ügyleteden',
+            html: emailSvc.wrapHtml({
+              heading: '⚖️ Vitás eset nyílt',
+              bodyHtml: `<p>Szia${masikFel[0].full_name ? ` ${emailSvc.escapeHtml(masikFel[0].full_name)}` : ''}!</p>`
+                + '<p>A másik fél vitás esetet nyitott az egyik ügyleteden. Amíg a vita nyitva van, az ügylet nem mondható le, '
+                + 'a fotók és az üzenetek bizonyítékként megőrződnek. Az admin mindkét felet meghallgatja, és döntést hoz.</p>'
+                + `<p><a href="${baseUrl}/ertesitesek">A részletek és a válaszlehetőség itt</a></p>`
+                + '<p>Ha kérdésed van, írj a panasz@gofuvar.hu címre.</p>',
+            }),
+          });
+        }
+      }
+      // Admin: in-app minden adminnak + e-mail a panasz-címre
+      const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+      for (const a of admins) {
+        // eslint-disable-next-line no-await-in-loop
+        await createNotification({
+          user_id: a.id,
+          type: 'admin_dispute_opened',
+          title: '⚖️ Új vita vár döntésre',
+          body: `Vita: ${dispute.id} — ${job_id ? `fuvar ${job_id}` : `foglalás ${booking_id}`}`,
+          link: '/admin#disputes',
+        }).catch(() => {});
+      }
+      await emailSvc.sendEmail({
+        to: process.env.DISPUTE_ALERT_EMAIL || 'panasz@gofuvar.hu',
+        subject: `⚖️ Új vita vár döntésre (${dispute.id.slice(0, 8)})`,
+        html: emailSvc.wrapHtml({
+          heading: '⚖️ Új vita',
+          bodyHtml: `<p>Vita-azonosító: <code>${dispute.id}</code></p>`
+            + `<p>Ügylet: ${job_id ? `fuvar <code>${job_id}</code>` : `foglalás <code>${booking_id}</code>`}</p>`
+            + `<p><a href="${process.env.PUBLIC_URL || 'https://www.gofuvar.hu'}/admin#disputes">Admin panel → Viták</a></p>`,
+        }),
+      });
+    } catch (e) {
+      console.warn('[email] dispute_opened hiba:', e.message);
+    }
+  });
+
   res.status(201).json(dispute);
 });
 
@@ -289,6 +346,34 @@ router.patch('/disputes/:id', authRequired, writeRateLimit, async (req, res) => 
     return res.status(400).json({ error: 'Érvénytelen státusz' });
   }
 
+  // ⚠️ DÖNTÉS-VALIDÁCIÓ (2026-09-11, teljes audit A2): a `resolution_note` és a
+  // `refund_huf` eddig ellenőrzés nélkül ment a DB-be — egy `resolved_*`
+  // indoklás nélkül is átment (a felek „Admin döntés: undefined"-ot kaptak
+  // volna), a szám-mezőbe szöveg/negatív érték kerülhetett.
+  if (resolution_note !== undefined && resolution_note !== null
+      && (typeof resolution_note !== 'string' || resolution_note.length > 2000)) {
+    return res.status(400).json({
+      error: 'A döntés indoklása szöveg, legfeljebb 2000 karakter.', code: 'RESOLUTION_NOTE_INVALID',
+    });
+  }
+  const jegyzet = typeof resolution_note === 'string' ? resolution_note.trim() : '';
+  if (status.startsWith('resolved_') && !jegyzet) {
+    return res.status(400).json({
+      error: 'A vita lezárásához kötelező a döntés indoklása — a felek ezt kapják meg.',
+      code: 'RESOLUTION_NOTE_REQUIRED',
+    });
+  }
+  let refundHuf = null;
+  if (refund_huf !== undefined && refund_huf !== null && refund_huf !== '') {
+    const n = typeof refund_huf === 'number' ? refund_huf : Number(String(refund_huf).trim());
+    if (!Number.isInteger(n) || n < 0 || n > 10_000_000) {
+      return res.status(400).json({
+        error: 'A visszatérítés összege 0 és 10 000 000 Ft közötti egész szám.', code: 'REFUND_INVALID',
+      });
+    }
+    refundHuf = n;
+  }
+
   const isResolved = status.startsWith('resolved_') || status === 'closed';
   const { rows } = await db.query(
     `UPDATE disputes
@@ -300,7 +385,7 @@ router.patch('/disputes/:id', authRequired, writeRateLimit, async (req, res) => 
             updated_at = NOW()
       WHERE id = $6
     RETURNING *`,
-    [status, resolution_note || null, refund_huf || 0, isResolved, req.user.sub, req.params.id],
+    [status, jegyzet || null, refundHuf, isResolved, req.user.sub, req.params.id],
   );
   if (!rows[0]) return res.status(404).json({ error: 'Vita nem található' });
   const d = rows[0];
@@ -340,8 +425,8 @@ router.patch('/disputes/:id', authRequired, writeRateLimit, async (req, res) => 
         user_id: uid,
         type: isResolved ? 'dispute_resolved' : 'dispute_updated',
         title: isResolved ? '⚖️ Vitás eset lezárva' : '⚖️ Vitás eset frissítve',
-        body: resolution_note
-          ? `Admin döntés: ${resolution_note.slice(0, 120)}`
+        body: jegyzet
+          ? `Admin döntés: ${jegyzet.slice(0, 120)}`
           : `A vita státusza: ${status}`,
         link: `/ertesitesek`,
       });

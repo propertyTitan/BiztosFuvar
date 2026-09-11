@@ -40,9 +40,12 @@ describe('1. webhook: lemondott fuvarra nem könyvel', () => {
     const { rows } = await db.query('SELECT paid_at, status FROM jobs WHERE id = $1', [job.id]);
     expect(rows[0].paid_at, 'LEMONDOTT fuvar lett fizetetté').toBeNull();
     expect(rows[0].status).toBe('cancelled');
-    const { rows: ev } = await db.query('SELECT processed, summary FROM payment_events WHERE payment_id = $1', [paymentId]);
+    const { rows: ev } = await db.query('SELECT processed, summary, event_type FROM payment_events WHERE payment_id = $1', [paymentId]);
     expect(ev.length).toBe(1);
-    expect(ev[0].processed).toBe(false);
+    // processed=true (végleges: nem próbáljuk újra), de event_type='orphan' + ÁRVA
+    // összefoglaló — az admin naplójában és az ajánlói őrben így különül el.
+    expect(ev[0].processed).toBe(true);
+    expect(ev[0].event_type).toBe('orphan');
     expect(ev[0].summary).toMatch(/ÁRVA/);
     const { rows: notif } = await db.query(`SELECT 1 FROM notifications WHERE user_id = $1 AND type = 'job_paid'`, [szallito.id]);
     expect(notif.length, 'a szállító „Indulhat a fuvar!" értesítést kapott egy lemondott fuvarra').toBe(0);

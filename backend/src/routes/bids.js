@@ -401,7 +401,11 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
 // Megállapodás-értesítések. acceptedBy: 'shipper' (a feladó fogadott el egy
 // licitet/szállító-ellenajánlatot) vagy 'carrier' (a szállító fogadta el a feladó
 // ellenajánlatát). Soha nem dob.
-async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
+// feeAlreadyPaid (2026-09-11, teljes audit A2): díjmentes újraválasztás
+// (szállító-csere) után a díj MÁR rendezve — a feladót eddig mégis „fizesd
+// meg a díjat"-tal szólítottuk (in-app + e-mail), a szállítónak pedig „a
+// feladó most fizeti" ment. Hamis felhívás a saját bevételi útvonalunkon.
+async function notifyDealClosed(bid, agreedPrice, acceptedBy, feeAlreadyPaid = false) {
   try {
     const { rows } = await db.query(
       `SELECT j.title, j.shipper_id,
@@ -419,9 +423,11 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
       user_id: bid.carrier_id,
       type: 'bid_accepted',
       title: '🎉 Megállapodás!',
-      body: acceptedBy === 'carrier'
-        ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). A feladó most fizeti a kapcsolatfelvételi díjat, utána megkapjátok egymás elérhetőségét és indulhatsz.`
-        : `A(z) "${info.title || 'fuvar'}" fuvarra tett ajánlatodat elfogadták ${priceTxt} Ft-ért — a teljes összeget közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
+      body: feeAlreadyPaid
+        ? `${acceptedBy === 'carrier' ? 'Elfogadtad a feladó ellenajánlatát — a(z)' : 'A(z)'} "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). A kapcsolatfelvételi díj már rendezve — a feladó elérhetőségét a fuvar oldalán látod, indulhatsz.`
+        : acceptedBy === 'carrier'
+          ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). A feladó most fizeti a kapcsolatfelvételi díjat, utána megkapjátok egymás elérhetőségét és indulhatsz.`
+          : `A(z) "${info.title || 'fuvar'}" fuvarra tett ajánlatodat elfogadták ${priceTxt} Ft-ért — a teljes összeget közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
       link: `/sofor/fuvar/${bid.job_id}`,
     });
     if (info.carrier_email) {
@@ -440,7 +446,17 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy) {
     // szállító fogadott el). Eddig csak in-app notif ment, email NEM → a
     // tranzakció a megállapodás pillanatában halt meg. Most email is megy
     // (a platform bevétele ezen a lépcsőn múlik).
-    if (acceptedBy === 'carrier') {
+    if (feeAlreadyPaid) {
+      // Díjmentes újraválasztás: NINCS fizetési felhívás, se e-mail — a
+      // kontakt már nyitva, csak a megállapodás tényét jelezzük.
+      await createNotification({
+        user_id: info.shipper_id || bid.shipper_id,
+        type: 'deal_closed',
+        title: '✅ Megegyeztetek — a díj már rendezve',
+        body: `${acceptedBy === 'carrier' ? 'A szállító elfogadta az ellenajánlatodat' : `Elfogadtad ${info.carrier_name || 'a szállító'} ajánlatát`} a(z) "${info.title || 'fuvar'}" fuvarra ${priceTxt} Ft-ért. A kapcsolatfelvételi díjat már korábban megfizetted, újra nem kell — a szállító elérhetőségét a fuvar oldalán látod. A fuvardíjat közvetlenül neki fizeted (készpénz vagy átutalás, ahogy megegyeztek).`,
+        link: `/dashboard/fuvar/${bid.job_id}`,
+      });
+    } else if (acceptedBy === 'carrier') {
       await createNotification({
         user_id: info.shipper_id || bid.shipper_id,
         type: 'counter_accepted',
@@ -588,7 +604,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     realtime.emitToUser(bid.shipper_id, 'job:payment-due', {
       job_id: bid.job_id, barion_gateway_url: fin.barionRes.gatewayUrl,
     });
-    notifyDealClosed(bid, agreedPrice, 'shipper');
+    notifyDealClosed(bid, agreedPrice, 'shipper', !!fin.feeAlreadyPaid);
 
     res.json({
       ok: true, job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: agreedPrice,
@@ -656,7 +672,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     realtime.emitToUser(bid.shipper_id, 'job:payment-due', {
       job_id: bid.job_id, barion_gateway_url: fin.barionRes.gatewayUrl,
     });
-    notifyDealClosed(bid, agreedPrice, 'carrier');
+    notifyDealClosed(bid, agreedPrice, 'carrier', !!fin.feeAlreadyPaid);
 
     res.json({ ok: true, job_id: bid.job_id, amount_huf: agreedPrice });
   } catch (err) {

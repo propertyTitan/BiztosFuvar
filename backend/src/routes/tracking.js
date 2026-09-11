@@ -89,11 +89,18 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
         const dist = distanceMeters(lat, lng, job.dropoff_lat, job.dropoff_lng);
 
         // 1) Beért a célvárosba (~5 km)
-        if (!job.notif_city_sent && dist <= CITY_THRESHOLD_M) {
-          await db.query(
+        // ⚠️ rowCount-KAPU (2026-09-11, teljes audit A2): két gyors ping (a
+        // mobil 15 mp-enként küld, hálózati burst-ben egyszerre több is) mind
+        // FALSE-t olvasott a SELECT-ben → mindkettő értesített és e-mailt
+        // küldött a címzettnek. A feltételes UPDATE eddig is ott volt, csak
+        // senki nem nézte, fogott-e — most CSAK az küld, amelyiké fogott.
+        const varosJeloles = (!job.notif_city_sent && dist <= CITY_THRESHOLD_M)
+          ? await db.query(
             `UPDATE jobs SET notif_city_sent = TRUE WHERE id = $1 AND notif_city_sent = FALSE`,
             [jobId],
-          );
+          )
+          : { rowCount: 0 };
+        if (varosJeloles.rowCount > 0) {
           const cityName = extractCity(job.dropoff_address);
           await createNotification({
             user_id: job.shipper_id,
@@ -125,11 +132,13 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
         }
 
         // 2) Egy saroknyira van (~300 m)
-        if (!job.notif_nearby_sent && dist <= NEARBY_THRESHOLD_M) {
-          await db.query(
+        const kozelJeloles = (!job.notif_nearby_sent && dist <= NEARBY_THRESHOLD_M)
+          ? await db.query(
             `UPDATE jobs SET notif_nearby_sent = TRUE WHERE id = $1 AND notif_nearby_sent = FALSE`,
             [jobId],
-          );
+          )
+          : { rowCount: 0 };
+        if (kozelJeloles.rowCount > 0) {
           await createNotification({
             user_id: job.shipper_id,
             type: 'driver_nearby',

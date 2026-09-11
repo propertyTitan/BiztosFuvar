@@ -17,12 +17,12 @@ const { logAdminAccess } = require('../utils/adminAudit');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { createNotification } = require('../services/notifications');
-const { computeVat } = require('../services/vat');
-const { generatePlatformFeeInvoice } = require('../services/invoicing');
+const {
+  logPaymentEvent, claimPaymentEvent, releasePaymentClaim, konyvelDijFizetes,
+} = require('../services/feePayment');
 const paymentProvider = require('../services/paymentProvider');
 const realtime = require('../realtime');
 const { getJobParty } = require('../utils/jobAccess');
-const { maybeGrantReferralReward } = require('../services/referral');
 
 const router = express.Router();
 
@@ -38,18 +38,29 @@ const router = express.Router();
 async function confirmFeePayment(PaymentId, verifiedStatus) {
   const status = verifiedStatus || 'Unknown';
 
-  // === IDEMPOTENCY CHECK ===
+  // === IDEMPOTENCIA-CLAIM A FELDOLGOZÁS ELEJÉN (2026-09-11, teljes audit A2) ===
+  // Eddig: SELECT az elején, INSERT (processed=true) a VÉGÉN — a kettő közt a
+  // teljes feldolgozás (ÁFA, számla, e-mail) futott. Tíz párhuzamos ismétlés
+  // mind átment a SELECT-en: a paid_at-őr a dupla KÖNYVELÉST megfogta, de a
+  // 2–10. hívás „árvának" látta a saját ügyletét, felülírta a naplót és
+  // riasztott. Most a (payment_id, status) sort ELŐBB foglaljuk le (UNIQUE +
+  // ON CONFLICT DO NOTHING): a második hívás azonnal „skipped". Kivételnél a
+  // claim felszabadul (a PSP 5xx-re ismétel), egy 2 percnél régebbi
+  // processed=false sor (leállt folyamat) átvehető — a fizetés nem vész el.
+  const claim = await claimPaymentEvent(PaymentId, status);
+  if (!claim.claimed) {
+    console.log(`[fee-webhook] SKIP: ${PaymentId}/${status} ${claim.reason === 'processed' ? 'már feldolgozva' : 'feldolgozás alatt'} (idempotens)`);
+    return { http: 200, body: { ok: true, skipped: true, reason: claim.reason } };
+  }
   try {
-    const { rows: existing } = await db.query(
-      `SELECT id, processed FROM payment_events WHERE payment_id = $1 AND status = $2`,
-      [PaymentId, status],
-    );
-    if (existing.length > 0 && existing[0].processed) {
-      console.log(`[fee-webhook] SKIP: ${PaymentId}/${status} már feldolgozva (idempotent)`);
-      return { http: 200, body: { ok: true, skipped: true } };
-    }
-  } catch {}
+    return await confirmFeePaymentBelso(PaymentId, status);
+  } catch (err) {
+    await releasePaymentClaim(PaymentId, status);
+    throw err;
+  }
+}
 
+async function confirmFeePaymentBelso(PaymentId, status) {
   // === ENTITÁS KERESÉSE (fuvar VAGY foglalás a payment-id alapján) ===
   let entity = null;
   const { rows: escrowRows } = await db.query(
@@ -120,126 +131,47 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
   // a szállítónak — arról a platform nem könyvel és nem számláz.
   if (status === 'Succeeded') {
     const platformFee = totalAmount;
-    const carrierPayout = 0;
 
-    const { rows: shipperRows } = await db.query(
-      `SELECT billing_country, tax_id, company_name, email, full_name
-         FROM users WHERE id = $1`,
-      [d.shipper_id],
-    );
-    const shipper = shipperRows[0] || {};
-    const vatResult = await computeVat({
-      buyerCountry: shipper.billing_country || 'HU',
-      buyerTaxId: shipper.tax_id,
-      buyerIsCompany: !!(shipper.company_name || shipper.tax_id),
-      amount: platformFee,
-      amountIsGross: true,
-      currency,
+    // KÖZÖS KÖNYVELÉSI MAG (services/feePayment.js): állapot-őr + paid_at +
+    // díj-sor + ÁFA + számla + napló + ajánlói trigger. A kézi nyugtázás
+    // (teszt-üzem) ugyanezt hívja — a két út nem csúszhat szét.
+    const k = await konyvelDijFizetes({
+      entityType: entity.type,
+      entityId: entity.type === 'job' ? d.job_id : d.id,
+      paymentId: PaymentId, eventType: 'webhook', status,
+      feeHuf: platformFee, currency,
+      shipperId: d.shipper_id, carrierId: d.carrier_id, carrierCountry: d.carrier_country,
     });
+    const shipper = k.shipper;
 
-    // ⚠️ STÁTUSZ-ŐR A paid_at ÍRÁSÁN (2026-09-11, teljes audit P0-1). Eddig az
-    // egyetlen feltétel `paid_at IS NULL` volt: a feladó elindítja a fizetést,
-    // LEMONDJA a fuvart, majd a banki oldalon befejezi — a késleltetett
-    // webhook egy 'cancelled' fuvarra írt paid_at-ot, számlát állított ki,
-    // és a szállítót indulásra szólította, miközben a lemondás a díj-sort
-    // 'refunded'-re állította, a PSP-nél viszont semmit nem indított. A
-    // pénz beszedve, a szolgáltatás nem teljesíthető. Mostantól csak a
-    // várakozó (accepted / confirmed — vagy vita alatt álló) ügyletre
-    // könyvelünk; minden másra a fizetés „árván érkezett": a naplóban
-    // processed=false + riasztás, kézi sztornó/visszatérítés a teendő.
-    // Őr: audit-a1-p0-mag.test.js.
-    let konyvelve = 0;
-    if (entity.type === 'job') {
-      const upd = await db.query(
-        `UPDATE jobs SET paid_at = NOW()
-          WHERE id = $1 AND paid_at IS NULL AND status IN ('accepted', 'disputed')`,
-        [d.job_id],
-      );
-      konyvelve = upd.rowCount;
-      if (konyvelve > 0) {
-        await db.query(
-          `UPDATE escrow_transactions SET status = 'released', released_at = NOW()
-            WHERE job_id = $1 AND status = 'held'`,
-          [d.job_id],
-        );
-      }
-    } else {
-      const upd = await db.query(
-        `UPDATE route_bookings SET paid_at = NOW()
-          WHERE id = $1 AND paid_at IS NULL AND status IN ('confirmed', 'disputed')`,
-        [d.id],
-      );
-      konyvelve = upd.rowCount;
-    }
-    if (konyvelve === 0) {
+    // ⚠️ ÁRVA FIZETÉS (2026-09-11, teljes audit P0-1): a feladó elindítja a
+    // fizetést, LEMONDJA a fuvart, majd a banki oldalon befejezi — a
+    // késleltetett webhook egy 'cancelled' fuvarra írt paid_at-ot, számlát
+    // állított ki, és a szállítót indulásra szólította. Most csak várakozó
+    // (accepted / confirmed — vagy vita alatt álló) ügyletre könyvelünk; a
+    // többi „árván érkezett": a naplóban event_type='orphan' + riasztás, kézi
+    // sztornó/visszatérítés a teendő. Őr: audit-a1-p0-mag.test.js.
+    if (k.konyvelve === 0) {
       const allapot = entity.type === 'job' ? d.job_status : d.status;
       const uzenet = `[fee-webhook] ÁRVA FIZETÉS: ${PaymentId} egy ${allapot || '?'} állapotú `
         + `${entity.type === 'job' ? 'fuvarra' : 'foglalásra'} érkezett (nem várakozó) — kézi rendezés kell`;
       console.error(uzenet);
       try { require('@sentry/node').captureMessage(uzenet, 'error'); } catch { /* nincs Sentry */ }
       await logPaymentEvent({
-        paymentId: PaymentId, status, eventType: 'webhook',
+        paymentId: PaymentId, status, eventType: 'orphan',
         jobId: entity.type === 'job' ? d.job_id : null,
         bookingId: entity.type === 'booking' ? d.id : null,
-        totalAmount, currency, platformFee, carrierPayout,
-        vatRate: vatResult.vatRate, vatAmount: vatResult.vatAmount,
-        isReverseCharge: vatResult.isReverseCharge,
+        totalAmount, currency, platformFee, carrierPayout: 0,
+        vatRate: k.vatResult.vatRate, vatAmount: k.vatResult.vatAmount,
+        isReverseCharge: k.vatResult.isReverseCharge,
         shipperId: d.shipper_id, carrierId: d.carrier_id,
         carrierCountry: d.carrier_country,
         summary: `ÁRVA: az ügylet állapota ${allapot || '?'} — a díj beérkezett, de nem könyvelhető; kézi sztornó/visszatérítés`,
-        processed: false,
+        processed: true,
       });
       return { http: 200, body: { ok: true, orphan: true } };
     }
-
-    // Ajánlói jutalom-trigger: a feladó kifizette az első díját (éles út).
-    maybeGrantReferralReward(d.shipper_id, {
-      role: 'shipper',
-      jobId: entity.type === 'job' ? d.job_id : null,
-    }).catch(() => {});
-
-    // Számla-előkészítés a FELADÓNAK (STUB is menti a metaadatot)
-    let invoice = null;
-    try {
-      invoice = await generatePlatformFeeInvoice({
-        jobId: entity.type === 'job' ? d.job_id : null,
-        bookingId: entity.type === 'booking' ? d.id : null,
-        platformFee,
-        currency,
-        buyerUserId: d.shipper_id,
-      });
-    } catch (err) {
-      console.error('[invoicing] Számla generálás hiba:', err.message);
-    }
-
-    const vatLabel = vatResult.isReverseCharge
-      ? 'ford. adózás'
-      : `${Math.round(vatResult.vatRate * 100)}% ÁFA`;
-    // ⚠️ NÉV NÉLKÜL (2026-08-09, adatvédelmi audit 3. kör). A napló korábban a
-    // feladó TELJES NEVÉT szövegben tárolta — miközben az azonosító mezők
-    // (shipper_id/carrier_id) fiók-törléskor NULL-ra állnak. Vagyis a törölt
-    // felhasználó neve határidő nélkül bennmaradt a `summary`-ban: ugyanaz a
-    // hibaosztály, amit az R2-fájloknál javítottunk, csak adatbázisban.
-    // Az adminnak az azonosító elég — amíg a fiók él, onnan kikereshető.
-    const summary = [
-      `feladó: ${d.shipper_id || '?'}`,
-      `kapcsolatfelvételi díj: ${platformFee} ${currency} (${vatLabel})`,
-      `fuvardíj (közvetlenül a szállítónak): ${d.accepted_price_huf || d.price_huf || '?'} ${currency}`,
-      invoice ? `számla: ${invoice.id}` : null,
-    ].filter(Boolean).join(' · ');
-
-    await logPaymentEvent({
-      paymentId: PaymentId, status, eventType: 'webhook',
-      jobId: entity.type === 'job' ? d.job_id : null,
-      bookingId: entity.type === 'booking' ? d.id : null,
-      totalAmount, currency, platformFee, carrierPayout,
-      vatRate: vatResult.vatRate, vatAmount: vatResult.vatAmount,
-      isReverseCharge: vatResult.isReverseCharge,
-      shipperId: d.shipper_id, carrierId: d.carrier_id,
-      carrierCountry: d.carrier_country,
-      summary,
-      processed: true,
-    });
+    const summary = k.summary;
 
     // Értesítések: a kontakt felfedve, indulhat a fuvar
     if (d.carrier_id) {
@@ -377,10 +309,12 @@ router.post('/payments/qvik/callback', express.json(), handleProviderCallback);
 router.get('/payments/admin/log', authRequired, async (req, res) => {
   // A `pe.*` + a fuvar CÍME (felhasználó által írt szabad szöveg), 200 soros
   // lapozással. Naplózandó admin-hozzáférés, mint a többi tömeges olvasás.
-  await logAdminAccess(req, 'payment_log', { type: 'all' });
+  // A napló a 403 UTÁN (2026-09-11, teljes audit A2): eddig egy nem-admin
+  // próbálkozás is „payment_log hozzáférés"-ként került az admin-naplóba.
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Csak admin' });
   }
+  await logAdminAccess(req, 'payment_log', { type: 'all' });
   const { limit = 50, offset = 0 } = req.query;
   const { rows } = await db.query(
     `SELECT pe.*,
@@ -452,44 +386,5 @@ router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {
       r.job_status !== 'delivered' ? 'A fuvar még nincs lezárva.' : null,
   });
 });
-
-// ============================================================
-// HELPER
-// ============================================================
-async function logPaymentEvent({
-  paymentId, status, eventType,
-  jobId, bookingId,
-  totalAmount, currency, platformFee, carrierPayout,
-  vatRate, vatAmount, isReverseCharge,
-  shipperId, carrierId, carrierCountry,
-  summary,
-  processed,
-}) {
-  try {
-    await db.query(
-      `INSERT INTO payment_events (
-         payment_id, status, event_type,
-         job_id, booking_id,
-         total_amount, currency, platform_fee, carrier_payout,
-         vat_rate, vat_amount, is_reverse_charge,
-         shipper_id, carrier_id, carrier_country,
-         summary, processed
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-       ON CONFLICT (payment_id, status) DO UPDATE SET
-         processed = EXCLUDED.processed,
-         summary = COALESCE(EXCLUDED.summary, payment_events.summary)`,
-      [
-        paymentId, status, eventType,
-        jobId || null, bookingId || null,
-        totalAmount || null, currency || 'HUF', platformFee || null, carrierPayout || null,
-        vatRate || null, vatAmount || null, isReverseCharge || false,
-        shipperId || null, carrierId || null, carrierCountry || null,
-        summary || null, processed,
-      ],
-    );
-  } catch (err) {
-    console.error('[payment_events] log hiba:', err.message);
-  }
-}
 
 module.exports = router;

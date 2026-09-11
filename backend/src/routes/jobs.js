@@ -16,6 +16,7 @@ const { findBackhaulCandidates } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const { useVoucherIfAvailable } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
+const { konyvelDijFizetes } = require('../services/feePayment');
 const { firstContactLeak } = require('../utils/contactGuard');
 const { telepulesSzint, utcaSzint } = require('../utils/address');
 
@@ -1007,24 +1008,27 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
     });
   }
 
-  const { rows: upd } = await db.query(
-    `UPDATE jobs SET paid_at = NOW() WHERE id = $1 RETURNING paid_at`,
-    [j.id],
+  // ⚠️ KÖZÖS KÖNYVELÉSI MAG (2026-09-11, teljes audit A2): eddig csupasz
+  // UPDATE volt — se állapot-őr (a fenti SELECT és az UPDATE közt lemondott
+  // fuvar is fizetetté vált), se fizetési napló, se számla. A kézi (teszt-
+  // üzemi) út mostantól ugyanazt teszi, mint a webhook, az ajánlói triggert
+  // is a mag hívja. Őr: audit-a2-penz-ut.test.js.
+  const { rows: dijSor } = await db.query(
+    `SELECT barion_payment_id FROM escrow_transactions WHERE job_id = $1`, [j.id],
   );
-  const paidAt = upd[0].paid_at;
-
-  // Ajánlói jutalom-trigger: a feladó most fizette az első kapcsolatfelvételi
-  // díját → ha ő egy meghívott, az ajánlója kap egy ingyenes kapcsolatfelvételt.
-  maybeGrantReferralReward(j.shipper_id, { role: 'shipper', jobId: j.id }).catch(() => {});
-
-  // A díj beérkezett és a szolgáltatás (kontakt-átadás) azonnal teljesül —
-  // a könyvelési sor végleges ('released'), visszatérítés nincs.
-  await db.query(
-    `UPDATE escrow_transactions
-        SET status = 'released', released_at = NOW()
-      WHERE job_id = $1 AND status = 'held'`,
-    [j.id],
-  );
+  const k = await konyvelDijFizetes({
+    entityType: 'job', entityId: j.id,
+    paymentId: dijSor[0]?.barion_payment_id || `manual-${j.id}`, eventType: 'manual',
+    feeHuf: j.connection_fee_huf || calculateConnectionFee(j.accepted_price_huf || 0),
+    currency: j.currency || 'HUF', shipperId: j.shipper_id, carrierId: j.carrier_id,
+  });
+  if (k.konyvelve === 0) {
+    return res.status(409).json({
+      error: 'A fuvar állapota időközben megváltozott (pl. lemondták) — frissítsd az oldalt.',
+      code: 'STATE_CHANGED',
+    });
+  }
+  const paidAt = k.paidAt;
 
   // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §):
   // a megfizetett díj + a fizetéskor tett elállási nyilatkozat szövege.
@@ -1107,6 +1111,11 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
               carrier_id = NULL,
               accepted_price_huf = NULL,
               reopened_count = reopened_count + 1,
+              -- Az emlékeztető-számláló nullázva (2026-09-11, teljes audit A2):
+              -- a fizetetlen, 2× sürgetett, majd szállító-csere után ÚJRA
+              -- elfogadott fuvar különben soha többé nem kapott emlékeztetőt.
+              payment_reminder_count = 0,
+              last_payment_reminder_at = NULL,
               updated_at = NOW()
         WHERE id = $1 AND status = 'accepted'`,
       [j.id],
