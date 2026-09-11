@@ -256,7 +256,19 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   a 403 UTÁN. (9) PATCH /auth/me: típus+hossz kapu (vehicle_type 100,
 >   company_name 200, company_reg_number 40, billing_address 300), EU-adószám
 >   formátum + normalizálás.
-> - **A3 ⏳:** e-mail/értesítés-kiesés riasztása (Sentry/retry).
+> - **A3 ✅ (`audit-a3-email-riasztas.test.js`, 6 őr, mind piros a javítás
+>   nélkül):** a `sendEmail` eddig egyetlen `console.error`-ral nyelte el a
+>   kiesést (21 hívóhely `.catch(() => console.warn)`-nal) — egy
+>   Resend-kiesés vagy lejárt kulcs napokig észrevétlen maradt volna.
+>   Most: ÁTMENETI hiba (429/5xx/hálózat) → 2 újrapróba rövid backoffal
+>   (`EMAIL_RETRY_BACKOFF_MS`, alap 1 s + 4 s, ugyanabban a hívásban);
+>   VÉGLEGES kiesés → Sentry-riasztás hibamódonként (http-4xx / http-5xx /
+>   network) 10 percenként max egyszer, a közben elveszett levelek
+>   SZÁMÁVAL (címzett maszkolva, tárgy maskInText, body soha). A
+>   `createNotification` beszúrás-hibája is Sentry-be megy. ⚠️ Tudatos
+>   korlát: NINCS DB-alapú újraküldési sor (az SMS-nek van, mert ott 10
+>   napos kiesés volt) — ha a Sentry ismétlődő e-mail-kiesést mutat, az a
+>   következő lépcső (`email_retry_queue` az smsRetry.js mintájára).
 > - **A4 ⏳:** dispute UNIQUE nyitott index + XOR; `POST /bids/:id/withdraw`
 >   + withdrawn a reopenben; accepted+fizetetlen fuvar auto-újranyitása N
 >   nap után; FK-k (reviews/escrow SET NULL + rating újraszámolás);
