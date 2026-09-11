@@ -44,13 +44,14 @@ export const metadata: Metadata = {
     template: '%s | GoFuvar',
   },
   description:
-    'Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá, vagy foglalj helyet egy útba eső szállító induló járatán. A fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás) — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
+    'Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá — te választasz közülük. A fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás) — a platformdíj bevezető áron 500 Ft-tól. Fotó bizonyíték, 6 jegyű átvételi kód, SMS-értesítés a címzettnek. Ingyenes regisztráció.',
   keywords: [
     'fuvar', 'szállítás', 'csomag', 'költöztetés', 'szállító', 'fuvartőzsde',
     'GoFuvar', 'közösségi szállítás', 'árajánlat', 'fix áras fuvar',
     'jutalékmentes fuvar', 'Magyarország',
   ],
-  metadataBase: new URL('https://gofuvar.hu'),
+  // www: az élő oldal a www-ra irányít (307) — a canonical ne egy átirányító URL-re mutasson (Codex P2-03).
+  metadataBase: new URL('https://www.gofuvar.hu'),
   openGraph: {
     title: 'GoFuvar – Közösségi fuvartőzsde',
     description: 'Csomagod van? Szállítód is lesz. A fuvardíj közvetlenül a szállítóé — fotó bizonyíték és 6 jegyű átvételi kód véd.',

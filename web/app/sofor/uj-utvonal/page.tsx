@@ -1,5 +1,8 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+import JaratHamarosan from '@/components/JaratHamarosan';
+
 // Szállító: új / szerkesztés útvonal hirdetés form.
 // - Új mód: URL `/sofor/uj-utvonal`
 // - Szerkesztés mód: URL `/sofor/uj-utvonal?edit=<id>` → betölti a
@@ -367,10 +370,16 @@ function UjUtvonalContent() {
   );
 }
 
-export default function UjUtvonal() {
+function UjUtvonal() {
   return (
     <Suspense fallback={null}>
       <UjUtvonalContent />
     </Suspense>
   );
+}
+
+// Járat-ág kapcsoló (2026-09-11, D1): rejtett funkciónál „Hamarosan” képernyő.
+export default function UjUtvonalKapu() {
+  if (!JARAT_ENGEDELYEZVE) return <JaratHamarosan />;
+  return <UjUtvonal />;
 }

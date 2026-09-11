@@ -13,12 +13,17 @@ import {
 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import ProductPreview from '@/components/ProductPreview';
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 
 const FEATURES: { icon: LucideIcon; tint: string; title: string; desc: string; soon?: boolean }[] = [
   { icon: Gavel, tint: 'var(--primary)', title: 'Fuvarfeladás pár perc alatt',
     desc: 'Hirdesd meg a csomagodat, és a szállítók ajánlatot tesznek rá. Te döntöd el, melyik ajánlatot fogadod el.' },
-  { icon: Route, tint: '#7c3aed', title: 'Fix áras járatok',
-    desc: 'A szállítók meghirdetik a járatukat fix áron. Foglalj helyet a csomagodnak egyetlen kattintással.' },
+  // Járat-ág (2026-09-11, D1): a launchra rejtett — itt „Hamarosan” jelvénnyel,
+  // jövő időben (ugyanaz a minta, mint az élő GPS-nél).
+  { icon: Route, tint: '#7c3aed', title: 'Induló járatok', soon: !JARAT_ENGEDELYEZVE,
+    desc: JARAT_ENGEDELYEZVE
+      ? 'A szállítók meghirdetik a járatukat fix áron. Foglalj helyet a csomagodnak egyetlen kattintással.'
+      : 'A szállítók fix áron hirdetik majd az induló járatukat, te pedig helyet foglalhatsz rajta a csomagodnak.' },
   // Az élő GPS a mobilapppal érkezik — a launchkor még nincs, ezért
   // ŐSZINTÉN jelöljük: "Hamarosan" badge, jövő időben fogalmazva.
   { icon: MapPin, tint: '#db2777', title: 'Élő GPS követés', soon: true,
@@ -38,7 +43,7 @@ const STEPS = [
   { num: '1', title: 'Hirdesd meg a fuvart', dot: 'var(--primary)',
     desc: 'Add meg a felvételi és lerakodási címet, a csomag méreteit és a javasolt árat. Fotót is csatolhatsz.' },
   { num: '2', title: 'Válassz szállítót', dot: 'var(--primary)',
-    desc: 'Fogadd el a neked tetsző ajánlatot, vagy foglalj egy induló járaton. Egy kis kapcsolatfelvételi díj (500 vagy 1 000 Ft, bevezető ár) után azonnal megkapod a szállító elérhetőségét.' },
+    desc: 'Fogadd el a neked tetsző ajánlatot. Egy kis kapcsolatfelvételi díj (500 vagy 1 000 Ft, bevezető ár) után azonnal megkapod a szállító elérhetőségét.' },
   { num: '3', title: 'Vedd át a kóddal', dot: 'var(--success)',
     desc: 'Felvételkor a címzett SMS-ben kapja az átvételi kódot és a szállító számát. Az átvételkor add át a 6 jegyű kódot — a fuvardíjat közvetlenül a szállítóval rendezed, készpénzben vagy átutalással.' },
 ];
@@ -107,9 +112,9 @@ export default function LandingPage() {
           fontSize: 'clamp(16px, 2vw, 20px)', color: 'var(--text-secondary)',
           maxWidth: 580, margin: '0 auto 32px', lineHeight: 1.5,
         }}>
-          Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá — vagy foglalj
-          helyet egy útba eső szállító induló járatán. A fuvardíj közvetlenül a
-          szállítóé — fotó bizonyíték és 6 jegyű átvételi kód véd.
+          Hirdess meg egy fuvart és a szállítók ajánlatot tesznek rá — te választasz
+          közülük. A fuvardíj közvetlenül a szállítóé — fotó bizonyíték és 6 jegyű
+          átvételi kód véd.
         </p>
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
           <Link href="/bejelentkezes?mode=register" className="btn"
@@ -322,7 +327,7 @@ export default function LandingPage() {
             <h3 style={{ fontSize: 24, fontWeight: 800, marginBottom: 12, color: 'var(--text)' }}>Feladó vagyok</h3>
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 16 }}>
               <li>Hirdesd meg a fuvart — a szállítók ajánlatot tesznek rá</li>
-              <li>Vagy foglalj helyet egy induló járaton</li>
+              {JARAT_ENGEDELYEZVE && <li>Vagy foglalj helyet egy induló járaton</li>}
               <li>Kis díj (500 / 1 000 Ft) után azonnal megkapod a szállító elérhetőségét</li>
               <li>Felvételkor a címzett SMS-ben kapja az átvételi kódot</li>
               <li>Add át a 6 jegyű kódot, a fuvardíjat közvetlenül a szállítóval rendezed</li>
@@ -339,7 +344,7 @@ export default function LandingPage() {
             <ul style={{ margin: 0, padding: '0 0 0 20px', lineHeight: 2, color: 'var(--text)', fontSize: 16 }}>
               <li>Autó, bicikli, gyalog vagy tömegközlekedés — bármivel mehet</li>
               <li>Böngéssz az elérhető fuvarok között és tegyél ajánlatot</li>
-              <li>Vagy hirdesd meg a járatodat fix árakkal</li>
+              {JARAT_ENGEDELYEZVE && <li>Vagy hirdesd meg a járatodat fix árakkal</li>}
               <li>A fuvardíj 100%-a a tiéd — készpénzben vagy átutalással, nincs levonás</li>
               <li>Igazold a felvételt és lerakodást fotóval</li>
               <li>Kérd az átvételi kódot → fuvar lezárva, a fuvardíj a tiéd</li>

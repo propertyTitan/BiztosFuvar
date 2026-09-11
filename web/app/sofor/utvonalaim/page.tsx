@@ -1,5 +1,8 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+import JaratHamarosan from '@/components/JaratHamarosan';
+
 // Szállító: saját útvonalak listája.
 // - Nyitott (publikált), piszkozat, befejezett, törölt kategóriákra bontva
 // - Minden kártya mellett státusz-akciók: publikálás, lezárás, törlés
@@ -29,7 +32,7 @@ const STATUS_PILL: Record<CarrierRoute['status'], string> = {
   cancelled: 'pill-cancelled',
 };
 
-export default function UtvonalaimOldal() {
+function UtvonalaimOldal() {
   const toast = useToast();
   const [routes, setRoutes] = useState<CarrierRoute[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,4 +226,10 @@ export default function UtvonalaimOldal() {
       />
     </div>
   );
+}
+
+// Járat-ág kapcsoló (2026-09-11, D1): rejtett funkciónál „Hamarosan” képernyő.
+export default function UtvonalaimOldalKapu() {
+  if (!JARAT_ENGEDELYEZVE) return <JaratHamarosan />;
+  return <UtvonalaimOldal />;
 }

@@ -10,7 +10,6 @@
 import { useState } from 'react';
 import { api } from '@/api';
 import AddressAutocomplete from './AddressAutocomplete';
-import PriceComparison from './PriceComparison';
 
 type Result = {
   distance_km: number;
@@ -174,11 +173,9 @@ export default function PriceCalculator() {
               Regisztrálok és feladok egy fuvart
             </a>
 
-            {/* Összehasonlítás versenytársakkal */}
-            <PriceComparison
-              goFuvarEstimate={result.estimate_huf}
-              weightKg={Number(weightKg) || 5}
-            />
+            {/* A versenytárs-ár összehasonlítás LEVÉVE (2026-09-11, user-döntés D3):
+                2024-es beégetett GLS/MPL-árak, súlyhatáron túli extrapoláció, saját
+                díj nélkül, „Aznapi” ígérettel — összehasonlító-reklám kockázat. */}
           </div>
         )}
       </div>

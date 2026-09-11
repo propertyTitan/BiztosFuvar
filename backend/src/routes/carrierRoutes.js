@@ -121,6 +121,27 @@ async function attachPrices(routes) {
 // POST /carrier-routes
 // Új útvonal létrehozása. Szállító-only. A `prices` tömb minden elemében
 // egy (size, price_huf) páros.
+// =====================================================================
+//  JÁRAT-ÁG KAPCSOLÓ (2026-09-11, Codex-audit / user-döntés D1)
+//  A launchra a járat-ág rejtett (web: NEXT_PUBLIC_JARAT_ENABLED). A backend
+//  ÍRÓ végpontjai (járat-hirdetés/módosítás, foglalás és annak életciklusa)
+//  ilyenkor 503-at adnak, hogy a rejtett felület ne legyen API-ból használható;
+//  az OLVASÓ végpontok élnek (meglévő adat, admin). ⚠️ Az útvonal-előtag
+//  ellenőrzése KÖTELEZŐ (a SOS-kapcsoló tanulsága): a router '/'-ra van
+//  csatolva, előtag nélkül minden utána mountolt végpont 503-at kapna.
+// =====================================================================
+function jaratEnabled() {
+  return String(process.env.JARAT_ENABLED || '').toLowerCase() === 'true';
+}
+router.use((req, res, next) => {
+  if (req.method === 'GET' || jaratEnabled()) return next();
+  if (!/^\/(carrier-routes|route-bookings)(\/|$)/.test(req.path)) return next();
+  return res.status(503).json({
+    error: 'Az induló járatok funkció még nem elérhető — hamarosan. Addig add fel a fuvart, és a szállítók ajánlatot tesznek rá.',
+    code: 'JARAT_DISABLED',
+  });
+});
+
 router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const {
     title, description, departure_at, waypoints, vehicle_description,

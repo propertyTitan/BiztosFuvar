@@ -1,5 +1,8 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+import JaratHamarosan from '@/components/JaratHamarosan';
+
 // =====================================================================
 //  Útba eső fuvarok — egy konkrét útvonalhoz tartozó passzoló fuvarok.
 //
@@ -23,7 +26,7 @@ type AlongJob = Job & {
   shipper_name?: string;
 };
 
-export default function UtbaEsoPage() {
+function UtbaEsoPage() {
   const me = useCurrentUser();
   const params = useParams();
   const routeId = params.id as string;
@@ -154,4 +157,10 @@ function detourColor(km: number): string {
   if (km <= 5) return 'var(--success)';
   if (km <= 15) return '#F9A825';
   return '#E65100';
+}
+
+// Járat-ág kapcsoló (2026-09-11, D1): rejtett funkciónál „Hamarosan” képernyő.
+export default function UtbaEsoPageKapu() {
+  if (!JARAT_ENGEDELYEZVE) return <JaratHamarosan />;
+  return <UtbaEsoPage />;
 }

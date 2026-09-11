@@ -1,5 +1,7 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+
 // GoFuvar Header v2 — tiszta, 3 fő menüpont + profil dropdown.
 //
 // Struktúra:
@@ -164,18 +166,22 @@ export default function SiteHeader() {
               <Link href="/sofor/fuvarok" style={navLinkStyle}>
                 <Target size={15} /> {t('nav.biddableJobs')}
               </Link>
-              <Link href="/sofor/utvonalaim" style={navLinkStyle}>
-                <Route size={15} /> Járataim
-              </Link>
+              {JARAT_ENGEDELYEZVE && (
+                <Link href="/sofor/utvonalaim" style={navLinkStyle}>
+                  <Route size={15} /> Járataim
+                </Link>
+              )}
             </>
           ) : (
             <>
               <Link href="/dashboard/uj-fuvar" style={navLinkStyle}>
                 <Plus size={15} /> Fuvar feladása
               </Link>
-              <Link href="/dashboard/utvonalak" style={navLinkStyle}>
-                <Route size={15} /> {t('nav.fixedRoutes')}
-              </Link>
+              {JARAT_ENGEDELYEZVE && (
+                <Link href="/dashboard/utvonalak" style={navLinkStyle}>
+                  <Route size={15} /> {t('nav.fixedRoutes')}
+                </Link>
+              )}
             </>
           )}
         </nav>
@@ -340,12 +346,12 @@ export default function SiteHeader() {
                       {activeMode === 'driver' ? (
                         <>
                           <DropdownItem href="/sofor/fuvarok" icon={<Target size={16} />} label={t('nav.biddableJobs')} onClick={() => setMenuOpen(false)} />
-                          <DropdownItem href="/sofor/utvonalaim" icon={<Route size={16} />} label="Járataim" onClick={() => setMenuOpen(false)} />
+                          {JARAT_ENGEDELYEZVE && <DropdownItem href="/sofor/utvonalaim" icon={<Route size={16} />} label="Járataim" onClick={() => setMenuOpen(false)} />}
                         </>
                       ) : (
                         <>
                           <DropdownItem href="/dashboard/uj-fuvar" icon={<Plus size={16} />} label="Fuvar feladása" onClick={() => setMenuOpen(false)} />
-                          <DropdownItem href="/dashboard/utvonalak" icon={<Route size={16} />} label={t('nav.fixedRoutes')} onClick={() => setMenuOpen(false)} />
+                          {JARAT_ENGEDELYEZVE && <DropdownItem href="/dashboard/utvonalak" icon={<Route size={16} />} label={t('nav.fixedRoutes')} onClick={() => setMenuOpen(false)} />}
                         </>
                       )}
                     </div>

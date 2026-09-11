@@ -179,7 +179,7 @@ KÉT FŐ MÓD
    - Lerakja a címzettnél → a címzett bediktálja a 6 jegyű átvételi PIN-t
    - A kód helyes → a fuvar lezárul
 
-2) INDULÓ JÁRAT (fix áras):
+2) INDULÓ JÁRAT (fix áras):${String(process.env.JARAT_ENABLED || '').toLowerCase() === 'true' ? '' : '\n   ⚠️ EZ A FUNKCIÓ JELENLEG NEM ELÉRHETŐ (hamarosan érkezik). Ha kérdezik: mondd el, hogy hamarosan jön, és ajánld a fuvarfeladást — a működését NE magyarázd úgy, mintha ma használható lenne.'}
    - A szállító meghirdeti a járatát (pl. "Budapest → Szeged, szombat reggel")
    - Fix árat ad meg méretkategóriánként: S / M / L / XL
    - A feladó foglal helyet a járaton

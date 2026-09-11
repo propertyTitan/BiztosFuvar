@@ -1,5 +1,8 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+import JaratHamarosan from '@/components/JaratHamarosan';
+
 import { kapcsolatfelvetelDijHuf, ft } from '@/lib/connectionFee';
 
 // Feladó: egy konkrét szállítói útvonal részletei + foglalás form.
@@ -15,7 +18,7 @@ import { PACKAGE_SIZES, classifyPackage } from '@/lib/packageSizes';
 import { useCurrentUser } from '@/lib/auth';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
 
-export default function FeladoUtvonalReszletek() {
+function FeladoUtvonalReszletek() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const me = useCurrentUser();
@@ -360,4 +363,10 @@ export default function FeladoUtvonalReszletek() {
       )}
     </div>
   );
+}
+
+// Járat-ág kapcsoló (2026-09-11, D1): rejtett funkciónál „Hamarosan” képernyő.
+export default function FeladoUtvonalReszletekKapu() {
+  if (!JARAT_ENGEDELYEZVE) return <JaratHamarosan />;
+  return <FeladoUtvonalReszletek />;
 }

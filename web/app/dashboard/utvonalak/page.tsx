@@ -1,5 +1,8 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+import JaratHamarosan from '@/components/JaratHamarosan';
+
 // Feladó: szállítói útvonalak böngészése.
 // - Szöveges város szűrés (pl. "Kecskemét" → minden olyan útvonal, aminek
 //   a waypoints tömbjében szerepel ez a város)
@@ -15,7 +18,7 @@ import RouteBrowseMap from '@/components/RouteBrowseMap';
 
 type ViewMode = 'list' | 'map';
 
-export default function FeladoiUtvonalBongeszo() {
+function FeladoiUtvonalBongeszo() {
   const me = useCurrentUser();
   const [routes, setRoutes] = useState<CarrierRoute[]>([]);
   const [loading, setLoading] = useState(true);
@@ -299,4 +302,10 @@ export default function FeladoiUtvonalBongeszo() {
       })}
     </div>
   );
+}
+
+// Járat-ág kapcsoló (2026-09-11, D1): rejtett funkciónál „Hamarosan” képernyő.
+export default function FeladoiUtvonalBongeszoKapu() {
+  if (!JARAT_ENGEDELYEZVE) return <JaratHamarosan />;
+  return <FeladoiUtvonalBongeszo />;
 }
