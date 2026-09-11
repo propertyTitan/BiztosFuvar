@@ -87,6 +87,37 @@ describe('Jogosultság-visszavonás — az élő csatorna is bomlik', () => {
     ).toContain(String(user.id));
   });
 
+  it('az admin SZEREPKÖR-módosítása BONTJA a socketet és lépteti a token_version-t', async () => {
+    // Codex-audit P0-03 (2026-09-11): a socket a handshake-kor olvasott
+    // szerepet cache-eli — egy lefokozott admin a nyitott fülével a fül
+    // bezárásáig idegen fuvar-szobákba léphetett. A szerepváltás mostantól
+    // ugyanúgy visszavon, mint a force-logout.
+    const admin = await createUser({ role: 'admin' });
+    const aldozat = await createUser({ role: 'admin' });
+    const { rows: elott } = await db.query('SELECT token_version FROM users WHERE id = $1', [aldozat.id]);
+    hivasok.length = 0;
+    const res = await request(app)
+      .patch(`/admin/users/${aldozat.id}`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ role: 'shipper' });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(hivasok, 'a szerepkör-váltás nem bontotta az élő kapcsolatot').toContain(String(aldozat.id));
+    const { rows: utan } = await db.query('SELECT token_version FROM users WHERE id = $1', [aldozat.id]);
+    expect(Number(utan[0].token_version)).toBe(Number(elott[0].token_version || 0) + 1);
+  });
+
+  it('a trust_score módosítása NEM léptet ki senkit (a visszavonás nem túl széles)', async () => {
+    const admin = await createUser({ role: 'admin' });
+    const user = await createUser();
+    hivasok.length = 0;
+    const res = await request(app)
+      .patch(`/admin/users/${user.id}`)
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ trust_score: 77 });
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
+    expect(hivasok).not.toContain(String(user.id));
+  });
+
   it('az admin force-logout is BONTJA a socketet', async () => {
     const admin = await createUser({ role: 'admin' });
     const aldozat = await createUser({ role: 'shipper' });

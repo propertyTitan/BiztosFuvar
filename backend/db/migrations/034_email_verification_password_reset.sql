@@ -19,7 +19,13 @@ ALTER TABLE users
 -- A meglévő user-eket „megerősítettnek" tekintjük, hogy ne zárjuk ki
 -- őket a launch-szal. Az új regisztrációknak már a verify-flow-n kell
 -- átmenniük.
-UPDATE users SET email_verified = true WHERE email_verified = false;
+-- ⚠️ EGYSZERI adatfeltöltés (2026-09-11-én visszamenőleg időhöz kötve):
+-- a futtató 2026-09-11-ig minden migrációt minden futásnál újra végrehajtott,
+-- és ez a sor MINDEN nem igazolt fiókot igazolttá tett — az azóta
+-- regisztráltakat is (Codex-audit P0-01). A migráció 2026-05-09-én
+-- készült; csak az akkor MEGLÉVŐ fiókokra vonatkozhat.
+UPDATE users SET email_verified = true
+ WHERE email_verified = false AND created_at < '2026-05-10';
 
 CREATE INDEX IF NOT EXISTS idx_users_password_reset_token
   ON users(password_reset_token_hash)

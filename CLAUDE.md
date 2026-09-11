@@ -115,7 +115,14 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
   Host: `ep-lively-violet-al932ok8-pooler.c-3.eu-central-1.aws.neon.tech/neondb`
 - A backend a `DATABASE_URL` env-ből csatlakozik (`backend/src/db.js`), Railway-en
   beállítva; a prod connstring lokálisan is megvan `backend/.env`-ben
-- Migrációk lokálisan futnak a prod ellen: `npm run db:migrate`
+- Migrációk lokálisan futnak a prod ellen: `npm run db:migrate` — **2026-09-11
+  óta NYILVÁNTARTÁSSAL** (`schema_migrations` tábla, advisory lock): egy fájl
+  EGYSZER fut. ⚠️ SZABÁLY: már lefuttatott migrációs fájlt NEM szerkesztünk —
+  új változás = új fájl. (Előtte a futtató minden fájlt minden futásnál újra
+  végrehajtott; a 034-es feltétel nélküli UPDATE-je így minden nem igazolt
+  fiókot igazolttá tett — Codex-audit P0-01. Őr:
+  `migracio-ujrafuttatas-or.test.js`: kétszer futtat + WHERE nélküli
+  UPDATE/DELETE tilos a migrációkban.)
 - RLS nincs használatban (a backend egyetlen DB-userrel csatlakozik) — DB-credet
   SOHA ne tegyünk a frontendre
 - ⚠️ A régi Supabase projekt (`frlxrbdfcuojzhafelyn`) **NEM használt, de NEM
@@ -190,6 +197,45 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 ---
 
 ## 6. Mit készítünk a launchhoz
+
+### 🔐 CODEX-AUDIT (2026-09-11) — 29 tétel, verifikálva; javítás FOLYAMATBAN
+
+> A user feltöltötte egy másik modell (Codex „astra") teljes kód-auditját:
+> 8×P0, 16×P1, 5×P2. **Négy ügynökkel + saját méréssel tételesen
+> ellenőrizve: 21 teljesen igaz, 7 részben, 1 alpont hamis.** Öt olyan
+> hibát talált, amit a korábbi 11 audit-kör nem: a migráció-újrafuttatást
+> (P0-01), a járat-ág hiányzó kontaktfelületét (P0-07), a halott `can_bid`
+> kaput (P1-03), a kupon kiiktatását a valódi /pay úton (P1-01) és a
+> retenciós hamis `ok`-ot (P1-09). Pontatlan hivatkozásai: a socket-role
+> nem JWT-ből jön (DB-ből, teszttel); a disputes XOR a reviews-migrációra
+> mutat (a disputes máig OR); a „7 napos token" a session, nem a reset; a
+> járat-létrehozás tiltja a múltbeli indulást (a foglalás nem); két kapun
+> van dialog-szemantika; a hash scrypt, nem bcrypt. Tudatos döntés, nem
+> hiba: disk-fallback riasztással (P0-05), publikus fotó-bucket (P1-08,
+> Phase 6), localStorage-token (SEC-003), idempotencia (GF-003), lockfile,
+> robots.txt, nem-fatális uncaughtException.
+>
+> **USER-DÖNTÉSEK (2026-09-11):** D1 a JÁRAT-ág a launchra ELREJTVE
+> („hamarosan"; 9 tétel a 29-ből erre az ágra esett, üres járat-lista
+> rosszabb üzenet, mint a hamarosan); D2 a kupon-sorrend a /pay-en
+> JAVÍTANDÓ; D3 az ár-összehasonlító (2024-es GLS/MPL-árak, „Aznapi") LE
+> — GVH-kockázat; D4 a szállító-felfüggesztés (`can_bid=false`) VALÓDI
+> kapu legyen (ajánlat + járat + azonnali elfogadás tiltása); D5 az
+> e-mail-kapu SZERVER-oldalon is az írási végpontokon; D6 a lockfile
+> VERZIÓKÖVETVE.
+>
+> **Csomagok:** (1) ✅ migráció-nyilvántartás + 034/061 egyszerivé + socket-
+> payload scrub + admin szerepváltás session-visszavonással + e-mail-kapu
+> POST /jobs, /bids, /bookings (ez a PR); (2) állapotgép-guardok (P0-04),
+> törlés vs bizonyíték-zárolás (P0-06), `can_bid` kapu + KYC-név zár
+> (P1-03), kupon-sorrend (D2); (3) retenciós `ok` általánosítása (P1-09),
+> graceful shutdown + async scrypt + /health/ready; (4) web: járat-ág
+> feature-flag mögé (D1), ár-összehasonlító ki (D3), SEO-apróságok
+> (canonical www, title-duplázás, sitemap-dátum); (5) lockfile + `npm ci`
+> + web tsc-kapu (D6). Launch-checklist bővül: a teszt-üzemben `sent`-re
+> állt stub-számlák takarítása (P1-10), a 13 migrációval „igazolt" régi
+> fiók (zömmel teszt) — döntés: nem nyúlunk hozzá, a teszt-adat
+> takarítással megy.
 
 ### ✅ LEZÁRVA — fizetési szöveg-elcsúszás (2026-08-18, PR #186)
 
@@ -803,6 +849,24 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > ami a javítás NÉLKÜL igazoltan piros.
 
 ### ✅ Kész (élesedett)
+- **CODEX-AUDIT 1. CSOMAG (2026-09-11)** — (a) `scripts/migrate.js`
+  nyilvántartásos (`schema_migrations`, advisory lock, `runMigrations`
+  exportálva); a 034-es UPDATE `created_at < '2026-05-10'`-hez, a 061-es
+  `hash_algo IS DISTINCT FROM 'hmac-sha256'`-hoz kötve (az oszlop-hozzáadás a
+  UPDATE elé került). Az éles DB-ben 13 fiók (05-31…08-20, zömmel teszt)
+  lett így „igazolt" — nem nyúltunk hozzá. (b) P0-02: a `route-bookings:new`
+  socket-payload a `scrubBookingForUser`-en át megy (utca-szint fizetés
+  előtt) — a PII-őrök eddig csak szobát mértek, payloadot nem. (c) P0-03: a
+  `PATCH /admin/users/:id` szerepváltásnál `token_version++` + `disconnectUser`
+  (a trust_score-módosítás nem léptet ki). (d) D5: `requireVerifiedEmail` a
+  POST /jobs, POST /jobs/:id/bids, POST /carrier-routes/:id/bookings láncán.
+  Őrök: `migracio-ujrafuttatas-or`, `foglalas-socket-payload`,
+  `email-kapu-iras`, + `jogosultsag-visszavonas-or` bővítve — a javítás
+  nélkül 9 teszt igazoltan piros. ⚠️ SAJÁT HIBA, tanulságnak: a piros-próbát
+  `git checkout <branch> -- <fájlok>`-kal „állítottam vissza", de a branch
+  HEAD-je még a main volt (nem commitoltam) → a javítások eltűntek, a
+  szkriptből újra kellett alkalmazni. SZABÁLY: piros-próba ELŐTT commit (vagy
+  stash), soha checkout-tal.
 - **A DÍJ LÁTHATÓ A DÖNTÉS ELŐTT + SMS „csak átadáskor" (2026-09-10,
   user-döntés a fogalmazás-audit 1-2. tételére)** — (1) a kapcsolatfelvételi
   díj eddig CSAK az ajánlat elfogadása UTÁN jelent meg: a feladó a

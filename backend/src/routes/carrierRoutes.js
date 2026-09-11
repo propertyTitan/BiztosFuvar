@@ -539,6 +539,7 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
 router.post(
   '/carrier-routes/:id/bookings',
   authRequired,
+  requireVerifiedEmail,
   writeRateLimit,
   async (req, res) => {
     const routeId = req.params.id;
@@ -633,13 +634,18 @@ router.post(
     // (`emitToUser`), NEM globálisan. A korábbi `emitGlobal('...:${carrier_id}')`
     // minden csatlakozott klienshez elment; a carrier_id a publikus
     // útvonal-listából megszerezhető, így bárki lehallgathatta az új foglalás
-    // átvételi kódját, tracking tokenjét és a címzett PII-ját. A payload is
-    // minimális, nem-érzékeny (a részleteket a szállító a REST-en, scrubbolva kéri le).
+    // átvételi kódját, tracking tokenjét és a címzett PII-ját.
+    // ⚠️ A PAYLOAD IS A SCRUBON MEGY ÁT (2026-09-11, Codex-audit P0-02): a
+    // korábbi komment „minimális, nem-érzékeny” payloadot ígért, közben a
+    // NYERS (házszámos) címet küldte a díj kifizetése ELŐTT — a REST-ág
+    // utca-szintre vágott (GF-008), a socket-ág nem. A védelem azon az úton
+    // épült meg, ahol felfedezték. Őr: foglalas-socket-payload.test.js.
+    const carrierView = scrubBookingForUser(booking, { sub: route.carrier_id, role: 'carrier' });
     realtime.emitToUser(route.carrier_id, 'route-bookings:new', {
       booking_id: booking.id,
       route_id: booking.route_id,
-      pickup_address: booking.pickup_address,
-      dropoff_address: booking.dropoff_address,
+      pickup_address: carrierView.pickup_address,
+      dropoff_address: carrierView.dropoff_address,
       package_size: booking.package_size,
       price_huf: booking.price_huf,
       created_at: booking.created_at,
