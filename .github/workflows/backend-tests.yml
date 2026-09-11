@@ -37,9 +37,10 @@ jobs:
       - name: npm 11 (az npm 10 peer-feloldási hibája ellen)
         run: npm install -g npm@11
 
-      # A package-lock.json nincs verziókövetve, ezért npm install (nem npm ci).
+      # A package-lock.json VERZIÓKÖVETETT (2026-09-11, D6): npm ci — ha a
+      # package.json és a lockfile szétcsúszik, a build itt bukik (ez a kapu).
       - name: Függőségek telepítése
-        run: npm install
+        run: npm ci
 
       - name: Függőség-audit (éles függőségek, magas/kritikus)
         run: node ../scripts/fuggoseg-audit.js .
