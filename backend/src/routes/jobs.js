@@ -176,7 +176,7 @@ function kozelitoHely(job) {
 // személyi igazolvány — a spam ellen a kapcsolatfelvételi díj véd (aki
 // fizet, az nem bot), az azonosítást a banki fizetés adja (QVIK/kártya).
 // A szállítói oldal kapuja (requireDriverKYC a licitnél) változatlan.
-router.post('/', authRequired, writeRateLimit, async (req, res) => {
+router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req, res) => {
   const {
     title, description,
     pickup_address, pickup_lat, pickup_lng,

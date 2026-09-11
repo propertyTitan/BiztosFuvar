@@ -319,12 +319,23 @@ router.patch('/admin/users/:id', ...adminOnly, async (req, res) => {
     }
   }
   if (sets.length === 0) return res.status(400).json({ error: 'Nincs módosítandó mező' });
+  // ⚠️ SZEREPKÖR-VÁLTÁS = SESSION-VISSZAVONÁS (2026-09-11, Codex-audit P0-03).
+  // A REST-kapu a szerepet minden kérésnél a DB-ből olvassa, a SOCKET viszont
+  // a handshake-kor olvasott szerepet cache-eli a kapcsolat élettartamára:
+  // egy lefokozott admin a nyitott fülével a fül bezárásáig bármely fuvar
+  // szobájába beléphetett (élő GPS, fotók). Ugyanaz a minta, mint a
+  // force-logoutnál: token_version++ (minden REST-session lejár) ÉS a
+  // socket bontása. Csak a szerepkör-változásnál — egy trust_score-módosítás
+  // nem léptethet ki senkit. Őr: jogosultsag-visszavonas-or.test.js.
+  const szerepValtozik = req.body.role !== undefined;
+  if (szerepValtozik) sets.push('token_version = COALESCE(token_version, 0) + 1');
   params.push(req.params.id);
   const { rows } = await db.query(
     `UPDATE users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING id, email, full_name, role`,
     params,
   );
   if (!rows[0]) return res.status(404).json({ error: 'User nem található' });
+  if (szerepValtozik) await require('../realtime').disconnectUser(req.params.id);
   res.json(rows[0]);
 });
 

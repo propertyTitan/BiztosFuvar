@@ -23,13 +23,17 @@
 -- eltávolításához fel kell oldani.
 ALTER TABLE deleted_accounts ALTER COLUMN email_hash DROP NOT NULL;
 
--- A MEGLÉVŐ, sózatlan lenyomatok visszafejthetők — ezért töröljük őket.
--- A törlés TÉNYE (mikor, milyen okból) megmarad, ami az audit valódi célja.
-UPDATE deleted_accounts SET email_hash = NULL WHERE email_hash IS NOT NULL;
-
 -- Jelöljük, melyik sor készült az új (HMAC-elt) eljárással.
 ALTER TABLE deleted_accounts
     ADD COLUMN IF NOT EXISTS hash_algo TEXT;
+
+-- A MEGLÉVŐ, sózatlan lenyomatok visszafejthetők — ezért töröljük őket.
+-- A törlés TÉNYE (mikor, milyen okból) megmarad, ami az audit valódi célja.
+-- ⚠️ CSAK a legacy sorokat (2026-09-11, Codex-audit P0-01): a futtató
+-- újrafuttatta ezt a sort, és az AZÓTA írt HMAC-lenyomatokat is nullázta.
+-- Az új sorok hash_algo = 'hmac-sha256'-tal íródnak — azokhoz nem nyúlunk.
+UPDATE deleted_accounts SET email_hash = NULL
+ WHERE email_hash IS NOT NULL AND hash_algo IS DISTINCT FROM 'hmac-sha256';
 
 -- A tábla időbélyege `deleted_at` (033-as migráció), nem `created_at`.
 CREATE INDEX IF NOT EXISTS idx_deleted_accounts_deleted_at
