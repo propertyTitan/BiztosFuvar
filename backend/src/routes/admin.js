@@ -162,7 +162,7 @@ router.get('/admin/users', ...adminOnly, async (req, res) => {
   // A keresőkifejezést SZÁNDÉKOSAN nem naplózzuk: az egy harmadik személy
   // nevét írná a naplóba (a napló nem lehet a PII második példánya).
   await logAdminAccess(req, 'users_list', { type: search ? 'search' : 'all' });
-  let sql = `SELECT id, email, full_name, phone, role, account_type,
+  let sql = `SELECT id, email, full_name, phone, role, account_type, can_bid,
                     identity_kyc_status, driver_kyc_status, company_verification_status,
                     rating_avg, rating_count, trust_score, level, created_at,
                     is_tow_driver, company_name,
@@ -248,8 +248,9 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
   // (kézbesítés / lemondás / vita); terminál/fizetetlen ügyletnél szabad.
   if (await userHasBlockingDealings(targetId)) {
     return res.status(409).json({
-      error: 'Ez a felhasználó folyamatban lévő, kifizetett vagy vitatott ügyletben szerepel. '
-        + 'Előbb zárd le (kézbesítés / lemondás / vita), utána törölhető.',
+      error: 'Ez a felhasználó folyamatban lévő, kifizetett, vitatott vagy zárolt bizonyítékú '
+        + 'ügyletben szerepel. Előbb zárd le (kézbesítés / lemondás / vita); zárolt bizonyítéknál '
+        + 'a zárolás lejártáig nem törölhető.',
       code: 'USER_HAS_ACTIVE_PAID',
     });
   }

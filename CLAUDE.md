@@ -224,9 +224,9 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > e-mail-kapu SZERVER-oldalon is az írási végpontokon; D6 a lockfile
 > VERZIÓKÖVETVE.
 >
-> **Csomagok:** (1) ✅ migráció-nyilvántartás + 034/061 egyszerivé + socket-
+> **Csomagok:** (1) ✅ PR #216 migráció-nyilvántartás + 034/061 egyszerivé + socket-
 > payload scrub + admin szerepváltás session-visszavonással + e-mail-kapu
-> POST /jobs, /bids, /bookings (ez a PR); (2) állapotgép-guardok (P0-04),
+> POST /jobs, /bids, /bookings; (2) ✅ állapotgép-guardok (P0-04),
 > törlés vs bizonyíték-zárolás (P0-06), `can_bid` kapu + KYC-név zár
 > (P1-03), kupon-sorrend (D2); (3) retenciós `ok` általánosítása (P1-09),
 > graceful shutdown + async scrypt + /health/ready; (4) web: járat-ág
@@ -849,6 +849,29 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > ami a javítás NÉLKÜL igazoltan piros.
 
 ### ✅ Kész (élesedett)
+- **CODEX-AUDIT 2. CSOMAG (2026-09-11)** — (a) P0-04 állapotgép-guardok: a
+  foglalás-elutasítás, a foglalás- és fuvar-lemondás, a felvételi fotó és az
+  újranyitás UPDATE-je mind FELTÉTELES (`AND status = …`) + `rowCount` →
+  409 `STATE_CHANGED`; a foglalás-lemondás tiltólistája megkapta a
+  `disputed`-et (a fuvar-ág 2026-08-07-es szabálya); az újranyitás EGY
+  tranzakcióban fut és `false`-t ad, ha a fuvar közben nem `accepted` (nincs
+  fél-siker: a licitek nem állnak át). Őr: `allapotgep-guardok.test.js` — a
+  versenyt determinisztikusan szimulálja (a handler első SELECT-je után, az
+  UPDATE előtt átírja az állapotot). (b) P0-06: `userHasBlockingDealings` a
+  `photo_retention_hold = TRUE` ügyletet is blokkolónak veszi (self-delete,
+  admin-törlés, alvó-fiók purge — mind ugyanazt hívja); a zárolás lejártáig
+  a törlés ügyfélszolgálati ügy. Őr: `torles-vs-zarolas.test.js`. (c) D4:
+  `can_bid = false` VALÓDI felfüggesztés a `requireDriverKYC`-ben (403
+  `CARRIER_SUSPENDED`: ajánlat, járat, azonnali elfogadás, mentős regisztráció);
+  az admin Felhasználók-sorában Ban/CircleCheck kapcsoló; a `GET /admin/users`
+  adja a `can_bid`-et. Őr: `szallito-felfuggesztes.test.js`. (d) P1-03
+  KYC-név zár: igazolt fiók neve a PATCH /me-n 409 `KYC_NAME_LOCKED` (a név az
+  okmányé; névváltozás → ügyfélszolgálat → új KYC). Őr: `kyc-nev-zar.test.js`.
+  (e) D2: a /pay kupon-ága a gateway-újrahasználat ELÉ került — az ajánlói
+  jutalom a valódi úton (ahol a licit-elfogadás már létrehozta a fizetési
+  munkamenetet) eddig SOSEM váltódott be. Őr: `kupon-pay-sorrend.test.js`
+  (escrow-sorral, nem üres fixture-rel). A javítás nélkül 11 teszt igazoltan
+  piros. Járat-ágon kupon továbbra sincs (a járat a launchra rejtett, D1).
 - **CODEX-AUDIT 1. CSOMAG (2026-09-11)** — (a) `scripts/migrate.js`
   nyilvántartásos (`schema_migrations`, advisory lock, `runMigrations`
   exportálva); a 034-es UPDATE `created_at < '2026-05-10'`-hez, a 061-es

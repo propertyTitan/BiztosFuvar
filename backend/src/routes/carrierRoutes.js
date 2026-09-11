@@ -1152,10 +1152,18 @@ router.post(
     if (b.status !== 'pending') {
       return res.status(409).json({ error: 'A foglalás már nem utasítható el' });
     }
-    await db.query(
-      `UPDATE route_bookings SET status = 'rejected' WHERE id = $1`,
+    // ⚠️ FELTÉTELES UPDATE + rowCount (2026-09-11, Codex-audit P0-04): a SELECT
+    // és az UPDATE között egy párhuzamos megerősítés (vagy a feladó fizetése)
+    // átírhatta az állapotot — a feltétel nélküli UPDATE egy KIFIZETETT
+    // foglalást is 'rejected'-be tett volna. Az utolsó író nyert; mostantól
+    // pontosan egy érvényes eredmény marad. Őr: allapotgep-guardok.test.js.
+    const elutasit = await db.query(
+      `UPDATE route_bookings SET status = 'rejected' WHERE id = $1 AND status = 'pending'`,
       [b.id],
     );
+    if (elutasit.rowCount === 0) {
+      return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
+    }
     // Címzett szobájába (lásd a `confirmed` ág megjegyzését) — az esemény
     // nevébe írt user-id nem szűr senkit.
     realtime.emitToUser(b.shipper_id, 'route-booking:rejected', { booking_id: b.id });
@@ -1215,13 +1223,19 @@ router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (r
     return res.status(403).json({ error: 'Nincs jogosultság a lemondáshoz' });
   }
 
-  const blocked = ['in_progress', 'delivered', 'cancelled', 'rejected'];
+  // ⚠️ 'disputed' (2026-09-11, Codex-audit P0-04): a fuvar-ágon 2026-08-07 óta
+  // vita alatt nincs lemondás (nem lehet lemondással kimenekülni a vita alól,
+  // a vita lezárása visszaállítja a státuszt) — a foglalási ágon ez a döntés
+  // nem volt átvezetve. Ugyanaz a szabály, ugyanaz az üzenet.
+  const blocked = ['in_progress', 'delivered', 'cancelled', 'rejected', 'disputed'];
   if (blocked.includes(b.status)) {
     return res.status(409).json({
       error:
         b.status === 'cancelled'
           ? 'Ez a foglalás már le van mondva.'
-          : `Ez a foglalás már nem mondható le (státusz: ${b.status}).`,
+          : b.status === 'disputed'
+            ? 'Ezen a foglaláson nyitott vita van — előbb azt kell rendezni. Az ügyintézés lezárása után a foglalás visszakerül a korábbi állapotába.'
+            : `Ez a foglalás már nem mondható le (státusz: ${b.status}).`,
     });
   }
 
@@ -1233,7 +1247,9 @@ router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (r
   const fee = 0;
   const refund = 0;
 
-  await db.query(
+  // Feltételes: a fenti tiltólista a SELECT-elt állapotra nézett, az UPDATE
+  // ugyanazt kényszeríti ki a DB-ben (P0-04 verseny-védelem).
+  const lemond = await db.query(
     `UPDATE route_bookings
         SET status = 'cancelled',
             cancelled_at = NOW(),
@@ -1241,9 +1257,13 @@ router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (r
             cancel_reason = $2,
             cancellation_fee_huf = $3,
             refund_huf = $4
-      WHERE id = $5`,
+      WHERE id = $5
+        AND status NOT IN ('in_progress', 'delivered', 'cancelled', 'rejected', 'disputed')`,
     [req.user.sub, reason || null, fee, refund, b.id],
   );
+  if (lemond.rowCount === 0) {
+    return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
+  }
 
   const otherUserId = iAmShipper ? b.carrier_id : b.shipper_id;
   const otherEmail = iAmShipper ? b.carrier_email : b.shipper_email;

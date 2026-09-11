@@ -219,7 +219,21 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     );
   }
   if (kind === 'pickup' && job.status === 'accepted') {
-    await db.query(`UPDATE jobs SET status = 'in_progress', updated_at = NOW() WHERE id = $1`, [jobId]);
+    // ⚠️ FELTÉTELES (2026-09-11, Codex-audit P0-04): a SELECT és az UPDATE
+    // között a feladó lemondhatta a fuvart — a feltétel nélküli UPDATE a
+    // 'cancelled'-et 'in_progress'-re írta volna felül. A dropoff-ág ezt már
+    // helyesen csinálta (claim + rowCount), a pickup-ág nem.
+    const felvesz = await db.query(
+      `UPDATE jobs SET status = 'in_progress', updated_at = NOW()
+        WHERE id = $1 AND status = 'accepted'`,
+      [jobId],
+    );
+    if (felvesz.rowCount === 0) {
+      return res.status(409).json({
+        error: 'A fuvar állapota időközben megváltozott (pl. lemondták) — frissítsd az oldalt.',
+        code: 'STATE_CHANGED',
+      });
+    }
     realtime.emitToJob(jobId, 'job:picked_up', { job_id: jobId, photo });
 
     // ⚠️ A FELADÓ ÉRTESÍTÉSE A FELVÉTELRŐL (2026-08-16, tesztelői észrevétel).

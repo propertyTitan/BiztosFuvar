@@ -890,7 +890,7 @@ const FOGLALAS_SZABALYOK = {
     'megerősít': [],
     'elutasít': [],
     'díjat fizet': [],
-    'lemond': ['felado', 'szallito'],
+    'lemond': [],                            // 2026-09-11 (Codex P0-04): vita alatt a foglalás sem mondható le — a fuvar-ág 2026-08-07-es szabálya átvezetve
     'felvételi fotót tölt': ['szallito'],    // bizonyíték-gyűjtés vita alatt
     'kézbesít (kóddal)': [],
     'vitát nyit': [],                        // nincs második nyitott vita

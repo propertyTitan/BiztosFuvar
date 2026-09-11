@@ -87,7 +87,8 @@ describe('Cím-validációk (TC-013/TC-107)', () => {
 
 describe('Profil-szerkesztés mező-validációk (BUG-011)', () => {
   it('csupa szóköz név és szemét rendszám → 400; érvényes értékek trimmelve mentődnek', async () => {
-    const user = await createUser();
+    // kyc: 'none' — igazolt fióknál a név zárolt (2026-09-11, KYC_NAME_LOCKED)
+    const user = await createUser({ kyc: 'none' });
 
     const badName = await request(app)
       .patch('/auth/me')

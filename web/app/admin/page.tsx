@@ -28,7 +28,7 @@ import {
   LayoutDashboard, IdCard, Users as UsersIcon, Package, Route as RouteIcon,
   Scale, Banknote, Lock, Unlock, LogOut, Trash2, MessageSquare, Search,
   ShieldCheck, CircleDot, RefreshCw, Mail, Megaphone, Info, Send,
-  Landmark, ChevronRight,
+  Landmark, ChevronRight, Ban, CircleCheck,
 } from 'lucide-react';
 
 type TabId = 'attekintes' | 'kyc' | 'felhasznalok' | 'uzenetek' | 'fuvarok' | 'jaratok' | 'vitak';
@@ -696,6 +696,21 @@ export default function AdminPanel() {
                                 title="Üzenet küldése a felhasználónak"
                                 onClick={() => openDmThread(u.id)}>
                                 <Mail size={13} />
+                              </button>{' '}
+                            </>
+                          )}
+                          {/* Szállítói felfüggesztés (2026-09-11, D4): a can_bid mostantól
+                              valódi kapu — ajánlat, járat, azonnali elfogadás tiltva. */}
+                          {u.role !== 'admin' && (
+                            <>
+                              <button className="btn btn-ghost"
+                                style={{ padding: '5px 9px', fontSize: 12, color: u.can_bid === false ? 'var(--success-text)' : 'var(--danger-text)' }}
+                                title={u.can_bid === false
+                                  ? 'Felfüggesztés feloldása (újra tehet ajánlatot, hirdethet járatot)'
+                                  : 'Szállítói felfüggesztés (ajánlattétel, járat-hirdetés, azonnali elfogadás tiltása)'}
+                                onClick={() => patchUser(u.id, { can_bid: u.can_bid === false },
+                                  u.can_bid === false ? 'Felfüggesztés feloldva' : 'Szállító felfüggesztve')}>
+                                {u.can_bid === false ? <CircleCheck size={13} /> : <Ban size={13} />}
                               </button>{' '}
                             </>
                           )}

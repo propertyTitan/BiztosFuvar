@@ -651,6 +651,25 @@ router.patch('/me', authRequired, async (req, res) => {
   }
 
   values.push(req.user.sub);
+  // ⚠️ KYC-NÉV ZÁR (2026-09-11, Codex-audit P1-03): az „Azonosított szállító"
+  // jelvény a személyi igazolványon szereplő névhez tartozik. A név eddig
+  // igazolás UTÁN is szabadon átírható volt — a jelvény így nem jelentett
+  // semmit. Igazolt fióknál a név csak ügyfélszolgálaton át változhat
+  // (névváltozás → új okmány → új KYC). A cégmezők ugyanezt a mintát követik
+  // (company_verification_status → 'pending').
+  if (req.body.full_name !== undefined) {
+    const { rows: kycRows } = await db.query(
+      'SELECT full_name, identity_kyc_status FROM users WHERE id = $1',
+      [req.user.sub],
+    );
+    if (kycRows[0]?.identity_kyc_status === 'verified' && kycRows[0].full_name !== req.body.full_name) {
+      return res.status(409).json({
+        error: 'Az igazolt (személyi igazolvánnyal azonosított) név nem módosítható. '
+          + 'Ha a neved megváltozott, írj az info@gofuvar.hu-ra, és újra azonosítunk.',
+        code: 'KYC_NAME_LOCKED',
+      });
+    }
+  }
   const { rows } = await db.query(
     `UPDATE users SET ${updates.join(', ')}, updated_at = NOW()
       WHERE id = $${idx}
@@ -1479,8 +1498,9 @@ router.delete('/me', authRequired, async (req, res) => {
   // se a fizetettséget). Előbb le kell zárni az ügyletet.
   if (await userHasBlockingDealings(userId)) {
     return res.status(409).json({
-      error: 'Nem törölheted a fiókodat, amíg folyamatban lévő, kifizetett vagy vitatott '
-        + 'ügyleted van. Előbb zárd le (kézbesítés / lemondás / vita), utána törölhető.',
+      error: 'Nem törölheted a fiókodat, amíg folyamatban lévő, kifizetett, vitatott vagy '
+        + 'zárolt bizonyítékkal rendelkező ügyleted van. Előbb zárd le (kézbesítés / '
+        + 'lemondás / vita); a bizonyíték-zárolás lejártáig írj az info@gofuvar.hu-ra.',
       code: 'USER_HAS_ACTIVE_PAID',
     });
   }

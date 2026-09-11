@@ -35,7 +35,8 @@ describe('F1 — a NÉV is átmegy a kontakt-szűrőn', () => {
   });
 
   it('PATCH /auth/me — a névbe utólag sem írható elérhetőség', async () => {
-    const u = await createUser({ role: 'carrier' });
+    // kyc: 'none' — igazolt fióknál a név zárolt (2026-09-11, KYC_NAME_LOCKED)
+    const u = await createUser({ role: 'carrier', kyc: 'none' });
     const res = await request(app).patch('/auth/me').set(auth(u.token))
       .send({ full_name: 'Kovacs Bela 0630 123 4567' });
     expect(res.status).toBe(400);
