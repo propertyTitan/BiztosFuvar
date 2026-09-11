@@ -235,7 +235,8 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
     // Csak a publikált járatokat hirdetjük real-time-ban — és csak a
     // hitelesített feedbe (2026-08-09): a sor a szállító indulási/érkezési
     // címeit és időpontjait tartalmazza, ez nem vendég-socketre való.
-    if (route.status === 'open') {
+    // A SABLON nem járat (2026-09-11, C1): a lista már kizárta, a feed-broadcast nem.
+    if (route.status === 'open' && !route.is_template) {
       realtime.emitToFeed('routes:new', withPrices);
     }
     res.status(201).json(withPrices);
@@ -251,7 +252,7 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
 // GET /carrier-routes/mine – a szállító saját útvonalai (publikált + sablon + minden)
 router.get('/carrier-routes/mine', authRequired, async (req, res) => {
   const { rows } = await db.query(
-    `SELECT * FROM carrier_routes WHERE carrier_id = $1 ORDER BY is_template ASC, departure_at DESC`,
+    `SELECT * FROM carrier_routes WHERE carrier_id = $1 ORDER BY is_template ASC, departure_at DESC LIMIT 500`,
     [req.user.sub],
   );
   res.json(await attachPrices(rows));
@@ -752,7 +753,8 @@ router.get(
          FROM route_bookings b
          JOIN users u ON u.id = b.shipper_id
         WHERE b.route_id = $1
-        ORDER BY b.created_at DESC`,
+        ORDER BY b.created_at DESC
+        LIMIT 500`,
       [req.params.id],
     );
     // A szállító a saját útvonala foglalásait látja — de a `delivery_code` és a
@@ -770,7 +772,8 @@ router.get('/route-bookings/mine', authRequired, async (req, res) => {
        JOIN carrier_routes r ON r.id = b.route_id
        JOIN users u ON u.id = r.carrier_id
       WHERE b.shipper_id = $1
-      ORDER BY b.created_at DESC`,
+      ORDER BY b.created_at DESC
+      LIMIT 500`,
     [req.user.sub],
   );
   // ⚠️ 2026-08-10: ez a végpont NYERS sorokat adott vissza — a feladó saját

@@ -1450,7 +1450,9 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
         body: iAmShipper
           ? `A feladó lemondta a(z) "${j.title}" fuvart.`
           : `A szállító lemondta a(z) "${j.title}" fuvart.`,
-        link: `/dashboard/fuvar/${j.id}`,
+        // A címzett szerepkörének megfelelő oldal (2026-09-11, C1): a szállító
+        // eddig a FELADÓI /dashboard/fuvar oldalra kapott linket (403).
+        link: iAmShipper ? `/sofor/fuvar/${j.id}` : `/dashboard/fuvar/${j.id}`,
       });
     } catch (e) {
       console.warn('[notifications] job_cancelled hiba:', e.message);

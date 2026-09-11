@@ -318,7 +318,8 @@ router.get('/disputes/mine', authRequired, async (req, res) => {
   LEFT JOIN carrier_routes r ON r.id = rb.route_id
   LEFT JOIN users u ON u.id = d.against_user
       WHERE d.opened_by = $1 OR d.against_user = $1
-      ORDER BY d.created_at DESC`,
+      ORDER BY d.created_at DESC
+      LIMIT 200`,
     [req.user.sub],
   );
   res.json(rows);
