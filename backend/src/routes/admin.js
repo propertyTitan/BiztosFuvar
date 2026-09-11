@@ -285,6 +285,8 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
         'Adminisztrátori törlés',
       ],
     );
+    // Az általa írt értékelések szövege törlődik, a csillag marad (081: SET NULL).
+    await client.query('UPDATE reviews SET comment = NULL WHERE reviewer_id = $1', [targetId]);
     del = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [targetId]);
     await client.query('COMMIT');
   } catch (err) {

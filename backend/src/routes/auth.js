@@ -821,8 +821,9 @@ router.get('/users/:id/profile', authRequired, requireVerifiedEmail, async (req,
     ),
     // Legutóbbi értékelések (max 10)
     db.query(
-      `SELECT r.stars, r.comment, r.created_at, u.full_name AS reviewer_name
-         FROM reviews r JOIN users u ON u.id = r.reviewer_id
+      `SELECT r.stars, r.comment, r.created_at,
+              COALESCE(u.full_name, 'Törölt felhasználó') AS reviewer_name
+         FROM reviews r LEFT JOIN users u ON u.id = r.reviewer_id
         WHERE r.reviewee_id = $1
         ORDER BY r.created_at DESC LIMIT 10`,
       [uid],
@@ -1590,7 +1591,12 @@ router.delete('/me', authRequired, async (req, res) => {
     // a „egy okmány = egy fiók" védelem törlés + újraregisztrációval
     // megkerülhető lenne. Csak a hash marad, az okmányszám sosem.
     await kycHistory.jeloldToroltFioknak(client, userId, 'self');
-    // CASCADE törli: jobs, bids, photos, reviews, notifications, kyc_documents, stb.
+    // Az általa ÍRT értékelések csillaga megmarad („Törölt felhasználó" —
+    // 081-es migráció: reviewer_id SET NULL), a szabad szövege törlődik
+    // (2026-09-11, teljes audit A4): a másik fél reputációja nem tűnhet el
+    // egy harmadik fél fiók-törlésével, a törölt ember szövege viszont igen.
+    await client.query('UPDATE reviews SET comment = NULL WHERE reviewer_id = $1', [userId]);
+    // CASCADE törli: jobs, bids, photos, notifications, kyc_documents, stb.
     await client.query('DELETE FROM users WHERE id = $1', [userId]);
     await client.query('COMMIT');
   } catch (err) {

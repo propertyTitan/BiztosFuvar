@@ -718,12 +718,12 @@ router.post(
         if (recipient_email) {
           try {
             const { sendRecipientTrackingEmail } = require('../services/email');
+            // Kód nélkül (2026-09-11, A4): a kód a felvételkor megy (photos.js).
             await sendRecipientTrackingEmail({
               to: recipient_email,
               recipientName: recipient_name,
               jobTitle: route.title,
               trackingUrl: trackUrl,
-              deliveryCode,
             });
           } catch (e) { console.warn('[recipient] email hiba:', e.message); }
         }
