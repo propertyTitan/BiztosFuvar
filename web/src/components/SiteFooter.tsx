@@ -43,6 +43,12 @@ export default function SiteFooter() {
         <Link href="/aszf" style={{ color: 'inherit', textDecoration: 'underline' }}>ÁSZF</Link>
         <Link href="/adatkezeles" style={{ color: 'inherit', textDecoration: 'underline' }}>Adatkezelési tájékoztató</Link>
       </div>
+      {/* Support-csatorna (2026-09-11, C2): eddig SEHOL nem volt látható elérhetőség a felületen */}
+      <div style={{ marginTop: 10, fontSize: 13, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <a href="mailto:info@gofuvar.hu" style={{ color: 'inherit', textDecoration: 'underline' }}>Segítség: info@gofuvar.hu</a>
+        <a href="mailto:panasz@gofuvar.hu" style={{ color: 'inherit', textDecoration: 'underline' }}>Panasz: panasz@gofuvar.hu</a>
+        <Link href="/ai-chat" style={{ color: 'inherit', textDecoration: 'underline' }}>AI-asszisztens</Link>
+      </div>
       <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
         © {new Date().getFullYear()} GoFuvar · Tiszta Hód Kft. · Minden jog fenntartva.
       </div>

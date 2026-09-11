@@ -4,6 +4,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
+  // Privát/hitelesített felület (2026-09-11, C2): a robots.txt Allow-ra váltása után se indexelődjön.
+  robots: { index: false, follow: false },
   title: 'Elérhető fuvarok',
   description: 'Nyitott fuvarok szállítóknak: tegyél ajánlatot arra, ami útba esik, és keress a szabad kapacitásoddal.',
 };

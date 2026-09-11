@@ -33,6 +33,9 @@ export default function AiChatPage() {
   const loadedRef = useRef(false);
 
   useEffect(() => { setMounted(true); }, []);
+  // Belépés-kapu (2026-09-11, C2): a redirect EFFEKTBEN, nem render közben
+  // (React: render alatti navigáció figyelmeztetés + dupla push).
+  useEffect(() => { if (mounted && !me) router.push('/bejelentkezes'); }, [mounted, me, router]);
 
   // History betöltés
   useEffect(() => {
@@ -88,10 +91,7 @@ export default function AiChatPage() {
       </div>
     );
   }
-  if (!me) {
-    router.push('/bejelentkezes');
-    return null;
-  }
+  if (!me) return null;
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto' }}>
