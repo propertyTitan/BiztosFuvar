@@ -5,8 +5,10 @@ import request from 'supertest';
 const { app, db, createUser, createJob, TINY_PNG } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 const realtime = require('../src/realtime');
-const { runInstantExpiry } = require('../src/services/instantExpiry');
-const { corsOriginsFromEnv } = require('../src/utils/corsOrigins');
+// lazy require: a piros-ellenőrzésnél (forrás nélkül) a többi teszt így lefut és az állításán bukik
+const lazy = (m) => { try { return require(m); } catch { return {}; } };
+const { runInstantExpiry } = lazy('../src/services/instantExpiry');
+const { corsOriginsFromEnv } = lazy('../src/utils/corsOrigins');
 const auth = (t) => ({ Authorization: `Bearer ${t}` });
 const ertesites = async (userId, tipus) => (await db.query(
   'SELECT link, body FROM notifications WHERE user_id = $1 AND type = $2 ORDER BY created_at DESC LIMIT 1', [userId, tipus],
@@ -23,6 +25,7 @@ describe('lejárt azonnali fuvar', () => {
     await db.query(`UPDATE jobs SET is_instant = TRUE, instant_expires_at = NOW() + INTERVAL '2 hours' WHERE id = $1`, [friss.id]);
     const elfogadott = await createJob({ shipperId: felado.id, status: 'accepted' });
     await db.query(`UPDATE jobs SET is_instant = TRUE, instant_expires_at = NOW() - INTERVAL '2 hours' WHERE id = $1`, [elfogadott.id]);
+    expect(typeof runInstantExpiry, 'nincs instantExpiry szolgáltatás').toBe('function');
     await runInstantExpiry();
     const st = async (id) => (await db.query('SELECT is_instant, instant_expires_at, status FROM jobs WHERE id = $1', [id])).rows[0];
     expect((await st(lejart.id)).is_instant, 'a lejárt azonnali fuvar örökre azonnali maradt').toBe(false);
@@ -144,6 +147,7 @@ describe('messages XOR + CORS boot', () => {
     )).rejects.toThrow(/messages_parent_xor|check constraint/i);
   });
   it('élesben CORS_ORIGIN nélkül figyelmeztet; beállítva listát ad', () => {
+    expect(typeof corsOriginsFromEnv, 'nincs corsOrigins helper').toBe('function');
     expect(corsOriginsFromEnv({}, 'production').warning).toMatch(/CORS_ORIGIN/);
     expect(corsOriginsFromEnv({ CORS_ORIGIN: 'https://www.gofuvar.hu, https://gofuvar.hu' }, 'production')).toEqual({
       origins: ['https://www.gofuvar.hu', 'https://gofuvar.hu'], warning: null,
