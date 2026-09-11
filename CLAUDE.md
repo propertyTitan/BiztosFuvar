@@ -231,7 +231,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > (P1-03), kupon-sorrend (D2); (3) ✅ retenciós `ok` általánosítása (P1-09),
 > graceful shutdown + async scrypt + /health/ready; (4) ✅ web: járat-ág
 > feature-flag mögé (D1), ár-összehasonlító ki (D3), SEO-apróságok
-> (canonical www, title-duplázás, sitemap-dátum); (5) lockfile + `npm ci`
+> (canonical www, title-duplázás, sitemap-dátum); (5) ✅ lockfile + `npm ci`
 > + web tsc-kapu (D6). Launch-checklist bővül: a teszt-üzemben `sent`-re
 > állt stub-számlák takarítása (P1-10), a 13 migrációval „igazolt" régi
 > fiók (zömmel teszt) — döntés: nem nyúlunk hozzá, a teszt-adat
@@ -849,6 +849,19 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > ami a javítás NÉLKÜL igazoltan piros.
 
 ### ✅ Kész (élesedett)
+- **CODEX-AUDIT 5. CSOMAG (2026-09-11, user-döntés D6) — LOCKFILE
+  VERZIÓKÖVETVE + `npm ci`**: a `backend/package-lock.json` és a
+  `web/package-lock.json` npm 11-gyel generálva és commitolva (a mobil
+  lockfile-ja Phase 6-ig kívül marad, `.gitignore`); a 3 workflow `npm ci`-t
+  futtat (szétcsúszott package.json ↔ lockfile = piros build, ez a kapu); a
+  webes CI tsc-kapu (`npx tsc --noEmit`) — eddig egy típushiba csak a
+  Vercel-buildben derült ki; a halott `next lint` script (Next 16-ban
+  megszűnt) → `typecheck`. ⚠️ SZABÁLY MOSTANTÓL: függőség-változás után a
+  lockfile-t is commitolni kell (`npm install` frissíti); a Railpack az
+  `npm install`-jával a lockfile-t tiszteli, a Vercel automatikusan `npm ci`.
+  Ok: 2026-09-10-én egy registry-változás (a vitest transzitív peer-halmaza)
+  commit nélkül törte el a CI-t és a Railway-buildet — lockfile-lal ez nem
+  fordulhat elő.
 - **CODEX-AUDIT 4. CSOMAG (2026-09-11, user-döntések D1 + D3 + SEO)** —
   (a) **JÁRAT-ÁG ELREJTVE a launchra (D1)**: kapcsoló `NEXT_PUBLIC_JARAT_ENABLED`
   (web, `src/lib/features.ts`) + `JARAT_ENABLED` (backend, carrierRoutes

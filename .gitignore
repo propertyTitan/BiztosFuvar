@@ -10,7 +10,11 @@ build/
 coverage/
 uploads/
 tsconfig.tsbuildinfo
-package-lock.json
+# 2026-09-11 (user-döntés D6): a backend és a web lockfile-ja VERZIÓKÖVETETT —
+# a registry-változás 2026-09-10-én eltörte a CI-t és a Railway-buildet; a
+# lockfile + npm ci teszi a telepítést reprodukálhatóvá. A mobil (Phase 6)
+# lockfile-ja egyelőre marad kívül.
+mobile/package-lock.json
 
 # Claude Code személyes beállítások
 .claude/settings.local.json
