@@ -34,6 +34,18 @@ function encodeAsDataUrl(file) {
 }
 
 const ALLOWED_KINDS = ['listing', 'pickup', 'dropoff', 'damage', 'document'];
+// Fotó-plafon típusonként (2026-09-11, teljes audit A4): a méret (10 MB)
+// korlátozva volt, a DARABSZÁM nem — egy fiók korlátlanul tölthette a
+// tárolót (költség + retenció). 10/típus/ügylet bőven elég bizonyítéknak.
+const MAX_PHOTOS_PER_KIND = Number(process.env.PHOTO_MAX_PER_KIND) || 10;
+async function fotoPlafonElerve({ jobId = null, bookingId = null, kind }) {
+  const { rows } = await db.query(
+    `SELECT count(*)::int AS n FROM photos
+      WHERE kind = $3 AND (($1::uuid IS NOT NULL AND job_id = $1) OR ($2::uuid IS NOT NULL AND booking_id = $2))`,
+    [jobId, bookingId, kind],
+  );
+  return rows[0].n >= MAX_PHOTOS_PER_KIND;
+}
 
 // Konstans idejű kód-összehasonlítás: hash-elt formában vetjük össze, így a
 // hossz-eltérés sem szivárogtat, és a timingSafeEqual feltétele is teljesül.
@@ -72,6 +84,9 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   const { rows: jobRows } = await db.query('SELECT * FROM jobs WHERE id = $1', [jobId]);
   const job = jobRows[0];
   if (!job) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (await fotoPlafonElerve({ jobId, kind })) {
+    return res.status(400).json({ error: `Ehhez a fuvarhoz már ${MAX_PHOTOS_PER_KIND} „${kind}" fotó tartozik — több nem tölthető fel.`, code: 'PHOTO_LIMIT' });
+  }
 
   // Jogosultság: 'listing' fotót csak a feladó tölthet fel; minden más
   // (pickup/dropoff/damage/document) csak a kijelölt szállítóé.
@@ -255,7 +270,8 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     setImmediate(async () => {
       try {
         const { rows: pickRows } = await db.query(
-          `SELECT j.recipient_phone, j.delivery_code,
+          `SELECT j.recipient_phone, j.recipient_email, j.recipient_name, j.title,
+                  j.tracking_token, j.delivery_code,
                   c.full_name AS carrier_name, c.phone AS carrier_phone
              FROM jobs j
         LEFT JOIN users c ON c.id = j.carrier_id
@@ -263,6 +279,18 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           [jobId],
         );
         const pi = pickRows[0];
+        // A CÍMZETT FELVÉTELI E-MAILJE (2026-09-11, teljes audit A4): a kód
+        // ide költözött a feladáskori levélből — most van szállító, és most
+        // kell a kód. Lazy require + objektumon át (a tesztek elkapják).
+        if (pi && pi.recipient_email && pi.delivery_code) {
+          const emailSvc = require('../services/email');
+          const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
+          emailSvc.sendRecipientPickupEmail({
+            to: pi.recipient_email, recipientName: pi.recipient_name, jobTitle: pi.title,
+            trackingUrl: `${baseUrl}/nyomon-kovetes/${pi.tracking_token}`, deliveryCode: pi.delivery_code,
+            carrierName: pi.carrier_name, carrierPhone: pi.carrier_phone,
+          }).catch((e) => console.warn('[email] recipient pickup hiba:', e.message));
+        }
         if (pi && pi.recipient_phone && pi.delivery_code) {
           const { sendSms } = require('../services/sms');
           // Név-plafon: az üzenet 134 karakter alatt maradjon (= max 2
@@ -471,6 +499,9 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
   );
   const booking = bRows[0];
   if (!booking) return res.status(404).json({ error: 'Foglalás nem található' });
+  if (await fotoPlafonElerve({ bookingId, kind })) {
+    return res.status(400).json({ error: `Ehhez a foglaláshoz már ${MAX_PHOTOS_PER_KIND} „${kind}" fotó tartozik — több nem tölthető fel.`, code: 'PHOTO_LIMIT' });
+  }
 
   // Csak a kijelölt szállító dolgozhat a foglaláson
   if (booking.carrier_id !== req.user.sub) {
@@ -594,6 +625,15 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
             [booking.carrier_id],
           );
           const c = cRows[0] || {};
+          if (booking.recipient_email) {
+            const emailSvc = require('../services/email');
+            const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
+            emailSvc.sendRecipientPickupEmail({
+              to: booking.recipient_email, recipientName: booking.recipient_name, jobTitle: booking.route_title,
+              trackingUrl: `${baseUrl}/nyomon-kovetes/${booking.tracking_token}`, deliveryCode: booking.delivery_code,
+              carrierName: c.full_name, carrierPhone: c.phone,
+            }).catch((e) => console.warn('[email] booking recipient pickup hiba:', e.message));
+          }
           const { sendSms } = require('../services/sms');
           // Ugyanaz a 3-szegmenses korlát és normalizálás, mint a fuvar-ágon.
           const tel = (c.phone || '').replace(/[^\d+]/g, '');

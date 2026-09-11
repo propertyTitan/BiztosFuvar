@@ -256,6 +256,16 @@ describe('Feladói felület: minden funkció lefut', () => {
       .post(`/bids/${V.bidId}/accept-counter`).set(auth(V.szallito.token)).send({}));
   });
 
+  it('ajánlat visszavonása (A4)', async () => {
+    const friss = await createJob({ shipperId: V.felado.id, status: 'bidding' });
+    const { rows: ajanlat } = await db.query(
+      `INSERT INTO bids (job_id, carrier_id, amount_huf, status, return_policy) VALUES ($1, $2, 12000, 'pending', 'included') RETURNING id`,
+      [friss.id, V.szallito.id],
+    );
+    await sikeres('POST /bids/:id/withdraw', request(app)
+      .post(`/bids/${ajanlat[0].id}/withdraw`).set(auth(V.szallito.token)).send({}));
+  });
+
   it('kérdés-válasz a fuvar alatt', async () => {
     // SAJÁT, friss fuvar: a közös `licitalhato`-t az ellenajánlat-elfogadás
     // már „accepted"-re vitte, kérdést pedig csak nyitott fuvarra lehet

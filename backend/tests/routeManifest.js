@@ -118,6 +118,7 @@ const ROUTE_MANIFEST = {
   'GET /bids/preview': { access: 'auth' },
   'POST /bids/:id/accept': { access: 'auth' },
   'POST /bids/:id/counter': { access: 'auth' },
+  'POST /bids/:id/withdraw': { access: 'auth' },
   'POST /bids/:id/accept-counter': { access: 'auth' },
 
   'GET /carrier-routes': { access: 'auth' },

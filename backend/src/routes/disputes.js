@@ -21,6 +21,12 @@ const router = express.Router();
 // POST /disputes — vita megnyitása
 router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   const { job_id, booking_id, description, evidence_url } = req.body || {};
+  // PONTOSAN EGY entitás (2026-09-11, teljes audit A4 — 081-es migráció XOR):
+  // mindkettő megadva eddig a fuvar-ágon futott, de a sor MINDKÉT
+  // azonosítóval mentődött (két ügylet „disputed" egy vitával).
+  if (job_id && booking_id) {
+    return res.status(400).json({ error: 'Egy vita pontosan egy ügyletre szól: vagy job_id, vagy booking_id.', code: 'DISPUTE_ENTITY_XOR' });
+  }
 
   // ⚠️ A BIZONYÍTÉK-URL VALIDÁLÁSA (2026-08-11, adatvédelmi audit 5. kör).
   // Ez a mező NYERSEN, ellenőrzés nélkül került a DB-be — és 2026-08-09 óta a
@@ -142,12 +148,22 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
     });
   }
 
-  const { rows: inserted } = await db.query(
-    `INSERT INTO disputes (job_id, booking_id, opened_by, against_user, description, evidence_url)
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
-    [job_id || null, booking_id || null, req.user.sub, againstUser, descriptionCheck.value, tisztaEvidence],
-  );
+  let inserted;
+  try {
+    ({ rows: inserted } = await db.query(
+      `INSERT INTO disputes (job_id, booking_id, opened_by, against_user, description, evidence_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [job_id || null, booking_id || null, req.user.sub, againstUser, descriptionCheck.value, tisztaEvidence],
+    ));
+  } catch (err) {
+    // A részleges UNIQUE index (081) fogja a PÁRHUZAMOS dupla nyitást — a fenti
+    // SELECT-es ellenőrzés két egyidejű kérésnél mindkettőt átengedte.
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Erre az ügyletre már van nyitott vita. Várd meg az admin döntését.', code: 'DISPUTE_ALREADY_OPEN' });
+    }
+    throw err;
+  }
   const dispute = inserted[0];
 
   // Ha a fuvar/booking státuszát is "disputed"-re állítjuk.

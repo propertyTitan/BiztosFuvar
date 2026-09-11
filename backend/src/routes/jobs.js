@@ -531,12 +531,15 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
       if (recipientEmail) {
         try {
           const { sendRecipientTrackingEmail } = require('../services/email');
+          // ⚠️ KÓD NÉLKÜL (2026-09-11, teljes audit A4): az átvételi kód a
+          // csomag FELVÉTELEKOR megy a címzettnek (e-mail + SMS, photos.js) —
+          // feladáskor még szállító sincs, és egy elgépelt címre küldött
+          // érvényes kód idegennek adott volna átvételi jogot.
           await sendRecipientTrackingEmail({
             to: recipientEmail,
             recipientName: recipientName,
             jobTitle: title,
             trackingUrl,
-            deliveryCode,
           });
           console.log(`[recipient] értesítő email elküldve: ${maskEmail(recipient_email)}`);
         } catch (e) {
@@ -659,6 +662,17 @@ router.get('/', authRequired, requireVerifiedEmail, async (req, res) => {
   if (!VALID_JOB_STATUSES.includes(status)) {
     return res.status(400).json({ error: `Érvénytelen státusz: "${status}".` });
   }
+  // Koordináta- és sugár-kapu (SEC-009 mintájára): szemét → 400, nem 500/csendes 0 találat.
+  const vanKoord = (lat !== undefined && lat !== '') || (lng !== undefined && lng !== '');
+  const la = Number(lat);
+  const ln = Number(lng);
+  if (vanKoord && !(Number.isFinite(la) && Number.isFinite(ln) && la >= -90 && la <= 90 && ln >= -180 && ln <= 180)) {
+    return res.status(400).json({ error: 'Érvénytelen koordináta (lat -90..90, lng -180..180, mindkettő kell).', code: 'INVALID_COORDS' });
+  }
+  const rKm = (radius_km !== undefined && radius_km !== '') ? Number(radius_km) : null;
+  if (rKm !== null && !(Number.isFinite(rKm) && rKm > 0 && rKm <= 3000)) {
+    return res.status(400).json({ error: 'Érvénytelen sugár (0 < radius_km ≤ 3000).', code: 'INVALID_RADIUS' });
+  }
   let sql = `SELECT j.*,
        u.account_type AS shipper_account_type,
        u.company_name AS shipper_company_name,
@@ -715,18 +729,38 @@ router.get('/', authRequired, requireVerifiedEmail, async (req, res) => {
     sql += ` AND j.is_instant = FALSE`;
   }
 
-  sql += ' ORDER BY j.is_instant DESC, j.created_at DESC LIMIT 200';
+  // ⚠️ SUGÁR-SZŰRÉS AZ SQL-BEN (2026-09-11, teljes audit A4). Eddig a
+  // szűrés a `LIMIT 200` UTÁN, JS-ben futt: a 200 legfrissebb fuvar közül
+  // válogatott — egy régebbi, de 3 km-re lévő fuvar egyszerűen NEM LÉTEZETT
+  // a szállító számára, ha a piactéren 200-nál több frissebb volt (épp a
+  // forgalom-növekedéssel jött volna elő). Haversine az adatbázisban,
+  // távolság szerinti rendezéssel.
+  let tavolsagExpr = null;
+  if (vanKoord) {
+    params.push(la);
+    const iLat = params.length;
+    params.push(ln);
+    const iLng = params.length;
+    tavolsagExpr = `(2 * 6371000 * asin(sqrt(`
+      + `power(sin(radians(j.pickup_lat::float8 - $${iLat}::float8) / 2), 2)`
+      + ` + cos(radians($${iLat}::float8)) * cos(radians(j.pickup_lat::float8))`
+      + ` * power(sin(radians(j.pickup_lng::float8 - $${iLng}::float8) / 2), 2))))`;
+    sql += ' AND j.pickup_lat IS NOT NULL AND j.pickup_lng IS NOT NULL';
+    if (rKm !== null) {
+      params.push(rKm * 1000);
+      sql += ` AND ${tavolsagExpr} <= $${params.length}`;
+    }
+  }
+  sql += tavolsagExpr
+    ? ` ORDER BY ${tavolsagExpr} ASC, j.is_instant DESC, j.created_at DESC LIMIT 200`
+    : ' ORDER BY j.is_instant DESC, j.created_at DESC LIMIT 200';
   const { rows } = await db.query(sql, params);
   let jobs = rows;
-  if (lat && lng) {
-    const la = parseFloat(lat), ln = parseFloat(lng);
-    jobs = jobs
-      .map((j) => ({
-        ...j,
-        distance_to_pickup_km: +(distanceMeters(la, ln, j.pickup_lat, j.pickup_lng) / 1000).toFixed(2),
-      }))
-      .filter((j) => !radius_km || j.distance_to_pickup_km <= parseFloat(radius_km))
-      .sort((a, b) => a.distance_to_pickup_km - b.distance_to_pickup_km);
+  if (vanKoord) {
+    jobs = jobs.map((j) => ({
+      ...j,
+      distance_to_pickup_km: +(distanceMeters(la, ln, j.pickup_lat, j.pickup_lng) / 1000).toFixed(2),
+    }));
   }
   // A delivery_code-ot csak a saját feladóra engedjük át
   res.json(jobs.map((j) => scrubJobForUser(j, req.user)));

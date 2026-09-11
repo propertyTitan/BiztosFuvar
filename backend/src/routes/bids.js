@@ -524,6 +524,56 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy, feeAlreadyPaid = f
   }
 }
 
+// POST /bids/:id/withdraw — a SZÁLLÍTÓ visszavonja a saját, még függő
+// ajánlatát (2026-09-11, teljes audit A4). Eddig NEM volt kiút: aki
+// meggondolta magát (közben elvállalt mást, elszámolta az árat), az
+// ajánlata „elfogadásra várt" a feladónál, aki elfogadhatta egy olyan
+// szállítót, aki már nem jön — a fizetés utáni lemondás pedig a
+// díjmentes újraválasztás körét indította (fölösleges ügyfél-élmény-
+// romlás). A 'withdrawn' státusz a bid_status enumban eleve létezett, a
+// reopen NEM éleszti újra (csak a 'rejected'-et), az újra-ajánlás ON
+// CONFLICT-ja viszont engedi a visszatérést jobb árral.
+router.post('/bids/:id/withdraw', authRequired, writeRateLimit, async (req, res) => {
+  const { rows } = await db.query(
+    `SELECT b.id, b.carrier_id, b.status AS bid_status, b.job_id,
+            j.shipper_id, j.status AS job_status, j.title
+       FROM bids b JOIN jobs j ON j.id = b.job_id
+      WHERE b.id = $1`,
+    [req.params.id],
+  );
+  const bid = rows[0];
+  if (!bid) return res.status(404).json({ error: 'Ajánlat nem található' });
+  if (bid.carrier_id !== req.user.sub) return res.status(403).json({ error: 'Csak a saját ajánlatodat vonhatod vissza.' });
+  if (bid.bid_status !== 'pending') {
+    return res.status(409).json({
+      error: bid.bid_status === 'accepted'
+        ? 'Ezt az ajánlatot már elfogadták — a fuvar oldalán tudsz visszalépni (díjmentes újraválasztás a feladónak).'
+        : 'Ez az ajánlat már lezárult.',
+      code: 'BID_NOT_PENDING',
+    });
+  }
+  if (!['pending', 'bidding'].includes(bid.job_status)) {
+    return res.status(409).json({ error: 'A fuvar már nem nyitott.', code: 'JOB_NOT_OPEN' });
+  }
+  const upd = await db.query(
+    `UPDATE bids SET status = 'withdrawn', counter_amount_huf = NULL, counter_by = NULL, counter_at = NULL
+      WHERE id = $1 AND status = 'pending'`,
+    [bid.id],
+  );
+  if (upd.rowCount === 0) {
+    return res.status(409).json({ error: 'Az ajánlat állapota időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
+  }
+  createNotification({
+    user_id: bid.shipper_id,
+    type: 'bid_withdrawn',
+    title: 'Egy ajánlatot visszavontak',
+    body: `Egy szállító visszavonta a(z) "${bid.title || 'fuvar'}" fuvarra tett ajánlatát. A többi ajánlat továbbra is érvényes.`,
+    link: `/dashboard/fuvar/${bid.job_id}`,
+  }).catch(() => {});
+  realtime.emitToJob(bid.job_id, 'bids:withdrawn', { bid_id: bid.id, job_id: bid.job_id });
+  res.json({ ok: true, status: 'withdrawn' });
+});
+
 // POST /bids/:id/accept – a fuvar FELADÓJA elfogadja a licitet (vagy a szállító
 // legutóbbi ellenajánlatát) → ESCROW lefoglalás a megállapodott áron.
 router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) => {

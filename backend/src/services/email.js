@@ -595,11 +595,11 @@ async function sendRecipientTrackingEmail({ to, recipientName, jobTitle, trackin
         <h2>Szia${recipientName ? ` ${escapeHtml(recipientName)}` : ''}! 👋</h2>
         <p>Csomag van úton hozzád a <strong>GoFuvar</strong> platformon keresztül.</p>
         <p style="font-size:14px;color:#666">Fuvar: <strong>${escapeHtml(jobTitle)}</strong></p>
-        <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:20px;text-align:center;margin:20px 0">
+        ${deliveryCode ? `<div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:20px;text-align:center;margin:20px 0">
           <div style="font-size:13px;color:#666;margin-bottom:8px">Átvételi kód</div>
           <div style="font-size:36px;font-weight:800;letter-spacing:6px;font-family:monospace">${escapeHtml(deliveryCode)}</div>
           <div style="font-size:12px;color:#666;margin-top:8px">Ezt a kódot add meg a szállítónak amikor megérkezik</div>
-        </div>
+        </div>` : `<p style="font-size:14px;color:#444">Amikor a szállító felveszi a csomagot, e-mailben és SMS-ben elküldjük a <strong>6 jegyű átvételi kódot</strong> és a szállító elérhetőségét. A kódot csak az átadáskor add meg neki.</p>`}
         <a href="${escapeHtml(trackingUrl)}" style="display:block;text-align:center;background:#1e40af;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px">
           📍 Küldemény követése
         </a>
@@ -611,6 +611,37 @@ async function sendRecipientTrackingEmail({ to, recipientName, jobTitle, trackin
              mondani, KI kezeli az adatait, HONNAN vannak, MEDDIG tartjuk meg, és
              hogyan tiltakozhat. (2026-08-09 adatvédelmi audit: eddig egyik
              kötelező elem sem szerepelt sem az e-mailben, sem az SMS-ben.) -->
+        ${cimzettiTajekoztatoBlokk()}
+      </div>
+    `,
+  });
+}
+
+/**
+ * A CÍMZETT felvételi e-mailje (2026-09-11, teljes audit A4): a csomag
+ * felvételekor — az SMS párja — a 6 jegyű átvételi kóddal és a szállító
+ * elérhetőségével. A feladáskori levél (fent) kód nélkül megy.
+ */
+async function sendRecipientPickupEmail({
+  to, recipientName, jobTitle, trackingUrl, deliveryCode, carrierName, carrierPhone,
+}) {
+  return sendEmail({
+    to,
+    subject: `🚚 Úton a csomagod — átvételi kód: ${deliveryCode}`,
+    html: `
+      <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
+        <h2>Szia${recipientName ? ` ${escapeHtml(recipientName)}` : ''}! 🚚</h2>
+        <p>A szállító felvette a csomagot — <strong>úton van hozzád</strong>.</p>
+        <p style="font-size:14px;color:#666">Fuvar: <strong>${escapeHtml(jobTitle)}</strong></p>
+        <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:12px;padding:20px;text-align:center;margin:20px 0">
+          <div style="font-size:13px;color:#666;margin-bottom:8px">Átvételi kód</div>
+          <div style="font-size:36px;font-weight:800;letter-spacing:6px;font-family:monospace">${escapeHtml(deliveryCode)}</div>
+          <div style="font-size:12px;color:#666;margin-top:8px"><strong>Csak az átadáskor add meg a szállítónak</strong> — előre bediktálva a kód elveszti a bizonyíték-értékét.</div>
+        </div>
+        ${carrierName ? `<p>🚗 Szállító: <strong>${escapeHtml(carrierName)}</strong>${carrierPhone ? ` — <a href="tel:${escapeHtml(carrierPhone)}">${escapeHtml(carrierPhone)}</a>` : ''}<br><span style="font-size:13px;color:#666">Egyeztess vele az érkezésről!</span></p>` : ''}
+        <a href="${escapeHtml(trackingUrl)}" style="display:block;text-align:center;background:#1e40af;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:700;font-size:16px">
+          📍 Küldemény követése
+        </a>
         ${cimzettiTajekoztatoBlokk()}
       </div>
     `,
@@ -797,6 +828,7 @@ module.exports = {
   sendBookingRejectedEmail,
   sendCancellationEmail,
   sendRecipientTrackingEmail,
+  sendRecipientPickupEmail,
   sendEmailVerificationEmail,
   sendPasswordResetEmail,
   sendTaxDataRequestEmail,

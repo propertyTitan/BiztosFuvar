@@ -21,6 +21,8 @@ const { calculateConnectionFee } = require('./connectionFee');
 const FIRST_AFTER_HOURS = 24;
 const SECOND_AFTER_HOURS = 48;
 const MAX_REMINDERS = 2;
+/** A 2. (utolsó) emlékeztető után ennyi órával a fizetetlen megállapodás lejár. */
+const EXPIRE_AFTER_HOURS = Number(process.env.PAYMENT_EXPIRE_AFTER_HOURS) || 72;
 
 /**
  * @returns {Promise<number>} az elküldött emlékeztetők száma
@@ -107,7 +109,114 @@ async function runPaymentReminders() {
   } catch (err) {
     console.error('[payment-reminder] kör hiba:', err.message);
   }
+  await runPaymentExpiry().catch((err) => console.error('[payment-expiry] kör hiba:', err.message));
   return sent;
 }
 
-module.exports = { runPaymentReminders, FIRST_AFTER_HOURS, SECOND_AFTER_HOURS, MAX_REMINDERS };
+// =====================================================================
+//  FIZETETLEN MEGÁLLAPODÁS LEJÁRATÁSA (2026-09-11, teljes audit A4)
+//
+//  A két emlékeztető után a fuvar eddig ÖRÖKRE 'accepted' + fizetetlen
+//  maradt: a szállító várt egy feladóra, aki nem fizet (és a szállítót
+//  semmi nem szabadította fel), a piactérről a fuvar eltűnt, a feladó
+//  semmit nem tudott a következményről. Az egyéves „elhagyott fuvar"
+//  retenció zárta csak le. Most: az utolsó emlékeztető után
+//  EXPIRE_AFTER_HOURS (alap 72 h — ~6 nap a megállapodástól) → a fuvar
+//  LEZÁRUL ('cancelled', cancel_reason 'payment_expired'), a függő díj-sor
+//  'refunded' (nem volt pénzmozgás), mindkét fél értesítést + e-mailt kap.
+//  NEM újranyitás: egy hat napja nem reagáló feladó fuvarját nem érdemes
+//  a piactéren tartani (zombi-hirdetés, ami újabb szállítókat fárasztana).
+//  Ha mégis aktuális, a feladó egy kattintással újra feladja.
+// =====================================================================
+async function runPaymentExpiry() {
+  let lezart = 0;
+  const { rows } = await db.query(
+    `SELECT j.id, j.title, j.shipper_id, j.carrier_id,
+            s.email AS shipper_email, s.full_name AS shipper_name,
+            c.email AS carrier_email, c.full_name AS carrier_name
+       FROM jobs j
+       JOIN users s ON s.id = j.shipper_id
+  LEFT JOIN users c ON c.id = j.carrier_id
+      WHERE j.status = 'accepted'
+        AND j.paid_at IS NULL
+        AND j.payment_reminder_count >= $1
+        AND j.last_payment_reminder_at < NOW() - ($2 || ' hours')::interval
+      LIMIT 500`,
+    [MAX_REMINDERS, EXPIRE_AFTER_HOURS],
+  );
+  for (const j of rows) {
+    try {
+      // Feltételes: közben fizethettek / lemondhatták — akkor nem nyúlunk hozzá.
+      const upd = await db.query(
+        `UPDATE jobs
+            SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = NULL,
+                cancel_reason = 'payment_expired', cancellation_fee_huf = 0, refund_huf = 0,
+                updated_at = NOW()
+          WHERE id = $1 AND status = 'accepted' AND paid_at IS NULL`,
+        [j.id],
+      );
+      if (upd.rowCount === 0) continue;
+      await db.query(
+        `UPDATE escrow_transactions SET status = 'refunded', refunded_at = NOW()
+          WHERE job_id = $1 AND status = 'held'`,
+        [j.id],
+      );
+      lezart += 1;
+      const { sendEmail, wrapHtml, escapeHtml } = require('./email');
+      await createNotification({
+        user_id: j.shipper_id,
+        type: 'payment_expired',
+        title: '⌛ A megállapodás lejárt — a fuvart lezártuk',
+        body: `A(z) "${j.title || 'fuvar'}" fuvaron megvolt a megállapodás, de a kapcsolatfelvételi díjat két emlékeztető után sem fizetted ki, ezért a fuvart lezártuk és a szállítót felszabadítottuk. Ha még aktuális, add fel újra.`,
+        link: `/dashboard/fuvar/${j.id}`,
+      });
+      if (j.shipper_email) {
+        await sendEmail({
+          to: j.shipper_email,
+          subject: '⌛ A megállapodás lejárt — a fuvart lezártuk',
+          html: wrapHtml({
+            heading: '⌛ Lejárt a fizetési határidő',
+            bodyHtml: `<p>Szia${j.shipper_name ? ` ${escapeHtml(j.shipper_name)}` : ''}!</p>`
+              + `<p>A(z) <strong>${escapeHtml(j.title || 'fuvar')}</strong> fuvaron megvolt a megállapodás a szállítóval, de a kapcsolatfelvételi díjat két emlékeztető után sem fizetted ki. `
+              + 'A fuvart ezért lezártuk, és a szállítót felszabadítottuk — nem kell tovább várnia.</p>'
+              + '<p>Ha a szállítás még aktuális, add fel újra a fuvart: a szállítók percek alatt tesznek rá ajánlatot.</p>',
+            ctaText: 'Új fuvar feladása',
+            ctaHref: `${process.env.PUBLIC_URL || 'https://www.gofuvar.hu'}/dashboard/uj-fuvar`,
+          }),
+        });
+      }
+      if (j.carrier_id) {
+        await createNotification({
+          user_id: j.carrier_id,
+          type: 'payment_expired',
+          title: 'A feladó nem fizette ki a díjat — a fuvar lezárult',
+          body: `A(z) "${j.title || 'fuvar'}" fuvar feladója nem fizette ki a kapcsolatfelvételi díjat, ezért a fuvart lezártuk. Nem kell tovább várnod — nézd meg a többi elérhető fuvart!`,
+          link: '/sofor/fuvarok',
+        });
+        if (j.carrier_email) {
+          await sendEmail({
+            to: j.carrier_email,
+            subject: 'A fuvar lezárult — a feladó nem fizette ki a díjat',
+            html: wrapHtml({
+              heading: 'Nem kell tovább várnod',
+              bodyHtml: `<p>Szia${j.carrier_name ? ` ${escapeHtml(j.carrier_name)}` : ''}!</p>`
+                + `<p>A(z) <strong>${escapeHtml(j.title || 'fuvar')}</strong> fuvar feladója a megállapodás után sem fizette ki a kapcsolatfelvételi díjat, ezért a fuvart lezártuk. `
+                + 'Az elérhető fuvarok között bármikor találsz újat.</p>',
+              ctaText: 'Elérhető fuvarok',
+              ctaHref: `${process.env.PUBLIC_URL || 'https://www.gofuvar.hu'}/sofor/fuvarok`,
+            }),
+          });
+        }
+      }
+    } catch (err) {
+      console.error(`[payment-expiry] fuvar ${j.id} hiba:`, err.message);
+    }
+  }
+  if (lezart > 0) console.log(`[payment-expiry] ${lezart} fizetetlen megállapodás lezárva`);
+  return lezart;
+}
+
+module.exports = {
+  runPaymentReminders, runPaymentExpiry,
+  FIRST_AFTER_HOURS, SECOND_AFTER_HOURS, MAX_REMINDERS, EXPIRE_AFTER_HOURS,
+};
