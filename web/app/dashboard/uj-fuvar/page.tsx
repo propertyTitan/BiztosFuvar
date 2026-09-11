@@ -20,6 +20,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import FieldError, { REQ, redBorder } from '@/components/FieldError';
 import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
+import { mentPiszkozat, olvasPiszkozat, torolPiszkozat } from '@/lib/urlapPiszkozat';
 import {
   MAX_DIM_CM, MAX_WEIGHT_KG,
   intFieldError, moneyFieldError, weightFieldError,
@@ -160,6 +161,28 @@ export default function UjFuvar() {
   }
 
   useEffect(() => { setMounted(true); }, []);
+
+  // ── PISZKOZAT (2026-09-11, teljes audit B2) ─────────────────────────────
+  // A 20+ mezős űrlap egy tab-újratöltéstől / lejárt munkamenettől eddig
+  // MINDENT elvesztett. Mentés 500 ms-os késleltetéssel minden változásra,
+  // visszaállítás betöltéskor (ha az űrlap még üres), törlés sikeres feladáskor.
+  const PISZKOZAT_KULCS = 'gofuvar_uj_fuvar_piszkozat';
+  useEffect(() => {
+    if (!mounted || !me) return;
+    const d = olvasPiszkozat<{ form: Partial<FormState>; raw: Partial<Record<NumKey, string>> }>(PISZKOZAT_KULCS);
+    if (!d || !d.form) return;
+    if (JSON.stringify(form) !== JSON.stringify(initialForm)) return;
+    setForm({ ...initialForm, ...d.form });
+    if (d.raw) setRaw((prev) => ({ ...prev, ...d.raw }));
+    toast.info('Piszkozat visszaállítva', 'A félbehagyott feladásod adatait betöltöttük — ha nem kell, írd felül a mezőket.');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, me]);
+  useEffect(() => {
+    if (!mounted) return;
+    if (JSON.stringify(form) === JSON.stringify(initialForm)) return;
+    const t = setTimeout(() => { mentPiszkozat(PISZKOZAT_KULCS, { form, raw }); }, 500);
+    return () => clearTimeout(t);
+  }, [form, raw, mounted]);
 
   function missing(filled: unknown): boolean {
     if (!tried) return false;
@@ -403,6 +426,7 @@ export default function UjFuvar() {
         }
       }
 
+      torolPiszkozat(PISZKOZAT_KULCS);
       toast.success(
         'Fuvar feladva',
         photos.length > 0 ? `${photos.length} fotóval együtt` : undefined,
@@ -429,7 +453,8 @@ export default function UjFuvar() {
     );
   }
   if (!me) {
-    router.push('/bejelentkezes');
+    // ?next= — belépés után ide jön vissza (2026-09-11, B2)
+    router.push(`/bejelentkezes?next=${encodeURIComponent('/dashboard/uj-fuvar')}`);
     return null;
   }
 

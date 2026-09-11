@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { Truck, MapPin, Flag } from 'lucide-react';
+import { Truck, MapPin, Flag, ArrowRight } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -29,6 +29,18 @@ const STATUS_PILL: Record<string, string> = {
   cancelled: 'pill-cancelled',
 };
 
+// KÖVETKEZŐ LÉPÉS (2026-09-11, teljes audit B2): a vállalt fuvarok listája
+// eddig csak státusz-címkét mutatott — a szállító nem látta, MI a teendője.
+// A munkalista most minden aktív fuvarnál megmondja, mi jön, és a sorrend
+// is a tennivaló szerint alakul (úton lévő elöl, fizetésre váró hátul).
+function kovetkezoLepes(j: Job): { szoveg: string; sulyos: boolean; sorrend: number } {
+  if (j.status === 'in_progress') return { szoveg: 'Kézbesítés: fotó + a címzett 6 jegyű átvételi kódja', sulyos: true, sorrend: 0 };
+  if (j.status === 'disputed') return { szoveg: 'Vita alatt — az ügyfélszolgálat dönt, addig várj', sulyos: false, sorrend: 1 };
+  if (j.status === 'accepted' && j.paid_at) return { szoveg: 'Felvétel: egyeztess a feladóval, majd fotó a csomagról a felvételkor', sulyos: true, sorrend: 2 };
+  if (j.status === 'accepted') return { szoveg: 'A feladó díjfizetésére várunk — utána látod az elérhetőségét', sulyos: false, sorrend: 3 };
+  return { szoveg: '', sulyos: false, sorrend: 9 };
+}
+
 export default function SoforSajatFuvarok() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,9 +55,11 @@ export default function SoforSajatFuvarok() {
   }, []);
 
   // Csoportosítjuk állapot szerint, hogy könnyebb legyen átlátni
-  const active = jobs.filter((j) => ['accepted', 'in_progress'].includes(j.status));
+  const active = jobs
+    .filter((j) => ['accepted', 'in_progress', 'disputed'].includes(j.status))
+    .sort((a, b) => kovetkezoLepes(a).sorrend - kovetkezoLepes(b).sorrend);
   const done = jobs.filter((j) => ['delivered', 'completed'].includes(j.status));
-  const other = jobs.filter((j) => !['accepted', 'in_progress', 'delivered', 'completed'].includes(j.status));
+  const other = jobs.filter((j) => !['accepted', 'in_progress', 'disputed', 'delivered', 'completed'].includes(j.status));
 
   function JobCard({ j }: { j: Job }) {
     return (
@@ -59,6 +73,14 @@ export default function SoforSajatFuvarok() {
             <h3 style={{ marginTop: 0 }}>{j.title}</h3>
             <p className="muted" style={{ margin: '2px 0' }}><MapPin size={13} style={{ verticalAlign: -2 }} /> {j.pickup_address}</p>
             <p className="muted" style={{ margin: '2px 0' }}><Flag size={13} style={{ verticalAlign: -2 }} /> {j.dropoff_address}</p>
+            {kovetkezoLepes(j).szoveg && (
+              <p style={{
+                margin: '8px 0 0', fontSize: 13, display: 'flex', gap: 6, alignItems: 'flex-start',
+                color: kovetkezoLepes(j).sulyos ? 'var(--primary-text)' : 'var(--muted)', fontWeight: kovetkezoLepes(j).sulyos ? 700 : 400,
+              }}>
+                <ArrowRight size={14} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden /> <span>Következő: {kovetkezoLepes(j).szoveg}</span>
+              </p>
+            )}
           </div>
           <div style={{ textAlign: 'right' }}>
             <span className={`pill ${STATUS_PILL[j.status] || 'pill-bidding'}`}>

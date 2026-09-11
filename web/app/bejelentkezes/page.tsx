@@ -10,6 +10,7 @@
 //   /bejelentkezes?mode=register → alapból "register" (landing CTA-hoz)
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { biztonsagosBelsoUt } from '@/lib/navigacio';
 import { Eye, EyeOff } from 'lucide-react';
 import { api } from '@/api';
 import { setCurrentUser, homeForRole, initStoredModeFromProfile, Role } from '@/lib/auth';
@@ -143,7 +144,9 @@ function BejelentkezesContent() {
       // GF-006: első belépéskor (nincs mentett mód) a szerver-adat dönt —
       // egy szállító fiókja szállító-módban nyíljon, ne „Feladó mód"-ban.
       initStoredModeFromProfile(res.user as any);
-      const cel = homeForRole(res.user.role as Role);
+      // ?next= (2026-09-11, B2): a védett oldal, ahonnan a belépéshez küldtük —
+      // CSAK belső, relatív cél (nyílt átirányítás ellen: lib/navigacio.ts).
+      const cel = biztonsagosBelsoUt(searchParams.get('next')) ?? homeForRole(res.user.role as Role);
       router.push(cel);
       // GF-002 (Manus 3. futás, INTERMITTÁLÓ): ritkán a kliens-oldali
       // navigáció elakad — a session él, de az oldal a login-űrlapon marad.

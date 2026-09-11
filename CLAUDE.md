@@ -315,11 +315,27 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   automatikusan invalidál) — öt komponens öt kérése egyre olvadt.
 >   (6) **Mobil mód-chip** a fejléc mobil menüjében („Szállító mód — váltás a
 >   főoldalon").
-> - **B2 ⏳ (web UX):** KYC előellenőrző sáv + újrabeküldés; kettős vita-UI
->   összevonása; térkép összecsukása mobilon; űrlap-piszkozat + `?next=`;
->   htmlFor címkék (⚠️ a mért a11y 0 critical/serious — csak a valóban
->   címkétlen mezők); CarryingJobs munkalista; `PATCH /jobs/:id`
->   szerkesztés + felvételi ablak mezők a feladásban + ajánlat-nélküli nudge.
+> - **B2 ✅ (web UX; `MapCollapse.test.tsx`, `urlapPiszkozat.test.ts`,
+>   `navigacio.test.ts`, `vita-ui.test.ts`):** (1) **Kettős vita-UI
+>   összevonva** a feladói fuvar-oldalon (a DisputeButton + második
+>   „folyamatban" doboz ki; a „Probléma van a fuvarral?" kártya + dialógus
+>   marad, 'completed'-en is; a szállítói oldalon a DisputeButton az
+>   egyetlen út — a 03-vita E2E-spec igazítva). (2) **`MapCollapse`**: a
+>   két fuvar-részletoldal térképe mobilon (≤640 px) összecsukva indul, gombbal
+>   nyílik (GF-020 hosszú mobil-oldalak). (3) **KYC előellenőrző tippek** a
+>   feltöltő mező felett (elülső oldal, NE lakcímkártya, fény, 4 sarok,
+>   név-egyezés); az elutasítás utáni „Újra próbálom" már élt. (4)
+>   **Szállítói munkalista**: a vállalt fuvarok kártyáján „Következő:
+>   …" (kézbesítés / felvétel / díjfizetésre vár / vita), a lista a teendő
+>   szerint rendezve. (5) **Űrlap-piszkozat** a fuvarfeladáson
+>   (localStorage, 7 nap, sikeres feladás törli; `lib/urlapPiszkozat.ts`)
+>   + **`?next=`** a belépésen (csak belső, relatív cél —
+>   `lib/navigacio.ts`, nyílt átirányítás ellen). ⚠️ htmlFor: a mért a11y
+>   0 critical/serious (PR #177), a `<label>`-számlálás wrapping label-eket
+>   talált — nem nyúltam hozzá.
+> - **B3 ⏳:** `PATCH /jobs/:id` szerkesztés (bidding állapotban) + felvételi
+>   ablak mezők a feladásban + ajánlat-nélküli nudge (24 h, 0 ajánlat →
+>   in-app + e-mail tippekkel; új `jobs.no_offer_nudge_at` oszlop).
 > - **C ⏳ (P2-lista):** halott státuszok, lejárt azonnali fuvarok,
 >   webhook-index, lemondás-értesítés link, disputed-kézbesítés
 >   utóhatásai, retention_runs purge, photos/messages XOR, CORS

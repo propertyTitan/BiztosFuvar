@@ -22,7 +22,7 @@ import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
 import JobQuestions from '@/components/JobQuestions';
-import DisputeButton from '@/components/DisputeButton';
+import MapCollapse from '@/components/MapCollapse';
 import DeliveryPin from '@/components/DeliveryPin';
 import Confetti from '@/components/Confetti';
 import CompanyVerifiedBadge from '@/components/CompanyVerifiedBadge';
@@ -247,10 +247,10 @@ export default function FuvarReszletek() {
         <span className={`pill ${STATUS_PILL[job.status] || 'pill-progress'}`}>{STATUS_LABEL[job.status] || job.status}</span>
       </div>
 
-      {/* Élő követés */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: 16 }}>
+      {/* Élő követés — mobilon összecsukva (B2, GF-020) */}
+      <MapCollapse title="Térkép és élő követés">
         <LiveTrackingMap job={job} />
-      </div>
+      </MapCollapse>
 
       {/* Átvételi kód a feladónak.
           KÉT ESET, és korábban csak az egyikre volt jó szöveg:
@@ -676,7 +676,7 @@ export default function FuvarReszletek() {
 
       {/* Vita indítása — in_progress vagy delivered státuszban,
           ha valami baj van a csomaggal / szállítással / szállítóval. */}
-      {['in_progress', 'delivered'].includes(job.status) && (
+      {['in_progress', 'delivered', 'completed'].includes(job.status) && (
         <div className="card" style={{ marginTop: 16, background: '#fefce8', borderColor: 'var(--warning)' }}>
           <h2 style={{ marginTop: 0 }}>Probléma van a fuvarral?</h2>
           {/* Átfogalmazva (2026-08-16, tesztelői kérés). A régi szöveg rögtön
@@ -701,18 +701,9 @@ export default function FuvarReszletek() {
         </div>
       )}
 
-      {job.status === 'disputed' && (
-        <div className="card" style={{ marginTop: 16, background: 'var(--warning-light)', borderColor: 'var(--warning)' }}>
-          <h2 style={{ marginTop: 0 }}>⚖️ Vitás eset folyamatban</h2>
-          <p className="muted">
-            Erre a fuvarra vita van nyitva. Az admin felülvizsgálja a helyzetet, és döntést hoz.
-            Az értesítések között követheted az állapotot.
-          </p>
-        </div>
-      )}
-
-      {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
-      <DisputeButton jobId={id} status={job.status} />
+      {/* Vita: EGY út (2026-09-11, teljes audit B2) — a fenti „Probléma van a
+          fuvarral?" kártya + dialógus. A korábbi második gomb (DisputeButton)
+          és a második „folyamatban" doboz összevonva. Őr: vita-ui.test.ts. */}
 
       {/* Publikus Q&A — bárki kérdezhet, csak a feladó válaszolhat */}
       <JobQuestions

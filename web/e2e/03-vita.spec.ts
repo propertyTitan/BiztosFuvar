@@ -26,12 +26,14 @@ test('a feladó vitát nyit, az oldal vitatott állapotot mutat', async ({ page 
   await loginAs(page, shipper);
   await page.goto(`/dashboard/fuvar/${job.id}`);
 
-  await page.getByRole('button', { name: /Problémám van ezzel a fuvarral/ }).click();
-  await expect(page.getByText('Vita megnyitása').first()).toBeVisible();
+  // 2026-09-11 (teljes audit B2): a feladói oldalon EGY vita-út maradt — a
+  // „Probléma van a fuvarral?" kártya gombja + a megerősítő dialógus.
+  await page.getByRole('button', { name: /Vitás esetet nyitok/ }).click();
+  await expect(page.getByText('Vitás eset megnyitása').first()).toBeVisible();
   await page.locator('textarea').last().fill(
     'E2E teszt: a csomag sérülten érkezett meg, a doboz sarka behorpadt.',
   );
-  await page.getByRole('button', { name: /Vita megnyitása/ }).click();
+  await page.getByRole('button', { name: /^Vita megnyitása$/ }).click();
 
   // A vita rögzült: az oldal vitatott állapotot jelez
   await expect(page.getByText(/vita|vitatott|disputed/i).first()).toBeVisible({ timeout: 20_000 });
