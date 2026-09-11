@@ -101,6 +101,7 @@ const ROUTE_MANIFEST = {
   'POST /jobs/:id/pay': { access: 'auth' },
   'POST /jobs/:id/confirm-payment': { access: 'auth' },
   'POST /jobs/:id/cancel': { access: 'auth' },
+  'PATCH /jobs/:id': { access: 'auth' },
   'POST /jobs/:id/reopen': { access: 'auth' },
   'POST /jobs/:id/instant-accept': { access: 'auth' },
   'GET /jobs/:jobId/bids': { access: 'auth' },

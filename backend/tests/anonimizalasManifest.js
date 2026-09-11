@@ -107,6 +107,7 @@ const ANONIMIZALAS_MANIFEST = {
     photo_retention_hold: { marad: 'A bizonyíték-zárolás jelzője — épp a retenciót vezérli.' },
     payment_reminder_count: { marad: 'Belső könyvelés (hány emlékeztetőt küldtünk).' },
     last_payment_reminder_at: { marad: 'A legutóbbi fizetési emlékeztető időpontja — belső könyvelés, hogy ne spammeljünk.' },
+    no_offer_nudge_at: { marad: 'Belső könyvelés: küldtünk-e „nincs ajánlat” tippet — időbélyeg, nem személyes adat.' },
   },
 
   route_bookings: {

@@ -162,6 +162,7 @@ const PII_CSATORNA_MANIFEST = {
   'POST /bids/:id/accept-counter': 'felek',
   'POST /bids/:id/counter': 'felek',
   'POST /bids/:id/withdraw': 'felek',
+  'PATCH /jobs/:id': 'felek',
   'POST /disputes': 'felek',
   'POST /jobs/:id/cancel': 'felek',
   'POST /jobs/:id/confirm-payment': 'felek',

@@ -256,8 +256,10 @@ describe('Feladói felület: minden funkció lefut', () => {
       .post(`/bids/${V.bidId}/accept-counter`).set(auth(V.szallito.token)).send({}));
   });
 
-  it('ajánlat visszavonása (A4)', async () => {
+  it('ajánlat visszavonása (A4) + fuvar szerkesztése (B3)', async () => {
     const friss = await createJob({ shipperId: V.felado.id, status: 'bidding' });
+    await sikeres('PATCH /jobs/:id', request(app)
+      .patch(`/jobs/${friss.id}`).set(auth(V.felado.token)).send({ title: 'Módosított teszt fuvar' }));
     const { rows: ajanlat } = await db.query(
       `INSERT INTO bids (job_id, carrier_id, amount_huf, status, return_policy) VALUES ($1, $2, 12000, 'pending', 'included') RETURNING id`,
       [friss.id, V.szallito.id],

@@ -21,6 +21,7 @@ import FieldError, { REQ, redBorder } from '@/components/FieldError';
 import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
 import { mentPiszkozat, olvasPiszkozat, torolPiszkozat } from '@/lib/urlapPiszkozat';
+import { idoablakHiba } from '@/lib/idoablak';
 import {
   MAX_DIM_CM, MAX_WEIGHT_KG,
   intFieldError, moneyFieldError, weightFieldError,
@@ -69,6 +70,9 @@ type FormState = {
   instant_duration_minutes: number | '';
   instant_radius_km: number | '';
 
+  /** Felvételi időablak (datetime-local string, opcionális — B3) */
+  pickup_window_start: string;
+  pickup_window_end: string;
   pickup_needs_carrying: boolean;
   pickup_floor: string;
   pickup_has_elevator: boolean;
@@ -103,6 +107,8 @@ const initialForm: FormState = {
   is_instant: false,
   instant_duration_minutes: 30,
   instant_radius_km: 20,
+  pickup_window_start: '',
+  pickup_window_end: '',
   pickup_needs_carrying: false,
   pickup_floor: '0',
   pickup_has_elevator: false,
@@ -372,6 +378,12 @@ export default function UjFuvar() {
     setError(null);
     setUploadProgress(null);
     try {
+      const ablakHiba = idoablakHiba(form.pickup_window_start, form.pickup_window_end);
+      if (ablakHiba) {
+        setError(ablakHiba);
+        toast.error('Felvételi időablak', ablakHiba);
+        return;
+      }
       // 1) Létrehozzuk a fuvart – ekkor kapunk jobId-t
       const job = await api.createJob({
         title: form.title,
@@ -394,6 +406,8 @@ export default function UjFuvar() {
         ...(form.is_instant && form.instant_radius_km
           ? { instant_radius_km: Number(form.instant_radius_km) }
           : {}),
+        ...(form.pickup_window_start ? { pickup_window_start: new Date(form.pickup_window_start).toISOString() } : {}),
+        ...(form.pickup_window_end ? { pickup_window_end: new Date(form.pickup_window_end).toISOString() } : {}),
         pickup_needs_carrying: form.pickup_needs_carrying,
         ...(form.pickup_needs_carrying ? {
           pickup_floor: Number(form.pickup_floor),
@@ -626,6 +640,40 @@ export default function UjFuvar() {
 
         {/* Felvételi bepakolás */}
         <div style={{ marginTop: 12 }}>
+          {/* Felvételi időablak (2026-09-11, B3): a backend eddig is fogadta,
+              az űrlapon nem volt — a szállító nem tudta, mikor mehet. */}
+          <div style={{ marginBottom: 12 }}>
+            <label htmlFor="pickup-window-start" style={{ fontSize: 13, fontWeight: 600 }}>
+              Felvételi időablak <span className="muted" style={{ fontWeight: 400 }}>(opcionális — mikor lehet jönni a csomagért)</span>
+            </label>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
+              <input
+                id="pickup-window-start"
+                type="datetime-local"
+                className="input"
+                value={form.pickup_window_start}
+                onChange={(e) => set('pickup_window_start', e.target.value)}
+                style={{ flex: '1 1 200px' }}
+                aria-label="Felvételi időablak kezdete"
+              />
+              <span className="muted">–</span>
+              <input
+                id="pickup-window-end"
+                type="datetime-local"
+                className="input"
+                value={form.pickup_window_end}
+                onChange={(e) => set('pickup_window_end', e.target.value)}
+                style={{ flex: '1 1 200px' }}
+                aria-label="Felvételi időablak vége"
+              />
+            </div>
+            {idoablakHiba(form.pickup_window_start, form.pickup_window_end) && (
+              <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 13, margin: '4px 0 0' }}>
+                {idoablakHiba(form.pickup_window_start, form.pickup_window_end)}
+              </p>
+            )}
+            <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>Tágabb időablakra több szállítónak esik útba a fuvar.</p>
+          </div>
           <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
             <input
               type="checkbox"

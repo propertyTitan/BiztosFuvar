@@ -113,6 +113,7 @@ export default function FuvarReszletek() {
   // Dialógus-állapotok (window.confirm/prompt kiváltva)
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [showDisputeDialog, setShowDisputeDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
   const [showReopenDialog, setShowReopenDialog] = useState(false);
   // A konfetti csak akkor szóljon, ha a kézbesítés MOST történt — nem minden
   // oldalbetöltésnél, ha a fuvar már korábban 'delivered' lett.
@@ -617,6 +618,18 @@ export default function FuvarReszletek() {
               ⚠️ A 'disputed' IS kizárt (2026-08-21, Manus-teszt): a szerver
               már tiltotta (409), de a gomb látszott — vitatott állapotban a
               lemondás azt sugallta volna, hogy ki lehet lépni a vita alól. */}
+          {/* Szerkesztés (2026-09-11, B3): amíg nincs elfogadott ajánlat, a cím,
+              a leírás és az ajánlott ár javítható — nem kell lemondani + újrafeladni. */}
+          {['bidding', 'pending'].includes(job.status) && (
+            <div style={{ marginTop: 16 }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowEditDialog(true)} style={{ fontSize: 12 }}>
+                ✏️ Hirdetés szerkesztése
+              </button>
+              <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
+                Cím, leírás és ajánlott ár — a függő ajánlattevők értesítést kapnak a változásról.
+              </p>
+            </div>
+          )}
           {!['in_progress', 'delivered', 'completed', 'cancelled', 'disputed'].includes(job.status) && (
             <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
               <button
@@ -914,6 +927,35 @@ export default function FuvarReszletek() {
           reopenJob((v.reason || '').trim());
         }}
         onClose={() => setShowReopenDialog(false)}
+      />
+
+      {/* Hirdetés szerkesztése (B3) */}
+      <ConfirmDialog
+        open={showEditDialog}
+        title="✏️ Hirdetés szerkesztése"
+        message="Javítsd a címet, a leírást vagy az ajánlott árat. A felvételi/lerakodási cím nem módosítható — arra tették az ajánlatokat; ha az változik, adj fel új fuvart."
+        confirmLabel="Mentés"
+        fields={[
+          { key: 'title', label: 'Cím', type: 'text', required: true, placeholder: job.title },
+          { key: 'description', label: 'Leírás', type: 'textarea', placeholder: job.description || 'pl. 2 doboz + egy összecsukott asztal' },
+          { key: 'price', label: 'Ajánlott ár (Ft)', type: 'number', placeholder: String(job.suggested_price_huf || '') },
+        ]}
+        onConfirm={async (v) => {
+          setShowEditDialog(false);
+          const adat: Record<string, unknown> = {};
+          if (v.title?.trim()) adat.title = v.title.trim();
+          if (v.description !== undefined && v.description !== '') adat.description = v.description.trim();
+          if (v.price !== undefined && v.price !== '') adat.suggested_price_huf = Number(v.price);
+          if (Object.keys(adat).length === 0) { toast.info('Nincs változás', 'Egyik mezőt sem módosítottad.'); return; }
+          try {
+            await api.updateJob(id, adat);
+            toast.success('Hirdetés frissítve', 'A függő ajánlattevők értesítést kaptak.');
+            loadAll();
+          } catch (e: any) {
+            toast.error('Nem sikerült menteni', e.message);
+          }
+        }}
+        onClose={() => setShowEditDialog(false)}
       />
 
       {/* Vita-nyitó dialógus */}
