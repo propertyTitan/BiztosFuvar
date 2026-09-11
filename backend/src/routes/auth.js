@@ -152,6 +152,7 @@ function uploadSingle(field) {
 }
 
 const router = express.Router();
+const { utcaSzint } = require('../utils/address');
 
 // ⚠️ ASZINKRON scrypt (2026-09-11, Codex-audit P2-01): a scryptSync MINDEN
 // belépésnél és regisztrációnál blokkolta az event loopot (~50-100 ms az
@@ -835,6 +836,11 @@ router.get('/admin/stats', authRequired, async (req, res) => {
 // Egyetlen hívás: aktív fuvarok, várakozó licitek, heti kereset, közeli fuvarok száma.
 router.get('/me/driver-dashboard', authRequired, async (req, res) => {
   const uid = req.user.sub;
+  // ⚠️ UTCA-SZINT FIZETÉS ELŐTT (2026-09-11, teljes audit P0-3): ez a
+  // lekérdezés a scrub megkerülésével adta a házszámos címet az
+  // 'accepted' (= fizetés ELŐTTI) fuvarokra — azonnali elfogadás →
+  // dashboard → visszalépés = lakcím nulla forintért. Ugyanaz a GF-008
+  // szabály, mint a GET /jobs-on: paid_at nélkül utca-szint.
   const [
     activeJobsRes, pendingBidsRes, weekEarningsRes,
     nearbyCountRes, gameRes,
@@ -849,7 +855,12 @@ router.get('/me/driver-dashboard', authRequired, async (req, res) => {
         WHERE j.carrier_id = $1 AND j.status IN ('accepted','in_progress')
         ORDER BY j.updated_at DESC LIMIT 5`,
       [uid],
-    ),
+    ).then((r) => ({
+      ...r,
+      rows: r.rows.map((j) => (j.paid_at ? j : {
+        ...j, pickup_address: utcaSzint(j.pickup_address), dropoff_address: utcaSzint(j.dropoff_address),
+      })),
+    })),
     // Várakozó licitek száma
     db.query(
       `SELECT COUNT(*)::int AS c FROM bids WHERE carrier_id = $1 AND status = 'pending'`,
@@ -1396,11 +1407,16 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
               paid_at, created_at, delivered_at
          FROM jobs WHERE shipper_id = $1 ORDER BY created_at DESC`,
     ),
-    vallalt_fuvarok: await q(
+    // Utca-szint a díj kifizetése előtt (2026-09-11, P0-3): a GDPR 20. cikk a
+    // SAJÁT adatra jár — a másik fél pontos lakcíme csak a díj után része a
+    // szállító „saját" ügyletének.
+    vallalt_fuvarok: (await q(
       `SELECT id, title, pickup_address, dropoff_address, accepted_price_huf,
-              status, created_at, delivered_at
+              status, paid_at, created_at, delivered_at
          FROM jobs WHERE carrier_id = $1 ORDER BY created_at DESC`,
-    ),
+    )).map((j) => (j.paid_at ? j : {
+      ...j, pickup_address: utcaSzint(j.pickup_address), dropoff_address: utcaSzint(j.dropoff_address),
+    })),
     ajanlataim: await q(
       `SELECT id, job_id, amount_huf, currency, message, status, created_at
          FROM bids WHERE carrier_id = $1 ORDER BY created_at DESC`,

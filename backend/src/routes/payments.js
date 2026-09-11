@@ -137,21 +137,59 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
       currency,
     });
 
+    // ⚠️ STÁTUSZ-ŐR A paid_at ÍRÁSÁN (2026-09-11, teljes audit P0-1). Eddig az
+    // egyetlen feltétel `paid_at IS NULL` volt: a feladó elindítja a fizetést,
+    // LEMONDJA a fuvart, majd a banki oldalon befejezi — a késleltetett
+    // webhook egy 'cancelled' fuvarra írt paid_at-ot, számlát állított ki,
+    // és a szállítót indulásra szólította, miközben a lemondás a díj-sort
+    // 'refunded'-re állította, a PSP-nél viszont semmit nem indított. A
+    // pénz beszedve, a szolgáltatás nem teljesíthető. Mostantól csak a
+    // várakozó (accepted / confirmed — vagy vita alatt álló) ügyletre
+    // könyvelünk; minden másra a fizetés „árván érkezett": a naplóban
+    // processed=false + riasztás, kézi sztornó/visszatérítés a teendő.
+    // Őr: audit-a1-p0-mag.test.js.
+    let konyvelve = 0;
     if (entity.type === 'job') {
-      await db.query(
-        `UPDATE jobs SET paid_at = NOW() WHERE id = $1 AND paid_at IS NULL`,
+      const upd = await db.query(
+        `UPDATE jobs SET paid_at = NOW()
+          WHERE id = $1 AND paid_at IS NULL AND status IN ('accepted', 'disputed')`,
         [d.job_id],
       );
-      await db.query(
-        `UPDATE escrow_transactions SET status = 'released', released_at = NOW()
-          WHERE job_id = $1 AND status = 'held'`,
-        [d.job_id],
-      );
+      konyvelve = upd.rowCount;
+      if (konyvelve > 0) {
+        await db.query(
+          `UPDATE escrow_transactions SET status = 'released', released_at = NOW()
+            WHERE job_id = $1 AND status = 'held'`,
+          [d.job_id],
+        );
+      }
     } else {
-      await db.query(
-        `UPDATE route_bookings SET paid_at = NOW() WHERE id = $1 AND paid_at IS NULL`,
+      const upd = await db.query(
+        `UPDATE route_bookings SET paid_at = NOW()
+          WHERE id = $1 AND paid_at IS NULL AND status IN ('confirmed', 'disputed')`,
         [d.id],
       );
+      konyvelve = upd.rowCount;
+    }
+    if (konyvelve === 0) {
+      const allapot = entity.type === 'job' ? d.job_status : d.status;
+      const uzenet = `[fee-webhook] ÁRVA FIZETÉS: ${PaymentId} egy ${allapot || '?'} állapotú `
+        + `${entity.type === 'job' ? 'fuvarra' : 'foglalásra'} érkezett (nem várakozó) — kézi rendezés kell`;
+      console.error(uzenet);
+      try { require('@sentry/node').captureMessage(uzenet, 'error'); } catch { /* nincs Sentry */ }
+      await logPaymentEvent({
+        paymentId: PaymentId, status, eventType: 'webhook',
+        jobId: entity.type === 'job' ? d.job_id : null,
+        bookingId: entity.type === 'booking' ? d.id : null,
+        totalAmount, currency, platformFee, carrierPayout,
+        vatRate: vatResult.vatRate, vatAmount: vatResult.vatAmount,
+        isReverseCharge: vatResult.isReverseCharge,
+        shipperId: d.shipper_id, carrierId: d.carrier_id,
+        carrierCountry: d.carrier_country,
+        summary: `ÁRVA: az ügylet állapota ${allapot || '?'} — a díj beérkezett, de nem könyvelhető; kézi sztornó/visszatérítés`,
+        processed: false,
+      });
+      return { http: 200, body: { ok: true, orphan: true } };
     }
 
     // Ajánlói jutalom-trigger: a feladó kifizette az első díját (éles út).

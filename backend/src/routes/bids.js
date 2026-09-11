@@ -338,8 +338,12 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
   const feeAlreadyPaid = !!bid.paid_at;
   // A díj a fuvarra egyszer rögzül: újraválasztásnál a korábban kifizetett
   // díj marad érvényben, akkor is ha az új megállapodott ár más sávba esne.
-  const feeHuf = feeAlreadyPaid && bid.connection_fee_huf
-    ? bid.connection_fee_huf
+  // ⚠️ `!= null`, NEM truthy (2026-09-11, teljes audit P0-2): a kuponos
+  // fizetés connection_fee_huf = 0-t ír; a 0 hamis, ezért az újraválasztás
+  // újraszámolta és beírta az 500/1000-et — az ajánlói őr (`> 0`) innentől
+  // „valódi fizetésnek" látta, és az ingyen kupon újabb kupont termelt.
+  const feeHuf = feeAlreadyPaid && bid.connection_fee_huf != null
+    ? Number(bid.connection_fee_huf)
     : calculateConnectionFee(agreedPrice);
   // Státusz-guard: a job sorát nem zárolja a hívó SELECT-je, ezért a
   // WHERE-feltétel + rowCount dönti el, ki nyert párhuzamos elfogadásnál.
