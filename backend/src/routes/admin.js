@@ -310,6 +310,32 @@ router.patch('/admin/users/:id', ...adminOnly, async (req, res) => {
   if (req.body.role !== undefined && !['shipper', 'carrier', 'admin'].includes(req.body.role)) {
     return res.status(400).json({ error: 'Érvénytelen szerepkör' });
   }
+  // ⚠️ A TÖBBI MEZŐ IS VALIDÁLT (2026-09-11, teljes audit A2): a KYC-státuszok
+  // a DB-CHECK-en 500-zal buktak, a can_bid/trust_score/level pedig bármit
+  // elfogadott (szöveg a számmezőbe, „igen" a booleanba).
+  const ENUMOK = {
+    identity_kyc_status: ['none', 'pending', 'verified', 'rejected'],
+    driver_kyc_status: ['none', 'pending', 'verified', 'rejected'],
+    company_verification_status: ['none', 'pending', 'verified', 'rejected'],
+  };
+  for (const [mezo, ertekek] of Object.entries(ENUMOK)) {
+    if (req.body[mezo] !== undefined && !ertekek.includes(req.body[mezo])) {
+      return res.status(400).json({ error: `Érvénytelen ${mezo} (${ertekek.join(' / ')})`, code: 'INVALID_VALUE', field: mezo });
+    }
+  }
+  if (req.body.can_bid !== undefined && typeof req.body.can_bid !== 'boolean') {
+    return res.status(400).json({ error: 'A can_bid értéke true vagy false.', code: 'INVALID_VALUE', field: 'can_bid' });
+  }
+  if (req.body.trust_score !== undefined
+      && !(Number.isInteger(req.body.trust_score) && req.body.trust_score >= 0 && req.body.trust_score <= 100)) {
+    return res.status(400).json({ error: 'A trust_score 0–100 közötti egész szám.', code: 'INVALID_VALUE', field: 'trust_score' });
+  }
+  if (req.body.level !== undefined) {
+    const { LEVELS } = require('../services/gamification');
+    if (!(Number.isInteger(req.body.level) && req.body.level >= 1 && req.body.level <= LEVELS.length)) {
+      return res.status(400).json({ error: `A level 1–${LEVELS.length} közötti egész szám.`, code: 'INVALID_VALUE', field: 'level' });
+    }
+  }
   const sets = [];
   const params = [];
   let idx = 1;

@@ -625,6 +625,34 @@ router.patch('/me', authRequired, async (req, res) => {
   if (req.body.bio !== undefined && typeof req.body.bio === 'string' && req.body.bio.length > 1000) {
     return res.status(400).json({ error: 'A bemutatkozás legfeljebb 1000 karakter lehet.' });
   }
+  // ⚠️ TÍPUS- ÉS HOSSZ-KAPU A TÖBBI PROFILMEZŐN (2026-09-11, teljes audit A2):
+  // a vehicle_type / company_name / company_reg_number / eu_vat_number /
+  // billing_address eddig BÁRMIT elfogadott (tömb, objektum, 10 000 karakter)
+  // — a számlázási mezőkből ez a Számlázz.hu-számlára és a NAV-lekérdezésbe
+  // ment volna tovább. Üres string = a mező törlése (marad engedett).
+  const SZOVEG_MEZOK = {
+    vehicle_type: 100, bio: 1000, company_name: 200, company_reg_number: 40,
+    eu_vat_number: 20, billing_address: 300,
+  };
+  for (const [mezo, max] of Object.entries(SZOVEG_MEZOK)) {
+    const v = req.body[mezo];
+    if (v === undefined || v === null || v === '') continue;
+    if (typeof v !== 'string' || v.trim().length > max) {
+      return res.status(400).json({
+        error: `A(z) ${mezo} mező szöveg, legfeljebb ${max} karakter.`, code: 'FIELD_INVALID', field: mezo,
+      });
+    }
+    req.body[mezo] = v.trim();
+  }
+  if (req.body.eu_vat_number) {
+    const v = req.body.eu_vat_number.replace(/\s+/g, '').toUpperCase();
+    if (!/^[A-Z]{2}[A-Z0-9]{2,12}$/.test(v)) {
+      return res.status(400).json({
+        error: 'Érvénytelen EU adószám — országkód + 2–12 karakter, pl. HU12345678.', code: 'EU_VAT_INVALID', field: 'eu_vat_number',
+      });
+    }
+    req.body.eu_vat_number = v;
+  }
   // Kapcsolat-szivárgás védelem: a bio / jármű-leírás / cégnév megjelenik az
   // ajánlat-kártyán és a publikus profilon — a másik fél a díjfizetés ELŐTT
   // látja, tehát a díj megkerülésének csatornája lenne telefonszámot/emailt

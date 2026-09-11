@@ -65,6 +65,17 @@ async function createUser({
 
 const { calculateConnectionFee } = require('../src/services/connectionFee');
 
+/** Könyvelt (webhook-szerű) díjfizetés a fizetési naplóba — a `paid: true` fixtúrák párja. */
+async function logPaidFee({ jobId = null, bookingId = null, shipperId, feeHuf, paymentId }) {
+  await db.query(
+    `INSERT INTO payment_events
+       (payment_id, status, event_type, job_id, booking_id, total_amount, platform_fee, carrier_payout, shipper_id, summary, processed)
+     VALUES ($1, 'Succeeded', 'webhook', $2, $3, $4, $4, 0, $5, 'teszt-fixtúra: könyvelt díj', true)
+     ON CONFLICT (payment_id, status) DO NOTHING`,
+    [paymentId, jobId, bookingId, feeHuf, shipperId],
+  );
+}
+
 /**
  * Fuvar létrehozása a kívánt állapotban (készpénzes modell).
  *  - status: 'accepted' | 'in_progress' | ...
@@ -118,6 +129,10 @@ async function createJob({
        VALUES ($1, $2, 'released', $3, 0, $2, NOW())`,
       [job.id, feeHuf, `stub-${job.id}`],
     );
+    // A fizetett fuvarnak KÖNYVELT fizetése is van (2026-09-11, teljes audit A2):
+    // az ajánlói jutalom a fizetési naplóra épül, nem a paid_at oszlopra —
+    // a fixtúra ezért ugyanazt hagyja hátra, amit a webhook.
+    await logPaidFee({ jobId: job.id, shipperId, feeHuf, paymentId: `stub-${job.id}` });
   }
   return job;
 }
@@ -162,6 +177,11 @@ async function createBooking({
      ) RETURNING *`,
     [routeId, shipperId, priceHuf, deliveryCode, status, paid, trackingToken],
   );
+  if (paid) {
+    await logPaidFee({
+      bookingId: rows[0].id, shipperId, feeHuf: calculateConnectionFee(priceHuf), paymentId: `stub-booking-${rows[0].id}`,
+    });
+  }
   return { booking: rows[0], routeId };
 }
 
@@ -175,5 +195,5 @@ const TINY_PNG = Buffer.from(
 // `expressApp` → a nyers Express példány (a route-leltárnak kell, ami a
 //                router-stacket járja be — a szerver-objektumon az nincs)
 module.exports = {
-  db, app, expressApp, createUser, createJob, createBooking, uniqueEmail, TINY_PNG,
+  db, app, expressApp, createUser, createJob, createBooking, logPaidFee, uniqueEmail, TINY_PNG,
 };

@@ -128,19 +128,42 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
     // nélkül. A feltételt itt ellenőrizzük (nem a hívó oldalon), hogy egy
     // későbbi új fizetési út se tudja kikerülni.
     if (ctx.role === 'shipper') {
+      // ⚠️ A FIZETÉSI NAPLÓ A FORRÁS, NEM A paid_at OSZLOP (2026-09-11, teljes
+      // audit A2). A paid_at-ot a kupon (0 Ft), a kézi SQL és a régi csupasz
+      // kézi nyugtázás is beállította — a jutalom csak KÖNYVELT (webhook vagy
+      // teszt-üzemi kézi nyugtázás, processed, >0 Ft) díjra jár; az árván
+      // érkezett fizetés (event_type 'orphan') nem számít.
       const { rows: paidRows } = await db.query(
-        `SELECT 1 FROM jobs
-           WHERE shipper_id = $1 AND paid_at IS NOT NULL AND COALESCE(connection_fee_huf, 0) > 0
-         UNION ALL
-         SELECT 1 FROM route_bookings
-           WHERE shipper_id = $1 AND paid_at IS NOT NULL AND COALESCE(connection_fee_huf, 0) > 0
-         LIMIT 1`,
+        `SELECT 1 FROM payment_events
+          WHERE shipper_id = $1 AND status = 'Succeeded' AND processed = TRUE
+            AND event_type IN ('webhook', 'manual')
+            AND COALESCE(platform_fee, 0) > 0
+          LIMIT 1`,
         [userId],
       );
       if (paidRows.length === 0) {
         console.log(`[referral] kupon-fizetés (0 Ft) nem számít teljesítésnek — jutalom kihagyva (user=${userId})`);
         return;
       }
+    }
+
+    const referrerId = u.referred_by;
+
+    // ⚠️ PLAFON A CLAIM ELŐTT (2026-09-11, teljes audit A2): eddig a meghívott
+    // ELŐBB kapta a „granted" bélyeget, és csak utána derült ki, hogy az
+    // ajánló havi plafonja betelt — a jutalom VÉGLEG elveszett, újrapróba
+    // nélkül. Most a plafon-ellenőrzés jön előbb: ha betelt, a meghívott
+    // jelöletlen marad, és a következő teljesítés-trigger (egy későbbi
+    // hónapban) még odaadhatja a kupont — halasztott jutalom, nem elvesző.
+    const { rows: capRows } = await db.query(
+      `SELECT COUNT(*)::int AS c FROM fee_vouchers
+        WHERE user_id = $1 AND reason = 'referral'
+          AND created_at >= date_trunc('month', CURRENT_DATE)`,
+      [referrerId],
+    );
+    if ((capRows[0]?.c || 0) >= REFERRAL_MONTHLY_CAP) {
+      console.log(`[referral] havi plafon elérve, a jutalom halasztva (referrer=${referrerId})`);
+      return;
     }
 
     // Atomi guard: csak az első kérés nyer, dupla jutalom kizárva.
@@ -151,21 +174,6 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
       [userId],
     );
     if (claim.rowCount === 0) return;
-    const referrerId = claim.rows[0].referred_by;
-
-    // Ajánló havi plafonja: hány 'referral' kupont kapott ebben a hónapban?
-    const { rows: capRows } = await db.query(
-      `SELECT COUNT(*)::int AS c FROM fee_vouchers
-        WHERE user_id = $1 AND reason = 'referral'
-          AND created_at >= date_trunc('month', CURRENT_DATE)`,
-      [referrerId],
-    );
-    if ((capRows[0]?.c || 0) >= REFERRAL_MONTHLY_CAP) {
-      // A meghívott már 'granted' (nem próbálkozik újra), de a plafon miatt
-      // most nem jár kupon. Ritka edge — logoljuk.
-      console.log(`[referral] havi plafon elérve, kupon kihagyva (referrer=${referrerId})`);
-      return;
-    }
 
     await grantVoucher(referrerId, 'referral', REFERRAL_VOUCHER_VALID_DAYS, REFERRAL_VOUCHER_MAX_FEE_HUF);
 
