@@ -223,13 +223,39 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   elfogadás → dashboard → visszalépés = lakcím ingyen); (4) a
 >   foglalás-felvétel feltételes UPDATE (`AND status='confirmed'`, 409
 >   STATE_CHANGED) — a fuvar-ág párja ma reggel kapta, ez kimaradt.
-> - **A2 ⏳ (backend P0/P1 pénz-út):** webhook idempotencia-claim az elején;
->   kézi confirm-payment közös magja (napló + számla + paid_at-őr); ajánlói
->   őr a VALÓDI webhook-fizetéshez kötve; `notifyDealClosed` feeAlreadyPaid;
->   emlékeztető-számláló nullázása reopennél; ajánlói plafon sorrendje;
->   tracking-közelség idempotencia; vita-lezárás validáció + vita-nyitó
->   e-mail; admin-napló 403 UTÁN is + admin PATCH validáció; profil-mező
->   validáció.
+> - **A2 ✅ (backend pénz-út, `audit-a2-penz-ut.test.js`, 16 őr — 14
+>   igazoltan piros a javítás nélkül, a plafon-teszt külön a régi
+>   referral.js ellen):** (1) **ÚJ `services/feePayment.js` — KÖZÖS
+>   könyvelési mag**: állapot-őr + egyszeri `paid_at` + díj-sor + ÁFA +
+>   számla + fizetési napló + ajánlói trigger; a webhook ÉS a kézi
+>   (teszt-üzemi) nyugtázás mindkét ágon ezt hívja — a kézi út eddig csupasz
+>   UPDATE volt (se őr, se napló, se számla: a tesztelő nem azt járta végig,
+>   ami élesben fut). (2) **Webhook idempotencia-CLAIM az elején**
+>   (`claimPaymentEvent`: INSERT … ON CONFLICT DO NOTHING; kivételnél
+>   felszabadul, 2 percnél régebbi elakadt claim átvehető; a napló hibájánál
+>   FAIL-OPEN — a fizetés a pénz, a napló kényelem). Az A1-es árva-ág
+>   `event_type='orphan'` + `processed=true` lett (végleges, nem újrapróbált;
+>   a `logPaymentEvent` ON CONFLICT-ja most minden oszlopot frissít). (3) **Az
+>   ajánlói jutalom a FIZETÉSI NAPLÓRA épül** (webhook/manual, processed, >0
+>   Ft), nem a `paid_at`-ra — a kupon, a kézi SQL és az árva fizetés nem
+>   termel kupont; **plafon a claim ELŐTT** → betelt hónapnál a meghívott
+>   jelöletlen marad, a jutalom HALASZTOTT, nem elvesző (a 2026-08-08 óta
+>   nyitott policy-kérdés így zárult: deferred, nem hard cap). ⚠️ A
+>   teszt-helper `createJob/createBooking({ paid: true })` mostantól
+>   napló-sort is ír (`logPaidFee`) — a fixtúra azt hagyja hátra, amit a
+>   webhook. (4) `notifyDealClosed(…, feeAlreadyPaid)`: díjmentes
+>   újraválasztás után NINCS „fizesd meg a díjat" felhívás/e-mail, a
+>   szállító „már rendezve"-t kap. (5) Reopen nullázza a
+>   `payment_reminder_count`-ot. (6) Közelség-értesítés rowCount-kapuval
+>   (párhuzamos pingekből egy értesítés). (7) Vita: `resolved_*`-hez
+>   kötelező indoklás (≤2000), `refund_huf` 0–10M egész; vita-nyitáskor
+>   e-mail a másik félnek + in-app minden adminnak + e-mail a
+>   `DISPUTE_ALERT_EMAIL || panasz@gofuvar.hu` címre (PII-minimum: leírás
+>   nélkül). (8) Admin PATCH /admin/users: KYC/cég-státusz enum, `can_bid`
+>   boolean, `trust_score` 0–100, `level` 1–N; a fizetési napló admin-naplója
+>   a 403 UTÁN. (9) PATCH /auth/me: típus+hossz kapu (vehicle_type 100,
+>   company_name 200, company_reg_number 40, billing_address 300), EU-adószám
+>   formátum + normalizálás.
 > - **A3 ⏳:** e-mail/értesítés-kiesés riasztása (Sentry/retry).
 > - **A4 ⏳:** dispute UNIQUE nyitott index + XOR; `POST /bids/:id/withdraw`
 >   + withdrawn a reopenben; accepted+fizetetlen fuvar auto-újranyitása N

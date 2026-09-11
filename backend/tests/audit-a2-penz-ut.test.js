@@ -206,7 +206,9 @@ describe('3. ajánlói jutalom: a fizetési napló a forrás', () => {
 
   it('paid_at + díj>0 a jobs-on, de KÖNYVELT fizetés nélkül → nincs jutalom', async () => {
     const { ajanlo, meghivott } = await paros();
-    const job = await createJob({ shipperId: meghivott.id, status: 'accepted', paid: true });
+    // kézi SQL-lel „fizetetté" tett fuvar: paid_at + díj>0, de a fizetési naplóban semmi
+    const job = await createJob({ shipperId: meghivott.id, status: 'accepted', paid: false });
+    await db.query('UPDATE jobs SET paid_at = NOW(), connection_fee_huf = 500 WHERE id = $1', [job.id]);
     await maybeGrantReferralReward(meghivott.id, { role: 'shipper', jobId: job.id });
     expect(await grantedAt(meghivott.id), 'a paid_at oszlop önmagában jutalmat termelt (kézi SQL / régi csupasz nyugtázás is beállítja)').toBeNull();
     expect(await kuponok(ajanlo.id)).toBe(0);
@@ -228,6 +230,9 @@ describe('3. ajánlói jutalom: a fizetési napló a forrás', () => {
   it('betelt havi plafon: a meghívott JELÖLETLEN marad (halasztott jutalom, nem elvesző)', async () => {
     const { ajanlo, meghivott } = await paros();
     for (let i = 0; i < REFERRAL_MONTHLY_CAP; i++) await grantVoucher(ajanlo.id, 'referral', 30, null); // eslint-disable-line no-await-in-loop
+    // fizetett fuvar + könyvelt díj: a régi (paid_at-alapú) ÉS az új (napló-alapú) őr is átengedi —
+    // így a teszt CSAK a plafon/claim sorrendet méri (a régi sorrenddel piros)
+    await createJob({ shipperId: meghivott.id, status: 'accepted', paid: true });
     await naploz(meghivott, 'webhook');
     await maybeGrantReferralReward(meghivott.id, { role: 'shipper', jobId: null });
     expect(await grantedAt(meghivott.id), 'a plafon miatt kimaradt jutalom VÉGLEG elveszett (a meghívott „granted" lett kupon nélkül)').toBeNull();
@@ -335,12 +340,17 @@ describe('7. vita: döntés-validáció + e-mail + admin-riasztás', () => {
   it('vita-nyitás: e-mail a másik félnek + riasztás az adminnak (in-app + panasz@)', async () => {
     const levelek = [];
     vi.spyOn(emailSzolgaltatas, 'sendEmail').mockImplementation(async (opts) => { levelek.push(opts); return { stub: true }; });
-    const { szallito, admin } = await nyitottVita();
+    const { szallito, vita } = await nyitottVita();
     expect(await varakozz(async () => levelek.length >= 2), `csak ${levelek.length} levél ment ki vita-nyitáskor`).toBe(true);
     expect(levelek.some((l) => l.to === szallito.email), 'a másik fél nem kapott e-mailt a vitáról').toBe(true);
     expect(levelek.some((l) => l.to === 'panasz@gofuvar.hu'), 'az admin nem kapott riasztó e-mailt').toBe(true);
     expect(levelek.every((l) => !/Sérült csomag/.test(l.html || '')), 'a vita leírása (PII-gyanús szabad szöveg) az e-mailbe került').toBe(true);
-    expect(await varakozz(async () => (await ertesitesek(admin.id, 'admin_dispute_opened')) >= 1), 'az admin nem kapott in-app riasztást').toBe(true);
+    // A teszt-DB-ben sok admin él (más tesztfájlokból), a LIMIT 10 nem biztos, hogy a
+    // miénket éri el — az számít, hogy VALAMELYIK admin megkapta ezt a vitát.
+    const adminRiasztas = async () => (await db.query(
+      `SELECT 1 FROM notifications WHERE type = 'admin_dispute_opened' AND body LIKE '%' || $1 || '%'`, [vita.id],
+    )).rows.length;
+    expect(await varakozz(async () => (await adminRiasztas()) >= 1), 'egyetlen admin sem kapott in-app riasztást').toBe(true);
   });
 });
 

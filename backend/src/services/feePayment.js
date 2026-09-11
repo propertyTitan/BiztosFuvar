@@ -96,6 +96,19 @@ async function logPaymentEvent({
  *   { claimed: false, reason: 'in_flight' }   — épp egy másik hívás dolgozza
  */
 async function claimPaymentEvent(paymentId, status, { eventType = 'webhook' } = {}) {
+  try {
+    return await claimPaymentEventBelso(paymentId, status, eventType);
+  } catch (err) {
+    // ⚠️ FAIL-OPEN: a napló admin-kényelmi funkció, a fizetés maga a pénz. Ha a
+    // payment_events nem írható, a könyvelés attól még megy — az idempotencia-
+    // védelem nélkül (a paid_at-őr a dupla könyvelést így is megfogja).
+    // Őr: fizetes-hibaagak.test.js („a napló hibája sem buktatja el").
+    console.error('[payment_events] claim hiba — feldolgozás védelem nélkül folytatva:', err.message);
+    return { claimed: true, degraded: true };
+  }
+}
+
+async function claimPaymentEventBelso(paymentId, status, eventType) {
   const ins = await db.query(
     `INSERT INTO payment_events (payment_id, status, event_type, processed, summary)
      VALUES ($1, $2, $3, false, 'feldolgozás alatt')
