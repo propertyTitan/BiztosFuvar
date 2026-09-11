@@ -4,10 +4,12 @@
 import type { MetadataRoute } from 'next';
 import { landingLinks } from '@/lib/landings';
 
-const BASE = 'https://gofuvar.hu';
+const BASE = 'https://www.gofuvar.hu';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const now = new Date();
+  // Nem „ma” (az minden generáláskor friss módosítást hazudott — Codex P2-03),
+  // hanem az utolsó érdemi tartalom-változás dátuma; szövegváltozásnál frissítendő.
+  const now = new Date('2026-09-11');
   const core: MetadataRoute.Sitemap = [
     { url: `${BASE}/`, lastModified: now, changeFrequency: 'daily', priority: 1 },
     { url: `${BASE}/bejelentkezes`, lastModified: now, changeFrequency: 'monthly', priority: 0.8 },

@@ -50,6 +50,8 @@ export default defineConfig({
         // → véletlenszerű 429-es bukások. Ez az override CSAK itt él; élesben
         // az alapértelmezett 300 marad (lásd rateLimit.js).
         E2E_GLOBAL_RATE_LIMIT_MAX: '3000',
+        // Járat-ág (2026-09-11, D1): élesben rejtett, az E2E a teljes funkciót méri.
+        JARAT_ENABLED: 'true',
       },
     },
     {
@@ -59,6 +61,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         NEXT_PUBLIC_API_URL: 'http://localhost:4100',
+        NEXT_PUBLIC_JARAT_ENABLED: 'true',
       },
     },
   ],

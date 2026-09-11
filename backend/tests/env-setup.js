@@ -58,3 +58,5 @@ process.env.TOWING_ENABLED = 'true';
 // (user-dontes, 2026-08-12), de a tesztek futtatjak, hogy a vedelmek ne
 // rothadjanak el. Elesztes elott lasd a sos.js fejleceben a feltetellistat.
 process.env.SOS_ENABLED = 'true';
+// Járat-ág (2026-09-11, D1): élesben rejtett, a tesztek a teljes funkciót mérik.
+process.env.JARAT_ENABLED = 'true';

@@ -1,5 +1,7 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+
 // "Fuvarjaim" hub — egy helyen a korábban szétszórt négy oldal:
 //   Hirdetéseim · Vállalt fuvarok · Licitjeim · Foglalásaim
 // A régi útvonalak (/hirdeteseim, /sofor/sajat-fuvarok, /sofor/licitjeim,
@@ -18,7 +20,8 @@ const TABS = [
   { key: 'hirdeteseim', label: 'Hirdetéseim', icon: Megaphone, Comp: PostedJobs },
   { key: 'vallalt', label: 'Vállalt fuvarok', icon: Truck, Comp: CarryingJobs },
   { key: 'licitjeim', label: 'Ajánlataim', icon: Tag, Comp: MyBids },
-  { key: 'foglalasaim', label: 'Foglalásaim', icon: Package, Comp: Bookings },
+  // A járat-ág kapcsolója (2026-09-11, D1): rejtett funkciónál a fül sem látszik.
+  ...(JARAT_ENGEDELYEZVE ? [{ key: 'foglalasaim', label: 'Foglalásaim', icon: Package, Comp: Bookings }] : []),
 ] as const;
 
 function HubContent() {

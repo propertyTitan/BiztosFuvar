@@ -1,5 +1,7 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+
 // GoFuvar Okos Dashboard — mód-váltó (Szállító / Feladó) + állapot-alapú.
 //
 // Szállító mód: aktív fuvarok → 1 nagy CTA, heti kereset, közeli munkák
@@ -331,15 +333,19 @@ export default function HomeHub() {
               <p className="muted" style={{ marginBottom: 16 }}>
                 {(d?.nearbyJobsCount || 0) > 0
                   ? 'Nézd meg az elérhető fuvarokat és tegyél ajánlatot.'
-                  : 'Nézz körül a fuvarok között, vagy hirdess meg egy fix áras járatot.'}
+                  : JARAT_ENGEDELYEZVE
+                    ? 'Nézz körül a fuvarok között, vagy hirdess meg egy járatot.'
+                    : 'Nézz körül a fuvarok között, és tegyél ajánlatot arra, ami útba esik.'}
               </p>
               <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
                 <Link href="/sofor/fuvarok" className="btn" style={{ textDecoration: 'none' }}>
                   <Target size={16} /> Fuvarok böngészése
                 </Link>
-                <Link href="/sofor/uj-utvonal" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
-                  Járat hirdetése
-                </Link>
+                {JARAT_ENGEDELYEZVE && (
+                  <Link href="/sofor/uj-utvonal" className="btn btn-secondary" style={{ textDecoration: 'none' }}>
+                    Járat hirdetése
+                  </Link>
+                )}
               </div>
             </div>
           )}
@@ -373,8 +379,10 @@ export default function HomeHub() {
               { href: '/fuvarjaim?tab=licitjeim', icon: <Tag size={18} />, label: 'Ajánlataim' },
               { href: '/fuvarjaim?tab=vallalt', icon: <Truck size={18} />, label: t('nav.myJobs') },
               { href: '/sofor/visszafuvar', icon: <RefreshCw size={18} />, label: 'Visszafuvar' },
-              { href: '/sofor/uj-utvonal', icon: <Plus size={18} />, label: 'Új járat' },
-              { href: '/sofor/utvonalaim', icon: <RouteIcon size={18} />, label: 'Járataim' },
+              ...(JARAT_ENGEDELYEZVE ? [
+                { href: '/sofor/uj-utvonal', icon: <Plus size={18} />, label: 'Új járat' },
+                { href: '/sofor/utvonalaim', icon: <RouteIcon size={18} />, label: 'Járataim' },
+              ] : []),
             ].map((l) => (
               <Link
                 key={l.href}
@@ -428,6 +436,7 @@ export default function HomeHub() {
               <div style={{ fontWeight: 700, fontSize: 16 }}>Fuvar feladása</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Szállítók ajánlatot tesznek rá</div>
             </Link>
+            {JARAT_ENGEDELYEZVE && (
             <Link
               href="/dashboard/utvonalak"
               className="card home-hub-card"
@@ -440,6 +449,7 @@ export default function HomeHub() {
               <div style={{ fontWeight: 700, fontSize: 16 }}>Induló járatok</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Foglalj helyet egy szállítónál</div>
             </Link>
+            )}
             <Link
               href="/hozasd-el"
               className="card home-hub-card"

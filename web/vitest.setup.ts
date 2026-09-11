@@ -6,3 +6,6 @@ import { cleanup } from '@testing-library/react';
 afterEach(() => {
   cleanup();
 });
+
+// Járat-ág kapcsoló (2026-09-11, D1): élesben rejtett; a unit-tesztek a teljes funkciót mérik.
+process.env.NEXT_PUBLIC_JARAT_ENABLED = 'true';

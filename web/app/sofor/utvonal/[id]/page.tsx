@@ -1,5 +1,8 @@
 'use client';
 
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+import JaratHamarosan from '@/components/JaratHamarosan';
+
 // Szállító: egy konkrét útvonal részletei + beérkezett foglalások.
 // - Az útvonal adatai (waypoints, árak, státusz)
 // - Szerkesztés + publikálás gombok a tulajdonosnak (draft/open)
@@ -24,7 +27,7 @@ const STATUS_LABEL: Record<string, string> = {
   disputed: 'Vitatott',
 };
 
-export default function UtvonalReszletek() {
+function UtvonalReszletek() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const toast = useToast();
@@ -444,4 +447,10 @@ export default function UtvonalReszletek() {
       />
     </div>
   );
+}
+
+// Járat-ág kapcsoló (2026-09-11, D1): rejtett funkciónál „Hamarosan” képernyő.
+export default function UtvonalReszletekKapu() {
+  if (!JARAT_ENGEDELYEZVE) return <JaratHamarosan />;
+  return <UtvonalReszletek />;
 }

@@ -39,7 +39,7 @@ A platform NEM fuvarozó, csak közvetítő (Ptk. értelmében sem). A fuvarozá
 szerződés kizárólag a Feladó és a Sofőr között jön létre.
 
 ### Fő feature-ek (mind élesedett)
-- Licites fuvar + fix áras útvonal-foglalás + visszafuvar matching + instant ("UberFuvar")
+- Licites fuvar + fix áras útvonal-foglalás (⚠️ **a JÁRAT-ág a launchra REJTVE, 2026-09-11 D1** — kapcsoló: `NEXT_PUBLIC_JARAT_ENABLED` + `JARAT_ENABLED`) + visszafuvar matching + instant ("UberFuvar")
 - KYC AI-val (Gemini olvas ID-t, kor-ellenőrzés, admin jóváhagyás)
 - **Közvetlen fizetési modell (2026-07-03; 2026-09-10-től készpénz VAGY
   átutalás)**: a fuvardíj KÖZVETLENÜL a szállítóé (100%, levonás nélkül) —
@@ -229,7 +229,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > POST /jobs, /bids, /bookings; (2) ✅ állapotgép-guardok (P0-04),
 > törlés vs bizonyíték-zárolás (P0-06), `can_bid` kapu + KYC-név zár
 > (P1-03), kupon-sorrend (D2); (3) ✅ retenciós `ok` általánosítása (P1-09),
-> graceful shutdown + async scrypt + /health/ready; (4) web: járat-ág
+> graceful shutdown + async scrypt + /health/ready; (4) ✅ web: járat-ág
 > feature-flag mögé (D1), ár-összehasonlító ki (D3), SEO-apróságok
 > (canonical www, title-duplázás, sitemap-dátum); (5) lockfile + `npm ci`
 > + web tsc-kapu (D6). Launch-checklist bővül: a teszt-üzemben `sent`-re
@@ -849,6 +849,34 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > ami a javítás NÉLKÜL igazoltan piros.
 
 ### ✅ Kész (élesedett)
+- **CODEX-AUDIT 4. CSOMAG (2026-09-11, user-döntések D1 + D3 + SEO)** —
+  (a) **JÁRAT-ÁG ELREJTVE a launchra (D1)**: kapcsoló `NEXT_PUBLIC_JARAT_ENABLED`
+  (web, `src/lib/features.ts`) + `JARAT_ENABLED` (backend, carrierRoutes
+  router-előtagos 503 `JARAT_DISABLED` az ÍRÓ végpontokon; a SOS-kapcsoló
+  előtag-tanulsága alkalmazva). ⚠️ ALAPÉRTELMEZÉS KI: hiányzó env = rejtett.
+  Rejtve: fejléc/dropdown járat-linkek, HomeHub „Járat hirdetése" +
+  gyorslinkek + „Induló járatok" kártya, a Fuvarjaim „Foglalásaim" fül, a
+  landing járat-ígéretei (a feature-kártya „Hamarosan" jelvénnyel, jövő
+  időben), a meta/manifest leírás járat-klauzulája; a 6 járat-oldal
+  (`/dashboard/utvonalak`, `/dashboard/utvonal/[id]`, `/sofor/uj-utvonal`,
+  `/sofor/utvonalaim`, `/sofor/utvonal/[id]`, `…/utba-eso`) kapu-wrapperen
+  át `JaratHamarosan` képernyőt ad; a chatbot-tudásban a járat-szakasz
+  „jelenleg nem elérhető" megjegyzést kap. A tesztek a TELJES funkciót
+  mérik: `tests/env-setup.js`, `playwright.config.ts` (mindkét szerver),
+  `vitest.setup.ts` BE-kapcsolják. Őrök: `funkcio-kapcsolo-jarat.test.js`
+  (503 az írókon, olvasók + más routerek érintetlenek), `features.test.ts`
+  (mind a 6 oldal a kapun át exportál). **VISSZAKAPCSOLÁS** (a kínálat
+  sűrűsödése + a járat-ág P0-07/P1-04/P1-05 javítása után): Vercel
+  `NEXT_PUBLIC_JARAT_ENABLED=true` ÉS Railway `JARAT_ENABLED=true`, együtt.
+  (b) **ÁR-ÖSSZEHASONLÍTÓ LEVÉVE (D3)**: `PriceComparison.tsx` törölve —
+  2024-es beégetett GLS/MPL-árak, súlyhatáron túli extrapoláció, saját díj
+  nélkül, „Aznapi" ígérettel egy publikus oldalon (GVH-kockázat). A
+  kalkulátor a saját ajánlott sávot mutatja. (c) **SEO (P2-03)**:
+  `metadataBase` és a sitemap `www.gofuvar.hu` (a canonical eddig egy
+  307-tel átirányító URL-re mutatott); a 9 landing `metaTitle` „| GoFuvar"
+  utótagja levéve (a template duplázta: „… | GoFuvar | GoFuvar" élesben
+  mérve); a sitemap `lastModified` nem „ma", hanem az utolsó tartalom-
+  változás dátuma (szövegváltozásnál frissítendő).
 - **CODEX-AUDIT 3. CSOMAG (2026-09-11)** — (a) P1-09: mind a 22 napi
   retenciós kör TOVÁBBDOBJA a hibáját (16 `return 0` + 4 kieső-ágú catch
   átírva); az orchestrator izolál, maszkolva naplóz, `ok=false`-t ír és
