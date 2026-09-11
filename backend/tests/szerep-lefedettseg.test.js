@@ -106,6 +106,7 @@ beforeAll(async () => {
 describe('Publikus végpontok', () => {
   it('életjel, lefedettségi zónák, ár-kalkulátor', async () => {
     await sikeres('GET /health', request(app).get('/health'));
+    await sikeres('GET /health/ready', request(app).get('/health/ready'));
     await sikeres('GET /coverage/zones', request(app).get('/coverage/zones'));
     await sikeres('GET /calculator/estimate', request(app)
       .get('/calculator/estimate')

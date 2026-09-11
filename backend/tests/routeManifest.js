@@ -24,6 +24,7 @@
 const ROUTE_MANIFEST = {
   // ── Szándékosan publikus ────────────────────────────────────────────
   'GET /health': { access: 'public', why: 'életjel a Railway/monitorozás számára, nincs adat' },
+  'GET /health/ready': { access: 'public', why: 'kiszolgálhatóság (DB SELECT 1, 2 mp) a monitorozásnak — csak ok/db flag, nincs adat' },
   'GET /coverage/zones': { access: 'public', why: 'a lefedettségi zónák a landingen is kellenek' },
   'GET /private-files/:name': { access: 'public', why: 'privát fájl (KYC disk-fallback, dev/teszt) HMAC-aláírt, lejáró linkkel — az R2 presigned URL megfelelője; aláírás nélkül 404' },
   'GET /calculator/estimate': { access: 'public', why: 'nyilvános ár-kalkulátor a marketing-oldalon' },

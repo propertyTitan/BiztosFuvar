@@ -149,6 +149,21 @@ app.use((req, res, next) => {
 // A /health az EGYETLEN, ami szándékosan a rate limiter ELŐTT van: a
 // loadbalancer/monitoring health check-jeit nem szabad korlátozni.
 app.get('/health', (_req, res) => res.json({ ok: true, service: 'gofuvar-backend' }));
+// /health/ready (2026-09-11, Codex-audit P1-15): a /health csak azt mondja,
+// hogy a folyamat válaszol — a Neon alvó/döglött állapotát nem látja. Ez a
+// végpont egy 2 mp-es SELECT 1-gyel a kiszolgálhatóságot méri (503 ha nem).
+// A Railway healthcheckje SZÁNDÉKOSAN a /health marad: egy Neon cold start
+// (~1-2 mp) nem indíthat konténer-újraindítást.
+app.get('/health/ready', async (_req, res) => {
+  const db = require('./db');
+  const hatarido = new Promise((_, rej) => setTimeout(() => rej(new Error('db timeout')), 2000).unref());
+  try {
+    await Promise.race([db.query('SELECT 1'), hatarido]);
+    res.json({ ok: true, db: true });
+  } catch (err) {
+    res.status(503).json({ ok: false, db: false, error: 'db_unavailable' });
+  }
+});
 
 const publicTrackingRoutes = require('./routes/publicTracking');
 const linkPreviewRoutes = require('./routes/linkPreview');
@@ -398,6 +413,26 @@ if (require.main === module) {
   server.listen(port, () => {
     console.log(`[gofuvar] backend fut: http://localhost:${port}`);
   });
+
+  // SZABÁLYOS LEÁLLÁS (2026-09-11, Codex-audit P1-15): a Railway minden
+  // deploynál SIGTERM-et küld; eddig a folyamat azonnal meghalt, a futó
+  // kérések (fotó-feltöltés, fizetés-indítás) elszakadtak. Most: nem fogadunk
+  // új kapcsolatot, a futókat befejezzük, a DB-poolt lezárjuk; 10 mp után
+  // erőszakkal kilépünk (ne ragadjon be egy nyitott socket miatt).
+  let leallas = false;
+  const szabalyosLeallas = (jel) => {
+    if (leallas) return;
+    leallas = true;
+    console.log(`[gofuvar] ${jel} — szabályos leállás indul`);
+    const ero = setTimeout(() => { console.error('[gofuvar] leállás időtúllépés, kilépés'); process.exit(0); }, 10_000);
+    ero.unref();
+    server.close(async () => {
+      try { await require('./db').pool.end(); } catch { /* már zárva */ }
+      process.exit(0);
+    });
+  };
+  process.on('SIGTERM', () => szabalyosLeallas('SIGTERM'));
+  process.on('SIGINT', () => szabalyosLeallas('SIGINT'));
 }
 
 module.exports = { app, server };

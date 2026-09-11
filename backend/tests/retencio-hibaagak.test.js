@@ -65,15 +65,10 @@ function dbHibaMintara(minta) {
 //  1) HIBATŰRÉS-MÁTRIX — melyik kör nyeli el a hibát, és melyik nem
 // =====================================================================
 // A besorolás SZÁNDÉK, nem leltár: mindegyik sorhoz tartozik indoklás.
-const NYELI_A_HIBAT = [
-  'purgeOldDeliveryPhotos', 'purgeOldChatMessages', 'purgeOldLocationPings',
-  'purgeStaleLastKnownLocation', 'purgeOldNotifications', 'purgeOldAdminMessages',
-  'purgeOldAdminAccessLog', 'expireAbandonedJobs', 'expireAbandonedBookings',
-  'repairDisputedHold', 'anonymizeOldCarrierRoutes', 'purgeOldDisputes',
-  'purgeOldInvoices', 'purgeEmergencyLocations', 'purgeOldDeletedAccounts',
-  'purgeOldKycDocHistory', 'purgeOldPaymentEvents', 'purgeOldEscrowTransactions',
-  'purgeOldTaxData',
-];
+// 2026-09-11 (Codex-audit P1-09): NINCS többé csendes kör. A 19 „nyelő” kör
+// miatt a napi futás DB-hiba mellett is ok=true-t naplózott — a mátrix a
+// saját kommentje szerint is a rossz alapértelmezést őrizte. Mind továbbdob.
+const NYELI_A_HIBAT = [];
 // Ezek TOVÁBBDOBJÁK a hibát — a napi kör külön elkapja, naplózza (maszkolva)
 // és Sentry-riasztást küld. Az `anonymizeOldJobs`-nál ez KIFEJEZETT döntés
 // (2026-08-11): a néma nyelés miatt egy elrontott UPDATE hónapokig futhatott
@@ -82,7 +77,15 @@ const NYELI_A_HIBAT = [
 // A `purgeExpiredSmsRetryQueue` is továbbdob (2026-08-30): a lejárt sor
 // törlése PII-ígéret (telefonszám + átvételi kód legfeljebb ~72 óráig él) —
 // ha a törlés csendben hasalna el, a sor határidő nélkül gyűjtené a PII-t.
-const TOVABBDOBJA = ['anonymizeOldJobs', 'purgeDormantAccounts', 'purgeExpiredSmsRetryQueue'];
+const TOVABBDOBJA = [
+  'purgeOldDeliveryPhotos', 'purgeOldChatMessages', 'purgeOldLocationPings',
+  'purgeStaleLastKnownLocation', 'purgeOldNotifications', 'purgeOldAdminMessages',
+  'purgeOldAdminAccessLog', 'expireAbandonedJobs', 'expireAbandonedBookings',
+  'repairDisputedHold', 'anonymizeOldJobs', 'anonymizeOldCarrierRoutes', 'purgeOldDisputes',
+  'purgeOldInvoices', 'purgeEmergencyLocations', 'purgeOldDeletedAccounts',
+  'purgeOldKycDocHistory', 'purgeOldPaymentEvents', 'purgeOldEscrowTransactions',
+  'purgeOldTaxData', 'purgeDormantAccounts', 'purgeExpiredSmsRetryQueue',
+];
 
 describe('Hibatűrés-mátrix: egy elszállt SQL nem üthet ki egy egész napot', () => {
   it('a besorolás LEFEDI a napi kör összes lépését (új kör nem csúszhat be osztályozatlanul)', () => {

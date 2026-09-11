@@ -133,6 +133,7 @@ async function purgeOldDeliveryPhotos() {
     }
   } catch (err) {
     console.error('[photo-retention] hiba:', err.message);
+    throw err;
   }
   return purged;
 }
@@ -215,6 +216,7 @@ async function purgeOldChatMessages() {
     }
   } catch (err) {
     console.error('[retention] chat-purge hiba:', err.message);
+    throw err;
   }
   return purged;
 }
@@ -233,7 +235,7 @@ async function purgeOldLocationPings() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] GPS-purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -285,7 +287,7 @@ async function purgeOldAdminMessages() {
     return purged;
   } catch (err) {
     console.error('[retention] admin-üzenet purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -316,7 +318,7 @@ async function purgeStaleLastKnownLocation() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] utolsó-pozíció purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -344,7 +346,7 @@ async function purgeOldNotifications() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] értesítés-purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -364,7 +366,7 @@ async function purgeOldAdminAccessLog() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] admin-napló purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -419,7 +421,7 @@ async function repairDisputedHold() {
     return javitva;
   } catch (err) {
     console.error('[retention] disputed-hold javitas hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -726,7 +728,7 @@ async function expireAbandonedJobs() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] elhagyott-fuvar lezárás hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -768,6 +770,9 @@ async function shortenAnonymizedAddresses() {
       console.log(`[retention] ${javitva} anonimizált sor címe rövidítve településszintre`);
     }
   } catch (err) {
+    // Rész-lépés az anonymizeOldJobs-on belül (nem napi kör): a hibája NEM
+    // buktathatja a FŐ anonimizálást (retencio-hibaagak őrzi) — itt marad a
+    // nyelés; a fő kör hibája továbbdob.
     console.error('[retention] cím-rövidítés hiba:', err.message);
   }
   return javitva;
@@ -823,7 +828,7 @@ async function anonymizeOldCarrierRoutes() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] járat-anonimizálás hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -885,7 +890,7 @@ async function purgeOldDisputes() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] vita-purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -913,7 +918,7 @@ async function purgeOldInvoices() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] számla-purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -969,6 +974,7 @@ async function purgeEmergencyLocations() {
     }
   } catch (err) {
     console.error('[retention] vészhelyzeti purge hiba:', err.message);
+    throw err;
   }
   return erintett;
 }
@@ -994,7 +1000,7 @@ async function purgeOldDeletedAccounts() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] törölt-fiók purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -1018,7 +1024,7 @@ async function purgeOldKycDocHistory() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] okmány-lenyomat purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -1049,7 +1055,7 @@ async function expireAbandonedBookings() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] foglalás-lezárás hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -1074,7 +1080,7 @@ async function purgeOldPaymentEvents() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] fizetési napló purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -1108,7 +1114,7 @@ async function purgeOldEscrowTransactions() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] escrow-purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
@@ -1161,12 +1167,21 @@ async function purgeOldTaxData() {
     return rowCount || 0;
   } catch (err) {
     console.error('[retention] DAC7-purge hiba:', err.message);
-    return 0;
+    throw err;
   }
 }
 
 /** Az összes napi retenciós kör egyben (index.js ezt ütemezi). */
 async function runDailyRetention() {
+  // ⚠️ MINDEN KÖR TOVÁBBDOBJA A HIBÁJÁT (2026-09-11, Codex-audit P1-09). A
+  // 22 körből 21 eddig `catch → return 0`-val nyelte a DB-hibát, így a napi
+  // futás `ok = true`-t naplózott, a watchdog elégedett volt, a Sentry
+  // hallgatott — miközben a PII határidő nélkül bent maradt. A 2026-08-11-i
+  // tanulságot (anonymizeOldJobs) csak EGY körre alkalmaztuk. Mostantól a
+  // körök dobnak, ez az orchestrator izolál (egy kör hibája nem állítja meg a
+  // többit), maszkolva naplóz, ok=false-t ír, és riaszt. Őr:
+  // retencio-hibaagak (mind a 22 kör a „továbbdobja" osztályban) +
+  // retencio-ok-hamis-zold (DB-hiba mellett ok=false a naplóban).
   // ⚠️ MEGFIGYELHETŐSÉG (2026-08-10, séma-audit): korábban minden purge
   // lenyelte a saját hibáját, az ütemező pedig `.catch(() => {})`-tal hívott.
   // Ha a kör hónapokig elszállt, azt SEMMI nem jelezte, és utólag bizonyítani

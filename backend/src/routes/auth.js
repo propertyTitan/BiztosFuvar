@@ -153,15 +153,26 @@ function uploadSingle(field) {
 
 const router = express.Router();
 
-function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
-  const derived = crypto.scryptSync(password, salt, 64).toString('hex');
+// ⚠️ ASZINKRON scrypt (2026-09-11, Codex-audit P2-01): a scryptSync MINDEN
+// belépésnél és regisztrációnál blokkolta az event loopot (~50-100 ms az
+// egyprocesszes Railway-konténeren) — csúcsban ez az összes párhuzamos
+// kérést (socket-pingek, fotó-feltöltés) megakasztotta. A formátum
+// (`salt:hex`) változatlan, a régi hash-ek érvényesek maradnak.
+const scryptAsync = (password, salt) => new Promise((resolve, reject) => {
+  crypto.scrypt(password, salt, 64, (err, key) => (err ? reject(err) : resolve(key)));
+});
+async function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const derived = (await scryptAsync(password, salt)).toString('hex');
   return `${salt}:${derived}`;
 }
-function verifyPassword(password, stored) {
-  const [salt, derived] = stored.split(':');
+async function verifyPassword(password, stored) {
+  const [salt, derived] = String(stored || '').split(':');
   if (!salt || !derived) return false;
-  const test = crypto.scryptSync(password, salt, 64).toString('hex');
-  return crypto.timingSafeEqual(Buffer.from(test, 'hex'), Buffer.from(derived, 'hex'));
+  const test = (await scryptAsync(password, salt)).toString('hex');
+  const a = Buffer.from(test, 'hex');
+  const b = Buffer.from(derived, 'hex');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 }
 
 function signToken(user) {
@@ -267,7 +278,7 @@ router.post('/register', registerRateLimit, async (req, res) => {
                           email_verification_token_hash, email_verification_sent_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
        RETURNING id, role, email, full_name, account_type, email_verified, token_version`,
-      [role, normEmail, hashPassword(password), cleanName, cleanedPhone || null, vehicle_type || null, cleanedPlate || null,
+      [role, normEmail, await hashPassword(password), cleanName, cleanedPhone || null, vehicle_type || null, cleanedPlate || null,
        accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null,
        referrerId,
        verifyHash],
@@ -373,7 +384,7 @@ router.post('/reset-password', loginRateLimit, async (req, res) => {
               token_version = token_version + 1,
               updated_at = NOW()
         WHERE id = $2`,
-      [hashPassword(password), user.id],
+      [await hashPassword(password), user.id],
     );
     // ⚠️ A NYITOTT SOCKET IS BOMOLJON (2026-08-11, adatáramlási audit).
     // A `token_version` léptetése CSAK a REST-oldalt zárja: a socket
@@ -501,7 +512,7 @@ router.post('/login', loginRateLimit, async (req, res) => {
     [email.trim()],
   );
   const user = rows[0];
-  if (!user || !verifyPassword(password, user.password_hash)) {
+  if (!user || !(await verifyPassword(password, user.password_hash))) {
     return res.status(401).json({ error: 'Hibás email vagy jelszó' });
   }
   delete user.password_hash;
