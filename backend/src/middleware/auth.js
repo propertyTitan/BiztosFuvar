@@ -87,7 +87,7 @@ async function requireDriverKYC(req, res, next) {
     const { rows } = await db.query(
       `SELECT identity_kyc_status, driver_terms_accepted_at,
               account_type, personal_tax_id, tax_data_requested_at,
-              tax_data_reminder_count, can_bid
+              tax_data_reminder_count, can_bid, phone
          FROM users WHERE id = $1`,
       [req.user.sub],
     );
@@ -120,6 +120,18 @@ async function requireDriverKYC(req, res, next) {
       return res.status(403).json({
         error: 'A fuvarozás megkezdéséhez fogadd el a nyilatkozatot: minden vonatkozó jogszabályt és a KRESZ-t betartod.',
         code: 'DRIVER_TERMS_REQUIRED',
+      });
+    }
+    // ⚠️ TELEFONSZÁM KÖTELEZŐ A SZÁLLÍTÓNAK (2026-09-11, teljes audit B1). A
+    // díj után a feladó a szállító TELEFONSZÁMÁT kapja meg — ha nincs, a
+    // kifizetett kapcsolatfelvétel üres: a kontakt-kártyán semmi, a címzetti
+    // SMS-ben „Szállító: Név" szám nélkül. A telefon a regisztrációban
+    // opcionális (feladónak nem kell), a szállítói ág ELSŐ lépésénél viszont
+    // kérjük (DriverTermsGate) — ez a szerver-oldali párja.
+    if (!u.phone || !String(u.phone).trim()) {
+      return res.status(403).json({
+        error: 'Szállítóként kötelező a telefonszám — a feladó a díj után ezen ér el. Add meg a profilodon.',
+        code: 'PHONE_REQUIRED',
       });
     }
     // DAC7-kikényszerítés (Aktv.): ha a magánszemély szállító az adóazonosító-

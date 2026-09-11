@@ -23,6 +23,25 @@ describe('járat-ág kapcsoló', () => {
       expect(src, `${rel}: a kapu nem a JaratHamarosan-t adja`).toContain('return <JaratHamarosan />');
     }
   });
+  // A rejtett funkció NÉGY további helyen szivárgott (2026-09-11, teljes audit
+  // B1): a Fuvarjaim „Járataim" szekciója + „Új fix áras" gomb, a szállítói
+  // üres állapot CTA-ja, a HomeHub „Foglalásaim" gyorslinkje, a stub-fizetés
+  // vissza-linkje. Mindegyik a kapcsoló mögé került — ez az őr forrás-szinten
+  // tartja ott.
+  it('a négy korábbi szivárgási hely a kapcsoló mögött van', () => {
+    const olvas = (rel: string) => readFileSync(path.join(process.cwd(), rel), 'utf8');
+    const posted = olvas('src/components/fuvarjaim/PostedJobs.tsx');
+    expect(posted).toContain("from '@/lib/features'");
+    expect(posted).toContain('{JARAT_ENGEDELYEZVE && routes.map(');
+    expect(posted).toMatch(/\{JARAT_ENGEDELYEZVE && \(\s*<Link className="btn btn-secondary" href="\/sofor\/uj-utvonal">/);
+    expect(posted).toMatch(/\{JARAT_ENGEDELYEZVE && \(\s*<h2[^>]*>\s*<RouteIcon size=\{20\} \/> Járataim/);
+    const fuvarok = olvas('app/sofor/fuvarok/page.tsx');
+    expect(fuvarok).toContain('secondaryCta={JARAT_ENGEDELYEZVE ?');
+    const hub = olvas('src/components/HomeHub.tsx');
+    expect(hub).toContain("...(JARAT_ENGEDELYEZVE ? [{ href: '/fuvarjaim?tab=foglalasaim'");
+    const stub = olvas('app/fizetes-stub/page.tsx');
+    expect(stub).toContain("back: JARAT_ENGEDELYEZVE ? '/dashboard/foglalasaim' : '/fuvarjaim'");
+  });
   it('a kapcsoló alapértelmezése KI (hiányzó env = rejtett)', () => {
     // A modul a betöltéskor olvassa az env-et; itt a szemantikát a
     // forrásból ellenőrizzük, hogy a feltétel szigorú egyenlőség maradjon.

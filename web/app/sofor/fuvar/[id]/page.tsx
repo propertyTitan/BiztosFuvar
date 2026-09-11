@@ -193,6 +193,10 @@ export default function SoforFuvarReszletek() {
           }
         } catch { /* ha a visszakérdezés is elhal, marad az eredeti hibaüzenet */ }
       }
+      if (err?.code === 'PHONE_REQUIRED') {
+        toast.error('Telefonszám szükséges', 'Szállítóként kötelező a telefonszám — a feladó a díj után ezen ér el. Add meg a Profil oldalon, és küldd újra az ajánlatot.');
+        return;
+      }
       toast.error('Ajánlatküldési hiba', err.message);
     } finally {
       clearTimeout(lassuTimer);

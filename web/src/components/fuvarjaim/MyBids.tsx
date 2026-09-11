@@ -9,7 +9,9 @@ import Link from 'next/link';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { Tag, MapPin, Flag, BadgeCheck, Hourglass } from 'lucide-react';
+import ConfirmDialog from '@/components/ConfirmDialog';
+import { useToast } from '@/components/ToastProvider';
+import { Tag, MapPin, Flag, BadgeCheck, Hourglass, Undo2 } from 'lucide-react';
 
 type Row = Awaited<ReturnType<typeof api.myBids>>[number];
 
@@ -29,9 +31,30 @@ const BID_STATUS_PILL: Record<string, string> = {
 
 export default function SoforLicitjeim() {
   const me = useCurrentUser();
+  const toast = useToast();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Visszavonás (2026-09-11, teljes audit A4/B1): a függő ajánlat
+  // visszavonható — eddig nem volt kiút, a feladó egy már nem aktuális
+  // ajánlatot is elfogadhatott.
+  const [visszavonando, setVisszavonando] = useState<Row | null>(null);
+  const [visszavonas, setVisszavonas] = useState(false);
+
+  async function visszavon() {
+    if (!visszavonando) return;
+    setVisszavonas(true);
+    try {
+      await api.withdrawBid(visszavonando.bid_id);
+      setRows((r) => r.map((x) => (x.bid_id === visszavonando.bid_id ? { ...x, bid_status: 'withdrawn' as const } : x)));
+      toast.success('Ajánlat visszavonva', 'A feladó értesítést kapott. Jobb árral bármikor újra ajánlatot tehetsz.');
+      setVisszavonando(null);
+    } catch (e: any) {
+      toast.error('Nem sikerült visszavonni', e?.message || 'Próbáld újra.');
+    } finally {
+      setVisszavonas(false);
+    }
+  }
 
   useEffect(() => {
     api
@@ -103,6 +126,17 @@ export default function SoforLicitjeim() {
                 🎉 Tiéd a fuvar
               </div>
             )}
+            {r.bid_status === 'pending' && !jobLezart(r) && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ marginTop: 8, fontSize: 12, padding: '4px 10px' }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVisszavonando(r); }}
+                aria-label="Ajánlat visszavonása"
+              >
+                <Undo2 size={13} /> Visszavonom
+              </button>
+            )}
           </div>
         </div>
       </Link>
@@ -111,6 +145,14 @@ export default function SoforLicitjeim() {
 
   return (
     <div>
+      <ConfirmDialog
+        open={!!visszavonando}
+        title="Visszavonod az ajánlatot?"
+        message={visszavonando ? `A(z) „${visszavonando.job_title}” fuvarra tett ${visszavonando.amount_huf.toLocaleString('hu-HU')} Ft-os ajánlatod lezárul, a feladó értesítést kap. Később jobb árral újra ajánlatot tehetsz.` : ''}
+        confirmLabel={visszavonas ? 'Visszavonás…' : 'Visszavonom'}
+        onConfirm={visszavon}
+        onClose={() => setVisszavonando(null)}
+      />
       <h2 style={{ marginTop: 0 }}>Ajánlataim</h2>
       <p className="muted" style={{ marginTop: 0 }}>
         Itt láthatod, milyen ajánlatokat adtál és azokat elfogadták-e.

@@ -297,14 +297,29 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   szállító elérhetőség a FELVÉTELKOR megy (`sendRecipientPickupEmail`,
 >   fuvar + foglalás ág, az SMS párja) — a 2026-08-11 óta nyitott
 >   „elgépelt címre érvényes kód" kérdés így zárult.
-> - **B ⏳ (web):** járat-szivárgás 4 helyen (PostedJobs, sofor/fuvarok üres
->   CTA, HomeHub foglalásaim, fizetes-stub vissza-link); telefonszám
->   kötelező a szállítónak (backend-kapu + UI); DriverTermsGate mégse/ESC;
->   KYC előellenőrző sáv + újrabeküldés; kettős vita-UI összevonása;
->   térkép összecsukása mobilon; űrlap-piszkozat + `?next=`; htmlFor
->   címkék; profil-fetch cache; mobil mód-chip; CarryingJobs munkalista;
->   `PATCH /jobs/:id` szerkesztés + felvételi ablak + ajánlat-nélküli
->   nudge.
+> - **B1 ✅ (web-mag + backend-kapu; `audit-b1-szallito-telefon.test.js`,
+>   web `features.test.ts` + `profil-cache.test.ts`, mind piros a javítás
+>   nélkül):** (1) **Telefonszám kötelező a szállítónak** — a
+>   `requireDriverKYC` 403 `PHONE_REQUIRED`-del zár (a díj után a feladó a
+>   szállító telefonját kapja; enélkül üres kontaktot fizetne ki); a
+>   DriverTermsGate a nyilatkozat mellett bekéri a telefont, ha a profilban
+>   nincs; az ajánlat-oldal a kódra magyar üzenettel válaszol (a `request()`
+>   mostantól a `code`-ot is ráteszi a hibára). (2) **DriverTermsGate
+>   Mégse/ESC** — eddig csapda volt: most visszavált feladó módba és a
+>   főoldalra visz. (3) **Járat-szivárgás ×4 lezárva** (PostedJobs „Járataim"
+>   + „Új fix áras", sofor/fuvarok üres CTA, HomeHub „Foglalásaim", stub-fizetés
+>   vissza-link) — a features-őr forrás-szinten tartja. (4) **Ajánlat
+>   visszavonása** gomb a függő ajánlat kártyáján (ConfirmDialog →
+>   `api.withdrawBid`). (5) **Profil-cache**: `api.getMyProfile` 15 s TTL +
+>   token-kulcs + `invalidateMyProfile` (a PATCH és a nyilatkozat
+>   automatikusan invalidál) — öt komponens öt kérése egyre olvadt.
+>   (6) **Mobil mód-chip** a fejléc mobil menüjében („Szállító mód — váltás a
+>   főoldalon").
+> - **B2 ⏳ (web UX):** KYC előellenőrző sáv + újrabeküldés; kettős vita-UI
+>   összevonása; térkép összecsukása mobilon; űrlap-piszkozat + `?next=`;
+>   htmlFor címkék (⚠️ a mért a11y 0 critical/serious — csak a valóban
+>   címkétlen mezők); CarryingJobs munkalista; `PATCH /jobs/:id`
+>   szerkesztés + felvételi ablak mezők a feladásban + ajánlat-nélküli nudge.
 > - **C ⏳ (P2-lista):** halott státuszok, lejárt azonnali fuvarok,
 >   webhook-index, lemondás-értesítés link, disputed-kézbesítés
 >   utóhatásai, retention_runs purge, photos/messages XOR, CORS

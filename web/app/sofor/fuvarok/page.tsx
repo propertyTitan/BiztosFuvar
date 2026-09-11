@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 import { PackageSearch } from 'lucide-react';
 import { subscribeFeed } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
@@ -345,9 +346,11 @@ export default function SoforFuvarokLista() {
         <EmptyState
           icon={<PackageSearch size={28} aria-hidden />}
           title="Most épp nincs elérhető fuvar"
-          description="A fuvarok folyamatosan érkeznek. Állíts be útvonal-figyelőt, és e-mailben szólunk, ha a te útvonaladra jön fuvar — vagy hirdesd meg az utad fix áron, és a feladók találnak meg téged."
+          description={JARAT_ENGEDELYEZVE
+            ? 'A fuvarok folyamatosan érkeznek. Állíts be útvonal-figyelőt, és e-mailben szólunk, ha a te útvonaladra jön fuvar — vagy hirdesd meg az utad fix áron, és a feladók találnak meg téged.'
+            : 'A fuvarok folyamatosan érkeznek. Állíts be útvonal-figyelőt, és e-mailben szólunk, ha a te útvonaladra jön fuvar.'}
           cta={<Link className="btn" href="/sofor/ertesitok">Útvonal-figyelő beállítása</Link>}
-          secondaryCta={<Link className="btn btn-ghost" href="/sofor/uj-utvonal">Új útvonal meghirdetése</Link>}
+          secondaryCta={JARAT_ENGEDELYEZVE ? <Link className="btn btn-ghost" href="/sofor/uj-utvonal">Új útvonal meghirdetése</Link> : undefined}
         />
       )}
 

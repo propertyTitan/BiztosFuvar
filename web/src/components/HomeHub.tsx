@@ -468,7 +468,7 @@ export default function HomeHub() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {[
               { href: '/fuvarjaim?tab=hirdeteseim', icon: <ClipboardList size={18} />, label: t('nav.myListings') },
-              { href: '/fuvarjaim?tab=foglalasaim', icon: <Package size={18} />, label: t('nav.myBookings') },
+              ...(JARAT_ENGEDELYEZVE ? [{ href: '/fuvarjaim?tab=foglalasaim', icon: <Package size={18} />, label: t('nav.myBookings') }] : []),
               { href: '/ertesitesek', icon: <Bell size={18} />, label: t('nav.notifications'), badge: unread },
               { href: '/profil', icon: <UserIcon size={18} />, label: t('nav.profile') },
             ].map((l) => (

@@ -21,6 +21,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useToast } from '@/components/ToastProvider';
 import TesztFizetesSav from '@/components/TesztFizetesSav';
+import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 
 type LoadedData = {
   title: string;
@@ -54,7 +55,7 @@ function FizetesStubContent() {
             cashHuf: b.price_huf,
             pickup: b.pickup_address,
             dropoff: b.dropoff_address,
-            back: '/dashboard/foglalasaim',
+            back: JARAT_ENGEDELYEZVE ? '/dashboard/foglalasaim' : '/fuvarjaim',
           });
         } else if (jobId) {
           const j = await api.getJob(jobId);
