@@ -562,10 +562,20 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
 
   // ---- Státusz-átmenetek ----
   if (kind === 'pickup' && booking.status === 'confirmed') {
-    await db.query(
-      `UPDATE route_bookings SET status = 'in_progress' WHERE id = $1`,
+    // ⚠️ FELTÉTELES (2026-09-11, teljes audit P0-6): a fuvar-ág párját ma
+    // délelőtt javítottuk, ez kimaradt. A SELECT és ez az UPDATE között a
+    // TELJES R2-feltöltés fut (másodpercek) — egy közben lemondott foglalást
+    // ez a sor „feltámasztott" in_progress-be, ahonnan a lemondás már tilos.
+    const felvesz = await db.query(
+      `UPDATE route_bookings SET status = 'in_progress' WHERE id = $1 AND status = 'confirmed'`,
       [bookingId],
     );
+    if (felvesz.rowCount === 0) {
+      return res.status(409).json({
+        error: 'A foglalás állapota időközben megváltozott (pl. lemondták) — frissítsd az oldalt.',
+        code: 'STATE_CHANGED',
+      });
+    }
     realtime.emitToUser(booking.shipper_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
     realtime.emitToUser(booking.carrier_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
 

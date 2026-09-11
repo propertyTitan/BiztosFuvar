@@ -198,6 +198,67 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 
 ## 6. Mit készítünk a launchhoz
 
+### 🧭 TELJES AUDIT (2026-09-11) — 4 lencse, P0/P1/P2 terv; javítás FOLYAMATBAN
+
+> A Codex-csomagok után a user teljes körű átvizsgálást kért („mielőtt
+> bármit módosítasz, értsd meg"), majd a leletre: **„csináld, legyen
+> hibátlan közeli… megbízható, modern, jól használható, ne tudják könnyen
+> megkerülni."** Négy lencse (backend pénz-út + állapotgép, adatvédelem/
+> kikerülés, web UX + 3 felhasználói út, üzemeltetés), minden tétel kódból
+> igazolva. A javítás csomagokban megy, minden fixhez őr-teszt, ami a
+> javítás NÉLKÜL igazoltan piros; PR → CI → merge → prod-ellenőrzés.
+>
+> **Csomagok és állás:**
+> - **A1 ✅ (backend P0-mag, `audit-a1-p0-mag.test.js`, 5 őr):**
+>   (1) a fizetési webhook a `paid_at`-ot CSAK `accepted`/`disputed`
+>   (fuvar) ill. `confirmed`/`disputed` (foglalás) állapotra írja — eddig
+>   egy lemondott fuvarra érkező késleltetett Succeeded fizetetté tette,
+>   számlát állított ki és indulásra szólította a szállítót; most „ÁRVA"
+>   payment_events sor (`processed=false`) + Sentry, kézi sztornó a teendő;
+>   (2) kuponos (0 Ft) fuvar újraválasztása: `connection_fee_huf != null`
+>   (a 0 hamis volt → 500/1000 íródott be → az ajánlói őr „valódi
+>   fizetésnek" látta, a kupon kupont termelt); (3) utca-szint a
+>   `/auth/me/driver-dashboard` és az export `vallalt_fuvarok` sorain
+>   `paid_at` nélkül (a scrub megkerülésével ment a házszám — azonnali
+>   elfogadás → dashboard → visszalépés = lakcím ingyen); (4) a
+>   foglalás-felvétel feltételes UPDATE (`AND status='confirmed'`, 409
+>   STATE_CHANGED) — a fuvar-ág párja ma reggel kapta, ez kimaradt.
+> - **A2 ⏳ (backend P0/P1 pénz-út):** webhook idempotencia-claim az elején;
+>   kézi confirm-payment közös magja (napló + számla + paid_at-őr); ajánlói
+>   őr a VALÓDI webhook-fizetéshez kötve; `notifyDealClosed` feeAlreadyPaid;
+>   emlékeztető-számláló nullázása reopennél; ajánlói plafon sorrendje;
+>   tracking-közelség idempotencia; vita-lezárás validáció + vita-nyitó
+>   e-mail; admin-napló 403 UTÁN is + admin PATCH validáció; profil-mező
+>   validáció.
+> - **A3 ⏳:** e-mail/értesítés-kiesés riasztása (Sentry/retry).
+> - **A4 ⏳:** dispute UNIQUE nyitott index + XOR; `POST /bids/:id/withdraw`
+>   + withdrawn a reopenben; accepted+fizetetlen fuvar auto-újranyitása N
+>   nap után; FK-k (reviews/escrow SET NULL + rating újraszámolás);
+>   sugár-keresés SQL-ben; fotó-feltöltési limitek; címzett-e-mail a
+>   felvételhez kötve.
+> - **B ⏳ (web):** járat-szivárgás 4 helyen (PostedJobs, sofor/fuvarok üres
+>   CTA, HomeHub foglalásaim, fizetes-stub vissza-link); telefonszám
+>   kötelező a szállítónak (backend-kapu + UI); DriverTermsGate mégse/ESC;
+>   KYC előellenőrző sáv + újrabeküldés; kettős vita-UI összevonása;
+>   térkép összecsukása mobilon; űrlap-piszkozat + `?next=`; htmlFor
+>   címkék; profil-fetch cache; mobil mód-chip; CarryingJobs munkalista;
+>   `PATCH /jobs/:id` szerkesztés + felvételi ablak + ajánlat-nélküli
+>   nudge.
+> - **C ⏳ (P2-lista):** halott státuszok, lejárt azonnali fuvarok,
+>   webhook-index, lemondás-értesítés link, disputed-kézbesítés
+>   utóhatásai, retention_runs purge, photos/messages XOR, CORS
+>   boot-ellenőrzés, sablon-járat feed, kód-zár a WHERE-ben, kupon-verseny,
+>   feed-szűrők, GPS-prompt, render-redirectek, noindex privát oldalakon,
+>   dinamikus socket/sentry import, fejléc aria, aria-live, CODEMAP/
+>   .env.example takarítás, Barion-kommentek, halott reviews-végpont, SOS
+>   koordináták, hibakód-egyeztetés, LIMIT a listákon, jobQuestions
+>   naplózás, lefedettség-üzenet, értesítés-lapozás/leiratkozás/support.
+>
+> **Launch-checklist (dokumentálva marad):** `ALLOW_STUB_PAYMENTS` törlése;
+> stub-`sent` számlák takarítása; 13 migrációval igazolt teszt-fiók;
+> adatkezelési mondat a zárolás miatt blokkolt törlésről; robots `Allow`
+> napi SEO-tételek.
+
 ### 🔐 CODEX-AUDIT (2026-09-11) — 29 tétel, verifikálva; javítás FOLYAMATBAN
 
 > A user feltöltötte egy másik modell (Codex „astra") teljes kód-auditját:
