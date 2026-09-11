@@ -283,6 +283,15 @@ export default function KycModal() {
               >
                 Dokumentum feltöltése
               </label>
+              {/* Előellenőrző tippek (2026-09-11, teljes audit B2): az
+                  elutasítások zöme rossz fotó (tükröződés, levágott sarok,
+                  lakcímkártya) — előre megmondjuk, mi kell. */}
+              <ul style={{ margin: '0 0 10px', paddingLeft: 18, fontSize: 13, color: '#444', lineHeight: 1.5 }}>
+                <li>Személyi igazolvány <strong>elülső oldala</strong> — lakcímkártyát <strong>ne</strong> tölts fel.</li>
+                <li>Jó fényben, tükröződés és vaku nélkül, éles kép.</li>
+                <li>Mind a négy sarok látszódjon, a szöveg olvasható legyen.</li>
+                <li>Az igazolványon lévő név egyezzen a profilod nevével.</li>
+              </ul>
               <input
                 ref={inputRef}
                 type="file"

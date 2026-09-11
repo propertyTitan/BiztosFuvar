@@ -16,6 +16,7 @@ import { api, Job, Bid, photoUrl } from '@/api';
 import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
+import MapCollapse from '@/components/MapCollapse';
 import FieldError, { redBorder } from '@/components/FieldError';
 import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
 import {
@@ -336,10 +337,10 @@ export default function SoforFuvarReszletek() {
         </div>
       )}
 
-      {/* Térkép */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden', marginTop: 16 }}>
+      {/* Térkép — mobilon összecsukva (B2, GF-020) */}
+      <MapCollapse>
         <LiveTrackingMap job={job} />
-      </div>
+      </MapCollapse>
 
       {/* Hirdetési fotók */}
       {listingPhotos.length > 0 && (
