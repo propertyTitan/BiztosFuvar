@@ -24,7 +24,7 @@ beforeEach(() => {
   eredetiKulcs = process.env.RESEND_API_KEY;
   process.env.RESEND_API_KEY = 're_teszt_hamis_kulcs'; // hogy ne STUB legyen — a fetch mockolt, hálózat NINCS
   process.env.EMAIL_RETRY_BACKOFF_MS = '1,1';
-  email.__resetEmailAlertsForTests();
+  email.__resetEmailAlertsForTests?.();
 });
 afterEach(() => {
   global.fetch = eredetiFetch;
