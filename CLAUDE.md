@@ -198,15 +198,25 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 
 ## 6. Mit készítünk a launchhoz
 
-### 🧭 TELJES AUDIT (2026-09-11) — 4 lencse, P0/P1/P2 terv; javítás FOLYAMATBAN
+### 🧭 TELJES AUDIT (2026-09-11/12) — 4 lencse, P0/P1/P2 terv; ✅ MIND A 9 CSOMAG ÉLESBEN
 
 > A Codex-csomagok után a user teljes körű átvizsgálást kért („mielőtt
 > bármit módosítasz, értsd meg"), majd a leletre: **„csináld, legyen
 > hibátlan közeli… megbízható, modern, jól használható, ne tudják könnyen
 > megkerülni."** Négy lencse (backend pénz-út + állapotgép, adatvédelem/
 > kikerülés, web UX + 3 felhasználói út, üzemeltetés), minden tétel kódból
-> igazolva. A javítás csomagokban megy, minden fixhez őr-teszt, ami a
+> igazolva. A javítás csomagokban ment, minden fixhez őr-teszt, ami a
 > javítás NÉLKÜL igazoltan piros; PR → CI → merge → prod-ellenőrzés.
+> **ÁLLÁS (2026-09-12 reggel): a 9 csomag (A1–A4, B1–B3, C1–C2) a
+> #221–#229 PR-ekkel MIND BEOLVADT és a Railway/Vercel futtatja; a 081,
+> 082, 083 migráció a prodon LEFUTOTT és visszaolvasva (XOR + egyedi
+> index + SET NULL; `no_offer_nudge_at`; webhook-indexek + messages XOR).
+> Végállás: backend 155 fájl / 1789 teszt, web 27 fájl / 141 teszt, E2E
+> zöld minden PR-en. ⚠️ AMI NEM BIZONYÍTOTT: az új felületek (telefon a
+> nyilatkozatban, MapCollapse, visszavonás-gomb, szerkesztés-dialógus,
+> GPS-sáv) csak unit/tsc/build/E2E-szinten mértek — élő kattintás a
+> useré; a webhook-claim csak stub-providerrel tesztelt (a valódi CIB
+> ismétlési viselkedése az élesítéskor derül ki).**
 >
 > **Csomagok és állás:**
 > - **A1 ✅ (backend P0-mag, `audit-a1-p0-mag.test.js`, 5 őr):**
@@ -334,7 +344,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   0 critical/serious (PR #177), a `<label>`-számlálás wrapping label-eket
 >   talált — nem nyúltam hozzá.
 > - **B3 ✅ (`audit-b3-szerkesztes-nudge.test.js`, web `idoablak.test.ts`;
->   082-es migráció — a merge után a prodon futtatandó):** (1) **`PATCH
+>   082-es migráció a prodon LEFUTOTT):** (1) **`PATCH
 >   /jobs/:id`** — a feladó a még nyitott (bidding/pending) fuvarján
 >   javíthatja a címet, leírást, ajánlott árat, súlyt/méretet, felvételi
 >   időablakot, cipelés/emelet/lift, deklarált értéket (a felvételi/lerakodási
@@ -351,7 +361,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   fotó) és a szerkesztés linkjével; `jobs.no_offer_nudge_at` (belső
 >   könyvelés — scrub + anonimizálás-manifest besorolva).
 > - **C1 ✅ (backend P2; `audit-c1-backend-p2.test.js`, 7/8 piros a forrás
->   nélkül; 083-as migráció — a merge után a prodon futtatandó):** (1)
+>   nélkül; 083-as migráció a prodon LEFUTOTT):** (1)
 >   **lejárt azonnali fuvar** óránként NORMÁL ajánlatgyűjtésre vált
 >   (`services/instantExpiry.js`, feladó értesül) — eddig örökre
 >   „Ajánlatokat vár" maradt egy hirdetés, amit a feed nem mutatott; (2)
@@ -397,6 +407,16 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   (már volt: role=status + aria-live=polite, hibán role=alert),
 >   e-mail-leiratkozás (csak tranzakciós levél megy; az útvonal-figyelő
 >   saját kezelőfelülettel bír).
+>
+> ⚠️ MUNKAMÓDSZER-TANULSÁGOK a körből: (1) a branch-védelem „naprakész ág"-at
+> kér — egymásra épített PR-eknél minden merge után `git merge origin/main`
+> + push a következő ágon, különben BEHIND; (2) a `gh pr checks --watch`
+> néha az E2E befejezése ELŐTT kilép — a mergelést egy saját poll-ciklus
+> végezze, ami addig vár, amíg nincs `pending`; (3) Python-szkriptben a
+> magyar „…" idézőjel-pár záró `"`-je lezárja a dupla idézőjeles stringet —
+> mindig háromszoros idézőjel, és a heredoc-ot NE `&&`-lánc mögé tedd
+> (egy szkript-hiba után a teszt-fájl némán nem íródott ki, a vitest pedig
+> a hiányzó fájlt szó nélkül kihagyta).
 >
 > **Launch-checklist (dokumentálva marad):** `ALLOW_STUB_PAYMENTS` törlése;
 > stub-`sent` számlák takarítása; 13 migrációval igazolt teszt-fiók;
