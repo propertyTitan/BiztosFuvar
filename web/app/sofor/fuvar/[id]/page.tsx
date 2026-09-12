@@ -17,6 +17,7 @@ import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package
 import { useCurrentUser } from '@/lib/auth';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import MapCollapse from '@/components/MapCollapse';
+import { idoablakSzoveg } from '@/lib/idoablak';
 import FieldError, { redBorder } from '@/components/FieldError';
 import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
 import {
@@ -260,6 +261,11 @@ export default function SoforFuvarReszletek() {
             {' → '}
             <Flag size={13} style={{ verticalAlign: -2 }} /> {job.dropoff_address}
           </p>
+          {idoablakSzoveg(job.pickup_window_start, job.pickup_window_end) && (
+            <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
+              🕒 Felvételi időablak: <strong>{idoablakSzoveg(job.pickup_window_start, job.pickup_window_end)}</strong>
+            </p>
+          )}
           {(job as any).recipient_name && (
             <div style={{ marginTop: 6, fontSize: 13 }}>
               <strong>Címzett:</strong> {(job as any).recipient_name}

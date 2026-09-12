@@ -134,6 +134,8 @@ export type Job = {
   delivery_code?: string | null;
   /** A kapcsolatfelvételi díj sikeres fizetésének időbélyegzője (`accepted` után). */
   paid_at?: string | null;
+  pickup_window_start?: string | null;
+  pickup_window_end?: string | null;
   /** A fuvarhoz rögzített kapcsolatfelvételi díj (bruttó Ft, bevezető ár). */
   connection_fee_huf?: number | null;
   /** Hányszor lett a fuvar díjmentesen újranyitva (szállító-csere). */
@@ -205,6 +207,9 @@ export type NewJobInput = {
   dropoff_floor?: number;
   dropoff_has_elevator?: boolean;
   declared_value_huf?: number;
+  /** Felvételi időablak (ISO) — opcionális (B3). */
+  pickup_window_start?: string | null;
+  pickup_window_end?: string | null;
   invoice_requested?: boolean;
   recipient_name?: string;
   recipient_phone?: string;
@@ -759,6 +764,13 @@ export const api = {
    * kapcsolatfelvételi díj nem visszatérítendő). Ha a SZÁLLÍTÓ mondja le,
    * a fuvar díjmentesen újranyílik (reopened: true).
    */
+  /** A feladó szerkeszti a még nyitott fuvarját (B3). */
+  updateJob: (id: string, data: Partial<Pick<NewJobInput,
+    'title' | 'description' | 'suggested_price_huf' | 'weight_kg' | 'length_cm' | 'width_cm' | 'height_cm'
+    | 'pickup_window_start' | 'pickup_window_end' | 'pickup_needs_carrying' | 'pickup_floor' | 'pickup_has_elevator'
+    | 'dropoff_needs_carrying' | 'dropoff_floor' | 'dropoff_has_elevator' | 'declared_value_huf'>>) =>
+    request<Job>(`/jobs/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
   cancelJob: (id: string, reason?: string) =>
     request<{ ok: true; status: string; cancellation_fee_huf: number; refund_huf: number; reopened?: boolean; fee_kept?: boolean }>(
       `/jobs/${id}/cancel`,

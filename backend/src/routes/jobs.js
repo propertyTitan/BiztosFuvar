@@ -102,6 +102,8 @@ function scrubJobForUser(job, user) {
     payment_reminder_count, last_payment_reminder_at,
     // Belső könyvelés: mikor futott le a személyes adatok anonimizálása.
     anonymized_at,
+    // Belső könyvelés: küldtünk-e már „nincs ajánlat" tippet (B3).
+    no_offer_nudge_at,
     // ⚠️ A CSOMAG DEKLARÁLT ÉRTÉKE (2026-08-10, adatáramlási audit).
     // A nyitott piactéren, fizetés és KYC nélkül, 200-asával lapozva ez a
     // párosítás állt össze: pontos házszámos cím + „mennyit ér a csomag".
@@ -982,6 +984,120 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
     is_stub: !!barionRes.stub,
     reused: false,
   });
+});
+
+// PATCH /jobs/:id — a FELADÓ szerkeszti a még nyitott (bidding/pending)
+// fuvarját (2026-09-11, teljes audit B3). Eddig egy elgépelt ár vagy cím
+// csak lemondás + újrafeladással volt javítható — a beérkezett ajánlatok
+// elvesztek. Szerkeszthető: cím, leírás, ajánlott ár, súly/méret,
+// felvételi időablak, cipelés/emelet/lift, deklarált érték. A cím/koordináta
+// NEM (arra a szállítók az ajánlatot tették — az új fuvar). A függő
+// ajánlattevők értesítést kapnak, hogy nézzék át az ajánlatukat.
+router.patch('/:id', authRequired, writeRateLimit, async (req, res) => {
+  const { rows } = await db.query('SELECT * FROM jobs WHERE id = $1', [req.params.id]);
+  const j = rows[0];
+  if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (j.shipper_id !== req.user.sub) return res.status(403).json({ error: 'Csak a fuvar feladója szerkesztheti.' });
+  if (!['bidding', 'pending'].includes(j.status)) {
+    return res.status(409).json({ error: 'A fuvar már nem szerkeszthető (elfogadott ajánlat után a részletek rögzülnek).', code: 'JOB_NOT_EDITABLE' });
+  }
+  const b = req.body || {};
+  const sets = [];
+  const params = [];
+  const put = (col, val) => { params.push(val); sets.push(`${col} = $${params.length}`); };
+  const MAX_HUF = 100000000;
+
+  if (b.title !== undefined) {
+    const t = typeof b.title === 'string' ? b.title.trim() : '';
+    if (t.length < 3 || t.length > 120) return res.status(400).json({ error: 'A fuvar címe 3–120 karakter legyen.' });
+    put('title', t);
+  }
+  if (b.description !== undefined) {
+    if (b.description !== null && typeof b.description !== 'string') return res.status(400).json({ error: 'A leírás szöveg.' });
+    put('description', b.description ? b.description.trim().slice(0, 5000) : null);
+  }
+  const leak = firstContactLeak([typeof b.title === 'string' ? b.title : '', typeof b.description === 'string' ? b.description : '']);
+  if (leak) return res.status(400).json({ error: leak, code: 'CONTACT_LEAK' });
+  if (b.suggested_price_huf !== undefined) {
+    const n = Number(b.suggested_price_huf);
+    if (!Number.isInteger(n) || n < 0 || n > MAX_HUF) return res.status(400).json({ error: 'Az ajánlott ár 0 és 100 000 000 Ft közötti kerek összeg.' });
+    put('suggested_price_huf', n);
+  }
+  if (b.weight_kg !== undefined) {
+    const n = Number(b.weight_kg);
+    if (!Number.isFinite(n) || n <= 0 || n > 100000) return res.status(400).json({ error: 'A súly 0 és 100 000 kg közötti szám.' });
+    put('weight_kg', n);
+  }
+  for (const dim of ['length_cm', 'width_cm', 'height_cm']) {
+    if (b[dim] === undefined) continue;
+    const n = Number(b[dim]);
+    if (!Number.isInteger(n) || n <= 0 || n > 2000) return res.status(400).json({ error: `A(z) ${dim} 1 és 2000 cm közötti egész szám.` });
+    put(dim, n);
+  }
+  const ablak = { pickup_window_start: j.pickup_window_start, pickup_window_end: j.pickup_window_end };
+  for (const nev of ['pickup_window_start', 'pickup_window_end']) {
+    if (b[nev] === undefined) continue;
+    if (b[nev] === null || b[nev] === '') { ablak[nev] = null; put(nev, null); continue; }
+    const d = new Date(b[nev]);
+    if (Number.isNaN(d.getTime()) || d.getFullYear() < 2000 || d.getTime() > Date.now() + 10 * 365 * 24 * 3600 * 1000) {
+      return res.status(400).json({ error: 'Érvénytelen felvételi időpont.', code: 'PICKUP_WINDOW_INVALID' });
+    }
+    ablak[nev] = d;
+    put(nev, d.toISOString());
+  }
+  if (ablak.pickup_window_start && ablak.pickup_window_end
+      && new Date(ablak.pickup_window_end).getTime() < new Date(ablak.pickup_window_start).getTime()) {
+    return res.status(400).json({ error: 'A felvételi időablak vége nem lehet a kezdete előtt.', code: 'PICKUP_WINDOW_ORDER' });
+  }
+  for (const [flag, floor, lift] of [['pickup_needs_carrying', 'pickup_floor', 'pickup_has_elevator'], ['dropoff_needs_carrying', 'dropoff_floor', 'dropoff_has_elevator']]) {
+    if (b[flag] !== undefined) {
+      if (typeof b[flag] !== 'boolean') return res.status(400).json({ error: `A(z) ${flag} true vagy false.` });
+      put(flag, b[flag]);
+    }
+    if (b[floor] !== undefined) {
+      const n = Number(b[floor]);
+      if (!Number.isInteger(n) || n < 0 || n > 50) return res.status(400).json({ error: `A(z) ${floor} 0 és 50 közötti egész szám.` });
+      put(floor, n);
+    }
+    if (b[lift] !== undefined) {
+      if (typeof b[lift] !== 'boolean') return res.status(400).json({ error: `A(z) ${lift} true vagy false.` });
+      put(lift, b[lift]);
+    }
+  }
+  if (b.declared_value_huf !== undefined) {
+    if (b.declared_value_huf === null || b.declared_value_huf === '') put('declared_value_huf', null);
+    else {
+      const n = Number(b.declared_value_huf);
+      if (!Number.isInteger(n) || n < 0 || n > MAX_HUF) return res.status(400).json({ error: 'A csomag értéke 0 és 100 000 000 Ft közötti kerek összeg.' });
+      put('declared_value_huf', n);
+    }
+  }
+  if (sets.length === 0) return res.status(400).json({ error: 'Nincs módosítandó mező.', code: 'NOTHING_TO_UPDATE' });
+
+  params.push(j.id, req.user.sub);
+  const upd = await db.query(
+    `UPDATE jobs SET ${sets.join(', ')}, updated_at = NOW()
+      WHERE id = $${params.length - 1} AND shipper_id = $${params.length} AND status IN ('bidding', 'pending')
+      RETURNING *`,
+    params,
+  );
+  if (upd.rowCount === 0) {
+    return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
+  }
+  const frissitett = upd.rows[0];
+  // A függő ajánlattevők átnézhetik az ajánlatukat (ár/méret változhatott)
+  const { rows: fuggo } = await db.query(`SELECT carrier_id FROM bids WHERE job_id = $1 AND status = 'pending'`, [j.id]);
+  for (const f of fuggo) {
+    createNotification({
+      user_id: f.carrier_id,
+      type: 'job_updated',
+      title: 'A hirdetést módosították — nézd át az ajánlatod',
+      body: `A(z) "${frissitett.title}" fuvar részletei változtak (ár, méret, időablak vagy leírás). Ha az ajánlatod már nem áll, visszavonhatod és újat tehetsz.`,
+      link: `/sofor/fuvar/${j.id}`,
+    }).catch(() => {});
+  }
+  realtime.emitToJob(j.id, 'job:updated', { job_id: j.id });
+  res.json(scrubJobForUser(frissitett, req.user));
 });
 
 // POST /jobs/:id/confirm-payment

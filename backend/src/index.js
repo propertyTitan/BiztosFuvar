@@ -510,6 +510,13 @@ if (process.env.DATABASE_URL) {
   setInterval(() => { runPaymentReminders().catch(() => {}); }, DAY_MS).unref();
   console.log('[payment-reminder] napi fizetetlen-fuvar emlékeztető kör ütemezve');
 
+  // „Nincs ajánlat" nudge (2026-09-11, B3): a 24 órája ajánlat nélkül álló
+  // nyitott fuvar feladója egyszer tippeket kap (ár / időablak / leírás).
+  const { runNoOfferNudges } = require('./services/noOfferNudge');
+  setTimeout(() => { runNoOfferNudges().catch(() => {}); }, 180 * 1000).unref();
+  setInterval(() => { runNoOfferNudges().catch(() => {}); }, DAY_MS).unref();
+  console.log('[no-offer-nudge] napi „nincs ajánlat" tipp-kör ütemezve');
+
   // SMS-újraküldési kör (2026-08-30): a SeeMe-nél elakadt (code=13/7,
   // hálózati hiba) SMS-eket 10 percenként újrapróbálja, 48 órás ablakban —
   // a hiba elhárítása után a bennragadt átvételi kódok maguktól kimennek.
