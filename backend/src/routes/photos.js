@@ -165,6 +165,10 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     const isRecipientCode = codesMatch(codeInput, job.delivery_code);
     const isSenderCode = codesMatch(codeInput, job.sender_delivery_code);
     if (!isRecipientCode && !isSenderCode) {
+      // ⚠️ A ZÁR A WHERE-BEN (2026-09-11, teljes audit C1): a fenti ellenőrzés a
+      // SELECT-elt (elavulható) sorra nézett — a fájl feltöltése alatt beállt
+      // zár mellett is nőtt a számláló és HOSSZABBODOTT a zárolás. A számlálás
+      // csak nyitott záron fut; zárolt sornál 0 sor → 429.
       const { rows: attemptRows } = await db.query(
         `UPDATE jobs
             SET delivery_code_attempts = delivery_code_attempts + 1,
@@ -172,9 +176,16 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
                   WHEN delivery_code_attempts + 1 >= $2 THEN NOW() + INTERVAL '1 hour'
                   ELSE delivery_code_locked_until END
           WHERE id = $1
+            AND (delivery_code_locked_until IS NULL OR delivery_code_locked_until <= NOW())
           RETURNING delivery_code_attempts`,
         [jobId, MAX_CODE_ATTEMPTS],
       );
+      if (attemptRows.length === 0) {
+        return res.status(429).json({
+          error: 'Túl sok hibás kódpróbálkozás — a kód-ellenőrzés átmenetileg zárolva. Próbáld újra később, vagy hívd az ügyfélszolgálatot.',
+          code: 'CODE_LOCKED',
+        });
+      }
       const attempts = attemptRows[0]?.delivery_code_attempts || 0;
       const remaining = Math.max(0, MAX_CODE_ATTEMPTS - attempts);
       return res.status(403).json({
@@ -341,6 +352,17 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
         WHERE id = $1`,
       [jobId, req._closedByCodeType || 'recipient'],
     );
+    // UTÓHATÁS (2026-09-11, teljes audit C1): a vita alatti kézbesítésről a
+    // feladó eddig SEMMIT nem tudott meg (a normál ág értesít, ez nem) —
+    // a csomag megérkezett, a vita nyitva maradt, de a harang néma volt.
+    createNotification({
+      user_id: job.shipper_id,
+      type: 'job_delivered',
+      title: '📦 A csomagot kézbesítették — a vita nyitva marad',
+      body: `A(z) "${job.title || 'fuvar'}" csomagját a szállító a kóddal átadta. A vita ettől nem zárul le: az ügyfélszolgálat a fotók és az előzmények alapján dönt, és értesítést kapsz.`,
+      link: `/dashboard/fuvar/${jobId}`,
+    }).catch(() => {});
+    realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, disputed: true });
   }
 
   if (kind === 'dropoff' && job.status === 'in_progress') {

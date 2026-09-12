@@ -99,7 +99,12 @@ app.use((req, res, next) => {
 // CORS: prod-ban a CORS_ORIGIN env-ben felsorolt domain-eket engedjük
 // (vesszővel elválasztva), fejlesztéskor pedig mindent (*). A Socket.IO
 // transzport külön CORS-t használ a realtime.js-ben.
-const corsOrigins = (process.env.CORS_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
+const { corsOriginsFromEnv } = require('./utils/corsOrigins');
+const { origins: corsOrigins, warning: corsWarning } = corsOriginsFromEnv();
+if (corsWarning) {
+  console.error(corsWarning);
+  try { require('@sentry/node').captureMessage(corsWarning, 'error'); } catch { /* nincs Sentry */ }
+}
 app.use(
   cors({
     origin: corsOrigins.length > 0 ? corsOrigins : true,
@@ -516,6 +521,13 @@ if (process.env.DATABASE_URL) {
   setTimeout(() => { runNoOfferNudges().catch(() => {}); }, 180 * 1000).unref();
   setInterval(() => { runNoOfferNudges().catch(() => {}); }, DAY_MS).unref();
   console.log('[no-offer-nudge] napi „nincs ajánlat" tipp-kör ütemezve');
+
+  // Lejárt azonnali fuvarok (2026-09-11, C1): óránként normál ajánlatgyűjtésre
+  // váltanak — a feladó ne várjon egy hirdetésre, amit a feed már nem mutat.
+  const { runInstantExpiry } = require('./services/instantExpiry');
+  setTimeout(() => { runInstantExpiry().catch(() => {}); }, 90 * 1000).unref();
+  setInterval(() => { runInstantExpiry().catch(() => {}); }, 60 * 60 * 1000).unref();
+  console.log('[instant-expiry] óránkénti azonnali-lejárat kör ütemezve');
 
   // SMS-újraküldési kör (2026-08-30): a SeeMe-nél elakadt (code=13/7,
   // hálózati hiba) SMS-eket 10 percenként újrapróbálja, 48 órás ablakban —

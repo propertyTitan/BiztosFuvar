@@ -350,15 +350,34 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   in-app + e-mail három tippel (ár +10–20 %, tágabb időablak, leírás +
 >   fotó) és a szerkesztés linkjével; `jobs.no_offer_nudge_at` (belső
 >   könyvelés — scrub + anonimizálás-manifest besorolva).
-> - **C ⏳ (P2-lista):** halott státuszok, lejárt azonnali fuvarok,
->   webhook-index, lemondás-értesítés link, disputed-kézbesítés
->   utóhatásai, retention_runs purge, photos/messages XOR, CORS
->   boot-ellenőrzés, sablon-járat feed, kód-zár a WHERE-ben, kupon-verseny,
->   feed-szűrők, GPS-prompt, render-redirectek, noindex privát oldalakon,
->   dinamikus socket/sentry import, fejléc aria, aria-live, CODEMAP/
->   .env.example takarítás, Barion-kommentek, halott reviews-végpont, SOS
->   koordináták, hibakód-egyeztetés, LIMIT a listákon, jobQuestions
->   naplózás, lefedettség-üzenet, értesítés-lapozás/leiratkozás/support.
+> - **C1 ✅ (backend P2; `audit-c1-backend-p2.test.js`, 7/8 piros a forrás
+>   nélkül; 083-as migráció — a merge után a prodon futtatandó):** (1)
+>   **lejárt azonnali fuvar** óránként NORMÁL ajánlatgyűjtésre vált
+>   (`services/instantExpiry.js`, feladó értesül) — eddig örökre
+>   „Ajánlatokat vár" maradt egy hirdetés, amit a feed nem mutatott; (2)
+>   **webhook-indexek** (`escrow_transactions.barion_payment_id`,
+>   `route_bookings.barion_payment_id`) + **messages XOR** (a photos-nak
+>   volt, az üzeneteknek csak OR — prodon 0 kettős sor); (3) a
+>   **lemondás-értesítés** linkje szerepkör szerint (a szállító eddig a
+>   feladói oldalra kapott linket → 403); (4) **vita alatti kézbesítés**:
+>   a feladó értesítést kap (eddig néma volt); (5) **kód-zár a WHERE-ben**
+>   (zárolt soron a rossz kód 429, a számláló nem nő, a zár nem
+>   hosszabbodik); (6) **SOS koordináta-kapu** (999-es szélesség → 400);
+>   (7) a **sablon-járat** nem megy a `routes:new` feedbe; (8) **LIMIT** a
+>   felhasználói listákon (ajánlataim 500, fuvar ajánlatai 200, járataim
+>   500, foglalások 500, vitáim 200); (9) **CORS boot-ellenőrzés**
+>   (`utils/corsOrigins.js`: élesben CORS_ORIGIN nélkül hangos hiba +
+>   Sentry, a viselkedés marad); (10) `.env.example` az új hangolókkal.
+>   ⚠️ TUDATOSAN NEM: `retention_runs` purge (a retenciós manifest indokolja:
+>   elszámoltathatósági napló, ~3 sor/nap), a legacy `POST
+>   /jobs/:jobId/reviews` törlése (három tesztfájl méri, a web nem hívja —
+>   dokumentált legacy), halott státuszok (`pending`/`completed` az enumban:
+>   ártalmatlan), Barion-kommentek (kozmetika), jobQuestions-naplózás (nem
+>   volt PII-log).
+> - **C2 ⏳ (web P2):** noindex a privát oldalakon, render-közbeni
+>   redirectek useEffect-be, dinamikus socket/sentry import, fejléc aria,
+>   aria-live a toastnak, GPS-prompt magyarázat, feed-szűrők megőrzése,
+>   lefedettség-üzenet, értesítés-lapozás, support-csatorna link, CODEMAP.
 >
 > **Launch-checklist (dokumentálva marad):** `ALLOW_STUB_PAYMENTS` törlése;
 > stub-`sent` számlák takarítása; 13 migrációval igazolt teszt-fiók;

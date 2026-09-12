@@ -74,7 +74,8 @@ router.get('/bids/mine', authRequired, async (req, res) => {
        FROM bids b
        JOIN jobs j ON j.id = b.job_id
       WHERE b.carrier_id = $1
-      ORDER BY b.created_at DESC`,
+      ORDER BY b.created_at DESC
+      LIMIT 500`,
     [req.user.sub],
   );
   // ⚠️ ELKELT FUVARNÁL KÖZELÍTŐ CÍM (2026-08-11, 9. mérés B1) + GF-008
@@ -303,7 +304,8 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
             u.company_verification_status AS carrier_company_verified
        FROM bids b JOIN users u ON u.id = b.carrier_id
       WHERE b.job_id = $1 ${seeAll ? '' : 'AND b.carrier_id = $2'}
-      ORDER BY b.amount_huf ASC`,
+      ORDER BY b.amount_huf ASC
+      LIMIT 200`,
     seeAll ? [req.params.jobId] : [req.params.jobId, req.user.sub],
   );
   // Készpénzes modell: a szállító a teljes összeget kapja (kápé, levonás

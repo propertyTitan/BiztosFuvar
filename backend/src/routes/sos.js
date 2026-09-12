@@ -61,6 +61,19 @@ router.use('/sos', (req, res, next) => {
 
 router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
   const { job_id, booking_id, lat, lng, message } = req.body || {};
+  // Koordináta-kapu (2026-09-11, teljes audit C1): a segélykérés helye eddig
+  // tartomány-ellenőrzés nélkül ment a DB-be (999-es szélesség is) — a
+  // mentős-párosítás és a térkép erre épül. Hiányzó hely megengedett
+  // (letiltott helymeghatározás), hibás NEM.
+  const koordMegadva = (v) => v !== undefined && v !== null && v !== '';
+  if (koordMegadva(lat) || koordMegadva(lng)) {
+    const la = typeof lat === 'number' ? lat : Number(lat);
+    const ln = typeof lng === 'number' ? lng : Number(lng);
+    if (!(koordMegadva(lat) && koordMegadva(lng)) || !Number.isFinite(la) || !Number.isFinite(ln)
+        || la < -90 || la > 90 || ln < -180 || ln > 180) {
+      return res.status(400).json({ error: 'Érvénytelen koordináta (lat -90..90, lng -180..180, mindkettő kell).', code: 'INVALID_COORDS' });
+    }
+  }
 
   // ── (1) ÉRINTETTSÉG (2026-08-09, audit): a hívónak FELE kell legyen a
   // hivatkozott ügyletnek. Eddig bárki küldhetett „vészjelzést" TETSZŐLEGES
