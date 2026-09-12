@@ -54,12 +54,16 @@ async function createNotification({ user_id, type, title, body = null, link = nu
 
 // GET /notifications – a bejelentkezett user összes értesítése, újak előre
 router.get('/notifications', authRequired, async (req, res) => {
+  // Lapozás kurzorral (2026-09-11, C2): `?before=<ISO>` a régebbiekhez —
+  // eddig a 100. értesítés után a régebbiek elérhetetlenek voltak.
+  const before = typeof req.query.before === 'string' && !Number.isNaN(new Date(req.query.before).getTime())
+    ? new Date(req.query.before).toISOString() : null;
   const { rows } = await db.query(
     `SELECT * FROM notifications
-      WHERE user_id = $1
+      WHERE user_id = $1 AND ($2::timestamptz IS NULL OR created_at < $2::timestamptz)
       ORDER BY created_at DESC
       LIMIT 100`,
-    [req.user.sub],
+    [req.user.sub, before],
   );
   res.json(rows);
 });

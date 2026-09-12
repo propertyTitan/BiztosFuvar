@@ -92,7 +92,7 @@ Top-level fájlok:
 | `jobQuestions.js` | fuvar alatti kérdés-válasz |
 | `ai.js` | `/ai/chat` (Gemini chatbot), KYC dokumentum-feldolgozás |
 
-### 1.3 Services — `backend/src/services/` (16 fájl)
+### 1.3 Services — `backend/src/services/`
 
 Üzleti logika, külső integrációk. A STUB-ok kulcs nélkül no-op / fake választ adnak.
 
@@ -112,6 +112,12 @@ Top-level fájlok:
 | `trustScore.js` / `gamification.js` | bizalmi pont, jelvények | ÉL |
 | `instantJobs.js` | instant ("UberFuvar") matching | ÉL |
 | `backhaul.js` / `routeAlong.js` | visszafuvar + útba-eső matching | ÉL |
+| `feePayment.js` | a kapcsolatfelvételi díj KÖZÖS könyvelési magja (állapot-őr, paid_at, díj-sor, ÁFA, számla, napló, referral) + webhook idempotencia-claim — a webhook ÉS a kézi nyugtázás ezt hívja (2026-09-11, A2) | ÉL |
+| `paymentReminders.js` | fizetetlen megállapodás: 24h/48h emlékeztető + 72h után lejáratás (`runPaymentExpiry`, A4) | ÉL |
+| `noOfferNudge.js` | 24 h + 0 ajánlat → egyszeri tippek a feladónak (B3) | ÉL |
+| `instantExpiry.js` | lejárt azonnali fuvar → normál ajánlatgyűjtés, óránként (C1) | ÉL |
+| `smsRetry.js` | elakadt SMS-ek újraküldési sora (10 percenként, 48 h) | ÉL |
+| `retention.js` | napi adat-retenció (fotó/chat/GPS/anonimizálás…), watchdog | ÉL |
 
 ### 1.4 Middleware — `backend/src/middleware/`
 

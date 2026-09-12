@@ -36,6 +36,9 @@ export default function ProfilOldal() {
   // Ezért várunk 1 frame-et, és csak akkor döntünk.
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
+  // Belépés-kapu (2026-09-11, C2): a redirect EFFEKTBEN, nem render közben
+  // (React: render alatti navigáció figyelmeztetés + dupla push).
+  useEffect(() => { if (mounted && !me) router.push('/bejelentkezes'); }, [mounted, me, router]);
 
   // Form state
   const [fullName, setFullName] = useState('');
@@ -138,10 +141,7 @@ export default function ProfilOldal() {
       </div>
     );
   }
-  if (!me) {
-    router.push('/bejelentkezes');
-    return null;
-  }
+  if (!me) return null;
   async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;

@@ -167,6 +167,10 @@ export default function UjFuvar() {
   }
 
   useEffect(() => { setMounted(true); }, []);
+  // Belépés-kapu effektben (C2) + ?next= (B2)
+  useEffect(() => {
+    if (mounted && !me) router.push(`/bejelentkezes?next=${encodeURIComponent('/dashboard/uj-fuvar')}`);
+  }, [mounted, me, router]);
 
   // ── PISZKOZAT (2026-09-11, teljes audit B2) ─────────────────────────────
   // A 20+ mezős űrlap egy tab-újratöltéstől / lejárt munkamenettől eddig
@@ -466,11 +470,7 @@ export default function UjFuvar() {
       </div>
     );
   }
-  if (!me) {
-    // ?next= — belépés után ide jön vissza (2026-09-11, B2)
-    router.push(`/bejelentkezes?next=${encodeURIComponent('/dashboard/uj-fuvar')}`);
-    return null;
-  }
+  if (!me) return null;
 
   return (
     <div style={{ maxWidth: 720 }}>

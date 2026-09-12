@@ -4,6 +4,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
+  // Privát/hitelesített felület (2026-09-11, C2): a robots.txt Allow-ra váltása után se indexelődjön.
+  robots: { index: false, follow: false },
   title: 'AI segéd',
   description: 'Kérdezz a GoFuvar működéséről — az AI segéd azonnal válaszol.',
 };

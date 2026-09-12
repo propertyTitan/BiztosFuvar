@@ -247,6 +247,9 @@ export default function SiteHeader() {
               <button
                 type="button"
                 onClick={() => setMenuOpen((o) => !o)}
+                aria-label="Fiókmenü"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

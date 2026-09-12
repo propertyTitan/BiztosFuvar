@@ -12,6 +12,7 @@ import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { JARAT_ENGEDELYEZVE } from '@/lib/features';
+import { mentPiszkozat, olvasPiszkozat } from '@/lib/urlapPiszkozat';
 import { PackageSearch } from 'lucide-react';
 import { subscribeFeed } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
@@ -39,6 +40,12 @@ export default function SoforFuvarokLista() {
   // '' = mind, 'true' = csak azonnali, 'false' = csak ajánlatkérős
   const [filterType, setFilterType] = useState<'' | 'true' | 'false'>('');
   const [showFilters, setShowFilters] = useState(false);
+  // Helymeghatározás állapota (2026-09-11, C2): a böngésző eddig magyarázat
+  // nélkül, betöltéskor kérte a GPS-t — a felhasználó nem tudta, mire kell,
+  // és sokan elutasították. Most: ha korábban már engedélyezte, csendben
+  // használjuk; különben egy sáv magyarázza el, és GOMBRA kérjük.
+  const [helyAllapot, setHelyAllapot] = useState<'ismeretlen' | 'keres' | 'megvan' | 'nincs'>('ismeretlen');
+  const SZUROK_KULCS = 'gofuvar_fuvarok_szurok';
   // Éppen melyik instant fuvart próbáljuk elvállalni (race-prevent UI)
   const [acceptingInstantId, setAcceptingInstantId] = useState<string | null>(null);
 
@@ -98,21 +105,42 @@ export default function SoforFuvarokLista() {
 
   // Indulás: próbáljuk meg megkérni a böngésző GPS-ét, ha nem megy / nem ad
   // engedélyt, egyszerűen az összes nyitott fuvart betöltjük.
-  useEffect(() => {
-    if (typeof window === 'undefined' || !navigator.geolocation) {
-      load();
-      return;
-    }
+  function helyetKer(csendben = false) {
+    if (typeof window === 'undefined' || !navigator.geolocation) { setHelyAllapot('nincs'); return; }
+    setHelyAllapot('keres');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setHere(coords);
+        setHelyAllapot('megvan');
         load(coords.lat, coords.lng);
       },
-      () => load(),
-      { timeout: 4000 },
+      () => { setHelyAllapot('nincs'); if (!csendben) load(); },
+      { timeout: 6000 },
     );
+  }
+
+  useEffect(() => {
+    // Mentett szűrők visszaállítása (C2) — a lista MINDIG betöltődik, GPS
+    // nélkül is; a helyet csak akkor kérjük automatikusan, ha már engedélyezett.
+    const mentett = olvasPiszkozat<{ min: string; max: string; weight: string; from: string; to: string; type: '' | 'true' | 'false' }>(SZUROK_KULCS, 30 * 24 * 3600 * 1000);
+    if (mentett) {
+      setFilterMinPrice(mentett.min || ''); setFilterMaxPrice(mentett.max || ''); setFilterMaxWeight(mentett.weight || '');
+      setFilterFromCity(mentett.from || ''); setFilterToCity(mentett.to || ''); setFilterType(mentett.type || '');
+      if (mentett.min || mentett.max || mentett.weight || mentett.from || mentett.to || mentett.type) setShowFilters(true);
+    }
+    load(undefined, undefined, mentett || undefined);
+    if (typeof navigator !== 'undefined' && navigator.permissions?.query) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName })
+        .then((st) => { if (st.state === 'granted') helyetKer(true); })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    mentPiszkozat(SZUROK_KULCS, { min: filterMinPrice, max: filterMaxPrice, weight: filterMaxWeight, from: filterFromCity, to: filterToCity, type: filterType });
+  }, [filterMinPrice, filterMaxPrice, filterMaxWeight, filterFromCity, filterToCity, filterType]);
 
   // Real-time: amikor új fuvar érkezik, rátesszük a listára.
   // Azonnali fuvar esetén is külön event jön (`jobs:new-instant`), amit a
@@ -214,6 +242,18 @@ export default function SoforFuvarokLista() {
           </button>
         </div>
       </div>
+
+      {/* Hely-sáv (C2): magyarázat + gomb — nem kéretlen böngésző-prompt */}
+      {helyAllapot !== 'megvan' && (
+        <div className="card" style={{ marginTop: 12, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13 }}>
+            📍 <strong>Közeli fuvarok elöl?</strong> A helyzetedet csak a távolság kiszámításához használjuk, nem tároljuk.
+          </span>
+          <button type="button" className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => helyetKer(false)} disabled={helyAllapot === 'keres'}>
+            {helyAllapot === 'keres' ? 'Helymeghatározás…' : helyAllapot === 'nincs' ? 'Újra próbálom' : 'Helyzetem használata'}
+          </button>
+        </div>
+      )}
 
       {/* Szűrő sáv */}
       <div style={{ marginTop: 12 }}>

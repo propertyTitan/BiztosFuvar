@@ -31,10 +31,13 @@ export default function ErtesitesekOldal() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
+  const [tobbVan, setTobbVan] = useState(false);
+  const [regebbiTolt, setRegebbiTolt] = useState(false);
   async function load() {
     try {
       const data = await api.listNotifications();
       setItems(data);
+      setTobbVan(data.length >= 100);
     } catch (e: any) {
       setError(e.message);
     } finally {
@@ -55,6 +58,22 @@ export default function ErtesitesekOldal() {
       socket.off('notification:new', onNew);
     };
   }, [user]);
+
+  // Régebbiek betöltése (2026-09-11, C2): kurzor = a legrégebbi betöltött created_at
+  async function regebbiek() {
+    if (items.length === 0) return;
+    setRegebbiTolt(true);
+    try {
+      const utolso = items[items.length - 1].created_at;
+      const data = await api.listNotifications(utolso);
+      setItems((prev) => [...prev, ...data.filter((d) => !prev.some((p) => p.id === d.id))]);
+      setTobbVan(data.length >= 100);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setRegebbiTolt(false);
+    }
+  }
 
   async function markRead(n: Notification) {
     if (n.read_at) return;
@@ -146,6 +165,13 @@ export default function ErtesitesekOldal() {
           <div key={n.id}>{content}</div>
         );
       })}
+      {tobbVan && (
+        <div style={{ textAlign: 'center', marginTop: 16 }}>
+          <button type="button" className="btn btn-secondary" onClick={regebbiek} disabled={regebbiTolt}>
+            {regebbiTolt ? 'Betöltés…' : 'Régebbi értesítések betöltése'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

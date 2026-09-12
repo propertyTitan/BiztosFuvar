@@ -797,7 +797,7 @@ export const api = {
 
   // ---------- Notifications ----------
 
-  listNotifications: () =>
+  listNotifications: (before?: string) =>
     request<Array<{
       id: string;
       type: string;
@@ -806,7 +806,7 @@ export const api = {
       link: string | null;
       read_at: string | null;
       created_at: string;
-    }>>('/notifications'),
+    }>>(`/notifications${before ? `?before=${encodeURIComponent(before)}` : ''}`),
 
   unreadNotificationCount: () =>
     request<{ count: number }>('/notifications/unread-count'),
