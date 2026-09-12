@@ -374,10 +374,29 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   dokumentált legacy), halott státuszok (`pending`/`completed` az enumban:
 >   ártalmatlan), Barion-kommentek (kozmetika), jobQuestions-naplózás (nem
 >   volt PII-log).
-> - **C2 ⏳ (web P2):** noindex a privát oldalakon, render-közbeni
->   redirectek useEffect-be, dinamikus socket/sentry import, fejléc aria,
->   aria-live a toastnak, GPS-prompt magyarázat, feed-szűrők megőrzése,
->   lefedettség-üzenet, értesítés-lapozás, support-csatorna link, CODEMAP.
+> - **C2 ✅ (web P2; `noindex.test.ts` — a régi layoutokkal piros):** (1)
+>   **noindex** minden privát/hitelesített szegmens layoutján (`robots:
+>   { index: false, follow: false }`; új `app/dashboard/layout.tsx`, a
+>   `sofor/layout.tsx` metadata-t kapott) — a robots.txt launchkori
+>   `Allow: /`-jára készülve; a publikus oldalak nem kapnak noindexet (az őr
+>   ezt is méri). (2) **Render-közbeni redirect → useEffect** (profil,
+>   ai-chat, uj-fuvar). (3) **Fejléc fiókmenü** aria-label/haspopup/
+>   expanded. (4) **GPS-prompt gombra**: a szállítói fuvar-lista NEM kéri
+>   kéretlenül a helyet — a lista mindig betöltődik, egy sáv elmagyarázza
+>   („csak a távolság kiszámításához, nem tároljuk"), a helyet gombra
+>   kérjük; ha korábban engedélyezett, csendben használjuk
+>   (`navigator.permissions`). (5) **Szűrők megőrzése** (localStorage, 30
+>   nap, `urlapPiszkozat` helperrel). (6) **Értesítés-lapozás**: `GET
+>   /notifications?before=<ISO>` kurzor + „Régebbi értesítések betöltése"
+>   gomb (eddig a 100. után elérhetetlenek voltak). (7) **Support-sor a
+>   láblécben** (info@ / panasz@ / AI-asszisztens — eddig SEHOL nem volt
+>   látható elérhetőség). (8) CODEMAP: az új szolgáltatások (feePayment,
+>   paymentReminders, noOfferNudge, instantExpiry, smsRetry, retention)
+>   felvéve. ⚠️ TUDATOSAN NEM: dinamikus socket.io-client import (csak a
+>   belépett oldalak bundle-jében van, a landingen nem), toast aria-live
+>   (már volt: role=status + aria-live=polite, hibán role=alert),
+>   e-mail-leiratkozás (csak tranzakciós levél megy; az útvonal-figyelő
+>   saját kezelőfelülettel bír).
 >
 > **Launch-checklist (dokumentálva marad):** `ALLOW_STUB_PAYMENTS` törlése;
 > stub-`sent` számlák takarítása; 13 migrációval igazolt teszt-fiók;
