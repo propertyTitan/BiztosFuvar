@@ -32,7 +32,10 @@ describe('lejárt azonnali fuvar', () => {
     expect((await st(lejart.id)).status).toBe('bidding');
     expect((await st(friss.id)).is_instant).toBe(true);
     expect((await st(elfogadott.id)).is_instant).toBe(true);
-    expect(await ertesites(felado.id, 'instant_expired'), 'a feladó nem tudta meg, hogy lejárt az azonnali ablak').toBeTruthy();
+    const vege = Date.now() + 4000;
+    let ert = await ertesites(felado.id, 'instant_expired');
+    while (!ert && Date.now() < vege) { await new Promise((r) => setTimeout(r, 40)); ert = await ertesites(felado.id, 'instant_expired'); } // eslint-disable-line no-await-in-loop
+    expect(ert, 'a feladó nem tudta meg, hogy lejárt az azonnali ablak').toBeTruthy();
   });
 });
 

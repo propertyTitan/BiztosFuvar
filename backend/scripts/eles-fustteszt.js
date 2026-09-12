@@ -13,7 +13,9 @@ const path = require('path');
 const { Client } = require('pg');
 
 const API = 'https://api.gofuvar.hu';
-const RUN_ID = `fust-${Date.now()}`;
+// base36: a 13 jegyű ms-időbélyeget a kontakt-szűrő TELEFONSZÁMNAK nézte a
+// fuvar címében (400 CONTACT_LEAK) — 2026-09-12
+const RUN_ID = `fust-${Date.now().toString(36)}`;
 
 // --- prod DB connstring a backend/.env-ből ---
 const envRaw = fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8');
@@ -77,9 +79,13 @@ async function main() {
     created.userIds.push(shipper.id, carrier.id);
 
 
-    // KYC verified közvetlen DB-vel (a Gemini-s feltöltést nem játsszuk el élesben)
+    // KYC verified közvetlen DB-vel (a Gemini-s feltöltést nem játsszuk el élesben).
+    // 2026-09-12: + e-mail megerősítve (a POST /jobs és /bids szerver-oldali
+    // e-mail-kapuja, Codex D5) + szállítói nyilatkozat (requireDriverKYC) —
+    // enélkül a füstteszt 403-mal állt meg a feladásnál és az ajánlatnál.
     await db.query(
-      `UPDATE users SET identity_kyc_status='verified', driver_kyc_status='verified'
+      `UPDATE users SET identity_kyc_status='verified', driver_kyc_status='verified',
+              email_verified = true, driver_terms_accepted_at = NOW()
         WHERE id = ANY($1::uuid[])`,
       [created.userIds],
     );
@@ -96,16 +102,19 @@ async function main() {
         suggested_price_huf: 12000,
       },
     });
-    check('Fuvar feladása', jobRes.status === 201, `${jobRes.status}`);
+    check('Fuvar feladása', jobRes.status === 201, `${jobRes.status} ${jobRes.status !== 201 ? JSON.stringify(jobRes.json).slice(0, 160) : ''}`);
     const jobId = jobRes.json?.id;
-    const deliveryCode = jobRes.json?.delivery_code; // a létrehozási válaszban jár a feladónak
+    // 2026-08-06 óta a CÍMZETT kódja SZÁNDÉKOSAN nincs a feladó létrehozási válaszában
+    // (scrub) — a füstteszt a DB-ből olvassa, ahogy a foglalási ág is.
+    const { rows: kodSor } = await db.query('SELECT delivery_code FROM jobs WHERE id = $1', [jobRes.json?.id]);
+    const deliveryCode = kodSor[0]?.delivery_code;
     created.jobIds.push(jobId);
 
     const bidRes = await api('POST', `/jobs/${jobId}/bids`, {
       token: carrier.token,
       body: { amount_huf: 12000, return_policy: 'included' },
     });
-    check('Licit (szállító)', bidRes.status === 201, `${bidRes.status}`);
+    check('Licit (szállító)', bidRes.status === 201, `${bidRes.status} ${bidRes.status !== 201 ? JSON.stringify(bidRes.json).slice(0, 160) : ''}`);
     const bidId = bidRes.json?.id;
 
     const accept = await api('POST', `/bids/${bidId}/accept`, { token: shipper.token, body: {} });
@@ -135,8 +144,11 @@ async function main() {
       jobAfterS.json?.contact?.phone === '+36 20 444 5566'
       && jobAfterC.json?.contact?.phone === '+36 20 111 2233',
       `feladó látja: ${jobAfterS.json?.contact?.phone}, szállító látja: ${jobAfterC.json?.contact?.phone}`);
-    check('Címzetti kód a létrehozási válaszban + vész-kód a GET-ben',
-      /^\d{6}$/.test(deliveryCode || '') && /^\d{6}$/.test(jobAfterS.json?.sender_delivery_code || ''), '');
+    // A címzett kódja a feladónak SEHOL nem jár (2026-08-06), a saját vész-kódja
+    // a díj UTÁN igen (GF-010, 2026-08-30) — ezt mérjük, nem a régi szabályt.
+    check('Címzetti kód NINCS a létrehozási válaszban; a feladó vész-kódja a díj után látszik',
+      jobRes.json?.delivery_code === undefined && /^\d{6}$/.test(jobAfterS.json?.sender_delivery_code || ''),
+      `create.delivery_code=${jobRes.json?.delivery_code}, GET.sender_delivery_code=${jobAfterS.json?.sender_delivery_code}`);
 
     const pickup = await api('POST', `/jobs/${jobId}/photos`, { token: carrier.token, form: photoForm('pickup') });
     check('Felvétel (pickup fotó) → in_progress', pickup.status === 201, `${pickup.status}`);
@@ -168,6 +180,11 @@ async function main() {
         status: 'open',
       },
     });
+    // A járat-ág a launchra REJTETT (2026-09-11, D1): JARAT_ENABLED nélkül az
+    // író végpontok 503 JARAT_DISABLED-et adnak — ez nem hiba, a szakasz kimarad.
+    const jaratRejtve = routeRes.status === 503 && routeRes.json?.code === 'JARAT_DISABLED';
+    if (jaratRejtve) console.log('⏭  Járat-ág rejtve (JARAT_DISABLED) — a foglalási szakasz kihagyva');
+    else {
     check('Útvonal-hirdetés (szállító)', routeRes.status === 201, `${routeRes.status}`);
     const routeId = routeRes.json?.id;
     created.routeIds.push(routeId);
@@ -207,6 +224,7 @@ async function main() {
     check('BUG-041: foglalás kézbesítés → delivered',
       bDrop.status === 201 && bFinal[0]?.status === 'delivered' && !!bFinal[0]?.delivered_at,
       `${bDrop.status}, státusz=${bFinal[0]?.status}`);
+    }
 
     // ===== 3. Szállító-csere (reopen) gyors ellenőrzés egy 2. fuvaron =====
     const job2 = await api('POST', '/jobs', {

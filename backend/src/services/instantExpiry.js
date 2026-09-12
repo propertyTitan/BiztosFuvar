@@ -21,13 +21,15 @@ async function runInstantExpiry() {
       RETURNING id, title, shipper_id`,
   );
   for (const j of rows) {
-    createNotification({
+    // Megvárva (2026-09-12): a fire-and-forget változat a CI-ban időzítés-
+    // függő volt — a napló és a teszt determinisztikus, a kör nem siet.
+    await createNotification({
       user_id: j.shipper_id,
       type: 'instant_expired',
       title: 'Az azonnali fuvar ablaka lejárt — normál ajánlatgyűjtésre váltott',
       body: `A(z) "${j.title || 'fuvar'}" azonnali fuvarra a megadott időn belül nem jelentkezett szállító. A hirdetés nem veszett el: normál fuvarként a szállítók ajánlatot tehetnek rá — ha sürgős, emeld az árat vagy add fel újra azonnali fuvarként.`,
       link: `/dashboard/fuvar/${j.id}`,
-    }).catch(() => {});
+    });
     realtime.emitToJob(j.id, 'job:updated', { job_id: j.id });
   }
   if (rows.length > 0) console.log(`[instant-expiry] ${rows.length} lejárt azonnali fuvar normál ajánlatgyűjtésre váltott`);
