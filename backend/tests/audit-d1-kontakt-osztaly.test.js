@@ -118,6 +118,8 @@ describe('D1 — a kontakt-szűrő link / üzenetküldő / handle osztálya', ()
     'keress a fuvaros.hu-n', 'nézd meg: https://gofuvar.hu/profil', 'www.pelda.com',
     'írj Viberen', 'WhatsAppon elérsz', 'Telegramon: @gyula_fuvar', 'messengeren dumáljunk',
     'insta: @gyula.fuvar', 'Signal is jó', 'GOFUVAROS.HU',
+    // hasonmás hoszt: NEM ismert bolt
+    'https://www.ikea.com.csalo.hu/x', 'ikea.com.fuvaros.hu',
   ];
   const TISZTA = [
     'Egy 3 személyes kanapé, 2. emelet, lift nincs.',
@@ -127,6 +129,10 @@ describe('D1 — a kontakt-szűrő link / üzenetküldő / handle osztálya', ()
     'Két doboz @ 500 Ft.',
     'IKEA-ból, Budapest, Örs vezér tere 25.',
     'Szignálom ha kész.',
+    // A „Hozasd el" flow a leírásba írja a termék linkjét (05-ös E2E)
+    'Forrás (IKEA): https://www.ikea.com/hu/hu/p/billy-konyvespolc-feher-00263850/',
+    'Jófogásról: https://www.jofogas.hu/budapest/kanape-123456',
+    'ikea.com-ról hozasd el, obi.hu a másik.',
   ];
   for (const t of SZIVAROG) {
     it(`fogja: ${JSON.stringify(t)}`, () => {

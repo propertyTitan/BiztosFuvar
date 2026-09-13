@@ -52,8 +52,20 @@ const EMAIL_DOMAIN_START = /^[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}/;
 // nélkül) csak a piacunkon értelmes, rövid TLD-listával megy; a Nagybetűs
 // mondatkezdést a pont után (containsDomain) nem tekintjük TLD-nek. A `de`,
 // `pl`, `es`, `me` szándékosan NINCS a listán (magyar szavak / rövidítések).
-const URL_RE = /(?:https?:\/\/|\bwww\.)\S{3,}/i;
+const URL_RE = /(?:https?:\/\/|\bwww\.)\S{3,}/gi;
+// A „Hozasd el" flow ismert boltjai (IKEA, OBI, Praktiker, Jófogás) NEM
+// kontakt-csatornák — a feladás leírásába a flow maga írja a termék linkjét.
+const { ismertBoltUrl } = require('./termekBoltok');
 const DOMAIN_RE = /\b[a-z0-9][a-z0-9-]{1,62}\.(hu|com|eu|net|org|io|app|info|online|site|shop|link|ro|sk|at|cz|it)\b(?![a-z])/gi;
+function containsUrl(text) {
+  URL_RE.lastIndex = 0;
+  let m;
+  while ((m = URL_RE.exec(text))) {
+    if (!ismertBoltUrl(m[0])) return true;
+  }
+  return false;
+}
+
 function containsDomain(text) {
   DOMAIN_RE.lastIndex = 0;
   let m;
@@ -61,7 +73,9 @@ function containsDomain(text) {
     // „…délután.De nem…" / „…fuvar.Pl. bútor" — Nagybetűs mondatkezdés a
     // pont után, nem TLD. A csupa kis- (gofuvaros.hu) és csupa nagybetűs
     // (GOFUVAROS.HU) alak viszont domain.
-    if (!/^[A-Z][a-z]+$/.test(m[1])) return true;
+    if (/^[A-Z][a-z]+$/.test(m[1])) continue;
+    if (ismertBoltUrl(m[0])) continue;
+    return true;
   }
   return false;
 }
@@ -71,7 +85,7 @@ const MESSENGER_RE = /\b(?:viber|whats\s?app|telegram|messenger|snapchat|discord
 const HANDLE_RE = /(?:^|[\s(,;:„"'])@[a-z0-9_.]{3,}/i;
 
 function containsLinkOrMessenger(text) {
-  return URL_RE.test(text) || containsDomain(text) || MESSENGER_RE.test(text) || HANDLE_RE.test(text);
+  return containsUrl(text) || containsDomain(text) || MESSENGER_RE.test(text) || HANDLE_RE.test(text);
 }
 
 function containsEmail(text) {
