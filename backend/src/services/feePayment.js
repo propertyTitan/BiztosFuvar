@@ -9,8 +9,10 @@
 //  viselkedett — amit a tesztelő végigjárt, az nem az volt, ami élesben fut.
 //
 //  Mostantól MINDEN díj-könyvelés ezen a magon megy át:
-//    1) állapot-őr: paid_at CSAK várakozó ügyletre (accepted / confirmed —
-//       vita alatt is), és csak egyszer (rowCount → a hívó 409-et ad);
+//    1) állapot-őr: paid_at CSAK várakozó ügyletre (accepted / confirmed,
+//       díjmentesen újranyitott bidding, ill. vita alatt ha a vita előtti
+//       állapot várakozó volt — VARAKOZO_ALLAPOT), és csak egyszer
+//       (rowCount → a hívó 409-et ad);
 //    2) a díj-sor 'released' (fuvar-ág);
 //    3) ÁFA + számla a feladónak;
 //    4) fizetési napló (payment_events) — az AJÁNLÓI JUTALOM erre épül, nem
@@ -29,9 +31,19 @@ const { maybeGrantReferralReward } = require('./referral');
 /** Ennyi perc után vehető át egy processed=false (elakadt) claim. */
 const ELAKADT_UTAN_PERC = 2;
 
+// KÖNYVELHETŐ ÁLLAPOT (2026-09-13, teljes audit D2 — az A1 whitelist
+// pontosítása). A díj a FUVARRA szól (ÁSZF): a díjmentesen ÚJRANYITOTT
+// (bidding, reopened_count > 0) fuvarra késve beérkező fizetés is
+// könyvelendő — eddig „árva" lett, és a következő elfogadás ÚJ munkamenetet
+// nyitott: a feladó kétszer fizetett. Vita alatt viszont CSAK akkor, ha a
+// vita előtti állapot maga is várakozó — a lemondott→vitás fuvar (a vita
+// a lemondás UTÁN nyílt) nem tehető fizetetté a hátsó ajtón.
 const VARAKOZO_ALLAPOT = {
-  job: ['accepted', 'disputed'],
-  booking: ['confirmed', 'disputed'],
+  job: `(status = 'accepted'
+         OR (status = 'bidding' AND COALESCE(reopened_count, 0) > 0)
+         OR (status = 'disputed' AND status_before_dispute::text = 'accepted'))`,
+  booking: `(status = 'confirmed'
+             OR (status = 'disputed' AND status_before_dispute::text = 'confirmed'))`,
 };
 
 /**
@@ -176,9 +188,9 @@ async function konyvelDijFizetes({
   if (entityType === 'job') {
     upd = await db.query(
       `UPDATE jobs SET paid_at = NOW()
-        WHERE id = $1 AND paid_at IS NULL AND status::text = ANY($2::text[])
+        WHERE id = $1 AND paid_at IS NULL AND ${VARAKOZO_ALLAPOT.job}
         RETURNING paid_at`,
-      [entityId, VARAKOZO_ALLAPOT.job],
+      [entityId],
     );
     if (upd.rowCount > 0) {
       // 2) A díj-sor végleges ('released') — visszatérítés nincs
@@ -191,9 +203,9 @@ async function konyvelDijFizetes({
   } else {
     upd = await db.query(
       `UPDATE route_bookings SET paid_at = NOW()
-        WHERE id = $1 AND paid_at IS NULL AND status::text = ANY($2::text[])
+        WHERE id = $1 AND paid_at IS NULL AND ${VARAKOZO_ALLAPOT.booking}
         RETURNING paid_at`,
-      [entityId, VARAKOZO_ALLAPOT.booking],
+      [entityId],
     );
   }
   if (upd.rowCount === 0) {

@@ -90,9 +90,11 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   // Jogosultság: a vitát csak az érintett felek nyithatják
   let againstUser = null;
   let entityPaidAt = null;
+  let entityStatus = null;
+  let entityType = null;
   if (job_id) {
     const { rows } = await db.query(
-      'SELECT shipper_id, carrier_id, paid_at FROM jobs WHERE id = $1',
+      'SELECT shipper_id, carrier_id, paid_at, status FROM jobs WHERE id = $1',
       [job_id],
     );
     if (!rows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
@@ -102,10 +104,12 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
     }
     againstUser = j.shipper_id === req.user.sub ? j.carrier_id : j.shipper_id;
     entityPaidAt = j.paid_at;
+    entityStatus = j.status;
+    entityType = 'job';
   }
   if (booking_id) {
     const { rows } = await db.query(
-      `SELECT b.shipper_id, b.paid_at, r.carrier_id
+      `SELECT b.shipper_id, b.paid_at, b.status, r.carrier_id
          FROM route_bookings b
          JOIN carrier_routes r ON r.id = b.route_id
         WHERE b.id = $1`,
@@ -118,6 +122,36 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
     }
     againstUser = b.shipper_id === req.user.sub ? b.carrier_id : b.shipper_id;
     entityPaidAt = b.paid_at;
+    entityStatus = b.status;
+    entityType = 'booking';
+  }
+
+  // ⚠️ ÁLLAPOT-KAPU (2026-09-13, teljes audit D2). A vita eddig BÁRMILYEN
+  // ügyletre nyitható volt, a `disputed` pedig mindent befagyaszt (lemondás
+  // 409, csere 409, fizetés 409, lejáratás kihagyja): (a) a szállító a még
+  // FIZETETLEN elfogadott fuvaron egy kattintással befagyaszthatta a feladót
+  // az admin döntéséig; (b) a saját nyitott hirdetés is befagyasztható volt;
+  // (c) a lemondott fuvar vitássá téve a könyvelési whitelistbe került.
+  // A vita a DÍJ UTÁNI ügyletről szól — előtte a fuvar lemondható, a
+  // szállító cserélhető, vitának nincs tárgya. A lemondott, de FIZETETT
+  // ügyleten a vita marad (a korábbi állapot-mátrix szabálya: „lemondás
+  // után is lehet vita" — pl. a szállító már kiállt, a feladó az ajtóban
+  // mondta le); a könyvelési mag ezt már nem tekinti várakozónak.
+  const VITA_NYITHATO = {
+    job: ['accepted', 'in_progress', 'delivered', 'completed', 'cancelled', 'disputed'],
+    booking: ['confirmed', 'in_progress', 'delivered', 'cancelled', 'disputed'],
+  };
+  if (!entityPaidAt) {
+    return res.status(409).json({
+      error: 'Vita csak a kapcsolatfelvételi díj megfizetése után nyitható. Előtte a fuvar lemondható, vagy másik szállító választható.',
+      code: 'DISPUTE_NOT_ALLOWED',
+    });
+  }
+  if (!VITA_NYITHATO[entityType].includes(String(entityStatus))) {
+    return res.status(409).json({
+      error: `Ebben az állapotban (${entityStatus}) nem nyitható vita.`,
+      code: 'DISPUTE_NOT_ALLOWED',
+    });
   }
 
   // Kapcsolat-szivárgás szűrés a vita-leíráson — CSAK a díjfizetés ELŐTT
@@ -126,6 +160,8 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   // Fizetés UTÁN a felek jogosan ismerik egymást, és egy telefonszám a
   // leírásban legitim bizonyíték („hívtam a ...számon, nem vette fel") —
   // ugyanaz az elv, mint a chat-szűrésnél.
+  // (2026-09-13, D2 óta a díj előtti vita eleve 409 — ez a szűrő a második
+  // védvonal, ha a fenti kapu valaha lazulna.)
   if (!entityPaidAt) {
     const leak = detectContactLeak(descriptionCheck.value);
     if (leak) return res.status(400).json({ error: leak, code: 'CONTACT_LEAK' });

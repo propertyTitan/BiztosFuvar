@@ -105,6 +105,8 @@ describe('Fuvar-fotó retenció (30 nap / zárolva 5 év)', () => {
     const { app } = require('./helpers');
     const request = require('supertest');
     const jobId = await insertJob({ shipperId: shipper.id, carrierId: carrier.id, status: 'delivered', ageDays: 1 });
+    // (D2, 2026-09-13) vita csak fizetett ügyleten nyitható
+    await db.query('UPDATE jobs SET paid_at = NOW() WHERE id = $1', [jobId]);
     const res = await request(app)
       .post('/disputes')
       .set('Authorization', `Bearer ${shipper.token}`)

@@ -166,7 +166,9 @@ const SZABALYOK = {
     'felvételi fotót tölt': [],
     'kézbesít (kóddal)': [],
     'értékel': [],
-    'vitát nyit': ['felado'],
+    // (D2, 2026-09-13) Vita CSAK a díj után: a nyitott hirdetésre nyitott vita
+    // a saját hirdetést fagyasztotta be az admin döntéséig.
+    'vitát nyit': [],
     'üzenetet küld': ['felado'],
     'pozíciót küld': [],
   },
@@ -180,7 +182,10 @@ const SZABALYOK = {
     'felvételi fotót tölt': [],                 // fizetés előtt nem indulhat
     'kézbesít (kóddal)': [],
     'értékel': [],
-    'vitát nyit': ['felado', 'szallito'],
+    // (D2, 2026-09-13) Fizetés ELŐTT nincs vita: a szállító egy kattintással
+    // befagyaszthatta a feladót (lemondás 409, csere 409, fizetés 409) — a
+    // díj előtt a fuvar lemondható, a szállító cserélhető, vitának nincs tárgya.
+    'vitát nyit': [],
     'üzenetet küld': ['felado', 'szallito'],
     'pozíciót küld': ['szallito'],
   },
@@ -238,7 +243,10 @@ const SZABALYOK = {
     'felvételi fotót tölt': [],
     'kézbesít (kóddal)': [],
     'értékel': [],
-    'vitát nyit': ['felado', 'szallito'],       // lemondás után is lehet vita
+    // Lemondás után is lehet vita — de CSAK fizetett ügyleten (D2, 2026-09-13);
+    // ez a fixtúra fizetetlen lemondott fuvar → 409. A fizetett lemondott
+    // esetet az audit-d2-penz-ut méri (201).
+    'vitát nyit': [],
     'üzenetet küld': ['felado', 'szallito'],
     'pozíciót küld': [],
   },
@@ -823,7 +831,7 @@ const FOGLALAS_SZABALYOK = {
     'lemond': ['felado', 'szallito'],
     'felvételi fotót tölt': [],              // fizetés előtt nincs munka
     'kézbesít (kóddal)': [],
-    'vitát nyit': ['felado', 'szallito'],
+    'vitát nyit': [],                        // (D2) fizetés előtt nincs vita
     'üzenetet küld': ['felado', 'szallito'],
   },
   confirmed_fizetetlen: {
@@ -833,7 +841,7 @@ const FOGLALAS_SZABALYOK = {
     'lemond': ['felado', 'szallito'],
     'felvételi fotót tölt': [],
     'kézbesít (kóddal)': [],
-    'vitát nyit': ['felado', 'szallito'],
+    'vitát nyit': [],                        // (D2) fizetés előtt nincs vita
     'üzenetet küld': ['felado', 'szallito'],
   },
   confirmed_fizetett: {
@@ -873,7 +881,9 @@ const FOGLALAS_SZABALYOK = {
     'lemond': [],
     'felvételi fotót tölt': [],
     'kézbesít (kóddal)': [],
-    'vitát nyit': ['felado', 'szallito'],
+    // (D2, 2026-09-13) Lemondás után is lehet vita — de CSAK fizetett
+    // ügyleten; ez a fixtúra fizetetlen → 409.
+    'vitát nyit': [],
     'üzenetet küld': ['felado', 'szallito'],
   },
   rejected: {
@@ -883,7 +893,7 @@ const FOGLALAS_SZABALYOK = {
     'lemond': [],
     'felvételi fotót tölt': [],
     'kézbesít (kóddal)': [],
-    'vitát nyit': ['felado', 'szallito'],
+    'vitát nyit': [],                        // (D2) fizetetlen, elutasított: nincs vita
     'üzenetet küld': ['felado', 'szallito'],
   },
   disputed: {

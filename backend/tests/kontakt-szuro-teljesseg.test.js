@@ -75,7 +75,7 @@ describe('F5 — a CÍM-mezők is átmennek a szűrőn', () => {
 });
 
 describe('F2 — a vita-leírás fizetés ELŐTT szűrt, utána nem', () => {
-  it('fizetetlen fuvaron a telefonszámos vita-leírás elutasítva', async () => {
+  it('fizetetlen fuvaron a telefonszámos vita-leírás nem jut el a másik félhez (D2 óta a vita maga is 409)', async () => {
     const felado = await createUser({ role: 'shipper' });
     const szallito = await createUser({ role: 'carrier' });
     const job = await createJob({
@@ -83,8 +83,12 @@ describe('F2 — a vita-leírás fizetés ELŐTT szűrt, utána nem', () => {
     });
     const res = await request(app).post('/disputes').set(auth(felado.token))
       .send({ job_id: job.id, description: `Nem jött el. ${TELEFON}` });
-    expect(res.status).toBe(400);
-    expect(res.body.code).toBe('CONTACT_LEAK');
+    // (D2, 2026-09-13) A díj előtt vita eleve nem nyitható (DISPUTE_NOT_ALLOWED) —
+    // a kontakt-szűrő a második védvonal. A lényeg: a leírás nem került be.
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('DISPUTE_NOT_ALLOWED');
+    const { rows } = await db.query('SELECT 1 FROM disputes WHERE job_id = $1', [job.id]);
+    expect(rows.length, 'a telefonszámos leírás bekerült a vitába').toBe(0);
   });
 
   it('FIZETETT fuvaron a telefonszám legitim bizonyíték lehet — átmegy', async () => {
