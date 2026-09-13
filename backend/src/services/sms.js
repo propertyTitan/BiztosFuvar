@@ -19,6 +19,7 @@
 // =====================================================================
 
 const { maskPhone } = require('../utils/mask');
+const { kulsoHivasSignal } = require('../utils/httpIdokeret');
 
 const SEEME_GATEWAY_URL = 'https://seeme.hu/gateway';
 // A kulcs KIZÁRÓLAG env-ből jöhet — korábban be volt égetve a forrásba,
@@ -215,7 +216,10 @@ async function sendSms(to, message, opts = {}) {
     });
     if (process.env.SEEME_SENDER) params.set('sender', process.env.SEEME_SENDER);
 
-    const res = await fetch(`${SEEME_GATEWAY_URL}?${params.toString()}`);
+    // (D4, 2026-09-13) időkeret: az elakadt SeeMe-hívás alatt az SMS SEHOL
+    // nem volt (a sor csak a catch-ágban töltődik) — a timeout AbortError-ja
+    // a catch-be esik, onnan a queueForRetry viszi tovább.
+    const res = await fetch(`${SEEME_GATEWAY_URL}?${params.toString()}`, { signal: kulsoHivasSignal() });
     const text = await res.text();
 
     // SeeMe válasz query-string formában:

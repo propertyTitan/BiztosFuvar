@@ -6,6 +6,7 @@
 //
 // Ha nincs Expo push token a userhez → csendben kihagyjuk (nem hiba).
 const db = require('../db');
+const { kulsoHivasSignal } = require('../utils/httpIdokeret');
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -33,6 +34,7 @@ async function sendPushToUser(userId, { title, body, data }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(messages),
+      signal: kulsoHivasSignal(), // (D4) időkeret
     });
     if (!res.ok) {
       console.warn('[push] Expo API hiba:', res.status, await res.text().catch(() => ''));

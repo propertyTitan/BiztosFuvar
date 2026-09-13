@@ -449,19 +449,33 @@ module.exports = { app, server };
 // valószínű oka). Nélküle a Neon üresjáratban elalszik; az első kérésnél
 // ~1 mp cold start — alacsony forgalomnál ez a jó csere.
 if (process.env.DATABASE_URL) {
+  // ⚠️ MINDEN ütemezett kör a közös burkolón át (2026-09-13, teljes audit
+  // D4): a `.catch(() => {})` eddig ELNYELTE a kör hibáját — ami belül nem
+  // riasztott (KYC-purge, fizetési emlékeztető, nudge, DAC7, azonnali
+  // lejárat), az hetekig észrevétlen hasalhatott el. A burkoló Sentry-be
+  // küldi a hibát (a kör neve tag), és az átfedő futást kihagyja.
+  const { utemezettKor } = require('./services/utemezo');
+
+  // Migráció ↔ deploy sorrend (D4): a kód előbb él, mint a séma — boot után
+  // ellenőrizzük, hogy minden migrációs fájl lefutott-e (csak olvas, riaszt).
+  const { ellenorizMigraciok } = require('./services/migracioEllenorzes');
+  setTimeout(() => { ellenorizMigraciok(require('./db')).catch(() => {}); }, 15 * 1000).unref();
+
   // KYC-okmányok nyers fotóinak napi törlése a végleges döntés után
   // (adatminimalizálás). Boot után ~1 perccel egyszer, majd 24 óránként.
   const { purgeOldKycFiles } = require('./services/kyc');
   const DAY_MS = 24 * 60 * 60 * 1000;
-  setTimeout(() => { purgeOldKycFiles().catch(() => {}); }, 60 * 1000).unref();
-  setInterval(() => { purgeOldKycFiles().catch(() => {}); }, DAY_MS).unref();
+  const kycPurgeKor = utemezettKor('kyc-retention', purgeOldKycFiles);
+  setTimeout(kycPurgeKor, 60 * 1000).unref();
+  setInterval(kycPurgeKor, DAY_MS).unref();
   console.log('[kyc-retention] napi okmány-fotó törlés ütemezve');
 
   // Adat-retenció (fotó 30 nap / chat 6 hó / GPS 7 nap; zárolt: 5 év) —
   // egy napi körben (2026-07-16/17 user-döntések).
   const { runDailyRetention, lastSuccessfulRetentionRun } = require('./services/retention');
-  setTimeout(() => { runDailyRetention().catch(() => {}); }, 90 * 1000).unref();
-  setInterval(() => { runDailyRetention().catch(() => {}); }, DAY_MS).unref();
+  const retencioKor = utemezettKor('retention', runDailyRetention);
+  setTimeout(retencioKor, 90 * 1000).unref();
+  setInterval(retencioKor, DAY_MS).unref();
   console.log('[retention] napi adat-retenció ütemezve (fotó 30 nap / chat 6 hó / GPS 7 nap; zárolt: 5 év)');
 
   // ⚠️ WATCHDOG: A RETENCIÓ FUTÁSA IS MEGFIGYELT (2026-08-12, 11. mérés T3).
@@ -504,29 +518,33 @@ if (process.env.DATABASE_URL) {
   // DAC7: adóazonosító-emlékeztetők (21 naponta, max 2; 60 nap után a
   // requireDriverKYC kapu blokkol) — napi kör.
   const { runDailyDac7Reminders } = require('./services/dac7');
-  setTimeout(() => { runDailyDac7Reminders().catch(() => {}); }, 120 * 1000).unref();
-  setInterval(() => { runDailyDac7Reminders().catch(() => {}); }, DAY_MS).unref();
+  const dac7Kor = utemezettKor('dac7', runDailyDac7Reminders);
+  setTimeout(dac7Kor, 120 * 1000).unref();
+  setInterval(dac7Kor, DAY_MS).unref();
   console.log('[dac7] napi adóazonosító-emlékeztető kör ütemezve');
 
   // Fizetetlen-fuvar emlékeztető: az accepted+fizetetlen fuvarra 24h/48h
   // után (max 2×). A platform bevétele ezen a lépcsőn akad el a leggyakrabban.
   const { runPaymentReminders } = require('./services/paymentReminders');
-  setTimeout(() => { runPaymentReminders().catch(() => {}); }, 150 * 1000).unref();
-  setInterval(() => { runPaymentReminders().catch(() => {}); }, DAY_MS).unref();
+  const fizetesiEmlekeztetoKor = utemezettKor('payment-reminder', runPaymentReminders);
+  setTimeout(fizetesiEmlekeztetoKor, 150 * 1000).unref();
+  setInterval(fizetesiEmlekeztetoKor, DAY_MS).unref();
   console.log('[payment-reminder] napi fizetetlen-fuvar emlékeztető kör ütemezve');
 
   // „Nincs ajánlat" nudge (2026-09-11, B3): a 24 órája ajánlat nélkül álló
   // nyitott fuvar feladója egyszer tippeket kap (ár / időablak / leírás).
   const { runNoOfferNudges } = require('./services/noOfferNudge');
-  setTimeout(() => { runNoOfferNudges().catch(() => {}); }, 180 * 1000).unref();
-  setInterval(() => { runNoOfferNudges().catch(() => {}); }, DAY_MS).unref();
+  const nudgeKor = utemezettKor('no-offer-nudge', runNoOfferNudges);
+  setTimeout(nudgeKor, 180 * 1000).unref();
+  setInterval(nudgeKor, DAY_MS).unref();
   console.log('[no-offer-nudge] napi „nincs ajánlat" tipp-kör ütemezve');
 
   // Lejárt azonnali fuvarok (2026-09-11, C1): óránként normál ajánlatgyűjtésre
   // váltanak — a feladó ne várjon egy hirdetésre, amit a feed már nem mutat.
   const { runInstantExpiry } = require('./services/instantExpiry');
-  setTimeout(() => { runInstantExpiry().catch(() => {}); }, 90 * 1000).unref();
-  setInterval(() => { runInstantExpiry().catch(() => {}); }, 60 * 60 * 1000).unref();
+  const instantLejaratKor = utemezettKor('instant-expiry', runInstantExpiry);
+  setTimeout(instantLejaratKor, 90 * 1000).unref();
+  setInterval(instantLejaratKor, 60 * 60 * 1000).unref();
   console.log('[instant-expiry] óránkénti azonnali-lejárat kör ütemezve');
 
   // SMS-újraküldési kör (2026-08-30): a SeeMe-nél elakadt (code=13/7,
@@ -535,7 +553,8 @@ if (process.env.DATABASE_URL) {
   // A boot utáni első futás korai (2 perc): egy deploy-újraindulás ne
   // késleltesse az épp bennragadt SMS-eket.
   const { runSmsRetryQueue } = require('./services/smsRetry');
-  setTimeout(() => { runSmsRetryQueue().catch(() => {}); }, 2 * 60 * 1000).unref();
-  setInterval(() => { runSmsRetryQueue().catch(() => {}); }, 10 * 60 * 1000).unref();
+  const smsUjrakuldesKor = utemezettKor('sms-retry', runSmsRetryQueue);
+  setTimeout(smsUjrakuldesKor, 2 * 60 * 1000).unref();
+  setInterval(smsUjrakuldesKor, 10 * 60 * 1000).unref();
   console.log('[sms-retry] újraküldési kör ütemezve (10 percenként, 48 órás ablak)');
 }
