@@ -974,6 +974,13 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
         link: `/sofor/fuvar/${j.id}`,
       }).catch(() => {});
     }
+    // (D3, 2026-09-13) A kupon-ág eddig NEM küldött `job:paid` socket-eseményt
+    // (csak a webhook és a kézi nyugtázás) — a szállító oldala F5-ig nem
+    // frissült, a feladóé sem.
+    if (upd[0]) {
+      realtime.emitToUser(j.shipper_id, 'job:paid', { job_id: j.id, paid_at: upd[0].paid_at, via_voucher: true });
+      if (j.carrier_id) realtime.emitToUser(j.carrier_id, 'job:paid', { job_id: j.id, paid_at: upd[0].paid_at });
+    }
     // A meghívott→ajánló jutalom-trigger. ⚠️ Kuponos (0 Ft-os) feladás
     // önmagában NEM teljesítés — a referral.js ellenőrzi, volt-e valaha
     // ténylegesen megfizetett (>0 Ft) díja a feladónak.

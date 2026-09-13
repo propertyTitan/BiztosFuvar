@@ -34,3 +34,14 @@ describe('MapCollapse', () => {
     expect(screen.queryByRole('button')).toBeNull();
   });
 });
+
+// D3 (2026-09-13): az ELSŐ render (SSR / effekt előtt) NEM mountolja a
+// térképet — eddig nyitva indult, mobilon betöltötte a Maps scriptet + a
+// pozíció-kérést + a socket-szobát, majd az effekt összecsukta.
+import { renderToString } from 'react-dom/server';
+describe('MapCollapse — első render', () => {
+  it('a szerver-render (effekt előtt) nem tartalmazza a térképet', () => {
+    const html = renderToString(<MapCollapse><div data-testid="terkep">TÉRKÉP-GYEREK</div></MapCollapse>);
+    expect(html, 'az első render nyitva volt — mobilon hiába töltött a térkép').not.toContain('TÉRKÉP-GYEREK');
+  });
+});

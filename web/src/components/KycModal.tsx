@@ -273,6 +273,7 @@ export default function KycModal() {
             {/* File input */}
             <div style={{ marginBottom: 16 }}>
               <label
+                htmlFor="kyc-dokumentum"
                 style={{
                   display: 'block',
                   fontSize: 13,
@@ -293,6 +294,7 @@ export default function KycModal() {
                 <li>Az igazolványon lévő név egyezzen a profilod nevével.</li>
               </ul>
               <input
+                id="kyc-dokumentum"
                 ref={inputRef}
                 type="file"
                 accept="image/*,.pdf"

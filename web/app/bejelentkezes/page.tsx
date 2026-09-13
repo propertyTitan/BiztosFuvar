@@ -344,8 +344,9 @@ function BejelentkezesContent() {
                 borderRadius: 10,
                 marginBottom: 8,
               }}>
-                <label>Cégnév <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>*</span></label>
+                <label htmlFor="reg-cegnev">Cégnév <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>*</span></label>
                 <input
+                  id="reg-cegnev"
                   className="input"
                   type="text"
                   value={companyName}
@@ -355,8 +356,9 @@ function BejelentkezesContent() {
                   placeholder="Pl. Példa Kereskedelmi Kft."
                   required
                 />
-                <label>Adószám <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>*</span></label>
+                <label htmlFor="reg-adoszam">Adószám <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}>*</span></label>
                 <input
+                  id="reg-adoszam"
                   className="input"
                   type="text"
                   value={taxId}
@@ -364,24 +366,27 @@ function BejelentkezesContent() {
                   placeholder="Pl. 12345678-1-42"
                   required
                 />
-                <label>Cégjegyzékszám</label>
+                <label htmlFor="reg-cegjegyzek">Cégjegyzékszám</label>
                 <input
+                  id="reg-cegjegyzek"
                   className="input"
                   type="text"
                   value={companyRegNumber}
                   onChange={(e) => setCompanyRegNumber(e.target.value)}
                   placeholder="Pl. 01-09-123456"
                 />
-                <label>EU ÁFA szám</label>
+                <label htmlFor="reg-eu-afa">EU ÁFA szám</label>
                 <input
+                  id="reg-eu-afa"
                   className="input"
                   type="text"
                   value={euVatNumber}
                   onChange={(e) => setEuVatNumber(e.target.value)}
                   placeholder="Pl. HU12345678"
                 />
-                <label>Számlázási cím</label>
+                <label htmlFor="reg-szamlazasi-cim">Számlázási cím</label>
                 <input
+                  id="reg-szamlazasi-cim"
                   className="input"
                   type="text"
                   value={billingAddress}

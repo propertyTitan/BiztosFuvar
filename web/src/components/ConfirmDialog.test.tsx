@@ -83,3 +83,31 @@ describe('ConfirmDialog: bezárás-viselkedés', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+// D3 (2026-09-13): szerkesztő dialógus — előtöltött értékek
+describe('ConfirmDialog: initialValues', () => {
+  it('nyitáskor a mezők az initialValues-t mutatják, a Mentés gomb aktív, az onConfirm az előtöltött értéket adja', () => {
+    const onConfirm = vi.fn();
+    render(
+      <ConfirmDialog
+        open
+        title="✏️ Hirdetés szerkesztése"
+        confirmLabel="Mentés"
+        fields={[
+          { key: 'title', label: 'Cím', type: 'text' },
+          { key: 'price', label: 'Ajánlott ár (Ft)', type: 'number' },
+        ]}
+        initialValues={{ title: 'Kanapé Szegedre', price: '15000' }}
+        onConfirm={onConfirm}
+        onClose={vi.fn()}
+      />,
+    );
+    const cim = screen.getByLabelText('Cím') as HTMLInputElement;
+    expect(cim.value, 'a jelenlegi cím csak placeholder volt — újra be kellett gépelni').toBe('Kanapé Szegedre');
+    expect((screen.getByLabelText('Ajánlott ár (Ft)') as HTMLInputElement).value).toBe('15000');
+    const mentes = screen.getByRole('button', { name: 'Mentés' }) as HTMLButtonElement;
+    expect(mentes.disabled).toBe(false);
+    fireEvent.click(mentes);
+    expect(onConfirm).toHaveBeenCalledWith({ title: 'Kanapé Szegedre', price: '15000' });
+  });
+});

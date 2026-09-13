@@ -20,7 +20,7 @@ import AddressAutocomplete from '@/components/AddressAutocomplete';
 import FieldError, { REQ, redBorder } from '@/components/FieldError';
 import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
-import { mentPiszkozat, olvasPiszkozat, torolPiszkozat } from '@/lib/urlapPiszkozat';
+import { mentPiszkozat, olvasPiszkozat, torolPiszkozat, piszkozatKulcs, UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
 import { idoablakHiba } from '@/lib/idoablak';
 import {
   MAX_DIM_CM, MAX_WEIGHT_KG,
@@ -176,9 +176,11 @@ export default function UjFuvar() {
   // A 20+ mezős űrlap egy tab-újratöltéstől / lejárt munkamenettől eddig
   // MINDENT elvesztett. Mentés 500 ms-os késleltetéssel minden változásra,
   // visszaállítás betöltéskor (ha az űrlap még üres), törlés sikeres feladáskor.
-  const PISZKOZAT_KULCS = 'gofuvar_uj_fuvar_piszkozat';
+  // (D3, 2026-09-13) FELHASZNÁLÓHOZ kötött kulcs — a globális kulcs közös
+  // eszközön a következő fióknak adta az előző feladó címzett-adatait.
+  const PISZKOZAT_KULCS = me ? piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, me.id) : null;
   useEffect(() => {
-    if (!mounted || !me) return;
+    if (!mounted || !me || !PISZKOZAT_KULCS) return;
     const d = olvasPiszkozat<{ form: Partial<FormState>; raw: Partial<Record<NumKey, string>> }>(PISZKOZAT_KULCS);
     if (!d || !d.form) return;
     if (JSON.stringify(form) !== JSON.stringify(initialForm)) return;
@@ -188,11 +190,11 @@ export default function UjFuvar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, me]);
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !PISZKOZAT_KULCS) return;
     if (JSON.stringify(form) === JSON.stringify(initialForm)) return;
     const t = setTimeout(() => { mentPiszkozat(PISZKOZAT_KULCS, { form, raw }); }, 500);
     return () => clearTimeout(t);
-  }, [form, raw, mounted]);
+  }, [form, raw, mounted, PISZKOZAT_KULCS]);
 
   function missing(filled: unknown): boolean {
     if (!tried) return false;
@@ -444,7 +446,7 @@ export default function UjFuvar() {
         }
       }
 
-      torolPiszkozat(PISZKOZAT_KULCS);
+      if (PISZKOZAT_KULCS) torolPiszkozat(PISZKOZAT_KULCS);
       toast.success(
         'Fuvar feladva',
         photos.length > 0 ? `${photos.length} fotóval együtt` : undefined,
@@ -698,8 +700,9 @@ export default function UjFuvar() {
             >
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'end' }}>
                 <div>
-                  <label style={{ fontSize: 13 }}>Hányadik emelet? <span style={REQ}>*</span></label>
+                  <label htmlFor="pickup-floor" style={{ fontSize: 13 }}>Hányadik emelet? <span style={REQ}>*</span></label>
                   <select
+                    id="pickup-floor"
                     className="input"
                     value={form.pickup_floor}
                     onChange={(e) => set('pickup_floor', e.target.value)}
@@ -802,8 +805,9 @@ export default function UjFuvar() {
             >
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'end' }}>
                 <div>
-                  <label style={{ fontSize: 13 }}>Hányadik emelet? <span style={REQ}>*</span></label>
+                  <label htmlFor="dropoff-floor" style={{ fontSize: 13 }}>Hányadik emelet? <span style={REQ}>*</span></label>
                   <select
+                    id="dropoff-floor"
                     className="input"
                     value={form.dropoff_floor}
                     onChange={(e) => set('dropoff_floor', e.target.value)}
@@ -1047,7 +1051,9 @@ export default function UjFuvar() {
                 type="button"
                 className="btn btn-ghost"
                 style={{ fontSize: 12, padding: '4px 10px', marginLeft: 'auto' }}
-                onClick={() => set('suggested_price_huf', estimate.mid)}
+                // (D3, 2026-09-13) A `set` csak a rejtett form-állapotot írta: a
+                // mező üres maradt, a feladás mégis a láthatatlan árral ment.
+                onClick={() => setNumeric('suggested_price_huf', String(estimate.mid))}
               >
                 Beírom a javasoltat
               </button>

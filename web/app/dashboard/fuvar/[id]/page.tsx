@@ -97,7 +97,10 @@ export default function FuvarReszletek() {
       if (r.paid_via_voucher) {
         // Ajánlói jutalom fedezte a díjat — nincs bankkártyás fizetés.
         toast.success('Ingyenes kapcsolatfelvétel! 🎉', 'Az ajánlói jutalmadat felhasználtuk — a kapcsolatfelvételi díj elmaradt, a kapcsolat megnyílt.');
-        router.refresh();
+        // (D3, 2026-09-13) A `router.refresh()` a szerver-komponenseket
+        // frissíti, a kliens useState-et NEM — a fizetés-kártya és a
+        // consent-pipa F5-ig maradt, a kontakt-kártya nem jelent meg.
+        await loadAll();
       } else if (r.is_stub) {
         router.push(`/fizetes-stub?job=${id}`);
       } else if (r.gateway_url) {
@@ -936,16 +939,30 @@ export default function FuvarReszletek() {
         message="Javítsd a címet, a leírást vagy az ajánlott árat. A felvételi/lerakodási cím nem módosítható — arra tették az ajánlatokat; ha az változik, adj fel új fuvart."
         confirmLabel="Mentés"
         fields={[
-          { key: 'title', label: 'Cím', type: 'text', required: true, placeholder: job.title },
-          { key: 'description', label: 'Leírás', type: 'textarea', placeholder: job.description || 'pl. 2 doboz + egy összecsukott asztal' },
-          { key: 'price', label: 'Ajánlott ár (Ft)', type: 'number', placeholder: String(job.suggested_price_huf || '') },
+          { key: 'title', label: 'Cím', type: 'text', placeholder: 'pl. Kanapé Budapestről Szegedre' },
+          { key: 'description', label: 'Leírás', type: 'textarea', placeholder: 'pl. 2 doboz + egy összecsukott asztal' },
+          { key: 'price', label: 'Ajánlott ár (Ft)', type: 'number', placeholder: 'pl. 15000' },
         ]}
+        // (D3, 2026-09-13) ELŐTÖLTVE a jelenlegi értékekkel: csak az ár
+        // javításához eddig a címet is újra be kellett gépelni, a leírást nem
+        // lehetett törölni. Csak a VÁLTOZÁS megy a PATCH-be.
+        initialValues={{
+          title: job.title || '',
+          description: job.description || '',
+          price: job.suggested_price_huf != null ? String(job.suggested_price_huf) : '',
+        }}
         onConfirm={async (v) => {
-          setShowEditDialog(false);
           const adat: Record<string, unknown> = {};
-          if (v.title?.trim()) adat.title = v.title.trim();
-          if (v.description !== undefined && v.description !== '') adat.description = v.description.trim();
-          if (v.price !== undefined && v.price !== '') adat.suggested_price_huf = Number(v.price);
+          const ujCim = (v.title ?? '').trim();
+          if (ujCim !== (job.title || '')) {
+            if (!ujCim) { toast.error('A cím nem lehet üres', 'Adj a hirdetésnek rövid, beszédes címet.'); return; }
+            adat.title = ujCim;
+          }
+          const ujLeiras = (v.description ?? '').trim();
+          if (ujLeiras !== (job.description || '')) adat.description = ujLeiras || null;
+          const ujAr = (v.price ?? '').trim();
+          if (ujAr !== '' && Number(ujAr) !== Number(job.suggested_price_huf)) adat.suggested_price_huf = Number(ujAr);
+          setShowEditDialog(false);
           if (Object.keys(adat).length === 0) { toast.info('Nincs változás', 'Egyik mezőt sem módosítottad.'); return; }
           try {
             await api.updateJob(id, adat);

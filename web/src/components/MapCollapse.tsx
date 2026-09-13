@@ -12,11 +12,16 @@ import { Map as MapIcon, ChevronDown, ChevronUp } from 'lucide-react';
  * rosszul inicializál).
  */
 export default function MapCollapse({ children, title = 'Térkép' }: { children: ReactNode; title?: string }) {
-  const [mobil, setMobil] = useState(false);
-  const [nyitva, setNyitva] = useState(true);
+  // (D3, 2026-09-13) HÁROM állapot: amíg az effekt nem döntött (SSR + első
+  // kliens-render), a gyerek NEM mountolódik. Eddig az első render nyitva
+  // volt: mobilon a 480 px-es térkép, a Google Maps script, a lastLocation
+  // kérés és a socket-szoba mind betöltött, majd az effekt összecsukta —
+  // layout-shift + hiába töltött Maps JS, pont amit a GF-020 el akart kerülni.
+  const [mobil, setMobil] = useState<boolean | null>(null);
+  const [nyitva, setNyitva] = useState(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
+    if (typeof window === 'undefined' || !window.matchMedia) { setMobil(false); setNyitva(true); return; }
     const mq = window.matchMedia('(max-width: 640px)');
     const alkalmaz = () => { setMobil(mq.matches); setNyitva(!mq.matches); };
     alkalmaz();
@@ -41,7 +46,7 @@ export default function MapCollapse({ children, title = 'Térkép' }: { children
           {nyitva ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>
       )}
-      {nyitva && <div id="map-collapse-body">{children}</div>}
+      {mobil !== null && nyitva && <div id="map-collapse-body">{children}</div>}
     </div>
   );
 }
