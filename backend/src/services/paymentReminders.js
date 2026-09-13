@@ -17,6 +17,14 @@ const db = require('../db');
 const { createNotification } = require('./notifications');
 const { sendPaymentDueEmail } = require('./email');
 const { calculateConnectionFee } = require('./connectionFee');
+const { jelezSorHibak } = require('./utemezo');
+
+// ⚠️ BEVEZETÉS-DÁTUM KÜSZÖB (2026-09-13, teljes audit D4). A lejáratás
+// első éles futása (2026-09-11 18:37) a TÖRTÉNELMI adatokon cselekedett:
+// két régi, elfogadott-fizetetlen fuvart zárt le egyszerre (köztük nagy
+// eséllyel a Manus QA-fuvarját). SZABÁLY: idő-alapú kör CSAK a bevezetése
+// után keletkezett sorokra hat — a régiekre tudatos, egyszeri döntés kell.
+const LEJARATAS_BEVEZETVE = process.env.PAYMENT_EXPIRY_SINCE || '2026-09-11';
 
 const FIRST_AFTER_HOURS = 24;
 const SECOND_AFTER_HOURS = 48;
@@ -29,6 +37,8 @@ const EXPIRE_AFTER_HOURS = Number(process.env.PAYMENT_EXPIRE_AFTER_HOURS) || 72;
  */
 async function runPaymentReminders() {
   let sent = 0;
+  let korHiba = null;
+  const sorHibak = [];
   try {
     // Esedékes fuvarok: accepted + fizetetlen, és vagy még nem kaptak
     // emlékeztetőt (updated_at = a megállapodás proxyja, accepted+fizetetlen
@@ -103,13 +113,25 @@ async function runPaymentReminders() {
         // emlékeztető olcsóbb, mint egy duplán kiküldött. A hiba a logban
         // (és a fuvar a következő körben már a következő fokozatot kapja).
         console.error(`[payment-reminder] fuvar ${j.id} hiba (az emlékeztető elhasználva):`, err.message);
+        sorHibak.push(err);
       }
     }
     if (sent > 0) console.log(`[payment-reminder] ${sent} fizetési emlékeztető elküldve`);
   } catch (err) {
     console.error('[payment-reminder] kör hiba:', err.message);
+    korHiba = err;
   }
-  await runPaymentExpiry().catch((err) => console.error('[payment-expiry] kör hiba:', err.message));
+  try {
+    await runPaymentExpiry();
+  } catch (err) {
+    console.error('[payment-expiry] kör hiba:', err.message);
+    korHiba = korHiba || err;
+  }
+  // (D4, 2026-09-13) A bevétel-kritikus kör hibája eddig a console-ban halt
+  // meg: a soronkénti hibák riasztást kapnak, a kör-szintű hiba továbbmegy
+  // az ütemező burkolójához (Sentry).
+  jelezSorHibak('payment-reminder', sorHibak);
+  if (korHiba) throw korHiba;
   return sent;
 }
 
@@ -141,8 +163,9 @@ async function runPaymentExpiry() {
         AND j.paid_at IS NULL
         AND j.payment_reminder_count >= $1
         AND j.last_payment_reminder_at < NOW() - ($2 || ' hours')::interval
+        AND j.created_at >= $3::date
       LIMIT 500`,
-    [MAX_REMINDERS, EXPIRE_AFTER_HOURS],
+    [MAX_REMINDERS, EXPIRE_AFTER_HOURS, LEJARATAS_BEVEZETVE],
   );
   for (const j of rows) {
     try {

@@ -83,7 +83,13 @@ async function purgeOldKycFiles() {
       console.log(`[kyc-retention] ${rows.length} okmány nyers fotója kiürítve (>${KYC_FILE_RETENTION_DAYS} nap)`);
     }
   } catch (err) {
+    // (D4, 2026-09-13) TOVÁBBDOBJUK: ez a kör NEM része a retention_runs
+    // naplónak és a watchdognak — egy DB-hiba (átnevezett oszlop,
+    // jogosultság) mellett a SZEMÉLYI IGAZOLVÁNY-fotók 30 napos törlése
+    // hónapokig kimaradt volna, és csak a Railway-log tudott róla. Az
+    // ütemező burkolója (services/utemezo.js) riaszt.
     console.error('[kyc-retention] hiba:', err.message);
+    throw err;
   }
   return purged;
 }

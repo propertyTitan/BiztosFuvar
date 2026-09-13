@@ -11,8 +11,12 @@
 // =====================================================================
 const db = require('../db');
 const { createNotification } = require('./notifications');
+const { jelezSorHibak } = require('./utemezo');
 
 const NUDGE_AFTER_HOURS = Number(process.env.NO_OFFER_NUDGE_AFTER_HOURS) || 24;
+// (D4, 2026-09-13) Bevezetés-dátum küszöb: az első futás (2026-09-12 06:13)
+// öt RÉGI, tesztelői hirdetésre küldött „nincs ajánlat" levelet.
+const NUDGE_BEVEZETVE = process.env.NO_OFFER_NUDGE_SINCE || '2026-09-12';
 
 async function runNoOfferNudges() {
   let kuldve = 0;
@@ -24,10 +28,12 @@ async function runNoOfferNudges() {
       WHERE j.status = 'bidding'
         AND j.no_offer_nudge_at IS NULL
         AND j.created_at < NOW() - ($1 || ' hours')::interval
+        AND j.created_at >= $2::date
         AND NOT EXISTS (SELECT 1 FROM bids b WHERE b.job_id = j.id)
       LIMIT 500`,
-    [NUDGE_AFTER_HOURS],
+    [NUDGE_AFTER_HOURS, NUDGE_BEVEZETVE],
   );
+  const sorHibak = [];
   for (const j of rows) {
     try {
       const claim = await db.query(
@@ -68,8 +74,10 @@ async function runNoOfferNudges() {
       }
     } catch (err) {
       console.error(`[no-offer-nudge] fuvar ${j.id} hiba:`, err.message);
+      sorHibak.push(err);
     }
   }
+  jelezSorHibak('no-offer-nudge', sorHibak);
   if (kuldve > 0) console.log(`[no-offer-nudge] ${kuldve} „nincs ajánlat" tipp elküldve`);
   return kuldve;
 }

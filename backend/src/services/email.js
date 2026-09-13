@@ -14,6 +14,7 @@
 //   WEB_BASE_URL=https://app.gofuvar.hu          (a linkekhez)
 
 const { maskEmail, maskInText } = require('../utils/mask');
+const { kulsoHivasSignal } = require('../utils/httpIdokeret');
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
@@ -111,6 +112,9 @@ async function egyszerKuld({ to, subject, html, text }) {
   try {
     const res = await fetch(RESEND_API_URL, {
       method: 'POST',
+      // (D4, 2026-09-13) kísérletenkénti időkeret — enélkül egy „lassan
+      // haldokló" Resend az újrapróbákkal ~15 percre fogta a hívót.
+      signal: kulsoHivasSignal(),
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
