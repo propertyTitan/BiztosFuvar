@@ -103,9 +103,12 @@ export const OLDALAK: Oldal[] = [
   { minta: '/profil', url: () => '/profil', szereplo: 'felado' },
   {
     // A KYC-modal (globális layout) csak 403-ra nyílik — az eseményt kézzel
-    // váltjuk ki, hogy a feltöltő mező is mérve legyen.
-    minta: '/profil',
-    url: () => '/profil',
+    // váltjuk ki, hogy a feltöltő mező is mérve legyen. ⚠️ NEM a /profil-on:
+    // annak már van egy [állapot] bejegyzése (szerkesztő), és a 20-as spec
+    // címe (minta + [állapot]) egyedi kell legyen — a Playwright a duplikált
+    // címre a teljes futást leállítja (a CI így bukott 45 mp alatt).
+    minta: '/fuvarjaim',
+    url: () => '/fuvarjaim',
     szereplo: 'szallito',
     allapot: async (page) => {
       await page.evaluate(() => {
