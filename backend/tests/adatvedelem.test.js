@@ -25,11 +25,20 @@ describe('Fuvar-adatok láthatósága (scrub)', () => {
     expect(res.body.recipient_phone).toBe('+36301112233');
   });
 
-  it('kívülálló user nem lát címzett-PII-t, kódot, tokent, Barion-azonosítót', async () => {
+  // (D1, 2026-09-13) Elkelt fuvart TELJES kívülálló már nem nézhet meg (404,
+  // audit-d1-kontakt-osztaly) — a „kívülálló" itt a VESZTES AJÁNLATTEVŐ: neki
+  // jár a részletnézet, de a felek adatai nem.
+  const vesztesAjanlat = (jobId, carrierId) => db.query(
+    `INSERT INTO bids (job_id, carrier_id, amount_huf, status) VALUES ($1, $2, 14000, 'rejected')`,
+    [jobId, carrierId],
+  );
+
+  it('vesztes ajánlattevő nem lát címzett-PII-t, kódot, tokent, Barion-azonosítót', async () => {
     const shipper = await createUser();
     const carrier = await createUser({ role: 'carrier' });
     const outsider = await createUser({ role: 'carrier' });
     const job = await createJob({ shipperId: shipper.id, carrierId: carrier.id, paid: true });
+    await vesztesAjanlat(job.id, outsider.id);
 
     const res = await getJob(job.id, outsider.token);
 
@@ -66,7 +75,9 @@ describe('Fuvar-adatok láthatósága (scrub)', () => {
       'declared_value_huf', 'invoice_requested',
       'source_store', 'source_image_url',
       'delivered_at', 'reopened_count',
-      'cancelled_at', 'cancelled_by', 'cancel_reason',
+      // (D1, 2026-09-13) a `cancel_reason` a felek szabad szövege — kívülállónak
+      // (vesztes ajánlattevő) nem jár, a scrub leveszi.
+      'cancelled_at', 'cancelled_by',
       'cancellation_fee_huf', 'refund_huf',
       'delivery_code_attempts', 'delivery_code_locked_until',
       'closed_by_code_type',
@@ -83,6 +94,7 @@ describe('Fuvar-adatok láthatósága (scrub)', () => {
     const carrier = await createUser({ role: 'carrier' });
     const outsider = await createUser({ role: 'carrier' });
     const job = await createJob({ shipperId: shipper.id, carrierId: carrier.id, paid: true });
+    await vesztesAjanlat(job.id, outsider.id);
 
     const res = await getJob(job.id, outsider.token);
     expect(res.status).toBe(200);

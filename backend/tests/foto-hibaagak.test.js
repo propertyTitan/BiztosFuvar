@@ -179,7 +179,7 @@ describe('Fotó-feltöltés: jogosultság', () => {
 //  3. STÁTUSZ- ÉS SORREND-KAPUK
 // =====================================================================
 describe('Fotó-feltöltés: státusz- és sorrend-kapuk', () => {
-  it('a fizetetlen fuvaron nem indul munka, de a KÁR-fotó (damage) nem esik a díj-kapu alá', async () => {
+  it('a fizetetlen fuvaron nem indul munka — a KÁR-fotó (damage) sem tölthető fel a díj előtt, a díj után lezárt fuvaron is igen', async () => {
     const felado = await createUser({ role: 'shipper' });
     const szallito = await createUser({ role: 'carrier' });
     const job = await createJob({
@@ -191,11 +191,20 @@ describe('Fotó-feltöltés: státusz- és sorrend-kapuk', () => {
     expect(pickup.body.error).toMatch(/kapcsolatfelvételi díjat/i);
     expect((await jobSor(job.id)).status, 'a fizetetlen fuvar mégis elindult').toBe('accepted');
 
-    // A kár/dokumentum fotó SZÁNDÉKOSAN nem díj-függő: az a vita bizonyítéka,
-    // nem a munkavégzés része. Ha ez is 409 lenne, a károsult fél épp akkor
-    // nem tudna bizonyítékot rögzíteni, amikor a legnagyobb szüksége van rá.
+    // (D1, 2026-09-13 — a korábbi „a kár-fotó nem díj-függő" szabály
+    // FELÜLÍRVA.) A díj ELŐTT a szállítónál nincs csomag (a felvétel is a díj
+    // mögött van), tehát kár-bizonyítéknak nincs mit rögzítenie — a díj
+    // előtti fotó csak KONTAKT-CSATORNA lehetett (lefotózott névjegy /
+    // telefonszám, amit a szöveg-szűrő nem lát). A bizonyíték-garancia a
+    // díj UTÁN marad: a kár-fotó lezárt (delivered) fuvaron is feltölthető.
     const damage = await jobFoto({ jobId: job.id, token: szallito.token, kind: 'damage' });
-    expect(damage.status, 'a díj-kapu a KÁR-fotót is blokkolja — így vitánál nincs bizonyíték').toBe(201);
+    expect(damage.status, 'a díj előtti KÁR-fotó nyitott kontakt-csatorna').toBe(409);
+
+    const fizetettLezart = await createJob({
+      shipperId: felado.id, carrierId: szallito.id, status: 'delivered', paid: true,
+    });
+    const bizonyitek = await jobFoto({ jobId: fizetettLezart.id, token: szallito.token, kind: 'damage' });
+    expect(bizonyitek.status, 'a díj után, lezárt fuvaron a kár-fotó (vita-bizonyíték) tiltva lett').toBe(201);
   });
 
   it('kézbesíteni csak elindított (felvett) fuvarnál lehet — a felvételi fotó nem ugorható át', async () => {

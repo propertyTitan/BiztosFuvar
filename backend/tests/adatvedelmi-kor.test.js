@@ -68,13 +68,22 @@ describe('Fuvar-lista: a nyitott piactéren kívül csak a saját ügyletek', ()
     expect(sajat.approximate_location).toBeUndefined();
   });
 
-  it('elkelt fuvarnál a kívülálló csak KÖZELÍTŐ helyet kap', async () => {
+  it('elkelt fuvarnál a vesztes ajánlattevő csak KÖZELÍTŐ helyet kap; a teljes kívülálló 404-et', async () => {
     const felado = await createUser({ role: 'shipper' });
     const szallito = await createUser({ role: 'carrier' });
     const idegen = await createUser({ role: 'carrier' });
+    const teljesenIdegen = await createUser({ role: 'carrier' });
     const job = await createJob({
       shipperId: felado.id, carrierId: szallito.id, status: 'in_progress', paid: true,
     });
+    // (D1, 2026-09-13) A nem nyitott fuvar részletnézete csak az érintetteké:
+    // a felek + aki ajánlatot tett rá. Teljes kívülállónak 404.
+    await db.query(
+      `INSERT INTO bids (job_id, carrier_id, amount_huf, status) VALUES ($1, $2, 14000, 'rejected')`,
+      [job.id, idegen.id],
+    );
+    const semmi = await request(app).get(`/jobs/${job.id}`).set(auth(teljesenIdegen.token));
+    expect(semmi.status, 'UUID-val bárki megnézhette az elkelt fuvart').toBe(404);
 
     const res = await request(app).get(`/jobs/${job.id}`).set(auth(idegen.token));
     expect(res.status).toBe(200);
