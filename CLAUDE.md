@@ -198,7 +198,7 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 
 ## 6. Mit készítünk a launchhoz
 
-### 🧭 TELJES AUDIT (2026-09-11/12) — 4 lencse, P0/P1/P2 terv; ✅ MIND A 9 CSOMAG ÉLESBEN
+### 🧭 TELJES AUDIT (2026-09-11/13) — 4 lencse, P0/P1/P2 terv; ✅ 9 CSOMAG + ÚJRA-AUDIT D1–D4 ÉLESBEN
 
 > A Codex-csomagok után a user teljes körű átvizsgálást kért („mielőtt
 > bármit módosítasz, értsd meg"), majd a leletre: **„csináld, legyen
@@ -407,6 +407,110 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 >   (már volt: role=status + aria-live=polite, hibán role=alert),
 >   e-mail-leiratkozás (csak tranzakciós levél megy; az útvonal-figyelő
 >   saját kezelőfelülettel bír).
+>
+> **🔁 ÚJRA-AUDIT (2026-09-13) — ugyanaz a 4 lencse a friss main-en, 4
+> ügynökkel; lelet: 3 P0 + 22 P1 + 74 P2 → D1–D4 csomagok (mind
+> osztály-szintű zárás, őr-teszttel, ami a javítás nélkül igazoltan piros).**
+> A user kérdésére („hiába javítunk, egyre több van?") a válasz: a P0-k
+> mind a JÓL ISMERT mintából jöttek — „a védelem azon az úton épül meg,
+> ahol felfedezték" —, ezért a D-csomagok nem tüneteket, hanem az
+> OSZTÁLYT zárják (indok-mezők, fotótípusok, szűrő-orákulumok, ütemezett
+> körök mind egy szabály alá). Jelentések: a session scratchpadjában
+> (`audit2-{penz-ut,adatvedelem,web-ux,uzemeltetes}.md`) — a P2-listák
+> (74 tétel) ott dokumentálva, nem javítva.
+> - **D1 ✅ (adatvédelem / kikerülés osztálya, PR #232;
+>   `audit-d1-kontakt-osztaly.test.js` 34 teszt, 27 piros a forrás nélkül):**
+>   (1) **indok-kapu** (`ellenorizIndok`, utils/contactGuard): lemondás/
+>   újranyitás indoka (fuvar + foglalás) opcionális, ≤500 kar., típus-kapu,
+>   kontakt-szűrő — eddig szűretlenül ment a MÁSIK FÉL értesítésébe és a
+>   `cancel_reason`-be (ingyen kontakt-csatorna); a `job:reopened` socket
+>   nem viszi az indokot; a `cancel_reason` a díj előtti szállítónak és a
+>   vesztes ajánlattevőnek nem jár. (2) **kontakt-szűrő bővítés**: link,
+>   `www.`, csupasz domain (rövid TLD-lista; a Nagybetűs mondatkezdés a pont
+>   után — „…4-kor.De…" — nem domain), Viber/WhatsApp/Telegram/Messenger/
+>   Signal, `@handle`. ⚠️ Az E2E fogta meg: a „Hozasd el" flow a leírásba
+>   írja a termék linkjét → a bolt-allowlist közös modulba került
+>   (`utils/termekBoltok.js`, a link-előnézet és a szűrő ugyanazt olvassa;
+>   a hasonmás „ikea.com.csalo.hu" nem bolt). (3) **fotó**: MINDEN
+>   nem-hirdetési típus (`damage`/`document` is) csak `paid_at` után, fuvar +
+>   foglalás — a díj előtt a szállítónál nincs csomag, a fotó csak
+>   kontakt-csatorna lehetett (a régi „kár-fotó nem díj-függő" teszt-szabály
+>   FELÜLÍRVA; a bizonyíték-garancia a díj után marad, lezárt fuvaron is).
+>   (4) **GET /jobs orákulumok**: a város-szűrő számjegy nélkül mindkét
+>   oldalon (a „utca 12/13" szondázás nem adja ki a házszámot); a haversine,
+>   a távolság szerinti sorrend és a `distance_to_pickup_km` a 3 tizedesre
+>   kerekített koordinátától, 0,1 km (trilateráció). (5) **GET /jobs/:id**:
+>   nem nyitott fuvar teljes kívülállónak 404 (felek + ajánlattevő + admin
+>   látja). (6) **barion_\*** (a feladó fizetési munkamenete) a szállítónak
+>   sehol: mindkét scrub + `/jobs/:id/escrow`. (7) A címzetti felvételi
+>   e-mail TÁRGYÁBAN nincs kód; a Sentry e-mail-riasztás tárgy-OSZTÁLYT kap
+>   (idézet + számjegy nélkül); `maskInText` a csupasz 6 jegyű kódot is
+>   maszkolja. (8) `GET /reviews`: `job_id`/`booking_id` csak a feleknek.
+> - **D2 ✅ (pénz-út P1-ek, PR #233; `audit-d2-penz-ut.test.js` 8 teszt, 6
+>   piros a forrás nélkül):** (1) a könyvelési mag whitelistje SQL-feltétel:
+>   `accepted`, díjmentesen ÚJRANYITOTT `bidding` (`reopened_count > 0`),
+>   és `disputed` CSAK ha a vita előtti állapot maga is várakozó — eddig a
+>   reopen utáni késleltetett fizetés árva lett és a következő elfogadás új
+>   munkamenetet nyitott (a feladó KÉTSZER fizetett); a lemondott→vitás
+>   fuvar viszont fizetetté volt tehető. (2) **instant-accept
+>   feeAlreadyPaid** (a licites ág párja): nincs új munkamenet, a kuponos
+>   0 Ft marad, a `released` díj-sor nem íródik vissza `held`-re, a feladó
+>   „már rendezve" értesítést kap. (3) SIKERES fizetés ismeretlen
+>   PaymentId-vel → Sentry error (a pénz beérkezett, a platform nem
+>   könyvelt — eddig egy `processed=false` naplósor). (4) **vita-kapu**:
+>   csak `paid_at` + értelmes állapot (fuvar accepted/in_progress/delivered/
+>   completed/cancelled; foglalás confirmed/in_progress/delivered/cancelled)
+>   → 409 `DISPUTE_NOT_ALLOWED`: a fizetetlen fuvar egy-kattintásos
+>   befagyasztása (griefing) és a nyitott hirdetés vitája zárva; a FIZETETT
+>   lemondott ügyleten a vita marad (a mátrix korábbi szabálya). A
+>   `teljes-ut` mátrix „vitát nyit" sorai igazítva (fizetetlen/nyitott
+>   állapotban senki).
+> - **D3 ✅ (web P1-ek, PR #234; web `ajanlat.test.ts`, `urlapPiszkozat`
+>   +2, `MapCollapse` SSR, `ConfirmDialog` initialValues — 4 fájl piros a
+>   forrás nélkül; backend `audit-d3-web-p1.test.js`):** (1) visszavont/
+>   elutasított ajánlat után az űrlap újra látszik („Új ajánlat"; csak az
+>   ÉLŐ saját sor tiltja — a B1-es „Visszavonom" után eddig SOHA nem
+>   lehetett újra ajánlani, pedig a backend engedte). (2) „Hirdetés
+>   szerkesztése": `ConfirmDialog.initialValues`, a cím nem kötelező, csak a
+>   változás megy, a leírás törölhető. (3) „Beírom a javasoltat": a mező is
+>   mutatja az árat (a rejtett állapotba került, a feladás láthatatlan
+>   árral ment). (4) kuponos díjfizetés: `await loadAll()` (a
+>   `router.refresh()` a kliens-állapotot nem frissítette) + a backend
+>   kupon-ága `job:paid` socketet küld mindkét félnek. (5) a fuvarfeladás
+>   piszkozata FELHASZNÁLÓHOZ kötött kulccsal + kijelentkezéskor törlés
+>   (közös eszközön a B fiók az A feladó címzett-adatait kapta — a GF-006
+>   osztálya). (6) a11y: emelet-select ×2, 6 szűrőmező, KYC fájl-mező, 5
+>   céges regisztrációs mező `id`+`htmlFor`; az a11y-leltár 4 új
+>   állapot-hookkal (cipelés-pipa, szűrők, „Cégként", KYC-modal). (7)
+>   `MapCollapse`: az első render (SSR + effekt előtt) nem mountolja a
+>   térképet. (8) telefon-kapu: a `DriverTermsGate` csak-telefon módban is
+>   nyílik; a `PHONE_REQUIRED` az ajánlat-űrlapon BELÜL kér telefonszámot.
+>   (9) `DisputeButton` a díj előtt rejtve.
+> - **D4 ✅ (üzemeltetés P1-ek; `audit-d4-uzemeltetes.test.js` 16 teszt, 9
+>   piros a meglévő fájlok javítása nélkül):** (1) **`services/utemezo.js`**
+>   — MINDEN ütemezett kör közös burkolón (try/catch + Sentry a kör nevével
+>   + átfedés-őr); a `.catch(() => {})` eddig elnyelte a KYC-purge, a
+>   fizetési emlékeztető, a nudge, a DAC7 és az azonnali-lejárat hibáját
+>   (a KYC-purge belül is nyelt → most továbbdob; a soronkénti hibák
+>   `jelezSorHibak`-kal riasztanak). (2) **külső HTTP időkeret**
+>   (`utils/httpIdokeret.js`, `KULSO_HTTP_TIMEOUT_MS`, alap 10 s): Resend
+>   (kísérletenként), SeeMe, Expo push — eddig a 300 mp-es undici-alap volt
+>   az egyetlen fék, az e-mail újrapróbával ~15 perc/levél, ami a soros
+>   napi köröket órákra megállította. (3) **DB-pool időkeretek**
+>   (`connectionTimeoutMillis` 5 s, `query_timeout` 30 s, `idleTimeoutMillis`
+>   10 s — env-ből hangolható): a pg alapból ÖRÖKKÉ várt a Neonra. (4)
+>   **bevezetés-dátum küszöb** a lejáratáson (`PAYMENT_EXPIRY_SINCE`,
+>   2026-09-11) és a nudge-on (`NO_OFFER_NUDGE_SINCE`, 2026-09-12) — az első
+>   éles futásuk a TÖRTÉNELMI adatokon cselekedett (2 régi elfogadott-
+>   fizetetlen fuvar lezárva, 5 régi hirdetésre nudge-levél). ⚠️ SZABÁLY
+>   MOSTANTÓL: új idő-alapú kör = `created_at >= <bevezetés dátuma>` (vagy
+>   tudatos, egyszeri backfill-döntés + a PR-ben a prod-számlálás). (5)
+>   **boot-idejű migráció-ellenőrzés** (`services/migracioEllenorzes.js`):
+>   a `schema_migrations` sorai vs a fájllista — eltérésnél hangos log +
+>   Sentry error (csak olvas, nem migrál). ⚠️ Nyitott user-döntés: a
+>   2026-09-11-i első lejáratási kör által lezárt Manus QA-fuvar
+>   (`8d53fbb6…`, „QA REGRESSZIÓ GF-009 — 300 KG") visszaállítása
+>   `accepted`-re — kézi SQL, ha a Manus még használja.
 >
 > ⚠️ MUNKAMÓDSZER-TANULSÁGOK a körből: (1) a branch-védelem „naprakész ág"-at
 > kér — egymásra épített PR-eknél minden merge után `git merge origin/main`

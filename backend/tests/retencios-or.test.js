@@ -134,8 +134,16 @@ describe('Retenciós őr: minden táblának ismernie kell az életciklusát', ()
     // (755 teszt) ZÖLD MARADT. A retenciós szabályok papíron megvoltak, a
     // gépben senki nem hívta volna őket.
     const index = require('fs').readFileSync(`${__dirname}/../src/index.js`, 'utf8');
+    // (D4, 2026-09-13) A kör a közös ütemező-burkolón át fut
+    // (`const X = utemezettKor('retention', runDailyRetention)` →
+    // `setInterval(X, …)`): a burkolt NEVET is elfogadjuk, de csak akkor,
+    // ha a burkoló tényleg a runDailyRetention-t kapta.
+    const burkolt = index.match(/const (\w+) = utemezettKor\('retention', runDailyRetention\)/);
+    const burkoltNev = burkolt ? burkolt[1] : null;
+    const utemezve = /setInterval\([\s\S]{0,80}runDailyRetention/.test(index)
+      || (!!burkoltNev && new RegExp(`setInterval\\(\\s*${burkoltNev}\\s*,`).test(index));
     expect(
-      /setInterval\([\s\S]{0,80}runDailyRetention/.test(index),
+      utemezve,
       'A napi retenciós kör NINCS ütemezve az index.js-ben. Enélkül MINDEN '
       + 'megőrzési szabály papír-ígéret: a tájékoztatóban ott a határidő, a '
       + 'gépben nincs, aki végrehajtsa.',
