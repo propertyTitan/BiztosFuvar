@@ -92,7 +92,12 @@ function riasztEmailKieses(hibamod, { to, subject, reszlet }) {
       tags: { csatorna: 'email', hibamod: String(hibamod) },
       extra: {
         utolso_cimzett: maskEmail(to),
-        utolso_targy: maskInText(String(subject || '').slice(0, 60)),
+        // (D1) Tárgy-OSZTÁLY, nem tárgy: idézett rész (fuvar címe) és
+        // számjegyek nélkül — a Sentry-be sem kód, sem összeg, sem cím nem megy.
+        targy_osztaly: maskInText(String(subject || ''))
+          .replace(/["„”][^"„”]*["„”]/g, '„…”')
+          .replace(/\d/g, '#')
+          .slice(0, 60),
         reszlet: maskInText(String(reszlet || '').slice(0, 200)),
       },
     });
@@ -627,7 +632,9 @@ async function sendRecipientPickupEmail({
 }) {
   return sendEmail({
     to,
-    subject: `🚚 Úton a csomagod — átvételi kód: ${deliveryCode}`,
+    // (D1, 2026-09-13) A kód NEM a tárgyban: a tárgy értesítés-előnézetben,
+    // zárolt képernyőn, levelező-listában is látszik — a kód a törzsben van.
+    subject: `🚚 Úton a csomagod — ${jobTitle}`,
     html: `
       <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:20px">
         <h2>Szia${recipientName ? ` ${escapeHtml(recipientName)}` : ''}! 🚚</h2>

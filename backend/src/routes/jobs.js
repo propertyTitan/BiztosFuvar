@@ -17,7 +17,7 @@ const { calculateConnectionFee } = require('../services/connectionFee');
 const { useVoucherIfAvailable } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { konyvelDijFizetes } = require('../services/feePayment');
-const { firstContactLeak } = require('../utils/contactGuard');
+const { firstContactLeak, ellenorizIndok } = require('../utils/contactGuard');
 const { telepulesSzint, utcaSzint } = require('../utils/address');
 
 const router = express.Router();
@@ -75,8 +75,17 @@ function scrubJobForUser(job, user) {
     // egyetlen bevétele) megkerülhető lenne: a feladó SAJÁT MAGÁT adja meg
     // címzettként, elfogad egy ajánlatot (a carrier_id beáll, de paid_at
     // még nincs), és a szállító kiolvassa a feladó számát a recipient-ből.
-    if (job.paid_at) return rest;
-    const { recipient_name, recipient_phone, recipient_email, ...carrierPreFee } = rest;
+    // (D1, 2026-09-13) A feladó FIZETÉSI MUNKAMENETE (PSP-azonosító,
+    // gateway-link) a szállítóra sosem tartozik — a GET /jobs/:id JOIN-olja,
+    // és a szállító a díj előtt ÉS után is megkapta.
+    const { barion_payment_id, barion_gateway_url, ...carrierRest } = rest;
+    if (job.paid_at) return carrierRest;
+    // (D1) A lemondás indoka (`cancel_reason`) szabad szöveg a feladótól — a
+    // díj előtt a kijelölt szállítónak nem jár (kontakt-csatorna lett volna:
+    // „lemondom, hívj a 06…-on").
+    const {
+      recipient_name, recipient_phone, recipient_email, cancel_reason, ...carrierPreFee
+    } = carrierRest;
     // GF-008 (user-döntés, 2026-08-30): a PONTOS (házszámos) cím is csak a
     // díj után — addig utca-szint + ~110 m-re kerekített koordináta.
     return utcaSzintHely(carrierPreFee);
@@ -104,6 +113,9 @@ function scrubJobForUser(job, user) {
     anonymized_at,
     // Belső könyvelés: küldtünk-e már „nincs ajánlat" tippet (B3).
     no_offer_nudge_at,
+    // (D1, 2026-09-13) A lemondás indoka a felek közti szabad szöveg —
+    // kívülállónak (vesztes ajánlattevő a /bids/mine-on) nem jár.
+    cancel_reason,
     // ⚠️ A CSOMAG DEKLARÁLT ÉRTÉKE (2026-08-10, adatáramlási audit).
     // A nyitott piactéren, fizetés és KYC nélkül, 200-asával lapozva ez a
     // párosítás állt össze: pontos házszámos cím + „mennyit ér a csomag".
@@ -713,14 +725,19 @@ router.get('/', authRequired, requireVerifiedEmail, async (req, res) => {
   // Város-szűrők: részszöveg-keresés a címmezőkön (ILIKE — "szeged" is
   // találja a "Szeged"-et). A % / _ LIKE-joker karaktereket kiszedjük,
   // hogy a minta csak azt találja, amit a user tényleg beírt.
-  const cityPattern = (v) => `%${String(v).trim().slice(0, 80).replace(/[%_]/g, '')}%`;
+  // ⚠️ SZÁMJEGY NÉLKÜL mindkét oldalon (2026-09-13, teljes audit D1): a
+  // szűrő a NYERS (házszámos) címen futott, a válasz viszont utca-szintű —
+  // a „Kossuth utca 12" / „…13" / „…14" szondázással a házszám 200 kérésből
+  // kiolvasható volt (orákulum). A számjegyek eltávolítva a szűrő csak azt
+  // találhatja, amit a válasz amúgy is megmutat.
+  const cityPattern = (v) => `%${String(v).trim().slice(0, 80).replace(/[%_]/g, '').replace(/\d+/g, '').replace(/\s+/g, ' ').trim()}%`;
   if (pickup_city && String(pickup_city).trim()) {
     params.push(cityPattern(pickup_city));
-    sql += ` AND j.pickup_address ILIKE $${params.length}`;
+    sql += ` AND regexp_replace(j.pickup_address, '\\d+', '', 'g') ILIKE $${params.length}`;
   }
   if (dropoff_city && String(dropoff_city).trim()) {
     params.push(cityPattern(dropoff_city));
-    sql += ` AND j.dropoff_address ILIKE $${params.length}`;
+    sql += ` AND regexp_replace(j.dropoff_address, '\\d+', '', 'g') ILIKE $${params.length}`;
   }
 
   // ?instant=true → csak azonnali, még élő fuvarok (nem lejárt)
@@ -745,10 +762,18 @@ router.get('/', authRequired, requireVerifiedEmail, async (req, res) => {
     const iLat = params.length;
     params.push(ln);
     const iLng = params.length;
+    // ⚠️ A KEREKÍTETT (~110 m, 3 tizedes) koordinátától mérünk (2026-09-13,
+    // teljes audit D1): a válasz a kívülállónak kerekített koordinátát ad, a
+    // sugár-szűrés és a távolság szerinti sorrend viszont a PONTOS pontról
+    // futott — három-négy különböző középpontú kéréssel a ház-pontos
+    // koordináta visszaszámolható volt (trilateráció). Így a szűrés sem tud
+    // többet, mint amit a válasz mutat.
+    const kerekLat = 'round(j.pickup_lat::numeric, 3)::float8';
+    const kerekLng = 'round(j.pickup_lng::numeric, 3)::float8';
     const tavolsagExpr = `(2 * 6371000 * asin(sqrt(`
-      + `power(sin(radians(j.pickup_lat::float8 - $${iLat}::float8) / 2), 2)`
-      + ` + cos(radians($${iLat}::float8)) * cos(radians(j.pickup_lat::float8))`
-      + ` * power(sin(radians(j.pickup_lng::float8 - $${iLng}::float8) / 2), 2))))`;
+      + `power(sin(radians(${kerekLat} - $${iLat}::float8) / 2), 2)`
+      + ` + cos(radians($${iLat}::float8)) * cos(radians(${kerekLat}))`
+      + ` * power(sin(radians(${kerekLng} - $${iLng}::float8) / 2), 2))))`;
     params.push(rKm * 1000);
     sql += ` AND j.pickup_lat IS NOT NULL AND j.pickup_lng IS NOT NULL AND ${tavolsagExpr} <= $${params.length}`;
     sql += ` ORDER BY ${tavolsagExpr} ASC, j.is_instant DESC, j.created_at DESC LIMIT 200`;
@@ -758,9 +783,15 @@ router.get('/', authRequired, requireVerifiedEmail, async (req, res) => {
   const { rows } = await db.query(sql, params);
   let jobs = rows;
   if (vanKoord) {
+    // (D1) A távolság-annotáció is a KEREKÍTETT koordinátától, 0,1 km-re —
+    // a nyers koordinátától 10 m-es pontossággal számolt távolság önmagában
+    // trilaterációs orákulum volt (lásd fent).
+    const kerekit3 = (v) => (v == null ? v : Math.round(Number(v) * 1000) / 1000);
     jobs = jobs.map((j) => ({
       ...j,
-      distance_to_pickup_km: +(distanceMeters(la, ln, j.pickup_lat, j.pickup_lng) / 1000).toFixed(2),
+      distance_to_pickup_km: (j.pickup_lat == null || j.pickup_lng == null)
+        ? null
+        : +(distanceMeters(la, ln, kerekit3(j.pickup_lat), kerekit3(j.pickup_lng)) / 1000).toFixed(1),
     }));
   }
   // A delivery_code-ot csak a saját feladóra engedjük át
@@ -783,6 +814,22 @@ router.get('/:id', authRequired, requireVerifiedEmail, async (req, res) => {
   );
   if (!rows[0]) return res.status(404).json({ error: 'Nem található' });
   const job = rows[0];
+
+  // ⚠️ KÍVÜLÁLLÓ CSAK A NYITOTT PIACTÉR FUVARJÁT NÉZHETI MEG (2026-09-13,
+  // teljes audit D1). A lista (GET /jobs) 2026-08-09 óta a nem nyitott
+  // státuszokat csak a saját ügyletekre adja — a részletnézet viszont
+  // UUID-val bármelyik elkelt/úton lévő/lezárt fuvart kiadta (településre
+  // kerekítve, de státusszal, árral, méretekkel, feladó-azonosítóval). Az
+  // UUID a feedből / értesítés-linkből / megosztásból bárkihez eljuthat.
+  // Aki ajánlatot tett rá, az érintett marad (látja, hogy elkelt).
+  if (!NYITOTT_STATUSZOK.includes(job.status) && req.user.role !== 'admin'
+      && req.user.sub !== job.shipper_id && req.user.sub !== job.carrier_id) {
+    const { rows: sajatAjanlat } = await db.query(
+      'SELECT 1 FROM bids WHERE job_id = $1 AND carrier_id = $2 LIMIT 1',
+      [job.id, req.user.sub],
+    );
+    if (!sajatAjanlat[0]) return res.status(404).json({ error: 'Nem található' });
+  }
 
   // Ha a fuvarnak NINCS delivery_code-ja (régebbi fuvarnál előfordulhat),
   // és a status accepted+ → most generálunk egyet és elmentjük. Így a
@@ -1296,7 +1343,9 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
   if (failedCarrierId) {
     realtime.evictUserFromJob(failedCarrierId, j.id).catch(() => {});
   }
-  realtime.emitToJob(j.id, 'job:reopened', { job_id: j.id, reason: reason || null });
+  // (D1, 2026-09-13) Az indok NEM megy a socketre: a fuvar szobájában a
+  // leváltott szállító is bent lehet még, és a szöveg szűretlenül ment.
+  realtime.emitToJob(j.id, 'job:reopened', { job_id: j.id });
   realtime.emitToFeed('jobs:reopened', { job_id: j.id });
   return true;
 }
@@ -1318,7 +1367,11 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
 //   - Ha a FELADÓ mondja le → a fuvar 'cancelled'; a már befizetett díj
 //     nem jár vissza és másik fuvarra nem vihető át.
 router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
-  const { reason } = req.body || {};
+  // (D1, 2026-09-13) Indok: opcionális, ≤500 karakter, kontakt-szűrővel —
+  // a másik félhez jut el (cancel_reason / értesítés), gyakran a díj előtt.
+  const indok = ellenorizIndok(req.body?.reason);
+  if (!indok.ok) return res.status(400).json({ error: indok.error, code: indok.code });
+  const reason = indok.value;
   const { rows } = await db.query(
     `SELECT j.*,
             s.full_name AS shipper_name, s.email AS shipper_email,
@@ -1490,7 +1543,11 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
 // újra választhatók. Csak 'accepted' állapotban (in_progress-től már a
 // vitarendezés a helyes út).
 router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
-  const { reason } = req.body || {};
+  // (D1, 2026-09-13) Indok: opcionális, ≤500 karakter, kontakt-szűrővel — a
+  // leváltott szállító értesítésébe kerül szó szerint.
+  const indok = ellenorizIndok(req.body?.reason);
+  if (!indok.ok) return res.status(400).json({ error: indok.error, code: indok.code });
+  const reason = indok.value;
   const { rows } = await db.query(
     `SELECT j.*, c.full_name AS carrier_name
        FROM jobs j

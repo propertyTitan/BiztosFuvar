@@ -48,6 +48,46 @@ const EMAIL_LOCAL_END = /[a-zA-Z0-9._%+-]$/;               // a @ előtti karakt
 // 400-zal elszállna egy értelmezhetetlen üzenettel.
 const EMAIL_DOMAIN_START = /^[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}/;
 
+// Link / domain / üzenetküldő-minták (D1). A CSUPASZ domain (séma és www.
+// nélkül) csak a piacunkon értelmes, rövid TLD-listával megy; a Nagybetűs
+// mondatkezdést a pont után (containsDomain) nem tekintjük TLD-nek. A `de`,
+// `pl`, `es`, `me` szándékosan NINCS a listán (magyar szavak / rövidítések).
+const URL_RE = /(?:https?:\/\/|\bwww\.)\S{3,}/gi;
+// A „Hozasd el" flow ismert boltjai (IKEA, OBI, Praktiker, Jófogás) NEM
+// kontakt-csatornák — a feladás leírásába a flow maga írja a termék linkjét.
+const { ismertBoltUrl } = require('./termekBoltok');
+const DOMAIN_RE = /\b[a-z0-9][a-z0-9-]{1,62}\.(hu|com|eu|net|org|io|app|info|online|site|shop|link|ro|sk|at|cz|it)\b(?![a-z])/gi;
+function containsUrl(text) {
+  URL_RE.lastIndex = 0;
+  let m;
+  while ((m = URL_RE.exec(text))) {
+    if (!ismertBoltUrl(m[0])) return true;
+  }
+  return false;
+}
+
+function containsDomain(text) {
+  DOMAIN_RE.lastIndex = 0;
+  let m;
+  while ((m = DOMAIN_RE.exec(text))) {
+    // „…délután.De nem…" / „…fuvar.Pl. bútor" — Nagybetűs mondatkezdés a
+    // pont után, nem TLD. A csupa kis- (gofuvaros.hu) és csupa nagybetűs
+    // (GOFUVAROS.HU) alak viszont domain.
+    if (/^[A-Z][a-z]+$/.test(m[1])) continue;
+    if (ismertBoltUrl(m[0])) continue;
+    return true;
+  }
+  return false;
+}
+// Üzenetküldők: a szótő elég (viberen, whatsappon, telegramon, messengeren…).
+const MESSENGER_RE = /\b(?:viber|whats\s?app|telegram|messenger|snapchat|discord|skype)|\bsignal\b/i;
+// @handle: a sor elején vagy szó-elválasztó után, legalább 3 karakter.
+const HANDLE_RE = /(?:^|[\s(,;:„"'])@[a-z0-9_.]{3,}/i;
+
+function containsLinkOrMessenger(text) {
+  return containsUrl(text) || containsDomain(text) || MESSENGER_RE.test(text) || HANDLE_RE.test(text);
+}
+
 function containsEmail(text) {
   let at = text.indexOf('@');
   while (at !== -1) {
@@ -133,6 +173,15 @@ function detectContactLeak(text) {
     return 'E-mail cím nem írható le. A platform-on belüli chat-funkciót használd.';
   }
 
+  // Link / domain / külső üzenetküldő / @handle (2026-09-13, teljes audit D1).
+  // A szűrő eddig CSAK telefonszámot és e-mailt fogott: a „keress a
+  // gofuvaros.hu-n", „írj Viberen", „@gyula_fuvar" ugyanúgy platformon
+  // kívülre vitte a kapcsolatot — a díj (a platform egyetlen bevétele)
+  // megkerülésének ez volt a legolcsóbb, nyitva hagyott útja.
+  if (containsLinkOrMessenger(text)) {
+    return 'Weboldal-cím, link vagy külső üzenetküldő (Viber, WhatsApp, Telegram…) nem írható le. A kapcsolatfelvételi díj megfizetése után automatikusan megkapjátok egymás elérhetőségét.';
+  }
+
   return null;
 }
 
@@ -153,4 +202,23 @@ function firstContactLeak(texts) {
   return null;
 }
 
-module.exports = { detectContactLeak, firstContactLeak, MAX_INPUT_LENGTH };
+/**
+ * Lemondás / újranyitás INDOK-mezőjének kapuja (2026-09-13, teljes audit D1).
+ * Az indok a MÁSIK FÉLHEZ jut el (értesítés szövege, `cancel_reason` a
+ * fuvar-soron), jellemzően a díj megfizetése ELŐTT — típus- és hosszkapu
+ * nélkül, szűretlenül ment: ingyenes kontakt-csatorna volt.
+ * Opcionális: üres/hiányzó → null. Nem-string → 400. Hossz ≤ max.
+ * @returns {{ ok: true, value: string|null } | { ok: false, error: string, code: string }}
+ */
+function ellenorizIndok(raw, { max = 500 } = {}) {
+  if (raw === undefined || raw === null) return { ok: true, value: null };
+  if (typeof raw !== 'string') return { ok: false, error: 'Az indok szöveg legyen.', code: 'INVALID_REASON' };
+  const text = raw.trim();
+  if (!text) return { ok: true, value: null };
+  if (text.length > max) return { ok: false, error: `Az indok legfeljebb ${max} karakter lehet.`, code: 'REASON_TOO_LONG' };
+  const leak = detectContactLeak(text);
+  if (leak) return { ok: false, error: leak, code: 'CONTACT_LEAK' };
+  return { ok: true, value: text };
+}
+
+module.exports = { detectContactLeak, firstContactLeak, ellenorizIndok, MAX_INPUT_LENGTH };

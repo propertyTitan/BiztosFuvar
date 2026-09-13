@@ -191,7 +191,16 @@ router.get('/reviews', authRequired, requireVerifiedEmail, async (req, res) => {
   }
   sql += ' ORDER BY r.created_at DESC LIMIT 100';
   const { rows } = await db.query(sql, params);
-  res.json(rows);
+  // (D1, 2026-09-13) Az ügylet-azonosító (job_id / booking_id) csak az
+  // értékelés FELEINEK jár — kívülállónak az értékelés szövege + csillag
+  // publikus, de az, hogy MELYIK fuvarról szól (→ cím, ár, feladó), nem.
+  const me = req.user.sub;
+  const isAdmin = req.user.role === 'admin';
+  res.json(rows.map((r) => {
+    if (isAdmin || r.reviewer_id === me || r.reviewee_id === me) return r;
+    const { job_id, booking_id, ...publikus } = r;
+    return publikus;
+  }));
 });
 
 // Kompatibilitás: a régi POST /jobs/:jobId/reviews endpoint is marad,

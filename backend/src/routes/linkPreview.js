@@ -28,14 +28,8 @@ const linkPreviewLimit = createRateLimit({
 // Kizárólag olyan oldalak, amik megbízható Open Graph előnézetet adnak
 // (cím + kép). A login-/bot-falas oldalakat (Facebook, Mömax, Möbelix)
 // szándékosan NEM tesszük be, mert ott úgyis csak a link maradna.
-const ALLOWED_HOSTS = new Set([
-  // Apróhirdetés
-  'jofogas.hu', 'www.jofogas.hu',
-  // Bútor / barkács áruházak
-  'ikea.com', 'www.ikea.com',
-  'obi.hu', 'www.obi.hu',
-  'praktiker.hu', 'www.praktiker.hu',
-]);
+// A lista KÖZÖS a kontakt-szűrővel (utils/termekBoltok.js, 2026-09-13 D1).
+const { ALLOWED_HOSTS } = require('../utils/termekBoltok');
 
 function sourceName(host) {
   if (host.includes('jofogas')) return 'Jófogás';
