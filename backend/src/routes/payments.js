@@ -105,6 +105,25 @@ async function confirmFeePaymentBelso(PaymentId, status) {
       summary: `Ismeretlen PaymentId: ${PaymentId}`,
       processed: false,
     });
+    // ⚠️ RIASZTÁS (2026-09-13, teljes audit D2). Az entitást KIZÁRÓLAG az
+    // escrow_transactions / route_bookings barion_payment_id oszlopán oldjuk
+    // fel — fuvaronként EGY érték, amit minden új startFeePayment FELÜLÍR.
+    // Ha a feladó a RÉGI (felülírt, de a PSP-nél még fizethető) munkameneten
+    // fizet, a pénz beérkezik, a platform nem könyvel, és eddig SENKI nem
+    // tudott róla (csak egy processed=false naplósor). Sikeres státusznál ez
+    // pénz-eltérés, nem zaj — Sentry error, bankkivonat-egyeztetés a teendő.
+    // (A felülírt munkamenetek külön nyilvántartása — payment_sessions — a
+    // CIB-bekötés teendője; stubban az azonosító determinisztikus.)
+    if (String(status) === 'Succeeded') {
+      try {
+        const Sentry = require('@sentry/node');
+        Sentry.captureMessage('[fee-webhook] SIKERES fizetés ISMERETLEN PaymentId-vel — a pénz beérkezett, a platform nem könyvelt', {
+          level: 'error',
+          tags: { csatorna: 'fizetes', hibamod: 'ismeretlen_payment_id' },
+          extra: { payment_id: String(PaymentId).slice(0, 80) },
+        });
+      } catch { /* a riasztás hibája nem érintheti a webhook-választ */ }
+    }
     return { http: 200, body: { ok: true, unknown: true } };
   }
 

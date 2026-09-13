@@ -1663,6 +1663,16 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
 
     const job = upd[0];
 
+    // ⚠️ DÍJMENTES ÚJRAVÁLASZTÁS az azonnali ágon is (2026-09-13, teljes
+    // audit D2 — a licites ág `finalizeAcceptedBid` logikájának párja). A
+    // szállító lemondása után a fuvar `bidding`-re nyílik újra, a `paid_at`
+    // és a díj MEGMARAD (a díj a fuvarra szól). Az azonnali elfogadás eddig
+    // ezt nem nézte: új PSP-munkamenetet nyitott, a `released` díj-sort
+    // `held`-re írta vissza, a kuponos 0 Ft-ot 500/1000-re, és a feladót
+    // „fizesd meg a díjat" felhívással szólította — ha kifizette, a mag
+    // (paid_at IS NULL) árvának könyvelte: kézi sztornó.
+    const feeAlreadyPaid = job.paid_at != null;
+
     // Ugyanaz a díj-flow, mint a licit elfogadásnál: kapcsolatfelvételi díj
     // a feladótól; a fuvardíj készpénzben megy a szállítónak.
     const { rows: partyRows } = await client.query(
@@ -1674,39 +1684,48 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
     );
     const parties = partyRows[0] || {};
 
-    const feeHuf = calculateConnectionFee(job.accepted_price_huf);
+    // A már rendezett díj (kuponnál 0 — `!= null`, mert a 0 hamis) marad;
+    // új munkamenet, díj-felülírás és díj-sor NINCS.
+    const feeHuf = feeAlreadyPaid && job.connection_fee_huf != null
+      ? Number(job.connection_fee_huf)
+      : calculateConnectionFee(job.accepted_price_huf);
     let barionRes = { paymentId: null, gatewayUrl: null };
-    try {
-      barionRes = await paymentProvider.startFeePayment({
-        jobId: job.id,
-        feeHuf,
-        shipperEmail: parties.shipper_email,
-      });
-    } catch (err) {
-      console.error('[barion] instant startFeePayment hiba:', err.message);
-      await client.query('ROLLBACK');
-      return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
-    }
+    if (!feeAlreadyPaid) {
+      try {
+        barionRes = await paymentProvider.startFeePayment({
+          jobId: job.id,
+          feeHuf,
+          shipperEmail: parties.shipper_email,
+        });
+      } catch (err) {
+        console.error('[barion] instant startFeePayment hiba:', err.message);
+        await client.query('ROLLBACK');
+        return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
+      }
 
-    await client.query(
-      `UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2`,
-      [feeHuf, job.id],
-    );
-    await client.query(
-      `INSERT INTO escrow_transactions
-         (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
-          carrier_share_huf, platform_share_huf)
-       VALUES ($1,$2,'held',$3,$4,0,$2)
-       ON CONFLICT (job_id) DO UPDATE SET
-         amount_huf         = EXCLUDED.amount_huf,
-         status             = 'held',
-         barion_payment_id  = EXCLUDED.barion_payment_id,
-         barion_gateway_url = EXCLUDED.barion_gateway_url,
-         carrier_share_huf  = 0,
-         platform_share_huf = EXCLUDED.platform_share_huf,
-         held_at            = NOW()`,
-      [job.id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
-    );
+      await client.query(
+        `UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2`,
+        [feeHuf, job.id],
+      );
+      // A már kifizetett ('released') díj-sort SOHA nem írjuk vissza 'held'-re
+      // (a bids.js védőhálójának párja).
+      await client.query(
+        `INSERT INTO escrow_transactions
+           (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
+            carrier_share_huf, platform_share_huf)
+         VALUES ($1,$2,'held',$3,$4,0,$2)
+         ON CONFLICT (job_id) DO UPDATE SET
+           amount_huf         = EXCLUDED.amount_huf,
+           status             = 'held',
+           barion_payment_id  = EXCLUDED.barion_payment_id,
+           barion_gateway_url = EXCLUDED.barion_gateway_url,
+           carrier_share_huf  = 0,
+           platform_share_huf = EXCLUDED.platform_share_huf,
+           held_at            = NOW()
+         WHERE escrow_transactions.status = 'held'`,
+        [job.id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
+      );
+    }
 
     await client.query('COMMIT');
 
@@ -1716,7 +1735,8 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       job_id: job.id,
       carrier_id: job.carrier_id,
       amount_huf: job.accepted_price_huf,
-      barion_gateway_url: barionRes.gatewayUrl,
+      barion_gateway_url: feeAlreadyPaid ? null : barionRes.gatewayUrl,
+      fee_already_paid: feeAlreadyPaid,
       is_instant: true,
     });
     realtime.emitToFeed('jobs:instant-taken', {
@@ -1730,7 +1750,9 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
         user_id: job.shipper_id,
         type: 'instant_accepted',
         title: '⚡ Szállító vállalta az azonnali fuvart!',
-        body: `${parties.carrier_name || 'Egy szállító'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás, ahogy megegyeztek).`,
+        body: feeAlreadyPaid
+          ? `${parties.carrier_name || 'Egy szállító'} elvállalta a(z) "${job.title}" azonnali fuvart. A kapcsolatfelvételi díjat már korábban megfizetted, újra nem kell — a szállító elérhetőségét a fuvar oldalán látod. A fuvardíjat közvetlenül neki fizeted (készpénz vagy átutalás, ahogy megegyeztek).`
+          : `${parties.carrier_name || 'Egy szállító'} elvállalta a(z) "${job.title}" azonnali fuvart. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás, ahogy megegyeztek).`,
         link: `/dashboard/fuvar/${job.id}`,
       });
     } catch (e) {
@@ -1743,6 +1765,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       carrier_id: job.carrier_id,
       amount_huf: job.accepted_price_huf,
       connection_fee_huf: feeHuf,
+      fee_already_paid: feeAlreadyPaid,
       // ⚠️ A FIZETÉSI LINK NEM MEHET A HÍVÓNAK (2026-08-12, 11. mérés A1).
       // Ezt a végpontot a SZÁLLÍTÓ hívja, a fizető viszont a FELADÓ. A
       // `gateway_url` a feladó fizetési munkamenete a PSP-nél — a szállítónak
