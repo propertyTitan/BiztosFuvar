@@ -49,24 +49,30 @@ export default function DriverTermsGate() {
   }
 
   useEffect(() => {
-    if (!needsAccept) return;
+    if (!needsAccept && !needsPhone) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') megse(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsAccept]);
+  }, [needsAccept, needsPhone]);
 
-  if (!needsAccept) return null;
+  // (D3, 2026-09-13) Aki a nyilatkozatot a B1 ELŐTT fogadta el, de nincs
+  // telefonszáma, annál a kapu sosem nyílt meg — az első ajánlata 403
+  // PHONE_REQUIRED-del halt el, kiút nélkül. Csak-telefon mód: nyilatkozat-
+  // szöveg és pipa nélkül, egy mezővel.
+  const csakTelefon = !needsAccept && needsPhone;
+  if (!needsAccept && !needsPhone) return null;
 
   const phoneHiba = needsPhone ? (phone.trim() ? optionalPhoneError(phone) : 'Add meg a telefonszámod — a feladó ezen ér el.') : null;
 
   async function accept() {
-    if (!checked || phoneHiba) return;
+    if ((!csakTelefon && !checked) || phoneHiba) return;
     setSaving(true);
     setError(null);
     try {
       if (needsPhone) await api.updateMyProfile({ phone: phone.trim() });
-      await api.acceptDriverTerms();
+      if (needsAccept) await api.acceptDriverTerms();
+      setNeedsPhone(false);
       setNeedsAccept(false);
     } catch (e: any) {
       setError(e?.message || 'Nem sikerült elmenteni. Próbáld újra.');
@@ -86,10 +92,11 @@ export default function DriverTermsGate() {
       aria-labelledby="driver-terms-cim"
     >
       <div className="card" style={{ maxWidth: 500, marginBottom: 0 }}>
-        <h2 id="driver-terms-cim" style={{ marginTop: 0 }}>🚦 Mielőtt fuvarozol</h2>
+        <h2 id="driver-terms-cim" style={{ marginTop: 0 }}>{csakTelefon ? '📞 Telefonszám szükséges' : '🚦 Mielőtt fuvarozol'}</h2>
         <p style={{ color: 'var(--text)', lineHeight: 1.6 }}>
-          A GoFuvar közvetítő platform: a fuvarozási szerződés közvetlenül közted és a
-          feladó között jön létre. Mielőtt fuvart vállalsz, kérjük, erősítsd meg az alábbit.
+          {csakTelefon
+            ? 'Szállítóként kötelező a telefonszám: a feladó a kapcsolatfelvételi díj után ezen ér el. Add meg, és folytathatod.'
+            : 'A GoFuvar közvetítő platform: a fuvarozási szerződés közvetlenül közted és a feladó között jön létre. Mielőtt fuvart vállalsz, kérjük, erősítsd meg az alábbit.'}
         </p>
         {needsPhone && (
           <div style={{ margin: '12px 0' }}>
@@ -111,6 +118,7 @@ export default function DriverTermsGate() {
             )}
           </div>
         )}
+        {!csakTelefon && (
         <label
           style={{
             display: 'flex', gap: 10, alignItems: 'flex-start', margin: '16px 0',
@@ -130,9 +138,10 @@ export default function DriverTermsGate() {
             engedélyekkel. Tudomásul veszem, hogy ezekért én felelek.
           </span>
         </label>
+        )}
         {error && <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 13, margin: '0 0 8px' }}>{error}</p>}
-        <button className="btn" onClick={accept} disabled={!checked || !!phoneHiba || saving} style={{ width: '100%' }}>
-          {saving ? 'Mentés…' : 'Elfogadom és folytatom'}
+        <button className="btn" onClick={accept} disabled={(!csakTelefon && !checked) || !!phoneHiba || saving} style={{ width: '100%' }}>
+          {saving ? 'Mentés…' : csakTelefon ? 'Mentés és folytatom' : 'Elfogadom és folytatom'}
         </button>
         <button type="button" className="btn btn-ghost" onClick={megse} style={{ width: '100%', marginTop: 8 }}>
           Mégse — maradok feladó

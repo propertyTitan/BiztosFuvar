@@ -13,17 +13,19 @@ type Props = {
   bookingId?: string;
   status: string;
   alreadyOpen?: boolean;
+  /** (D2/D3, 2026-09-13) A backend a díj előtt 409-et ad — a gomb se látszódjon. */
+  paid?: boolean;
 };
 
 const ELIGIBLE_STATUSES = ['in_progress', 'delivered', 'completed'];
 
-export default function DisputeButton({ jobId, bookingId, status, alreadyOpen }: Props) {
+export default function DisputeButton({ jobId, bookingId, status, alreadyOpen, paid }: Props) {
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const eligible = ELIGIBLE_STATUSES.includes(status) && !alreadyOpen;
+  const eligible = ELIGIBLE_STATUSES.includes(status) && !alreadyOpen && paid !== false;
   if (!eligible) return null;
 
   const handleSubmit = async () => {

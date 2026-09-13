@@ -15,6 +15,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
 import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
+import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
+import { optionalPhoneError } from '@/lib/formValidation';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import MapCollapse from '@/components/MapCollapse';
 import { idoablakSzoveg } from '@/lib/idoablak';
@@ -134,6 +136,10 @@ export default function SoforFuvarReszletek() {
   const mutat = (h: string | null) => (probaltMenteni ? h : null);
 
   const [lassuKuldes, setLassuKuldes] = useState(false);
+  // (D3, 2026-09-13) PHONE_REQUIRED: a telefonszám a formon belül kérhető be —
+  // a profil-kitérő az űrlap tartalmát (üzenet, nyilatkozat) elvitte volna.
+  const [telefonHiany, setTelefonHiany] = useState(false);
+  const [telefon, setTelefon] = useState('');
 
   async function submitBid(e: React.FormEvent) {
     e.preventDefault();
@@ -155,12 +161,20 @@ export default function SoforFuvarReszletek() {
         return;
       }
     }
+    if (telefonHiany) {
+      const hiba = telefon.trim() ? optionalPhoneError(telefon) : 'Add meg a telefonszámod — szállítóként kötelező.';
+      if (hiba) { toast.error('Telefonszám szükséges', hiba); return; }
+    }
     setSubmitting(true);
     // GF-003 UX (Manus 3. futás): lassú szervernél (cold start, 15+ mp) a
     // generikus „Küldés…" azt sugallta, elakadt — 8 mp után jelezzük, hogy
     // a kérés még él, csak a szerver lassú.
     const lassuTimer = setTimeout(() => setLassuKuldes(true), 8000);
     try {
+      if (telefonHiany) {
+        await api.updateMyProfile({ phone: telefon.trim() });
+        setTelefonHiany(false);
+      }
       await api.placeBid(id, {
         amount_huf: amount,
         eta_minutes: bidEta ? parseInt(bidEta, 10) : undefined,
@@ -196,7 +210,8 @@ export default function SoforFuvarReszletek() {
         } catch { /* ha a visszakérdezés is elhal, marad az eredeti hibaüzenet */ }
       }
       if (err?.code === 'PHONE_REQUIRED') {
-        toast.error('Telefonszám szükséges', 'Szállítóként kötelező a telefonszám — a feladó a díj után ezen ér el. Add meg a Profil oldalon, és küldd újra az ajánlatot.');
+        setTelefonHiany(true);
+        toast.error('Telefonszám szükséges', 'Szállítóként kötelező a telefonszám — a feladó a díj után ezen ér el. Add meg lent, és küldd újra az ajánlatot.');
         return;
       }
       toast.error('Ajánlatküldési hiba', err.message);
@@ -239,7 +254,11 @@ export default function SoforFuvarReszletek() {
 
   const iAmTheCarrier = me?.id === job.carrier_id;
   const iAmTheShipper = me?.id === job.shipper_id;
-  const myBid = bids.find((b) => b.carrier_id === me?.id);
+  // (D3, 2026-09-13) Csak az ÉLŐ (pending/accepted) saját ajánlat tiltja az
+  // űrlapot — a visszavont / elutasított mellett újra lehet ajánlatot tenni.
+  const myBid = aktivSajatAjanlat(bids, me?.id);
+  const lezarultAjanlat = lezarultSajatAjanlat(bids, me?.id);
+  const kartyaAjanlat = myBid || lezarultAjanlat;
   const listingPhotos = photos.filter((p) => p.kind === 'listing');
 
   return (
@@ -537,7 +556,12 @@ export default function SoforFuvarReszletek() {
       {/* Licit feladás vagy meglévő licit állapota */}
       {!iAmTheShipper && (job.status === 'pending' || job.status === 'bidding') && !myBid && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>Ajánlattétel</h2>
+          <h2 style={{ marginTop: 0 }}>{lezarultAjanlat ? 'Új ajánlat' : 'Ajánlattétel'}</h2>
+          {lezarultAjanlat && (
+            <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+              A korábbi ajánlatod {lezarultAjanlat.status === 'withdrawn' ? 'visszavontad' : 'lezárult'} — jobb feltételekkel újra ajánlatot tehetsz.
+            </p>
+          )}
 
           {/* Díj figyelmeztetés — egyszer megmutatjuk, utána "ne jelenjen meg többet" */}
           {!feeInfoDismissed && (
@@ -705,76 +729,96 @@ export default function SoforFuvarReszletek() {
               )}
             </div>
 
+            {telefonHiany && (
+              <div style={{ marginTop: 16, padding: 12, borderRadius: 10, background: 'rgba(245,158,11,0.10)', border: '1px solid var(--warning, #f59e0b)' }}>
+                <label htmlFor="ajanlat-telefon" style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+                  Telefonszámod (szállítóként kötelező)
+                </label>
+                <input
+                  id="ajanlat-telefon"
+                  className="input"
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder="+36 30 123 4567"
+                  value={telefon}
+                  onChange={(e) => setTelefon(e.target.value)}
+                  aria-invalid={!!(telefon.trim() && optionalPhoneError(telefon))}
+                />
+                <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>
+                  A feladó a kapcsolatfelvételi díj után ezen ér el. Mentjük a profilodba, és az ajánlat ezzel együtt megy el.
+                </p>
+              </div>
+            )}
             <button className="btn" type="submit" disabled={submitting} style={{ marginTop: 16 }}>
               {submitting
                 ? (lassuKuldes ? 'A kérés még feldolgozás alatt — a szerver lassan válaszol…' : 'Küldés…')
-                : 'Ajánlat elküldése'}
+                : telefonHiany ? 'Telefonszám mentése és ajánlat elküldése' : 'Ajánlat elküldése'}
             </button>
           </form>
         </div>
       )}
 
-      {myBid && (
+      {kartyaAjanlat && (
         <div className="card" style={{ marginTop: 16, background: 'var(--surface)' }}>
-          <h2 style={{ marginTop: 0 }}>A te ajánlatod</h2>
+          <h2 style={{ marginTop: 0 }}>{myBid ? 'A te ajánlatod' : 'Korábbi ajánlatod'}</h2>
           {/* BUG-037: elfogadás után a MEGÁLLAPODOTT ár számít — ellenajánlatos
               alku után az eredeti licit-összeg tévesen többet ígért. */}
           {(() => {
-            const agreed = myBid.status === 'accepted' && iAmTheCarrier && job.accepted_price_huf != null
+            const agreed = kartyaAjanlat.status === 'accepted' && iAmTheCarrier && job.accepted_price_huf != null
               ? job.accepted_price_huf
-              : (myBid.counter_amount_huf ?? myBid.amount_huf);
+              : (kartyaAjanlat.counter_amount_huf ?? kartyaAjanlat.amount_huf);
             return (
               <p>
                 <strong className="price">{agreed.toLocaleString('hu-HU')} Ft</strong>
-                {agreed !== myBid.amount_huf && (
+                {agreed !== kartyaAjanlat.amount_huf && (
                   <span className="muted" style={{ textDecoration: 'line-through', marginLeft: 8, fontSize: 13 }}>
-                    {myBid.amount_huf.toLocaleString('hu-HU')} Ft
+                    {kartyaAjanlat.amount_huf.toLocaleString('hu-HU')} Ft
                   </span>
                 )}
-                {agreed !== myBid.amount_huf && (
+                {agreed !== kartyaAjanlat.amount_huf && (
                   <span className="muted" style={{ marginLeft: 6, fontSize: 12 }}>(alku utáni ár)</span>
                 )}
-                {myBid.eta_minutes && <span className="muted"> · érkezés ~{myBid.eta_minutes} perc</span>}
+                {kartyaAjanlat.eta_minutes && <span className="muted"> · érkezés ~{kartyaAjanlat.eta_minutes} perc</span>}
               </p>
             );
           })()}
-          <span className={`pill pill-${myBid.status === 'accepted' ? 'delivered' : 'bidding'}`}>
-            {myBid.status === 'pending' && 'Várakozik elfogadásra'}
-            {myBid.status === 'accepted' && 'Elfogadva 🎉'}
-            {myBid.status === 'rejected' && 'Elutasítva'}
-            {myBid.status === 'withdrawn' && 'Visszavonva'}
+          <span className={`pill pill-${kartyaAjanlat.status === 'accepted' ? 'delivered' : 'bidding'}`}>
+            {kartyaAjanlat.status === 'pending' && 'Várakozik elfogadásra'}
+            {kartyaAjanlat.status === 'accepted' && 'Elfogadva 🎉'}
+            {kartyaAjanlat.status === 'rejected' && 'Elutasítva'}
+            {kartyaAjanlat.status === 'withdrawn' && 'Visszavonva'}
           </span>
-          {myBid.message && (
+          {kartyaAjanlat.message && (
             <p className="muted" style={{ marginTop: 8 }}>
-              „{myBid.message}”
+              „{kartyaAjanlat.message}”
             </p>
           )}
-          {myBid.return_policy && (
+          {kartyaAjanlat.return_policy && (
             <p style={{ marginTop: 8, fontSize: 13 }}>
               ↩️ Sikertelen kézbesítés esetén:{' '}
               <strong>
-                {myBid.return_policy === 'included' && 'visszaszállítás benne van az ajánlatban'}
-                {myBid.return_policy === 'extra_fee' && `visszaszállítás külön díjért (${(myBid.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}
-                {myBid.return_policy === 'no' && 'nem vállaltad a visszaszállítást'}
+                {kartyaAjanlat.return_policy === 'included' && 'visszaszállítás benne van az ajánlatban'}
+                {kartyaAjanlat.return_policy === 'extra_fee' && `visszaszállítás külön díjért (${(kartyaAjanlat.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}
+                {kartyaAjanlat.return_policy === 'no' && 'nem vállaltad a visszaszállítást'}
               </strong>
             </p>
           )}
 
           {/* Ellenajánlat-állapot + alku-akciók (csak amíg a licit nyitott) */}
-          {myBid.status === 'pending' && myBid.counter_amount_huf != null && myBid.counter_by === 'shipper' && (
+          {kartyaAjanlat.status === 'pending' && kartyaAjanlat.counter_amount_huf != null && kartyaAjanlat.counter_by === 'shipper' && (
             <div className="callout callout-info" style={{ marginTop: 12, padding: 14 }}>
               <div style={{ fontSize: 14 }}>
-                <RefreshCw size={13} style={{ verticalAlign: -2 }} /> A feladó ellenajánlata: <strong>{myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
-                {' '}(a te ajánlatod {myBid.amount_huf.toLocaleString('hu-HU')} Ft volt)
+                <RefreshCw size={13} style={{ verticalAlign: -2 }} /> A feladó ellenajánlata: <strong>{kartyaAjanlat.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
+                {' '}(a te ajánlatod {kartyaAjanlat.amount_huf.toLocaleString('hu-HU')} Ft volt)
               </div>
               <div className="row" style={{ gap: 8, marginTop: 12 }}>
                 <button
                   className="btn btn-success"
                   type="button"
                   disabled={acceptingCounter}
-                  onClick={() => acceptShipperCounter(myBid.id)}
+                  onClick={() => acceptShipperCounter(kartyaAjanlat.id)}
                 >
-                  {acceptingCounter ? 'Elfogadás…' : `Elfogadom (${myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft)`}
+                  {acceptingCounter ? 'Elfogadás…' : `Elfogadom (${kartyaAjanlat.counter_amount_huf.toLocaleString('hu-HU')} Ft)`}
                 </button>
                 <button className="btn btn-ghost" type="button" onClick={() => setCounterOpen(true)} disabled={acceptingCounter}>
                   Ellenajánlat
@@ -782,9 +826,9 @@ export default function SoforFuvarReszletek() {
               </div>
             </div>
           )}
-          {myBid.status === 'pending' && myBid.counter_amount_huf != null && myBid.counter_by === 'carrier' && (
+          {kartyaAjanlat.status === 'pending' && kartyaAjanlat.counter_amount_huf != null && kartyaAjanlat.counter_by === 'carrier' && (
             <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
-              <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({myBid.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a feladó válaszára vár.
+              <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({kartyaAjanlat.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a feladó válaszára vár.
             </p>
           )}
         </div>
@@ -835,7 +879,7 @@ export default function SoforFuvarReszletek() {
       )}
 
       {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
-      <DisputeButton jobId={id} status={job.status} />
+      <DisputeButton jobId={id} status={job.status} paid={!!job.paid_at} />
 
       {/* Publikus Q&A — szállítóként itt kérdezhetek a feladótól */}
       <JobQuestions

@@ -35,3 +35,28 @@ describe('űrlap-piszkozat', () => {
     expect(olvasPiszkozat('k')).toBeNull();
   });
 });
+
+// D3 (2026-09-13): felhasználóhoz kötött kulcs + kijelentkezéskori törlés
+import { piszkozatKulcs, torolPiszkozatokElotaggal, UJ_FUVAR_PISZKOZAT_ELOTAG } from './urlapPiszkozat';
+describe('piszkozat: felhasználóhoz kötve', () => {
+  beforeEach(() => { window.localStorage.clear(); });
+
+  it('két fiók kulcsa különbözik — a B fiók nem kapja meg az A piszkozatát', () => {
+    const kA = piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, 'user-a');
+    const kB = piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, 'user-b');
+    expect(kA).not.toBe(kB);
+    mentPiszkozat(kA, { recipient_name: 'Kovács Anna', recipient_phone: '+36301234567' });
+    expect(olvasPiszkozat(kB), 'a másik fiók megkapta az előző feladó címzett-adatait').toBeNull();
+    expect(olvasPiszkozat<{ recipient_name: string }>(kA)?.recipient_name).toBe('Kovács Anna');
+  });
+
+  it('az előtaggal kezdődő piszkozatok mind törlődnek (kijelentkezés), más kulcs marad', () => {
+    mentPiszkozat(piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, 'user-a'), { x: 1 });
+    mentPiszkozat(UJ_FUVAR_PISZKOZAT_ELOTAG, { x: 2 }); // régi, globális kulcs
+    window.localStorage.setItem('gofuvar_theme', 'dark');
+    torolPiszkozatokElotaggal(UJ_FUVAR_PISZKOZAT_ELOTAG);
+    expect(window.localStorage.getItem(piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, 'user-a'))).toBeNull();
+    expect(window.localStorage.getItem(UJ_FUVAR_PISZKOZAT_ELOTAG)).toBeNull();
+    expect(window.localStorage.getItem('gofuvar_theme')).toBe('dark');
+  });
+});

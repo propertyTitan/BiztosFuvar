@@ -43,20 +43,23 @@ type Props = {
   danger?: boolean;
   /** Opcionális beviteli mezők — az onConfirm kulcs→érték párokat kap */
   fields?: DialogField[];
+  /** Nyitáskor előtöltött értékek (szerkesztő dialógushoz — D3, 2026-09-13) */
+  initialValues?: Record<string, string>;
   onConfirm: (values: Record<string, string>) => void;
   onClose: () => void;
 };
 
 export default function ConfirmDialog({
   open, title, message, confirmLabel = 'Megerősítés', cancelLabel = 'Mégse',
-  danger = false, fields = [], onConfirm, onClose,
+  danger = false, fields = [], initialValues, onConfirm, onClose,
 }: Props) {
   const [values, setValues] = useState<Record<string, string>>({});
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (open) setValues({});
+    if (open) setValues(initialValues ? { ...initialValues } : {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Fókusz-kezelés: megjegyezzük a hívó elemet, a dialógusra fókuszálunk,

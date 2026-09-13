@@ -452,7 +452,7 @@ export default function ProfilOldal() {
                 <FieldError>{profilHiba('fullName')}</FieldError>
               </div>
               <div>
-                <label htmlFor="profil-telefon">Telefon</label>
+                <label htmlFor="profil-telefon">Telefon <span className="muted" style={{ fontWeight: 400, fontSize: 12 }}>(szállítóként kötelező)</span></label>
                 <input id="profil-telefon"
                   className="input"
                   value={phone}

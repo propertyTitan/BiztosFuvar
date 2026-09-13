@@ -66,6 +66,18 @@ export const OLDALAK: Oldal[] = [
   // SMS-be ez a legrövidebb URL fér bele (GDPR 14. cikk, 2 szegmens).
   { minta: '/a', url: () => '/a', szereplo: 'anon' },
   { minta: '/bejelentkezes', url: () => '/bejelentkezes', szereplo: 'anon' },
+  {
+    minta: '/bejelentkezes',
+    url: () => '/bejelentkezes',
+    szereplo: 'anon',
+    allapot: async (page) => {
+      await page.getByRole('button', { name: /^Regisztráció$/ }).first().click();
+      const ceg = page.getByRole('button', { name: /Cégként/ });
+      await ceg.waitFor({ state: 'visible', timeout: 15_000 });
+      await ceg.click();
+      await page.getByLabel(/Cégnév/).waitFor({ timeout: 10_000 });
+    },
+  },
   { minta: '/elfelejtett-jelszo', url: () => '/elfelejtett-jelszo', szereplo: 'anon' },
   { minta: '/jelszo-reset', url: () => '/jelszo-reset?token=ervenytelen', szereplo: 'anon' },
   { minta: '/email-megerositese', url: () => '/email-megerositese?token=ervenytelen', szereplo: 'anon' },
@@ -89,6 +101,22 @@ export const OLDALAK: Oldal[] = [
 
   // Közös (belépett)
   { minta: '/profil', url: () => '/profil', szereplo: 'felado' },
+  {
+    // A KYC-modal (globális layout) csak 403-ra nyílik — az eseményt kézzel
+    // váltjuk ki, hogy a feltöltő mező is mérve legyen. ⚠️ NEM a /profil-on:
+    // annak már van egy [állapot] bejegyzése (szerkesztő), és a 20-as spec
+    // címe (minta + [állapot]) egyedi kell legyen — a Playwright a duplikált
+    // címre a teljes futást leállítja (a CI így bukott 45 mp alatt).
+    minta: '/fuvarjaim',
+    url: () => '/fuvarjaim',
+    szereplo: 'szallito',
+    allapot: async (page) => {
+      await page.evaluate(() => {
+        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: 'DRIVER_KYC_REQUIRED' } }));
+      });
+      await page.getByLabel(/Dokumentum feltöltése/).waitFor({ timeout: 10_000 });
+    },
+  },
   {
     // Ugyanaz az útvonal, MÁSIK ÁLLAPOT: a szerkesztő-űrlap. A leltár-őr a
     // `minta` mezőre egyeztet az app/ könyvtárral, ezért a `/profil` itt
@@ -114,6 +142,20 @@ export const OLDALAK: Oldal[] = [
   // Feladói
   { minta: '/dashboard', url: () => '/dashboard', szereplo: 'felado' },
   { minta: '/dashboard/uj-fuvar', url: () => '/dashboard/uj-fuvar', szereplo: 'felado' },
+  {
+    // (D3, 2026-09-13) A „cipelés" pipa UTÁN megjelenő emelet/lift mezők —
+    // eddig egyetlen állapot-hook volt (profil-szerkesztő), a feltáruló mezők
+    // címkézetlensége (axe critical) a „0 critical" alatt maradt.
+    minta: '/dashboard/uj-fuvar',
+    url: () => '/dashboard/uj-fuvar',
+    szereplo: 'felado',
+    allapot: async (page) => {
+      const pipa = page.getByLabel(/be kell pakolnia a csomagot a felvételi helyen/i);
+      await pipa.waitFor({ state: 'visible', timeout: 15_000 });
+      await pipa.check();
+      await page.getByLabel(/Hányadik emelet/i).first().waitFor({ timeout: 10_000 });
+    },
+  },
   { minta: '/dashboard/fuvar/[id]', url: (F) => `/dashboard/fuvar/${F.jobId}`, szereplo: 'felado' },
   { minta: '/dashboard/foglalasaim', url: () => '/dashboard/foglalasaim', szereplo: 'felado' },
   { minta: '/dashboard/utvonalak', url: () => '/dashboard/utvonalak', szereplo: 'felado' },
@@ -122,6 +164,17 @@ export const OLDALAK: Oldal[] = [
   // Szállítói
   { minta: '/sofor/dashboard', url: () => '/sofor/dashboard', szereplo: 'szallito' },
   { minta: '/sofor/fuvarok', url: () => '/sofor/fuvarok', szereplo: 'szallito' },
+  {
+    minta: '/sofor/fuvarok',
+    url: () => '/sofor/fuvarok',
+    szereplo: 'szallito',
+    allapot: async (page) => {
+      const gomb = page.getByRole('button', { name: /Szűrők mutatása/ });
+      await gomb.waitFor({ state: 'visible', timeout: 15_000 });
+      await gomb.click();
+      await page.getByLabel(/Honnan \(város\)/).waitFor({ timeout: 10_000 });
+    },
+  },
   { minta: '/sofor/fuvar/[id]', url: (F) => `/sofor/fuvar/${F.licitesJobId}`, szereplo: 'szallito' },
   { minta: '/sofor/sajat-fuvarok', url: () => '/sofor/sajat-fuvarok', szereplo: 'szallito' },
   { minta: '/sofor/licitjeim', url: () => '/sofor/licitjeim', szereplo: 'szallito' },

@@ -276,8 +276,9 @@ export default function SoforFuvarokLista() {
           <div className="card" style={{ marginTop: 8, padding: 16 }}>
             <div className="row" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
               <div>
-                <label style={{ fontSize: 12 }}>Honnan (város)</label>
+                <label htmlFor="szuro-honnan" style={{ fontSize: 12 }}>Honnan (város)</label>
                 <input
+                  id="szuro-honnan"
                   className="input"
                   type="text"
                   value={filterFromCity}
@@ -287,8 +288,9 @@ export default function SoforFuvarokLista() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12 }}>Hová (város)</label>
+                <label htmlFor="szuro-hova" style={{ fontSize: 12 }}>Hová (város)</label>
                 <input
+                  id="szuro-hova"
                   className="input"
                   type="text"
                   value={filterToCity}
@@ -298,8 +300,9 @@ export default function SoforFuvarokLista() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12 }}>Típus</label>
+                <label htmlFor="szuro-tipus" style={{ fontSize: 12 }}>Típus</label>
                 <select
+                  id="szuro-tipus"
                   className="input"
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value as '' | 'true' | 'false')}
@@ -311,8 +314,9 @@ export default function SoforFuvarokLista() {
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 12 }}>Min ár (Ft)</label>
+                <label htmlFor="szuro-min-ar" style={{ fontSize: 12 }}>Min ár (Ft)</label>
                 <input
+                  id="szuro-min-ar"
                   className="input"
                   type="number"
                   value={filterMinPrice}
@@ -322,8 +326,9 @@ export default function SoforFuvarokLista() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12 }}>Max ár (Ft)</label>
+                <label htmlFor="szuro-max-ar" style={{ fontSize: 12 }}>Max ár (Ft)</label>
                 <input
+                  id="szuro-max-ar"
                   className="input"
                   type="number"
                   value={filterMaxPrice}
@@ -333,8 +338,9 @@ export default function SoforFuvarokLista() {
                 />
               </div>
               <div>
-                <label style={{ fontSize: 12 }}>Max súly (kg)</label>
+                <label htmlFor="szuro-max-suly" style={{ fontSize: 12 }}>Max súly (kg)</label>
                 <input
+                  id="szuro-max-suly"
                   className="input"
                   type="number"
                   value={filterMaxWeight}

@@ -1,5 +1,7 @@
 'use client';
 
+import { torolPiszkozatokElotaggal, UJ_FUVAR_PISZKOZAT_ELOTAG } from './urlapPiszkozat';
+
 // Aktuális bejelentkezett user kezelése – localStorage-ból olvassa.
 // Nincs külön context, nincs külön provider, egy hook, ami a kliensen
 // bármikor visszaadja az aktuális role-t. A login/logout hívásokkor
@@ -59,6 +61,10 @@ export function clearCurrentUser() {
   // fejlécet kapott. A mód azóta felhasználóhoz kötött (lásd lent), a globális
   // kulcsot itt csak takarítjuk, hogy régi böngészőkben se szivárogjon át.
   window.localStorage.removeItem('gofuvar_mode');
+  // (D3, 2026-09-13) A fuvarfeladás piszkozata (címzett neve, telefonja,
+  // címek) ne maradjon a következő fióknak — felhasználóhoz kötött kulcs
+  // ÉS kijelentkezéskor törlés (a régi, globális kulcsot is viszi).
+  torolPiszkozatokElotaggal(UJ_FUVAR_PISZKOZAT_ELOTAG);
   window.dispatchEvent(new Event(EVENT));
 }
 
