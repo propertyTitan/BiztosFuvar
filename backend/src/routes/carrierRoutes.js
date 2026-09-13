@@ -32,7 +32,7 @@ const {
   sendCancellationEmail,
   sendFeeConfirmationEmail,
 } = require('../services/email');
-const { firstContactLeak, detectContactLeak } = require('../utils/contactGuard');
+const { firstContactLeak, detectContactLeak, ellenorizIndok } = require('../utils/contactGuard');
 
 const router = express.Router();
 
@@ -65,9 +65,15 @@ function scrubBookingForUser(booking, user) {
   // megkerülhető: a feladó saját magát adja meg címzettként, és a szállító a
   // foglalás megerősítésekor (fizetés előtt) kiolvassa a számát. (Ugyanaz a
   // kapu, mint a fuvar-ág scrubJobForUser-ében.)
-  const { delivery_code, tracking_token, ...rest } = booking;
+  // (D1, 2026-09-13) A feladó fizetési munkamenete (barion_*) a szállítóra
+  // nem tartozik; a lemondás indoka (`cancel_reason`) a díj előtt nem jár.
+  const {
+    delivery_code, tracking_token, barion_payment_id, barion_gateway_url, ...rest
+  } = booking;
   if (booking.paid_at) return rest;
-  const { recipient_name, recipient_phone, recipient_email, ...preFee } = rest;
+  const {
+    recipient_name, recipient_phone, recipient_email, cancel_reason, ...preFee
+  } = rest;
   // GF-008 (user-döntés, 2026-08-30): a pontos (házszámos) cím a foglalási
   // ágon is csak a díj után — a megerősítéshez az utca-szint + kerekített
   // koordináta elég (a fuvar-ág scrubJobForUser-ével azonos szabály).
@@ -1237,7 +1243,11 @@ router.post(
 //
 // Tiltott állapotok: in_progress, delivered, cancelled, rejected.
 router.post('/route-bookings/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
-  const { reason } = req.body || {};
+  // (D1, 2026-09-13) Indok: opcionális, ≤500 karakter, kontakt-szűrővel —
+  // a fuvar-ág párja.
+  const indok = ellenorizIndok(req.body?.reason);
+  if (!indok.ok) return res.status(400).json({ error: indok.error, code: indok.code });
+  const reason = indok.value;
   const { rows } = await db.query(
     `SELECT b.*, r.carrier_id, r.title AS route_title,
             s.full_name AS shipper_name, s.email AS shipper_email,

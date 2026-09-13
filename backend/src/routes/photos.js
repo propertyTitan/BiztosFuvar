@@ -115,7 +115,11 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   // a platformon kívül bonyolódna (a díj a platform egyetlen bevétele —
   // készpénzes modell). A feladó utólag is fizethet (confirm-payment),
   // utána a fotó-feltöltés újra megengedett.
-  if ((kind === 'pickup' || kind === 'dropoff') && !job.paid_at) {
+  // ⚠️ MINDEN nem-hirdetési fotótípus (2026-09-13, teljes audit D1): a kapu
+  // csak a pickup/dropoff-ot fedte, a `damage`/`document` a díj előtt is
+  // feltölthető volt — és a fotó a másik félnek látszik: egy lefotózott
+  // névjegy/telefonszám kontakt-csatorna, amit a szöveg-szűrő nem lát.
+  if (kind !== 'listing' && !job.paid_at) {
     return res.status(409).json({
       error: 'A feladó még nem fizette meg a kapcsolatfelvételi díjat — a munka csak ezután kezdhető el.',
     });
@@ -540,7 +544,8 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
 
   // Fizetési guard: a munka csak a kapcsolatfelvételi díj beérkezése után
   // indulhat (a fuvarokkal azonos szabály)
-  if ((kind === 'pickup' || kind === 'dropoff') && !booking.paid_at) {
+  // (D1) MINDEN foglalás-fotótípus a díj után — a fuvar-ág párja.
+  if (!booking.paid_at) {
     return res.status(409).json({
       error: 'A feladó még nem fizette meg a kapcsolatfelvételi díjat — a munka csak ezután kezdhető el.',
     });

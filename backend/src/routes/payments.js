@@ -341,7 +341,7 @@ router.get('/payments/admin/log', authRequired, async (req, res) => {
 // ESCROW & PAYOUT STATUS (a fuvar felének, IDOR-védett)
 // ============================================================
 router.get('/jobs/:jobId/escrow', authRequired, async (req, res) => {
-  const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
+  const { notFound, isParty, isShipper, isAdmin } = await getJobParty(req.params.jobId, req.user);
   if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
   if (!isParty) return res.status(403).json({ error: 'Nincs jogosultság ehhez a fuvarhoz.' });
 
@@ -352,7 +352,13 @@ router.get('/jobs/:jobId/escrow', authRequired, async (req, res) => {
        FROM escrow_transactions WHERE job_id = $1`,
     [req.params.jobId],
   );
-  res.json(rows[0] || null);
+  const sor = rows[0] || null;
+  if (!sor || isShipper || isAdmin) return res.json(sor);
+  // (D1, 2026-09-13) A SZÁLLÍTÓ csak a díj állapotát látja — a feladó
+  // fizetési munkamenete (PSP-azonosító, gateway-link) nem az övé; a
+  // linkkel a feladó nevében fizetést tudott volna indítani/megnézni.
+  const { barion_payment_id, barion_gateway_url, ...allapot } = sor;
+  res.json(allapot);
 });
 
 router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {

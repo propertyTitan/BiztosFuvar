@@ -18,9 +18,13 @@ function maskEmail(e) {
  */
 const SZOVEG_EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
 const SZOVEG_TEL_RE = /(?:\+\d[\d\s\-/().]{7,18}\d|\b06[\s\-/]?\d{1,2}[\s\-/]?\d{3}[\s\-/]?\d{3,4}\b)/g;
+// 6 jegyű átvételi kód (D1, 2026-09-13): a címzetti e-mail tárgya a kóddal
+// ment a Sentry-riasztás extrájába — naplóban/riasztásban egy csupasz
+// 6 jegyű szám maszkolása semmit nem veszít, a kód pedig bizonyíték-érték.
+const SZOVEG_KOD_RE = /\b\d{6}\b/g;
 function maskInText(szoveg) {
   if (!szoveg || typeof szoveg !== 'string') return szoveg;
-  return szoveg.replace(SZOVEG_EMAIL_RE, '***@***').replace(SZOVEG_TEL_RE, '***');
+  return szoveg.replace(SZOVEG_EMAIL_RE, '***@***').replace(SZOVEG_TEL_RE, '***').replace(SZOVEG_KOD_RE, '***');
 }
 
 function maskPhone(p) {
