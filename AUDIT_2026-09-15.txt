@@ -45,7 +45,7 @@ Helyi bizonyítékok:
 A KÉRT NÉGY JAVÍTÁS
 
 1. Fotófeltöltés: a létrehozott fuvar azonosítója megmarad; a feltöltő
-   tényleges darabszámot és fájlonkénti hibát mutat, csak a vissza nem igazolt
+   a visszaigazolt feltöltések darabszámát és fájlonkénti hibát mutat, csak a vissza nem igazolt
    képeket próbálja újra. Az ismert sikeres képeket nem küldi ismét, és nem
    hoz létre új fuvart. A törölt piszkozatot a mentési effekt nem írja vissza.
    Fájlok: web/app/dashboard/uj-fuvar/page.tsx;
