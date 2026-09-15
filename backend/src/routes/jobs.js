@@ -192,6 +192,9 @@ function kozelitoHely(job) {
 // fizet, az nem bot), az azonosítást a banki fizetés adja (QVIK/kártya).
 // A szállítói oldal kapuja (requireDriverKYC a licitnél) változatlan.
 router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req, res) => {
+  if (req.body?.currency != null && String(req.body.currency).toUpperCase() !== 'HUF') {
+    return res.status(400).json({ error: 'Jelenleg csak forintban adható fel fuvar.', code: 'UNSUPPORTED_CURRENCY' });
+  }
   const {
     title, description,
     pickup_address, pickup_lat, pickup_lng,
@@ -1644,6 +1647,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
           AND carrier_id IS NULL
           AND shipper_id <> $1
           AND suggested_price_huf > 0
+          AND currency = 'HUF'
           AND suggested_price_huf = $3
           AND (instant_expires_at IS NULL OR instant_expires_at > NOW())
       RETURNING *`,
@@ -1654,7 +1658,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       await client.query('ROLLBACK');
       // Megnézzük: egyáltalán létezik-e az azonnali fuvar és miért nem ment?
       const { rows: check } = await db.query(
-        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at, suggested_price_huf
+        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at, suggested_price_huf, currency
            FROM jobs WHERE id = $1`,
         [req.params.id],
       );
@@ -1667,6 +1671,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
         return res.status(410).json({ error: 'Az azonnali fuvar lejárt.' });
       }
       if (j.status === 'bidding') {
+        if (j.currency !== 'HUF') return res.status(409).json({ error: 'Jelenleg csak forintban vállalható fuvar.', code: 'UNSUPPORTED_CURRENCY' });
         if (!validExpectedPrice) return res.status(400).json({ error: 'Frissítsd a hirdetést, majd erősítsd meg a megjelenített fix árat.', code: 'PRICE_CONFIRMATION_REQUIRED' });
         return res.status(409).json({ error: 'A fuvar ára időközben megváltozott. Nézd át a frissített hirdetést, és csak az új ár ismeretében vállald el.', code: 'PRICE_CHANGED' });
       }

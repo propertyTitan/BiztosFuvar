@@ -79,7 +79,7 @@ describe('GET /bids/preview', () => {
     // Nem támogatott pár: nem szabad „valamilyen" árfolyamot kitalálni hozzá.
     const ismeretlen = await request(app)
       .get('/bids/preview?amount=20000&currency=USD&job_currency=HUF').set(auth(user.token));
-    expect(ismeretlen.status, 'ismeretlen valutapár nem okozhat hibát').toBe(200);
+    expect(ismeretlen.status, 'nem támogatott valutára egyértelmű elutasítás jár').toBe(400);
     expect(ismeretlen.body.convertedAmount,
       'csak az EUR↔HUF párt tudjuk átváltani — máshoz NE adjunk kitalált átváltást')
       .toBeUndefined();

@@ -7,7 +7,6 @@ const paymentProvider = require('../services/paymentProvider');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendBidReceivedEmail, sendBidAcceptedEmail, sendPaymentDueEmail } = require('../services/email');
-const { convertEurToHuf, convertHufToEur, freezeExchangeRate } = require('../services/exchange');
 const { getJobParty } = require('../utils/jobAccess');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const { detectContactLeak } = require('../utils/contactGuard');
@@ -20,6 +19,9 @@ const router = express.Router();
 // díj (tájékoztató jelleggel adjuk vissza).
 router.get('/bids/preview', authRequired, async (req, res) => {
   const { amount, currency = 'HUF', job_currency } = req.query;
+  if (String(currency).toUpperCase() !== 'HUF' || (job_currency && String(job_currency).toUpperCase() !== 'HUF')) {
+    return res.status(400).json({ error: 'Jelenleg csak forintban adható ajánlat.', code: 'UNSUPPORTED_CURRENCY' });
+  }
   const amt = Number(amount);
   if (!amt || amt <= 0) {
     return res.status(400).json({ error: 'Érvénytelen összeg' });
@@ -31,21 +33,6 @@ router.get('/bids/preview', authRequired, async (req, res) => {
     netPayout: amt,
     cashPayment: true,
   };
-
-  // Ha a fuvar EUR-ban van de a szállító HUF-ban akar licitálni (vagy fordítva)
-  if (job_currency && job_currency !== currency) {
-    if (currency === 'EUR' && job_currency === 'HUF') {
-      const conv = await convertEurToHuf(amt);
-      result.convertedAmount = conv.hufAmount;
-      result.convertedCurrency = 'HUF';
-      result.exchangeRate = conv.rate;
-    } else if (currency === 'HUF' && job_currency === 'EUR') {
-      const conv = await convertHufToEur(amt);
-      result.convertedAmount = conv.eurAmount;
-      result.convertedCurrency = 'EUR';
-      result.exchangeRate = conv.rate;
-    }
-  }
 
   res.json(result);
 });
@@ -110,7 +97,7 @@ router.get('/bids/mine', authRequired, async (req, res) => {
 });
 
 // POST /jobs/:jobId/bids – bárki licitálhat egy fuvarra, kivéve ha ő a feladója
-// Támogatja a multi-currency-t: a szállító a fuvar valutájában VAGY a sajátjában licitálhat
+// Induláskor csak HUF: a végleges ár és a kapcsolatfelvételi díj is forint.
 router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriverKYC, writeRateLimit, async (req, res) => {
   const { jobId } = req.params;
   const { amount_huf, amount, currency, message, eta_minutes, return_policy, return_fee_huf } = req.body || {};
@@ -122,7 +109,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
   // valutára is elindítja az árfolyam-befagyasztást (külső ECB-hívás), a
   // felületen pedig szemét jelenik meg. A `return_policy` már helyesen zárt —
   // a valuta kimaradt.
-  const TAMOGATOTT_VALUTAK = ['HUF', 'EUR'];
+  const TAMOGATOTT_VALUTAK = ['HUF'];
   if (currency !== undefined && currency !== null
       && !TAMOGATOTT_VALUTAK.includes(String(currency).toUpperCase())) {
     return res.status(400).json({
@@ -190,15 +177,12 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
   // a szállítói nyilatkozat (requireDriverKYC) elég; a can_bid/license-kapu kivéve.
 
   try {
-    // Árfolyam befagyasztás ha cross-currency licit
-    let exchangeRate = null;
-    let exchangeFrozenAt = null;
-    const jobCurrency = jobRows[0].job_currency || 'HUF';
-    if (bidCurrency !== jobCurrency) {
-      const frozen = await freezeExchangeRate();
-      exchangeRate = frozen.rate;
-      exchangeFrozenAt = frozen.frozenAt;
+    // A teljes megállapodási és díjfolyamat forintban működik.
+    if ((jobRows[0].job_currency || 'HUF') !== 'HUF') {
+      return res.status(409).json({ error: 'Ehhez a fuvarhoz előbb forintban kell rögzíteni az árat.', code: 'UNSUPPORTED_CURRENCY' });
     }
+    const exchangeRate = null;
+    const exchangeFrozenAt = null;
 
     // ⚠️ ELUTASÍTOTT AJÁNLAT UTÁN ÚJRA LEHET PRÓBÁLKOZNI (2026-08-16,
     // tesztelői észrevétel). A bids-en UNIQUE (job_id, carrier_id) él, és a
@@ -332,6 +316,10 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
 // Visszaad: { ok:true, barionRes, feeHuf, feeAlreadyPaid } VAGY
 //           { ok:false, status, error, detail? } — ekkor a hívó ROLLBACK-el.
 async function finalizeAcceptedBid(client, bid, agreedPrice) {
+  // Régi EUR-ajánlat sem értelmezhető át forintnak. Új HUF-ajánlat kell.
+  if ((bid.currency || 'HUF') !== 'HUF' || (bid.job_currency || 'HUF') !== 'HUF') {
+    return { ok: false, status: 409, code: 'UNSUPPORTED_CURRENCY', error: 'Jelenleg csak forintban kötünk megállapodást. Kérj új, forintban megadott ajánlatot.' };
+  }
   // Az ajánlattétel óta visszavonhatók a jogosultságok. A véglegesítés
   // tranzakciójában újra ellenőrizzük, és az admin módosításával sorosítjuk.
   const { rows: carriers } = await client.query(
@@ -620,7 +608,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
 
     const { rows: bidRows } = await client.query(
       `SELECT b.*, j.shipper_id, j.status AS job_status,
-              j.paid_at, j.connection_fee_huf,
+              j.paid_at, j.connection_fee_huf, j.currency AS job_currency,
               s.email AS shipper_email,
               c.email AS carrier_email
          FROM bids b
@@ -694,7 +682,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     await client.query('BEGIN');
     const { rows: bidRows } = await client.query(
       `SELECT b.*, j.shipper_id, j.status AS job_status,
-              j.paid_at, j.connection_fee_huf,
+              j.paid_at, j.connection_fee_huf, j.currency AS job_currency,
               s.email AS shipper_email, c.email AS carrier_email
          FROM bids b
          JOIN jobs j  ON j.id = b.job_id
