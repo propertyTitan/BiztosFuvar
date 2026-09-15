@@ -1,4 +1,116 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
+
+2026-09-15 – A 704369d UTÓAUDITJÁNAK 1 P0 + 4 P1 JAVÍTÁSA
+
+Ág: fix/launch-audit-boundaries. Az öt javítás és a helyi ellenőrzés kész.
+A PR, CI, merge és production állapotát a telepítés után kell ide rögzíteni.
+Az alábbi öt tétel az új auditból ered; a korábbi két P0 és 12 P1 története
+e szakasz után olvasható. Ez nem állítás minden további hiba kizárásáról.
+
+A1 / P0 – A FOTÓRETENCIÓ ÉS A MEGŐRZÉSI ZÁROLÁS VERSENYE JAVÍTVA
+Commit: ce3313f; a tárhelyhívás időkorlátja: 401bb35.
+Fájlok: backend/src/services/retention.js, storage.js; routes/disputes.js;
+backend/tests/launch-audit-retention-race.test.js, tarolo-hibaagak.test.js.
+A jelöltlista után a retenció zárolja a fuvar/foglalás sorát, majd új
+SQL-lekérdezésből ismét ellenőrzi az aktuális jogosultságot a törlésre.
+A zár a tárolótörlés végéig tart; a vita ugyanezen zár alatt ellenőrzi a
+csatolt fotó tulajdonjogát és írja a holdot. A megőrzési idők változatlanok.
+R2-törlés 10 másodperces megszakítási jelzést kap; sikertelen törléskor
+megmarad a DB-mutató és újrapróbálható. A tesztek mindkét ügyletfajtán,
+vita- és admin-holddal, mindkét konkurens sorrenddel és tárhelyhibával futnak.
+Kockázat: közepes; a törlés rövid ideig blokkolhatja ugyanazt az ügyletet.
+
+A2 / P1 – ELAVULT AJÁNLATI ÁR ELFOGADÁSA JAVÍTVA
+Commit: ff02b30; további API-fogyasztók: a85a30b.
+Fájlok: backend/db/migrations/088_bid_revision.sql; routes/bids.js;
+web/src/api.ts; web/app/dashboard/fuvar/[id]/page.tsx;
+web/app/sofor/fuvar/[id]/page.tsx; mobile/src/api.ts;
+mobile/app/feladas/[id].tsx; backend/scripts/eles-fustteszt.js.
+Minden ajánlatmódosítás DB-triggerrel növeli a revisiont. Mindkét elfogadó
+végpont kötelezően összeveti az expected_revision és expected_amount_huf
+értékét a zárolt sorral. Eltérésre 409 OFFER_CHANGED; a web frissít és új
+kattintást kér. Azonos árra visszamódosítás sem fogadja el a régi verziót.
+Teszt: launch-audit-offer-snapshot.test.js; web API- és komponenspróbák;
+E2E-ben az elküldött elfogadás elé valódi ellenajánlatot időzítünk mindkét
+szerepkörnél. A későbbi új kattintás már a friss árat fogadja el.
+Kockázat: közepes; a 088-as migráció a backend előtt kell. Régi, már
+megnyitott böngésző újratöltése szükséges, ha nem küldi az új mezőket.
+
+A3 / P1 – SAJÁT PIN LÁTHATÓSÁGA VITA ALATT JAVÍTVA
+Commit: ef7317d.
+Fájl: web/app/dashboard/fuvar/[id]/page.tsx;
+teszt: web/src/components/JobDetailRecovery.test.tsx;
+web/e2e/26-launch-audit-hatarhelyzetek.spec.ts.
+Fizetett, még fizikailag accepted/in_progress fuvaron vita közben is
+látható a feladó saját kódja a status_before_dispute alapján. Kézbesítés,
+lemondás és fizetés előtt rejtve marad. A backend titokkiadása nem bővül.
+Teszt: nyolc állapotot fedő DOM-mátrix; két 375×812-es böngészőablakban
+felvétel → vita → újratöltés → PIN kiolvasása a feladó képernyőjéről →
+szállítói fotó+PIN kézbesítés → a feladói kód eltűnik, a vita nyitva marad.
+Kockázat: alacsony; a megjelenítési feltétel változott.
+
+A4 / P1 – KYC-FELTÖLTÉS ÉS FIÓKTÖRLÉS VERSENYE JAVÍTVA
+Commit: 795e8db.
+Fájlok: backend/src/services/kycUpload.js, storage.js, fileDeletionQueue.js;
+backend/src/routes/auth.js; backend/src/utils/kycHistory.js;
+backend/tests/launch-audit-kyc-lifecycle.test.js.
+Még a fájl bájtjainak írása előtt tartós, egy órával késleltetett törlési
+feladat készül. A véglegesítés user-sorzár alatt együtt menti az okmányt,
+a KYC-státuszt és a lenyomatot, sorba állítja a régi fájlt és törli az új
+fájl ideiglenes feladatát. Megszűnt fióknál 404; már eltakarított, lejárt
+feltöltésnél 409. Hibánál a feladat előrehozható, tárolóhiba után megmarad.
+Bizonytalan COMMIT-válasznál a tranzakció tényleges döntése határozza meg,
+hogy a fájl takarítható-e; sikeresen mentett okmányt nem törlünk találomra.
+Teszt: valódi helyi fájl és adatbázis, megállított AI-hívás alatti
+fióktörlés, tárhelyhiba, lejárt feltöltés, normál törlés, írás előtti
+DB-hiba, AI-kivétel, COMMIT előtti és utáni válaszhiba.
+Kockázat: közepes; tranzakcióhatár és fájléletciklus változott. Történeti,
+már korábban nyom nélkül maradt R2-fájlokat ez nem azonosít visszamenőleg.
+
+A5 / P1 – KUPON UTÁN BERAGADÓ TESZTFIZETÉSI SESSION JAVÍTVA
+Commit: f36bf2d.
+Fájlok: backend/db/migrations/089_simulated_payment_sessions.sql;
+backend/src/services/gamification.js;
+backend/tests/launch-audit-voucher-session.test.js.
+A szerver által tárolt, pontosan összetartozó CIB/QVIK stub ID és URL
+bizonyítja a szimulációt. Prefix vagy aktuális környezeti beállítás nem
+elegendő. Kuponbeváltáskor a pending szimuláció ugyanabban a tranzakcióban
+closed/voucher lesz; a migráció a bizonyított történeti kuponos esetet is
+rendezi. Valódi/ismeretlen fizetési session védelme megmarad. Sikeres banki
+eseményt, díjbizonylatot vagy számlát nem hamisítunk a kuponhoz.
+Teszt: CIB és QVIK normál API-folyamat, kupon → lemondás → mindkét fiók
+törlése; valódi/ismeretlen session továbbra is 409; tranzakciós hiba és
+migrációs javítás. A besorolást szolgáltatóváltás sem írja át.
+Kockázat: közepes; a 089-es migráció a backend előtt kell. A nem bizonyított
+régi függő fizetéseket továbbra is külön szolgáltatói egyeztetés zárhatja le.
+
+ELLENŐRZÉSI EREDMÉNYEK
+- Backend: 175 fájl, 1960/1960 sikeres teszt, nulla kihagyás.
+- Lefedettségi kapu: sor 93,22%; utasítás 91,72%; függvény 88,63%; ág 84,18%.
+- Web: 192/192 sikeres teszt; TypeScript és Next production build sikeres.
+- Helyi teljes stack, kilenc célzott Playwright-próba sikeres: teljes
+  licit–fizetés–felvétel–kézbesítés, ellenajánlat, PIN-állapotok, két
+  tényleges árverseny és mobilnézetű vitás kézbesítés két fiókkal.
+- A natív kliens ajánlathívása igazítva. Natív eszközpróba nem volt;
+  a teljes mobile tsc a változatlan hub.tsx:56 Expo NotificationBehavior
+  shouldShowBanner/shouldShowList hiányán bukik. Ez a phase 2 app meglévő
+  korlátja; a webes launch buildjét nem érinti.
+- Naplók: /private/tmp/gofuvar-audit-full-backend.json;
+  /private/tmp/gofuvar-audit-full-web.json; /private/tmp/gofuvar-audit-build.log;
+  /private/tmp/gofuvar-launch-audit-e2e.log; /private/tmp/gofuvar-audit-mobile-tsc.log.
+- A bank, SMS, e-mail és okmányellenőrzés külső műveleteit a tesztek
+  helyettesítik; ezek nem bizonyítják az éles banki integráció működését.
+
+TELEPÍTÉS
+Előellenőrzés: 87 alkalmazott migráció; csak 088 és 089 függő. A 35 korábbi
+fizetési kapcsolat megvan, nincs hiányzó kötelező adat vagy ütköző ID.
+Sorrend: 088_bid_revision.sql → 089_simulated_payment_sessions.sql →
+backend és web. Mindkettő bővítő séma. Kód-visszaállításnál az új oszlopokat
+és fizetési előzményeket meg kell őrizni. Deploy után ellenőrizni kell, hogy
+nem maradt migráció és deploy között létrejött, kuponnal rendezett pending
+szimuláció. Az éles migráció és telepítés igazolása még külön lépés.
+
+KORÁBBI JAVÍTÁSI KÖR TÖRTÉNETE
 2026-09-15 – a két P0 összevonva; mind a 12 P1 kódjavítása elkészült
 
 Kiinduló audit: AUDIT_2026-09-15.txt (2 P0, 12 P1, 10 P2).
