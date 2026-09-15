@@ -11,7 +11,6 @@ const express = require('express');
 // escape-elése (név, cím, fuvarcím). Enélkül egy szállító a saját nevébe
 // tett linkkel GoFuvar-arculatú levelet küldethetne a másik félnek.
 const { escapeHtml: esc, wrapHtml, cimzettiTajekoztatoBlokk } = require('../services/email');
-const crypto = require('crypto');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
@@ -22,6 +21,7 @@ const { saveFile } = require('../services/storage');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { markTaxDataRequestedIfNeeded } = require('../services/dac7');
 const { getJobParty } = require('../utils/jobAccess');
+const { commitPhoto, codesMatch } = require('../services/photoEvidence');
 
 const router = express.Router();
 // 10 MB kép-korlát: memóriából dolgozunk, mert a storage service
@@ -45,15 +45,6 @@ async function fotoPlafonElerve({ jobId = null, bookingId = null, kind }) {
     [jobId, bookingId, kind],
   );
   return rows[0].n >= MAX_PHOTOS_PER_KIND;
-}
-
-// Konstans idejű kód-összehasonlítás: hash-elt formában vetjük össze, így a
-// hossz-eltérés sem szivárogtat, és a timingSafeEqual feltétele is teljesül.
-function codesMatch(input, expected) {
-  if (!expected) return false;
-  const a = crypto.createHash('sha256').update(String(input)).digest();
-  const b = crypto.createHash('sha256').update(String(expected)).digest();
-  return crypto.timingSafeEqual(a, b);
 }
 
 const MAX_CODE_ATTEMPTS = 5;
@@ -82,7 +73,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   }
 
   const { rows: jobRows } = await db.query('SELECT * FROM jobs WHERE id = $1', [jobId]);
-  const job = jobRows[0];
+  let job = jobRows[0];
   if (!job) return res.status(404).json({ error: 'Fuvar nem található' });
   if (await fotoPlafonElerve({ jobId, kind })) {
     return res.status(400).json({ error: `Ehhez a fuvarhoz már ${MAX_PHOTOS_PER_KIND} „${kind}" fotó tartozik — több nem tölthető fel.`, code: 'PHOTO_LIMIT' });
@@ -198,13 +189,6 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           : 'Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.',
       });
     }
-    // Sikeres kód → számláló nullázása
-    await db.query(
-      `UPDATE jobs SET delivery_code_attempts = 0, delivery_code_locked_until = NULL WHERE id = $1`,
-      [jobId],
-    );
-    // Logolás: melyik kóddal zárult le (vita rendezéshez)
-    req._closedByCodeType = isSenderCode ? 'sender_emergency' : 'recipient';
   }
 
   // Tárolás: a storage service eldönti, hogy Cloudflare R2-re vagy
@@ -218,52 +202,23 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     url = encodeAsDataUrl(req.file);
   }
 
-  // Mentés. Az AI elemzés-mezők mostantól mindig null-ok (csak rögzítjük a fotót,
-  // nem minősítjük). A GPS log-szerűen kerül be, bizonyítékként, akkor is ha
-  // nem pont a cél koordinátáján áll a szállító.
-  const { rows } = await db.query(
-    // Az ai_* oszlopok a 071-es migrációval TÖRÖLVE: fixen NULL-t írtunk
-    // beléjük, olvasójuk nem volt (a nyers AI-válasz egy lakásfotóról a
-    // lehető legbeszédesebb tartalom lett volna).
-    `INSERT INTO photos (job_id, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-    [
-      jobId, req.user.sub, kind, url,
-      gps_lat ? parseFloat(gps_lat) : null,
-      gps_lng ? parseFloat(gps_lng) : null,
-      gps_accuracy_m ? parseFloat(gps_accuracy_m) : null,
-    ],
-  );
-  const photo = rows[0];
-
-  // Workflow tranzíciók
+  let saved;
+  try {
+    saved = await commitPhoto({
+      jobId, uploaderId: req.user.sub, kind, url, deliveryCode: delivery_code,
+      maxPhotos: MAX_PHOTOS_PER_KIND,
+      gps: [gps_lat, gps_lng, gps_accuracy_m].map((value) => value ? parseFloat(value) : null),
+    });
+  } catch (error) {
+    if (error.photoStatus) return res.status(error.photoStatus).json(error.photoBody);
+    throw error;
+  }
+  // A frissen zárolt sor adatai alapján értesítünk, kizárólag COMMIT után.
+  job = saved.entity;
+  const photo = saved.photo;
   const validation = { ok: true };
 
-  // Vita alatt a fizikai lépés megtörténik, de a 'disputed' státusz MARAD
-  // (különben egy fotó-feltöltés némán eltüntetné a vitát). Helyette azt
-  // léptetjük, hogy a vita lezárásakor hova térjen vissza a fuvar.
-  if (kind === 'pickup' && job.status === 'disputed' && job.status_before_dispute === 'accepted') {
-    await db.query(
-      `UPDATE jobs SET status_before_dispute = 'in_progress', updated_at = NOW() WHERE id = $1`,
-      [jobId],
-    );
-  }
-  if (kind === 'pickup' && job.status === 'accepted') {
-    // ⚠️ FELTÉTELES (2026-09-11, Codex-audit P0-04): a SELECT és az UPDATE
-    // között a feladó lemondhatta a fuvart — a feltétel nélküli UPDATE a
-    // 'cancelled'-et 'in_progress'-re írta volna felül. A dropoff-ág ezt már
-    // helyesen csinálta (claim + rowCount), a pickup-ág nem.
-    const felvesz = await db.query(
-      `UPDATE jobs SET status = 'in_progress', updated_at = NOW()
-        WHERE id = $1 AND status = 'accepted'`,
-      [jobId],
-    );
-    if (felvesz.rowCount === 0) {
-      return res.status(409).json({
-        error: 'A fuvar állapota időközben megváltozott (pl. lemondták) — frissítsd az oldalt.',
-        code: 'STATE_CHANGED',
-      });
-    }
+  if (saved.pickedUp && job.status !== 'disputed') {
     realtime.emitToJob(jobId, 'job:picked_up', { job_id: jobId, photo });
 
     // ⚠️ A FELADÓ ÉRTESÍTÉSE A FELVÉTELRŐL (2026-08-16, tesztelői észrevétel).
@@ -346,16 +301,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   // státusz MARAD (a vitát egy fotó nem tüntetheti el). A `delivered_at`-ot
   // rögzítjük, és a „hova térünk vissza" értéket 'delivered'-re állítjuk —
   // így a vita lezárásakor a fuvar a helyes végállapotba kerül.
-  if (kind === 'dropoff' && job.status === 'disputed') {
-    await db.query(
-      `UPDATE jobs
-          SET delivered_at = COALESCE(delivered_at, NOW()),
-              status_before_dispute = 'delivered',
-              closed_by_code_type = COALESCE(closed_by_code_type, $2),
-              updated_at = NOW()
-        WHERE id = $1`,
-      [jobId, req._closedByCodeType || 'recipient'],
-    );
+  if (saved.delivered && job.status === 'disputed') {
     // UTÓHATÁS (2026-09-11, teljes audit C1): a vita alatti kézbesítésről a
     // feladó eddig SEMMIT nem tudott meg (a normál ág értesít, ez nem) —
     // a csomag megérkezett, a vita nyitva maradt, de a harang néma volt.
@@ -369,20 +315,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, disputed: true });
   }
 
-  if (kind === 'dropoff' && job.status === 'in_progress') {
-    // A kód már validálva volt feljebb. Atomi státusz-átmenet: két párhuzamos
-    // dropoff kérés közül csak az első nyerhet — a második itt kiesik, így
-    // nem indulhat dupla kifizetés.
-    const claim = await db.query(
-      `UPDATE jobs SET status = 'delivered', delivered_at = NOW(), updated_at = NOW(),
-              closed_by_code_type = $2
-        WHERE id = $1 AND status = 'in_progress'`,
-      [jobId, req._closedByCodeType || 'recipient'],
-    );
-    if (claim.rowCount === 0) {
-      return res.status(409).json({ error: 'Ezt a fuvart időközben már lezárták.' });
-    }
-
+  if (saved.delivered && job.status !== 'disputed') {
     // Készpénzes modell: kézbesítéskor NINCS pénzmozgás a platformon — a
     // szállító a fuvardíjat készpénzben kapja a feladótól/címzettől. A
     // kapcsolatfelvételi díj könyvelése már a fizetéskor lezárult
@@ -523,7 +456,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
       WHERE b.id = $1`,
     [bookingId],
   );
-  const booking = bRows[0];
+  let booking = bRows[0];
   if (!booking) return res.status(404).json({ error: 'Foglalás nem található' });
   if (await fotoPlafonElerve({ bookingId, kind })) {
     return res.status(400).json({ error: `Ehhez a foglaláshoz már ${MAX_PHOTOS_PER_KIND} „${kind}" fotó tartozik — több nem tölthető fel.`, code: 'PHOTO_LIMIT' });
@@ -591,10 +524,6 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
           : 'Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.',
       });
     }
-    await db.query(
-      `UPDATE route_bookings SET delivery_code_attempts = 0, delivery_code_locked_until = NULL WHERE id = $1`,
-      [bookingId],
-    );
   }
 
   // Tárolás (R2 / disk / base64 fallback — a fuvar-fotókkal azonos út)
@@ -606,34 +535,21 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     url = encodeAsDataUrl(req.file);
   }
 
-  const { rows } = await db.query(
-    `INSERT INTO photos (booking_id, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m)
-     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-    [
-      bookingId, req.user.sub, kind, url,
-      gps_lat ? parseFloat(gps_lat) : null,
-      gps_lng ? parseFloat(gps_lng) : null,
-      gps_accuracy_m ? parseFloat(gps_accuracy_m) : null,
-    ],
-  );
-  const photo = rows[0];
+  let saved;
+  try {
+    saved = await commitPhoto({
+      bookingId, uploaderId: req.user.sub, kind, url, deliveryCode: delivery_code,
+      maxPhotos: MAX_PHOTOS_PER_KIND,
+      gps: [gps_lat, gps_lng, gps_accuracy_m].map((value) => value ? parseFloat(value) : null),
+    });
+  } catch (error) {
+    if (error.photoStatus) return res.status(error.photoStatus).json(error.photoBody);
+    throw error;
+  }
+  booking = saved.entity;
+  const photo = saved.photo;
 
-  // ---- Státusz-átmenetek ----
-  if (kind === 'pickup' && booking.status === 'confirmed') {
-    // ⚠️ FELTÉTELES (2026-09-11, teljes audit P0-6): a fuvar-ág párját ma
-    // délelőtt javítottuk, ez kimaradt. A SELECT és ez az UPDATE között a
-    // TELJES R2-feltöltés fut (másodpercek) — egy közben lemondott foglalást
-    // ez a sor „feltámasztott" in_progress-be, ahonnan a lemondás már tilos.
-    const felvesz = await db.query(
-      `UPDATE route_bookings SET status = 'in_progress' WHERE id = $1 AND status = 'confirmed'`,
-      [bookingId],
-    );
-    if (felvesz.rowCount === 0) {
-      return res.status(409).json({
-        error: 'A foglalás állapota időközben megváltozott (pl. lemondták) — frissítsd az oldalt.',
-        code: 'STATE_CHANGED',
-      });
-    }
+  if (saved.pickedUp) {
     realtime.emitToUser(booking.shipper_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
     realtime.emitToUser(booking.carrier_id, 'route-booking:picked_up', { booking_id: bookingId, photo });
 
@@ -690,17 +606,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     }).catch(() => {});
   }
 
-  if (kind === 'dropoff' && booking.status === 'in_progress') {
-    // Atomi státusz-átmenet: párhuzamos kérések közül csak az első nyer
-    const claim = await db.query(
-      `UPDATE route_bookings SET status = 'delivered', delivered_at = NOW()
-        WHERE id = $1 AND status = 'in_progress'`,
-      [bookingId],
-    );
-    if (claim.rowCount === 0) {
-      return res.status(409).json({ error: 'Ezt a foglalást időközben már lezárták.' });
-    }
-
+  if (saved.delivered) {
     // Készpénzes modell: kézbesítéskor nincs pénzmozgás a platformon — a
     // fuvardíjat a szállító készpénzben kapja.
     realtime.emitToUser(booking.shipper_id, 'route-booking:delivered', { booking_id: bookingId, photo });
