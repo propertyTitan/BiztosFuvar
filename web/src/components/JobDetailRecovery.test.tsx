@@ -90,3 +90,22 @@ it('P1-09: vitás szállítói oldalon elérhető a fotó/PIN, kézbesítés ut�
   expect(screen.getByText('Fuvar chat')).toBeInTheDocument();
   expect(mocks.toast.success).toHaveBeenCalledWith('Csomag kézbesítve', expect.stringContaining('vita továbbra is nyitva'));
 });
+
+it.each([
+  ['in_progress', null, true, true],
+  ['disputed', 'accepted', true, true],
+  ['disputed', 'in_progress', true, true],
+  ['disputed', 'delivered', true, false],
+  ['disputed', 'cancelled', true, false],
+  ['disputed', 'in_progress', false, false],
+  ['bidding', null, true, false],
+  ['delivered', null, true, false],
+])('feladói saját PIN: %s/%s, fizetve=%s → látható=%s', async (status, before, paid, visible) => {
+  mocks.user.id = 'shipper';
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, status, status_before_dispute: before,
+    paid_at: paid ? job.paid_at : null, sender_delivery_code: '741852',
+    recipient_name: null, recipient_phone: null, recipient_email: null } as any);
+  render(<ShipperPage />);
+  await screen.findByRole('heading', { name: 'Helyreállt fuvar' });
+  expect(Boolean(screen.queryByText('741852'))).toBe(visible);
+});

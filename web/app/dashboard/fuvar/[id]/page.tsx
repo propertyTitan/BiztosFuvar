@@ -281,7 +281,8 @@ export default function FuvarReszletek() {
           a backend-scrub fizetés előtt már ki sem adja a kódot — ez a
           feltétel a védelem UI-tükre (a felvétel úgyis paid_at mögött van,
           a kódnak előtte semmi szerepe). */}
-      {(job as any).sender_delivery_code && job.paid_at && ['accepted', 'in_progress'].includes(job.status) && (() => {
+      {(job as any).sender_delivery_code && job.paid_at
+        && ['accepted', 'in_progress'].includes(job.status === 'disputed' ? (job.status_before_dispute || '') : job.status) && (() => {
         const vanCimzett = Boolean(job.recipient_name || job.recipient_phone);
         const kod = (job as any).sender_delivery_code as string;
         return (
