@@ -9,12 +9,10 @@ const express = require('express');
 const db = require('../db');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
-const { userHasBlockingDealings } = require('../utils/activePaid');
 const {
-  purgeUserFiles, collectUserFileKeys, collectEntityFileKeys, purgeFileKeys,
+  collectEntityFileKeys, purgeFileKeys,
 } = require('../utils/userFiles');
 const { logAdminAccess } = require('../utils/adminAudit');
-const kycHistory = require('../utils/kycHistory');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -239,68 +237,13 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
     return res.status(400).json({ error: 'Saját admin-fiókodat nem törölheted.' });
   }
 
-  // (2) Aktív, FIZETETT vagy VITATOTT ügylet védelme (2026-08-08, átvizsgálás;
-  // 2026-08-09-től a self-delete-tel közös helper). A user törlése kaszkádol:
-  // a jobs.carrier_id SET NULL (a feladó fuvarja megmarad), DE a
-  // carrier_routes.carrier_id CASCADE → a route_bookings.route_id CASCADE,
-  // vagyis egy szállító törlése MÁS feladók fizetett foglalásait is törölné;
-  // a vitás ügylet bizonyíték-zárolását pedig kiürítené. Előbb le kell zárni
-  // (kézbesítés / lemondás / vita); terminál/fizetetlen ügyletnél szabad.
-  if (await userHasBlockingDealings(targetId)) {
-    return res.status(409).json({
-      error: 'Ez a felhasználó folyamatban lévő, kifizetett, vitatott vagy zárolt bizonyítékú '
-        + 'ügyletben szerepel. Előbb zárd le (kézbesítés / lemondás / vita); zárolt bizonyítéknál '
-        + 'a zárolás lejártáig nem törölhető.',
-      code: 'USER_HAS_ACTIVE_PAID',
-    });
-  }
-
-  // ⚠️ SORREND (2026-08-09, audit): a fájl-kulcsokat a DB-sorok megléte
-  // mellett gyűjtjük ki, a tényleges (visszafordíthatatlan) tárolóból-törlés
-  // viszont csak a SIKERES DB-törlés után fut. Fordítva egy elhasalt DELETE
-  // úgy hagyná ott a fiókot, hogy közben az okmányfotója már megsemmisült.
-  const fileKeys = await collectUserFileKeys(targetId);
-
-  // Az okmány-lenyomat túléli a törlést (user-döntés, 2026-08-10) — az
-  // ADMIN által törölt (jellemzően kitiltott) fióknál ez a fontosabb eset:
-  // enélkül ugyanazzal a személyivel, előzmény nélkül vissza lehetne jönni.
-  // A DB-CASCADE ELŐTT kell jelölni, mert utána a kyc_documents sor már nincs.
-  const client = await db.pool.connect();
-  let del;
-  try {
-    await client.query('BEGIN');
-    await kycHistory.jeloldToroltFioknak(client, targetId, 'admin');
-    // ⚠️ AUDIT-NYOM AZ ADMIN-TÖRLÉSRŐL IS (2026-08-11). Az önkéntes törlés
-    // beírja a HMAC-elt e-mail-lenyomatot, az admin-törlés eddig nem — vagyis
-    // a kitiltás-megkerülés elleni nyom pont a KITILTOTT felhasználóra nem
-    // keletkezett, ami a fontosabb eset. A 30. cikk nyilvántartás 10. pontja
-    // ezt a célt nevezi meg.
-    const { rows: torlendo } = await client.query('SELECT email FROM users WHERE id = $1', [targetId]);
-    await client.query(
-      `INSERT INTO deleted_accounts (original_user_id, email_hash, reason, hash_algo)
-       VALUES ($1, $2, $3, 'hmac-sha256')`,
-      [
-        targetId,
-        require('../utils/pepper').hmac(torlendo[0]?.email || ''),
-        'Adminisztrátori törlés',
-      ],
-    );
-    // Az általa írt értékelések szövege törlődik, a csillag marad (081: SET NULL).
-    await client.query('UPDATE reviews SET comment = NULL WHERE reviewer_id = $1', [targetId]);
-    del = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [targetId]);
-    await client.query('COMMIT');
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
-    throw err;
-  } finally {
-    client.release();
-  }
-  if (del.rowCount === 0) return res.status(404).json({ error: 'Felhasználó nem található' });
-
-  require('../realtime').disconnectUser(targetId).catch(() => {});
-  // GDPR 17. cikk — az R2-objektumok különben örökre árván maradnának.
-  await purgeUserFiles(targetId, { keys: fileKeys });
-  res.json({ ok: true });
+  const result = await require('../services/accountDeletion').deleteAccount(targetId, { reason: 'admin' });
+  if (result.blocked) return res.status(409).json({
+    error: 'A felhasználó függő fizetés, aktív fizetett ügylet, vita vagy zárolt bizonyíték miatt még nem törölhető.',
+    code: 'USER_HAS_ACTIVE_PAID',
+  });
+  if (result.missing) return res.status(404).json({ error: 'Felhasználó nem található' });
+  res.json({ ok: true, files_pending: result.filesPending });
 });
 
 // PATCH /admin/users/:id — felhasználó módosítása (role, KYC, ban)

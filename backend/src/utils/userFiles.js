@@ -28,12 +28,12 @@ const storage = require('../services/storage');
  * @param {string} userId
  * @returns {Promise<string[]>}
  */
-async function collectUserFileKeys(userId) {
+async function collectUserFileKeys(userId, client = db) {
   try {
     // A KYC-fotó státusztól függetlenül megy (pending is), fiók-törléskor
     // minden törlendő. A `deleteFile` kezeli a `private:<kulcs>` és a
     // publikus URL alakot is.
-    const { rows } = await db.query(
+    const { rows } = await client.query(
       `SELECT file_url AS u FROM kyc_documents WHERE user_id = $1 AND file_url IS NOT NULL
        UNION ALL
        SELECT avatar_url FROM users WHERE id = $1 AND avatar_url IS NOT NULL
@@ -69,7 +69,7 @@ async function collectUserFileKeys(userId) {
     return [...new Set(rows.map((r) => r.u).filter(Boolean))];
   } catch (err) {
     console.error('[user-files] kulcs-gyűjtés hiba:', err.message);
-    return [];
+    throw err;
   }
 }
 

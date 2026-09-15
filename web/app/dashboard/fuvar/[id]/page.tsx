@@ -155,6 +155,7 @@ export default function FuvarReszletek() {
         api.listPhotos(id),
       ]);
       setJob(j); setBids(b); setPhotos(p);
+      setError(null);
       if (initialStatusRef.current === null) initialStatusRef.current = j.status;
     } catch (err: any) { setError(err.message); }
   }
@@ -164,6 +165,7 @@ export default function FuvarReszletek() {
   // Real-time: ha érkezik új fotó vagy státuszváltás, frissítünk
   useEffect(() => {
     const unsub = subscribeJob(id, {
+      onReconnect: () => loadAll(),
       onPickedUp: () => loadAll(),
       onDelivered: () => loadAll(),
       onAccepted: () => loadAll(),
@@ -731,7 +733,7 @@ export default function FuvarReszletek() {
 
       {/* Chat — az elfogadott licittől kezdve a feladó és a szállító
           üzenhetnek egymásnak, telefonszám-csere nélkül. */}
-      {['accepted', 'in_progress', 'delivered', 'completed'].includes(job.status) && job.carrier_id && (
+      {['accepted', 'in_progress', 'delivered', 'completed', 'disputed'].includes(job.status) && job.carrier_id && (
         <div style={{ marginTop: 16 }}>
           <ChatBox entityKey="job_id" entityId={id} />
         </div>

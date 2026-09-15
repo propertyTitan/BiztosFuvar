@@ -145,9 +145,9 @@ async function recalcLevel(userId) {
  * @param {string} reason - 'level_monthly' | 'level_up_bonus' | 'promo'
  * @param {number} validDays - hány napig érvényes
  */
-async function grantVoucher(userId, reason, validDays = 30, maxFeeHuf = null) {
+async function grantVoucher(userId, reason, validDays = 30, maxFeeHuf = null, client = db) {
   const validUntil = new Date(Date.now() + validDays * 86400000).toISOString().slice(0, 10);
-  await db.query(
+  await client.query(
     `INSERT INTO fee_vouchers (user_id, reason, valid_until, max_fee_huf)
      VALUES ($1, $2, $3, $4)`,
     [userId, reason, validUntil, maxFeeHuf],

@@ -64,35 +64,37 @@ async function confirmFeePaymentBelso(PaymentId, status) {
   // === ENTITÁS KERESÉSE (fuvar VAGY foglalás a payment-id alapján) ===
   let entity = null;
   const { rows: escrowRows } = await db.query(
-    `SELECT et.*,
+    `SELECT et.*, ps.amount_huf, ps.currency,
             j.id AS job_id, j.shipper_id, j.carrier_id, j.title,
             j.status AS job_status, j.currency AS job_currency,
             s.full_name AS shipper_name, s.billing_country AS shipper_country,
             c.full_name AS carrier_name, c.billing_country AS carrier_country,
             c.tax_id AS carrier_tax_id, c.company_name AS carrier_company,
             c.locale AS carrier_locale
-       FROM escrow_transactions et
-       JOIN jobs j ON j.id = et.job_id
+       FROM payment_sessions ps
+       JOIN jobs j ON j.id = ps.job_id
+  LEFT JOIN escrow_transactions et ON et.job_id = j.id
        JOIN users s ON s.id = j.shipper_id
   LEFT JOIN users c ON c.id = j.carrier_id
-      WHERE et.barion_payment_id = $1`,
+      WHERE ps.payment_id = $1`,
     [PaymentId],
   );
   if (escrowRows[0]) entity = { type: 'job', data: escrowRows[0] };
 
   if (!entity) {
     const { rows: bookingRows } = await db.query(
-      `SELECT b.*,
+      `SELECT b.*, ps.amount_huf AS connection_fee_huf, ps.currency,
               r.carrier_id, r.title AS route_title,
               s.full_name AS shipper_name,
               c.full_name AS carrier_name, c.billing_country AS carrier_country,
               c.tax_id AS carrier_tax_id, c.company_name AS carrier_company,
               c.locale AS carrier_locale
-         FROM route_bookings b
+         FROM payment_sessions ps
+         JOIN route_bookings b ON b.id = ps.booking_id
          JOIN carrier_routes r ON r.id = b.route_id
          JOIN users s ON s.id = b.shipper_id
     LEFT JOIN users c ON c.id = r.carrier_id
-        WHERE b.barion_payment_id = $1`,
+        WHERE ps.payment_id = $1`,
       [PaymentId],
     );
     if (bookingRows[0]) entity = { type: 'booking', data: bookingRows[0] };
@@ -105,15 +107,10 @@ async function confirmFeePaymentBelso(PaymentId, status) {
       summary: `Ismeretlen PaymentId: ${PaymentId}`,
       processed: false,
     });
-    // ⚠️ RIASZTÁS (2026-09-13, teljes audit D2). Az entitást KIZÁRÓLAG az
-    // escrow_transactions / route_bookings barion_payment_id oszlopán oldjuk
-    // fel — fuvaronként EGY érték, amit minden új startFeePayment FELÜLÍR.
-    // Ha a feladó a RÉGI (felülírt, de a PSP-nél még fizethető) munkameneten
-    // fizet, a pénz beérkezik, a platform nem könyvel, és eddig SENKI nem
-    // tudott róla (csak egy processed=false naplósor). Sikeres státusznál ez
-    // pénz-eltérés, nem zaj — Sentry error, bankkivonat-egyeztetés a teendő.
-    // (A felülírt munkamenetek külön nyilvántartása — payment_sessions — a
-    // CIB-bekötés teendője; stubban az azonosító determinisztikus.)
+    // A payment_sessions a felülírt munkameneteket is megőrzi. Ha a fizetés
+    // ennek ellenére nem kapcsolható ügylethez (pl. migráció előtti árva
+    // azonosító), a sikeres szolgáltatói eredményt külön egyeztetni kell.
+    // A riasztás megmarad; az ismeretlen összegből nem találunk ki könyvelést.
     if (String(status) === 'Succeeded') {
       try {
         const Sentry = require('@sentry/node');

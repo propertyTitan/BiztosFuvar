@@ -45,6 +45,7 @@ function korNevekAForrasbol() {
 /** Teljes DB-kiesés modellezése. */
 function dbTeljesenHalott() {
   vi.spyOn(dbModul, 'query').mockRejectedValue(new Error('szimulált DB-kiesés'));
+  vi.spyOn(dbModul.pool, 'connect').mockRejectedValue(new Error('szimulált DB-kiesés'));
 }
 
 /** Célzott hiba: csak a mintára illő lekérdezés hasal el. */
@@ -85,6 +86,7 @@ const TOVABBDOBJA = [
   'purgeOldInvoices', 'purgeEmergencyLocations', 'purgeOldDeletedAccounts',
   'purgeOldKycDocHistory', 'purgeOldPaymentEvents', 'purgeOldEscrowTransactions',
   'purgeOldTaxData', 'purgeDormantAccounts', 'purgeExpiredSmsRetryQueue',
+  'processFileDeletionQueue',
 ];
 
 describe('Hibatűrés-mátrix: egy elszállt SQL nem üthet ki egy egész napot', () => {

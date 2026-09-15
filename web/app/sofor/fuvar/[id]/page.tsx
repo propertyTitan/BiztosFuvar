@@ -88,6 +88,7 @@ export default function SoforFuvarReszletek() {
       setJob(j);
       setBids(b);
       setPhotos(p);
+      setError(null);
     } catch (err: any) {
       setError(err.message);
     }
@@ -118,6 +119,9 @@ export default function SoforFuvarReszletek() {
   // azonnal frissítsünk (ne kelljen manuálisan újratölteni az alku közben).
   useEffect(() => {
     const unsub = subscribeJob(id, {
+      onReconnect: () => load(),
+      onPickedUp: () => load(),
+      onDelivered: () => load(),
       onCountered: () => load(),
       onAccepted: () => load(),
     });
@@ -852,12 +856,13 @@ export default function SoforFuvarReszletek() {
 
       {/* A fuvar végrehajtása a weben: felvétel-fotó → in_progress,
           kézbesítés-fotó + 6 jegyű kód → delivered. */}
-      {iAmTheCarrier && (job.status === 'accepted' || job.status === 'in_progress') && (
-        <CarrierTripPanel jobId={id} status={job.status} paid={!!job.paid_at} onDone={load} />
+      {iAmTheCarrier && (['accepted', 'in_progress'].includes(job.status)
+        || (job.status === 'disputed' && ['accepted', 'in_progress'].includes(job.status_before_dispute || ''))) && (
+        <CarrierTripPanel jobId={id} status={job.status} statusBeforeDispute={job.status_before_dispute} paid={!!job.paid_at} onDone={load} />
       )}
 
       {/* Chat */}
-      {['accepted', 'in_progress', 'delivered', 'completed'].includes(job.status) && job.carrier_id && (
+      {['accepted', 'in_progress', 'delivered', 'completed', 'disputed'].includes(job.status) && job.carrier_id && (
         <div style={{ marginTop: 16 }}>
           <ChatBox entityKey="job_id" entityId={id} />
         </div>

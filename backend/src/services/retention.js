@@ -444,7 +444,7 @@ async function repairDisputedHold() {
  */
 async function purgeDormantAccounts() {
   const { userHasBlockingDealings } = require('../utils/activePaid');
-  const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
+  const { deleteAccount } = require('./accountDeletion');
   let figyelmeztetve = 0;
   let torolve = 0;
 
@@ -499,20 +499,10 @@ async function purgeDormantAccounts() {
     [DORMANT_DELETE_DAYS, DORMANT_WARN_YEARS],
   );
   for (const u of torlendok) {
-    if (await userHasBlockingDealings(u.id)) continue;
-    // A fajl-kulcsokat MEG a DB-sorok megléte mellett gyűjtjük ki.
-    const keys = await collectUserFileKeys(u.id).catch(() => []);
-    // A korábbi SELECT csak jelöltlista. A törlés pillanatában is inaktív,
-    // legalább 30 napja figyelmeztetett, nem admin fióknak kell lennie.
-    const removed = await db.query(
-      `DELETE FROM users WHERE id = $1 AND role <> 'admin'
-        AND dormant_warned_at < NOW() - ($2 || ' days')::interval
-        AND COALESCE(last_login_at, created_at) < NOW() - ($3 || ' years')::interval`,
-      [u.id, DORMANT_DELETE_DAYS, DORMANT_WARN_YEARS],
-    );
-    if (removed.rowCount === 0) continue;
-    await purgeUserFiles(u.id, { keys });
-    torolve += 1;
+    const result = await deleteAccount(u.id, {
+      reason: 'dormant', dormantDays: DORMANT_DELETE_DAYS, dormantYears: DORMANT_WARN_YEARS,
+    });
+    if (result.deleted) torolve += 1;
   }
 
   if (figyelmeztetve || torolve) {
@@ -1096,6 +1086,10 @@ async function expireAbandonedBookings() {
  */
 async function purgeOldPaymentEvents() {
   try {
+    const sessions = await db.query(
+      `DELETE FROM payment_sessions WHERE state IN ('succeeded', 'closed')
+        AND settled_at < NOW() - ($1 || ' years')::interval`, [INVOICE_RETENTION_YEARS],
+    );
     const { rowCount } = await db.query(
       `DELETE FROM payment_events WHERE created_at < NOW() - ($1 || ' years')::interval`,
       [INVOICE_RETENTION_YEARS],
@@ -1103,7 +1097,7 @@ async function purgeOldPaymentEvents() {
     if (rowCount > 0) {
       console.log(`[retention] ${rowCount} fizetési naplósor elévült (>${INVOICE_RETENTION_YEARS} év)`);
     }
-    return rowCount || 0;
+    return (rowCount || 0) + sessions.rowCount;
   } catch (err) {
     console.error('[retention] fizetési napló purge hiba:', err.message);
     throw err;
@@ -1244,6 +1238,7 @@ async function runDailyRetention() {
     'purgeOldTaxData',
     'purgeDormantAccounts',
     'purgeExpiredSmsRetryQueue',
+    'processFileDeletionQueue',
   ];
 
   const eredmeny = {};
@@ -1308,6 +1303,7 @@ async function lastSuccessfulRetentionRun() {
 }
 
 module.exports = {
+  processFileDeletionQueue: require('./fileDeletionQueue').processFileDeletionQueue,
   JOB_TERMINAL, BOOKING_TERMINAL,
   purgeDormantAccounts, DORMANT_WARN_YEARS, DORMANT_DELETE_DAYS,
   repairDisputedHold,

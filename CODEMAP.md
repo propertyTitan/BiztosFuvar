@@ -105,12 +105,15 @@ Top-level fájlok:
 | `gemini.js` | AI chat + KYC OCR/kor-ellenőrzés | **ÉL** |
 | `storage.js` | R2 fel-/letöltés, publicUrl | ÉL (még publikus bucket) |
 | `photoEvidence.js` | Feltöltés utáni sorzár, aktuális jogosultság/kód/fotólimit; fotó és fizikai állapot egy tranzakcióban, elutasított fájl takarítása | 2026-09-15 P0-javítás |
-| `kyc.js` | KYC üzleti logika (típusok, jóváhagyás) | ÉL |
+| `accountDeletion.js` | Kézi/admin/inaktív fióktörlés közös tranzakciója: aktuális ügylet- és fizetésvédelem, kulcsgyűjtés, törlési audit, KYC-előzmény, értékelésszöveg-tisztítás | 2026-09-15 P1-01/06/07 |
+| `fileDeletionQueue.js` | Fióktörléssel együtt mentett fájlkulcsok; commit utáni törlés, tartós retry és hiba esetén riasztás; a napi retenció is futtatja | 2026-09-15 P1-06 |
+| `kyc.js` | KYC üzleti logika és képretenció; az aktuális `uploaded_at` alapján, konkurens új kép hivatkozását nem nullázva | ÉL |
 | `notifications.js` | in-app értesítések | ÉL |
 | `push.js` | push token kezelés | ÉL |
 | `invoicing.js` | számlázás | részleges (Számlázz.hu nincs bekötve) |
 | `vat.js` / `exchange.js` | ÁFA, árfolyam | ÉL |
 | `trustScore.js` / `gamification.js` | bizalmi pont, jelvények | ÉL |
+| `referral.js` | Ajánlói kupon: ajánló és meghívott zárolása, havi plafon, claim és kuponkiadás egy tranzakcióban; `grantVoucher` közös DB-klienst fogad | 2026-09-15 P1-02 |
 | `instantJobs.js` | instant ("UberFuvar") matching | ÉL |
 | `backhaul.js` / `routeAlong.js` | visszafuvar + útba-eső matching | ÉL |
 | `feePayment.js` | a kapcsolatfelvételi díj KÖZÖS könyvelési magja (állapot-őr, paid_at, díj-sor, ÁFA, számla, napló, referral) + webhook idempotencia-claim — a webhook ÉS a kézi nyugtázás ezt hívja (2026-09-11, A2) | ÉL |
@@ -143,9 +146,16 @@ Top-level fájlok:
 ### 1.6 Adatbázis — `backend/db/`
 
 - `schema.sql` — teljes séma snapshot
-- `migrations/` — **35 számozott migráció** (`001_*.sql` … `035_job_questions.sql`)
-  - Pl. `021_kyc_and_license`, `026_towing`, `027_progressive_kyc`,
-    `034_email_verification_password_reset`, `035_job_questions`
+- `migrations/` — **87 számozott migráció** (`001_*.sql` … `087_payment_sessions.sql`)
+  - `084_fee_payment_receipts`: megőrzött díjbizonylat és számlapótlás.
+  - `085_kyc_uploaded_at`: az aktuális okmánykép feltöltési ideje. Régi képnél
+    csak a reviewed_at/created_at ad becslést, a pontos idő nem rekonstruálható.
+  - `086_file_deletion_queue`: a fiók törlését túlélő fájltörlési feladatok.
+  - `087_payment_sessions`: az összes banki próbálkozás eredeti ügylet/díj
+    kapcsolata, CASCADE nélkül. Triggerek ugyanabban a tranzakcióban követik
+    a jelenlegi fizetésindításokat és a feldolgozott végállapotokat. A webhook
+    innen keres; pending/needs_review mellett nincs fióktörlés. Lezárt sorok
+    megőrzése 8 év; függő vagy egyeztetésre váró sor nem évül el automatikusan.
 - RLS **minden táblán KI** (backend service-role-on csatlakozik) — az anon-key
   SOHA ne kerüljön frontendre.
 
@@ -227,7 +237,7 @@ AiChatWidget, CookieConsentBanner, header/footer).
 | `auth.ts` | `useCurrentUser()` hook, token kezelés |
 | `i18n.tsx` | nyelvválasztó / fordítások (`web/src/locales/`) |
 | `maps.ts` | Google Maps betöltés (kulcs ÉL) |
-| `socket.ts` | Socket.io kliens (élő tracking/chat) |
+| `socket.ts` | Socket.io kliens; minden connect után job-room újrabelépés és `onReconnect` állapotlekérés; több azonos feliratkozó közül csak az utolsó lép ki |
 | `packageSizes.ts` | csomagméret-definíciók |
 
 ---

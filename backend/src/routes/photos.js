@@ -218,7 +218,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
   const photo = saved.photo;
   const validation = { ok: true };
 
-  if (saved.pickedUp && job.status !== 'disputed') {
+  if (saved.pickedUp) {
     realtime.emitToJob(jobId, 'job:picked_up', { job_id: jobId, photo });
 
     // ⚠️ A FELADÓ ÉRTESÍTÉSE A FELVÉTELRŐL (2026-08-16, tesztelői észrevétel).
@@ -297,6 +297,19 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     });
   }
 
+  // A fizikai átadás utóhatásai a vitajelzőtől függetlenek. A commitPhoto
+  // zárolt állapotátmenete csak az első sikeres dropoffnál ad delivered=true-t.
+  if (saved.delivered) {
+    // Ajánlói jutalom-trigger: a szállító most zárta le a fuvarját → ha ő egy
+    // meghívott, és ez az első teljesített fuvarja, az ajánlója kupont kap.
+    maybeGrantReferralReward(job.carrier_id, { role: 'carrier', jobId }).catch(() => {});
+
+    // DAC7-trigger: az első teljesített fuvarral a magánszemély szállító
+    // jelentendővé válik → adóazonosító-bekérés indul (idempotens).
+    markTaxDataRequestedIfNeeded(job.carrier_id).catch(() => {});
+
+  }
+
   // Vita alatti kézbesítés: a fizikai átadás megtörtént, de a 'disputed'
   // státusz MARAD (a vitát egy fotó nem tüntetheti el). A `delivered_at`-ot
   // rögzítjük, és a „hova térünk vissza" értéket 'delivered'-re állítjuk —
@@ -305,7 +318,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     // UTÓHATÁS (2026-09-11, teljes audit C1): a vita alatti kézbesítésről a
     // feladó eddig SEMMIT nem tudott meg (a normál ág értesít, ez nem) —
     // a csomag megérkezett, a vita nyitva maradt, de a harang néma volt.
-    createNotification({
+    await createNotification({
       user_id: job.shipper_id,
       type: 'job_delivered',
       title: '📦 A csomagot kézbesítették — a vita nyitva marad',
@@ -321,14 +334,6 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     // kapcsolatfelvételi díj könyvelése már a fizetéskor lezárult
     // ('released'), így itt csak a státusz-átmenet + értesítések maradnak.
     realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, photo, validation });
-
-    // Ajánlói jutalom-trigger: a szállító most zárta le a fuvarját → ha ő egy
-    // meghívott, és ez az első teljesített fuvarja, az ajánlója kupont kap.
-    maybeGrantReferralReward(job.carrier_id, { role: 'carrier', jobId }).catch(() => {});
-
-    // DAC7-trigger: az első teljesített fuvarral a magánszemély szállító
-    // jelentendővé válik → adóazonosító-bekérés indul (idempotens).
-    markTaxDataRequestedIfNeeded(job.carrier_id).catch(() => {});
 
     // Értesítés a FELADÓNAK: a csomagod megérkezett!
     try {

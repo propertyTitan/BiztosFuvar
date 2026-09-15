@@ -14,6 +14,7 @@ let connectHandler: (() => void) | null = null;
 // A legutóbbi CONNECT-nél a handshake-be került token — a refreshSocketAuth
 // ebből tudja, hogy kell-e egyáltalán újrakötni.
 let lastAuthToken: string | null = null;
+const jobSubscriptions = new Map<string, number>();
 
 export function getSocket(): Socket {
   if (typeof window === 'undefined') {
@@ -127,6 +128,7 @@ export function disconnectSocket() {
     joinedUserId = null;
   }
   socket.removeAllListeners();
+  jobSubscriptions.clear();
   socket.disconnect();
   socket = null;
 }
@@ -144,10 +146,19 @@ export function subscribeJob(
     onAccepted?: (data: any) => void;
     onCountered?: (data: any) => void;
     onNewBid?: (bid: any) => void;
+    /** Új kapcsolat után REST-en pótolni kell a kiesés alatt elveszett állapotot. */
+    onReconnect?: () => void;
   },
 ): () => void {
   const s = getSocket();
-  s.emit('job:join', jobId);
+  jobSubscriptions.set(jobId, (jobSubscriptions.get(jobId) || 0) + 1);
+  const reconnect = () => {
+    s.emit('job:join', jobId);
+    handlers.onReconnect?.();
+  };
+  // Offline emit pufferelődne: a connect-listener egyszer léptet vissza.
+  if (s.connected) s.emit('job:join', jobId);
+  s.on('connect', reconnect);
 
   const ping     = (p: any) => handlers.onTrackingPing?.(p);
   const picked   = (p: any) => handlers.onPickedUp?.(p);
@@ -163,8 +174,17 @@ export function subscribeJob(
   s.on('bid:countered',   countered);
   s.on('bids:new',        newBid);
 
+  let active = true;
   return () => {
-    s.emit('job:leave', jobId);
+    if (!active) return;
+    active = false;
+    s.off('connect', reconnect);
+    const remaining = (jobSubscriptions.get(jobId) || 1) - 1;
+    if (remaining > 0) jobSubscriptions.set(jobId, remaining);
+    else {
+      jobSubscriptions.delete(jobId);
+      s.emit('job:leave', jobId);
+    }
     s.off('tracking:ping',   ping);
     s.off('job:picked_up',   picked);
     s.off('job:delivered',   delivd);
