@@ -472,7 +472,11 @@ describe('GET /auth/referral — a link alapcíme', () => {
 describe('POST /auth/kyc-document — okmány-előzmény és mellékhatás-hibák', () => {
   /** Közös beállítás: privát tároló + AI-válasz. */
   function kycMock(okmanyszam, extra = {}) {
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/teszt.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/teszt.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     vi.spyOn(storage, 'getSignedPrivateUrl').mockResolvedValue('https://alairt.teszt/kyc.jpg');
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: true,

@@ -1082,8 +1082,7 @@ router.post('/avatar', authRequired, uploadSingle('file'), async (req, res) => {
 // POST /auth/kyc-document — KYC dokumentum feltöltés + AI ellenőrzés
 //
 // Flow: feltöltés → Gemini megnézi → ha valid okmány → azonnal 'verified'
-// Ha nem valid (macska fotó, homályos, rossz típus) → 'rejected' + reason
-// Ha Gemini nem elérhető → fallback: 'verified' (admin utólag ellenőriz)
+// Kockázatos vagy nem ellenőrizhető dokumentum → kézi ellenőrzés (pending).
 router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Hiányzó fájl' });
   if (!req.file.mimetype || !req.file.mimetype.startsWith('image/')) {
@@ -1112,149 +1111,116 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
   // a privát bucketbe kerül (`private:<kulcs>` a DB-ben), publikus URL-je
   // NINCS — olvasni csak rövid életű aláírt linkkel lehet (admin-felület).
   // Modul-objektumon át: így a tároló-hívás tesztből megfigyelhető.
-  const url = await storage.savePrivateFile(req.file.buffer, req.file.originalname, req.file.mimetype);
+  const result = await require('../services/kycUpload').withKycUpload(req.user.sub, req.file, async (url) => {
 
-  // AI ellenőrzés: a feltöltött kép tényleg a megadott dokumentum típus-e?
-  const { verifyKycDocument } = require('../services/gemini');
-  const { createNotification } = require('../services/notifications');
-  const aiResult = await verifyKycDocument(req.file.buffer, req.file.mimetype, doc_type);
+    // AI ellenőrzés: a feltöltött kép tényleg a megadott dokumentum típus-e?
+    const { verifyKycDocument } = require('../services/gemini');
+    const { createNotification } = require('../services/notifications');
+    const aiResult = await verifyKycDocument(req.file.buffer, req.file.mimetype, doc_type);
 
-  // 18 év alatti → adminra vár (pending), nem rejected és nem verified
-  // Dokumentum szám duplikáció ellenőrzés — egy személyi = egy fiók
-  const docNumberRaw = aiResult.documentNumber;
-  let docNumberHash = null;
-  // Kézi ellenőrzésre terelő ok (élő duplikátum vagy korábban törölt fiók).
-  let keziEllenorzesOka = null;
-  if (docNumberRaw) {
-    // ⚠️ HMAC, nem sima SHA-256 (2026-08-10): a személyi igazolvány számának
-    // értéktere teljesen felsorolható (~10⁸), ezért egy SÓZATLAN hash egy
-    // jelöltlistával visszafejthető lenne. A szerver-oldali titok nélkül egy
-    // DB-szivárgásból nem állítható vissza az okmányszám. (Ugyanez az érvelés
-    // vezetett a 061-es migrációnál az e-mail-lenyomat HMAC-ra váltásához —
-    // a 063 mégis sózatlanul vezette be ezt a mezőt.)
-    const nyers = docNumberRaw.trim().toUpperCase();
-    docNumberHash = docHmac(nyers);
-    // ⚠️ AZ ÁTMENETI (sózatlan SHA-256) ILLESZTÉS TÖRÖLVE (2026-08-11, 073-as
-    // migráció). A legacy lenyomatok kinullázása után nincs mihez illeszteni,
-    // és a bennhagyott ág azt sugallná, hogy még van sózatlan adatunk. Minden
-    // tárolt lenyomat mostantól HMAC — pontosan úgy, ahogy a tájékoztató, a
-    // 30. cikkes nyilvántartás és az érdekmérlegelési teszt állítja.
-    const { rows: existing } = await db.query(
-      `SELECT k.user_id FROM kyc_documents k
-       WHERE k.doc_number_hash = $1 AND k.user_id <> $2
-         AND k.status IN ('approved', 'pending')`,
-      [docNumberHash, req.user.sub],
-    );
-    if (existing.length > 0) {
-      // NE logold a nyers okmányszámot — a DB-ben is csak hash-elve tároljuk.
-      // Az app-log (Railway/Sentry) nem lehet kormányzati okmányszám-forrás.
-      // ⚠️ NE hagyjunk árva fájlt (2026-08-10): a fotó ekkor MÁR a privát
-      // bucketben van, a 409 viszont DB-írás nélkül tér vissza — így a
-      // kyc_documents sor sosem jön létre, és se a napi purge, se a
-      // fiók-törlés nem éri el többé. Ez volt az ÖTÖDIK árva-út.
-      // ⚠️ NEM AUTOMATIKUS ELUTASÍTÁS (2026-08-10, GDPR 22. cikk). Eddig ez az
-      // ág azonnal 'rejected'-et adott — ember nélkül, admin-értesítés nélkül,
-      // felülvizsgálati út nélkül. Csakhogy a lenyomat az AI OCR-jéből
-      // származik: egy félreolvasás így jóhiszemű felhasználót zárt volna ki
-      // véglegesen. Az adatkezelési tájékoztató pedig kifejezetten azt állítja,
-      // hogy „elutasítást az AI önmagában soha nem mond ki", és a kézi
-      // ellenőrzésre terelő jelek közt NEVESÍTI ezt az esetet.
-      // Ezért: a dokumentum EMBERI ellenőrzésre vár, ahogy a többi kockázati jel.
-      keziEllenorzesOka = {
-        code: 'DUPLICATE_DOCUMENT',
-        reason: 'Ez a dokumentum már egy másik fiókhoz van regisztrálva. '
-          + 'A hitelesítést munkatársunk ellenőrzi.',
-      };
-      // A naplóba nem írjuk a másik fiók azonosítóját: a két user
-      // összekapcsolása („ugyanaz az ember") önmagában is személyes adat.
-      console.log(`[kyc] DUPLIKÁLT DOKUMENTUM → KÉZI ELLENŐRZÉS: user=${req.user.sub} docHash=${docNumberHash.slice(0, 12)}…`);
-    }
-
-    // ⚠️ TÖRÖLT FIÓK OKMÁNYA (2026-08-10, user-döntés): a lenyomat túléli a
-    // fiók törlését (kyc_doc_history, 5 év), így kiderül, ha valaki a fiókja
-    // törlésével akar „friss" felhasználóként visszatérni. NEM tiltjuk ki —
-    // emberi ellenőrzésre küldjük, és az admin látja az előzményt. Egy vak
-    // tiltás a jóhiszemű visszatérőt is kizárná, és emberi felülvizsgálat
-    // nélküli automatizált döntés lenne (GDPR 22. cikk).
-    // A már beállított okot NEM írjuk felül (az élő duplikátum erősebb jel).
-    if (!keziEllenorzesOka && await kycHistory.korabbanToroltFiok([docNumberHash])) {
-      keziEllenorzesOka = {
-        code: 'PREVIOUSLY_DELETED_ACCOUNT',
-        reason: 'Ezzel az okmánnyal korábban már volt fiók a rendszerben. '
-          + 'A hitelesítést munkatársunk ellenőrzi.',
-      };
-    }
-  }
-
-  const isUnderage = aiResult.underage === true;
-  let docStatus, kycStatus, rejectionReason;
-
-  if (isUnderage) {
-    docStatus = 'pending';
-    kycStatus = 'pending';
-    rejectionReason = 'A dokumentum tulajdonosa 18 év alatti — adminisztrátori jóváhagyásra vár.';
-    // A születési dátum PII — nem megy app-logba; az adminnak az értesítésben
-    // (jogosult címzett) mutatjuk meg a döntéshez.
-    console.log(`[kyc] 18 ÉV ALATTI GYANÚ: user=${req.user.sub}`);
-    // Admin értesítés
-    try {
-      const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
-      const { rows: userInfo } = await db.query(`SELECT full_name, email FROM users WHERE id = $1`, [req.user.sub]);
-      const who = userInfo[0]?.full_name || req.user.email;
-      for (const admin of admins) {
-        await createNotification({
-          user_id: admin.id,
-          type: 'kyc_underage_alert',
-          title: '⚠️ 18 év alatti KYC!',
-          // Adat-minimalizálás (2026-08-09 audit): a teljes e-mail + születési
-          // dátum NEM kerül a notif-body-ba (az a notifications táblában
-          // határidő nélkül maradna) — a jogosult admin a KYC-panelen látja.
-          body: `${who} személyi igazolványa alapján 18 év alatti lehet — kézi jóváhagyás szükséges. A részletek a KYC-panelen.`,
-          link: '/admin#kyc',
-        }).catch(() => {});
+    // 18 év alatti → adminra vár (pending), nem rejected és nem verified
+    // Dokumentum szám duplikáció ellenőrzés — egy személyi = egy fiók
+    const docNumberRaw = aiResult.documentNumber;
+    let docNumberHash = null;
+    // Kézi ellenőrzésre terelő ok (élő duplikátum vagy korábban törölt fiók).
+    let keziEllenorzesOka = null;
+    if (docNumberRaw) {
+      // ⚠️ HMAC, nem sima SHA-256 (2026-08-10): a személyi igazolvány számának
+      // értéktere teljesen felsorolható (~10⁸), ezért egy SÓZATLAN hash egy
+      // jelöltlistával visszafejthető lenne. A szerver-oldali titok nélkül egy
+      // DB-szivárgásból nem állítható vissza az okmányszám. (Ugyanez az érvelés
+      // vezetett a 061-es migrációnál az e-mail-lenyomat HMAC-ra váltásához —
+      // a 063 mégis sózatlanul vezette be ezt a mezőt.)
+      const nyers = docNumberRaw.trim().toUpperCase();
+      docNumberHash = docHmac(nyers);
+      // ⚠️ AZ ÁTMENETI (sózatlan SHA-256) ILLESZTÉS TÖRÖLVE (2026-08-11, 073-as
+      // migráció). A legacy lenyomatok kinullázása után nincs mihez illeszteni,
+      // és a bennhagyott ág azt sugallná, hogy még van sózatlan adatunk. Minden
+      // tárolt lenyomat mostantól HMAC — pontosan úgy, ahogy a tájékoztató, a
+      // 30. cikkes nyilvántartás és az érdekmérlegelési teszt állítja.
+      const { rows: existing } = await db.query(
+        `SELECT k.user_id FROM kyc_documents k
+         WHERE k.doc_number_hash = $1 AND k.user_id <> $2
+           AND k.status IN ('approved', 'pending')`,
+        [docNumberHash, req.user.sub],
+      );
+      if (existing.length > 0) {
+        // NE logold a nyers okmányszámot — a DB-ben is csak hash-elve tároljuk.
+        // Az app-log (Railway/Sentry) nem lehet kormányzati okmányszám-forrás.
+        // ⚠️ NE hagyjunk árva fájlt (2026-08-10): a fotó ekkor MÁR a privát
+        // bucketben van, a 409 viszont DB-írás nélkül tér vissza — így a
+        // kyc_documents sor sosem jön létre, és se a napi purge, se a
+        // fiók-törlés nem éri el többé. Ez volt az ÖTÖDIK árva-út.
+        // ⚠️ NEM AUTOMATIKUS ELUTASÍTÁS (2026-08-10, GDPR 22. cikk). Eddig ez az
+        // ág azonnal 'rejected'-et adott — ember nélkül, admin-értesítés nélkül,
+        // felülvizsgálati út nélkül. Csakhogy a lenyomat az AI OCR-jéből
+        // származik: egy félreolvasás így jóhiszemű felhasználót zárt volna ki
+        // véglegesen. Az adatkezelési tájékoztató pedig kifejezetten azt állítja,
+        // hogy „elutasítást az AI önmagában soha nem mond ki", és a kézi
+        // ellenőrzésre terelő jelek közt NEVESÍTI ezt az esetet.
+        // Ezért: a dokumentum EMBERI ellenőrzésre vár, ahogy a többi kockázati jel.
+        keziEllenorzesOka = {
+          code: 'DUPLICATE_DOCUMENT',
+          reason: 'Ez a dokumentum már egy másik fiókhoz van regisztrálva. '
+            + 'A hitelesítést munkatársunk ellenőrzi.',
+        };
+        // A naplóba nem írjuk a másik fiók azonosítóját: a két user
+        // összekapcsolása („ugyanaz az ember") önmagában is személyes adat.
+        console.log(`[kyc] DUPLIKÁLT DOKUMENTUM → KÉZI ELLENŐRZÉS: user=${req.user.sub} docHash=${docNumberHash.slice(0, 12)}…`);
       }
-    } catch (e) {
-      console.warn('[kyc] admin notify hiba:', e.message);
-    }
-  } else if (aiResult.pending) {
-    // AI nem elérhető → kézi ellenőrzés (fail-closed, nem auto-approve)
-    docStatus = 'pending';
-    kycStatus = 'pending';
-    rejectionReason = aiResult.reason;
-    console.log(`[kyc] AI nem elérhető, kézi ellenőrzésre vár: user=${req.user.sub} doc=${doc_type}`);
-    try {
-      const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
-      for (const admin of admins) {
-        await createNotification({
-          user_id: admin.id,
-          type: 'kyc_manual_review',
-          title: '📋 KYC kézi ellenőrzés szükséges',
-          // Adat-minimalizálás: nincs teljes e-mail a notif-body-ban.
-          body: `Egy felhasználó dokumentumát (${doc_type}) az AI nem tudta ellenőrizni — kézi jóváhagyás kell. Részletek a KYC-panelen.`,
-          link: '/admin#kyc',
-        }).catch(() => {});
-      }
-    } catch (e) {
-      console.warn('[kyc] admin notify hiba:', e.message);
-    }
-  } else if (aiResult.valid) {
-    // ⚠️ 2026-08-09 (audit 3. kör): az AI „valid" ítélete ÖNMAGÁBAN nem ad
-    // 'verified' státuszt. A kockázatos jeleket (alacsony bizalom, név-eltérés
-    // a fiókhoz képest, másolat/képernyőfotó gyanú, olvashatatlan okmányszám)
-    // emberhez tereljük — az automatizmus megmarad, csak nem vak.
-    const { needsManualReview } = require('../services/kycReview');
-    const { rows: acc } = await db.query('SELECT full_name FROM users WHERE id = $1', [req.user.sub]);
-    // A korábban törölt fiók okmánya ugyanúgy emberhez terel, mint a többi
-    // kockázati jel — a visszatérés így nem marad előzmény nélküli.
-    const review = keziEllenorzesOka
-      || needsManualReview(aiResult, { fullName: acc[0]?.full_name }, doc_type);
 
-    if (review) {
+      // ⚠️ TÖRÖLT FIÓK OKMÁNYA (2026-08-10, user-döntés): a lenyomat túléli a
+      // fiók törlését (kyc_doc_history, 5 év), így kiderül, ha valaki a fiókja
+      // törlésével akar „friss" felhasználóként visszatérni. NEM tiltjuk ki —
+      // emberi ellenőrzésre küldjük, és az admin látja az előzményt. Egy vak
+      // tiltás a jóhiszemű visszatérőt is kizárná, és emberi felülvizsgálat
+      // nélküli automatizált döntés lenne (GDPR 22. cikk).
+      // A már beállított okot NEM írjuk felül (az élő duplikátum erősebb jel).
+      if (!keziEllenorzesOka && await kycHistory.korabbanToroltFiok([docNumberHash])) {
+        keziEllenorzesOka = {
+          code: 'PREVIOUSLY_DELETED_ACCOUNT',
+          reason: 'Ezzel az okmánnyal korábban már volt fiók a rendszerben. '
+            + 'A hitelesítést munkatársunk ellenőrzi.',
+        };
+      }
+    }
+
+    const isUnderage = aiResult.underage === true;
+    let docStatus, kycStatus, rejectionReason;
+
+    if (isUnderage) {
       docStatus = 'pending';
       kycStatus = 'pending';
-      rejectionReason = review.reason;
-      // PII nélkül naplózunk: sem nevet, sem okmányszámot.
-      console.log(`[kyc] KÉZI ELLENŐRZÉSRE: user=${req.user.sub} doc=${doc_type} ok=${review.code} confidence=${aiResult.confidence}`);
+      rejectionReason = 'A dokumentum tulajdonosa 18 év alatti — adminisztrátori jóváhagyásra vár.';
+      // A születési dátum PII — nem megy app-logba; az adminnak az értesítésben
+      // (jogosult címzett) mutatjuk meg a döntéshez.
+      console.log(`[kyc] 18 ÉV ALATTI GYANÚ: user=${req.user.sub}`);
+      // Admin értesítés
+      try {
+        const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+        const { rows: userInfo } = await db.query(`SELECT full_name, email FROM users WHERE id = $1`, [req.user.sub]);
+        const who = userInfo[0]?.full_name || req.user.email;
+        for (const admin of admins) {
+          await createNotification({
+            user_id: admin.id,
+            type: 'kyc_underage_alert',
+            title: '⚠️ 18 év alatti KYC!',
+            // Adat-minimalizálás (2026-08-09 audit): a teljes e-mail + születési
+            // dátum NEM kerül a notif-body-ba (az a notifications táblában
+            // határidő nélkül maradna) — a jogosult admin a KYC-panelen látja.
+            body: `${who} személyi igazolványa alapján 18 év alatti lehet — kézi jóváhagyás szükséges. A részletek a KYC-panelen.`,
+            link: '/admin#kyc',
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[kyc] admin notify hiba:', e.message);
+      }
+    } else if (aiResult.pending) {
+      // AI nem elérhető → kézi ellenőrzés (fail-closed, nem auto-approve)
+      docStatus = 'pending';
+      kycStatus = 'pending';
+      rejectionReason = aiResult.reason;
+      console.log(`[kyc] AI nem elérhető, kézi ellenőrzésre vár: user=${req.user.sub} doc=${doc_type}`);
       try {
         const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
         for (const admin of admins) {
@@ -1262,133 +1228,110 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
             user_id: admin.id,
             type: 'kyc_manual_review',
             title: '📋 KYC kézi ellenőrzés szükséges',
-            body: `Egy dokumentum (${doc_type}) automatikus jóváhagyása elakadt (${review.code}) — kézi döntés kell. Részletek a KYC-panelen.`,
+            // Adat-minimalizálás: nincs teljes e-mail a notif-body-ban.
+            body: `Egy felhasználó dokumentumát (${doc_type}) az AI nem tudta ellenőrizni — kézi jóváhagyás kell. Részletek a KYC-panelen.`,
             link: '/admin#kyc',
           }).catch(() => {});
         }
       } catch (e) {
         console.warn('[kyc] admin notify hiba:', e.message);
       }
-    } else {
-      docStatus = 'approved';
-      kycStatus = 'verified';
-      rejectionReason = null;
-      console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
-    }
-  } else {
-    // ⚠️ AZ AI EGYEDÜL NEM UTASÍT EL (2026-08-09, adatvédelmi + jogi audit).
-    // Korábban a Gemini `valid:false` ítélete AZONNAL 'rejected'-et adott,
-    // emberi szem nélkül. Az elutasított szállító elesik a keresetszerzés
-    // lehetőségétől — ez a GDPR 22. cikk szerinti, „hasonlóan jelentős
-    // hatású" döntés, amelyre az adatkezelési tájékoztató, a DPIA ÉS az
-    // érdekmérlegelési teszt is azt állítja, hogy „minden esetben emberi
-    // adminisztrátor hagyja jóvá". Az elutasítás mostantól KÉZI ELLENŐRZÉSRE
-    // vár: a felhasználó tudja, mit javítson, de a végső nemet ember mondja ki.
-    // (A gyors, sikeres út változatlan: a tiszta eset automatikusan átmegy.)
-    docStatus = 'pending';
-    kycStatus = 'pending';
-    rejectionReason = aiResult.reason;
-    // ⚠️ AZ AI SZABAD SZÖVEGE NEM MEGY A LOGBA (2026-08-11, 9. mérés B2).
-      // Az aiResult.reason a modell szabad szövege egy SZEMÉLYI IGAZOLVÁNYRÓL —
-      // tartalmazhat nevet, okmányszámot, bármit. A szomszédos ágak szándékosan
-      // csak kódot naplóznak ("PII nélkül naplózunk"); ez az egy sor kilógott.
-      // A döntéshez elég a kifogás TÉNYE; a részletet az admin a KYC-panelen látja.
-      console.log(`[kyc] AI-kifogás → KÉZI ELLENŐRZÉS: user=${req.user.sub} doc=${doc_type}`);
-    try {
-      const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
-      for (const admin of admins) {
-        await createNotification({
-          user_id: admin.id,
-          type: 'kyc_manual_review',
-          title: '📋 KYC kézi ellenőrzés szükséges',
-          body: `Egy dokumentumot (${doc_type}) az AI kifogásolt — a végső döntés emberi. Részletek a KYC-panelen.`,
-          link: '/admin#kyc',
-        }).catch(() => {});
+    } else if (aiResult.valid) {
+      // ⚠️ 2026-08-09 (audit 3. kör): az AI „valid" ítélete ÖNMAGÁBAN nem ad
+      // 'verified' státuszt. A kockázatos jeleket (alacsony bizalom, név-eltérés
+      // a fiókhoz képest, másolat/képernyőfotó gyanú, olvashatatlan okmányszám)
+      // emberhez tereljük — az automatizmus megmarad, csak nem vak.
+      const { needsManualReview } = require('../services/kycReview');
+      const { rows: acc } = await db.query('SELECT full_name FROM users WHERE id = $1', [req.user.sub]);
+      // A korábban törölt fiók okmánya ugyanúgy emberhez terel, mint a többi
+      // kockázati jel — a visszatérés így nem marad előzmény nélküli.
+      const review = keziEllenorzesOka
+        || needsManualReview(aiResult, { fullName: acc[0]?.full_name }, doc_type);
+
+      if (review) {
+        docStatus = 'pending';
+        kycStatus = 'pending';
+        rejectionReason = review.reason;
+        // PII nélkül naplózunk: sem nevet, sem okmányszámot.
+        console.log(`[kyc] KÉZI ELLENŐRZÉSRE: user=${req.user.sub} doc=${doc_type} ok=${review.code} confidence=${aiResult.confidence}`);
+        try {
+          const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+          for (const admin of admins) {
+            await createNotification({
+              user_id: admin.id,
+              type: 'kyc_manual_review',
+              title: '📋 KYC kézi ellenőrzés szükséges',
+              body: `Egy dokumentum (${doc_type}) automatikus jóváhagyása elakadt (${review.code}) — kézi döntés kell. Részletek a KYC-panelen.`,
+              link: '/admin#kyc',
+            }).catch(() => {});
+          }
+        } catch (e) {
+          console.warn('[kyc] admin notify hiba:', e.message);
+        }
+      } else {
+        docStatus = 'approved';
+        kycStatus = 'verified';
+        rejectionReason = null;
+        console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
       }
-    } catch (e) {
-      console.warn('[kyc] admin notify hiba:', e.message);
+    } else {
+      // ⚠️ AZ AI EGYEDÜL NEM UTASÍT EL (2026-08-09, adatvédelmi + jogi audit).
+      // Korábban a Gemini `valid:false` ítélete AZONNAL 'rejected'-et adott,
+      // emberi szem nélkül. Az elutasított szállító elesik a keresetszerzés
+      // lehetőségétől — ez a GDPR 22. cikk szerinti, „hasonlóan jelentős
+      // hatású" döntés, amelyre az adatkezelési tájékoztató, a DPIA ÉS az
+      // érdekmérlegelési teszt is azt állítja, hogy „minden esetben emberi
+      // adminisztrátor hagyja jóvá". Az elutasítás mostantól KÉZI ELLENŐRZÉSRE
+      // vár: a felhasználó tudja, mit javítson, de a végső nemet ember mondja ki.
+      // (A gyors, sikeres út változatlan: a tiszta eset automatikusan átmegy.)
+      docStatus = 'pending';
+      kycStatus = 'pending';
+      rejectionReason = aiResult.reason;
+      // ⚠️ AZ AI SZABAD SZÖVEGE NEM MEGY A LOGBA (2026-08-11, 9. mérés B2).
+        // Az aiResult.reason a modell szabad szövege egy SZEMÉLYI IGAZOLVÁNYRÓL —
+        // tartalmazhat nevet, okmányszámot, bármit. A szomszédos ágak szándékosan
+        // csak kódot naplóznak ("PII nélkül naplózunk"); ez az egy sor kilógott.
+        // A döntéshez elég a kifogás TÉNYE; a részletet az admin a KYC-panelen látja.
+        console.log(`[kyc] AI-kifogás → KÉZI ELLENŐRZÉS: user=${req.user.sub} doc=${doc_type}`);
+      try {
+        const { rows: admins } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+        for (const admin of admins) {
+          await createNotification({
+            user_id: admin.id,
+            type: 'kyc_manual_review',
+            title: '📋 KYC kézi ellenőrzés szükséges',
+            body: `Egy dokumentumot (${doc_type}) az AI kifogásolt — a végső döntés emberi. Részletek a KYC-panelen.`,
+            link: '/admin#kyc',
+          }).catch(() => {});
+        }
+      } catch (e) {
+        console.warn('[kyc] admin notify hiba:', e.message);
+      }
     }
-  }
 
-  // ⚠️ ÁRVA OKMÁNYFOTÓ (2026-08-09, adatvédelmi audit — a legsúlyosabb
-  // árva-eset). A `savePrivateFile` minden feltöltésnél ÚJ véletlen kulcsot
-  // ad, az ON CONFLICT viszont felülírja a `file_url`-t: az ELŐZŐ személyi
-  // igazolvány fotója így kikerül a rendszer látóköréből, miközben a privát
-  // bucketben marad. A 30 napos purge a `kyc_documents.file_url`-ből olvas,
-  // tehát csak az AKTUÁLISAT látja — az árvát soha többé nem éri el, még a
-  // fiók törlése sem.
-  //
-  // És ez a NORMÁL út, nem szélső eset: a kockázati jelre `pending`-be tett
-  // dokumentumnál az értesítés kifejezetten újrafeltöltésre kéri a usert.
-  const { rows: elozoDok } = await db.query(
-    `SELECT file_url FROM kyc_documents WHERE user_id = $1 AND doc_type = $2`,
-    [req.user.sub, doc_type],
-  );
+    const finalized = await require('../services/kycUpload').finalizeKycUpload({
+      userId: req.user.sub, docType: doc_type, url, docStatus, kycStatus,
+      rejectionReason, docNumberHash, duplicate: keziEllenorzesOka?.code === 'DUPLICATE_DOCUMENT',
+    });
+    if (finalized.missing) return { status: 404, body: { error: 'A fiók időközben megszűnt.', code: 'ACCOUNT_DELETED' } };
+    if (finalized.expired) return { status: 409, body: { error: 'A feltöltés lejárt. Töltsd fel újra az okmányt.', code: 'UPLOAD_EXPIRED' } };
 
-  await db.query(
-    `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason,
-                                doc_number_hash, pending_doc_number_hash, hash_algo, uploaded_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN COALESCE($6::text, $7::text) IS NULL THEN NULL ELSE 'hmac-sha256' END, NOW())
-     ON CONFLICT (user_id, doc_type) DO UPDATE SET
-       file_url = EXCLUDED.file_url, uploaded_at = EXCLUDED.uploaded_at, status = EXCLUDED.status,
-       rejection_reason = EXCLUDED.rejection_reason,
-       doc_number_hash = EXCLUDED.doc_number_hash,
-       pending_doc_number_hash = EXCLUDED.pending_doc_number_hash,
-       hash_algo = EXCLUDED.hash_algo,
-       reviewed_by = NULL, reviewed_at = NOW()`,
-    [
-      req.user.sub, doc_type, url, docStatus, rejectionReason,
-      // ⚠️ DUPLIKÁTUMNÁL LENYOMAT NÉLKÜL TÁROLUNK. A DB-ben parciális UNIQUE
-      // index van a `doc_number_hash`-en (approved/pending) — ez az „egy okmány
-      // = egy fiók" garancia adatbázis-szinten, és NEM ejtjük el. Mivel a
-      // duplikátum 2026-08-10 óta emberi ellenőrzésre vár (nem automatikus
-      // elutasítás), a lenyomatot ilyenkor nem írjuk be: így a sor létrejöhet
-      // (a fotó nem lesz árva, és az admin láthatja), de a védelem sértetlen.
-      // A lenyomat majd akkor kerül be, ha az admin jóváhagyja — akkorra a
-      // másik fiók ügye rendezve van.
-      keziEllenorzesOka?.code === 'DUPLICATE_DOCUMENT' ? null : docNumberHash,
-      // ⚠️ A FÜGGŐ LENYOMAT (2026-08-11, 10. mérés F5). A fenti komment azt
-      // ígérte, hogy „a lenyomat majd akkor kerül be, ha az admin jóváhagyja" —
-      // de a jóváhagyás sosem írta vissza, a nyers szám pedig akkorra már
-      // nincs meg. Így aki EGYSZER duplikátum-gyanúba került, arra az
-      // „egy okmány = egy fiók" védelem VÉGLEG elveszett — miközben az
-      // érdekmérlegelési teszt épp ezzel indokolja a lenyomat megőrzését.
-      // A függő oszlop nem része a parciális UNIQUE indexnek, tehát tárolható
-      // ütközés nélkül, és a jóváhagyáskor előlép.
-      keziEllenorzesOka?.code === 'DUPLICATE_DOCUMENT' ? docNumberHash : null,
-    ],
-  );
-
-  // A lenyomat a fiók törlését is túléli (kyc_doc_history) — enélkül a
-  // „egy okmány = egy fiók" védelem törlés+újraregisztrációval megkerülhető.
-  await kycHistory.rogzitLenyomat(docNumberHash);
-
-  // A DB-írás UTÁN törlünk: ha az INSERT elhasalna, a régi fotó maradjon meg.
-  const elozoUrl = elozoDok[0]?.file_url;
-  if (elozoUrl && elozoUrl !== url) {
-    storage.deleteFile(elozoUrl).catch(() => {});
-  }
-
-  if (doc_type === 'id_card') {
-    await db.query(`UPDATE users SET identity_kyc_status = $1 WHERE id = $2`, [kycStatus, req.user.sub]);
-  }
-  // A drivers_license / company_document ágak törölve: a `validTypes` már nem
-  // engedi be őket (lásd ott), tehát elérhetetlen kód lettek volna.
-
-  res.json({
-    // Az `ok` a TÉNYLEGES döntést tükrözi: kézi ellenőrzésre terelt
-    // dokumentumnál nem „sikeres" (a státusz 'pending').
-    ok: kycStatus === 'verified',
-    doc_type,
-    status: kycStatus,
-    // A kliens felé aláírt (rövid életű) olvasó-URL megy, sosem a nyers kulcs
-    file_url: await getSignedPrivateUrl(url),
-    ai_reason: isUnderage
-      ? 'A születési dátumod alapján 18 év alatti vagy. A profilod adminisztrátori jóváhagyásra vár.'
-      : (rejectionReason || aiResult.reason),
-    ai_confidence: aiResult.confidence,
-    underage: isUnderage || false,
+    return { status: 200, body: {
+      // Az `ok` a TÉNYLEGES döntést tükrözi: kézi ellenőrzésre terelt
+      // dokumentumnál nem „sikeres" (a státusz 'pending').
+      ok: kycStatus === 'verified',
+      doc_type,
+      status: kycStatus,
+      // A kliens felé aláírt (rövid életű) olvasó-URL megy, sosem a nyers kulcs
+      file_url: await getSignedPrivateUrl(url),
+      ai_reason: isUnderage
+        ? 'A születési dátumod alapján 18 év alatti vagy. A profilod adminisztrátori jóváhagyásra vár.'
+        : (rejectionReason || aiResult.reason),
+      ai_confidence: aiResult.confidence,
+      underage: isUnderage || false,
+    } };
   });
+  res.status(result.status).json(result.body);
 });
 
 // GET /auth/kyc-status — KYC státusz lekérdezése

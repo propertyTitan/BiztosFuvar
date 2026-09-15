@@ -172,10 +172,12 @@ async function saveFile(buffer, originalName, mimetype) {
  * ami a DB-be kerül; olvasni CSAK a getSignedPrivateUrl-lel lehet.
  * Disk-fallback (dev/teszt): uploads/private/ alá kerül.
  */
-async function savePrivateFile(buffer, originalName, mimetype) {
+async function savePrivateFile(buffer, originalName, mimetype, { beforeSave } = {}) {
   const ext = (originalName?.split('.').pop() || 'jpg').toLowerCase();
   const safeExt = /^[a-z0-9]{1,6}$/.test(ext) ? ext : 'jpg';
   const key = `kyc/${crypto.randomBytes(16).toString('hex')}.${safeExt}`;
+  // A KYC-életciklus már a külső írás előtt tartósan nyilvántartja a kulcsot.
+  if (beforeSave) await beforeSave(`private:${key}`);
 
   if (r2Client && r2Config) {
     try {

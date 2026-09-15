@@ -43,7 +43,11 @@ describe('Felülírás nem hagyhat árvát', () => {
       [user.id],
     );
     const torles = vi.spyOn(storage, 'deleteFile').mockResolvedValue(true);
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/UJ-OKMANY.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/UJ-OKMANY.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
 
     await request(app)
       .post('/auth/kyc-document')

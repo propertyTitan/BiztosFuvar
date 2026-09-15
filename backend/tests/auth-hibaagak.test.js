@@ -701,7 +701,11 @@ describe('POST /auth/kyc-document — hibaágak és a döntési fa', () => {
     // Admin kell hozzá, különben nincs kinek szólni a kézi ellenőrzésről.
     await createUser({ role: 'admin' });
     const u = await createUser({ role: 'carrier', kyc: 'pending' });
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/ai-nincs.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/ai-nincs.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     const kezdet = new Date();
 
     const res = await request(app).post('/auth/kyc-document').set(auth(u.token))
@@ -728,7 +732,11 @@ describe('POST /auth/kyc-document — hibaágak és a döntési fa', () => {
 
   it('AI-kifogás (valid:false) → "pending", NEM automatikus elutasítás (GDPR 22. cikk)', async () => {
     const u = await createUser({ role: 'carrier', kyc: 'pending' });
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/kifogas.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/kifogas.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: false, pending: false, confidence: 0.9, reason: 'Homályos a kép.',
       documentNumber: null, holderName: null, likelyCopy: false, underage: false,
@@ -755,7 +763,11 @@ describe('POST /auth/kyc-document — hibaágak és a döntési fa', () => {
     // Admin kell, hogy legyen kinek szólni a gyanúról.
     await createUser({ role: 'admin' });
     const u = await createUser({ role: 'carrier', kyc: 'pending' });
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/fiatal.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/fiatal.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: false, confidence: 0.95, reason: 'A dokumentum tulajdonosa 18 év alatti.',
       documentNumber: 'KISKORU1', holderName: 'Teszt carrier', likelyCopy: false,
@@ -789,7 +801,11 @@ describe('POST /auth/kyc-document — hibaágak és a döntési fa', () => {
 
   it('tiszta eset → automatikus hitelesítés (a gyors út nem romlott el)', async () => {
     const u = await createUser({ role: 'carrier', kyc: 'pending' });
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/tiszta.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/tiszta.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: true, confidence: 0.97, reason: 'Rendben.',
       documentNumber: `TISZTA${Date.now()}`, holderName: 'Teszt carrier',
@@ -813,7 +829,11 @@ describe('POST /auth/kyc-document — hibaágak és a döntési fa', () => {
 
   it('KOCKÁZATI JEL (másolat-gyanú) → pending, akkor is, ha az AI valid:true-t mond', async () => {
     const u = await createUser({ role: 'carrier', kyc: 'pending' });
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/masolat.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/masolat.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: true, confidence: 0.99, reason: 'Rendben.',
       documentNumber: `MASOLAT${Date.now()}`, holderName: 'Teszt carrier',

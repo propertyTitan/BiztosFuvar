@@ -34,7 +34,11 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
   it('a tárolt lenyomat NEM a nyers okmányszám SHA-256-ja', async () => {
     const user = await createUser({ role: 'carrier' });
     const okmanyszam = 'AB1234567';
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/x.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/x.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: true, confidence: 0.95, documentNumber: okmanyszam,
       holder_name: null, likely_copy: false, birthDate: '1990-01-01',
@@ -77,7 +81,11 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
       [regi.id, hmac(okmanyszam)],
     );
 
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/uj.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/uj.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: true, confidence: 0.95, documentNumber: okmanyszam,
       holder_name: null, likely_copy: false, birthDate: '1990-01-01',
