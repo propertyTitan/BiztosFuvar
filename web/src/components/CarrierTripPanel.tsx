@@ -24,6 +24,7 @@ import { useToast } from './ToastProvider';
 type Props = {
   jobId: string;
   status: string;
+  statusBeforeDispute?: string | null;
   /** Kifizette-e már a feladó (paid_at). Fizetetlen fuvaron a backend
    *  úgysem enged pickup/dropoff fotót — itt előre jelezzük a szállítónak. */
   paid: boolean;
@@ -35,7 +36,7 @@ type Props = {
   idPrefix?: string;
 };
 
-export default function CarrierTripPanel({ jobId, status, paid, onDone, entity = 'job', idPrefix = '' }: Props) {
+export default function CarrierTripPanel({ jobId, status, statusBeforeDispute, paid, onDone, entity = 'job', idPrefix = '' }: Props) {
   const toast = useToast();
   const pickupInputRef = useRef<HTMLInputElement>(null);
   const dropoffInputRef = useRef<HTMLInputElement>(null);
@@ -108,7 +109,9 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
       setDropoffFile(null);
       setDeliveryCode('');
       if (dropoffInputRef.current) dropoffInputRef.current.value = '';
-      toast.success('Csomag kézbesítve', 'A fuvar lezárult. Köszönjük!');
+      toast.success('Csomag kézbesítve', status === 'disputed'
+        ? 'Az átadás igazolva. A vita továbbra is nyitva marad az ügyfélszolgálat döntéséig.'
+        : 'A fuvar lezárult. Köszönjük!');
       onDone();
     } catch (e: any) {
       // ⚠️ GF-FT-02 (Manus, 2026-08-21): a szerver-oldali elutasítás (rossz
@@ -126,7 +129,8 @@ export default function CarrierTripPanel({ jobId, status, paid, onDone, entity =
 
   // A foglalás 'confirmed' állapota felel meg a fuvar 'accepted'-jének —
   // egységesítjük, hogy a lenti elágazások mindkét entitásra jók legyenek.
-  const stage = entity === 'booking' && status === 'confirmed' ? 'accepted' : status;
+  const physicalStatus = status === 'disputed' ? statusBeforeDispute : status;
+  const stage = entity === 'booking' && physicalStatus === 'confirmed' ? 'accepted' : physicalStatus;
 
   // ---- fizetetlen fuvar: a munka még nem indulhat ----
   if ((stage === 'accepted' || stage === 'in_progress') && !paid) {

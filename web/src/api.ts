@@ -130,6 +130,8 @@ export type Job = {
     | 'completed'
     | 'disputed'
     | 'cancelled';
+  /** Vita alatt külön követett fizikai szállítási állapot. */
+  status_before_dispute?: string | null;
   /** 6 számjegyű átvételi kód — a backend csak a feladónak adja vissza. */
   delivery_code?: string | null;
   /** A kapcsolatfelvételi díj sikeres fizetésének időbélyegzője (`accepted` után). */
