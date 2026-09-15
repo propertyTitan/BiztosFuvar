@@ -1,7 +1,7 @@
 // Licit (Bid) végpontok + escrow letét szimuláció.
 const express = require('express');
 const db = require('../db');
-const { authRequired, requireDriverKYC, requireVerifiedEmail } = require('../middleware/auth');
+const { authRequired, requireDriverKYC, requireVerifiedEmail, driverEligibilityError } = require('../middleware/auth');
 const realtime = require('../realtime');
 const paymentProvider = require('../services/paymentProvider');
 const { createNotification } = require('../services/notifications');
@@ -332,6 +332,19 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
 // Visszaad: { ok:true, barionRes, feeHuf, feeAlreadyPaid } VAGY
 //           { ok:false, status, error, detail? } — ekkor a hívó ROLLBACK-el.
 async function finalizeAcceptedBid(client, bid, agreedPrice) {
+  // Az ajánlattétel óta visszavonhatók a jogosultságok. A véglegesítés
+  // tranzakciójában újra ellenőrizzük, és az admin módosításával sorosítjuk.
+  const { rows: carriers } = await client.query(
+    `SELECT identity_kyc_status, driver_terms_accepted_at, can_bid, phone,
+            account_type, personal_tax_id, tax_data_requested_at, tax_data_reminder_count
+       FROM users WHERE id = $1 FOR UPDATE`,
+    [bid.carrier_id],
+  );
+  const eligibility = driverEligibilityError(carriers[0]);
+  if (eligibility) return {
+    ok: false, status: 409, code: 'CARRIER_UNAVAILABLE',
+    error: 'A kiválasztott szállító jelenleg nem vállalhat új fuvart. Válassz másik ajánlatot, vagy kérd a szállítót a profilja ellenőrzésére.',
+  };
   await client.query(`UPDATE bids SET status = 'accepted' WHERE id = $1`, [bid.id]);
   await client.query(
     `UPDATE bids SET status = 'rejected' WHERE job_id = $1 AND id <> $2 AND status = 'pending'`,
@@ -641,7 +654,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
     if (!fin.ok) {
       await client.query('ROLLBACK');
-      return res.status(fin.status).json({ error: fin.error, ...(fin.detail ? { detail: fin.detail } : {}) });
+      return res.status(fin.status).json({ error: fin.error, ...(fin.code ? { code: fin.code } : {}), ...(fin.detail ? { detail: fin.detail } : {}) });
     }
     await client.query('COMMIT');
 
@@ -709,7 +722,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
     if (!fin.ok) {
       await client.query('ROLLBACK');
-      return res.status(fin.status).json({ error: fin.error, ...(fin.detail ? { detail: fin.detail } : {}) });
+      return res.status(fin.status).json({ error: fin.error, ...(fin.code ? { code: fin.code } : {}), ...(fin.detail ? { detail: fin.detail } : {}) });
     }
     await client.query('COMMIT');
 
