@@ -1,13 +1,17 @@
 # CLAUDE.md — GoFuvar projekt context
 
-> **2026-09-15 — launch előtti P0/P1-javítások, első kör:** a
-> `codex/p0-p1-launch-javitasok` ág a két P0-t javítja, külön commitokban.
-> `photoEvidence.js`: a külső feltöltés után sorzárral újraellenőrzött
-> jogosultság/kód/állapot/limit; a fotó és a fizikai átmenet egy tranzakció.
-> Inaktív fióknál csak visszaigazolt, nem stub e-mail indít törlési határidőt;
-> közben bejelentkező fiók törlése feltételes DELETE-tel tiltott.
-> A **12 P1 még nyitott**, tételes követés: `LAUNCH_JAVITASI_ALLAPOT.txt`.
-> A korábbi P2 PR #237-re épül; a fejlesztési ág nem jelent éles telepítést.
+> **2026-09-15 — launch előtti P0/P1-javítások:** a P2 PR #237 és a két
+> P0-t javító PR #238 összevonva; a Railway production a `0befe774` main
+> commitot futtatja. A **12 P1 kódjavítása elkészült** a
+> `codex/launch-tizenket-p1` ágon; tételes követés és korlátok:
+> `LAUNCH_JAVITASI_ALLAPOT.txt`. Közös tranzakciós fióktörlés tartós
+> fájltakarítással; megőrzött fizetési munkamenetek; atomi referral és vita;
+> telefon/KYC/foglalási jogosultság; webes retry, vita alatti kézbesítés és
+> socket-visszacsatlakozás. **Telepítés előtt sorrendben 085–087 migráció.**
+> Helyi ellenőrzés: **1933 backend + 180 web teszt sikeres**, production
+> build sikeres, backend lefedettségi kapu sikeres. Ugyanezen új próbákból
+> 31 elbukik a régi kódon, mind a 12 P1-et érintve. A PR CI/E2E és a
+> telepítés külön ellenőrzés; a CIB éles adaptere továbbra is külön feladat.
 
 > **2026-09-15 — a friss audit 1–6. pontjának javítása, `codex/audit-hat-javitas` ágon:**
 > Hat külön javítás: atomi díjkönyvelés és tartós számlapótlás; szállítói

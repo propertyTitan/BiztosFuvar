@@ -1,11 +1,11 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
-2026-09-15 – első kör: a két P0
+2026-09-15 – a két P0 összevonva; mind a 12 P1 kódjavítása elkészült
 
 Kiinduló audit: AUDIT_2026-09-15.txt (2 P0, 12 P1, 10 P2).
 Ez a nyilvántartás az audit utáni változásokat követi. A javított kód
 nem jelenti automatikusan az éles telepítést vagy a teljes launch-készséget.
 
-ELLENŐRZÉS
+P0 ELLENŐRZÉS
 - Teljes helyi backend: 167 fájl, 1904 sikeres teszt (17 új P0-próba).
 - Lefedettségi kapu: sor 93,33%, utasítás 91,90%, függvény 89,16%, ág 84,38%.
 - A javítás előtti 1d9bd46 izolált másolatán 16 azonos új próba mind elbukik
@@ -20,7 +20,7 @@ Helyi naplók: /private/tmp/gofuvar-launch-p0-before-final.log;
 A tesztek elkülönített helyi PostgreSQL-t és stub külső szolgáltatásokat
 használtak. Sem éles törlés, sem éles banki/SMS/e-mail művelet nem történt.
 
-P0-01 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+P0-01 – JAVÍTOTT ÉS TELEPÍTETT (PR #238, main 0befe774)
 Commit: 10d60e6.
 Fájlok: backend/src/services/photoEvidence.js; backend/src/routes/photos.js;
 backend/tests/launch-p0-foto-verseny.test.js; CODEMAP.md.
@@ -34,10 +34,10 @@ fotótípuson; valódi reopen → új ajánlat → accept API-folyamat; foglalá
 lemondása/tulajdonosváltása; párhuzamos vitás dropoff; időközben beálló
 kódzár; UPDATE-hiba miatti fotó-rollback; párhuzamos listing képlimit.
 Kockázat: közepes, közös fotóút és tranzakcióhatár változott.
-Megmaradó külön tételek: P1-03/P1-11 (vita, utóhatások), P2-05 (elveszett
-válasz utáni feltöltési idempotencia). Ezeket ez a javítás nem zárja le.
+A kapcsolódó P1-03/P1-11 javítása lent; P2-05 (elveszett válasz utáni
+feltöltési idempotencia) külön, továbbra is nyitott tétel.
 
-P0-02 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+P0-02 – JAVÍTOTT ÉS TELEPÍTETT (PR #238, main 0befe774)
 Commit: 770bb16.
 Fájlok: backend/src/services/retention.js;
 backend/tests/launch-p0-dormant-figyelmeztetes.test.js.
@@ -51,30 +51,160 @@ sikeres újrapróbálás; küldés és jelöltlista után történő bejelentkez
 Kockázat: alacsony–közepes, csak a meglévő törlési előfeltételek szigorítása.
 Ez a 3 évnél régebben inaktív fiókok jövőbeli kezelését védi. Történeti
 figyelmeztetések tényleges kiküldését és éles érintettséget nem állapítottuk meg.
-A közös törlési életciklus és fájltakarítás P1-06/P1-07 tétele továbbra is nyitott.
+A közös törlési életciklus és fájltakarítás P1-06/P1-07 javítása lent.
 
-NYITOTT P1-EK – AZ AUDIT AZONOSÍTÓIVAL
-P1-01: függő banki fizetés melletti fióktörlés; banki élesítés előtti kapu.
-P1-02: ajánlói kupon kiadása és havi plafon közös tranzakcióban.
-P1-03: vita és fuvar/foglalás állapotának közös tranzakciója.
-P1-04: aktív megállapodás mellett a szállító telefonszáma nem üríthető.
-P1-05: új KYC-kép saját feltöltési ideje és verzióbiztos retenciója.
-P1-06: kulcsgyűjtési hibánál nincs fióktörlés; tartós fájltörlési feladatsor.
-P1-07: kézi/admin/inaktív fióktörlés közös adat-életciklusa.
-P1-08: sikeres újrapróbálás után eltűnő fuvarrészlet-hibaképernyő.
-P1-09: vita alatti szállítási panel és chat a weben.
-P1-10: socket újracsatlakozás után visszairatkozás és friss állapotlekérés.
-P1-11: vita alatti pickup/dropoff normál címzett-PIN és teljesítési utóhatásai.
-P1-12: foglalás megerősítésekor aktuális szállítói alkalmasság; járatindítási kapu.
+P1 ELLENŐRZÉS ÉS TELEPÍTÉS
+Ág: codex/launch-tizenket-p1. Mind a 12 alábbi tétel kódja és célzott
+ellenőrzése elkészült; PR CI/E2E és production telepítés még külön lépés.
+- Teljes backend: 171 tesztfájl, 1933 sikeres teszt, 0 hiba.
+- Lefedettségi kapu sikeres: sor 93,21%; utasítás 91,73%; függvény 89,02%; ág 84,15%.
+- Web: 36 tesztfájl, 180 sikeres próba; a HTTP-időkeret tesztjét a sandbox
+  portnyitási tiltása miatt engedélyezett futásban ellenőriztük újra.
+- Next.js production build és típusellenőrzés sikeres.
+- A javítás előtti 2be6608 izolált kódmásolatán ugyanazokból az új próbákból
+  23 backend + 8 web teszt elbukik, mind a 12 P1-et érintve. Az összevetéshez
+  a három új, bővítő migráció mindkét változatban jelen van; a régi runtime
+  változatlan. Így a különbség nem hiányzó táblából/oszlopból adódik.
+- Helyi részletes eredmény: /private/tmp/gofuvar-p1-backend-final.json;
+  /private/tmp/gofuvar-p1-targeted.json; /private/tmp/gofuvar-p1-before-backend.json;
+  /private/tmp/gofuvar-p1-before-web.json; /private/tmp/gofuvar-hat-javitas-build.log.
+- Külső szolgáltatások stubok; nincs éles fióktörlés vagy banki/SMS/e-mail próba.
+- Production előellenőrzés: 84 alkalmazott migráció, csak 085–087 függő;
+  35 megőrzendő meglévő fizetési kapcsolat, 0 hiányzó kötelező adat,
+  0 külön ügylethez tartozó azonos fizetési azonosító.
+Telepítési sorrend: 085_kyc_uploaded_at.sql → 086_file_deletion_queue.sql →
+087_payment_sessions.sql → backend/web. A régi backend mellett is bővítő
+séma; rollbacknél a kód visszaállítható, az új pénzügyi/fájltörlési adatokat
+nem szabad tábladobással elveszíteni.
 
-KÖVETKEZŐ JAVÍTÁSI CSOMAGOK
-1. P1-06/P1-07/P1-01: a közös fióktörlési életciklus és ügyletek védelme.
-2. P1-08/P1-10: mobilhálózati hibából visszatérés és élő állapot.
-3. P1-03/P1-09/P1-11: vita és fizikai kézbesítés összehangolása.
-4. P1-02/P1-04/P1-05/P1-12: jutalom, elérhetőség, KYC, foglalási jogosultság.
-Minden csomag külön áttekinthető változás, az eredeti hibát fedő tesztekkel.
-Az újonnan bizonyított hibák saját azonosítót és reprodukciót kapnak;
-a már javított tételeket csak konkrét regresszió miatt nyitjuk újra.
+P1-01 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájlok: backend/db/migrations/087_payment_sessions.sql;
+backend/src/utils/activePaid.js; backend/src/routes/payments.js, jobs.js,
+auth.js (export); backend/src/services/retention.js, accountDeletion.js.
+Minden megkezdett fizetés eredeti ügyletét és díját külön, CASCADE nélküli
+sor őrzi. A korábbi próbálkozást az új indítás nem írja felül; a callback
+innen keresi vissza. Függő vagy egyeztetésre váró fizetésnél egyik fél
+fiókja sem törölhető. A lusta banki indítás és a rögzítés ugyanazon
+ügyletzár alatt fut. Csak feldolgozott szolgáltatói végállapot oldja a
+session védelmét; a helyi lemondás nem minősül banki visszatérítésnek.
+Teszt: launch-p1-fiok-eletciklus.test.js – job/booking pay → delete 409 →
+sikeres callback; régi és új session lezárása; felülírt session eredeti
+összege; megállított banki indítás alatti párhuzamos fióktörlés.
+Kockázat: közepes–magas (migráció, pénzügyi lookup és zárolás).
+Korlát: a már korábban felülírt/eltűnt sessionök történetét a migráció nem
+rekonstruálja. Elakadt vagy árva fizetés szolgáltatói egyeztetést igényel.
+
+P1-02 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájlok: backend/src/services/referral.js, gamification.js.
+Ajánló és meghívott sorzára alatt közös tranzakció ellenőrzi az ötös havi
+plafont, jelöli a jutalmat és hozza létre a kupont. INSERT-hibánál a claim
+is visszagördül, így később újrapróbálható. Összeg/lejárat változatlan.
+Teszt: launch-p1-jutalom-es-alkalmassag.test.js – valódi DB INSERT-hiba,
+sikeres retry; 4 meglévő kupon és 8 párhuzamos meghívott mellett összesen 5.
+Kockázat: közepes (tranzakció és konkurens jutalomkiadás).
+
+P1-03 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájl: backend/src/routes/disputes.js.
+Vita nyitása/lezárása és a fuvar/foglalás állapota közös tranzakcióban,
+ügyletzárral frissül. A kézbesítési lépés ugyanazon záron vár; a lezárás
+az aktuális fizikai állapotot állítja vissza. Lezárt vita újranyitása
+ugyanazon sor átírásával 409, azonos lezárás ismétlése idempotens.
+Teszt: launch-p1-vita-teljesites.test.js – második írás mesterséges DB-hibája
+job és booking nyitás/lezárás közben; pickup/nyitás és dropoff/lezárás versenye.
+Kockázat: közepes–magas (közös állapotátmenetek).
+
+P1-04 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájl: backend/src/routes/auth.js (PATCH /me).
+Aktív szállítói megállapodás mellett a telefon üres/null értékre állítása
+409, érvényes új szám megadható. Ellenőrzés és profilfrissítés user-sorzár
+alatt történik, a megállapodáskori jogosultságellenőrzéssel összehangolva.
+Teszt: launch-p1-jutalom-es-alkalmassag.test.js – aktív job/booking tiltás,
+érvényes csere és lezárás utáni ürítés.
+Kockázat: alacsony–közepes.
+
+P1-05 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájlok: backend/db/migrations/085_kyc_uploaded_at.sql;
+backend/src/routes/auth.js; backend/src/services/kyc.js.
+Külön uploaded_at indul minden feltöltéskor; az eredeti created_at marad.
+A retenció az aktuális kép idejéből számol, a fájlhivatkozást pedig csak
+akkor nullázza, ha időközben nem váltott új fájlra/verzióra.
+Teszt: launch-p1-kyc-feltoltes.test.js – 61 napos rekord mai pending képét
+megtartja; takarítás közben újra feltöltött kép pointerét nem törli.
+Kockázat: közepes. A régi képek pontos feltöltési ideje nem rekonstruálható,
+az egyszeri backfill a rendelkezésre álló reviewed_at/created_at-ot használja.
+
+P1-06 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájlok: backend/src/utils/userFiles.js; backend/src/services/accountDeletion.js,
+fileDeletionQueue.js, retention.js; backend/db/migrations/086_file_deletion_queue.sql.
+Kulcsgyűjtési hiba megszakítja a törlést. A kulcsok a fióktörlés tranzakciójában
+tartós feladatsorba kerülnek; külső fájltörlés csak commit után. Tárhelyhibánál
+megmarad a retryfeladat és riasztás készül. A válasz jelzi a függő fájltörlést.
+Teszt: launch-p1-fiok-eletciklus.test.js – SQL-gyűjtési hiba, DELETE-hiba miatti
+rollback, tárhelyhiba utáni későbbi sikeres feldolgozás.
+Kockázat: közepes–magas (fióktörlés és tartós feladatsor).
+
+P1-07 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájlok: backend/src/services/accountDeletion.js, retention.js;
+backend/src/routes/auth.js, admin.js.
+Kézi/admin/inaktív törlés ugyanazt a szolgáltatást használja: aktuális
+ügyletvédelem, HMAC törlési audit, KYC-történet jelölése, írt értékelés
+szövegének ürítése, fájltakarítás. A csillag és a másik fél reputációja marad.
+Az inaktivitás és a visszaigazolt figyelmeztetés határideje sorzár alatt
+újraellenőrződik; a P0-02 védelme megmaradt.
+Teszt: launch-p1-fiok-eletciklus.test.js – mindhárom út azonos metaadat- és
+fájlkezelési elvárásokkal; launch-p0-dormant-figyelmeztetes.test.js regressziói.
+Kockázat: közepes–magas (közös életciklus).
+
+P1-08 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájlok: web/app/dashboard/fuvar/[id]/page.tsx; web/app/sofor/fuvar/[id]/page.tsx.
+Sikeres betöltés törli a korábbi hibát, az újrapróbálás visszahozza a felületet.
+Teszt: web/src/components/JobDetailRecovery.test.tsx – mindkét tényleges
+részletoldal első API-hibája után a retry gombbal visszatér a tartalom.
+Kockázat: alacsony.
+
+P1-09 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájlok: a két fuvarrészletoldal; web/src/api.ts;
+web/src/components/CarrierTripPanel.tsx.
+A vitajelző mellett a fizikai állapot dönti el a szállítási panel lépését.
+Vitás fuvaron a chat elérhető; kézbesítéskor a felület jelzi, hogy a vita
+nyitva marad. Jogosultság/fizetés szerveroldali kapui változatlanok.
+Teszt: JobDetailRecovery.test.tsx – disputed+in_progress fotó/kód művelet,
+majd disputed+delivered mellett eltűnő kézbesítési űrlap, megmaradó vita/chat.
+Kockázat: közepes (frontend/backend állapotillesztés).
+
+P1-10 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájlok: web/src/lib/socket.ts; a két fuvarrészletoldal.
+Minden connect újra beléptet a job-roomba, és a részletoldal friss REST
+állapotot kér. Listener-cleanup és feliratkozásszámláló védi az ugyanazon
+fuvarra figyelő oldalt/térképet a másik komponens kilépésétől.
+Teszt: web/src/lib/socket-reconnect.test.ts – offline indulás, ismételt
+connect és snapshot, több feliratkozó, cleanup.
+Kockázat: közepes (közös socket-helper).
+
+P1-11 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájl: backend/src/routes/photos.js.
+Fizikai pickupkor a címzett SMS/e-mail PIN-útja vita mellett is lefut.
+Dropoffkor a normál és vitás ág közösen indítja az ajánlói jutalmat és
+az adóadat-bekérést. A P0 tranzakciós átmenetjelzője védi a duplázást;
+a fizikai kézbesítés nem zárja le a vitát.
+Teszt: launch-p1-vita-teljesites.test.js – normál és vitás PIN-küldés,
+jogosult kupon, adóadat-bekérés, ismételt feltöltéskor nincs duplázás.
+Kockázat: közepes. Szolgáltatói kézbesítést a stub próba nem igazol.
+
+P1-12 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Fájl: backend/src/routes/carrierRoutes.js (confirm).
+A foglalás megerősítésének tranzakciója a szállító aktuális rekordján
+ellenőrzi a driverEligibilityError szabályait, még a fizetésindítás előtt.
+Teszt: launch-p1-jutalom-es-alkalmassag.test.js – felfüggesztett, KYC nélküli,
+nyilatkozat nélküli vagy telefon nélküli szállító 409-et kap, bankindítás nincs.
+Kockázat: alacsony–közepes. A járatok launch-kapcsolója továbbra is tiltott.
+
+MEGMARADÓ KORLÁTOK
+- Ez a csomag az AUDIT_2026-09-15.txt 12 P1-ét javítja; a 10 P2 külön lista.
+- A CIB valós adaptere továbbra is hiányos, az éles környezet tudatosan stub
+  fizetési módban van. Banki élesítést ez a javítás nem kapcsol be és nem igazol.
+- Meglévő elveszett fizetési/fájlhivatkozások és történeti törlési érintettség
+  utólagos rekonstruálhatóságát nem állítjuk.
 
 LAUNCH ELŐTTI ELFOGADÁS
 - A fenti ismert P0/P1-ek mindegyike igazoltan javított és telepített.
