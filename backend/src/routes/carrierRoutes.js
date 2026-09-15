@@ -6,7 +6,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired, requireDriverKYC, requireVerifiedEmail } = require('../middleware/auth');
+const { authRequired, requireDriverKYC, requireVerifiedEmail, driverEligibilityError } = require('../middleware/auth');
 const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 // ⚠️ 2026-08-08: a foglalási (Járat) ág EDDIG közvetlenül a barion-t hívta,
 // pedig a launch QVIK-re vált (Barion elvetve). Következmény lett volna:
@@ -841,6 +841,15 @@ router.post(
       if (b.status !== 'pending') {
         await client.query('ROLLBACK');
         return res.status(409).json({ error: 'A foglalás már nem megerősíthető' });
+      }
+
+      // A fenti FOR UPDATE a szállító user-sorát is zárolja. A jogosultság
+      // nem a járat feladásakor, hanem a megállapodás pillanatában szükséges.
+      const { rows: carriers } = await client.query('SELECT * FROM users WHERE id = $1', [b.carrier_id]);
+      const eligibility = driverEligibilityError(carriers[0]);
+      if (eligibility) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ ...eligibility, status: undefined });
       }
 
       // Kapcsolatfelvételi díj indítása (készpénzes modell: a fuvardíjat a

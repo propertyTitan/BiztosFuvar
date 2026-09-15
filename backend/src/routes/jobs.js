@@ -1001,36 +1001,52 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   }
 
 
+  const paymentClient = await db.pool.connect();
   let barionRes;
   try {
-    barionRes = await paymentProvider.startFeePayment({
-      jobId: j.id,
-      feeHuf,
-      shipperEmail: j.shipper_email,
-    });
-  } catch (err) {
-    console.error('[barion] lusta startFeePayment (job) hiba:', err.message);
-    return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
-  }
+    await paymentClient.query('BEGIN');
+    const current = await paymentClient.query('SELECT status, paid_at FROM jobs WHERE id = $1 FOR UPDATE', [j.id]);
+    if (!current.rows[0] || current.rows[0].status !== 'accepted' || current.rows[0].paid_at) {
+      await paymentClient.query('ROLLBACK');
+      return res.status(409).json({ error: 'A fuvar fizetési állapota időközben megváltozott. Frissítsd az oldalt.', code: 'STATE_CHANGED' });
+    }
+    // A fióktörlés ugyanazt a job-sort zárolja, ezért a banki indítás és
+    // a session tartós rögzítése között nem tűnhet el az ügylet.
+    try {
+      barionRes = await paymentProvider.startFeePayment({
+        jobId: j.id,
+        feeHuf,
+        shipperEmail: j.shipper_email,
+      });
+    } catch (err) {
+      console.error('[barion] lusta startFeePayment (job) hiba:', err.message);
+      await paymentClient.query('ROLLBACK');
+      return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
+    }
 
-  await db.query(
-    `INSERT INTO escrow_transactions
-       (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
-        carrier_share_huf, platform_share_huf)
-     VALUES ($1,$2,'held',$3,$4,0,$2)
-     ON CONFLICT (job_id) DO UPDATE SET
-       amount_huf         = EXCLUDED.amount_huf,
-       barion_payment_id  = EXCLUDED.barion_payment_id,
-       barion_gateway_url = EXCLUDED.barion_gateway_url,
-       carrier_share_huf  = 0,
-       platform_share_huf = EXCLUDED.platform_share_huf,
-       held_at            = NOW()`,
-    [j.id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
-  );
-  await db.query(
-    `UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2 AND connection_fee_huf IS NULL`,
-    [feeHuf, j.id],
-  );
+    await paymentClient.query(
+      `INSERT INTO escrow_transactions
+         (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
+          carrier_share_huf, platform_share_huf)
+       VALUES ($1,$2,'held',$3,$4,0,$2)
+       ON CONFLICT (job_id) DO UPDATE SET
+         amount_huf         = EXCLUDED.amount_huf,
+         barion_payment_id  = EXCLUDED.barion_payment_id,
+         barion_gateway_url = EXCLUDED.barion_gateway_url,
+         carrier_share_huf  = 0,
+         platform_share_huf = EXCLUDED.platform_share_huf,
+         held_at            = NOW()`,
+      [j.id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
+    );
+    await paymentClient.query(
+      `UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2 AND connection_fee_huf IS NULL`,
+      [feeHuf, j.id],
+    );
+    await paymentClient.query('COMMIT');
+  } catch (err) {
+    await paymentClient.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally { paymentClient.release(); }
 
   res.json({
     payment_id: barionRes.paymentId,

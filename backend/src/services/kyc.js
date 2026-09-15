@@ -44,15 +44,15 @@ async function purgeOldKycFiles() {
     // másolat-gyanú — és a 18 év alattinak vélt személyek okmánya.
     // A metaadat (státusz, doc_number_hash) marad, csak a NYERS FOTÓ megy.
     const { rows } = await db.query(
-      `SELECT id, file_url
+      `SELECT id, file_url, uploaded_at
          FROM kyc_documents
         WHERE file_url IS NOT NULL
           AND (
             (status IN ('approved', 'rejected', 'expired')
-              AND COALESCE(reviewed_at, created_at) < NOW() - ($1 || ' days')::interval)
+              AND GREATEST(reviewed_at, uploaded_at, created_at) < NOW() - ($1 || ' days')::interval)
             OR
             (status = 'pending'
-              AND created_at < NOW() - ($2 || ' days')::interval)
+              AND COALESCE(uploaded_at, created_at) < NOW() - ($2 || ' days')::interval)
           )`,
       [KYC_FILE_RETENTION_DAYS, KYC_PENDING_MAX_DAYS],
     );
@@ -76,8 +76,12 @@ async function purgeOldKycFiles() {
         } catch { /* a riasztás hiánya nem akaszthatja meg a kört */ }
         continue;
       }
-      await db.query(`UPDATE kyc_documents SET file_url = NULL WHERE id = $1`, [doc.id]);
-      purged += 1;
+      const cleared = await db.query(
+        `UPDATE kyc_documents SET file_url = NULL
+          WHERE id = $1 AND file_url = $2 AND uploaded_at IS NOT DISTINCT FROM $3::timestamptz`,
+        [doc.id, doc.file_url, doc.uploaded_at],
+      );
+      purged += cleared.rowCount;
     }
     if (rows.length > 0) {
       console.log(`[kyc-retention] ${rows.length} okmány nyers fotója kiürítve (>${KYC_FILE_RETENTION_DAYS} nap)`);

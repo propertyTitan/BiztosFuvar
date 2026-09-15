@@ -18,8 +18,6 @@ const {
   sendPasswordResetEmail,
 } = require('../services/email');
 const { firstContactLeak } = require('../utils/contactGuard');
-const { userHasBlockingDealings } = require('../utils/activePaid');
-const { purgeUserFiles, collectUserFileKeys } = require('../utils/userFiles');
 const kycHistory = require('../utils/kycHistory');
 
 /**
@@ -691,35 +689,65 @@ router.patch('/me', authRequired, async (req, res) => {
   }
 
   values.push(req.user.sub);
-  // ⚠️ KYC-NÉV ZÁR (2026-09-11, Codex-audit P1-03): az „Azonosított szállító"
-  // jelvény a személyi igazolványon szereplő névhez tartozik. A név eddig
-  // igazolás UTÁN is szabadon átírható volt — a jelvény így nem jelentett
-  // semmit. Igazolt fióknál a név csak ügyfélszolgálaton át változhat
-  // (névváltozás → új okmány → új KYC). A cégmezők ugyanezt a mintát követik
-  // (company_verification_status → 'pending').
-  if (req.body.full_name !== undefined) {
-    const { rows: kycRows } = await db.query(
-      'SELECT full_name, identity_kyc_status FROM users WHERE id = $1',
-      [req.user.sub],
-    );
-    if (kycRows[0]?.identity_kyc_status === 'verified' && kycRows[0].full_name !== req.body.full_name) {
-      return res.status(409).json({
-        error: 'Az igazolt (személyi igazolvánnyal azonosított) név nem módosítható. '
-          + 'Ha a neved megváltozott, írj az info@gofuvar.hu-ra, és újra azonosítunk.',
-        code: 'KYC_NAME_LOCKED',
-      });
+  const client = await db.pool.connect();
+  let rows;
+  try {
+    await client.query('BEGIN');
+    // Ugyanezt a user-sort zárolja a megállapodás: a telefonürítés és az
+    // elfogadás nem olvashat egymással ellentmondó állapotot.
+    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [req.user.sub]);
+    if (req.body.phone !== undefined && !req.body.phone) {
+      const active = await client.query(
+        `SELECT 1 FROM jobs WHERE carrier_id = $1 AND status IN ('accepted', 'in_progress', 'disputed')
+         UNION ALL
+         SELECT 1 FROM route_bookings b JOIN carrier_routes r ON r.id = b.route_id
+          WHERE r.carrier_id = $1 AND b.status IN ('confirmed', 'in_progress', 'disputed')
+         LIMIT 1`, [req.user.sub],
+      );
+      if (active.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: 'Folyamatban lévő fuvar mellett a telefonszámod csak másik érvényes számra cserélhető.',
+          code: 'PHONE_REQUIRED_FOR_ACTIVE_DEAL',
+        });
+      }
     }
-  }
-  const { rows } = await db.query(
-    `UPDATE users SET ${updates.join(', ')}, updated_at = NOW()
-      WHERE id = $${idx}
-    RETURNING id, role, email, full_name, phone, vehicle_type, vehicle_plate,
-              avatar_url, bio, rating_avg, rating_count, created_at,
-              identity_kyc_status, driver_kyc_status, account_type,
-              company_name, company_verification_status, email_verified`,
-    values,
-  );
-  if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+    // ⚠️ KYC-NÉV ZÁR (2026-09-11, Codex-audit P1-03): az „Azonosított szállító"
+    // jelvény a személyi igazolványon szereplő névhez tartozik. A név eddig
+    // igazolás UTÁN is szabadon átírható volt — a jelvény így nem jelentett
+    // semmit. Igazolt fióknál a név csak ügyfélszolgálaton át változhat
+    // (névváltozás → új okmány → új KYC). A cégmezők ugyanezt a mintát követik
+    // (company_verification_status → 'pending').
+    if (req.body.full_name !== undefined) {
+      const { rows: kycRows } = await client.query(
+        'SELECT full_name, identity_kyc_status FROM users WHERE id = $1',
+        [req.user.sub],
+      );
+      if (kycRows[0]?.identity_kyc_status === 'verified' && kycRows[0].full_name !== req.body.full_name) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({
+          error: 'Az igazolt (személyi igazolvánnyal azonosított) név nem módosítható. '
+            + 'Ha a neved megváltozott, írj az info@gofuvar.hu-ra, és újra azonosítunk.',
+          code: 'KYC_NAME_LOCKED',
+        });
+      }
+    }
+    ({ rows } = await client.query(
+      `UPDATE users SET ${updates.join(', ')}, updated_at = NOW()
+        WHERE id = $${idx}
+      RETURNING id, role, email, full_name, phone, vehicle_type, vehicle_plate,
+                avatar_url, bio, rating_avg, rating_count, created_at,
+                identity_kyc_status, driver_kyc_status, account_type,
+                company_name, company_verification_status, email_verified`,
+      values,
+    ));
+    await client.query('COMMIT');
+    if (!rows[0]) return res.status(404).json({ error: 'Felhasználó nem található' });
+
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally { client.release(); }
 
   // Cégadat-változásnál a NAV-ellenőrzés automatikus újrafuttatása a
   // háttérben (a 'pending' beállítása után) — best-effort.
@@ -1299,10 +1327,10 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
 
   await db.query(
     `INSERT INTO kyc_documents (user_id, doc_type, file_url, status, rejection_reason,
-                                doc_number_hash, pending_doc_number_hash, hash_algo)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN COALESCE($6::text, $7::text) IS NULL THEN NULL ELSE 'hmac-sha256' END)
+                                doc_number_hash, pending_doc_number_hash, hash_algo, uploaded_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, CASE WHEN COALESCE($6::text, $7::text) IS NULL THEN NULL ELSE 'hmac-sha256' END, NOW())
      ON CONFLICT (user_id, doc_type) DO UPDATE SET
-       file_url = EXCLUDED.file_url, status = EXCLUDED.status,
+       file_url = EXCLUDED.file_url, uploaded_at = EXCLUDED.uploaded_at, status = EXCLUDED.status,
        rejection_reason = EXCLUDED.rejection_reason,
        doc_number_hash = EXCLUDED.doc_number_hash,
        pending_doc_number_hash = EXCLUDED.pending_doc_number_hash,
@@ -1485,8 +1513,13 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
               invoice_pending, last_invoice_attempt_at
          FROM fee_payment_receipts WHERE shipper_id = $1 ORDER BY paid_at DESC`,
     ),
+    fizetesi_munkameneteim: await q(
+      `SELECT CASE WHEN shipper_id = $1 THEN payment_id ELSE NULL END AS payment_id,
+              job_id, booking_id, amount_huf, currency, state, created_at, settled_at
+         FROM payment_sessions WHERE shipper_id = $1 OR carrier_id = $1 ORDER BY created_at DESC`,
+    ),
     kyc_metaadat: await q(
-      `SELECT doc_type, status, rejection_reason, created_at, reviewed_at
+      `SELECT doc_type, status, rejection_reason, created_at, reviewed_at, uploaded_at
          FROM kyc_documents WHERE user_id = $1`,
     ),
     // ⚠️ 2026-08-11: az alábbi hat tábla kimaradt az exportból, miközben a
@@ -1551,82 +1584,21 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
 router.delete('/me', authRequired, async (req, res) => {
   const userId = req.user.sub;
 
-  // Adatvesztés-védelem (2026-08-09): a self-delete kaszkádol (users →
-  // carrier_routes → route_bookings), így MÁS feladók kifizetett foglalásait
-  // is elvinné, és a vitás ügyletek 5 éves bizonyíték-zárolását kiürítené.
-  // Ugyanaz a guard, mint az admin-törlésnél (a korábbi verzió csak a saját
-  // 'accepted'/'in_progress' fuvarokat nézte — se foglalást, se disputed-et,
-  // se a fizetettséget). Előbb le kell zárni az ügyletet.
-  if (await userHasBlockingDealings(userId)) {
-    return res.status(409).json({
-      error: 'Nem törölheted a fiókodat, amíg folyamatban lévő, kifizetett, vitatott vagy '
-        + 'zárolt bizonyítékkal rendelkező ügyleted van. Előbb zárd le (kézbesítés / '
-        + 'lemondás / vita); a bizonyíték-zárolás lejártáig írj az info@gofuvar.hu-ra.',
-      code: 'USER_HAS_ACTIVE_PAID',
-    });
-  }
-
-  // Email-lenyomat az audit-naplóba (nem maga az e-mail — GDPR).
-  // ⚠️ HMAC, nem sima SHA-256 (2026-08-09, adatvédelmi audit 3. kör): az
-  // e-mail-címek tere felsorolható, ezért egy sózatlan hash egy jelöltlistával
-  // visszafejthető — vagyis pszeudonimizált, nem anonim adat. A szerver-oldali
-  // titokkal képzett lenyomat egy DB-szivárgásból önmagában nem fordítható
-  // vissza. A sor 5 év után a napi retenciós körben törlődik.
-  const { rows: user } = await db.query('SELECT email FROM users WHERE id = $1', [userId]);
-  const emailHash = require('../utils/pepper').hmac(user[0]?.email || '');
-
-  // A törlendő fájlok kulcsai — MÉG a DB-sorok megléte mellett gyűjtjük ki.
-  const fileKeys = await collectUserFileKeys(userId);
-
-  // ⚠️ SORREND (2026-08-09, audit): ELŐBB a DB-törlés (tranzakcióban), és CSAK
-  // a sikeres commit UTÁN a tárolóból törlés. A korábbi sorrend fordított volt:
-  // a fájlokat (köztük a személyi igazolvány fotóját) VÉGLEGESEN törölte, majd
-  // a `DELETE FROM users` egy séma-hibán elhasalt (23502) — a felhasználó
-  // „Szerverhibát" kapott, a fiókja megmaradt, az okmánya viszont nem.
-  // A fájl-törlés nem visszafordítható, ezért az mindig az utolsó lépés.
-  const client = await db.pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `INSERT INTO deleted_accounts (original_user_id, email_hash, reason, hash_algo)
-       VALUES ($1, $2, $3, 'hmac-sha256')`,
-      [userId, emailHash, 'Felhasználó saját kérésére'],
-    );
-    // Az okmány-lenyomat TÚLÉLI a törlést (user-döntés, 2026-08-10): enélkül
-    // a „egy okmány = egy fiók" védelem törlés + újraregisztrációval
-    // megkerülhető lenne. Csak a hash marad, az okmányszám sosem.
-    await kycHistory.jeloldToroltFioknak(client, userId, 'self');
-    // Az általa ÍRT értékelések csillaga megmarad („Törölt felhasználó" —
-    // 081-es migráció: reviewer_id SET NULL), a szabad szövege törlődik
-    // (2026-09-11, teljes audit A4): a másik fél reputációja nem tűnhet el
-    // egy harmadik fél fiók-törlésével, a törölt ember szövege viszont igen.
-    await client.query('UPDATE reviews SET comment = NULL WHERE reviewer_id = $1', [userId]);
-    // CASCADE törli: jobs, bids, photos, notifications, kyc_documents, stb.
-    await client.query('DELETE FROM users WHERE id = $1', [userId]);
-    await client.query('COMMIT');
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
-    console.error('[account-delete] a törlés meghiúsult, a fájlok érintetlenek:', err.message);
-    throw err;
-  } finally {
-    client.release();
-  }
-
-  // A nyitott socketek bontása: a szoba-tagság különben túlélné a fiókot.
-  require('../realtime').disconnectUser(userId).catch(() => {});
-
-  // A tárolóban maradt objektumok (KYC-okmány, avatar, fuvar-fotók) törlése —
-  // a DB-sorok már nincsenek meg, ezért a listát a purge a törlés ELŐTT
-  // gyűjtötte ki (lásd utils/userFiles.js). GDPR 17. cikk: e nélkül az
-  // R2-objektumok örökre árván maradnának.
-  await purgeUserFiles(userId, { keys: fileKeys });
-
-  console.log(`[account-delete] user ${userId} törölve (email hash: ${emailHash.slice(0, 12)}...)`);
+  const result = await require('../services/accountDeletion').deleteAccount(userId, { reason: 'self' });
+  if (result.blocked) return res.status(409).json({
+    error: 'A fiók függő fizetés, aktív fizetett ügylet, vita vagy zárolt bizonyíték mellett nem törölhető. '
+      + 'Várd meg a fizetés végleges eredményét, illetve az ügylet lezárását; ha elakadt, írj az info@gofuvar.hu-ra.',
+    code: 'USER_HAS_ACTIVE_PAID',
+  });
+  if (result.missing) return res.status(404).json({ error: 'Felhasználó nem található' });
   res.json({
     ok: true,
     // Pontosítás: a számviteli bizonylatok (számlák) törvényi megőrzés alá
     // esnek, azokat nem töröljük a fiókkal együtt.
-    message: 'A fiókod és a hozzá tartozó adatok törölve lettek. '
+    files_pending: result.filesPending,
+    message: (result.filesPending
+      ? 'A fiókod törölve lett. A tárolt fájlok törlése folyamatban van, automatikusan újrapróbáljuk. '
+      : 'A fiókod és a hozzá tartozó adatok törölve lettek. ')
       + 'A jogszabály által kötelezően megőrzendő számlázási adatok (számlák) a törvényi '
       + 'megőrzési idő végéig megmaradnak.',
   });

@@ -87,149 +87,161 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
     return res.status(400).json({ error: 'Adj meg egy fuvar (job_id) vagy foglalás (booking_id) azonosítót.' });
   }
 
-  // Jogosultság: a vitát csak az érintett felek nyithatják
   let againstUser = null;
-  let entityPaidAt = null;
-  let entityStatus = null;
-  let entityType = null;
-  if (job_id) {
-    const { rows } = await db.query(
-      'SELECT shipper_id, carrier_id, paid_at, status FROM jobs WHERE id = $1',
-      [job_id],
-    );
-    if (!rows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
-    const j = rows[0];
-    if (j.shipper_id !== req.user.sub && j.carrier_id !== req.user.sub) {
-      return res.status(403).json({ error: 'Nincs jogosultságod vitát nyitni ezen a fuvaron.' });
-    }
-    againstUser = j.shipper_id === req.user.sub ? j.carrier_id : j.shipper_id;
-    entityPaidAt = j.paid_at;
-    entityStatus = j.status;
-    entityType = 'job';
-  }
-  if (booking_id) {
-    const { rows } = await db.query(
-      `SELECT b.shipper_id, b.paid_at, b.status, r.carrier_id
-         FROM route_bookings b
-         JOIN carrier_routes r ON r.id = b.route_id
-        WHERE b.id = $1`,
-      [booking_id],
-    );
-    if (!rows[0]) return res.status(404).json({ error: 'Foglalás nem található' });
-    const b = rows[0];
-    if (b.shipper_id !== req.user.sub && b.carrier_id !== req.user.sub) {
-      return res.status(403).json({ error: 'Nincs jogosultságod vitát nyitni ezen a foglaláson.' });
-    }
-    againstUser = b.shipper_id === req.user.sub ? b.carrier_id : b.shipper_id;
-    entityPaidAt = b.paid_at;
-    entityStatus = b.status;
-    entityType = 'booking';
-  }
-
-  // ⚠️ ÁLLAPOT-KAPU (2026-09-13, teljes audit D2). A vita eddig BÁRMILYEN
-  // ügyletre nyitható volt, a `disputed` pedig mindent befagyaszt (lemondás
-  // 409, csere 409, fizetés 409, lejáratás kihagyja): (a) a szállító a még
-  // FIZETETLEN elfogadott fuvaron egy kattintással befagyaszthatta a feladót
-  // az admin döntéséig; (b) a saját nyitott hirdetés is befagyasztható volt;
-  // (c) a lemondott fuvar vitássá téve a könyvelési whitelistbe került.
-  // A vita a DÍJ UTÁNI ügyletről szól — előtte a fuvar lemondható, a
-  // szállító cserélhető, vitának nincs tárgya. A lemondott, de FIZETETT
-  // ügyleten a vita marad (a korábbi állapot-mátrix szabálya: „lemondás
-  // után is lehet vita" — pl. a szállító már kiállt, a feladó az ajtóban
-  // mondta le); a könyvelési mag ezt már nem tekinti várakozónak.
-  const VITA_NYITHATO = {
-    job: ['accepted', 'in_progress', 'delivered', 'completed', 'cancelled', 'disputed'],
-    booking: ['confirmed', 'in_progress', 'delivered', 'cancelled', 'disputed'],
-  };
-  if (!entityPaidAt) {
-    return res.status(409).json({
-      error: 'Vita csak a kapcsolatfelvételi díj megfizetése után nyitható. Előtte a fuvar lemondható, vagy másik szállító választható.',
-      code: 'DISPUTE_NOT_ALLOWED',
-    });
-  }
-  if (!VITA_NYITHATO[entityType].includes(String(entityStatus))) {
-    return res.status(409).json({
-      error: `Ebben az állapotban (${entityStatus}) nem nyitható vita.`,
-      code: 'DISPUTE_NOT_ALLOWED',
-    });
-  }
-
-  // Kapcsolat-szivárgás szűrés a vita-leíráson — CSAK a díjfizetés ELŐTT
-  // (2026-08-09, 2. audit-kör F2). A leírás eljut a másik félhez (értesítés +
-  // GET /disputes/:id), így fizetés előtt díj-megkerülési csatorna lenne.
-  // Fizetés UTÁN a felek jogosan ismerik egymást, és egy telefonszám a
-  // leírásban legitim bizonyíték („hívtam a ...számon, nem vette fel") —
-  // ugyanaz az elv, mint a chat-szűrésnél.
-  // (2026-09-13, D2 óta a díj előtti vita eleve 409 — ez a szűrő a második
-  // védvonal, ha a fenti kapu valaha lazulna.)
-  if (!entityPaidAt) {
-    const leak = detectContactLeak(descriptionCheck.value);
-    if (leak) return res.status(400).json({ error: leak, code: 'CONTACT_LEAK' });
-  }
-
-  // Duplázat-ellenőrzés: ne lehessen ugyanarra az entitásra kétszer nyitni
-  const existingCheck = job_id
-    ? await db.query(
-        `SELECT id FROM disputes WHERE job_id = $1 AND status NOT IN ('resolved_refund','resolved_no_action','resolved_partial','closed')`,
+  let dispute;
+  const client = await db.pool.connect();
+  let committed = false;
+  try {
+    await client.query('BEGIN');
+    // Jogosultság: a vitát csak az érintett felek nyithatják
+    let entityPaidAt = null;
+    let entityStatus = null;
+    let entityType = null;
+    if (job_id) {
+      const { rows } = await client.query(
+        'SELECT shipper_id, carrier_id, paid_at, status FROM jobs WHERE id = $1 FOR UPDATE',
         [job_id],
-      )
-    : await db.query(
-        `SELECT id FROM disputes WHERE booking_id = $1 AND status NOT IN ('resolved_refund','resolved_no_action','resolved_partial','closed')`,
+      );
+      if (!rows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
+      const j = rows[0];
+      if (j.shipper_id !== req.user.sub && j.carrier_id !== req.user.sub) {
+        return res.status(403).json({ error: 'Nincs jogosultságod vitát nyitni ezen a fuvaron.' });
+      }
+      againstUser = j.shipper_id === req.user.sub ? j.carrier_id : j.shipper_id;
+      entityPaidAt = j.paid_at;
+      entityStatus = j.status;
+      entityType = 'job';
+    }
+    if (booking_id) {
+      const { rows } = await client.query(
+        `SELECT b.shipper_id, b.paid_at, b.status, r.carrier_id
+           FROM route_bookings b
+           JOIN carrier_routes r ON r.id = b.route_id
+          WHERE b.id = $1 FOR UPDATE OF b, r`,
         [booking_id],
       );
-  if (existingCheck.rows.length > 0) {
-    return res.status(409).json({
-      error: 'Erre az entitásra már van nyitott vita. Várd meg az admin döntését.',
-      existing_dispute_id: existingCheck.rows[0].id,
-    });
-  }
-
-  let inserted;
-  try {
-    ({ rows: inserted } = await db.query(
-      `INSERT INTO disputes (job_id, booking_id, opened_by, against_user, description, evidence_url)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [job_id || null, booking_id || null, req.user.sub, againstUser, descriptionCheck.value, tisztaEvidence],
-    ));
-  } catch (err) {
-    // A részleges UNIQUE index (081) fogja a PÁRHUZAMOS dupla nyitást — a fenti
-    // SELECT-es ellenőrzés két egyidejű kérésnél mindkettőt átengedte.
-    if (err.code === '23505') {
-      return res.status(409).json({ error: 'Erre az ügyletre már van nyitott vita. Várd meg az admin döntését.', code: 'DISPUTE_ALREADY_OPEN' });
+      if (!rows[0]) return res.status(404).json({ error: 'Foglalás nem található' });
+      const b = rows[0];
+      if (b.shipper_id !== req.user.sub && b.carrier_id !== req.user.sub) {
+        return res.status(403).json({ error: 'Nincs jogosultságod vitát nyitni ezen a foglaláson.' });
+      }
+      againstUser = b.shipper_id === req.user.sub ? b.carrier_id : b.shipper_id;
+      entityPaidAt = b.paid_at;
+      entityStatus = b.status;
+      entityType = 'booking';
     }
-    throw err;
-  }
-  const dispute = inserted[0];
 
-  // Ha a fuvar/booking státuszát is "disputed"-re állítjuk.
-  // photo_retention_hold: vitás ügylet fotói 5 évig maradnak (a flag a
-  // vita lezárása UTÁN is bekapcsolva marad — bizonyíték a Ptk-s
-  // igényérvényesítéshez; photoRetention.js törli 5 év után).
-  // A vita ELŐTTI státuszt eltesszük, hogy a lezárásakor vissza tudjunk
-  // állni rá (053-as migráció). Enélkül a `disputed` egyirányú utca volt.
-  // A `status <> 'disputed'` feltétel véd a felülírástól, ha valamiért
-  // mégis kétszer futna le.
-  if (job_id) {
-    await db.query(
-      `UPDATE jobs
-          SET status_before_dispute = CASE WHEN status <> 'disputed' THEN status ELSE status_before_dispute END,
-              status = 'disputed',
-              photo_retention_hold = TRUE,
-              updated_at = NOW()
-        WHERE id = $1`,
-      [job_id],
-    );
-  }
-  if (booking_id) {
-    await db.query(
-      `UPDATE route_bookings
-          SET status_before_dispute = CASE WHEN status <> 'disputed' THEN status ELSE status_before_dispute END,
-              status = 'disputed',
-              photo_retention_hold = TRUE
-        WHERE id = $1`,
-      [booking_id],
-    );
+    // ⚠️ ÁLLAPOT-KAPU (2026-09-13, teljes audit D2). A vita eddig BÁRMILYEN
+    // ügyletre nyitható volt, a `disputed` pedig mindent befagyaszt (lemondás
+    // 409, csere 409, fizetés 409, lejáratás kihagyja): (a) a szállító a még
+    // FIZETETLEN elfogadott fuvaron egy kattintással befagyaszthatta a feladót
+    // az admin döntéséig; (b) a saját nyitott hirdetés is befagyasztható volt;
+    // (c) a lemondott fuvar vitássá téve a könyvelési whitelistbe került.
+    // A vita a DÍJ UTÁNI ügyletről szól — előtte a fuvar lemondható, a
+    // szállító cserélhető, vitának nincs tárgya. A lemondott, de FIZETETT
+    // ügyleten a vita marad (a korábbi állapot-mátrix szabálya: „lemondás
+    // után is lehet vita" — pl. a szállító már kiállt, a feladó az ajtóban
+    // mondta le); a könyvelési mag ezt már nem tekinti várakozónak.
+    const VITA_NYITHATO = {
+      job: ['accepted', 'in_progress', 'delivered', 'completed', 'cancelled', 'disputed'],
+      booking: ['confirmed', 'in_progress', 'delivered', 'cancelled', 'disputed'],
+    };
+    if (!entityPaidAt) {
+      return res.status(409).json({
+        error: 'Vita csak a kapcsolatfelvételi díj megfizetése után nyitható. Előtte a fuvar lemondható, vagy másik szállító választható.',
+        code: 'DISPUTE_NOT_ALLOWED',
+      });
+    }
+    if (!VITA_NYITHATO[entityType].includes(String(entityStatus))) {
+      return res.status(409).json({
+        error: `Ebben az állapotban (${entityStatus}) nem nyitható vita.`,
+        code: 'DISPUTE_NOT_ALLOWED',
+      });
+    }
+
+    // Kapcsolat-szivárgás szűrés a vita-leíráson — CSAK a díjfizetés ELŐTT
+    // (2026-08-09, 2. audit-kör F2). A leírás eljut a másik félhez (értesítés +
+    // GET /disputes/:id), így fizetés előtt díj-megkerülési csatorna lenne.
+    // Fizetés UTÁN a felek jogosan ismerik egymást, és egy telefonszám a
+    // leírásban legitim bizonyíték („hívtam a ...számon, nem vette fel") —
+    // ugyanaz az elv, mint a chat-szűrésnél.
+    // (2026-09-13, D2 óta a díj előtti vita eleve 409 — ez a szűrő a második
+    // védvonal, ha a fenti kapu valaha lazulna.)
+    if (!entityPaidAt) {
+      const leak = detectContactLeak(descriptionCheck.value);
+      if (leak) return res.status(400).json({ error: leak, code: 'CONTACT_LEAK' });
+    }
+
+    // Duplázat-ellenőrzés: ne lehessen ugyanarra az entitásra kétszer nyitni
+    const existingCheck = job_id
+      ? await client.query(
+          `SELECT id FROM disputes WHERE job_id = $1 AND status NOT IN ('resolved_refund','resolved_no_action','resolved_partial','closed')`,
+          [job_id],
+        )
+      : await client.query(
+          `SELECT id FROM disputes WHERE booking_id = $1 AND status NOT IN ('resolved_refund','resolved_no_action','resolved_partial','closed')`,
+          [booking_id],
+        );
+    if (existingCheck.rows.length > 0) {
+      return res.status(409).json({
+        error: 'Erre az entitásra már van nyitott vita. Várd meg az admin döntését.',
+        existing_dispute_id: existingCheck.rows[0].id,
+      });
+    }
+
+    let inserted;
+    try {
+      ({ rows: inserted } = await client.query(
+        `INSERT INTO disputes (job_id, booking_id, opened_by, against_user, description, evidence_url)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [job_id || null, booking_id || null, req.user.sub, againstUser, descriptionCheck.value, tisztaEvidence],
+      ));
+    } catch (err) {
+      // A részleges UNIQUE index (081) fogja a PÁRHUZAMOS dupla nyitást — a fenti
+      // SELECT-es ellenőrzés két egyidejű kérésnél mindkettőt átengedte.
+      if (err.code === '23505') {
+        return res.status(409).json({ error: 'Erre az ügyletre már van nyitott vita. Várd meg az admin döntését.', code: 'DISPUTE_ALREADY_OPEN' });
+      }
+      throw err;
+    }
+    dispute = inserted[0];
+
+    // Ha a fuvar/booking státuszát is "disputed"-re állítjuk.
+    // photo_retention_hold: vitás ügylet fotói 5 évig maradnak (a flag a
+    // vita lezárása UTÁN is bekapcsolva marad — bizonyíték a Ptk-s
+    // igényérvényesítéshez; photoRetention.js törli 5 év után).
+    // A vita ELŐTTI státuszt eltesszük, hogy a lezárásakor vissza tudjunk
+    // állni rá (053-as migráció). Enélkül a `disputed` egyirányú utca volt.
+    // A `status <> 'disputed'` feltétel véd a felülírástól, ha valamiért
+    // mégis kétszer futna le.
+    if (job_id) {
+      await client.query(
+        `UPDATE jobs
+            SET status_before_dispute = CASE WHEN status <> 'disputed' THEN status ELSE status_before_dispute END,
+                status = 'disputed',
+                photo_retention_hold = TRUE,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [job_id],
+      );
+    }
+    if (booking_id) {
+      await client.query(
+        `UPDATE route_bookings
+            SET status_before_dispute = CASE WHEN status <> 'disputed' THEN status ELSE status_before_dispute END,
+                status = 'disputed',
+                photo_retention_hold = TRUE
+          WHERE id = $1`,
+        [booking_id],
+      );
+    }
+
+    await client.query('COMMIT');
+    committed = true;
+  } finally {
+    if (!committed) await client.query('ROLLBACK').catch(() => {});
+    client.release();
   }
 
   // Értesítés a másik félnek
@@ -428,46 +440,71 @@ router.patch('/disputes/:id', authRequired, writeRateLimit, async (req, res) => 
   }
 
   const isResolved = status.startsWith('resolved_') || status === 'closed';
-  const { rows } = await db.query(
-    `UPDATE disputes
-        SET status = $1,
-            resolution_note = COALESCE($2, resolution_note),
-            refund_huf = COALESCE($3, refund_huf),
-            resolved_by = CASE WHEN $4 THEN $5 ELSE resolved_by END,
-            resolved_at = CASE WHEN $4 THEN NOW() ELSE resolved_at END,
-            updated_at = NOW()
-      WHERE id = $6
-    RETURNING *`,
-    [status, jegyzet || null, refundHuf, isResolved, req.user.sub, req.params.id],
-  );
-  if (!rows[0]) return res.status(404).json({ error: 'Vita nem található' });
-  const d = rows[0];
+  let d;
+  const client = await db.pool.connect();
+  let committed = false;
+  try {
+    await client.query('BEGIN');
+    const lookup = await client.query('SELECT job_id, booking_id FROM disputes WHERE id = $1', [req.params.id]);
+    if (!lookup.rows[0]) return res.status(404).json({ error: 'Vita nem található' });
+    const entity = lookup.rows[0];
+    // A nyitás és a fizikai teljesítés is előbb az ügyletet zárolja.
+    await client.query(entity.job_id
+      ? 'SELECT id FROM jobs WHERE id = $1 FOR UPDATE'
+      : 'SELECT id FROM route_bookings WHERE id = $1 FOR UPDATE', [entity.job_id || entity.booking_id]);
+    const current = await client.query('SELECT * FROM disputes WHERE id = $1 FOR UPDATE', [req.params.id]);
+    if (!current.rows[0]) return res.status(404).json({ error: 'Vita nem található' });
+    if (current.rows[0].status.startsWith('resolved_') || current.rows[0].status === 'closed') {
+      if (current.rows[0].status === status) return res.json(current.rows[0]);
+      return res.status(409).json({ error: 'A vita már lezárult. Új panaszhoz új vitát nyiss.', code: 'DISPUTE_ALREADY_RESOLVED' });
+    }
+    const { rows } = await client.query(
+      `UPDATE disputes
+          SET status = $1,
+              resolution_note = COALESCE($2, resolution_note),
+              refund_huf = COALESCE($3, refund_huf),
+              resolved_by = CASE WHEN $4 THEN $5 ELSE resolved_by END,
+              resolved_at = CASE WHEN $4 THEN NOW() ELSE resolved_at END,
+              updated_at = NOW()
+        WHERE id = $6
+      RETURNING *`,
+      [status, jegyzet || null, refundHuf, isResolved, req.user.sub, req.params.id],
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Vita nem található' });
+    d = rows[0];
 
-  // A VITA LEZÁRÁSAKOR visszaállítjuk a fuvar/foglalás státuszát arra, ami a
-  // vita előtt volt (053-as migráció). Korábban ez elmaradt, és a fuvar
-  // örökre 'disputed' maradt — akkor is, ha az admin úgy döntött, nincs
-  // teendő. A `photo_retention_hold` SZÁNDÉKOSAN bekapcsolva marad: a vitás
-  // ügylet fotói a lezárás után is 5 évig kellenek (Ptk-s igényérvényesítés).
-  if (isResolved) {
-    if (d.job_id) {
-      await db.query(
-        `UPDATE jobs
-            SET status = COALESCE(status_before_dispute, status),
-                status_before_dispute = NULL,
-                updated_at = NOW()
-          WHERE id = $1 AND status = 'disputed'`,
-        [d.job_id],
-      );
+    // A VITA LEZÁRÁSAKOR visszaállítjuk a fuvar/foglalás státuszát arra, ami a
+    // vita előtt volt (053-as migráció). Korábban ez elmaradt, és a fuvar
+    // örökre 'disputed' maradt — akkor is, ha az admin úgy döntött, nincs
+    // teendő. A `photo_retention_hold` SZÁNDÉKOSAN bekapcsolva marad: a vitás
+    // ügylet fotói a lezárás után is 5 évig kellenek (Ptk-s igényérvényesítés).
+    if (isResolved) {
+      if (d.job_id) {
+        await client.query(
+          `UPDATE jobs
+              SET status = COALESCE(status_before_dispute, status),
+                  status_before_dispute = NULL,
+                  updated_at = NOW()
+            WHERE id = $1 AND status = 'disputed'`,
+          [d.job_id],
+        );
+      }
+      if (d.booking_id) {
+        await client.query(
+          `UPDATE route_bookings
+              SET status = COALESCE(status_before_dispute, status),
+                  status_before_dispute = NULL
+            WHERE id = $1 AND status = 'disputed'`,
+          [d.booking_id],
+        );
+      }
     }
-    if (d.booking_id) {
-      await db.query(
-        `UPDATE route_bookings
-            SET status = COALESCE(status_before_dispute, status),
-                status_before_dispute = NULL
-          WHERE id = $1 AND status = 'disputed'`,
-        [d.booking_id],
-      );
-    }
+
+    await client.query('COMMIT');
+    committed = true;
+  } finally {
+    if (!committed) await client.query('ROLLBACK').catch(() => {});
+    client.release();
   }
 
   // Notifikáció mindkét félnek

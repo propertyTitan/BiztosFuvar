@@ -34,6 +34,7 @@ const KIVETELEK = {
   retention_runs: 'a retenciós körök futás-naplója, személyes adat nélkül',
   escrow_transactions: 'a fizetés technikai nyoma; az érintett számára a számla és a fuvar-rekord a releváns',
   payment_events: 'ugyanaz, technikai fizetési napló',
+  payment_sessions: 'az exportban szerepel (fizetesi_munkameneteim)',
   carrier_route_prices: 'a járat szakasz-árazása, nem személyes adat',
   user_badges: 'jelvény-hivatkozás; a szintet a profil tartalmazza',
   reviews: 'az exportban szerepel (ertekeleseim + rolam_szolo_ertekelesek)',

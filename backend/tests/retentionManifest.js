@@ -23,6 +23,8 @@
  * Pontosan az egyiknek kell szerepelnie.
  */
 const RETENTION_MANIFEST = {
+  file_deletion_queue: { szabaly: 'Sikeres tárhelytörlés után azonnal törlődik; hibánál tartós retry és riasztás (processFileDeletionQueue, napi retenció).' },
+  payment_sessions: { szabaly: 'Lezárt munkamenet 8 év után törlődik (purgeOldPaymentEvents); függő vagy egyeztetendő pénzkapcsolat megmarad a rendezésig.' },
   // ── Gépesített retenció ──────────────────────────────────────────────
   photos:              { szabaly: '30 nap a lezárás után; zárolt ügyletnél 5 év (purgeOldDeliveryPhotos, minden fotótípus)' },
   messages:            { szabaly: '6 hónap a lezárás után; zárolt ügyletnél 5 év (purgeOldChatMessages)' },

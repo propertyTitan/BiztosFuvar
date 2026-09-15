@@ -102,14 +102,20 @@ async function resolveReferrerId(code) {
  * @param {object} [ctx] — { role: 'shipper'|'carrier', jobId }
  */
 async function maybeGrantReferralReward(userId, ctx = {}) {
+  let client;
   try {
     if (!userId) return;
-    const { rows } = await db.query(
-      `SELECT referred_by, referral_reward_granted_at, identity_kyc_status
-         FROM users WHERE id = $1`,
+    client = await db.pool.connect();
+    await client.query('BEGIN');
+    // Az ajánló zárolása a KÜLÖNBÖZŐ meghívottak havi plafonját is védi.
+    // Stabil sorrend: kölcsönös ajánlásnál sem fordul meg a két user-zár.
+    const { rows } = await client.query(
+      `SELECT id, referred_by, referral_reward_granted_at, identity_kyc_status
+         FROM users WHERE id = $1 OR id = (SELECT referred_by FROM users WHERE id = $1)
+         ORDER BY id FOR UPDATE`,
       [userId],
     );
-    const u = rows[0];
+    const u = rows.find((row) => row.id === userId);
     if (!u) return;
     if (!u.referred_by) return;                         // nem meghívott
     if (u.referral_reward_granted_at) return;           // már jutalmazott
@@ -133,7 +139,7 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
       // kézi nyugtázás is beállította — a jutalom csak KÖNYVELT (webhook vagy
       // teszt-üzemi kézi nyugtázás, processed, >0 Ft) díjra jár; az árván
       // érkezett fizetés (event_type 'orphan') nem számít.
-      const { rows: paidRows } = await db.query(
+      const { rows: paidRows } = await client.query(
         `SELECT 1 FROM payment_events
           WHERE shipper_id = $1 AND status = 'Succeeded' AND processed = TRUE
             AND event_type IN ('webhook', 'manual')
@@ -155,7 +161,7 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
     // nélkül. Most a plafon-ellenőrzés jön előbb: ha betelt, a meghívott
     // jelöletlen marad, és a következő teljesítés-trigger (egy későbbi
     // hónapban) még odaadhatja a kupont — halasztott jutalom, nem elvesző.
-    const { rows: capRows } = await db.query(
+    const { rows: capRows } = await client.query(
       `SELECT COUNT(*)::int AS c FROM fee_vouchers
         WHERE user_id = $1 AND reason = 'referral'
           AND created_at >= date_trunc('month', CURRENT_DATE)`,
@@ -167,7 +173,7 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
     }
 
     // Atomi guard: csak az első kérés nyer, dupla jutalom kizárva.
-    const claim = await db.query(
+    const claim = await client.query(
       `UPDATE users SET referral_reward_granted_at = NOW()
         WHERE id = $1 AND referral_reward_granted_at IS NULL
         RETURNING referred_by`,
@@ -175,7 +181,10 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
     );
     if (claim.rowCount === 0) return;
 
-    await grantVoucher(referrerId, 'referral', REFERRAL_VOUCHER_VALID_DAYS, REFERRAL_VOUCHER_MAX_FEE_HUF);
+    await grantVoucher(referrerId, 'referral', REFERRAL_VOUCHER_VALID_DAYS, REFERRAL_VOUCHER_MAX_FEE_HUF, client);
+    await client.query('COMMIT');
+    client.release();
+    client = null;
 
     await createNotification({
       user_id: referrerId,
@@ -186,6 +195,11 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
     }).catch(() => {});
   } catch (err) {
     console.warn('[referral] maybeGrantReferralReward hiba:', err.message);
+  } finally {
+    if (client) {
+      await client.query('ROLLBACK').catch(() => {});
+      client.release();
+    }
   }
 }
 

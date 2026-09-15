@@ -28,8 +28,8 @@ const db = require('../db');
  * @param {string} userId
  * @returns {Promise<boolean>} true = a törlést blokkolni kell
  */
-async function userHasBlockingDealings(userId) {
-  const { rows } = await db.query(
+async function userHasBlockingDealings(userId, client = db) {
+  const { rows } = await client.query(
     `SELECT
        (SELECT COUNT(*) FROM jobs
           WHERE (shipper_id = $1 OR carrier_id = $1)
@@ -43,7 +43,13 @@ async function userHasBlockingDealings(userId) {
             AND ((b.paid_at IS NOT NULL
                   AND b.status NOT IN ('delivered', 'cancelled', 'rejected'))
                  OR b.status = 'disputed'
-                 OR b.photo_retention_hold = TRUE)) AS n`,
+                 OR b.photo_retention_hold = TRUE))
+     + (SELECT COUNT(*) FROM payment_sessions p
+          WHERE (p.shipper_id = $1 OR p.carrier_id = $1
+             OR EXISTS (SELECT 1 FROM jobs j WHERE j.id = p.job_id AND j.carrier_id = $1)
+             OR EXISTS (SELECT 1 FROM route_bookings b JOIN carrier_routes r ON r.id = b.route_id
+                         WHERE b.id = p.booking_id AND (b.shipper_id = $1 OR r.carrier_id = $1)))
+            AND p.state IN ('pending', 'needs_review')) AS n`,
     [userId],
   );
   return Number(rows[0]?.n || 0) > 0;
