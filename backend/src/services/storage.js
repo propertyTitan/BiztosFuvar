@@ -327,7 +327,7 @@ async function deleteFile(url) {
         await r2Client.send(new DeleteObjectCommand({
           Bucket: r2Config.privateBucket || r2Config.bucket,
           Key: key,
-        }));
+        }), { abortSignal: AbortSignal.timeout(10_000) });
         return true;
       } catch (err) {
         console.error('[storage] R2 privát törlés hiba:', err.message);
@@ -350,7 +350,10 @@ async function deleteFile(url) {
     if (!key) return false;
     try {
       const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
-      await r2Client.send(new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key }));
+      // Retenció közben ügyletsorzárat tartunk. Az SDK kérése is megszakad,
+      // nem csak a rá váró Promise: tárolókiesés nem foghatja örökké a sort.
+      await r2Client.send(new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key }),
+        { abortSignal: AbortSignal.timeout(10_000) });
       return true;
     } catch (err) {
       console.error('[storage] R2 törlés hiba:', err.message);
