@@ -13,7 +13,7 @@ import { kapcsolatfelvetelDijHuf, DIJ_SZABALY_SZOVEG, ft } from '@/lib/connectio
 //  - Kötelező csomag-méretek: hossz × szélesség × magasság (cm).
 //    A térfogatot NEM a user adja meg – a backend automatikusan számolja.
 // =====================================================================
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
@@ -22,6 +22,7 @@ import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
 import { mentPiszkozat, olvasPiszkozat, torolPiszkozat, piszkozatKulcs, UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
 import { idoablakHiba } from '@/lib/idoablak';
+import ListingPhotoUpload from '@/components/ListingPhotoUpload';
 import {
   MAX_DIM_CM, MAX_WEIGHT_KG,
   intFieldError, moneyFieldError, weightFieldError,
@@ -132,10 +133,11 @@ export default function UjFuvar() {
   const me = useCurrentUser();
   const [mounted, setMounted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const submitLock = useRef(false);
+  const [createdJob, setCreatedJob] = useState<{ id: string; photos: File[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [photos, setPhotos] = useState<File[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
   // Cím-pontatlanság (csak várost/országot választott a legördülőből)
   const [pickupImprecise, setPickupImprecise] = useState('');
@@ -190,11 +192,11 @@ export default function UjFuvar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, me]);
   useEffect(() => {
-    if (!mounted || !PISZKOZAT_KULCS) return;
+    if (!mounted || !PISZKOZAT_KULCS || createdJob) return;
     if (JSON.stringify(form) === JSON.stringify(initialForm)) return;
     const t = setTimeout(() => { mentPiszkozat(PISZKOZAT_KULCS, { form, raw }); }, 500);
     return () => clearTimeout(t);
-  }, [form, raw, mounted, PISZKOZAT_KULCS]);
+  }, [form, raw, mounted, PISZKOZAT_KULCS, createdJob]);
 
   function missing(filled: unknown): boolean {
     if (!tried) return false;
@@ -345,6 +347,7 @@ export default function UjFuvar() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (submitLock.current || createdJob) return;
     setTried(true);
     if (!canSubmit) {
       // A konkrét okot mondjuk meg, ne csak azt, hogy „valami hiányzik".
@@ -380,9 +383,9 @@ export default function UjFuvar() {
       }
       return;
     }
+    submitLock.current = true;
     setSubmitting(true);
     setError(null);
-    setUploadProgress(null);
     try {
       const ablakHiba = idoablakHiba(form.pickup_window_start, form.pickup_window_end);
       if (ablakHiba) {
@@ -433,31 +436,14 @@ export default function UjFuvar() {
         ...(sourceImage ? { source_image_url: sourceImage } : {}),
       });
 
-      // 2) Kép-feltöltés sorban (így látjuk a progress-t és nem önmagával versenyez
-      //    a backend AI/tárolás réteg).
-      for (let i = 0; i < photos.length; i++) {
-        setUploadProgress(`Fotó feltöltés: ${i + 1} / ${photos.length}…`);
-        try {
-          await api.uploadJobPhoto(job.id, photos[i], 'listing');
-        } catch (err: any) {
-          // nem törjük meg a fuvar létrejöttét egy hibás fotó miatt,
-          // csak naplózzuk és továbbmegyünk
-          console.warn('Fotó feltöltés hiba:', err.message);
-        }
-      }
-
+      setCreatedJob({ id: job.id, photos: [...photos] });
       if (PISZKOZAT_KULCS) torolPiszkozat(PISZKOZAT_KULCS);
-      toast.success(
-        'Fuvar feladva',
-        photos.length > 0 ? `${photos.length} fotóval együtt` : undefined,
-      );
-      router.push(`/dashboard/fuvar/${job.id}`);
     } catch (err: any) {
       setError(err.message);
       toast.error('Hiba a fuvar feladáskor', err.message);
     } finally {
       setSubmitting(false);
-      setUploadProgress(null);
+      submitLock.current = false;
     }
   }
 
@@ -473,6 +459,11 @@ export default function UjFuvar() {
     );
   }
   if (!me) return null;
+
+  if (createdJob) return <ListingPhotoUpload jobId={createdJob.id} photos={createdJob.photos} onContinue={(uploaded) => {
+    toast.success('Fuvar feladva', createdJob.photos.length > 0 ? `${uploaded} feltöltött fotóval` : undefined);
+    router.push(`/dashboard/fuvar/${createdJob.id}`);
+  }} />;
 
   return (
     <div style={{ maxWidth: 720 }}>
@@ -1228,9 +1219,6 @@ export default function UjFuvar() {
         )}
 
         {error && <p style={{ color: 'var(--danger-text)', marginTop: 16 }}>{error}</p>}
-        {uploadProgress && (
-          <p className="muted" style={{ marginTop: 16 }}>{uploadProgress}</p>
-        )}
 
         <button
           className="btn"
@@ -1239,7 +1227,7 @@ export default function UjFuvar() {
           style={{ marginTop: 24 }}
         >
           {submitting
-            ? (uploadProgress || 'Feladás...')
+            ? 'Feladás...'
             : photos.length > 0
               ? `Fuvar feladása (${photos.length} fotó)`
               : 'Fuvar feladása'}
