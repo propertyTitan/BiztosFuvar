@@ -5,6 +5,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { api } from '@/api';
 
+// A backend imageSniff által támogatott raszteres formátumok.
+const KYC_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif', 'image/avif', 'image/gif'];
+const KYC_MAX_BYTES = 15 * 1024 * 1024;
+
 type KycType = 'identity' | 'driver' | 'company' | null;
 
 const CODE_TO_TYPE: Record<string, KycType> = {
@@ -297,9 +301,19 @@ export default function KycModal() {
                 id="kyc-dokumentum"
                 ref={inputRef}
                 type="file"
-                accept="image/*,.pdf"
+                accept={KYC_IMAGE_TYPES.join(',')}
+                aria-describedby="kyc-fajl-formatum kyc-fajl-hiba"
+                aria-invalid={Boolean(error)}
                 onChange={(e) => {
                   const f = e.target.files?.[0] || null;
+                  if (f && (!KYC_IMAGE_TYPES.includes(f.type) || f.size > KYC_MAX_BYTES || f.size === 0)) {
+                    setFile(null);
+                    setError(!KYC_IMAGE_TYPES.includes(f.type)
+                      ? 'Képfájlt válassz (JPG, PNG, WebP, HEIC/HEIF, AVIF vagy GIF). PDF nem tölthető fel.'
+                      : f.size === 0 ? 'A kiválasztott fájl üres.' : 'A kép legfeljebb 15 MB lehet.');
+                    e.target.value = '';
+                    return;
+                  }
                   setFile(f);
                   setError(null);
                 }}
@@ -311,6 +325,9 @@ export default function KycModal() {
                   fontSize: 14,
                 }}
               />
+              <p id="kyc-fajl-formatum" style={{ fontSize: 12, marginBottom: 0 }}>
+                JPG, PNG, WebP, HEIC/HEIF, AVIF vagy GIF, legfeljebb 15 MB. PDF helyett az igazolvány fotóját válaszd.
+              </p>
               {file && (
                 <p style={{ fontSize: 12, color: '#666', marginTop: 4, marginBottom: 0 }}>
                   Kiválasztva: {file.name}
@@ -319,7 +336,7 @@ export default function KycModal() {
             </div>
 
             {error && (
-              <p style={{ color: 'var(--danger-text)', fontSize: 13, marginBottom: 12 }}>
+              <p id="kyc-fajl-hiba" role="alert" style={{ color: 'var(--danger-text)', fontSize: 13, marginBottom: 12 }}>
                 {error}
               </p>
             )}
