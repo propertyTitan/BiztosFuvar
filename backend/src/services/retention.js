@@ -463,15 +463,29 @@ async function purgeDormantAccounts() {
     const hatarido = new Date(Date.now() + DORMANT_DELETE_DAYS * 86400000);
     try {
       const { sendDormantAccountWarningEmail } = require('./email');
-      await sendDormantAccountWarningEmail({
+      const sent = await sendDormantAccountWarningEmail({
         to: u.email, name: u.full_name, deleteDate: hatarido,
       });
+      // A küldő szándékosan null-t ad hibánál. A stub csak naplóz, valódi
+      // figyelmeztetésnek az sem számít; szolgáltatói visszaigazolás kell.
+      if (!sent?.id || sent.stub === true) {
+        console.warn('[dormant] nincs visszaigazolt figyelmeztetés — a fiók újrapróbálható marad');
+        require('@sentry/node').captureMessage('[dormant] Figyelmeztetés nem igazolt, törlési határidő nem indult', 'warning');
+        continue;
+      }
     } catch (e) {
       console.warn('[dormant] figyelmeztetes hiba:', e.message);
       continue; // e-mail nelkul NEM inditjuk el az orat
     }
-    await db.query('UPDATE users SET dormant_warned_at = NOW() WHERE id = $1', [u.id]);
-    figyelmeztetve += 1;
+    // A küldés alatt történhet bejelentkezés, e-mail- vagy szerepváltás.
+    const warned = await db.query(
+      `UPDATE users SET dormant_warned_at = NOW()
+        WHERE id = $1 AND email = $2 AND role <> 'admin'
+          AND dormant_warned_at IS NULL
+          AND COALESCE(last_login_at, created_at) < NOW() - ($3 || ' years')::interval`,
+      [u.id, u.email, DORMANT_WARN_YEARS],
+    );
+    figyelmeztetve += warned.rowCount;
   }
 
   // 2. FÁZIS — törlés
@@ -488,7 +502,15 @@ async function purgeDormantAccounts() {
     if (await userHasBlockingDealings(u.id)) continue;
     // A fajl-kulcsokat MEG a DB-sorok megléte mellett gyűjtjük ki.
     const keys = await collectUserFileKeys(u.id).catch(() => []);
-    await db.query('DELETE FROM users WHERE id = $1', [u.id]);
+    // A korábbi SELECT csak jelöltlista. A törlés pillanatában is inaktív,
+    // legalább 30 napja figyelmeztetett, nem admin fióknak kell lennie.
+    const removed = await db.query(
+      `DELETE FROM users WHERE id = $1 AND role <> 'admin'
+        AND dormant_warned_at < NOW() - ($2 || ' days')::interval
+        AND COALESCE(last_login_at, created_at) < NOW() - ($3 || ' years')::interval`,
+      [u.id, DORMANT_DELETE_DAYS, DORMANT_WARN_YEARS],
+    );
+    if (removed.rowCount === 0) continue;
     await purgeUserFiles(u.id, { keys });
     torolve += 1;
   }
