@@ -1,3 +1,4 @@
+const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TELJES ÚT — életciklus-mátrix
 //
@@ -106,8 +107,8 @@ const MUVELETEK = {
     .set('Authorization', `Bearer ${t}`)
     .send({ amount_huf: 13000, return_policy: 'included' }),
 
-  'ajánlatot elfogad': (c, t) => request(app).post(`/bids/${c.masikBid.id}/accept`)
-    .set('Authorization', `Bearer ${t}`).send({}),
+  'ajánlatot elfogad': async (c, t) => request(app).post(`/bids/${c.masikBid.id}/accept`).send(await seenOffer(c.masikBid.id))
+    .set('Authorization', `Bearer ${t}`),
 
   'ellenajánlatot tesz': (c, t) => request(app).post(`/bids/${c.masikBid.id}/counter`)
     .set('Authorization', `Bearer ${t}`).send({ amount: 12000 }),
@@ -313,8 +314,8 @@ describe('1. A teljes út végigjárása', () => {
     }
 
     // — Elfogadás —
-    const elfogad = await request(app).post(`/bids/${licit.body.id}/accept`)
-      .set('Authorization', `Bearer ${felado.token}`).send({});
+    const elfogad = await request(app).post(`/bids/${licit.body.id}/accept`).send(await seenOffer(licit.body.id))
+      .set('Authorization', `Bearer ${felado.token}`);
     expect(elfogad.status, JSON.stringify(elfogad.body)).toBeLessThan(300);
 
     // INVARIÁNS: elfogadás UTÁN, fizetés ELŐTT sincs kontakt
@@ -633,8 +634,8 @@ describe('3. Kereszt-szennyeződés: két fuvar nem folyhat egybe', () => {
     );
 
     // B feladó megpróbálja elfogadni az A fuvarra érkezett ajánlatot
-    const res = await request(app).post(`/bids/${rows[0].id}/accept`)
-      .set('Authorization', `Bearer ${feladoB.token}`).send({});
+    const res = await request(app).post(`/bids/${rows[0].id}/accept`).send(await seenOffer(rows[0].id))
+      .set('Authorization', `Bearer ${feladoB.token}`);
 
     expect(res.status, 'Idegen feladó elfogadhatta más fuvarának ajánlatát!').toBeGreaterThanOrEqual(400);
   });

@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({ handlers: {} as Record<string, () => void>, us
   socket: { on: vi.fn(), off: vi.fn() }, toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'job' }), useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }) }));
 vi.mock('@/lib/auth', () => ({ useCurrentUser: () => mocks.user }));
-vi.mock('@/api', () => ({ api: { getJob: vi.fn(), listBids: vi.fn(), listPhotos: vi.fn(), uploadJobPhoto: vi.fn() }, photoUrl: (url: string) => url }));
+vi.mock('@/api', () => ({ api: { getJob: vi.fn(), listBids: vi.fn(), listPhotos: vi.fn(), uploadJobPhoto: vi.fn(),
+  acceptBid: vi.fn(), acceptCounter: vi.fn() }, photoUrl: (url: string) => url }));
 vi.mock('@/lib/socket', () => ({ getSocket: () => mocks.socket, joinUserRoom: vi.fn(),
   subscribeJob: (_id: string, handlers: typeof mocks.handlers) => { mocks.handlers = handlers; return vi.fn(); } }));
 vi.mock('@/components/ToastProvider', () => ({ useToast: () => mocks.toast }));
@@ -24,9 +25,32 @@ const job = { id: 'job', shipper_id: 'shipper', carrier_id: 'carrier', title: 'H
   accepted_price_huf: 15000, weight_kg: 10, connection_fee_huf: 500 };
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.user.id = 'carrier';
   vi.mocked(api.listBids).mockResolvedValue([]);
   vi.mocked(api.listPhotos).mockResolvedValue([]);
   vi.mocked(api.getJob).mockResolvedValue(job as any);
+});
+
+it.each([['shipper', ShipperPage], ['carrier', CarrierPage]])('%s: árváltozás után frissít, és csak új kattintásra fogad el', async (role, Page) => {
+  mocks.user.id = role;
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, status: 'bidding', carrier_id: null, paid_at: null } as any);
+  const bid = { id: 'bid', job_id: 'job', carrier_id: 'carrier', carrier_name: 'Teszt szállító', status: 'pending',
+    revision: 2, amount_huf: 20000, counter_amount_huf: 20000, counter_by: role === 'shipper' ? 'carrier' : 'shipper' };
+  vi.mocked(api.listBids).mockResolvedValue([bid] as any);
+  const accept = vi.mocked(role === 'shipper' ? api.acceptBid : api.acceptCounter);
+  accept.mockImplementationOnce(async () => {
+    vi.mocked(api.listBids).mockResolvedValue([{ ...bid, revision: 3, counter_amount_huf: 30000 }] as any);
+    throw Object.assign(new Error('Az ajánlat megváltozott, ellenőrizd az új árat.'), { code: 'OFFER_CHANGED' });
+  }).mockResolvedValue({ ok: true } as any);
+  render(<Page />);
+  fireEvent.click(await screen.findByRole('button', { name: /Elfogadom/ }));
+  await waitFor(() => expect(accept).toHaveBeenCalledWith(expect.objectContaining({ revision: 2, counter_amount_huf: 20000 })));
+  const retry = await screen.findByRole('button', { name: /Elfogadom.*30/ });
+  expect(accept).toHaveBeenCalledTimes(1);
+  expect(mocks.toast.error).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('megváltozott'));
+  fireEvent.click(retry);
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
+  expect(accept).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 3, counter_amount_huf: 30000 }));
 });
 
 describe('P1-08/P1-10: tényleges részletoldal visszatérése', () => {

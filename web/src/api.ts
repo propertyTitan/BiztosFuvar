@@ -241,6 +241,7 @@ export type BackhaulGroup = {
 
 export type Bid = {
   id: string;
+  revision: number;
   job_id: string;
   carrier_id: string;
   amount_huf: number;
@@ -482,10 +483,11 @@ export const api = {
     }>>('/bids/mine'),
 
   listBids: (jobId: string) => request<Bid[]>(`/jobs/${jobId}/bids`),
-  acceptBid: (bidId: string) =>
+  acceptBid: (bid: Bid) =>
     request<{ ok: true; barion?: { gateway_url: string | null } }>(
-      `/bids/${bidId}/accept`,
-      { method: 'POST' },
+      `/bids/${bid.id}/accept`,
+      { method: 'POST', body: JSON.stringify({ expected_revision: bid.revision,
+        expected_amount_huf: bid.counter_by === 'carrier' ? (bid.counter_amount_huf ?? bid.amount_huf) : bid.amount_huf }) },
     ),
 
   /** Ellenajánlat a licit összegére (feladó vagy szállító is teheti). */
@@ -500,10 +502,10 @@ export const api = {
     request<{ ok: true; status: 'withdrawn' }>(`/bids/${bidId}/withdraw`, { method: 'POST' }),
 
   /** A szállító elfogadja a feladó ellenajánlatát → megállapodás. */
-  acceptCounter: (bidId: string) =>
+  acceptCounter: (bid: Bid) =>
     request<{ ok: true; job_id: string; amount_huf: number }>(
-      `/bids/${bidId}/accept-counter`,
-      { method: 'POST' },
+      `/bids/${bid.id}/accept-counter`,
+      { method: 'POST', body: JSON.stringify({ expected_revision: bid.revision, expected_amount_huf: bid.counter_amount_huf }) },
     ),
 
   /** Egy fuvar utolsó GPS pozíciója (élő követés első snapshot-ja). */

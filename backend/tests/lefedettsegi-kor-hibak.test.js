@@ -1,3 +1,4 @@
+const { seenOffer } = require('./helpers');
 // =====================================================================
 //  A LEFEDETTSÉGI KÖR HÁROM TERMÉKKÓD-HIBÁJA (2026-08-12)
 //
@@ -71,8 +72,8 @@ describe('Lefedettségi kör: a három termékkód-hiba', () => {
       .send({ amount_huf: ar, return_policy: 'included' })).body.id;
     const b1 = await mk(a, 20000); const b2 = await mk(b, 21000);
     const [r1, r2] = await Promise.all([
-      request(app).post(`/bids/${b1}/accept`).set('Authorization', `Bearer ${f.token}`).send({}),
-      request(app).post(`/bids/${b2}/accept`).set('Authorization', `Bearer ${f.token}`).send({}),
+      request(app).post(`/bids/${b1}/accept`).send(await seenOffer(b1)).set('Authorization', `Bearer ${f.token}`),
+      request(app).post(`/bids/${b2}/accept`).send(await seenOffer(b2)).set('Authorization', `Bearer ${f.token}`),
     ]);
     const statuszok = [r1.status, r2.status].sort();
     expect(statuszok.filter(s => s >= 500), `500-at kaptunk: ${statuszok}`).toEqual([]);

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-const { app, db, createUser, createJob } = require('./helpers');
+const { app, db, createUser, createJob, seenOffer } = require('./helpers');
 const auth = u => ({ Authorization: `Bearer ${u.token}` });
 
 describe('Audit 2 — jogosultság az ajánlat véglegesítésekor', () => {
@@ -18,7 +18,7 @@ describe('Audit 2 — jogosultság az ajánlat véglegesítésekor', () => {
         }
         await db.query(`UPDATE users SET ${restriction} WHERE id = $1`, [carrier.id]);
         const response = await request(app).post(`/bids/${bid.body.id}/${counter ? 'accept-counter' : 'accept'}`)
-          .set(auth(counter ? carrier : shipper)).send({});
+          .set(auth(counter ? carrier : shipper)).send(await seenOffer(bid.body.id));
         expect(response.status, JSON.stringify(response.body)).toBe(409);
         expect(response.body.code).toBe('CARRIER_UNAVAILABLE');
         expect((await db.query('SELECT status, carrier_id FROM jobs WHERE id = $1', [job.id])).rows[0])
@@ -27,7 +27,7 @@ describe('Audit 2 — jogosultság az ajánlat véglegesítésekor', () => {
         expect((await db.query('SELECT * FROM escrow_transactions WHERE job_id = $1', [job.id])).rowCount).toBe(0);
         await db.query("UPDATE users SET can_bid = TRUE, identity_kyc_status = 'verified', driver_terms_accepted_at = NOW(), phone = '+36201234567' WHERE id = $1", [carrier.id]);
         expect((await request(app).post(`/bids/${bid.body.id}/${counter ? 'accept-counter' : 'accept'}`)
-          .set(auth(counter ? carrier : shipper)).send({})).status).toBe(200);
+          .set(auth(counter ? carrier : shipper)).send(await seenOffer(bid.body.id))).status).toBe(200);
       });
     }
   }

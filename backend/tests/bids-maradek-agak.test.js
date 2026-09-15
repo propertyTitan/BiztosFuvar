@@ -1,3 +1,4 @@
+const { seenOffer } = require('./helpers');
 // =====================================================================
 //  BIDS — A MARADÉK FEDETLEN ÁGAK (2026-08-12)
 //
@@ -144,7 +145,7 @@ describe('Az elfogadás visszagördül, ha a díjfizetés indítása elhasal', (
     vi.spyOn(paymentProvider, 'startFeePayment')
       .mockRejectedValue(new Error('PSP időtúllépés'));
 
-    const res = await request(app).post(`/bids/${bid.id}/accept`).set(auth(felado.token)).send({});
+    const res = await request(app).post(`/bids/${bid.id}/accept`).send(await seenOffer(bid.id)).set(auth(felado.token));
 
     expect(res.status,
       'a fizetés-indítás hibája a fizetési szolgáltató hibája — 502, nem 500 és nem néma 200')
@@ -199,8 +200,8 @@ describe('Az elfogadás visszagördül, ha a díjfizetés indítása elhasal', (
     vi.spyOn(paymentProvider, 'startFeePayment')
       .mockRejectedValue(new Error('PSP időtúllépés'));
 
-    const res = await request(app).post(`/bids/${bid.id}/accept-counter`)
-      .set(auth(szallito.token)).send({});
+    const res = await request(app).post(`/bids/${bid.id}/accept-counter`).send(await seenOffer(bid.id))
+      .set(auth(szallito.token));
 
     expect(res.status,
       'a két elfogadási út (feladói / szállítói) ugyanazt a magot használja — '
@@ -226,10 +227,10 @@ describe('Az elfogadás visszagördül, ha a díjfizetés indítása elhasal', (
       .mockRejectedValueOnce(new Error('PSP időtúllépés'))
       .mockResolvedValue({ paymentId: 'teszt-fizetes-1', gatewayUrl: 'https://psp.teszt/fizetes' });
 
-    const elso = await request(app).post(`/bids/${bid.id}/accept`).set(auth(felado.token)).send({});
+    const elso = await request(app).post(`/bids/${bid.id}/accept`).send(await seenOffer(bid.id)).set(auth(felado.token));
     expect(elso.status).toBe(502);
 
-    const masodik = await request(app).post(`/bids/${bid.id}/accept`).set(auth(felado.token)).send({});
+    const masodik = await request(app).post(`/bids/${bid.id}/accept`).send(await seenOffer(bid.id)).set(auth(felado.token));
     expect(masodik.status,
       'az első kudarc nem hagyhat maga után olyan állapotot, ami a MÁSODIK, sikeres '
       + 'próbálkozást is megakadályozná (különben a feladó véglegesen elakadna)')

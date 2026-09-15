@@ -1,3 +1,4 @@
+const { seenOffer } = require('./helpers');
 import { beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 
@@ -51,8 +52,8 @@ describe('P0-01: a fotó mentésének pillanatában érvényes jogosultság és 
         const bid = await request(app).post(`/jobs/${job.id}/bids`)
           .set('Authorization', `Bearer ${replacement.token}`).send({ amount_huf: 15000, return_policy: 'included' });
         expect(bid.status, JSON.stringify(bid.body)).toBe(201);
-        const accepted = await request(app).post(`/bids/${bid.body.id}/accept`)
-          .set('Authorization', `Bearer ${shipper.token}`).send({});
+        const accepted = await request(app).post(`/bids/${bid.body.id}/accept`).send(await seenOffer(bid.body.id))
+          .set('Authorization', `Bearer ${shipper.token}`);
         expect(accepted.status, JSON.stringify(accepted.body)).toBe(200);
       },
     );

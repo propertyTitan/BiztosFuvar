@@ -1,3 +1,4 @@
+const { seenOffer } = require('./helpers');
 // =====================================================================
 //  bids.js — HIBAÁGAK, ALKU-ÁLLAPOTOK ÉS DÍJ-INVARIÁNSOK (2026-08-12)
 //
@@ -303,31 +304,31 @@ describe('POST /bids/:id/accept', () => {
     const idegen = await createUser({ role: 'shipper' });
     const szallito = await createUser({ role: 'carrier' });
 
-    const nincs = await request(app).post(`/bids/${NINCS_ILYEN}/accept`).set(auth(felado.token)).send({});
+    const nincs = await request(app).post(`/bids/${NINCS_ILYEN}/accept`).send(await seenOffer(NINCS_ILYEN)).set(auth(felado.token));
     expect(nincs.status, 'ismeretlen ajánlatra 404').toBe(404);
 
     const job = await createJob({ shipperId: felado.id, status: 'bidding', carrierId: null });
     const b = await ajanlat({ jobId: job.id, carrierId: szallito.id });
 
-    const masenak = await request(app).post(`/bids/${b.id}/accept`).set(auth(idegen.token)).send({});
+    const masenak = await request(app).post(`/bids/${b.id}/accept`).send(await seenOffer(b.id)).set(auth(idegen.token));
     expect(masenak.status,
       'IDEGEN nem fogadhat el ajánlatot MÁS fuvarján — így magához rendelne egy szállítót')
       .toBe(403);
-    const szallitoSajat = await request(app).post(`/bids/${b.id}/accept`)
-      .set(auth(szallito.token)).send({});
+    const szallitoSajat = await request(app).post(`/bids/${b.id}/accept`).send(await seenOffer(b.id))
+      .set(auth(szallito.token));
     expect(szallitoSajat.status, 'a szállító sem fogadhatja el a SAJÁT ajánlatát').toBe(403);
 
     // Már lezárult fuvar
     const lezart = await createJob({ shipperId: felado.id, status: 'completed', carrierId: szallito.id });
     const lezartBid = await ajanlat({ jobId: lezart.id, carrierId: szallito.id });
-    const lezartRes = await request(app).post(`/bids/${lezartBid.id}/accept`)
-      .set(auth(felado.token)).send({});
+    const lezartRes = await request(app).post(`/bids/${lezartBid.id}/accept`).send(await seenOffer(lezartBid.id))
+      .set(auth(felado.token));
     expect(lezartRes.status, 'lezárt fuvaron nincs mit elfogadni').toBe(409);
 
     // Már nem aktív (visszavont/elutasított) ajánlat
     const inaktiv = await ajanlat({ jobId: job.id, carrierId: idegen.id, status: 'rejected' });
-    const inaktivRes = await request(app).post(`/bids/${inaktiv.id}/accept`)
-      .set(auth(felado.token)).send({});
+    const inaktivRes = await request(app).post(`/bids/${inaktiv.id}/accept`).send(await seenOffer(inaktiv.id))
+      .set(auth(felado.token));
     expect(inaktivRes.status, 'már elutasított ajánlatot nem lehet „visszaéleszteni"').toBe(409);
     expect(inaktivRes.body.error).toMatch(/már nem aktív/i);
   });
@@ -341,7 +342,7 @@ describe('POST /bids/:id/accept', () => {
       counterBy: 'shipper', counterAmount: 15000,
     });
 
-    const res = await request(app).post(`/bids/${b.id}/accept`).set(auth(felado.token)).send({});
+    const res = await request(app).post(`/bids/${b.id}/accept`).send(await seenOffer(b.id)).set(auth(felado.token));
     expect(res.status,
       'ha a feladónál nincs a labda, nem zárhatja le az alkut — különben a saját, '
       + 'lealkudott árán rögzítené a fuvart a szállító beleegyezése nélkül')
@@ -362,7 +363,7 @@ describe('POST /bids/:id/accept', () => {
       counterBy: 'carrier', counterAmount: 55000,
     });
 
-    const res = await request(app).post(`/bids/${b.id}/accept`).set(auth(felado.token)).send({});
+    const res = await request(app).post(`/bids/${b.id}/accept`).send(await seenOffer(b.id)).set(auth(felado.token));
     expect(res.status).toBe(200);
     expect(res.body.amount_huf,
       'a szállító ellenajánlata a megállapodott ár — az eredeti 20 000-et elfogadni '
@@ -395,8 +396,8 @@ describe('POST /bids/:id/accept', () => {
     );
     const ujAjanlat = await ajanlat({ jobId: job.id, carrierId: uj.id, amount: 10000 });
 
-    const res = await request(app).post(`/bids/${ujAjanlat.id}/accept`)
-      .set(auth(felado.token)).send({});
+    const res = await request(app).post(`/bids/${ujAjanlat.id}/accept`).send(await seenOffer(ujAjanlat.id))
+      .set(auth(felado.token));
     expect(res.status).toBe(200);
     expect(res.body.fee_already_paid,
       'a kapcsolatfelvételi díj a FUVARRA szól — újraválasztásnál nem szabad újra beszedni')
@@ -423,8 +424,8 @@ describe('POST /bids/:id/accept', () => {
     const nyertesBid = await ajanlat({ jobId: job.id, carrierId: nyertes.id, amount: 12000 });
     const vesztesBid = await ajanlat({ jobId: job.id, carrierId: vesztes.id, amount: 13000 });
 
-    const res = await request(app).post(`/bids/${nyertesBid.id}/accept`)
-      .set(auth(felado.token)).send({});
+    const res = await request(app).post(`/bids/${nyertesBid.id}/accept`).send(await seenOffer(nyertesBid.id))
+      .set(auth(felado.token));
     expect(res.status).toBe(200);
 
     const { rows } = await db.query(`SELECT id, status FROM bids WHERE job_id = $1`, [job.id]);
@@ -436,8 +437,8 @@ describe('POST /bids/:id/accept', () => {
       .toBe('rejected');
 
     // A már elutasított ajánlat elfogadása 409.
-    const ujra = await request(app).post(`/bids/${vesztesBid.id}/accept`)
-      .set(auth(felado.token)).send({});
+    const ujra = await request(app).post(`/bids/${vesztesBid.id}/accept`).send(await seenOffer(vesztesBid.id))
+      .set(auth(felado.token));
     expect(ujra.status, 'elfogadott fuvaron nincs második elfogadás').toBe(409);
   });
 });
@@ -451,8 +452,8 @@ describe('POST /bids/:id/accept-counter', () => {
     const szallito = await createUser({ role: 'carrier' });
     const idegen = await createUser({ role: 'carrier' });
 
-    const nincs = await request(app).post(`/bids/${NINCS_ILYEN}/accept-counter`)
-      .set(auth(szallito.token)).send({});
+    const nincs = await request(app).post(`/bids/${NINCS_ILYEN}/accept-counter`).send(await seenOffer(NINCS_ILYEN))
+      .set(auth(szallito.token));
     expect(nincs.status).toBe(404);
 
     const job = await createJob({ shipperId: felado.id, status: 'bidding', carrierId: null });
@@ -461,20 +462,20 @@ describe('POST /bids/:id/accept-counter', () => {
       counterBy: 'shipper', counterAmount: 15000,
     });
 
-    const idegenRes = await request(app).post(`/bids/${b.id}/accept-counter`)
-      .set(auth(idegen.token)).send({});
+    const idegenRes = await request(app).post(`/bids/${b.id}/accept-counter`).send(await seenOffer(b.id))
+      .set(auth(idegen.token));
     expect(idegenRes.status, 'csak az ajánlat szállítója fogadhatja el a neki szóló ellenajánlatot')
       .toBe(403);
-    const feladoRes = await request(app).post(`/bids/${b.id}/accept-counter`)
-      .set(auth(felado.token)).send({});
+    const feladoRes = await request(app).post(`/bids/${b.id}/accept-counter`).send(await seenOffer(b.id))
+      .set(auth(felado.token));
     expect(feladoRes.status,
       'a feladó a SAJÁT ellenajánlatát nem fogadtathatja el magával — az alku két félé')
       .toBe(403);
 
     // Nincs feladói ellenajánlat → nincs mit elfogadni
     const ellenajanlatNelkul = await ajanlat({ jobId: job.id, carrierId: idegen.id });
-    const nincsCounter = await request(app).post(`/bids/${ellenajanlatNelkul.id}/accept-counter`)
-      .set(auth(idegen.token)).send({});
+    const nincsCounter = await request(app).post(`/bids/${ellenajanlatNelkul.id}/accept-counter`).send(await seenOffer(ellenajanlatNelkul.id))
+      .set(auth(idegen.token));
     expect(nincsCounter.status, 'feladói ellenajánlat nélkül 409').toBe(409);
     expect(nincsCounter.body.error).toMatch(/Nincs elfogadható feladói ellenajánlat/i);
 
@@ -486,8 +487,8 @@ describe('POST /bids/:id/accept-counter', () => {
       jobId: job.id, carrierId: sajatSzallito.id, amount: 20000,
       counterBy: 'carrier', counterAmount: 30000,
     });
-    const sajatRes = await request(app).post(`/bids/${sajatCounter.id}/accept-counter`)
-      .set(auth(sajatSzallito.token)).send({});
+    const sajatRes = await request(app).post(`/bids/${sajatCounter.id}/accept-counter`).send(await seenOffer(sajatCounter.id))
+      .set(auth(sajatSzallito.token));
     expect(sajatRes.status,
       'a szállító a saját ellenajánlatát nem fogadhatja el — a labda a feladónál van')
       .toBe(409);
@@ -498,8 +499,8 @@ describe('POST /bids/:id/accept-counter', () => {
     const lezartBid = await ajanlat({
       jobId: lezart.id, carrierId: szallito.id, counterBy: 'shipper', counterAmount: 15000,
     });
-    const lezartRes = await request(app).post(`/bids/${lezartBid.id}/accept-counter`)
-      .set(auth(szallito.token)).send({});
+    const lezartRes = await request(app).post(`/bids/${lezartBid.id}/accept-counter`).send(await seenOffer(lezartBid.id))
+      .set(auth(szallito.token));
     expect(lezartRes.status, 'lemondott fuvaron nem lehet alkut lezárni').toBe(409);
 
     // Már lezárult (elutasított) ajánlat — a feladó közben mást választott
@@ -508,8 +509,8 @@ describe('POST /bids/:id/accept-counter', () => {
       jobId: job.id, carrierId: masikSzallito.id, status: 'rejected',
       counterBy: 'shipper', counterAmount: 15000,
     });
-    const inaktivRes = await request(app).post(`/bids/${inaktiv.id}/accept-counter`)
-      .set(auth(masikSzallito.token)).send({});
+    const inaktivRes = await request(app).post(`/bids/${inaktiv.id}/accept-counter`).send(await seenOffer(inaktiv.id))
+      .set(auth(masikSzallito.token));
     expect(inaktivRes.status,
       'egy MÁR ELUTASÍTOTT ajánlatot nem lehet utólag elfogadva „visszaéleszteni" — '
       + 'így két szállító indulna el ugyanazért a csomagért')
@@ -526,8 +527,8 @@ describe('POST /bids/:id/accept-counter', () => {
       counterBy: 'shipper', counterAmount: 45000,
     });
 
-    const res = await request(app).post(`/bids/${b.id}/accept-counter`)
-      .set(auth(szallito.token)).send({});
+    const res = await request(app).post(`/bids/${b.id}/accept-counter`).send(await seenOffer(b.id))
+      .set(auth(szallito.token));
     expect(res.status).toBe(200);
     expect(res.body.amount_huf,
       'a lealkudott 45 000 Ft a megállapodott ár, nem az eredeti 80 000')

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
-import { api, IDOTULLEPES_UZENET } from './api';
+import { api, IDOTULLEPES_UZENET, type Bid } from './api';
 
 // A request() wrapper a lelke a web↔backend hídnak: ő rakja rá a tokent,
 // és ő dobja a globális eseményeket (kijelentkezés, KYC, coverage), amikre
@@ -19,6 +19,16 @@ function mockResponse(status: number, body: unknown): Response {
 
 let dispatchSpy: MockInstance<(event: Event) => boolean>;
 let originalLocation: Location;
+
+it.each(['acceptBid', 'acceptCounter'] as const)('%s a megjelenített ajánlat verzióját és árát küldi', async (action) => {
+  const fetchMock = vi.fn().mockResolvedValue(mockResponse(200, { ok: true }));
+  global.fetch = fetchMock;
+  const bid = { id: 'bid', revision: 7, amount_huf: 20000, counter_amount_huf: 15000,
+    counter_by: action === 'acceptBid' ? 'carrier' : 'shipper' } as Bid;
+  await api[action](bid);
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ expected_revision: 7, expected_amount_huf: 15000 });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
 
 beforeEach(() => {
   window.localStorage.clear();

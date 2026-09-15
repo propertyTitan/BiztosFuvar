@@ -13,6 +13,16 @@ const { detectContactLeak } = require('../utils/contactGuard');
 
 const router = express.Router();
 
+function matchesSeenOffer(body, bid, agreedPrice) {
+  return Number.isSafeInteger(body?.expected_revision) && body.expected_revision === bid.revision
+    && Number.isSafeInteger(body?.expected_amount_huf) && body.expected_amount_huf === agreedPrice;
+}
+
+const OFFER_CHANGED = {
+  code: 'OFFER_CHANGED',
+  error: 'Az ajánlat megváltozott, vagy elavult az oldal. Frissítsd az ajánlatot, ellenőrizd az árat, és fogadd el újra.',
+};
+
 // GET /bids/preview — licit előnézet.
 // Készpénzes modell: a szállító a TELJES összeget kézhez kapja (készpénzben,
 // levonás nélkül); a platformFee a feladó által fizetendő kapcsolatfelvételi
@@ -639,6 +649,11 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     const agreedPrice = (bid.counter_by === 'carrier' && bid.counter_amount_huf != null)
       ? bid.counter_amount_huf : bid.amount_huf;
 
+    if (!matchesSeenOffer(req.body, bid, agreedPrice)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json(OFFER_CHANGED);
+    }
+
     const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
     if (!fin.ok) {
       await client.query('ROLLBACK');
@@ -680,6 +695,10 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
+    // A feladói elfogadással azonos sorrend: előbb a fuvar, utána a licit.
+    const { rows: bidJob } = await client.query('SELECT job_id FROM bids WHERE id = $1', [req.params.id]);
+    if (!bidJob[0]) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Ajánlat nem található' }); }
+    await client.query('SELECT id FROM jobs WHERE id = $1 FOR UPDATE', [bidJob[0].job_id]);
     const { rows: bidRows } = await client.query(
       `SELECT b.*, j.shipper_id, j.status AS job_status,
               j.paid_at, j.connection_fee_huf, j.currency AS job_currency,
@@ -706,6 +725,11 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
       await client.query('ROLLBACK'); return res.status(409).json({ error: 'Nincs elfogadható feladói ellenajánlat.' });
     }
     const agreedPrice = bid.counter_amount_huf;
+
+    if (!matchesSeenOffer(req.body, bid, agreedPrice)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json(OFFER_CHANGED);
+    }
 
     const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
     if (!fin.ok) {

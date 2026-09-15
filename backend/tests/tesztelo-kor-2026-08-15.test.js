@@ -1,3 +1,4 @@
+const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TESZTELŐI KÖR — 2026-08-15
 //
@@ -75,7 +76,7 @@ describe('Megegyezés: a FELADÓ is kap fizetési felszólítást', () => {
 
     __resetRateLimitsForTests();
     const res = await request(app)
-      .post(`/bids/${bid.id}/accept`)
+      .post(`/bids/${bid.id}/accept`).send(await seenOffer(bid.id))
       .set(auth(felado.token));
     expect(res.status).toBeLessThan(400);
 
@@ -105,7 +106,7 @@ describe('Megegyezés: a FELADÓ is kap fizetési felszólítást', () => {
     const job = await createJob({ shipperId: felado.id, status: 'bidding' });
     const bid = await ajanlat(job.id, szallito.id, 31000);
     __resetRateLimitsForTests();
-    await request(app).post(`/bids/${bid.id}/accept`).set(auth(felado.token));
+    await request(app).post(`/bids/${bid.id}/accept`).send(await seenOffer(bid.id)).set(auth(felado.token));
 
     const sorok = await ertesitesek(szallito.id, 'bid_accepted');
     expect(sorok.length, 'a szállító elvesztette az értesítését').toBeGreaterThan(0);

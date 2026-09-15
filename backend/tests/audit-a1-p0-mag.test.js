@@ -1,3 +1,4 @@
+const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TELJES AUDIT — A1 csomag (2026-09-11): a backend P0-mag négy őre
 //   1. Késleltetett fizetési webhook LEMONDOTT fuvarra nem könyvel.
@@ -77,7 +78,7 @@ describe('2. kuponos fuvar újraválasztása', () => {
       `INSERT INTO bids (job_id, carrier_id, amount_huf, status, return_policy) VALUES ($1, $2, 60000, 'pending', 'included') RETURNING id`,
       [job.id, masodik.id],
     );
-    const acc = await request(app).post(`/bids/${bid[0].id}/accept`).set(auth(felado.token)).send({});
+    const acc = await request(app).post(`/bids/${bid[0].id}/accept`).send(await seenOffer(bid[0].id)).set(auth(felado.token));
     expect(acc.status, JSON.stringify(acc.body)).toBe(200);
     const { rows } = await db.query('SELECT connection_fee_huf, paid_at FROM jobs WHERE id = $1', [job.id]);
     expect(Number(rows[0].connection_fee_huf), 'a kuponos 0 Ft-os díj újraválasztáskor 500/1000-re íródott át').toBe(0);

@@ -1,3 +1,4 @@
+const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TELJES AUDIT — D2 csomag (2026-09-13): a pénz-út P1-jei
 //   1. Díjmentesen újranyitott (bidding) fuvarra késve érkező fizetés
@@ -68,7 +69,7 @@ describe('D2/1 — újranyitott fuvarra érkező fizetés könyvelődik', () => 
     const { rows: bidRows } = await db.query(
       `SELECT id FROM bids WHERE job_id = $1 AND carrier_id = $2`, [job.id, masik.id],
     );
-    const elfogad = await request(app).post(`/bids/${bidRows[0].id}/accept`).set(auth(felado.token)).send({});
+    const elfogad = await request(app).post(`/bids/${bidRows[0].id}/accept`).send(await seenOffer(bidRows[0].id)).set(auth(felado.token));
     expect(elfogad.status, JSON.stringify(elfogad.body)).toBe(200);
     expect(elfogad.body.fee_already_paid, 'a feladót másodszor is fizetésre szólítottuk').toBe(true);
     const { rows: esc2 } = await db.query('SELECT status, barion_payment_id FROM escrow_transactions WHERE job_id = $1', [job.id]);
