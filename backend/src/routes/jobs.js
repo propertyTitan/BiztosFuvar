@@ -1071,6 +1071,7 @@ router.patch('/:id', authRequired, writeRateLimit, async (req, res) => {
   if (b.suggested_price_huf !== undefined) {
     const n = Number(b.suggested_price_huf);
     if (!Number.isInteger(n) || n < 0 || n > MAX_HUF) return res.status(400).json({ error: 'Az ajánlott ár 0 és 100 000 000 Ft közötti kerek összeg.' });
+    if (j.is_instant && n <= 0) return res.status(400).json({ error: 'Az azonnali fuvar fix ára pozitív egész szám legyen.', code: 'INVALID_INSTANT_PRICE' });
     put('suggested_price_huf', n);
   }
   if (b.weight_kg !== undefined) {
@@ -1618,6 +1619,8 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
 // Ugyanazt csinálja, mint a licites elfogadás (escrow indítás, carrier_id
 // beállítás, notifikációk), csak bid sor nélkül.
 router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
+  const expectedPrice = req.body?.expected_price_huf;
+  const validExpectedPrice = Number.isInteger(expectedPrice) && expectedPrice > 0 && expectedPrice <= 100000000;
   // Jogosítvány-követelmény megszűnt (2026-07-07): a requireDriverKYC
   // (személyi igazolvány + szállítói nyilatkozat) elég; a can_bid-kapu kivéve.
 
@@ -1640,16 +1643,18 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
           AND status = 'bidding'
           AND carrier_id IS NULL
           AND shipper_id <> $1
+          AND suggested_price_huf > 0
+          AND suggested_price_huf = $3
           AND (instant_expires_at IS NULL OR instant_expires_at > NOW())
       RETURNING *`,
-      [req.user.sub, req.params.id],
+      [req.user.sub, req.params.id, validExpectedPrice ? expectedPrice : null],
     );
 
     if (!upd[0]) {
       await client.query('ROLLBACK');
       // Megnézzük: egyáltalán létezik-e az azonnali fuvar és miért nem ment?
       const { rows: check } = await db.query(
-        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at
+        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at, suggested_price_huf
            FROM jobs WHERE id = $1`,
         [req.params.id],
       );
@@ -1660,6 +1665,10 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       if (j.carrier_id) return res.status(409).json({ error: 'Sajnos elkelt — valaki más gyorsabb volt.' });
       if (j.instant_expires_at && new Date(j.instant_expires_at) < new Date()) {
         return res.status(410).json({ error: 'Az azonnali fuvar lejárt.' });
+      }
+      if (j.status === 'bidding') {
+        if (!validExpectedPrice) return res.status(400).json({ error: 'Frissítsd a hirdetést, majd erősítsd meg a megjelenített fix árat.', code: 'PRICE_CONFIRMATION_REQUIRED' });
+        return res.status(409).json({ error: 'A fuvar ára időközben megváltozott. Nézd át a frissített hirdetést, és csak az új ár ismeretében vállald el.', code: 'PRICE_CHANGED' });
       }
       return res.status(409).json({ error: 'Nem fogadható el (állapot: ' + j.status + ')' });
     }

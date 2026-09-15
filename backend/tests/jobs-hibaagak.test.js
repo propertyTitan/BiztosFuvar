@@ -994,13 +994,13 @@ describe('POST /jobs/:id/instant-accept', () => {
 
     const licites = await createJob({ shipperId: felado.id, status: 'bidding' });
     const nemAzonnali = await request(app).post(`/jobs/${licites.id}/instant-accept`)
-      .set(auth(szallito.token)).send({});
+      .set(auth(szallito.token)).send({ expected_price_huf: licites.suggested_price_huf });
     expect(nemAzonnali.status, 'licites fuvart nem lehet „azonnaliként" elkapni').toBe(409);
     expect(nemAzonnali.body.error).toMatch(/nem azonnali/i);
 
     const sajat = await azonnaliFuvar(felado.id);
     const sajatRes = await request(app).post(`/jobs/${sajat.id}/instant-accept`)
-      .set(auth(felado.token)).send({});
+      .set(auth(felado.token)).send({ expected_price_huf: sajat.suggested_price_huf });
     expect(sajatRes.status, 'a saját fuvarodat nem vállalhatod el (ön-ügylet)').toBe(403);
 
     const elkelt = await azonnaliFuvar(felado.id);
@@ -1009,13 +1009,13 @@ describe('POST /jobs/:id/instant-accept', () => {
       [elkelt.id, masikSzallito.id],
     );
     const elkeltRes = await request(app).post(`/jobs/${elkelt.id}/instant-accept`)
-      .set(auth(szallito.token)).send({});
+      .set(auth(szallito.token)).send({ expected_price_huf: elkelt.suggested_price_huf });
     expect(elkeltRes.status, 'a már elkelt azonnali fuvarra 409').toBe(409);
     expect(elkeltRes.body.error).toMatch(/elkelt/i);
 
     const lejart = await azonnaliFuvar(felado.id, { lejart: true });
     const lejartRes = await request(app).post(`/jobs/${lejart.id}/instant-accept`)
-      .set(auth(szallito.token)).send({});
+      .set(auth(szallito.token)).send({ expected_price_huf: lejart.suggested_price_huf });
     expect(lejartRes.status,
       'a LEJÁRT azonnali fuvarra 410 (Gone) jár — a feladó már nem várja')
       .toBe(410);
@@ -1023,7 +1023,7 @@ describe('POST /jobs/:id/instant-accept', () => {
     const lemondott = await azonnaliFuvar(felado.id);
     await db.query(`UPDATE jobs SET status = 'cancelled' WHERE id = $1`, [lemondott.id]);
     const lemondottRes = await request(app).post(`/jobs/${lemondott.id}/instant-accept`)
-      .set(auth(szallito.token)).send({});
+      .set(auth(szallito.token)).send({ expected_price_huf: lemondott.suggested_price_huf });
     expect(lemondottRes.status, 'lemondott fuvart nem lehet elvállalni').toBe(409);
   });
 
@@ -1033,7 +1033,7 @@ describe('POST /jobs/:id/instant-accept', () => {
     const job = await azonnaliFuvar(felado.id, { ar: 60000 });
 
     const res = await request(app).post(`/jobs/${job.id}/instant-accept`)
-      .set(auth(szallito.token)).send({});
+      .set(auth(szallito.token)).send({ expected_price_huf: job.suggested_price_huf });
     expect(res.status).toBe(200);
     expect(res.body.amount_huf, 'azonnali fuvarnál a fix ár a végleges ár').toBe(60000);
     expect(res.body.connection_fee_huf, '50 000 Ft felett a díj 1000 Ft').toBe(1000);
@@ -1067,8 +1067,8 @@ describe('POST /jobs/:id/instant-accept', () => {
     const job = await azonnaliFuvar(felado.id);
 
     const [a, b] = await Promise.all([
-      request(app).post(`/jobs/${job.id}/instant-accept`).set(auth(egy.token)).send({}),
-      request(app).post(`/jobs/${job.id}/instant-accept`).set(auth(ketto.token)).send({}),
+      request(app).post(`/jobs/${job.id}/instant-accept`).set(auth(egy.token)).send({ expected_price_huf: job.suggested_price_huf }),
+      request(app).post(`/jobs/${job.id}/instant-accept`).set(auth(ketto.token)).send({ expected_price_huf: job.suggested_price_huf }),
     ]);
     const sikeres = [a, b].filter((r) => r.status === 200);
     expect(sikeres.length,

@@ -117,7 +117,7 @@ describe('D2/2 — azonnali elfogadás a már fizetett, újranyitott fuvaron', (
       `UPDATE jobs SET is_instant = TRUE, instant_expires_at = NOW() + INTERVAL '2 hours', carrier_id = NULL WHERE id = $1`,
       [job.id],
     );
-    const elso = await request(app).post(`/jobs/${job.id}/instant-accept`).set(auth(szallitoA.token)).send({});
+    const elso = await request(app).post(`/jobs/${job.id}/instant-accept`).set(auth(szallitoA.token)).send({ expected_price_huf: job.suggested_price_huf });
     expect(elso.status, JSON.stringify(elso.body)).toBe(200);
     expect(elso.body.fee_already_paid).toBe(false);
     // A feladó KUPONNAL fizet (0 Ft): paid_at + díj 0 + a díj-sor released
@@ -133,7 +133,7 @@ describe('D2/2 — azonnali elfogadás a már fizetett, újranyitott fuvaron', (
 
     const start = vi.spyOn(paymentProvider, 'startFeePayment');
     const emit = vi.spyOn(realtime, 'emitToUser').mockImplementation(() => {});
-    const masodik = await request(app).post(`/jobs/${job.id}/instant-accept`).set(auth(szallitoB.token)).send({});
+    const masodik = await request(app).post(`/jobs/${job.id}/instant-accept`).set(auth(szallitoB.token)).send({ expected_price_huf: job.suggested_price_huf });
     expect(masodik.status, JSON.stringify(masodik.body)).toBe(200);
     expect(masodik.body.fee_already_paid, 'az azonnali ág nem ismerte fel a már rendezett díjat').toBe(true);
     expect(masodik.body.connection_fee_huf, 'a kuponos 0 Ft díjat felülírtuk').toBe(0);

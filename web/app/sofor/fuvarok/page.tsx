@@ -48,20 +48,22 @@ export default function SoforFuvarokLista() {
   const SZUROK_KULCS = 'gofuvar_fuvarok_szurok';
   // Éppen melyik instant fuvart próbáljuk elvállalni (race-prevent UI)
   const [acceptingInstantId, setAcceptingInstantId] = useState<string | null>(null);
+  const [instantError, setInstantError] = useState<string | null>(null);
 
-  async function acceptInstant(jobId: string) {
+  async function acceptInstant(jobId: string, priceHuf: number) {
     if (acceptingInstantId) return;
     setAcceptingInstantId(jobId);
+    setInstantError(null);
     try {
-      const res = await api.acceptInstantJob(jobId);
+      const res = await api.acceptInstantJob(jobId, priceHuf);
       // Siker → vigyük a fuvar részletek oldalra, ahol a feladó fizethet
       // (a szállító szempontjából: várakozás kifizetésre).
       router.push(`/sofor/fuvar/${res.job_id}`);
     } catch (err: any) {
-      setError(err.message);
+      setInstantError(err.message);
       // Frissítsük a listát: nagy eséllyel valaki megelőzött, így az
       // instant fuvar eltűnik a listáról a következő load-kor.
-      load(here?.lat, here?.lng);
+      await load(here?.lat, here?.lng);
     } finally {
       setAcceptingInstantId(null);
     }
@@ -380,6 +382,7 @@ export default function SoforFuvarokLista() {
         )}
       </div>
 
+      {instantError && <div className="card" role="alert">{instantError}</div>}
       {loading && <ListSkeleton rows={5} />}
       {error && (
         <div className="card" style={{ borderColor: 'var(--danger)', marginTop: 16 }}>
@@ -580,7 +583,7 @@ export default function SoforFuvarokLista() {
                       // hogy csak az elvállalás fusson le.
                       e.preventDefault();
                       e.stopPropagation();
-                      acceptInstant(j.id);
+                      acceptInstant(j.id, Number(j.suggested_price_huf));
                     }}
                     disabled={acceptingInstantId != null}
                     style={{
