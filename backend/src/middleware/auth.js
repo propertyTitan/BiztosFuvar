@@ -83,7 +83,7 @@ async function requireIdentityKYC(req, res, next) {
 }
 
 function driverEligibilityError(u) {
-if (!u) return { status: 401, error: 'Felhasználó nem található' };
+  if (!u) return { status: 401, error: 'Felhasználó nem található' };
   // ⚠️ FELFÜGGESZTÉS (2026-09-11, Codex-audit P1-03, user-döntés D4): a
   // `can_bid` az adminon írható volt, de egyetlen jogosultsági kapu sem
   // olvasta (a jogosítvány-kori maradvány dormant lett) — az admin azt

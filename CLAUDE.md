@@ -1,5 +1,23 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-09-15 — a friss audit 1–6. pontjának javítása, `codex/audit-hat-javitas` ágon:**
+> Hat külön javítás: atomi díjkönyvelés és tartós számlapótlás; szállítói
+> jogosultság újraellenőrzése megállapodáskor; atomi kuponbeváltás;
+> azonnali elfogadás a látott pozitív ár megerősítésével; induláskor csak
+> HUF-ajánlat; visszafuvar-szűrés/távolság/pontszám közelítő helyadatból.
+> **Telepítési sorrend:** először `084_fee_payment_receipts.sql`, majd backend
+> és web. Az instant API-n az `expected_price_huf` kötelező; a web elküldi,
+> a szándékosan elrejtett instant gomb rejtve marad. Régi EUR-ajánlat
+> helyett új HUF-ajánlat kell. A számlapótló kör a még el nem indított
+> számlázást újrapróbálja; meglévő pending/failed számlánál Sentry-riasztás
+> és számlázói egyeztetés kell, automatikus újrakiállítás nincs.
+> A díjbizonylat a fizető saját adatexportjában szerepel, és a számlákhoz
+> igazodó 8 éves törlési kör kezeli. Lokális ellenőrzés: **1887 backend +
+> 149 web teszt sikeres**, TypeScript és Next production build sikeres;
+> backend lefedettségi kapu sikeres (sorok 93,35%, utasítások 91,93%,
+> függvények 89,07%, elágazások 84,38%).
+> Az éles migráció és telepítés nem része a lokális tesztelésnek.
+
 > **Ez a fájl automatikusan betöltődik minden új Claude-session elején.**
 > Tartsd naprakészen ahogy a projekt változik.
 >

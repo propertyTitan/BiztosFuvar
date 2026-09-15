@@ -44,6 +44,7 @@ const KIVETELEK = {
   route_bookings: 'az exportban szerepel (foglalasaim)',
   notifications: 'az exportban szerepel (ertesiteseim)',
   invoices: 'az exportban szerepel (szamlaim)',
+  fee_payment_receipts: 'az exportban szerepel (dijbefizeteseim)',
   kyc_documents: 'az exportban szerepel (kyc_metaadat)',
   fee_vouchers: 'az exportban szerepel (kuponjaim)',
   carrier_alerts: 'az exportban szerepel (utvonal_figyeloim)',

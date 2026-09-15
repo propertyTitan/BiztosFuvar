@@ -1480,6 +1480,11 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
               vat_amount, gross_amount, status, created_at
          FROM invoices WHERE buyer_user_id = $1 ORDER BY created_at DESC`,
     ),
+    dijbefizeteseim: await q(
+      `SELECT payment_id, job_id, booking_id, fee_huf, currency, paid_at,
+              invoice_pending, last_invoice_attempt_at
+         FROM fee_payment_receipts WHERE shipper_id = $1 ORDER BY paid_at DESC`,
+    ),
     kyc_metaadat: await q(
       `SELECT doc_type, status, rejection_reason, created_at, reviewed_at
          FROM kyc_documents WHERE user_id = $1`,
