@@ -3,7 +3,9 @@ GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 2026-09-15 – A 704369d UTÓAUDITJÁNAK 1 P0 + 4 P1 JAVÍTÁSA
 
 Ág: fix/launch-audit-boundaries. Az öt javítás és a helyi ellenőrzés kész.
-A PR, CI, merge és production állapotát a telepítés után kell ide rögzíteni.
+PR és a végleges CI/merge-állapot: https://github.com/propertyTitan/BiztosFuvar/pull/240.
+A production backend futó Railway-commitját az összevont mainnel kell
+összevetni; a PR leírásában szerepel a telepítés visszaellenőrzése.
 Az alábbi öt tétel az új auditból ered; a korábbi két P0 és 12 P1 története
 e szakasz után olvasható. Ez nem állítás minden további hiba kizárásáról.
 
@@ -50,12 +52,15 @@ szállítói fotó+PIN kézbesítés → a feladói kód eltűnik, a vita nyitva
 Kockázat: alacsony; a megjelenítési feltétel változott.
 
 A4 / P1 – KYC-FELTÖLTÉS ÉS FIÓKTÖRLÉS VERSENYE JAVÍTVA
-Commit: 795e8db.
+Commit: 795e8db; a fájlírás és takarítás közös zárolása: 3b786d5.
 Fájlok: backend/src/services/kycUpload.js, storage.js, fileDeletionQueue.js;
 backend/src/routes/auth.js; backend/src/utils/kycHistory.js;
 backend/tests/launch-audit-kyc-lifecycle.test.js.
 Még a fájl bájtjainak írása előtt tartós, egy órával késleltetett törlési
-feladat készül. A véglegesítés user-sorzár alatt együtt menti az okmányt,
+feladat készül. A fájlírás idején a feladat sora zárolt; a takarító
+SKIP LOCKED miatt nem fogyaszthatja el egy még készülő fájl nyilvántartását.
+Az R2-feltöltés 60 másodperces megszakítási jelzést kap. A zár az AI-hívás
+előtt felszabadul. A véglegesítés user-sorzár alatt együtt menti az okmányt,
 a KYC-státuszt és a lenyomatot, sorba állítja a régi fájlt és törli az új
 fájl ideiglenes feladatát. Megszűnt fióknál 404; már eltakarított, lejárt
 feltöltésnél 409. Hibánál a feladat előrehozható, tárolóhiba után megmarad.
@@ -63,7 +68,9 @@ Bizonytalan COMMIT-válasznál a tranzakció tényleges döntése határozza meg
 hogy a fájl takarítható-e; sikeresen mentett okmányt nem törlünk találomra.
 Teszt: valódi helyi fájl és adatbázis, megállított AI-hívás alatti
 fióktörlés, tárhelyhiba, lejárt feltöltés, normál törlés, írás előtti
-DB-hiba, AI-kivétel, COMMIT előtti és utáni válaszhiba.
+DB-hiba, AI-kivétel, COMMIT előtti és utáni válaszhiba. A folyamatban lévő
+fájlírás közben lejáró feladatot külön konkurens próba ellenőrzi: a zár
+nélküli változaton elbukik, a végleges kódon sikeres.
 Kockázat: közepes; tranzakcióhatár és fájléletciklus változott. Történeti,
 már korábban nyom nélkül maradt R2-fájlokat ez nem azonosít visszamenőleg.
 
@@ -85,8 +92,8 @@ Kockázat: közepes; a 089-es migráció a backend előtt kell. A nem bizonyíto
 régi függő fizetéseket továbbra is külön szolgáltatói egyeztetés zárhatja le.
 
 ELLENŐRZÉSI EREDMÉNYEK
-- Backend: 175 fájl, 1960/1960 sikeres teszt, nulla kihagyás.
-- Lefedettségi kapu: sor 93,22%; utasítás 91,72%; függvény 88,63%; ág 84,18%.
+- Backend: 175 fájl, 1962/1962 sikeres teszt, nulla kihagyás.
+- Lefedettségi kapu: sor 93,20%; utasítás 91,70%; függvény 88,51%; ág 84,16%.
 - Web: 192/192 sikeres teszt; TypeScript és Next production build sikeres.
 - Helyi teljes stack, kilenc célzott Playwright-próba sikeres: teljes
   licit–fizetés–felvétel–kézbesítés, ellenajánlat, PIN-állapotok, két
@@ -108,7 +115,8 @@ Sorrend: 088_bid_revision.sql → 089_simulated_payment_sessions.sql →
 backend és web. Mindkettő bővítő séma. Kód-visszaállításnál az új oszlopokat
 és fizetési előzményeket meg kell őrizni. Deploy után ellenőrizni kell, hogy
 nem maradt migráció és deploy között létrejött, kuponnal rendezett pending
-szimuláció. Az éles migráció és telepítés igazolása még külön lépés.
+szimuláció. A migráció és telepítés visszaellenőrzésének eredménye a PR
+leírásában szerepel; az előellenőrzés önmagában nem bizonyít telepítést.
 
 KORÁBBI JAVÍTÁSI KÖR TÖRTÉNETE
 2026-09-15 – a két P0 összevonva; mind a 12 P1 kódjavítása elkészült

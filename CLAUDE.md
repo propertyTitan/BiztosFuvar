@@ -8,12 +8,14 @@
 > KYC-feltöltés előtt tartós fájltakarítási feladat készül, az okmány és
 > a felhasználói státusz együtt mentődik; a kupon a bizonyított CIB/QVIK
 > teszt-sessiont is lezárja. **Telepítési sorrend: 088, 089 → backend/web.**
-> Helyben **1960 backend + 192 web teszt**, lefedettségi kapu, webes
+> Helyben **1962 backend + 192 web teszt**, lefedettségi kapu, webes
 > típusellenőrzés, production build és 9 célzott böngészőteszt sikeres.
 > A natív ajánlathívás is igazítva; a phase 2 app teljes típusellenőrzését
 > egy változatlan `mobile/app/hub.tsx:56` Expo-típushiba akadályozza.
 > Tételes működés, tesztek és aktuális telepítési állapot:
-> `LAUNCH_JAVITASI_ALLAPOT.txt`. A korábbi javítások története alább;
+> `LAUNCH_JAVITASI_ALLAPOT.txt`; PR: https://github.com/propertyTitan/BiztosFuvar/pull/240.
+> A KYC fájlírás alatt a takarítási feladat zárolt; a feltöltés legfeljebb
+> 60 másodpercig várhat az R2-re. A korábbi javítások története alább;
 > az új kör nem állítja, hogy minden további P0/P1 lehetőség kizárt.
 
 > **2026-09-15 — launch előtti P0/P1-javítások:** a P2 PR #237 és a két
