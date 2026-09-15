@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TELJES AUDIT — A2 csomag (2026-09-11): a pénz-út és a köré épült őrök
 //   1. Webhook idempotencia-CLAIM az elején (párhuzamos ismétlés nem „árva").
@@ -15,7 +14,7 @@ const { seenOffer } = require('./helpers');
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob, createBooking } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, seenOffer } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 const emailSzolgaltatas = require('../src/services/email');
 const { maybeGrantReferralReward, REFERRAL_MONTHLY_CAP } = require('../src/services/referral');

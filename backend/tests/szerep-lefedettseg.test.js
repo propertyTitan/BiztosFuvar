@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  SZEREP-LEFEDETTSÉG — a feladói ÉS a szállítói felület minden végpontja
 //
@@ -21,7 +20,7 @@ const { seenOffer } = require('./helpers');
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob, createBooking, expressApp, TINY_PNG } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, expressApp, TINY_PNG, seenOffer } = require('./helpers');
 const { listRoutes, routeKey } = require('./routeInventory');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 

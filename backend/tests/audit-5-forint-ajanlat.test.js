@@ -1,7 +1,6 @@
-const { seenOffer } = require('./helpers');
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
-const { app, db, createUser, createJob } = require('./helpers');
+const { app, db, createUser, createJob, seenOffer } = require('./helpers');
 const auth = u => ({ Authorization: `Bearer ${u.token}` });
 
 describe('Audit 5 — deviza nem értelmezhető át forintnak', () => {

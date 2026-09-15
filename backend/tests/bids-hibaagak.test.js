@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  bids.js — HIBAÁGAK, ALKU-ÁLLAPOTOK ÉS DÍJ-INVARIÁNSOK (2026-08-12)
 //
@@ -14,7 +13,7 @@ const { seenOffer } = require('./helpers');
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob } = require('./helpers');
+const { app, db, createUser, createJob, seenOffer } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 
 const auth = (t) => ({ Authorization: `Bearer ${t}` });

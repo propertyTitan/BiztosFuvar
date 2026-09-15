@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TELJES ÚT — életciklus-mátrix
 //
@@ -28,7 +27,7 @@ const { seenOffer } = require('./helpers');
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob, createBooking, TINY_PNG } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, TINY_PNG, seenOffer } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 
 beforeEach(() => { __resetRateLimitsForTests(); });

@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  A LEFEDETTSÉGI KÖR HÁROM TERMÉKKÓD-HIBÁJA (2026-08-12)
 //
@@ -32,7 +31,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import request from 'supertest';
 const require = createRequire(import.meta.url);
-const { app, db, createUser, createJob } = require('./helpers');
+const { app, db, createUser, createJob, seenOffer } = require('./helpers');
 const alap = {
   title: 'Teszt', pickup_address: 'Budapest, Váci út 1.', pickup_lat: 47.49, pickup_lng: 19.04,
   dropoff_address: 'Szeged, Fő tér 1.', dropoff_lat: 46.25, dropoff_lng: 20.14,

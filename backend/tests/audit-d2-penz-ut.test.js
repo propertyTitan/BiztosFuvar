@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TELJES AUDIT — D2 csomag (2026-09-13): a pénz-út P1-jei
 //   1. Díjmentesen újranyitott (bidding) fuvarra késve érkező fizetés
@@ -13,7 +12,7 @@ const { seenOffer } = require('./helpers');
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob, createBooking } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, seenOffer } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 const paymentProvider = require('../src/services/paymentProvider');
 const realtime = require('../src/realtime');

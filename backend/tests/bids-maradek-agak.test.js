@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  BIDS — A MARADÉK FEDETLEN ÁGAK (2026-08-12)
 //
@@ -27,7 +26,7 @@ import {
 } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob } = require('./helpers');
+const { app, db, createUser, createJob, seenOffer } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 const paymentProvider = require('../src/services/paymentProvider');
 

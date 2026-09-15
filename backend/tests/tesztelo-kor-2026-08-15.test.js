@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TESZTELŐI KÖR — 2026-08-15
 //
@@ -19,7 +18,7 @@ import request from 'supertest';
 
 const require = createRequire(import.meta.url);
 const {
-  app, db, createUser, createJob,
+  app, db, createUser, createJob, seenOffer,
 } = require('./helpers');
 
 /** Ajánlat felvétele közvetlenül (a helpers nem exportál ilyet). */

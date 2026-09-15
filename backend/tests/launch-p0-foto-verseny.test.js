@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 import { beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 
@@ -6,7 +5,7 @@ import request from 'supertest';
 const storage = require('../src/services/storage');
 const realSave = storage.saveFile;
 const save = vi.spyOn(storage, 'saveFile');
-const { app, db, createUser, createJob, createBooking, TINY_PNG } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, TINY_PNG, seenOffer } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 beforeEach(() => { save.mockImplementation(realSave); __resetRateLimitsForTests(); });
 afterAll(() => vi.restoreAllMocks());

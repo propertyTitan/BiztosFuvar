@@ -1,4 +1,3 @@
-const { seenOffer } = require('./helpers');
 // =====================================================================
 //  TELJES AUDIT — A1 csomag (2026-09-11): a backend P0-mag négy őre
 //   1. Késleltetett fizetési webhook LEMONDOTT fuvarra nem könyvel.
@@ -9,7 +8,7 @@ const { seenOffer } = require('./helpers');
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob, createBooking, TINY_PNG } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, TINY_PNG, seenOffer } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 const auth = (t) => ({ Authorization: `Bearer ${t}` });
 const webhook = (body) => request(app).post('/payments/cib/callback').send(body);
