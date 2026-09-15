@@ -1,5 +1,58 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
+2026-09-15 – A 6272f5e UTÓAUDITJÁNAK MARADÉK KÉT P1 JAVÍTÁSA
+
+Ág: fix/launch-two-p1. Két külön javító commit; a korábbi öt javítás a
+PR #240-ben összevonva, a production a 6272f5e commitot futtatta e kör előtt.
+
+B1 / P1 – KYC KÖZBENI NÉVCSERE JAVÍTVA
+Commit: e6de72c.
+Fájlok: backend/src/routes/auth.js, backend/src/services/kycUpload.js;
+backend/tests/launch-p1-kyc-name-race.test.js.
+Az automatikus jóváhagyás csak az okmánnyal ténylegesen összevetett névre
+érvényes. A véglegesítés zárolt user-sorában névváltozáskor nem ír okmányt
+vagy státuszt, hanem 409 KYC_PROFILE_CHANGED választ ad; a sikertelen
+feltöltés fájlja takarítható. A felület új feltöltést kér. Ha a KYC nyer
+a sorzáron, a névfrissítés megvárja és a meglévő KYC_NAME_LOCKED őr tiltja.
+A normál névegyezési és kézi ellenőrzési szabályok változatlanok.
+Teszt: alkalmi/céges fiók névcseréje, fordított konkurens sorrend tényleges
+PG-zárvárakozással, fájltakarítás, sikeres újrapróbálás, normál fuzzy match.
+Kockázat: alacsony–közepes; csak a közbeni névváltozás kér új feltöltést.
+
+B2 / P1 – FIZETÉS NÉLKÜLI LEMONDÁS UTÁN BERAGADÓ TESZT-SESSION JAVÍTVA
+Commit: 0a1a02a.
+Fájlok: backend/db/migrations/090_cancelled_simulated_sessions.sql;
+backend/tests/launch-p1-unpaid-cancellation.test.js.
+A fuvar lemondásakor és a foglalás lemondásakor/elutasításakor DB-trigger
+zárja a pending, a 089 által bizonyított szimulált sessiont closed/cancelled
+állapotba. Csak fizetetlen ügyletre, sikeres fizetési jelzés és díjbizonylat
+nélkül érvényes; a még feldolgozatlan Succeeded is kizárja a lezárást.
+A lemondás és session-frissítés egy tranzakcióban fut; hiba mindkettőt
+visszagörgeti. A fizetés ugyanazon ügyletzáron vár. A migráció az azonos
+feltételeknek megfelelő történeti eseteket is javítja, ismétlésbiztosan.
+Valódi/ismeretlen, fizetett, needs_review állapotú session érintetlen;
+nincs mesterséges banki siker, nyugta, számla vagy visszatérítés.
+Teszt: CIB/QVIK, fuvar/foglalás, mindkét lemondó fél, pay/kupon nélküli
+lemondás → mindkét fiók törölhető; kevert sessionek, fizetett díj, függő
+sikerjelzés, DB-hiba/retry, konkurens fizetés mindkét sorrendben, backfill.
+Kockázat: közepes; célzott pénzügyi állapotjavítás, a 090 telepítendő.
+
+ELLENŐRZÉS ÉS TELEPÍTÉS
+- Új próbák: 4 KYC + 21 lemondási teszt sikeres; nyolc hibareprodukció
+  a javítás előtti kódon elbukott (két névverseny, hat lemondási eset).
+- KYC kapcsolódó regresszió: 94/94; első pénzügyi regresszió: 52/52.
+- Teljes backend regresszió: 177 fájl, 1987/1987 sikeres, nulla kihagyás.
+  Lefedettségi kapu sikeres: sor 93,24%, utasítás 91,74%, függvény 88,51%,
+  ág 84,27%. Jelentés: /private/tmp/gofuvar-audit-full-backend.json.
+- Éles, csak olvasási előellenőrzés: 89 alkalmazott migráció; csak a 090
+  függő. A 35 fizetési sessionből 5 felel meg a lemondási javításnak;
+  a 12 ismeretlen session védelmét meg kell őrizni. Nincs SMS- vagy
+  számlapótlási hátralék az ellenőrzéskor.
+- A teljes regresszió, független ügynöki ellenőrzés és a végleges
+  CI/merge/deploy eredménye a körhöz tartozó PR leírásában követhető.
+- A korábbi Sentry kapcsolati timeout kiváltó hálózati/Neon oka nem
+  bizonyított; e két P1 javítása nem módosít DB-timeoutot vagy riasztást.
+
 2026-09-15 – A 704369d UTÓAUDITJÁNAK 1 P0 + 4 P1 JAVÍTÁSA
 
 Ág: fix/launch-audit-boundaries. Az öt javítás és a helyi ellenőrzés kész.

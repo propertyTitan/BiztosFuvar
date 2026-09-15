@@ -1,5 +1,18 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-09-15 — a `6272f5e` utóauditjának maradék két P1 javítása:**
+> `fix/launch-two-p1`: a KYC véglegesítése user-sorzár alatt ellenőrzi,
+> hogy a profil neve azonos-e az okmánnyal összevetett névvel; közbeni
+> névcserénél 409 `KYC_PROFILE_CHANGED`, új feltöltés szükséges.
+> A fizetés nélkül lemondott fuvar/foglalás bizonyított szimulált sessionje
+> a lemondás tranzakciójában zárul; a valódi/ismeretlen, sikeres jelzéssel
+> vagy bizonylattal rendelkező fizetés védelme marad. Új migráció: **090**,
+> történeti, szigorúan feltételes javítással. Két külön javító commit:
+> `e6de72c`, `0a1a02a`. Új célzott tesztek: **25/25 sikeres**; nyolc
+> hibareprodukció a javítás előtti működésen elbukott. A teljes backend
+> regresszió **1987/1987**, a lefedettségi kapu sikeres. Teljes ellenőrzési
+> és telepítési állapot: `LAUNCH_JAVITASI_ALLAPOT.txt`, a kapcsolódó PR-ben.
+
 > **2026-09-15 — a `704369d` utóauditjának 1 P0 + 4 P1 javítása:**
 > A `fix/launch-audit-boundaries` ágon elkészült az öt külön javítás.
 > A fotóretenció és a megőrzési zárolás ugyanazon ügyletsorzáron fut;

@@ -1186,7 +1186,7 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
     }
 
     const isUnderage = aiResult.underage === true;
-    let docStatus, kycStatus, rejectionReason;
+    let docStatus, kycStatus, rejectionReason, verifiedFullName;
 
     if (isUnderage) {
       docStatus = 'pending';
@@ -1243,6 +1243,7 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
       // emberhez tereljük — az automatizmus megmarad, csak nem vak.
       const { needsManualReview } = require('../services/kycReview');
       const { rows: acc } = await db.query('SELECT full_name FROM users WHERE id = $1', [req.user.sub]);
+      verifiedFullName = acc[0]?.full_name;
       // A korábban törölt fiók okmánya ugyanúgy emberhez terel, mint a többi
       // kockázati jel — a visszatérés így nem marad előzmény nélküli.
       const review = keziEllenorzesOka
@@ -1272,7 +1273,6 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
         docStatus = 'approved';
         kycStatus = 'verified';
         rejectionReason = null;
-        console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
       }
     } else {
       // ⚠️ AZ AI EGYEDÜL NEM UTASÍT EL (2026-08-09, adatvédelmi + jogi audit).
@@ -1311,10 +1311,17 @@ router.post('/kyc-document', authRequired, writeRateLimit, uploadSingle('file'),
 
     const finalized = await require('../services/kycUpload').finalizeKycUpload({
       userId: req.user.sub, docType: doc_type, url, docStatus, kycStatus,
-      rejectionReason, docNumberHash, duplicate: keziEllenorzesOka?.code === 'DUPLICATE_DOCUMENT',
+      rejectionReason, docNumberHash, verifiedFullName, duplicate: keziEllenorzesOka?.code === 'DUPLICATE_DOCUMENT',
     });
     if (finalized.missing) return { status: 404, body: { error: 'A fiók időközben megszűnt.', code: 'ACCOUNT_DELETED' } };
     if (finalized.expired) return { status: 409, body: { error: 'A feltöltés lejárt. Töltsd fel újra az okmányt.', code: 'UPLOAD_EXPIRED' } };
+    if (finalized.profileChanged) return { status: 409, body: {
+      error: 'Az ellenőrzés közben megváltozott a profilodban szereplő név. Ellenőrizd a neved, és töltsd fel újra az okmányt.',
+      code: 'KYC_PROFILE_CHANGED',
+    } };
+    if (kycStatus === 'verified') {
+      console.log(`[kyc] AI jóváhagyva: user=${req.user.sub} doc=${doc_type} confidence=${aiResult.confidence}`);
+    }
 
     return { status: 200, body: {
       // Az `ok` a TÉNYLEGES döntést tükrözi: kézi ellenőrzésre terelt
