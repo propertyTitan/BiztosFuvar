@@ -14,7 +14,7 @@ const { sendJobPaidEmail, sendCancellationEmail, sendFeeConfirmationEmail } = re
 const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
 const { findBackhaulCandidates } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
-const { useVoucherIfAvailable } = require('../services/gamification');
+const { redeemJobVoucher } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { konyvelDijFizetes } = require('../services/feePayment');
 const { firstContactLeak, ellenorizIndok } = require('../utils/contactGuard');
@@ -955,17 +955,15 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   // Ha a feladónak van felhasználható kupon, és a díj a kupon plafonja
   // alatt van, a Barion-fizetést KIHAGYJUK: a kupon a teljes díjat
   // elengedi, a kontakt felfedődik, mintha fizetett volna (paid_at).
-  const voucherUsed = await useVoucherIfAvailable(req.user.sub, { jobId: j.id, feeHuf });
-  if (voucherUsed) {
+  const voucher = await redeemJobVoucher(req.user.sub, j.id);
+  if (voucher.changed) {
+    return res.status(409).json({ error: 'A fuvar fizetési állapota időközben megváltozott. Frissítsd az oldalt.', code: 'STATE_CHANGED' });
+  }
+  if (voucher.used) {
     // Ingyen feladás: nincs pénzmozgás, ezért NEM keletkezik escrow-sor
     // (az amount_huf > 0 CHECK amúgy sem engedne 0 Ft-os díj-sort). A
     // kontakt-felfedés a paid_at-en múlik, a díj pedig 0.
-    const { rows: upd } = await db.query(
-      `UPDATE jobs SET connection_fee_huf = 0, paid_at = NOW()
-        WHERE id = $1 AND paid_at IS NULL RETURNING paid_at`,
-      [j.id],
-    );
-    if (upd[0] && j.carrier_id) {
+    if (j.carrier_id) {
       createNotification({
         user_id: j.carrier_id,
         type: 'job_paid',
@@ -977,10 +975,8 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
     // (D3, 2026-09-13) A kupon-ág eddig NEM küldött `job:paid` socket-eseményt
     // (csak a webhook és a kézi nyugtázás) — a szállító oldala F5-ig nem
     // frissült, a feladóé sem.
-    if (upd[0]) {
-      realtime.emitToUser(j.shipper_id, 'job:paid', { job_id: j.id, paid_at: upd[0].paid_at, via_voucher: true });
-      if (j.carrier_id) realtime.emitToUser(j.carrier_id, 'job:paid', { job_id: j.id, paid_at: upd[0].paid_at });
-    }
+    realtime.emitToUser(j.shipper_id, 'job:paid', { job_id: j.id, paid_at: voucher.paidAt, via_voucher: true });
+    if (j.carrier_id) realtime.emitToUser(j.carrier_id, 'job:paid', { job_id: j.id, paid_at: voucher.paidAt });
     // A meghívott→ajánló jutalom-trigger. ⚠️ Kuponos (0 Ft-os) feladás
     // önmagában NEM teljesítés — a referral.js ellenőrzi, volt-e valaha
     // ténylegesen megfizetett (>0 Ft) díja a feladónak.
