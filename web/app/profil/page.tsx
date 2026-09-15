@@ -145,21 +145,9 @@ export default function ProfilOldal() {
   async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const formData = new FormData();
-    formData.append('file', file);
     try {
       toast.info('Profilkép feltöltése…');
-      const token = window.localStorage.getItem('gofuvar_token');
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/avatar`,
-        {
-          method: 'POST',
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          body: formData,
-        },
-      );
-      if (!res.ok) throw new Error('Feltöltés sikertelen');
-      const { url } = await res.json();
+      const { url } = await api.uploadAvatar(file);
       // A feltöltő végpont MAGA menti az avatar_url-t — külön PATCH nem kell.
       // (2026-08-10: az `avatar_url` szándékosan kikerült a szerkeszthető
       // profil-mezők közül; szabadon írható értékre nem szabad fájl-törlést
@@ -179,13 +167,7 @@ export default function ProfilOldal() {
 
   async function adataimLetoltese() {
     try {
-      const token = window.localStorage.getItem('gofuvar_token');
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/me/export`,
-        { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
-      );
-      if (!res.ok) throw new Error('A letöltés nem sikerült');
-      const adat = await res.json();
+      const adat = await api.exportMyData();
       const url = URL.createObjectURL(
         new Blob([JSON.stringify(adat, null, 2)], { type: 'application/json' }),
       );
@@ -544,13 +526,7 @@ export default function ProfilOldal() {
           }
           setShowDeleteDialog(false);
           try {
-            const token = localStorage.getItem('gofuvar_token');
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/auth/me`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error);
+            await api.deleteMyAccount();
             localStorage.removeItem('gofuvar_token');
             localStorage.removeItem('gofuvar_user');
             window.location.href = '/bejelentkezes';
