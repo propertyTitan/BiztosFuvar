@@ -57,25 +57,7 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
   // A helyes ellenőrzés nem az URL ALAKJA, hanem a TULAJDONJOG: a hivatkozott
   // fotónak ahhoz a fuvarhoz/foglaláshoz kell tartoznia, amire a vita szól.
   let tisztaEvidence = null;
-  if (evidence_url != null && evidence_url !== '') {
-    const ertek = String(evidence_url);
-    const { rows: sajatFoto } = await db.query(
-      `SELECT 1 FROM photos
-        WHERE url = $1
-          AND ($2::uuid IS NULL OR job_id = $2)
-          AND ($3::uuid IS NULL OR booking_id = $3)
-        LIMIT 1`,
-      [ertek, job_id || null, booking_id || null],
-    );
-    if (ertek.length > 500 || sajatFoto.length === 0) {
-      return res.status(400).json({
-        error: 'A csatolt bizonyítéknak ehhez a fuvarhoz feltöltött fotónak kell lennie. '
-          + 'Tölts fel fotót a fuvar oldalán, és azt csatold.',
-        code: 'INVALID_EVIDENCE_URL',
-      });
-    }
-    tisztaEvidence = ertek;
-  }
+
 
   // requireText: nem-string érték (szám, tömb, objektum) korábban 500-zal
   // szállt el a .trim()-en — most rendes 400-at kap a kliens.
@@ -187,6 +169,28 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
         error: 'Erre az entitásra már van nyitott vita. Várd meg az admin döntését.',
         existing_dispute_id: existingCheck.rows[0].id,
       });
+    }
+
+    // A tulajdonjogot az ügylet zárja alatt ellenőrizzük: a retenció
+    // nem törölheti a csatolmányt az ellenőrzés és a hold commitja között.
+    if (evidence_url != null && evidence_url !== '') {
+      const ertek = String(evidence_url);
+      const { rows: sajatFoto } = await client.query(
+        `SELECT 1 FROM photos
+          WHERE url = $1
+            AND ($2::uuid IS NULL OR job_id = $2)
+            AND ($3::uuid IS NULL OR booking_id = $3)
+          LIMIT 1`,
+        [ertek, job_id || null, booking_id || null],
+      );
+      if (ertek.length > 500 || sajatFoto.length === 0) {
+        return res.status(400).json({
+          error: 'A csatolt bizonyítéknak ehhez a fuvarhoz feltöltött fotónak kell lennie. '
+            + 'Tölts fel fotót a fuvar oldalán, és azt csatold.',
+          code: 'INVALID_EVIDENCE_URL',
+        });
+      }
+      tisztaEvidence = ertek;
     }
 
     let inserted;

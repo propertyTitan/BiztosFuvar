@@ -69,7 +69,7 @@ async function purgeOldDeliveryPhotos() {
   try {
     // --- Fuvar-fotók ---
     const { rows: jobPhotos } = await db.query(
-      `SELECT p.id, p.url
+      `SELECT p.id, p.url, p.job_id
          FROM photos p
          JOIN jobs j ON j.id = p.job_id
         WHERE p.kind = ANY($4)
@@ -87,7 +87,7 @@ async function purgeOldDeliveryPhotos() {
     // --- Foglalás-fotók (route_bookings; nincs updated_at → delivered_at
     //     vagy created_at a viszonyítás) ---
     const { rows: bookingPhotos } = await db.query(
-      `SELECT p.id, p.url
+      `SELECT p.id, p.url, p.booking_id
          FROM photos p
          JOIN route_bookings b ON b.id = p.booking_id
         WHERE p.kind = ANY($4)
@@ -104,20 +104,45 @@ async function purgeOldDeliveryPhotos() {
 
     let beragadt = 0;
     for (const p of [...jobPhotos, ...bookingPhotos]) {
-      const ok = await storage.deleteFile(p.url);
-      // ⚠️ SIKERTELEN TÖRLÉSNÉL MEGTARTJUK A DB-SORT (2026-08-11, 8. mérés).
-      // A deleteFile R2-hibánál CSENDBEN false-t ad. Ha ilyenkor is töröltük
-      // a photos sort — az EGYETLEN mutatót —, az objektum VÉGLEGESEN a
-      // PUBLIKUS bucketben maradt: se retry, se riasztás, se sepregető.
-      // A sor megtartásával a holnapi kör újrapróbálja. (data:URL és már
-      // hiányzó objektum true-t ad, tehát azok nem ragadnak be.)
-      // Ugyanez a hibaosztály a KYC-ágon már zárva volt (services/kyc.js).
-      if (!ok) {
-        beragadt += 1;
-        continue;
+      const client = await db.pool.connect();
+      try {
+        await client.query('BEGIN');
+        const table = p.job_id ? 'jobs' : 'route_bookings';
+        const foreignKey = p.job_id ? 'job_id' : 'booking_id';
+        const age = p.job_id ? 'e.updated_at' : 'COALESCE(e.delivered_at, e.created_at)';
+        // Ugyanaz a sorzár, mint a vita nyitásakor és az admin-hold írásakor.
+        // A jelöltlista elavulhat; a zár UTÁN, új SQL-pillanatképből döntünk.
+        // A zár a tárolóhívás végéig tart: közben nem sikerülhet új hold.
+        await client.query(`SELECT id FROM ${table} WHERE id = $1 FOR UPDATE`, [p.job_id || p.booking_id]);
+        const { rows } = await client.query(
+          `SELECT p.id, p.url FROM photos p JOIN ${table} e ON e.id = p.${foreignKey}
+            WHERE p.id = $1 AND p.kind = ANY($5)
+              AND ((e.photo_retention_hold = FALSE AND e.status::text = ANY($2)
+                    AND ${age} < NOW() - ($3 || ' days')::interval)
+                OR (e.photo_retention_hold = TRUE
+                    AND ${age} < NOW() - ($4 || ' years')::interval))
+            FOR UPDATE OF p`,
+          [p.id, p.job_id ? JOB_TERMINAL : BOOKING_TERMINAL, DEFAULT_RETENTION_DAYS, HOLD_RETENTION_YEARS, PHOTO_KINDS],
+        );
+        if (rows[0]) {
+          const ok = await storage.deleteFile(rows[0].url).catch(() => false);
+          // Tárolóhiba esetén megmarad a mutató a következő napi próbához.
+          if (ok) {
+            await client.query('DELETE FROM photos WHERE id = $1', [p.id]);
+          } else {
+            beragadt += 1;
+          }
+          await client.query('COMMIT');
+          if (ok) purged += 1;
+        } else {
+          await client.query('COMMIT');
+        }
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => {});
+        throw err;
+      } finally {
+        client.release();
       }
-      await db.query('DELETE FROM photos WHERE id = $1', [p.id]);
-      purged += 1;
     }
     if (beragadt > 0) {
       console.error(`[photo-retention] ${beragadt} fotó tároló-törlése sikertelen — a DB-sort MEGTARTJUK, holnap újrapróbáljuk`);
