@@ -103,7 +103,9 @@ describe('1. webhook idempotencia-claim', () => {
     const eredeti = db.query;
     let dobott = false;
     db.query = async (t, p) => {
-      if (!dobott && /UPDATE jobs SET paid_at = NOW\(\)/.test(String(t))) {
+      // A paid_at már dedikált tranzakcióban íródik; itt továbbra is a
+      // claim utáni kivételt mérjük, a könyvelés előkészítő lekérdezésén.
+      if (!dobott && /SELECT billing_country, tax_id, company_name, email, full_name FROM users/.test(String(t))) {
         dobott = true; throw new Error('szimulált DB-kiesés');
       }
       return eredeti(t, p);

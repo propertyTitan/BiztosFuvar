@@ -908,6 +908,10 @@ async function purgeOldDisputes() {
  */
 async function purgeOldInvoices() {
   try {
+    await db.query(
+      `DELETE FROM fee_payment_receipts WHERE paid_at < NOW() - ($1 || ' years')::interval`,
+      [INVOICE_RETENTION_YEARS],
+    );
     const { rowCount } = await db.query(
       `DELETE FROM invoices WHERE created_at < NOW() - ($1 || ' years')::interval`,
       [INVOICE_RETENTION_YEARS],

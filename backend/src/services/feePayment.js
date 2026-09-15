@@ -25,7 +25,7 @@
 // =====================================================================
 const db = require('../db');
 const { computeVat } = require('./vat');
-const { generatePlatformFeeInvoice } = require('./invoicing');
+const { invoiceReceipt } = require('./feeInvoiceQueue');
 const { maybeGrantReferralReward } = require('./referral');
 
 /** Ennyi perc után vehető át egy processed=false (elakadt) claim. */
@@ -183,45 +183,71 @@ async function konyvelDijFizetes({
     currency,
   });
 
-  // 1) Állapot-őr + egyszeri paid_at (2026-09-11, teljes audit P0-1 / A2)
+  // A fizetett állapot, a díj-sor és a helyreállítási bizonylat együtt
+  // érvényesül. Bármelyik írás hibája mindhármat visszavonja.
   let upd;
-  if (entityType === 'job') {
-    upd = await db.query(
-      `UPDATE jobs SET paid_at = NOW()
-        WHERE id = $1 AND paid_at IS NULL AND ${VARAKOZO_ALLAPOT.job}
-        RETURNING paid_at`,
-      [entityId],
-    );
-    if (upd.rowCount > 0) {
-      // 2) A díj-sor végleges ('released') — visszatérítés nincs
-      await db.query(
-        `UPDATE escrow_transactions SET status = 'released', released_at = NOW()
-          WHERE job_id = $1 AND status = 'held'`,
+  let receipt;
+  let alreadyBooked = false;
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    if (entityType === 'job') {
+      upd = await client.query(
+        `UPDATE jobs SET paid_at = NOW()
+          WHERE id = $1 AND paid_at IS NULL AND ${VARAKOZO_ALLAPOT.job}
+          RETURNING paid_at`,
+        [entityId],
+      );
+      if (upd.rowCount > 0) {
+        // A díj-sor végleges ('released') — visszatérítés nincs.
+        await client.query(
+          `UPDATE escrow_transactions SET status = 'released', released_at = NOW()
+            WHERE job_id = $1 AND status = 'held'`,
+          [entityId],
+        );
+      }
+    } else {
+      upd = await client.query(
+        `UPDATE route_bookings SET paid_at = NOW()
+          WHERE id = $1 AND paid_at IS NULL AND ${VARAKOZO_ALLAPOT.booking}
+          RETURNING paid_at`,
         [entityId],
       );
     }
-  } else {
-    upd = await db.query(
-      `UPDATE route_bookings SET paid_at = NOW()
-        WHERE id = $1 AND paid_at IS NULL AND ${VARAKOZO_ALLAPOT.booking}
-        RETURNING paid_at`,
-      [entityId],
-    );
+    if (upd.rowCount === 0) {
+      const existing = await client.query(
+        `SELECT * FROM fee_payment_receipts WHERE payment_id = $1
+          AND ${entityType === 'job' ? 'job_id' : 'booking_id'} = $2`,
+        [paymentId, entityId],
+      );
+      receipt = existing.rows[0];
+      alreadyBooked = !!receipt;
+    } else {
+      const saved = await client.query(
+        `INSERT INTO fee_payment_receipts
+          (payment_id, job_id, booking_id, shipper_id, fee_huf, currency, paid_at, last_invoice_attempt_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
+        [paymentId, entityType === 'job' ? entityId : null,
+          entityType === 'booking' ? entityId : null, shipperId, platformFee, currency, upd.rows[0].paid_at],
+      );
+      receipt = saved.rows[0];
+    }
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
-  if (upd.rowCount === 0) {
-    return { konyvelve: 0, vatResult, platformFee, shipper };
-  }
+  if (!receipt) return { konyvelve: 0, vatResult, platformFee, shipper };
 
   // 3) Számla a FELADÓNAK (stub is menti a metaadatot)
   let invoice = null;
   try {
-    invoice = await generatePlatformFeeInvoice({
-      jobId: entityType === 'job' ? entityId : null,
-      bookingId: entityType === 'booking' ? entityId : null,
-      platformFee, currency, buyerUserId: shipperId,
-    });
+    invoice = await invoiceReceipt(receipt);
   } catch (err) {
     console.error('[invoicing] Számla generálás hiba:', err.message);
+    require('./utemezo').jelezSorHibak('fee-invoices', [err]);
   }
 
   // 4) Fizetési napló — NÉV NÉLKÜL (2026-08-09): csak azonosítók
@@ -253,7 +279,7 @@ async function konyvelDijFizetes({
   }).catch(() => {});
 
   return {
-    konyvelve: 1, paidAt: upd.rows[0].paid_at, invoice, vatResult, platformFee, shipper, summary,
+    konyvelve: 1, alreadyBooked, paidAt: receipt.paid_at, invoice, vatResult, platformFee, shipper, summary,
   };
 }
 
