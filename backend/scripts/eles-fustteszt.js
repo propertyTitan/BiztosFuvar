@@ -117,7 +117,8 @@ async function main() {
     check('Licit (szállító)', bidRes.status === 201, `${bidRes.status} ${bidRes.status !== 201 ? JSON.stringify(bidRes.json).slice(0, 160) : ''}`);
     const bidId = bidRes.json?.id;
 
-    const accept = await api('POST', `/bids/${bidId}/accept`, { token: shipper.token, body: {} });
+    const accept = await api('POST', `/bids/${bidId}/accept`, { token: shipper.token,
+      body: { expected_revision: bidRes.json?.revision, expected_amount_huf: bidRes.json?.amount_huf } });
     check('Licit elfogadása — díj 500 Ft (12e Ft sáv)',
       accept.status === 200 && accept.json?.connection_fee_huf === 500,
       `${accept.status}, fee=${accept.json?.connection_fee_huf}`);
@@ -241,7 +242,8 @@ async function main() {
     const bid2 = await api('POST', `/jobs/${job2.json?.id}/bids`, {
       token: carrier.token, body: { amount_huf: 60000, return_policy: 'included' },
     });
-    const accept2 = await api('POST', `/bids/${bid2.json?.id}/accept`, { token: shipper.token, body: {} });
+    const accept2 = await api('POST', `/bids/${bid2.json?.id}/accept`, { token: shipper.token,
+      body: { expected_revision: bid2.json?.revision, expected_amount_huf: bid2.json?.amount_huf } });
     check('2. fuvar: 60e Ft → 1000 Ft-os felső díjsáv (2026-07-15 árazás)', accept2.json?.connection_fee_huf === 1000,
       `fee=${accept2.json?.connection_fee_huf}`);
     const reopen = await api('POST', `/jobs/${job2.json?.id}/reopen`, { token: shipper.token, body: { reason: 'füstteszt' } });

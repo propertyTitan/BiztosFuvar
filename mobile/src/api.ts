@@ -342,10 +342,10 @@ export const api = {
     request<any[]>(`/jobs/${jobId}/bids`),
 
   /** Feladó elfogadja a licitet. */
-  acceptBid: (bidId: string) =>
+  acceptBid: (bidId: string, expectedAmountHuf: number, expectedRevision: number) =>
     request<{ ok: true; barion?: { gateway_url: string | null } }>(
       `/bids/${bidId}/accept`,
-      { method: 'POST' },
+      { method: 'POST', body: JSON.stringify({ expected_amount_huf: expectedAmountHuf, expected_revision: expectedRevision }) },
     ),
 
   /** Egy fuvar fotói (listing + pickup + dropoff). */
