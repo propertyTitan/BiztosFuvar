@@ -16,10 +16,35 @@ const used = async id => (await db.query('SELECT * FROM fee_vouchers WHERE user_
 describe('Audit 3 — a kupon és a fuvar egy tranzakció', () => {
   it('két egyidejű fizetésindítás ugyanarra a fuvarra csak egy kupont fogyaszt', async () => {
     const { shipper, job } = await fixture();
-    const replies = await Promise.all([1, 2].map(() => request(app).post(`/jobs/${job.id}/pay`)
-      .set({ Authorization: `Bearer ${shipper.token}` }).send({ consent: true })));
-    expect(replies.map(r => r.status).sort()).toEqual([200, 409]);
-    expect(await used(shipper.id)).toBe(1);
+    // Mindkét kérés ugyanazt a fizetetlen állapotot olvassa, és eljut a
+    // zárolásig, mielőtt bármelyik véglegesíthetne. Időzítési véletlenből
+    // így a régi, tranzakció nélküli kód sem kaphat zöld eredményt.
+    const lock = await db.pool.connect();
+    let pending;
+    try {
+      await lock.query('BEGIN');
+      await lock.query('SELECT id FROM jobs WHERE id = $1 FOR UPDATE', [job.id]);
+      pending = Promise.all([1, 2].map(() => request(app).post(`/jobs/${job.id}/pay`)
+        .set({ Authorization: `Bearer ${shipper.token}` }).send({ consent: true })));
+      const deadline = Date.now() + 5000;
+      let waiting = 0;
+      while (waiting < 2 && Date.now() < deadline) {
+        const { rows } = await db.query(
+          `SELECT COUNT(*)::int AS count FROM pg_stat_activity
+            WHERE datname = current_database() AND wait_event_type = 'Lock'`,
+        );
+        waiting = rows[0].count;
+        if (waiting < 2) await new Promise(resolve => setTimeout(resolve, 20));
+      }
+      expect(waiting, 'Mindkét kérésnek el kell jutnia a fuvar zárolásáig.').toBe(2);
+    } finally {
+      await lock.query('ROLLBACK');
+      lock.release();
+      if (pending) await pending;
+    }
+    const replies = await pending;
+    expect({ statuses: replies.map(r => r.status).sort(), used: await used(shipper.id) })
+      .toEqual({ statuses: [200, 409], used: 1 });
     expect((await db.query('SELECT paid_at, connection_fee_huf FROM jobs WHERE id = $1', [job.id])).rows[0])
       .toMatchObject({ paid_at: expect.any(Date), connection_fee_huf: 0 });
   });

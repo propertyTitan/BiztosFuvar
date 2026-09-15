@@ -16,7 +16,13 @@
 > 149 web teszt sikeres**, TypeScript és Next production build sikeres;
 > backend lefedettségi kapu sikeres (sorok 93,35%, utasítások 91,93%,
 > függvények 89,07%, elágazások 84,38%).
-> Az éles migráció és telepítés nem része a lokális tesztelésnek.
+> **Merge előtti ellenpróba:** a hat hibát fedő 19 próba a régi
+> `c37354f` kódon elbukik; a javított kódon mind a 34 audit-regresszió
+> sikeres. A kupon-versenyhelyzet tesztje valódi DB-zárral szinkronizál,
+> így a két kérés nem kerülheti el véletlenül az ütközést.
+> **Éles migráció: 2026-09-15-én lefutott a 084-es**, visszaellenőrizve:
+> 84 nyilvántartott migráció, nincs függő fájl, a díjbizonylat-tábla létezik.
+> PR: #236; a migráció önmagában nem jelenti a kód telepítését.
 
 > **Ez a fájl automatikusan betöltődik minden új Claude-session elején.**
 > Tartsd naprakészen ahogy a projekt változik.
