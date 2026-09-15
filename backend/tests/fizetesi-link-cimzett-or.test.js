@@ -52,7 +52,7 @@ describe('Fizetési link: kizárólag a fizetőhöz', () => {
 
     const res = await request(app)
       .post(`/jobs/${job.id}/instant-accept`)
-      .set('Authorization', `Bearer ${szallito.token}`).send({});
+      .set('Authorization', `Bearer ${szallito.token}`).send({ expected_price_huf: 25000 });
 
     // A végpont sikerétől függetlenül: a linknek NEM szabad benne lennie.
     const talalt = fizetesiLinket(res.body);

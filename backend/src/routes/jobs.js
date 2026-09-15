@@ -12,9 +12,9 @@ const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendJobPaidEmail, sendCancellationEmail, sendFeeConfirmationEmail } = require('../services/email');
 const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
-const { findBackhaulCandidates } = require('../services/backhaul');
+const { publicCoordinate } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
-const { useVoucherIfAvailable } = require('../services/gamification');
+const { redeemJobVoucher } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { konyvelDijFizetes } = require('../services/feePayment');
 const { firstContactLeak, ellenorizIndok } = require('../utils/contactGuard');
@@ -192,6 +192,9 @@ function kozelitoHely(job) {
 // fizet, az nem bot), az azonosítást a banki fizetés adja (QVIK/kártya).
 // A szállítói oldal kapuja (requireDriverKYC a licitnél) változatlan.
 router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req, res) => {
+  if (req.body?.currency != null && String(req.body.currency).toUpperCase() !== 'HUF') {
+    return res.status(400).json({ error: 'Jelenleg csak forintban adható fel fuvar.', code: 'UNSUPPORTED_CURRENCY' });
+  }
   const {
     title, description,
     pickup_address, pickup_lat, pickup_lng,
@@ -616,10 +619,12 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
         for (const t of activeTrips) {
           if (notified.has(t.carrier_id)) continue;
           const pickupNearB_km = distanceMeters(
-            t.dropoff_lat, t.dropoff_lng, job.pickup_lat, job.pickup_lng,
+            publicCoordinate(t.dropoff_lat), publicCoordinate(t.dropoff_lng),
+            publicCoordinate(job.pickup_lat), publicCoordinate(job.pickup_lng),
           ) / 1000;
           const dropNearA_km = distanceMeters(
-            t.pickup_lat, t.pickup_lng, job.dropoff_lat, job.dropoff_lng,
+            publicCoordinate(t.pickup_lat), publicCoordinate(t.pickup_lng),
+            publicCoordinate(job.dropoff_lat), publicCoordinate(job.dropoff_lng),
           ) / 1000;
           if (pickupNearB_km <= RADIUS_KM && dropNearA_km <= RADIUS_KM) {
             await createNotification({
@@ -955,17 +960,15 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   // Ha a feladónak van felhasználható kupon, és a díj a kupon plafonja
   // alatt van, a Barion-fizetést KIHAGYJUK: a kupon a teljes díjat
   // elengedi, a kontakt felfedődik, mintha fizetett volna (paid_at).
-  const voucherUsed = await useVoucherIfAvailable(req.user.sub, { jobId: j.id, feeHuf });
-  if (voucherUsed) {
+  const voucher = await redeemJobVoucher(req.user.sub, j.id);
+  if (voucher.changed) {
+    return res.status(409).json({ error: 'A fuvar fizetési állapota időközben megváltozott. Frissítsd az oldalt.', code: 'STATE_CHANGED' });
+  }
+  if (voucher.used) {
     // Ingyen feladás: nincs pénzmozgás, ezért NEM keletkezik escrow-sor
     // (az amount_huf > 0 CHECK amúgy sem engedne 0 Ft-os díj-sort). A
     // kontakt-felfedés a paid_at-en múlik, a díj pedig 0.
-    const { rows: upd } = await db.query(
-      `UPDATE jobs SET connection_fee_huf = 0, paid_at = NOW()
-        WHERE id = $1 AND paid_at IS NULL RETURNING paid_at`,
-      [j.id],
-    );
-    if (upd[0] && j.carrier_id) {
+    if (j.carrier_id) {
       createNotification({
         user_id: j.carrier_id,
         type: 'job_paid',
@@ -977,10 +980,8 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
     // (D3, 2026-09-13) A kupon-ág eddig NEM küldött `job:paid` socket-eseményt
     // (csak a webhook és a kézi nyugtázás) — a szállító oldala F5-ig nem
     // frissült, a feladóé sem.
-    if (upd[0]) {
-      realtime.emitToUser(j.shipper_id, 'job:paid', { job_id: j.id, paid_at: upd[0].paid_at, via_voucher: true });
-      if (j.carrier_id) realtime.emitToUser(j.carrier_id, 'job:paid', { job_id: j.id, paid_at: upd[0].paid_at });
-    }
+    realtime.emitToUser(j.shipper_id, 'job:paid', { job_id: j.id, paid_at: voucher.paidAt, via_voucher: true });
+    if (j.carrier_id) realtime.emitToUser(j.carrier_id, 'job:paid', { job_id: j.id, paid_at: voucher.paidAt });
     // A meghívott→ajánló jutalom-trigger. ⚠️ Kuponos (0 Ft-os) feladás
     // önmagában NEM teljesítés — a referral.js ellenőrzi, volt-e valaha
     // ténylegesen megfizetett (>0 Ft) díja a feladónak.
@@ -1075,6 +1076,7 @@ router.patch('/:id', authRequired, writeRateLimit, async (req, res) => {
   if (b.suggested_price_huf !== undefined) {
     const n = Number(b.suggested_price_huf);
     if (!Number.isInteger(n) || n < 0 || n > MAX_HUF) return res.status(400).json({ error: 'Az ajánlott ár 0 és 100 000 000 Ft közötti kerek összeg.' });
+    if (j.is_instant && n <= 0) return res.status(400).json({ error: 'Az azonnali fuvar fix ára pozitív egész szám legyen.', code: 'INVALID_INSTANT_PRICE' });
     put('suggested_price_huf', n);
   }
   if (b.weight_kg !== undefined) {
@@ -1622,6 +1624,8 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
 // Ugyanazt csinálja, mint a licites elfogadás (escrow indítás, carrier_id
 // beállítás, notifikációk), csak bid sor nélkül.
 router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
+  const expectedPrice = req.body?.expected_price_huf;
+  const validExpectedPrice = Number.isInteger(expectedPrice) && expectedPrice > 0 && expectedPrice <= 100000000;
   // Jogosítvány-követelmény megszűnt (2026-07-07): a requireDriverKYC
   // (személyi igazolvány + szállítói nyilatkozat) elég; a can_bid-kapu kivéve.
 
@@ -1644,16 +1648,19 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
           AND status = 'bidding'
           AND carrier_id IS NULL
           AND shipper_id <> $1
+          AND suggested_price_huf > 0
+          AND currency = 'HUF'
+          AND suggested_price_huf = $3
           AND (instant_expires_at IS NULL OR instant_expires_at > NOW())
       RETURNING *`,
-      [req.user.sub, req.params.id],
+      [req.user.sub, req.params.id, validExpectedPrice ? expectedPrice : null],
     );
 
     if (!upd[0]) {
       await client.query('ROLLBACK');
       // Megnézzük: egyáltalán létezik-e az azonnali fuvar és miért nem ment?
       const { rows: check } = await db.query(
-        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at
+        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at, suggested_price_huf, currency
            FROM jobs WHERE id = $1`,
         [req.params.id],
       );
@@ -1664,6 +1671,11 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       if (j.carrier_id) return res.status(409).json({ error: 'Sajnos elkelt — valaki más gyorsabb volt.' });
       if (j.instant_expires_at && new Date(j.instant_expires_at) < new Date()) {
         return res.status(410).json({ error: 'Az azonnali fuvar lejárt.' });
+      }
+      if (j.status === 'bidding') {
+        if (j.currency !== 'HUF') return res.status(409).json({ error: 'Jelenleg csak forintban vállalható fuvar.', code: 'UNSUPPORTED_CURRENCY' });
+        if (!validExpectedPrice) return res.status(400).json({ error: 'Frissítsd a hirdetést, majd erősítsd meg a megjelenített fix árat.', code: 'PRICE_CONFIRMATION_REQUIRED' });
+        return res.status(409).json({ error: 'A fuvar ára időközben megváltozott. Nézd át a frissített hirdetést, és csak az új ár ismeretében vállald el.', code: 'PRICE_CHANGED' });
       }
       return res.status(409).json({ error: 'Nem fogadható el (állapot: ' + j.status + ')' });
     }

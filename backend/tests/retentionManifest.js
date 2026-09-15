@@ -38,6 +38,7 @@ const RETENTION_MANIFEST = {
   carrier_routes:      { szabaly: 'leírás + jármű-leírás 3 év után ürül, sablon kivéve (anonymizeOldCarrierRoutes)' },
   disputes:            { szabaly: '5 év a LEZÁRÁS után, a bizonyíték-fájllal együtt (purgeOldDisputes); nyitott vita sosem évül el' },
   invoices:            { szabaly: '8 év — Számv. tv. 169. § (2) (purgeOldInvoices)' },
+  fee_payment_receipts: { szabaly: '8 év a fizetéstől, a számlákkal egyező pénzügyi nyom (purgeOldInvoices)' },
   payment_events:      { szabaly: '8 év, a számlákkal egyező pénzügyi nyom (purgeOldPaymentEvents); a summary nem tartalmaz nevet/címet' },
   sos_events:          { szabaly: 'pontos hely + szabad szöveg 7 nap, a sor 1 év (purgeEmergencyLocations)' },
   tow_requests:        { szabaly: 'pontos hely + rendszám + leírás 7 nap, a sor 1 év (purgeEmergencyLocations)' },

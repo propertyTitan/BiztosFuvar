@@ -171,7 +171,7 @@ async function grantMonthlyVouchers() {
  * Ellenőrzi, hogy a szállítónak van-e felhasználható voucher-je.
  * Ha igen, felhasználja (used_at = NOW) és true-t ad vissza.
  */
-async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, feeHuf = null } = {}) {
+async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, feeHuf = null } = {}, client = db) {
   // A legkorábban lejáró, még érvényes és a díj-plafonnak megfelelő kupont
   // használjuk fel. A max_fee_huf plafon (ajánlói kuponoknál) kizárja a
   // magas díjú feladásokat; NULL plafon = bármekkora díjra jó (szint-kupon).
@@ -187,7 +187,7 @@ async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, f
   // sort ÁTUGORJÁK, és vagy egy MÁSIK szabad kupont kapnak, vagy semmit —
   // így egy kupon garantáltan csak egyszer fogyhat, és a többkuponos eset
   // is helyesen működik.
-  const { rows } = await db.query(
+  const { rows } = await client.query(
     `UPDATE fee_vouchers
         SET used_at = NOW(),
             used_on_job = $3,
@@ -207,6 +207,39 @@ async function useVoucherIfAvailable(userId, { jobId = null, bookingId = null, f
     [userId, feeHuf, jobId || null, bookingId || null],
   );
   return rows.length > 0;
+}
+
+async function redeemJobVoucher(userId, jobId) {
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query('SELECT * FROM jobs WHERE id = $1 FOR UPDATE', [jobId]);
+    const job = rows[0];
+    if (!job || job.shipper_id !== userId || job.status !== 'accepted' || job.paid_at || !job.fee_consent_at) {
+      await client.query('ROLLBACK');
+      return { changed: true };
+    }
+    const { calculateConnectionFee } = require('./connectionFee');
+    const feeHuf = job.connection_fee_huf ?? calculateConnectionFee(job.accepted_price_huf || job.suggested_price_huf || 0);
+    const used = await useVoucherIfAvailable(userId, { jobId, feeHuf }, client);
+    let paidAt = null;
+    if (used) {
+      const updated = await client.query(
+        `UPDATE jobs SET connection_fee_huf = 0, paid_at = NOW()
+          WHERE id = $1 AND status = 'accepted' AND paid_at IS NULL RETURNING paid_at`,
+        [jobId],
+      );
+      if (!updated.rows[0]) throw new Error('A fuvar kuponbeváltás közben megváltozott.');
+      paidAt = updated.rows[0].paid_at;
+    }
+    await client.query('COMMIT');
+    return { used, paidAt };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /**
@@ -279,5 +312,6 @@ module.exports = {
   grantVoucher,
   grantMonthlyVouchers,
   useVoucherIfAvailable,
+  redeemJobVoucher,
   getDriverGameStats,
 };

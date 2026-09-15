@@ -554,6 +554,10 @@ if (process.env.DATABASE_URL) {
   // késleltesse az épp bennragadt SMS-eket.
   const { runSmsRetryQueue } = require('./services/smsRetry');
   const smsUjrakuldesKor = utemezettKor('sms-retry', runSmsRetryQueue);
+  const { runPendingFeeInvoices } = require('./services/feeInvoiceQueue');
+  const dijSzamlaKor = utemezettKor('fee-invoices', runPendingFeeInvoices);
+  setTimeout(dijSzamlaKor, 3 * 60 * 1000).unref();
+  setInterval(dijSzamlaKor, 10 * 60 * 1000).unref();
   setTimeout(smsUjrakuldesKor, 2 * 60 * 1000).unref();
   setInterval(smsUjrakuldesKor, 10 * 60 * 1000).unref();
   console.log('[sms-retry] újraküldési kör ütemezve (10 percenként, 48 órás ablak)');

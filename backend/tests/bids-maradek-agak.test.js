@@ -66,84 +66,32 @@ afterEach(() => vi.restoreAllMocks());
 // =====================================================================
 //  1. DEVIZA — licit-előnézet átváltása
 // =====================================================================
-describe('GET /bids/preview — deviza-átváltás', () => {
-  it('EUR ajánlat HUF-os fuvarra: a tájékoztató átváltás HUF-ban jelenik meg', async () => {
-    ekbKiiktatva();
-    const user = await createUser({ role: 'carrier' });
-    const res = await request(app)
-      .get('/bids/preview?amount=100&currency=EUR&job_currency=HUF').set(auth(user.token));
-
-    expect(res.status).toBe(200);
-    expect(res.body.convertedCurrency,
-      'a feladó a SAJÁT fuvarának valutájában akarja látni az ajánlatot — enélkül '
-      + 'a 100 EUR-t 100 Ft-nak olvasná, és nagyságrendet tévesztene a döntésnél')
-      .toBe('HUF');
-    expect(res.body.convertedAmount).toBe(100 * TARTALEK_ARFOLYAM);
-    expect(res.body.exchangeRate).toBe(TARTALEK_ARFOLYAM);
-    expect(res.body.amount, 'az EREDETI összeg és valuta változatlanul megmarad').toBe(100);
-    expect(res.body.currency).toBe('EUR');
-    expect(res.body.netPayout,
-      'KÉSZPÉNZES MODELL: az átváltás tájékoztató — a szállító a teljes összeget kapja')
-      .toBe(100);
-  });
-
-  it('HUF ajánlat EUR-os fuvarra: az átváltás a másik irányba megy', async () => {
-    ekbKiiktatva();
-    const user = await createUser({ role: 'carrier' });
-    const res = await request(app)
-      .get('/bids/preview?amount=40000&currency=HUF&job_currency=EUR').set(auth(user.token));
-
-    expect(res.status).toBe(200);
-    expect(res.body.convertedCurrency,
-      'ha az irány felcserélődik, a 40 000 Ft-ból 16 millió EUR lenne a képernyőn')
-      .toBe('EUR');
-    expect(res.body.convertedAmount).toBe(40000 / TARTALEK_ARFOLYAM);
-    expect(res.body.exchangeRate).toBe(TARTALEK_ARFOLYAM);
-  });
-
-  it('az EKB kiesése NEM hibáztatja el az előnézetet (tartalék árfolyam)', async () => {
-    // Ugyanaz a mock, de itt ez maga az állítás: a licitálás nem állhat meg
-    // attól, hogy egy külső, ingyenes árfolyam-API épp nem válaszol.
-    ekbKiiktatva();
-    const user = await createUser({ role: 'carrier' });
-    const res = await request(app)
-      .get('/bids/preview?amount=100&currency=EUR&job_currency=HUF').set(auth(user.token));
-    expect(res.status,
-      'külső árfolyam-szolgáltató kiesésekor is kell választ adni — az ajánlattétel '
-      + 'a kínálati oldal ELSŐ lépése, itt megállni a legdrágább')
-      .toBe(200);
-    expect(res.body.exchangeRate).toBe(TARTALEK_ARFOLYAM);
-  });
+describe('GET /bids/preview — induláskor HUF', () => {
+  it.each(['currency=EUR&job_currency=HUF', 'currency=HUF&job_currency=EUR', 'currency=EUR&job_currency=EUR'])
+    ('nem ígér devizás megállapodást (%s)', async pair => {
+      const fetch = vi.spyOn(global, 'fetch').mockRejectedValue(new Error('EKB nem szükséges'));
+      const user = await createUser({ role: 'carrier' });
+      const res = await request(app).get(`/bids/preview?amount=200&${pair}`).set(auth(user.token));
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('UNSUPPORTED_CURRENCY');
+      expect(fetch).not.toHaveBeenCalled();
+    });
 });
 
 // =====================================================================
 //  2. DEVIZA — az árfolyam befagyasztása az ajánlat sorára
 // =====================================================================
 describe('POST /jobs/:jobId/bids — cross-currency ajánlat', () => {
-  it('eltérő valutánál az árfolyam BEFAGY az ajánlat sorára (időbélyeggel)', async () => {
-    ekbKiiktatva();
-    const felado = await createUser({ role: 'shipper' });
+  it('régi EUR-os fuvarra sem vesz fel HUF-nak álcázott ajánlatot', async () => {
+    const felado = await createUser();
     const szallito = await createUser({ role: 'carrier' });
     const job = await createJob({ shipperId: felado.id, status: 'bidding' });
-    await db.query(`UPDATE jobs SET currency = 'EUR' WHERE id = $1`, [job.id]);
-
+    await db.query("UPDATE jobs SET currency = 'EUR' WHERE id = $1", [job.id]);
     const res = await request(app).post(`/jobs/${job.id}/bids`).set(auth(szallito.token))
       .send({ amount: 50000, currency: 'HUF', return_policy: 'included' });
-
-    expect(res.status).toBe(201);
-    const { rows } = await db.query(
-      'SELECT currency, exchange_rate, exchange_rate_frozen_at FROM bids WHERE id = $1',
-      [res.body.id],
-    );
-    expect(rows[0].currency).toBe('HUF');
-    expect(Number(rows[0].exchange_rate),
-      '⚠️ AZ ÁRFOLYAM-BEFAGYASZTÁS ÜZLETI ÍGÉRET: se a feladó, se a szállító ne veszítsen '
-      + 'a deviza-ingadozáson az ajánlat és a teljesítés között. Ha ez az ág kiesik, az '
-      + 'ajánlat árfolyam nélkül marad, és utólag vitatható lesz, mennyit is ért.')
-      .toBe(TARTALEK_ARFOLYAM);
-    expect(rows[0].exchange_rate_frozen_at,
-      'az időbélyeg nélkül nem bizonyítható, MIKORI árfolyamon fagyott be')
-      .toBeTruthy();
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe('UNSUPPORTED_CURRENCY');
+    expect((await db.query('SELECT * FROM bids WHERE job_id = $1', [job.id])).rowCount).toBe(0);
   });
 
   it('AZONOS valutánál nincs árfolyam-mező (nem hívunk fölösleges külső szolgáltatást)', async () => {

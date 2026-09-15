@@ -82,6 +82,66 @@ async function requireIdentityKYC(req, res, next) {
   } catch (err) { next(err); }
 }
 
+function driverEligibilityError(u) {
+  if (!u) return { status: 401, error: 'Felhasználó nem található' };
+  // ⚠️ FELFÜGGESZTÉS (2026-09-11, Codex-audit P1-03, user-döntés D4): a
+  // `can_bid` az adminon írható volt, de egyetlen jogosultsági kapu sem
+  // olvasta (a jogosítvány-kori maradvány dormant lett) — az admin azt
+  // hitte, letiltotta a szállítót, az tovább licitált. Mostantól ez a
+  // szállítói moderáció valódi eszköze: ajánlattétel, járat-hirdetés,
+  // azonnali elfogadás (és a mentős regisztráció) egyaránt tiltva.
+  if (u.can_bid === false) {
+    return { status: 403,
+      error: 'A szállítói fiókod fel van függesztve. Ha kérdésed van, írj az info@gofuvar.hu címre.',
+      code: 'CARRIER_SUSPENDED',
+    };
+  }
+  // A személyi igazolvány (identity KYC) a SZÁLLÍTÓI tevékenységhez kötelező
+  // (2026-07-19 óta a feladónak nem kell). A jogosítvány-követelmény
+  // megszűnt (2026-07-07): a nem-motoros futárokat is engedjük.
+  if (u.identity_kyc_status !== 'verified') {
+    return { status: 403,
+      error: 'A platform biztonsága és a csomagok védelme érdekében kérjük, igazold a profilod.',
+      code: 'IDENTITY_KYC_REQUIRED',
+      identity_kyc_status: u.identity_kyc_status,
+    };
+  }
+  // Szállítói egyszeri nyilatkozat: minden jogszabály + KRESZ betartása.
+  if (!u.driver_terms_accepted_at) {
+    return { status: 403,
+      error: 'A fuvarozás megkezdéséhez fogadd el a nyilatkozatot: minden vonatkozó jogszabályt és a KRESZ-t betartod.',
+      code: 'DRIVER_TERMS_REQUIRED',
+    };
+  }
+  // ⚠️ TELEFONSZÁM KÖTELEZŐ A SZÁLLÍTÓNAK (2026-09-11, teljes audit B1). A
+  // díj után a feladó a szállító TELEFONSZÁMÁT kapja meg — ha nincs, a
+  // kifizetett kapcsolatfelvétel üres: a kontakt-kártyán semmi, a címzetti
+  // SMS-ben „Szállító: Név" szám nélkül. A telefon a regisztrációban
+  // opcionális (feladónak nem kell), a szállítói ág ELSŐ lépésénél viszont
+  // kérjük (DriverTermsGate) — ez a szerver-oldali párja.
+  if (!u.phone || !String(u.phone).trim()) {
+    return { status: 403,
+      error: 'Szállítóként kötelező a telefonszám — a feladó a díj után ezen ér el. Add meg a profilodon.',
+      code: 'PHONE_REQUIRED',
+    };
+  }
+  // DAC7-kikényszerítés (Aktv.): ha a magánszemély szállító az adóazonosító-
+  // bekérés után 2 emlékeztető + 60 nap elteltével sem adta meg az adatait,
+  // az ÚJ ajánlattétel/járat-hirdetés blokkolódik, amíg meg nem adja.
+  // (A folyamatban lévő fuvarjait ez nem érinti — csak az újakat.)
+  // Lusta require: a dac7 → notifications → middleware/auth körkörös
+  // betöltést kerüli el (futáskor már minden modul kész).
+  const { computeTaxDataState } = require('../services/dac7');
+  const taxState = computeTaxDataState(u);
+  if (taxState.blocked) {
+    return { status: 403,
+      error: 'Jogszabályi kötelezettség (DAC7) miatt add meg az adóazonosító jeled a profilodon — utána azonnal folytathatod az ajánlattételt.',
+      code: 'TAX_DATA_REQUIRED',
+    };
+  }
+  return null;
+}
+
 async function requireDriverKYC(req, res, next) {
   try {
     const { rows } = await db.query(
@@ -92,61 +152,10 @@ async function requireDriverKYC(req, res, next) {
       [req.user.sub],
     );
     const u = rows[0];
-    if (!u) return res.status(401).json({ error: 'Felhasználó nem található' });
-    // ⚠️ FELFÜGGESZTÉS (2026-09-11, Codex-audit P1-03, user-döntés D4): a
-    // `can_bid` az adminon írható volt, de egyetlen jogosultsági kapu sem
-    // olvasta (a jogosítvány-kori maradvány dormant lett) — az admin azt
-    // hitte, letiltotta a szállítót, az tovább licitált. Mostantól ez a
-    // szállítói moderáció valódi eszköze: ajánlattétel, járat-hirdetés,
-    // azonnali elfogadás (és a mentős regisztráció) egyaránt tiltva.
-    if (u.can_bid === false) {
-      return res.status(403).json({
-        error: 'A szállítói fiókod fel van függesztve. Ha kérdésed van, írj az info@gofuvar.hu címre.',
-        code: 'CARRIER_SUSPENDED',
-      });
-    }
-    // A személyi igazolvány (identity KYC) a SZÁLLÍTÓI tevékenységhez kötelező
-    // (2026-07-19 óta a feladónak nem kell). A jogosítvány-követelmény
-    // megszűnt (2026-07-07): a nem-motoros futárokat is engedjük.
-    if (u.identity_kyc_status !== 'verified') {
-      return res.status(403).json({
-        error: 'A platform biztonsága és a csomagok védelme érdekében kérjük, igazold a profilod.',
-        code: 'IDENTITY_KYC_REQUIRED',
-        identity_kyc_status: u.identity_kyc_status,
-      });
-    }
-    // Szállítói egyszeri nyilatkozat: minden jogszabály + KRESZ betartása.
-    if (!u.driver_terms_accepted_at) {
-      return res.status(403).json({
-        error: 'A fuvarozás megkezdéséhez fogadd el a nyilatkozatot: minden vonatkozó jogszabályt és a KRESZ-t betartod.',
-        code: 'DRIVER_TERMS_REQUIRED',
-      });
-    }
-    // ⚠️ TELEFONSZÁM KÖTELEZŐ A SZÁLLÍTÓNAK (2026-09-11, teljes audit B1). A
-    // díj után a feladó a szállító TELEFONSZÁMÁT kapja meg — ha nincs, a
-    // kifizetett kapcsolatfelvétel üres: a kontakt-kártyán semmi, a címzetti
-    // SMS-ben „Szállító: Név" szám nélkül. A telefon a regisztrációban
-    // opcionális (feladónak nem kell), a szállítói ág ELSŐ lépésénél viszont
-    // kérjük (DriverTermsGate) — ez a szerver-oldali párja.
-    if (!u.phone || !String(u.phone).trim()) {
-      return res.status(403).json({
-        error: 'Szállítóként kötelező a telefonszám — a feladó a díj után ezen ér el. Add meg a profilodon.',
-        code: 'PHONE_REQUIRED',
-      });
-    }
-    // DAC7-kikényszerítés (Aktv.): ha a magánszemély szállító az adóazonosító-
-    // bekérés után 2 emlékeztető + 60 nap elteltével sem adta meg az adatait,
-    // az ÚJ ajánlattétel/járat-hirdetés blokkolódik, amíg meg nem adja.
-    // (A folyamatban lévő fuvarjait ez nem érinti — csak az újakat.)
-    // Lusta require: a dac7 → notifications → middleware/auth körkörös
-    // betöltést kerüli el (futáskor már minden modul kész).
-    const { computeTaxDataState } = require('../services/dac7');
-    const taxState = computeTaxDataState(u);
-    if (taxState.blocked) {
-      return res.status(403).json({
-        error: 'Jogszabályi kötelezettség (DAC7) miatt add meg az adóazonosító jeled a profilodon — utána azonnal folytathatod az ajánlattételt.',
-        code: 'TAX_DATA_REQUIRED',
-      });
+    const error = driverEligibilityError(u);
+    if (error) {
+      const { status, ...body } = error;
+      return res.status(status).json(body);
     }
     next();
   } catch (err) { next(err); }
@@ -176,5 +185,5 @@ function requireVerifiedEmail(req, res, next) {
 }
 
 module.exports = {
-  authRequired, requireRole, requireIdentityKYC, requireDriverKYC, requireVerifiedEmail,
+  authRequired, requireRole, requireIdentityKYC, requireDriverKYC, requireVerifiedEmail, driverEligibilityError,
 };

@@ -411,7 +411,7 @@ export const api = {
   },
 
   /** Azonnali fuvar elfogadása (első szállító nyer, 409-et kap a többi). */
-  acceptInstantJob: (jobId: string) =>
+  acceptInstantJob: (jobId: string, expectedPriceHuf: number) =>
     request<{
       ok: true;
       job_id: string;
@@ -420,7 +420,7 @@ export const api = {
       // A fizetési link SZÁNDÉKOSAN nincs a válaszban: ezt a végpontot a
       // SZÁLLÍTÓ hívja, a fizető viszont a FELADÓ (2026-08-12, 11. mérés A1).
       // A feladó a linket az értesítésében és a /pay válaszában kapja.
-    }>(`/jobs/${jobId}/instant-accept`, { method: 'POST' }),
+    }>(`/jobs/${jobId}/instant-accept`, { method: 'POST', body: JSON.stringify({ expected_price_huf: expectedPriceHuf }) }),
 
   /** Visszafuvar-ajánlások a hívó szállító összes aktív fuvarához. */
   backhaulSuggestions: () =>

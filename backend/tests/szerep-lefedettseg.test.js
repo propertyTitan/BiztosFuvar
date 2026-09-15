@@ -445,7 +445,7 @@ describe('Szállítói felület: minden funkció lefut', () => {
       [instant.id],
     );
     await sikeres('POST /jobs/:id/instant-accept', request(app)
-      .post(`/jobs/${instant.id}/instant-accept`).set(auth(V.szallito.token)).send({}));
+      .post(`/jobs/${instant.id}/instant-accept`).set(auth(V.szallito.token)).send({ expected_price_huf: instant.suggested_price_huf }));
   });
 
   it('élő pozíció küldése úton lévő fuvaron', async () => {
