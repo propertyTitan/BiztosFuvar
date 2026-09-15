@@ -20,6 +20,10 @@
 
 const db = require('../db');
 const { distanceMeters } = require('../utils/geo');
+const { utcaSzint } = require('../utils/address');
+
+// Ugyanaz a 3 tizedes pontosság, amelyet a piactér a díj előtt megmutat.
+const publicCoordinate = value => Math.round(Number(value) * 1000) / 1000;
 
 // Visszafuvar keresésnél mennyire lehet "eltérő" a pont a szállító
 // útvonalának végpontjaitól. 30 km jól kiszámolt default:
@@ -59,6 +63,12 @@ async function findBackhaulCandidates({
   ) {
     return [];
   }
+  // A kiinduló fuvar is lehet fizetetlen: annak pontos helye sem
+  // következtethető vissza az ismert jelöltekhez mért távolságból.
+  originLat = publicCoordinate(originLat);
+  originLng = publicCoordinate(originLng);
+  destLat = publicCoordinate(destLat);
+  destLng = publicCoordinate(destLng);
 
   // Bounding box pre-filter: a PostgreSQL `lat/lng BETWEEN` index-friendly,
   // ~30 km-re egy fok kb. 1/111 rész. Innen durván szűrünk, utána
@@ -83,10 +93,16 @@ async function findBackhaulCandidates({
        JOIN users s ON s.id = j.shipper_id
       WHERE j.status = 'bidding'
         AND j.shipper_id <> $1
-        AND j.pickup_lat  BETWEEN $2 AND $3
-        AND j.pickup_lng  BETWEEN $4 AND $5
-        AND j.dropoff_lat BETWEEN $6 AND $7
-        AND j.dropoff_lng BETWEEN $8 AND $9
+        -- Bővített, indexelhető előszűrés: a kerekítés legfeljebb fél
+        -- rácslépést mozdít. A döntés a kerekített ponton, LIMIT előtt van.
+        AND j.pickup_lat  BETWEEN $2 - 0.000501 AND $3 + 0.000501
+        AND j.pickup_lng  BETWEEN $4 - 0.000501 AND $5 + 0.000501
+        AND j.dropoff_lat BETWEEN $6 - 0.000501 AND $7 + 0.000501
+        AND j.dropoff_lng BETWEEN $8 - 0.000501 AND $9 + 0.000501
+        AND floor(j.pickup_lat * 1000 + 0.5) / 1000 BETWEEN $2 AND $3
+        AND floor(j.pickup_lng * 1000 + 0.5) / 1000 BETWEEN $4 AND $5
+        AND floor(j.dropoff_lat * 1000 + 0.5) / 1000 BETWEEN $6 AND $7
+        AND floor(j.dropoff_lng * 1000 + 0.5) / 1000 BETWEEN $8 AND $9
         AND (j.pickup_window_end IS NULL OR j.pickup_window_end >= COALESCE($10::timestamptz, NOW()))
       ORDER BY j.created_at DESC
       LIMIT $11`,
@@ -108,8 +124,8 @@ async function findBackhaulCandidates({
   // amit a szállító UI-on megmutatunk.
   const candidates = [];
   for (const j of rows) {
-    const pickupFromB_m = distanceMeters(destLat,   destLng,   j.pickup_lat,  j.pickup_lng);
-    const dropFromA_m   = distanceMeters(originLat, originLng, j.dropoff_lat, j.dropoff_lng);
+    const pickupFromB_m = distanceMeters(destLat, destLng, publicCoordinate(j.pickup_lat), publicCoordinate(j.pickup_lng));
+    const dropFromA_m = distanceMeters(originLat, originLng, publicCoordinate(j.dropoff_lat), publicCoordinate(j.dropoff_lng));
     const pickupFromB_km = pickupFromB_m / 1000;
     const dropFromA_km   = dropFromA_m   / 1000;
     if (pickupFromB_km > radiusKm || dropFromA_km > radiusKm) continue;
@@ -120,8 +136,8 @@ async function findBackhaulCandidates({
 
     candidates.push({
       ...j,
-      backhaul_pickup_from_dest_km: +pickupFromB_km.toFixed(2),
-      backhaul_drop_from_origin_km: +dropFromA_km.toFixed(2),
+      backhaul_pickup_from_dest_km: +pickupFromB_km.toFixed(1),
+      backhaul_drop_from_origin_km: +dropFromA_km.toFixed(1),
       backhaul_score: score,
     });
   }
@@ -148,7 +164,7 @@ async function suggestionsForCarrier(carrierId) {
             title AS trip_title,
             pickup_lat,  pickup_lng,  pickup_address,
             dropoff_lat, dropoff_lng, dropoff_address,
-            pickup_window_end
+            pickup_window_end, paid_at
        FROM jobs
       WHERE carrier_id = $1
         AND status IN ('accepted', 'in_progress')
@@ -171,8 +187,8 @@ async function suggestionsForCarrier(carrierId) {
       out.push({
         trip_id: t.trip_id,
         trip_title: t.trip_title,
-        trip_pickup_address: t.pickup_address,
-        trip_dropoff_address: t.dropoff_address,
+        trip_pickup_address: t.paid_at ? t.pickup_address : utcaSzint(t.pickup_address),
+        trip_dropoff_address: t.paid_at ? t.dropoff_address : utcaSzint(t.dropoff_address),
         candidates: cands,
       });
     }
@@ -184,4 +200,5 @@ module.exports = {
   findBackhaulCandidates,
   suggestionsForCarrier,
   DEFAULT_RADIUS_KM,
+  publicCoordinate,
 };

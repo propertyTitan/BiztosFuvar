@@ -12,7 +12,7 @@ const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendJobPaidEmail, sendCancellationEmail, sendFeeConfirmationEmail } = require('../services/email');
 const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
-const { findBackhaulCandidates } = require('../services/backhaul');
+const { publicCoordinate } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const { redeemJobVoucher } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
@@ -619,10 +619,12 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
         for (const t of activeTrips) {
           if (notified.has(t.carrier_id)) continue;
           const pickupNearB_km = distanceMeters(
-            t.dropoff_lat, t.dropoff_lng, job.pickup_lat, job.pickup_lng,
+            publicCoordinate(t.dropoff_lat), publicCoordinate(t.dropoff_lng),
+            publicCoordinate(job.pickup_lat), publicCoordinate(job.pickup_lng),
           ) / 1000;
           const dropNearA_km = distanceMeters(
-            t.pickup_lat, t.pickup_lng, job.dropoff_lat, job.dropoff_lng,
+            publicCoordinate(t.pickup_lat), publicCoordinate(t.pickup_lng),
+            publicCoordinate(job.dropoff_lat), publicCoordinate(job.dropoff_lng),
           ) / 1000;
           if (pickupNearB_km <= RADIUS_KM && dropNearA_km <= RADIUS_KM) {
             await createNotification({
