@@ -20,7 +20,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob, createBooking, expressApp, TINY_PNG } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, expressApp, TINY_PNG, seenOffer } = require('./helpers');
 const { listRoutes, routeKey } = require('./routeInventory');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 
@@ -253,7 +253,7 @@ describe('Feladói felület: minden funkció lefut', () => {
       .post(`/bids/${V.bidId}/counter`).set(auth(V.felado.token)).send({ amount: 13000 }));
     // …és a szállító elfogadja az ellenajánlatot
     await sikeres('POST /bids/:id/accept-counter', request(app)
-      .post(`/bids/${V.bidId}/accept-counter`).set(auth(V.szallito.token)).send({}));
+      .post(`/bids/${V.bidId}/accept-counter`).send(await seenOffer(V.bidId)).set(auth(V.szallito.token)));
   });
 
   it('ajánlat visszavonása (A4) + fuvar szerkesztése (B3)', async () => {
@@ -491,7 +491,7 @@ describe('Fő tranzakciós út: feladástól az értékelésig', () => {
       .send({ amount_huf: 14000, return_policy: 'included' }));
 
     await sikeres('POST /bids/:id/accept', request(app)
-      .post(`/bids/${licit.body.id}/accept`).set(auth(felado.token)).send({}));
+      .post(`/bids/${licit.body.id}/accept`).send(await seenOffer(licit.body.id)).set(auth(felado.token)));
 
     await sikeres('POST /jobs/:id/pay', request(app)
       .post(`/jobs/${job.body.id}/pay`).set(auth(felado.token)).send({ consent: true }));

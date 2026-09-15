@@ -3,12 +3,13 @@ const crypto = require('crypto');
 const db = require('../db');
 const storage = require('./storage');
 
-async function enqueueFileDeletions(client, batchId, keys) {
+async function enqueueFileDeletions(client, batchId, keys, { delaySeconds = 0 } = {}) {
   for (const key of new Set(keys)) {
     await client.query(
-      `INSERT INTO file_deletion_queue(key_hash, file_key, batch_id) VALUES($1, $2, $3)
+      `INSERT INTO file_deletion_queue(key_hash, file_key, batch_id, next_attempt_at)
+       VALUES($1, $2, $3, NOW() + make_interval(secs => $4))
        ON CONFLICT (key_hash) DO NOTHING`,
-      [crypto.createHash('sha256').update(key).digest('hex'), key, batchId],
+      [crypto.createHash('sha256').update(key).digest('hex'), key, batchId, delaySeconds],
     );
   }
 }

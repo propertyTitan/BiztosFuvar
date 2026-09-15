@@ -143,7 +143,11 @@ describe('Duplikátum-okmány: kézi ellenőrzés, nem árva fájl', () => {
       [elso.id, hash],
     );
 
-    vi.spyOn(storage, 'savePrivateFile').mockResolvedValue('private:kyc/MASODIK-FELTOLTES.jpg');
+    vi.spyOn(storage, 'savePrivateFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave } = {}) => {
+      const key = 'private:kyc/MASODIK-FELTOLTES.jpg';
+      if (beforeSave) await beforeSave(key);
+      return key;
+    });
     vi.spyOn(storage, 'deleteFile').mockResolvedValue(true);
     vi.spyOn(require('../src/services/gemini'), 'verifyKycDocument').mockResolvedValue({
       valid: true, confidence: 0.95, documentNumber: okmanyszam,

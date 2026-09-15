@@ -231,6 +231,16 @@ async function redeemJobVoucher(userId, jobId) {
       );
       if (!updated.rows[0]) throw new Error('A fuvar kuponbeváltás közben megváltozott.');
       paidAt = updated.rows[0].paid_at;
+      // A kupon kiváltja a tesztfizetést, valódi banki sessiont viszont nem
+      // szüntet meg. A besorolás az indításkor tárolt bizonyítékból ered.
+      // A kupon, a paid_at és a lezárás együtt commitol vagy gördül vissza.
+      await client.query(
+        `UPDATE payment_sessions s SET state = 'closed', closed_reason = 'voucher', settled_at = NOW()
+          WHERE s.job_id = $1 AND s.state = 'pending' AND s.is_simulated
+            AND NOT EXISTS(SELECT 1 FROM payment_events e WHERE e.payment_id = s.payment_id AND e.processed AND e.status = 'Succeeded')
+            AND NOT EXISTS(SELECT 1 FROM fee_payment_receipts r WHERE r.payment_id = s.payment_id)`,
+        [jobId],
+      );
     }
     await client.query('COMMIT');
     return { used, paidAt };

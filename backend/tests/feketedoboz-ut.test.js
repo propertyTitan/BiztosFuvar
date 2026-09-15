@@ -190,8 +190,8 @@ describe('Feketedoboz: a teljes út a nyilvános felületen', () => {
     expect(ajanlat.status, `az ajánlattétel elbukott: ${JSON.stringify(ajanlat.body)}`).toBe(201);
 
     const elfogad = await request(app)
-      .post(`/bids/${ajanlat.body.id}/accept`)
-      .set('Authorization', `Bearer ${felado.token}`).send({});
+      .post(`/bids/${ajanlat.body.id}/accept`).send({ expected_revision: ajanlat.body.revision, expected_amount_huf: ajanlat.body.amount_huf })
+      .set('Authorization', `Bearer ${felado.token}`);
     expect(elfogad.status, `az elfogadás elbukott: ${JSON.stringify(elfogad.body)}`).toBe(200);
 
     // ── 5. A DÍJ-KAPU: kontakt CSAK fizetés után ────────────────────

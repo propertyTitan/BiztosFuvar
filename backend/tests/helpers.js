@@ -191,9 +191,17 @@ const TINY_PNG = Buffer.from(
   'base64',
 );
 
+// Régi, SQL-fixtúrából induló tesztek explicit ajánlat-pillanatképe.
+// Versenytesztben ezt a konkurens módosítás ELŐTT kell eltárolni.
+async function seenOffer(bidId) {
+  const { rows } = await db.query('SELECT revision, amount_huf, counter_amount_huf FROM bids WHERE id = $1', [bidId]);
+  return rows[0] ? { expected_revision: rows[0].revision,
+    expected_amount_huf: rows[0].counter_amount_huf ?? rows[0].amount_huf } : {};
+}
+
 // `app`        → a FIGYELŐ szerver (ezt kapja a supertest)
 // `expressApp` → a nyers Express példány (a route-leltárnak kell, ami a
 //                router-stacket járja be — a szerver-objektumon az nincs)
 module.exports = {
-  db, app, expressApp, createUser, createJob, createBooking, logPaidFee, uniqueEmail, TINY_PNG,
+  db, app, expressApp, createUser, createJob, createBooking, logPaidFee, uniqueEmail, TINY_PNG, seenOffer,
 };

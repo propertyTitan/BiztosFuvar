@@ -172,10 +172,12 @@ async function saveFile(buffer, originalName, mimetype) {
  * ami a DB-be kerül; olvasni CSAK a getSignedPrivateUrl-lel lehet.
  * Disk-fallback (dev/teszt): uploads/private/ alá kerül.
  */
-async function savePrivateFile(buffer, originalName, mimetype) {
+async function savePrivateFile(buffer, originalName, mimetype, { beforeSave } = {}) {
   const ext = (originalName?.split('.').pop() || 'jpg').toLowerCase();
   const safeExt = /^[a-z0-9]{1,6}$/.test(ext) ? ext : 'jpg';
   const key = `kyc/${crypto.randomBytes(16).toString('hex')}.${safeExt}`;
+  // A KYC-életciklus már a külső írás előtt tartósan nyilvántartja a kulcsot.
+  if (beforeSave) await beforeSave(`private:${key}`);
 
   if (r2Client && r2Config) {
     try {
@@ -191,6 +193,9 @@ async function savePrivateFile(buffer, originalName, mimetype) {
           // NINCS public cache — a fájl aláírt URL-lel, rövid ideig olvasható
           CacheControl: 'private, no-store',
         }),
+        // A KYC fájlírás tartós takarítási feladatot zárol. A megszakítás
+        // az SDK-kérést is lezárja, hogy a zár ne várjon korlátlan ideig.
+        { abortSignal: AbortSignal.timeout(60_000) },
       );
       return `private:${key}`;
     } catch (err) {
@@ -325,7 +330,7 @@ async function deleteFile(url) {
         await r2Client.send(new DeleteObjectCommand({
           Bucket: r2Config.privateBucket || r2Config.bucket,
           Key: key,
-        }));
+        }), { abortSignal: AbortSignal.timeout(10_000) });
         return true;
       } catch (err) {
         console.error('[storage] R2 privát törlés hiba:', err.message);
@@ -348,7 +353,10 @@ async function deleteFile(url) {
     if (!key) return false;
     try {
       const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
-      await r2Client.send(new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key }));
+      // Retenció közben ügyletsorzárat tartunk. Az SDK kérése is megszakad,
+      // nem csak a rá váró Promise: tárolókiesés nem foghatja örökké a sort.
+      await r2Client.send(new DeleteObjectCommand({ Bucket: r2Config.bucket, Key: key }),
+        { abortSignal: AbortSignal.timeout(10_000) });
       return true;
     } catch (err) {
       console.error('[storage] R2 törlés hiba:', err.message);

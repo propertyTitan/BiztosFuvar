@@ -208,15 +208,16 @@ export default function FuvarReszletek() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, id]);
 
-  async function acceptBid(bidId: string) {
+  async function acceptBid(bid: Bid) {
     if (acceptingBidId) return;
-    setAcceptingBidId(bidId);
+    setAcceptingBidId(bid.id);
     try {
-      await api.acceptBid(bidId);
+      await api.acceptBid(bid);
       toast.success('Ajánlat elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig közvetlenül neki fizeted (készpénzben vagy átutalással, ahogy megegyeztek).');
       await loadAll();
     } catch (err: any) {
       toast.error('Hiba az ajánlat elfogadásakor', err.message);
+      if (err.code === 'OFFER_CHANGED') await loadAll();
     } finally {
       setAcceptingBidId(null);
     }
@@ -280,7 +281,8 @@ export default function FuvarReszletek() {
           a backend-scrub fizetés előtt már ki sem adja a kódot — ez a
           feltétel a védelem UI-tükre (a felvétel úgyis paid_at mögött van,
           a kódnak előtte semmi szerepe). */}
-      {(job as any).sender_delivery_code && job.paid_at && ['accepted', 'in_progress'].includes(job.status) && (() => {
+      {(job as any).sender_delivery_code && job.paid_at
+        && ['accepted', 'in_progress'].includes(job.status === 'disputed' ? (job.status_before_dispute || '') : job.status) && (() => {
         const vanCimzett = Boolean(job.recipient_name || job.recipient_phone);
         const kod = (job as any).sender_delivery_code as string;
         return (
@@ -881,7 +883,7 @@ export default function FuvarReszletek() {
                 <div className="row" style={{ gap: 8, marginTop: 8 }}>
                   <button
                     className="btn"
-                    onClick={() => acceptBid(b.id)}
+                    onClick={() => acceptBid(b)}
                     disabled={acceptingBidId !== null}
                   >
                     {acceptingBidId === b.id

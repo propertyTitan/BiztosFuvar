@@ -30,6 +30,8 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: 'Lemondva',
 };
 
+const offeredPrice = (bid: any) => bid.counter_by === 'carrier' ? (bid.counter_amount_huf ?? bid.amount_huf) : bid.amount_huf;
+
 export default function FeladoiFuvarReszletek() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -79,13 +81,14 @@ export default function FeladoiFuvarReszletek() {
     return () => cleanup?.();
   }, [id, load]);
 
-  async function acceptBid(bidId: string) {
+  async function acceptBid(bid: any) {
     try {
-      await api.acceptBid(bidId);
+      await api.acceptBid(bid.id, offeredPrice(bid), bid.revision);
       await load();
       toast.success('Licit elfogadva', 'Most már kifizetheted a fuvart.');
     } catch (err: any) {
       toast.error('Hiba a licit elfogadásakor', err.message);
+      await load();
     }
   }
 
@@ -299,7 +302,7 @@ export default function FeladoiFuvarReszletek() {
                   </View>
                 </View>
                 <Text style={styles.bidAmount}>
-                  {b.amount_huf.toLocaleString('hu-HU')} Ft
+                  {offeredPrice(b).toLocaleString('hu-HU')} Ft
                 </Text>
               </Pressable>
               {b.message ? (
@@ -307,9 +310,13 @@ export default function FeladoiFuvarReszletek() {
                   „{b.message}"
                 </Text>
               ) : null}
-              <Pressable style={styles.acceptBtn} onPress={() => acceptBid(b.id)}>
-                <Text style={styles.acceptBtnText}>Elfogadom</Text>
-              </Pressable>
+              {b.counter_by === 'shipper' && b.counter_amount_huf != null ? (
+                <Text style={styles.muted}>A szállító válaszára várunk az ellenajánlatodra.</Text>
+              ) : (
+                <Pressable style={styles.acceptBtn} onPress={() => acceptBid(b)}>
+                  <Text style={styles.acceptBtnText}>Elfogadom</Text>
+                </Pressable>
+              )}
             </View>
           ))}
         </View>

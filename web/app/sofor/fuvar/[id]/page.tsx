@@ -226,14 +226,16 @@ export default function SoforFuvarReszletek() {
     }
   }
 
-  async function acceptShipperCounter(bidId: string) {
+  async function acceptShipperCounter(bid: Bid) {
+    if (acceptingCounter) return;
     setAcceptingCounter(true);
     try {
-      await api.acceptCounter(bidId);
+      await api.acceptCounter(bid);
       toast.success('Megállapodás!', 'Elfogadtad a feladó ellenajánlatát. A feladó most fizet, utána indulhatsz.');
       await load();
     } catch (err: any) {
       toast.error('Hiba', err.message);
+      if (err.code === 'OFFER_CHANGED') await load();
     } finally {
       setAcceptingCounter(false);
     }
@@ -820,7 +822,7 @@ export default function SoforFuvarReszletek() {
                   className="btn btn-success"
                   type="button"
                   disabled={acceptingCounter}
-                  onClick={() => acceptShipperCounter(kartyaAjanlat.id)}
+                  onClick={() => acceptShipperCounter(kartyaAjanlat)}
                 >
                   {acceptingCounter ? 'Elfogadás…' : `Elfogadom (${kartyaAjanlat.counter_amount_huf.toLocaleString('hu-HU')} Ft)`}
                 </button>

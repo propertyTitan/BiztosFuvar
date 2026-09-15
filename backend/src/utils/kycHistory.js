@@ -25,15 +25,17 @@
 const db = require('../db');
 
 /** Feltöltéskor: rögzítjük/frissítjük a lenyomatot. Sose dob. */
-async function rogzitLenyomat(docNumberHash) {
+async function rogzitLenyomat(docNumberHash, client = db) {
   if (!docNumberHash) return;
   try {
-    await db.query(
+    await client.query(
       `INSERT INTO kyc_doc_history (doc_number_hash, hash_algo) VALUES ($1, 'hmac-sha256')
        ON CONFLICT (doc_number_hash) DO UPDATE SET last_seen_at = NOW()`,
       [docNumberHash],
     );
   } catch (err) {
+    // A KYC véglegesítésekor a lenyomat ugyanabban a tranzakcióban készül.
+    if (client !== db) throw err;
     console.warn('[kyc-history] lenyomat-rögzítés hiba:', err.message);
   }
 }

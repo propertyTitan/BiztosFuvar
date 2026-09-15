@@ -8,7 +8,8 @@ const mocks = vi.hoisted(() => ({ handlers: {} as Record<string, () => void>, us
   socket: { on: vi.fn(), off: vi.fn() }, toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock('next/navigation', () => ({ useParams: () => ({ id: 'job' }), useRouter: () => ({ push: vi.fn(), refresh: vi.fn(), back: vi.fn() }) }));
 vi.mock('@/lib/auth', () => ({ useCurrentUser: () => mocks.user }));
-vi.mock('@/api', () => ({ api: { getJob: vi.fn(), listBids: vi.fn(), listPhotos: vi.fn(), uploadJobPhoto: vi.fn() }, photoUrl: (url: string) => url }));
+vi.mock('@/api', () => ({ api: { getJob: vi.fn(), listBids: vi.fn(), listPhotos: vi.fn(), uploadJobPhoto: vi.fn(),
+  acceptBid: vi.fn(), acceptCounter: vi.fn() }, photoUrl: (url: string) => url }));
 vi.mock('@/lib/socket', () => ({ getSocket: () => mocks.socket, joinUserRoom: vi.fn(),
   subscribeJob: (_id: string, handlers: typeof mocks.handlers) => { mocks.handlers = handlers; return vi.fn(); } }));
 vi.mock('@/components/ToastProvider', () => ({ useToast: () => mocks.toast }));
@@ -24,9 +25,32 @@ const job = { id: 'job', shipper_id: 'shipper', carrier_id: 'carrier', title: 'H
   accepted_price_huf: 15000, weight_kg: 10, connection_fee_huf: 500 };
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.user.id = 'carrier';
   vi.mocked(api.listBids).mockResolvedValue([]);
   vi.mocked(api.listPhotos).mockResolvedValue([]);
   vi.mocked(api.getJob).mockResolvedValue(job as any);
+});
+
+it.each([['shipper', ShipperPage], ['carrier', CarrierPage]])('%s: árváltozás után frissít, és csak új kattintásra fogad el', async (role, Page) => {
+  mocks.user.id = role;
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, status: 'bidding', carrier_id: null, paid_at: null } as any);
+  const bid = { id: 'bid', job_id: 'job', carrier_id: 'carrier', carrier_name: 'Teszt szállító', status: 'pending',
+    revision: 2, amount_huf: 20000, counter_amount_huf: 20000, counter_by: role === 'shipper' ? 'carrier' : 'shipper' };
+  vi.mocked(api.listBids).mockResolvedValue([bid] as any);
+  const accept = vi.mocked(role === 'shipper' ? api.acceptBid : api.acceptCounter);
+  accept.mockImplementationOnce(async () => {
+    vi.mocked(api.listBids).mockResolvedValue([{ ...bid, revision: 3, counter_amount_huf: 30000 }] as any);
+    throw Object.assign(new Error('Az ajánlat megváltozott, ellenőrizd az új árat.'), { code: 'OFFER_CHANGED' });
+  }).mockResolvedValue({ ok: true } as any);
+  render(<Page />);
+  fireEvent.click(await screen.findByRole('button', { name: /Elfogadom/ }));
+  await waitFor(() => expect(accept).toHaveBeenCalledWith(expect.objectContaining({ revision: 2, counter_amount_huf: 20000 })));
+  const retry = await screen.findByRole('button', { name: /Elfogadom.*30/ });
+  expect(accept).toHaveBeenCalledTimes(1);
+  expect(mocks.toast.error).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('megváltozott'));
+  fireEvent.click(retry);
+  await waitFor(() => expect(accept).toHaveBeenCalledTimes(2));
+  expect(accept).toHaveBeenLastCalledWith(expect.objectContaining({ revision: 3, counter_amount_huf: 30000 }));
 });
 
 describe('P1-08/P1-10: tényleges részletoldal visszatérése', () => {
@@ -65,4 +89,23 @@ it('P1-09: vitás szállítói oldalon elérhető a fotó/PIN, kézbesítés ut�
   expect(screen.getByText('Vitatott')).toBeInTheDocument();
   expect(screen.getByText('Fuvar chat')).toBeInTheDocument();
   expect(mocks.toast.success).toHaveBeenCalledWith('Csomag kézbesítve', expect.stringContaining('vita továbbra is nyitva'));
+});
+
+it.each([
+  ['in_progress', null, true, true],
+  ['disputed', 'accepted', true, true],
+  ['disputed', 'in_progress', true, true],
+  ['disputed', 'delivered', true, false],
+  ['disputed', 'cancelled', true, false],
+  ['disputed', 'in_progress', false, false],
+  ['bidding', null, true, false],
+  ['delivered', null, true, false],
+])('feladói saját PIN: %s/%s, fizetve=%s → látható=%s', async (status, before, paid, visible) => {
+  mocks.user.id = 'shipper';
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, status, status_before_dispute: before,
+    paid_at: paid ? job.paid_at : null, sender_delivery_code: '741852',
+    recipient_name: null, recipient_phone: null, recipient_email: null } as any);
+  render(<ShipperPage />);
+  await screen.findByRole('heading', { name: 'Helyreállt fuvar' });
+  expect(Boolean(screen.queryByText('741852'))).toBe(visible);
 });

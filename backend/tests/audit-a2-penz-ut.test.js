@@ -14,7 +14,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob, createBooking } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, seenOffer } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 const emailSzolgaltatas = require('../src/services/email');
 const { maybeGrantReferralReward, REFERRAL_MONTHLY_CAP } = require('../src/services/referral');
@@ -256,7 +256,7 @@ describe('4. díjmentes újraválasztás: nincs hamis fizetési felhívás', () 
       `INSERT INTO bids (job_id, carrier_id, amount_huf, status, return_policy) VALUES ($1, $2, 60000, 'pending', 'included') RETURNING id`,
       [job.id, masodik.id],
     );
-    const acc = await request(app).post(`/bids/${bid[0].id}/accept`).set(auth(felado.token)).send({});
+    const acc = await request(app).post(`/bids/${bid[0].id}/accept`).send(await seenOffer(bid[0].id)).set(auth(felado.token));
     expect(acc.status, JSON.stringify(acc.body)).toBe(200);
     expect(acc.body.fee_already_paid).toBe(true);
     expect(await varakozz(async () => (await ertesitesek(masodik.id, 'bid_accepted')) === 1)).toBe(true);

@@ -60,9 +60,12 @@ function hamisS3Modul() {
   class S3Client {
     constructor(cfg) { naplo.klienskonfig = cfg; }
 
-    async send(cmd) {
+    async send(cmd, options) {
       naplo.parancsok.push({ tipus: cmd.__tipus, ...cmd.input });
       if (naplo.kuldesHiba) throw new Error(naplo.kuldesHiba);
+      if (naplo.varakozik) return new Promise((_resolve, reject) => {
+        options?.abortSignal?.addEventListener('abort', () => reject(new Error('Tárhely időtúllépés')), { once: true });
+      });
       return { ok: true };
     }
   }
@@ -281,6 +284,21 @@ describe('saveFile (publikus bucket)', () => {
 //  3) PRIVÁT (KYC) FELTÖLTÉS — itt egy SZEMÉLYI IGAZOLVÁNY fotója utazik
 // =====================================================================
 describe('savePrivateFile (KYC okmány)', () => {
+  it('a beragadt éles KYC-feltöltést időkorláttal megszakítja, lemezes fallback nélkül', async () => {
+    const t = betoltTarolo();
+    naplo.varakozik = true;
+    const controller = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
+    const eredetiEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const result = t.savePrivateFile(BAJTOK, 'id.jpg', 'image/jpeg');
+      expect(timeout).toHaveBeenCalledWith(60_000);
+      controller.abort();
+      await expect(result).rejects.toThrow(/próbáld újra/i);
+    } finally { process.env.NODE_ENV = eredetiEnv; }
+  });
+
   it('a PRIVÁT bucketbe megy, cache nélkül, és nem ad publikus URL-t', async () => {
     const t = betoltTarolo();
     const jelolo = await t.savePrivateFile(BAJTOK, 'szemelyi.jpg', 'image/jpeg');
@@ -562,6 +580,20 @@ describe('deleteFile', () => {
     ).toBe(false);
     expect(await t.deleteFile('https://pub-teszt.r2.dev/x.jpg')).toBe(false);
   });
+
+  it.each(['private:kyc/timeout.jpg', 'https://pub-teszt.r2.dev/timeout.jpg'])(
+    'az elakadt R2-törlést megszakítja, és újrapróbálhatónak hagyja: %s', async (url) => {
+      const t = betoltTarolo();
+      naplo.varakozik = true;
+      const controller = new AbortController();
+      const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
+
+      const result = t.deleteFile(url);
+      expect(timeout).toHaveBeenCalledWith(10_000);
+      controller.abort();
+      await expect(result).resolves.toBe(false);
+    },
+  );
 
   it('ISMERETLEN távoli URL → FALSE + Sentry-riasztás (2026-08-12, fail-closed)', async () => {
     const t = betoltTarolo();

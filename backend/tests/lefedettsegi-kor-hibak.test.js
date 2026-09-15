@@ -31,7 +31,7 @@ import { describe, it, expect } from 'vitest';
 import { createRequire } from 'module';
 import request from 'supertest';
 const require = createRequire(import.meta.url);
-const { app, db, createUser, createJob } = require('./helpers');
+const { app, db, createUser, createJob, seenOffer } = require('./helpers');
 const alap = {
   title: 'Teszt', pickup_address: 'Budapest, Váci út 1.', pickup_lat: 47.49, pickup_lng: 19.04,
   dropoff_address: 'Szeged, Fő tér 1.', dropoff_lat: 46.25, dropoff_lng: 20.14,
@@ -71,8 +71,8 @@ describe('Lefedettségi kör: a három termékkód-hiba', () => {
       .send({ amount_huf: ar, return_policy: 'included' })).body.id;
     const b1 = await mk(a, 20000); const b2 = await mk(b, 21000);
     const [r1, r2] = await Promise.all([
-      request(app).post(`/bids/${b1}/accept`).set('Authorization', `Bearer ${f.token}`).send({}),
-      request(app).post(`/bids/${b2}/accept`).set('Authorization', `Bearer ${f.token}`).send({}),
+      request(app).post(`/bids/${b1}/accept`).send(await seenOffer(b1)).set('Authorization', `Bearer ${f.token}`),
+      request(app).post(`/bids/${b2}/accept`).send(await seenOffer(b2)).set('Authorization', `Bearer ${f.token}`),
     ]);
     const statuszok = [r1.status, r2.status].sort();
     expect(statuszok.filter(s => s >= 500), `500-at kaptunk: ${statuszok}`).toEqual([]);
