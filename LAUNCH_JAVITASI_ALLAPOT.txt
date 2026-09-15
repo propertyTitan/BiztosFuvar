@@ -1,0 +1,86 @@
+GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
+2026-09-15 – első kör: a két P0
+
+Kiinduló audit: AUDIT_2026-09-15.txt (2 P0, 12 P1, 10 P2).
+Ez a nyilvántartás az audit utáni változásokat követi. A javított kód
+nem jelenti automatikusan az éles telepítést vagy a teljes launch-készséget.
+
+ELLENŐRZÉS
+- Teljes helyi backend: 167 fájl, 1904 sikeres teszt (17 új P0-próba).
+- Lefedettségi kapu: sor 93,33%, utasítás 91,90%, függvény 89,16%, ág 84,38%.
+- A javítás előtti 1d9bd46 izolált másolatán 16 azonos új próba mind elbukik
+  az eredeti viselkedésen; a javított ágon mind sikeres. A további egy teszt
+  valódi reopen/licit/accept végpontokkal is ellenőrzi a szállítócserét.
+- Célzott P0 + teljes szerepkörös útvonal-mátrix: 179 sikeres ellenőrzés.
+- Next.js production build és a build típusellenőrzése sikeres.
+- A PR CI-je külön ellenőrzi a végső commitot, beleértve a böngészős E2E-t.
+Helyi naplók: /private/tmp/gofuvar-launch-p0-before-final.log;
+/private/tmp/gofuvar-launch-p0-backend-final.log;
+/private/tmp/gofuvar-launch-p0-build.log.
+A tesztek elkülönített helyi PostgreSQL-t és stub külső szolgáltatásokat
+használtak. Sem éles törlés, sem éles banki/SMS/e-mail művelet nem történt.
+
+P0-01 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Commit: 10d60e6.
+Fájlok: backend/src/services/photoEvidence.js; backend/src/routes/photos.js;
+backend/tests/launch-p0-foto-verseny.test.js; CODEMAP.md.
+A feltöltés után új tranzakció zárolja a fuvart/foglalást és az aktuális
+adatokból ellenőrzi a feltöltőt, fizetést, állapotot, kódot és képlimitet.
+A fotó és a fizikai állapot együtt mentődik; az értesítések commit után
+indulnak. Az elutasított feltöltés tárolt fájlját takarítja. Bizonytalan
+COMMIT-visszaigazolásnál riaszt és megőrzi a lehetséges érvényes bizonyítékot.
+Teszt: megállított feltöltés közbeni szállítócsere mind a négy szállítói
+fotótípuson; valódi reopen → új ajánlat → accept API-folyamat; foglalás
+lemondása/tulajdonosváltása; párhuzamos vitás dropoff; időközben beálló
+kódzár; UPDATE-hiba miatti fotó-rollback; párhuzamos listing képlimit.
+Kockázat: közepes, közös fotóút és tranzakcióhatár változott.
+Megmaradó külön tételek: P1-03/P1-11 (vita, utóhatások), P2-05 (elveszett
+válasz utáni feltöltési idempotencia). Ezeket ez a javítás nem zárja le.
+
+P0-02 – JAVÍTOTT A FEJLESZTÉSI ÁGON
+Commit: 770bb16.
+Fájlok: backend/src/services/retention.js;
+backend/tests/launch-p0-dormant-figyelmeztetes.test.js.
+Csak szolgáltatói azonosítóval visszaigazolt, nem stub e-mail után indul
+a 30 nap. Null/hiányos/stub eredmény újrapróbálható marad és riasztást ad.
+A küldés utáni UPDATE és a végső DELETE ismét ellenőrzi az inaktivitást,
+figyelmeztetési határidőt és admin-kivételt; az UPDATE a címzett e-mailjét
+is. Közben aktívvá vált fióknál a fájltakarítás sem indul el.
+Teszt: null/undefined/hiányzó azonosító/stub → nincs határidő; későbbi
+sikeres újrapróbálás; küldés és jelöltlista után történő bejelentkezés.
+Kockázat: alacsony–közepes, csak a meglévő törlési előfeltételek szigorítása.
+Ez a 3 évnél régebben inaktív fiókok jövőbeli kezelését védi. Történeti
+figyelmeztetések tényleges kiküldését és éles érintettséget nem állapítottuk meg.
+A közös törlési életciklus és fájltakarítás P1-06/P1-07 tétele továbbra is nyitott.
+
+NYITOTT P1-EK – AZ AUDIT AZONOSÍTÓIVAL
+P1-01: függő banki fizetés melletti fióktörlés; banki élesítés előtti kapu.
+P1-02: ajánlói kupon kiadása és havi plafon közös tranzakcióban.
+P1-03: vita és fuvar/foglalás állapotának közös tranzakciója.
+P1-04: aktív megállapodás mellett a szállító telefonszáma nem üríthető.
+P1-05: új KYC-kép saját feltöltési ideje és verzióbiztos retenciója.
+P1-06: kulcsgyűjtési hibánál nincs fióktörlés; tartós fájltörlési feladatsor.
+P1-07: kézi/admin/inaktív fióktörlés közös adat-életciklusa.
+P1-08: sikeres újrapróbálás után eltűnő fuvarrészlet-hibaképernyő.
+P1-09: vita alatti szállítási panel és chat a weben.
+P1-10: socket újracsatlakozás után visszairatkozás és friss állapotlekérés.
+P1-11: vita alatti pickup/dropoff normál címzett-PIN és teljesítési utóhatásai.
+P1-12: foglalás megerősítésekor aktuális szállítói alkalmasság; járatindítási kapu.
+
+KÖVETKEZŐ JAVÍTÁSI CSOMAGOK
+1. P1-06/P1-07/P1-01: a közös fióktörlési életciklus és ügyletek védelme.
+2. P1-08/P1-10: mobilhálózati hibából visszatérés és élő állapot.
+3. P1-03/P1-09/P1-11: vita és fizikai kézbesítés összehangolása.
+4. P1-02/P1-04/P1-05/P1-12: jutalom, elérhetőség, KYC, foglalási jogosultság.
+Minden csomag külön áttekinthető változás, az eredeti hibát fedő tesztekkel.
+Az újonnan bizonyított hibák saját azonosítót és reprodukciót kapnak;
+a már javított tételeket csak konkrét regresszió miatt nyitjuk újra.
+
+LAUNCH ELŐTTI ELFOGADÁS
+- A fenti ismert P0/P1-ek mindegyike igazoltan javított és telepített.
+- Az érintett unit/integrációs és böngészős tesztek sikeresek.
+- Feladói, alkalmi és profi szállítói fő folyamat a ténylegesen engedélyezett
+  funkciókkal végigjárható; hálózati hiba, retry és vita ágával együtt.
+- A banki adapter, SMS/e-mail és tartós tárolás működését a megfelelő
+  szolgáltatói tesztkörnyezetben is igazolni kell; a stub teszt nem pótolja ezt.
+- Ez nem állítás az összes lehetséges ismeretlen hiba hiányáról.

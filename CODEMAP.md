@@ -104,6 +104,7 @@ Top-level fájlok:
 | `sms.js` | 5 db SMS flow | **STUB** (SeeMe.hu kulcs "elvileg megvan") |
 | `gemini.js` | AI chat + KYC OCR/kor-ellenőrzés | **ÉL** |
 | `storage.js` | R2 fel-/letöltés, publicUrl | ÉL (még publikus bucket) |
+| `photoEvidence.js` | Feltöltés utáni sorzár, aktuális jogosultság/kód/fotólimit; fotó és fizikai állapot egy tranzakcióban, elutasított fájl takarítása | 2026-09-15 P0-javítás |
 | `kyc.js` | KYC üzleti logika (típusok, jóváhagyás) | ÉL |
 | `notifications.js` | in-app értesítések | ÉL |
 | `push.js` | push token kezelés | ÉL |

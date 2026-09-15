@@ -1,5 +1,14 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-09-15 — launch előtti P0/P1-javítások, első kör:** a
+> `codex/p0-p1-launch-javitasok` ág a két P0-t javítja, külön commitokban.
+> `photoEvidence.js`: a külső feltöltés után sorzárral újraellenőrzött
+> jogosultság/kód/állapot/limit; a fotó és a fizikai átmenet egy tranzakció.
+> Inaktív fióknál csak visszaigazolt, nem stub e-mail indít törlési határidőt;
+> közben bejelentkező fiók törlése feltételes DELETE-tel tiltott.
+> A **12 P1 még nyitott**, tételes követés: `LAUNCH_JAVITASI_ALLAPOT.txt`.
+> A korábbi P2 PR #237-re épül; a fejlesztési ág nem jelent éles telepítést.
+
 > **2026-09-15 — a friss audit 1–6. pontjának javítása, `codex/audit-hat-javitas` ágon:**
 > Hat külön javítás: atomi díjkönyvelés és tartós számlapótlás; szállítói
 > jogosultság újraellenőrzése megállapodáskor; atomi kuponbeváltás;
