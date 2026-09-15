@@ -325,7 +325,7 @@ export default function KycModal() {
                   fontSize: 14,
                 }}
               />
-              <p id="kyc-fajl-formatum" style={{ fontSize: 12, marginBottom: 0 }}>
+              <p id="kyc-fajl-formatum" style={{ fontSize: 12, marginBottom: 0, color: '#666' }}>
                 JPG, PNG, WebP, HEIC/HEIF, AVIF vagy GIF, legfeljebb 15 MB. PDF helyett az igazolvány fotóját válaszd.
               </p>
               {file && (

@@ -1,6 +1,7 @@
 GOFUVAR – A NÉGY P2-JAVÍTÁS UTÁNI FÜGGETLEN AUDIT
 Dátum: 2026-09-15
-Alap: main b859de5, javítások: 1e47d44, 8195258, 611e6a6, 2b9f850.
+Alap: main b859de5, fő javítások: 1e47d44, 8195258, 611e6a6, 2b9f850.
+A KYC új segédszövegének sötét témás kontrasztja kiegészítő javítást kapott.
 
 EREDMÉNY ÉS HATÓKÖR
 
@@ -8,6 +9,8 @@ A kért 1–4. pont javítása elkészült, külön commitokban. A megállapít�
 nem indokolják a „már csak P2 maradt” állítást. Az alábbi nyitott tételek
 korábban is jelen voltak; a négy változtatásban új P0/P1 regressziót nem
 azonosítottunk. Ez nem bizonyítja az összes lehetséges hiba hiányát.
+A későbbi célzott Chromium-próba a KYC új segédszövegén P2 megjelenítési
+regressziót talált; ezt még ezen javítási körön belül kijavítottuk.
 
 Három független ügynök vizsgálta a pénzügyi/állapotkezelési, biztonsági/
 adatvédelmi, illetve webes/UX területet. A fő ügynök átnézte a változásokat,
@@ -28,6 +31,10 @@ Bizonyítékok:
   Ezek NEM valódi PostgreSQL-konkurenciatesztek és NEM éles incidensek.
 - A három journey most statikus kódbejárás. Nem történt kézi, valódi
   mobileszközös használhatósági mérés vagy terheléses teszt.
+- Kiegészítő, valódi headless Chromium a helyi production builden, 390×844:
+  részleges fotóhiba → célzott retry → 1 fuvar / 3 feltöltési kérés 2 képre;
+  390 px dokumentumszélesség; PDF kiválasztáskor tiltás. Minden nem helyi
+  HTTP/WS kérés blokkolt vagy szimulált, nincs éles backendművelet.
 - A PR CI-jében külön böngészős E2E fut; annak eredményét a PR ellenőrzései
   mutatják. A korábbi PR zöld E2E-jét nem tekintjük az új változás mérésének.
 
@@ -308,6 +315,8 @@ Módosításkockázat: alacsony. Igazolt korábbi hibák, a korábbi P2-lista 5.
 P2-02. Akadálymentességi hiányok a modalokban, menüben és csillagválasztóban
 Probléma: KYC dialog/fókusz/Escape hiányok; több kötelező modalban nincs
 fókuszcsapda; fejlécmenü Escape-kezelés hiányos; csillagok neve azonos „★”.
+A KYC régi felsorolásos tippjei sötét témában fehér szöveget kapnak a fehér
+modalon (globals.css:121), ezt a célzott Chromium-képernyőkép is kimutatta.
 Érintett/kockázat: billentyűzetes és képernyőolvasós felhasználók, nehezen
 végigjárható kötelező kapuk és bizonytalan értékelés.
 Fájl: web/src/components/KycModal.tsx:127; DriverTermsGate.tsx:83;
@@ -316,7 +325,8 @@ ReviewBox.tsx:109 (mind ugyanebben a komponensmappában).
 Javítás: bevált közös fókuszkezelés, helyes dialog-név, visszaadott fókusz,
 Escape és számozott csillagfelirat/kijelölési szemantika.
 Ellenőrzés: billentyűzet + képernyőolvasó, az automata axe önmagában kevés.
-Módosításkockázat: alacsony–közepes. Szemantikai hiány igazolt, eszközös
+Módosításkockázat: alacsony–közepes. Szemantikai hiány igazolt; kontrasztot
+emulált mobilméreten ellenőriztünk, képernyőolvasós/fizikai készülékes
 teszt nem történt. A korábbi lista 6. pontja megmaradt.
 
 P2-03. A listák csendben levágják az ajánlati történetet
