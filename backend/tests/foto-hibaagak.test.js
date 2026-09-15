@@ -16,7 +16,7 @@
 //  A tesztek a DB állapotát is mérik: egy „400-at ad, de közben már mentett"
 //  hiba a puszta státuszkód-ellenőrzéssel láthatatlan maradna.
 // =====================================================================
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import request from 'supertest';
 
 const {
@@ -583,10 +583,15 @@ describe('Foglalás-ág: felvétel utáni állapot és értesítés', () => {
     expect(pickup.status).toBe(201);
     expect((await bookingSor(booking.id)).status, 'a felvételi fotó nem léptette a foglalást').toBe('in_progress');
 
-    const { rows: ert } = await db.query(
-      `SELECT * FROM notifications WHERE user_id = $1 AND type = 'booking_picked_up'`, [felado.id],
-    );
-    expect(ert.length, 'a feladó nem tudja meg, hogy elindult a csomagja').toBe(1);
+    // Az értesítés háttérben készül: a 201 válasz nem várja meg az INSERT-et.
+    // CI-terhelésnél az azonnali SELECT megelőzte; a véges várakozás továbbra
+    // is elbukik, ha az értesítés kimarad. Pontosan egy rekordot várunk.
+    await vi.waitFor(async () => {
+      const { rows: ert } = await db.query(
+        `SELECT * FROM notifications WHERE user_id = $1 AND type = 'booking_picked_up'`, [felado.id],
+      );
+      expect(ert.length, 'a feladó nem tudja meg, hogy elindult a csomagja').toBe(1);
+    }, { timeout: 2000, interval: 20 });
 
     const dropoff = await bookingFoto({
       bookingId: booking.id, token: szallito.token, kind: 'dropoff', deliveryCode: '111222',

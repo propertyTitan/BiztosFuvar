@@ -37,6 +37,11 @@ Bizonyítékok:
   HTTP/WS kérés blokkolt vagy szimulált, nincs éles backendművelet.
 - A PR CI-jében külön böngészős E2E fut; annak eredményét a PR ellenőrzései
   mutatják. A korábbi PR zöld E2E-jét nem tekintjük az új változás mérésének.
+- A CI egy meglévő teszt időzítési hibáját is kimutatta: a foglalási
+  pickup-értesítés háttérben készül, a foto-hibaagak.test.js viszont azonnal
+  SELECT-elt a 201 után. A teszt most legfeljebb 2 másodpercig vár a tényleges
+  értesítésre, az elvárt pontosan egy rekord feltétele megmaradt. A backend
+  termékkódjához ez a tesztstabilizálás nem nyúl.
 
 Helyi bizonyítékok:
   /private/tmp/gofuvar-p2-web.log
