@@ -193,6 +193,9 @@ async function savePrivateFile(buffer, originalName, mimetype, { beforeSave } = 
           // NINCS public cache — a fájl aláírt URL-lel, rövid ideig olvasható
           CacheControl: 'private, no-store',
         }),
+        // A KYC fájlírás tartós takarítási feladatot zárol. A megszakítás
+        // az SDK-kérést is lezárja, hogy a zár ne várjon korlátlan ideig.
+        { abortSignal: AbortSignal.timeout(60_000) },
       );
       return `private:${key}`;
     } catch (err) {

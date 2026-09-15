@@ -78,6 +78,33 @@ it('a lejárt, már eltakarított feltöltésből nem jöhet létre halott okmá
   expect((await db.query('SELECT 1 FROM kyc_documents WHERE user_id = $1', [user.id])).rows).toHaveLength(0);
 });
 
+it('a takarítás a folyamatban lévő fájlírás feladatát lejáratkor sem fogyaszthatja el', async () => {
+  const user = await createUser({ role: 'carrier', kyc: 'pending' });
+  const started = gate(); const release = gate();
+  const enqueue = queue.enqueueFileDeletions;
+  const save = storage.savePrivateFile;
+  vi.spyOn(queue, 'enqueueFileDeletions').mockImplementation(async (client, batchId, keys, options) => {
+    await enqueue(client, batchId, keys, options);
+    await client.query('UPDATE file_deletion_queue SET next_attempt_at = NOW() WHERE batch_id = $1', [batchId]);
+  });
+  vi.spyOn(storage, 'savePrivateFile').mockImplementation((buffer, name, type, options) =>
+    save(buffer, name, type, { beforeSave: async key => {
+      await options.beforeSave(key);
+      started.resolve(); await release.promise;
+    } }));
+  vi.spyOn(gemini, 'verifyKycDocument').mockResolvedValue(pendingAI);
+  const response = upload(user).then(r => r);
+  await started.promise;
+  let removed;
+  try { removed = await queue.processFileDeletionQueue({ batchId: user.id }); }
+  finally { release.resolve(); }
+  const result = await response;
+  expect(removed).toBe(0);
+  expect(result.status).toBe(200);
+  const key = (await db.query('SELECT file_url FROM kyc_documents WHERE user_id = $1', [user.id])).rows[0].file_url;
+  expect(fileExists(key)).toBe(true);
+});
+
 it('a sikeresen mentett KYC-t a rendes fióktörlés a tárhelyről is eltávolítja', async () => {
   const user = await createUser({ role: 'carrier', kyc: 'pending' });
   vi.spyOn(gemini, 'verifyKycDocument').mockResolvedValue(pendingAI);

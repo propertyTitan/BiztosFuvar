@@ -11,15 +11,32 @@ const UPLOAD_CLEANUP_DELAY_SECONDS = 60 * 60;
 // beírja az okmányt. Bizonytalan COMMIT-válasznál sincs találomra fájltörlés.
 async function withKycUpload(userId, file, finish) {
   let allocatedKey;
+  let uploadClient;
   try {
     const url = await storage.savePrivateFile(file.buffer, file.originalname, file.mimetype, {
       beforeSave: async key => {
         await queue.enqueueFileDeletions(db, userId, [key], { delaySeconds: UPLOAD_CLEANUP_DELAY_SECONDS });
         allocatedKey = key;
+        // A tartós feladat már commitolt. Csak a fájlírás idejére zároljuk:
+        // a takarító SKIP LOCKED miatt nem törölhet egy még nem létező fájlt,
+        // majd annak utolsó nyomát, miközben a feltöltés még dolgozik.
+        uploadClient = await db.pool.connect();
+        await uploadClient.query('BEGIN');
+        const pending = await uploadClient.query('SELECT 1 FROM file_deletion_queue WHERE key_hash = $1 FOR UPDATE', [keyHash(key)]);
+        if (!pending.rows.length) throw new Error('A feltöltés lejárt. Töltsd fel újra az okmányt.');
       },
     });
+    if (uploadClient) {
+      await uploadClient.query('COMMIT');
+      uploadClient.release();
+      uploadClient = null;
+    }
     return await finish(url);
   } finally {
+    if (uploadClient) {
+      await uploadClient.query('ROLLBACK').catch(() => {});
+      uploadClient.release();
+    }
     if (allocatedKey) {
       // Véglegesített képnek már nincs feladata. Hibánál az élő feladatot
       // előrehozzuk; DB-kiesésnél a korábban mentett határidő akkor is él.

@@ -284,6 +284,21 @@ describe('saveFile (publikus bucket)', () => {
 //  3) PRIVÁT (KYC) FELTÖLTÉS — itt egy SZEMÉLYI IGAZOLVÁNY fotója utazik
 // =====================================================================
 describe('savePrivateFile (KYC okmány)', () => {
+  it('a beragadt éles KYC-feltöltést időkorláttal megszakítja, lemezes fallback nélkül', async () => {
+    const t = betoltTarolo();
+    naplo.varakozik = true;
+    const controller = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal);
+    const eredetiEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const result = t.savePrivateFile(BAJTOK, 'id.jpg', 'image/jpeg');
+      expect(timeout).toHaveBeenCalledWith(60_000);
+      controller.abort();
+      await expect(result).rejects.toThrow(/próbáld újra/i);
+    } finally { process.env.NODE_ENV = eredetiEnv; }
+  });
+
   it('a PRIVÁT bucketbe megy, cache nélkül, és nem ad publikus URL-t', async () => {
     const t = betoltTarolo();
     const jelolo = await t.savePrivateFile(BAJTOK, 'szemelyi.jpg', 'image/jpeg');
