@@ -47,14 +47,20 @@ async function withKycUpload(userId, file, finish) {
   }
 }
 
-async function finalizeKycUpload({ userId, docType, url, docStatus, kycStatus, rejectionReason, docNumberHash, duplicate }) {
+async function finalizeKycUpload({ userId, docType, url, docStatus, kycStatus, rejectionReason, docNumberHash, duplicate, verifiedFullName }) {
   const client = await db.pool.connect();
   let committed = false;
   try {
     await client.query('BEGIN');
     // Azonos sorrend a fióktörléssel: user, majd okmány/fájlfeladat.
-    const user = await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [userId]);
+    const user = await client.query('SELECT id, full_name FROM users WHERE id = $1 FOR UPDATE', [userId]);
     if (!user.rows[0]) return { missing: true };
+    // Pending profil neve közben módosítható. Csak arra a névre igazolunk,
+    // amelyet ténylegesen összevetettünk az okmánnyal; a PATCH /auth/me
+    // ugyanezen záron vár, és verified állapotban már tiltja a névcserét.
+    if (kycStatus === 'verified' && (typeof verifiedFullName !== 'string' || user.rows[0].full_name !== verifiedFullName)) {
+      return { profileChanged: true };
+    }
     const pending = await client.query('SELECT 1 FROM file_deletion_queue WHERE key_hash = $1 FOR UPDATE', [keyHash(url)]);
     // A félbehagyott feltöltést időközben már eltakaríthatta a napi kör.
     if (!pending.rows.length) return { expired: true };
