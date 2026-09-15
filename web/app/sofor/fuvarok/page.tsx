@@ -5,7 +5,7 @@
 // - Új fuvar érkezéskor (Socket.IO `jobs:new`) automatikusan frissül a lista.
 // - Minden kártya → a fuvar részletes oldalára visz, ahol licitálni lehet.
 // - Lista / térkép toggle: a user eldöntheti melyik nézetben böngészik.
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api, Job } from '@/api';
@@ -21,6 +21,9 @@ import { useTranslation, formatPrice } from '@/lib/i18n';
 
 type ListedJob = Job & { distance_to_pickup_km?: number };
 type ViewMode = 'list' | 'map';
+type Filters = { min: string; max: string; weight: string; from: string; to: string; type: '' | 'true' | 'false' };
+type Search = { lat?: number; lng?: number; filters: Filters };
+const EMPTY_FILTERS: Filters = { min: '', max: '', weight: '', from: '', to: '', type: '' };
 
 export default function SoforFuvarokLista() {
   const me = useCurrentUser();
@@ -29,6 +32,8 @@ export default function SoforFuvarokLista() {
   const [jobs, setJobs] = useState<ListedJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const appliedSearch = useRef<Search>({ filters: EMPTY_FILTERS });
+  const requestNumber = useRef(0);
   const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
   const [view, setView] = useState<ViewMode>('list');
   // Szűrők
@@ -63,28 +68,19 @@ export default function SoforFuvarokLista() {
       setInstantError(err.message);
       // Frissítsük a listát: nagy eséllyel valaki megelőzött, így az
       // instant fuvar eltűnik a listáról a következő load-kor.
-      await load(here?.lat, here?.lng);
+      await refresh(appliedSearch.current);
     } finally {
       setAcceptingInstantId(null);
     }
   }
 
-  // A `filters` felülbírálással a "Szűrők törlése" azonnal üres szűrőkkel
-  // tud lekérdezni — a state-ből olvasás ott stale closure-t adna (a régi
-  // értékekkel kérdezne le, hiába nullázzuk előtte a state-et).
-  async function load(
-    lat?: number,
-    lng?: number,
-    filters?: { min: string; max: string; weight: string; from: string; to: string; type: '' | 'true' | 'false' },
-  ) {
-    setLoading(true);
+  // A szerver szűr és rendez. Későn beérkező régi keresés nem írhatja felül
+  // az újabbat, a háttérfrissítés pedig nem tünteti el a látható listát.
+  const refresh = useCallback(async ({ lat, lng, filters }: Search, background = false) => {
+    const currentRequest = ++requestNumber.current;
+    if (!background) setLoading(true);
     try {
-      const min = filters ? filters.min : filterMinPrice;
-      const max = filters ? filters.max : filterMaxPrice;
-      const weight = filters ? filters.weight : filterMaxWeight;
-      const from = filters ? filters.from : filterFromCity;
-      const to = filters ? filters.to : filterToCity;
-      const type = filters ? filters.type : filterType;
+      const { min, max, weight, from, to, type } = filters;
       const data = await api.listJobs({
         status: 'bidding',
         lat,
@@ -97,12 +93,23 @@ export default function SoforFuvarokLista() {
         dropoff_city: to || undefined,
         instant: type || undefined,
       });
+      if (currentRequest !== requestNumber.current) return;
       setJobs(data);
+      setError(null);
     } catch (err: any) {
-      setError(err.message);
+      if (currentRequest === requestNumber.current) setError(err.message);
     } finally {
-      setLoading(false);
+      if (currentRequest === requestNumber.current) setLoading(false);
     }
+  }, []);
+
+  async function load(lat?: number, lng?: number, filters?: Filters) {
+    const search = { lat, lng, filters: filters || {
+      min: filterMinPrice, max: filterMaxPrice, weight: filterMaxWeight,
+      from: filterFromCity, to: filterToCity, type: filterType,
+    } };
+    appliedSearch.current = search;
+    await refresh(search);
   }
 
   // Indulás: próbáljuk meg megkérni a böngésző GPS-ét, ha nem megy / nem ad
@@ -115,9 +122,10 @@ export default function SoforFuvarokLista() {
         const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setHere(coords);
         setHelyAllapot('megvan');
-        load(coords.lat, coords.lng);
+        appliedSearch.current = { ...appliedSearch.current, ...coords };
+        void refresh(appliedSearch.current);
       },
-      () => { setHelyAllapot('nincs'); if (!csendben) load(); },
+      () => { setHelyAllapot('nincs'); if (!csendben) void refresh(appliedSearch.current); },
       { timeout: 6000 },
     );
   }
@@ -144,23 +152,32 @@ export default function SoforFuvarokLista() {
     mentPiszkozat(SZUROK_KULCS, { min: filterMinPrice, max: filterMaxPrice, weight: filterMaxWeight, from: filterFromCity, to: filterToCity, type: filterType });
   }, [filterMinPrice, filterMaxPrice, filterMaxWeight, filterFromCity, filterToCity, filterType]);
 
-  // Real-time: amikor új fuvar érkezik, rátesszük a listára.
-  // Azonnali fuvar esetén is külön event jön (`jobs:new-instant`), amit a
-  // globális `jobs:new` mellett a szerver is kiad — így figyeljük is.
-  // Ha egy instant fuvart valaki elkapott (`jobs:instant-taken`), azonnal
-  // eltüntetjük a listából, hogy a UI ne maradjon "kínálati" állapotban.
+  // Eseménycsomagonként egy lekérés, az utoljára ALKALMAZOTT szűrőkkel.
+  // Az esemény adatai önmagukban nem tartalmazzák a keresés/rendezés eredményét.
   useEffect(() => {
-    // A piactér-események a hitelesített `feed` szobába mennek (a payload
-    // pontos címet/GPS-t tartalmaz) — a subscribeFeed lép be és iratkozik fel.
-    return subscribeFeed({
-      'jobs:new': (job: Job) => {
-        setJobs((prev) => [job as ListedJob, ...prev.filter((j) => j.id !== job.id)]);
-      },
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const scheduleRefresh = () => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = undefined;
+        void refresh(appliedSearch.current, true);
+      }, 250);
+    };
+    const unsubscribe = subscribeFeed({
+      'jobs:new': scheduleRefresh,
       'jobs:instant-taken': (payload: { job_id: string }) => {
+        // Egy korábban elindult lista-válasz se hozhassa vissza az elvállalt fuvart.
+        requestNumber.current++;
         setJobs((prev) => prev.filter((j) => j.id !== payload.job_id));
+        scheduleRefresh();
       },
     });
-  }, []);
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+      requestNumber.current++;
+    };
+  }, [refresh]);
 
   return (
     <div>

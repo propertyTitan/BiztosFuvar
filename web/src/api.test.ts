@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi, type MockInstance } from 'vitest';
-import { api } from './api';
+import { api, IDOTULLEPES_UZENET } from './api';
 
 // A request() wrapper a lelke a web↔backend hídnak: ő rakja rá a tokent,
 // és ő dobja a globális eseményeket (kijelentkezés, KYC, coverage), amikre
@@ -32,7 +32,57 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   (window as any).location = originalLocation;
+});
+
+describe('Profil műveletek közös kéréskezelése', () => {
+  const avatar = new File(['photo'], 'avatar.jpg', { type: 'image/jpeg' });
+  const operations = [
+    ['profilkép', () => api.uploadAvatar(avatar)],
+    ['export', () => api.exportMyData()],
+    ['fióktörlés', () => api.deleteMyAccount()],
+  ] as const;
+
+  it.each(operations)('%s: lejárt token törli a munkamenetet', async (_name, operation) => {
+    localStorage.setItem(TOKEN_KEY, 'expired');
+    localStorage.setItem(USER_KEY, '{"id":"u"}');
+    global.fetch = vi.fn().mockResolvedValue(mockResponse(401, {}));
+    await expect(operation()).rejects.toThrow('munkameneted lejárt');
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(USER_KEY)).toBeNull();
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'gofuvar:session-expired' }));
+  });
+
+  it.each(operations)('%s: beragadt kérésből magyar időtúllépési hiba lesz', async (_name, operation) => {
+    vi.useFakeTimers();
+    global.fetch = vi.fn((_url, init) => new Promise((_resolve, reject) => {
+      init!.signal!.addEventListener('abort', () => reject(new Error('abort')));
+    })) as typeof fetch;
+    const assertion = expect(operation()).rejects.toThrow(IDOTULLEPES_UZENET);
+    await vi.advanceTimersByTimeAsync(60_000);
+    await assertion;
+  });
+
+  it('a profilképet multipart határ kézi felülírása nélkül küldi', async () => {
+    localStorage.setItem(TOKEN_KEY, 'valid');
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse(200, { url: '/uploads/avatar.jpg' }));
+    global.fetch = fetchMock;
+    expect(await api.uploadAvatar(avatar)).toEqual({ url: '/uploads/avatar.jpg' });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toMatch(/\/auth\/avatar$/);
+    expect(init.headers['Content-Type']).toBeUndefined();
+    expect(init.headers.Authorization).toBe('Bearer valid');
+    expect(init.body.get('file')).toBe(avatar);
+  });
+
+  it('az export JSON-t megőrzi, a szerver hibaszövegét továbbadja', async () => {
+    const data = { profile: { id: 'u' }, fee_payment_receipts: [{ amount_huf: 500 }] };
+    global.fetch = vi.fn().mockResolvedValueOnce(mockResponse(200, data))
+      .mockResolvedValueOnce(mockResponse(409, { error: 'Aktív fuvar mellett nem törölhető a fiók.' }));
+    expect(await api.exportMyData()).toEqual(data);
+    await expect(api.deleteMyAccount()).rejects.toThrow('Aktív fuvar mellett nem törölhető a fiók.');
+  });
 });
 
 describe('api.request wrapper', () => {

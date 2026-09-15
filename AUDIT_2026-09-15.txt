@@ -1,0 +1,503 @@
+GOFUVAR – A NÉGY P2-JAVÍTÁS UTÁNI FÜGGETLEN AUDIT
+Dátum: 2026-09-15
+Alap: main b859de5, fő javítások: 1e47d44, 8195258, 611e6a6, 2b9f850.
+A KYC új segédszövegének sötét témás kontrasztja kiegészítő javítást kapott.
+
+EREDMÉNY ÉS HATÓKÖR
+
+A kért 1–4. pont javítása elkészült, külön commitokban. A megállapítások
+nem indokolják a „már csak P2 maradt” állítást. Az alábbi nyitott tételek
+korábban is jelen voltak; a négy változtatásban új P0/P1 regressziót nem
+azonosítottunk. Ez nem bizonyítja az összes lehetséges hiba hiányát.
+A későbbi célzott Chromium-próba a KYC új segédszövegén P2 megjelenítési
+regressziót talált; ezt még ezen javítási körön belül kijavítottuk.
+
+Három független ügynök vizsgálta a pénzügyi/állapotkezelési, biztonsági/
+adatvédelmi, illetve webes/UX területet. A fő ügynök átnézte a változásokat,
+ellenőrizte a fontos kódutakat és újrafuttatta a kontrollált reprodukciókat.
+Az audit során újonnan talált hibák javítása NEM része ennek a PR-nek.
+
+Bizonyítékok:
+- Teljes helyi backend: 165 fájl, 1887 sikeres teszt, elkülönített PostgreSQL.
+- Teljes helyi web: 34 fájl, 172 sikeres teszt; a korábbi 149-hez 23 új teszt.
+- Next.js production build és a build típusellenőrzése sikeres.
+- Backend lefedettség-őr sikeres: sor 93,39%, utasítás 91,96%, függvény
+  89,07%, ág 84,40%. A tesztkészlet sikere nem fedi le az összes auditágat.
+- A main izolált másolatán ugyanaz a 12 UI-ellenpróba: 11 bukás, 1 siker.
+  A bukások az eredeti fotó-, KYC-, lista- és profilhibát mutatják;
+  nincs bennük hiányzó új API-metódus miatt mesterségesen okozott bukás.
+- A kritikus fotóverseny, a referral kiadás és a retenció hibái valódi
+  handler/service kód kontrollált függőségekkel futtatott próbái.
+  Ezek NEM valódi PostgreSQL-konkurenciatesztek és NEM éles incidensek.
+- A három journey most statikus kódbejárás. Nem történt kézi, valódi
+  mobileszközös használhatósági mérés vagy terheléses teszt.
+- Kiegészítő, valódi headless Chromium a helyi production builden, 390×844:
+  részleges fotóhiba → célzott retry → 1 fuvar / 3 feltöltési kérés 2 képre;
+  390 px dokumentumszélesség; PDF kiválasztáskor tiltás. Minden nem helyi
+  HTTP/WS kérés blokkolt vagy szimulált, nincs éles backendművelet.
+- A PR CI-jében külön böngészős E2E fut; annak eredményét a PR ellenőrzései
+  mutatják. A korábbi PR zöld E2E-jét nem tekintjük az új változás mérésének.
+- A CI egy meglévő teszt időzítési hibáját is kimutatta: a foglalási
+  pickup-értesítés háttérben készül, a foto-hibaagak.test.js viszont azonnal
+  SELECT-elt a 201 után. A teszt most legfeljebb 2 másodpercig vár a tényleges
+  értesítésre, az elvárt pontosan egy rekord feltétele megmaradt. A backend
+  termékkódjához ez a tesztstabilizálás nem nyúl.
+
+Helyi bizonyítékok:
+  /private/tmp/gofuvar-p2-web.log
+  /private/tmp/gofuvar-p2-backend.log
+  /private/tmp/gofuvar-p2-build.log
+  /private/tmp/gofuvar-p2-before.log
+  /private/tmp/gofuvar-audit-penzugy-proof.cjs
+  /private/tmp/gofuvar-audit-penzugy-pickup.txt
+  /private/tmp/gofuvar-audit-penzugy-referral-failure.txt
+  /private/tmp/gofuvar-audit-penzugy-referral-cap.txt
+  /private/tmp/gofuvar-p2-audit-biztonsag-repro.cjs
+
+A KÉRT NÉGY JAVÍTÁS
+
+1. Fotófeltöltés: a létrehozott fuvar azonosítója megmarad; a feltöltő
+   a visszaigazolt feltöltések darabszámát és fájlonkénti hibát mutat, csak a vissza nem igazolt
+   képeket próbálja újra. Az ismert sikeres képeket nem küldi ismét, és nem
+   hoz létre új fuvart. A törölt piszkozatot a mentési effekt nem írja vissza.
+   Fájlok: web/app/dashboard/uj-fuvar/page.tsx;
+   web/src/components/ListingPhotoUpload.tsx; ezek tesztjei.
+   Korlát: a várakozó fájlok csak a nyitott lapon élnek. A szerver által
+   már eltárolt, de elveszett válaszú kéréshez még nincs idempotencia (P2-05).
+
+2. KYC: a fájlválasztó a backend raszteres formátumait fogadja, a PDF/SVG/BMP,
+   üres és 15 MB fölötti fájlt kiválasztáskor jelzi. A backend tartalmi és
+   jogosultsági ellenőrzése megmaradt.
+   Fájlok: web/src/components/KycModal.tsx és KycModal.test.tsx.
+
+3. Élő lista: a szerver szűrt/rendezett listáját kéri újra az utoljára
+   alkalmazott szűrőkkel. Összevonja a rövid időn belül érkező eseményeket;
+   a régebbi válasz nem írhatja felül az újabbat. A későn érkező GPS nem
+   dobja el a mentett szűrőt. Sikeres frissítés törli a korábbi hibaüzenetet.
+   Fájlok: web/app/sofor/fuvarok/page.tsx és page.test.tsx.
+
+4. Profil: avatar, JSON-export és fióktörlés a közös API-hibakezelést,
+   tokenkezelést és kérésindítási időkeretet használja. Multipartnál a
+   böngésző adja a Content-Type határát. Fejléc/avatar és profilcache frissül.
+   Fájlok: web/src/api.ts, api.test.ts; web/app/profil/page.tsx, page.test.tsx.
+   Korlát: a már megérkezett fejlécek utáni elakadt törzset a meglévő közös
+   wrapper időkerete még nem fedi (P2-06).
+
+ARCHITEKTÚRA ÉS ÜZLETI MODELL
+
+Next.js 16.3.3 / React webes App Router és közös API-kliens; Express backend
+PostgreSQL-lel, route-okkal, szolgáltatásokkal és utility modulokkal. A
+Socket.IO az élő eseményeket, a storage szolgáltatás a fájlokat kezeli.
+A migrációk és üzleti szabályokat ellenőrző tesztek a backendben vannak.
+Az Expo/mobile ág nem az auditban végigjárt éles webes termék.
+
+A fuvardíj a felek közötti fizetés; a platform kapcsolatfelvételi díjat
+könyvel. A fee_payment_receipts és escrow_transactions ezért nem jelent
+teljes fuvardíj-letétet. A feladó/szállító mód nem azonos az adminnal vagy
+a DB role minden értékével: szállítói nyilatkozat, KYC, telefon, felfüggesztés
+és céges adatok külön kapuk. Ezeket nem szabad egyetlen role-checkkel kiváltani.
+
+A korábbi hat javítás regressziós tesztjei a teljes futásban átmentek:
+fizetés atomitása/tartós bizonylat, felfüggesztett szállító ajánlatának
+elfogadása, kupon beváltási verseny, instant ár, HUF-ajánlat, visszafuvar
+helyadat. A lent leírt referral KIADÁSI hiba más kódút, mint a javított beváltás.
+
+Az architektúra önmagában nem indokol technológiacserét. A tényleges kockázat
+a route-okba szétosztott tranzakcióhatárok és az eltérő normál/vitás/törlési
+kódutak viselkedése. Először ezeket kell tesztekkel egységesíteni, utána
+érdemes csak a bizonyítottan közös részeket szolgáltatásokba kiemelni.
+
+P0 – KRITIKUS
+
+P0-01. A korábbi szállító késői felvételi fotója elindíthatja az új szállító fuvarját
+Probléma/trigger: a kijelölt szállító elindítja a fotófeltöltést; amíg a
+tárolásra vár, a feladó újranyitja a fuvart és mást választ. A feltöltés
+kezdetén ellenőrzött carrier_id elavul. A későbbi UPDATE csak accepted
+státuszt vizsgál, a jelenlegi carrier_id-t nem.
+Érintett/kockázat: feladó, régi és új szállító. Visszavont jogosultságú fél
+bizonyítékot rögzít és más szállító ügyletét in_progress állapotba teszi;
+a normál csere/lemondás elakad. A user P0-definíciója szerinti veszélyes
+üzleti/jogosultsági folyamat. Más fél PII-jének kiadását itt nem igazoltuk.
+Fájl: backend/src/routes/photos.js:88, :219, :228, :245, :258.
+Bizonyíték: valódi handler, a storage-várakozás alatt kontrollált szállítócsere;
+201 válasz, új carrier mellett in_progress, a fotó feltöltője a régi carrier.
+Javítás: külső tárolás után tranzakcióban zárolni a fuvart, újra ellenőrizni
+a jogosultságot/állapotot, és együtt commitolni a fotót és az átmenetet;
+elutasított próbánál a feltöltött fájlt takarítani. Minden fotótípusra és
+booking megfelelőjére is ellenőrzés. Teszt: valódi DB, megállított upload,
+szállítócsere, folytatás; se új állapot, se jogosulatlan fotó ne maradjon.
+Módosításkockázat: közepes–magas. Korábbi hiba, nem az új hirdetésfotó-UI hibája.
+
+P0-02. Sikertelen figyelmeztető levél után is elindul az automatikus fióktörlés órája
+Probléma/trigger: az e-mail küldő végleges hibánál null-t ad, nem dob.
+A purgeDormantAccounts csak a kivételt kezeli, null után is kitölti a
+dormant_warned_at-ot. Harminc nap múlva törölheti a fiókot.
+Érintett/kockázat: három évnél régebben inaktív felhasználó; visszafordíthatatlan
+DELETE/CASCADE az előírt kiküldött figyelmeztetés nélkül. P0 az adatvesztés
+miatt, de időben feltételes: friss prelaunch fiókokra most nem aktiválódik.
+Éles előfordulást vagy érintett fiókszámot nem mértünk.
+Fájl: backend/src/services/retention.js:465, :473, :496;
+backend/src/services/email.js:159, :184.
+Bizonyíték: a valódi retention szolgáltatás null e-maileredménnyel is
+figyelmeztetettnek jelöl; izolált futtatás, nem éles törlés.
+Javítás: csak visszaigazolt küldés után induljon a határidő; hiba maradjon
+újrapróbálható. A törlő fázisban ismét ellenőrizni az aktivitást/ügyletvédelmet.
+Teszt: null, throw, siker; az első kettőnél nem indulhat törlési határidő.
+Módosításkockázat: alacsony–közepes. Korábbi hiba.
+
+P1 – FONTOS
+
+P1-01. Nyitott banki fizetés mellett törölhető a fiók
+Probléma: az ügyletvédő a paid_at/disputed/bizonyítékzár alapján tilt, a
+még függő banki fizetést nem védi. Törléskor a fuvar eltűnhet, a későbbi
+PSP callback lookup pedig INNER JOIN miatt nem találja az ügyletet.
+Érintett/kockázat: fizető feladó, könyvelés/ügyfélszolgálat; külső sikeres
+terhelés belső ügylet nélkül. A kód riaszt, de kézi egyeztetés kellhet.
+Fájl: backend/src/utils/activePaid.js:32; backend/src/routes/auth.js:1551;
+backend/src/routes/payments.js:64, :100.
+Bizonyosság: kódban igazolt rés; valós CIB lefutás nem tesztelhető kész adapter
+nélkül. P1, az éles pénzforgalom bekapcsolása előtti kötelező feltétel.
+Javítás: függő fizetési session lezárásáig/egyeztetéséig halasztott fióktörlés,
+az utólagos callbackhez megőrzött minimális, stabil fizetési kapcsolat.
+Teszt: pay start → delete → sikeres callback, valamint lejárt session.
+Módosításkockázat: közepes–magas. Korábbi, már ismert hiány.
+
+P1-02. Ajánlói kupon kiadásakor jutalomvesztés és havi plafon-túllépés lehetséges
+Probléma: a referral_reward_granted_at a grantVoucher előtt, külön commitban
+íródik; INSERT-hibánál többé nincs retry. Külön meghívottak teljesítése
+párhuzamosan azonos havi darabszámot olvashat, így túlléphető az ötös plafon.
+Érintett/kockázat: meghívók, bevétel és promóciós keret; elveszett ígéret,
+többletkupon és visszaélési lehetőség.
+Fájl: backend/src/services/referral.js:157, :171, :178;
+backend/src/services/gamification.js (grantVoucher).
+Bizonyíték: hiba után granted=true/0 kupon/újabb trigger sem próbálkozik;
+két kontrollált párhuzamos trigger 4 meglévő kuponból 6-ot eredményezett.
+Javítás: ajánlóhoz kötött zárolás alatt plafonellenőrzés, meghívott-claim és
+kupon-INSERT közös tranzakcióban; a kuponhelper fogadjon tranzakciós klienst.
+Teszt: INSERT failure rollback + két meghívott valódi DB-vel a plafon szélén.
+Módosításkockázat: közepes. Korábbi kiadási hiba; a beváltási javítás megmaradt.
+
+P1-03. A vita és a fuvar/foglalás állapota nem egy tranzakcióban változik
+Probléma: a disputes INSERT/UPDATE és az ügylet státuszának/zárának frissítése
+külön DB-írás. A második hiba vagy konkurens fizikai lépés félkész állapotot
+hagyhat: létező vita normál fuvarral, vagy lezárt vita még disputed fuvarral.
+Érintett/kockázat: vitázó felek, admin; hibás státusz és bizonyítékkezelés,
+nehezen helyreállítható folyamat. Nem történt éles hibainjektálás.
+Fájl: backend/src/routes/disputes.js:190, :215, :226, :429, :454, :464.
+Javítás: ügyletet zároló közös tranzakció, állapot újraellenőrzése és mindkét
+rekord írása együtt; értesítés csak commit után. Teszt: második UPDATE hibája
+és vita megnyitás/lezárás versenye a pickup/dropoff lépéssel.
+Módosításkockázat: közepes–magas. Statikusan igazolt korábbi rés.
+
+P1-04. Aktív megállapodás után is kiüríthető a szállító telefonszáma
+Probléma: a megállapodáskor ellenőrzött telefonszám a PATCH /auth/me útján
+később üresre/null-ra állítható, aktív fizetett fuvar mellett is.
+Érintett/kockázat: fizetett kapcsolathoz jutó feladó és szállító; eltűnő
+elérhetőség, a telefonkapu utólagos megkerülése. Más csatorna még maradhat.
+Fájl: backend/src/routes/auth.js:108, :611, :667 (profil mezőfrissítés);
+backend/src/middleware/auth.js (driverEligibilityError, megállapodáskori követelmény).
+Javítás: folyamatban lévő megállapodásnál csak érvényes új számra legyen
+cserélhető; az aktív ügylet alatti kiürítést szerveroldali guard tiltsa.
+Teszt: megállapodás/fizetés után phone='' → érdemi 409, normál csere sikeres.
+Módosításkockázat: alacsony–közepes. Korábbi, kódban igazolt rés.
+
+P1-05. Régi KYC-rekordhoz újonnan feltöltött pending kép idő előtt törlődhet
+Probléma: az upsert nem frissíti a created_at-ot, a pending purge viszont
+ebből számolja a 60 napot. Régi rekord új képe akár másnap eltűnhet.
+Érintett/kockázat: kézi elbírálásra kerülő újrafeltöltők és admin; elérhetetlen
+okmány, beragadó onboarding és ismételt adatbekérés.
+Fájl: backend/src/routes/auth.js:1304; backend/src/services/kyc.js:57.
+Javítás: külön feltöltési időpont alapján retenció, az eredeti rekordidő
+megőrzésével; fájlverziót is ellenőrző purge, hogy konkurens új képet se nullázzon.
+Teszt: 61 napos rekord mai pending újrafeltöltése túléli a purge-öt.
+Módosításkockázat: közepes, migráció is szükséges lehet. Korábbi, igazolt eltérés.
+
+P1-06. Fióktörléskor fájlkulcs-gyűjtési hiba árva személyes fájlokat hagyhat
+Probléma: a collectUserFileKeys elnyeli a DB-hibát és üres listát ad; a
+hívó ezután törölheti a DB-sorokat. A fájlok hivatkozása és újrapróbálási
+lehetősége elvész, miközben a feltöltések a tárolóban maradhatnak.
+Érintett/kockázat: törlő felhasználók, platform; okmányok/fotók indokolatlan
+megőrzése, téves sikeres törlési visszajelzés.
+Fájl: backend/src/utils/userFiles.js:31, :70, :88;
+backend/src/routes/auth.js:1579; backend/src/services/retention.js:495.
+Bizonyíték: kontrollált DB-hiba → 0 kulcs, 0 fájltörlés, nincs Sentry-jelzés;
+a törlési hívók kódja ezután folytathatja a DB-törlést.
+Javítás: gyűjtési hibánál leállni, nem üres sikert visszaadni; törlendő
+kulcsok tartós feladatsorban, DB-commit utáni retry-val és riasztással.
+Teszt: kulcsgyűjtés hibája → nincs DELETE; tárhelyhiba → megmaradó retryfeladat.
+Módosításkockázat: közepes–magas. Korábbi hiba.
+
+P1-07. Az automatikus fióktörlés eltér a kézi törlés adatkezelésétől
+Probléma: dormant purge közvetlen DELETE-t használ, nem üríti az írt review
+szövegét, nem rögzíti ugyanúgy a deleted_accounts/kyc_doc_history adatokat.
+Érintett/kockázat: inaktív törölt felhasználó és a róla írt értékelések
+érintettje; személyes szabad szöveg megmaradása, eltérő visszaélés-megelőzés
+és törlési audit. A konkrét hash-elévülési hatás a történeti soroktól is függ.
+Fájl: backend/src/services/retention.js:490; backend/src/routes/auth.js:1588;
+backend/src/utils/kycHistory.js.
+Bizonyíték: izolált automatikus törléskor DELETE van, review-tisztítás,
+törlési audit és KYC-törlésjelölés nincs.
+Javítás: egy közös, tranzakciós fióktörlési szolgáltatás explicit okkal,
+bizonyítékzárakkal, metaadat-kezeléssel és utólagos tartós fájltakarítással.
+Teszt: kézi/admin/inaktív törlés azonos adat-életciklus elvárásokkal.
+Módosításkockázat: közepes–magas. Korábbi, időben feltételes hiba.
+
+P1-08. A fuvarrészletek hibaképernyője sikeres újrapróbálás után is megmarad
+Probléma: a load/loadAll catch setError-t hív, a sikeres ág nem törli azt.
+Érintett/kockázat: minden szerepkör, különösen mobilnet; az ajánlat/fizetés/
+kézbesítés felülete F5-ig elérhetetlen egy átmeneti hiba után.
+Fájl: web/app/dashboard/fuvar/[id]/page.tsx:150, :237;
+web/app/sofor/fuvar/[id]/page.tsx:81, :252.
+Javítás: sikeres betöltéskor error törlés; meglévő adat háttérfrissítési
+hibáját lehetőleg külön jelezni. Teszt: hibás első, sikeres második kérés
+után a tényleges részletfelület visszatér, nem csak az API fut le.
+Módosításkockázat: alacsony. Statikusan igazolt korábbi hiba.
+
+P1-09. Vita alatt eltűnik a webes kézbesítési űrlap és a chat
+Probléma: a backend status_before_dispute alapján engedi a fizikai utat,
+de a web csak accepted/in_progress esetén mutat CarrierTripPanelt.
+Érintett/kockázat: szállító/címzett/feladó; a kapuban álló szállító újratöltés
+után nem tud fotóval és kóddal igazolni egy engedélyezett átadást.
+Fájl: web/app/sofor/fuvar/[id]/page.tsx:855, :860;
+web/src/components/CarrierTripPanel.tsx:128;
+backend/src/routes/photos.js:142, :243.
+Javítás: külön vitastátusz és fizikai szállítási állapot; a panelnek átadni
+az előző állapotot, a vitát a kézbesítés sem zárhatja le. Chatjogosultság
+egyezzen a backenddel. Teszt: disputed+in_progress kézbesítése, vita megmarad.
+Módosításkockázat: közepes. Statikusan igazolt korábbi frontend/backend eltérés.
+
+P1-10. Újracsatlakozáskor a fuvar élő eseményeire nem iratkozik vissza a kliens
+Probléma: subscribeJob egyszer emitál job:join-t; connect/reconnect újrabelépés
+nincs, és szerveroldali connectionStateRecovery sincs beállítva.
+Érintett/kockázat: minden szerepkör, főleg mobil; nyitott lapon nem érkezik
+új ajánlat/ellenajánlat/elfogadás/pickup/dropoff esemény a job-roomból.
+A külön user-room job:paid csatornájáról nem állítjuk ugyanezt.
+Fájl: web/src/lib/socket.ts:138, :150; backend/src/realtime.js:18.
+Javítás: connect esetén új join és friss snapshot az elveszett események
+pótlására; listener-cleanup. Teszt: disconnect/connect és kimaradt átmenet.
+Módosításkockázat: közepes, közös helper. Korábbi konfigurációs/kódhiba.
+
+P1-11. A vita alatti fizikai teljesítésből hiányoznak normál utóhatások
+Probléma: a disputed pickup csak a status_before_dispute-ot lépteti, a
+normál pickup címzett-SMS/e-mail útja kimarad; a vitás dropoff nem hívja a
+normál ajánlói jutalom és adóadat-bekérés triggereit.
+Érintett/kockázat: külön címzett saját PIN nélkül, első fuvarját teljesítő
+meghívott és platform; elakadás, kimaradó jutalom/adatbekérés. A feladó
+tartalék kódja egyes esetekben kiút, de nem helyettesíti a megígért értesítést.
+Fájl: backend/src/routes/photos.js:245, :251, :348, :394;
+backend/src/routes/disputes.js:450 (lezárás nem pótolja a triggereket).
+Javítás: fizikai pickup/delivery egyszeri közös utóhatásai a vitajelzőtől
+függetlenül, duplázásgátlással. Teszt: normál/vitás utak azonos címzett-PIN
+kézbesítéssel és egyszeri jogosult jutalom/adatbekéréssel.
+Módosításkockázat: közepes. Statikusan igazolt korábbi eltérés.
+
+P1-12. Járatok aktiválása előtt: felfüggesztett szállító is megerősíthet foglalást
+Probléma: korábban jogosultan közzétett járat függő foglalásánál a confirm
+csak tulajdonost és booking státuszt vizsgál; az aktuális szállítói
+alkalmasságot, felfüggesztést, KYC-t és telefont nem.
+Érintett/kockázat: foglaló feladó és professzionális szállító; az ajánlati
+megállapodásnál már tiltott szereplő foglalási megállapodást köthetne.
+Fájl: backend/src/routes/carrierRoutes.js:815, :844; feature gate :140.
+Bizonyosság: statikusan igazolt rés. JELENLEG a járatok írási végpontjai
+kapcsolóval tiltottak; mai éles kihasználhatóságot nem állítunk.
+Javítás: a confirm tranzakcióján belül aktuális driverEligibilityError
+ellenőrzés, az ajánlat-elfogadás szabályaival összhangban.
+Teszt: megerősítés előtt felfüggesztett/KYC-ját elvesztő szállító elutasítása.
+Módosításkockázat: alacsony–közepes. Korábbi, aktiválás előtti kötelező feltétel.
+
+P2 – FEJLESZTÉS ÉS KISEBB HIBÁK
+
+P2-01. Admin: félrevezető státusz, kezeletlen keresés és rossz vita-link
+Probléma: under_review után is „Vita lezárva”; keresés Enter/gomb catch
+nélkül; az értesítés #disputes fület céloz, a létező fül #vitak.
+Érintett/kockázat: admin és vitázó felek, téves állapotértés és ügyintézési késés.
+Fájl: web/app/admin/page.tsx:177, :251, :627;
+backend/src/routes/disputes.js:293, :303.
+Javítás: státuszfüggő toast, közös hibakezelt keresés, #vitak cél.
+Ellenőrzés: under_review-visszajelzés, keresési 500, deep link valódi fülre.
+Módosításkockázat: alacsony. Igazolt korábbi hibák, a korábbi P2-lista 5. pontja.
+
+P2-02. Akadálymentességi hiányok a modalokban, menüben és csillagválasztóban
+Probléma: KYC dialog/fókusz/Escape hiányok; több kötelező modalban nincs
+fókuszcsapda; fejlécmenü Escape-kezelés hiányos; csillagok neve azonos „★”.
+A KYC régi felsorolásos tippjei sötét témában fehér szöveget kapnak a fehér
+modalon (globals.css:121), ezt a célzott Chromium-képernyőkép is kimutatta.
+Érintett/kockázat: billentyűzetes és képernyőolvasós felhasználók, nehezen
+végigjárható kötelező kapuk és bizonytalan értékelés.
+Fájl: web/src/components/KycModal.tsx:127; DriverTermsGate.tsx:83;
+EmailVerifyGate.tsx:65; DisputeButton.tsx:76; SiteHeader.tsx:96;
+ReviewBox.tsx:109 (mind ugyanebben a komponensmappában).
+Javítás: bevált közös fókuszkezelés, helyes dialog-név, visszaadott fókusz,
+Escape és számozott csillagfelirat/kijelölési szemantika.
+Ellenőrzés: billentyűzet + képernyőolvasó, az automata axe önmagában kevés.
+Módosításkockázat: alacsony–közepes. Szemantikai hiány igazolt; kontrasztot
+emulált mobilméreten ellenőriztünk, képernyőolvasós/fizikai készülékes
+teszt nem történt. A korábbi lista 6. pontja megmaradt.
+
+P2-03. A listák csendben levágják az ajánlati történetet
+Probléma: saját ajánlatok LIMIT 500, egy fuvar ajánlatai LIMIT 200,
+lapozás és korlátjelzés nélkül.
+Érintett/kockázat: gyakran licitáló profi szállító és sok ajánlatot kapó feladó;
+a felület nem mutatja a teljes előzményt, miközben ezt sugallja.
+Fájl: backend/src/routes/bids.js:65, :292;
+web/src/components/fuvarjaim/MyBids.tsx:59.
+Javítás: kurzoros lapozás és további tételek UI, aktív és történeti nézet
+szétválasztása. Ellenőrzés: 501 ajánlat, stabil sorrend, nincs duplázás/kihagyás.
+Módosításkockázat: közepes. Korábbi kapacitáskorlát, a lista 7. pontja.
+
+P2-04. A céges profil adatai a webes profilűrlapon nem javíthatók
+Probléma: a NAV-üzenet cégnév/adószám javítását kéri, de az űrlap/API-típus
+nem kínál ilyen mezőt; a backend PATCH támogatja őket.
+Érintett/kockázat: céges/profi szállító, pontatlan adat és sikertelen jelvény.
+Fájl: web/app/profil/page.tsx:111, :637; web/src/api.ts:1035;
+backend/src/routes/auth.js:594.
+Javítás: céges mezők szerkesztése a meglévő végponton, a verifikáció
+újraellenőrzési szabályait megtartva. Teszt: elírt adószám/cégnév javítása.
+Módosításkockázat: alacsony–közepes. Korábbi hiányzó felület.
+
+P2-05. Elveszett sikeres feltöltési válasz után duplakép keletkezhet
+Probléma: a kliens nem tudja, hogy az elveszett válasz előtt megtörtént-e
+az INSERT. Újrapróbáláskor nincs feltöltési művelethez kötött szerveres kulcs.
+Érintett/kockázat: szakadozó mobilnettel feladó; duplakép, tárhely és fotólimit.
+Fájl: web/src/components/ListingPhotoUpload.tsx:29;
+backend/src/routes/photos.js:228.
+Javítás: feltöltésenként tartós idempotenciakulcs, adatbázis-egyediség,
+retryra eredeti válasz; ne általános képtartalom-deduplikálás legyen.
+Teszt: tárolt kép után megszakadó válasz, ugyanazon kérés újraküldése.
+Módosításkockázat: közepes, API/adatmodell. Régi szerverkorlát, az új UI
+az igazoltan sikeres fotókat már helyesen nem ismétli.
+
+P2-06. Az időkeret nem terjed ki a válasz törzsére
+Probléma: fetchWithTimeout a headerek után törli az időzítőt; a res.json()
+már azon kívül vár. Részlegesen válaszoló proxy/szerver így még elakaszthatja
+az exportot és más műveletet.
+Érintett/kockázat: minden API-fogyasztó, határozatlan várakozás.
+Fájl: web/src/api.ts:307, :311, :362.
+Javítás: a teljes válaszfeldolgozás végéig élő időkorlát és abort;
+teszt valódi szerverrel, amely fejlécet küld, törzset már nem fejez be.
+Módosításkockázat: közepes, közös API. Korábbi korlát, a profilfix ezt örökli.
+
+P2-07. A vita értesítése olyan részleteket/választ ígér, amelynek nincs webes útja
+Probléma: levél „részletek és válasz” linkje /ertesitesek; ott nincs
+vitaválasz-felület. A nyitó párbeszéd képet említ, de csak szöveget küld.
+Érintett/kockázat: vitázó felek, bizonytalan teendő és ügyfélszolgálati körök.
+Fájl: backend/src/routes/disputes.js:276; web/app/ertesitesek/page.tsx;
+web/src/components/DisputeButton.tsx:108; web/src/api.ts (myDisputes/getDispute).
+Javítás: először pontos, valóban elérhető ügyintézési CTA; külön feladatként
+jogosultságkezelt vitanézet állapottal, bizonyítékkal és válasszal.
+Ellenőrzés: a levélből a megígért konkrét teendőig végigjárható út.
+Módosításkockázat: szöveg alacsony, teljes felület közepes. Korábbi eltérés;
+az e-mailes ügyfélszolgálat valós teljesítményét kódból nem lehet megállapítani.
+
+P2-08. A kódtérkép és projektleírás több üzleti/technológiai állítása elavult
+Probléma: Next 14, történeti tesztszámok és szolgáltató/díjleírások keverednek
+az aktuális állapottal. A most hozzáadott komponens bejegyzése ezt nem oldja meg.
+Érintett/kockázat: fejlesztők és későbbi auditok; téves feltételezésből hibás
+módosítás vagy indokolatlan újranyitás.
+Fájl: CODEMAP.md:18, :31, :155; CLAUDE.md történeti és workflow részei.
+Javítás: külön aktuális, ellenőrzött áttekintés; történeti döntések dátummal;
+a szolgáltató és ár a jelenlegi konfigurációhoz/kódhoz igazítva.
+Ellenőrzés: package.json, feature flag, díjkonstans és CI egyeztetés.
+Módosításkockázat: alacsony. A korábbi P2-lista 8. pontja megmaradt.
+
+P2-09. A retenciófigyelő nem riaszt, ha még soha nem volt sikeres futás
+Probléma: null utolsó sikeres futásnál a watchdog mindig friss telepítést
+feltételez és visszatér; a DB-olvasási hiba is null-ra esik.
+Érintett/kockázat: üzemeltető és minden megőrzési idővel kezelt felhasználói
+adat; a hibásan el sem induló első retenció észrevétlen maradhat.
+Fájl: backend/src/index.js:495; backend/src/services/retention.js
+(lastSuccessfulRetentionRun).
+Javítás: indulási türelmi idő, majd a hiányzó futás riasztása; olvasási hibát
+külön eredményként kezelni és riasztani. Teszt: 49 órás indulás siker nélkül.
+Módosításkockázat: alacsony. Statikus hibaág, éles kimaradást nem mértünk.
+
+P2-10. A migráció és a sikerét jelző naplóbejegyzés nem egy commit
+Probléma: SQL-fájl sikerül, schema_migrations INSERT hibázik; a következő
+futás a már végrehajtott fájlt újra futtathatja. Az eredmény a konkrét
+migráció ismételhetőségétől függ.
+Érintett/kockázat: üzemeltető és adatmodell, hibás deploy vagy megismételt DML.
+Fájl: backend/scripts/migrate.js:57.
+Javítás: migrációnként közös tranzakció a módosítással és ledgerrel;
+előtte felmérni a fájlok saját BEGIN/COMMIT-ját és az esetleges tranzakción
+kívül futtatandó DDL-t. Teszt: ledger INSERT hibája rollbackot eredményez.
+Módosításkockázat: közepes. A korábbi 084 migráció hibás éles végrehajtását
+nem állítjuk, meglévő sikeres migrációt ezért nem szabad újrafuttatni.
+
+HÁROM TELJES USER JOURNEY – STATIKUS VÉGIGJÁRÁS
+
+Feladó:
+Regisztráció → e-mail megerősítése → szükséges személyazonosítás → címek,
+csomag és fotók → feladás → ajánlat/ellenajánlat → elfogadás → platformdíj
+és hozzájárulás → kontakt/kód → felvétel/követés/átadás → értékelés vagy vita.
+A fotóhiba immár nem hamis teljes siker. Fő maradék akadályok: P1-08 hibából
+vissza nem térő részletoldal, P1-10 élő eseményvesztés, P0-01 szállítócsere,
+P1-01 fizetés alatti törlés és P2-07 hiányos vitarendezési út.
+
+Alkalmi szállító:
+Szállítói nyilatkozat/kapuk → telefon → böngészés és engedélyezett GPS →
+ajánlat visszaszállítási feltétellel → alku/elfogadás → díjfizetés kivárása →
+kontakt → felvételi kép → kézbesítési kép és kód → értékelés/adóadat-bekérés.
+A lista immár megtartja az alkalmazott szűrőt és szerveres sorrendet.
+Fő maradék akadályok: P1-09 vita alatti eltűnő kézbesítés, P1-11 kimaradó
+címzett-PIN/triggerek, P1-10 reconnect és P2-02 kapuk akadálymentessége.
+
+Professzionális szállító:
+Az előző folyamat céges regisztrációval, NAV-jelvénnyel ahol konfigurált,
+számlaigényes feladásokkal, sok ajánlattal és ismétlődő használattal.
+Többletakadály: P2-04 javíthatatlan céges profil és P2-03 levágott előzmény.
+A jövőbeli havi előfizetést nem tekintettük megvalósult díjazási logikának.
+A járat/fix foglalás kódját állapotok/jogosultságok szempontjából is néztük,
+de a tudatosan rejtett funkciót nem minősítjük aktív termékhibának.
+
+JAVÍTÁSI SORREND ÉS ELFOGADÁSI KAPUK
+
+1. P0-01: jogosultság + fotó + fizikai állapot egy tranzakciós döntésből.
+   Külön PR, kontrollált verseny reprodukciója valódi tesztadatbázissal;
+   a régi kódon bukó, javítotton átmenő ellenpróba szükséges.
+2. P0-02 és kapcsolódó P1-06/P1-07: a törlési út fail-closed előfeltételei,
+   közös életciklus és tartós fájltakarítás. Részenként reviewzható PR-ek;
+   meglévő törlési szabály és bizonyítékzár megtartandó.
+3. P1-08 + P1-10: mobilhálózati visszatérés és használható újrapróbálás;
+   ezek alacsonyabb kockázatú, azonnal érezhető működési javítások.
+4. P1-03/P1-09/P1-11: vita és fizikai út egységes kezelése backend + web,
+   címzett-PIN, bizonyíték, egyszeri mellékhatások végigtesztelve.
+5. P1-02/P1-04/P1-05: kuponkiadás, aktív elérhetőség és KYC-fájl életkora.
+6. P1-01 kötelezően az éles banki fizetés bekapcsolása előtt; teljes
+   PSP-hibamátrix és egyeztetés nélkül nincs fizetési készre jelentés.
+7. P2-01/P2-02/P2-04/P2-07: admin, akadálymentesség, céges profil, pontos CTA.
+8. P2-03/P2-05/P2-06/P2-08/P2-09/P2-10: lapozás, idempotencia, teljes
+   válaszidőkeret, dokumentáció és üzemeltetési megerősítés.
+9. P1-12 kötelezően a járatok bekapcsolása előtt, a teljes foglalási
+   tesztmátrixszal együtt.
+
+Minden lépés saját ellenőrzés és review után merge-elhető. Nincs indokolt
+technológiacsere vagy egyszerre végrehajtandó nagy refaktor.
+
+NEM BIZTOSAN MEGÁLLAPÍTHATÓ / KÜLÖN MÉRENDŐ
+
+- Valós CIB-tranzakció: a tényleges adapter még TODO/stub. Összeg/pénznem,
+  többszöri callback, megszakadt/visszatérő fizetés és külső visszatérítés
+  éles eredményét ebből a kódból/tesztkörből nem állítjuk.
+- Járat/fix foglalás és instant UI aktiválása külön funkcióindítási auditot
+  igényel. A kapcsolókat és a jelenlegi üzleti döntést nem módosítottuk.
+- Robots Disallow a prelaunch tudatos állapota. A sitemap dátum és a privát
+  noindex korábbi javítását nem jelentjük új hibának.
+- Mobil: KYC/modal viewportmagasság, belső görgetés, virtuális billentyűzet,
+  profil kétoszlopos részei célzott készüléktesztet igényelnek. Nincs állítás
+  mért túlcsordulásról vagy teljes akadálymentességről.
+- Teljesítmény: nincs produkciós trace, forgalmi adat, LCP/INP-mérés vagy
+  terheléses kapacitásvizsgálat; nem adunk becsült aktívuser-plafont.
+- Operáció: az in-process schedulerek, rate limit, socketek és leállás
+  több példány esetén külön integrációs vizsgálatot igényelnek. Pusztán
+  ennek hiányából nem állítunk bekövetkezett incidenst.
+- Tárolás: backend/src/services/storage.js:141 R2-hibánál riasztás mellett
+  helyi lemezre menthet publikus képet. Ez konténercserénél elveszhet;
+  tests/tarolo-maradek-hibaagak.test.js kifejezetten őrzi a meglévő kompromisszumot.
+  Tartós fallback külön termék/üzemeltetési döntés, nem automatikus átírás.
+  A privát KYC-bucket kötelező produkciós konfigurációját külön ellenőrizni
+  kell (storage.js:185); a jelenlegi éles beállítás hiányát nem állítjuk.
+- Az accept/accept-counter eltérő zárolási sorrendje további konkurencia-
+  vizsgálati pont; bizonyított deadlock nélkül nem szerepel hibaként.
+- A megmaradt nagy route-fájlok és duplikált folyamatágak technikai adósságok,
+  de a szétbontás önmagában nem javítás. A fenti hibák tesztjei határozzák meg
+  a biztonságos kiemelés és egyszerűsítés határait.

@@ -160,6 +160,9 @@ A frontend EGYETLEN kapcsolódási pontja a backendhez.
 - `BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'`
 - JWT a `localStorage`-ban: kulcs `gofuvar_token` (user `gofuvar_user`)
 - minden hívás `Authorization: Bearer <token>` headerrel megy
+- A profilkép (`uploadAvatar`), saját adatexport (`exportMyData`) és
+  fióktörlés (`deleteMyAccount`) is a közös `request` hibakezelését használja.
+  FormData esetén a böngésző állítja be a multipart Content-Type határát.
 - **Globális event-ek** (a fetch-wrapper diszpécseli, komponensek hallgatják):
   | Event | Mikor | Ki hallgatja |
   |---|---|---|
@@ -203,6 +206,7 @@ AiChatWidget, CookieConsentBanner, header/footer).
 
 | Komponens | Szerep |
 |---|---|
+| `ListingPhotoUpload.tsx` | A már létrehozott fuvar hirdetési fotóit tölti fel; valós sikeres darabszám, hibánként visszajelzés és csak a sikertelen képek újrapróbálása ugyanahhoz a fuvarhoz. A lap bezárásáig tartja meg a várakozó fájlokat. |
 | `KycModal.tsx` + `KycModalProvider.tsx` | **Globálisan mountolt** KYC gate. `gofuvar:kyc-required` event-re nyílik. Dokumentumot tölt fel → Gemini OCR → verified/rejected/underage |
 | `AiChatWidget.tsx` | Lebegő AI segéd (jobb alsó). Süti-banner-átfedés miatt `consentPending`-ig rejtve |
 | `AiMessageContent.tsx` | AI-válasz renderelés (linkek, navigáció) |

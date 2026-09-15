@@ -319,7 +319,7 @@ let profilCache: { token: string; at: number; p: Promise<any> } | null = null;
 
 async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
     ...(init.headers as Record<string, string> | undefined),
   };
   const token = getToken();
@@ -1038,6 +1038,24 @@ export const api = {
   }) => {
     profilCache = null;
     return request<any>('/auth/me', { method: 'PATCH', body: JSON.stringify(data) });
+  },
+
+  uploadAvatar: async (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    const result = await request<{ url: string }>('/auth/avatar', {
+      method: 'POST', body: form, timeoutMs: 60_000,
+    });
+    profilCache = null;
+    return result;
+  },
+
+  exportMyData: () => request<Record<string, unknown>>('/auth/me/export'),
+
+  deleteMyAccount: async () => {
+    const result = await request<{ ok: boolean }>('/auth/me', { method: 'DELETE' });
+    profilCache = null;
+    return result;
   },
 
   getUserProfile: (id: string) =>
