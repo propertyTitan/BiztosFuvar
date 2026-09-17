@@ -5,7 +5,7 @@ GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 Fejlesztési ág: fix/audit-rounds-1-3. Alap: f94377e (runtime: a1ef089).
 Összevonási ág: fix/launch-audit-rounds-1-3, közvetlenül a1ef089 mainről.
 Az eredeti három javítás megfelelői itt: 1f022b3, 93db204, ac1d50b.
-Az alkalmazáskód és a tesztek az eredeti javítóágéval azonosak;
+Az alkalmazáskód az eredeti javítóágéval azonos;
 a külön dokumentációs átszervezés (PR #242) önálló marad.
 A felhasználó által kért három kör 2 P0 és 6 P1 megállapítást érint.
 A korábbi bejegyzések telepítési állítása a korábbi csomagokra vonatkozik.
@@ -77,6 +77,10 @@ TELJES ELLENŐRZÉS
 - A teljes futáskor egy korábbi KYC-teszt közös, fix okmányszáma
   sorrendfüggő ütközést okozott. Egyedi tesztadattal javítva; a korábban
   törölt fiók és az élő duplikátum üzleti megkülönböztetése megmaradt.
+- A PR első backend CI-futásában az SMS-teszt a teljes közös retry-sort
+  várta üresnek. Az ellenőrzés most szándékosan meglévő másik feladat
+  mellett követeli meg a sor változatlanságát és a queueOnFailure=false
+  küldési opciót. Az alkalmazás működése nem változott.
 
 TELEPÍTÉS ÉS KORLÁTOK
 - Sorrend: 091 migráció → backend és web. A migráció csak új táblát/indexet

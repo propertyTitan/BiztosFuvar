@@ -49,6 +49,11 @@ it.each(['job', 'booking'])('%s: COMMIT utáni SQL-hiba túlélhető, második f
 
 it.each(['sms', 'email'])('%s hiba csak a sikertelen csatornát próbálja újra', async channel => {
   const f = await fixture('job');
+  // A közös teszt-DB-ben más tesztek SMS-feladatai is lehetnek. A saját
+  // küldésünk nem adhat új feladatot ehhez a másik retry-sorhoz.
+  const legacySeed = (await db.query(`INSERT INTO sms_retry_queue(phone, message)
+    VALUES('+36309999999', 'Másik értesítés függő feladata') RETURNING id`)).rows[0];
+  const legacyBefore = (await db.query('SELECT id FROM sms_retry_queue ORDER BY id')).rows;
   const failed = channel === 'sms' ? f.sentSms : f.sentEmail;
   failed.mockResolvedValue(channel === 'sms' ? { ok: false } : null);
   expect((await f.upload()).status).toBe(201);
@@ -60,7 +65,9 @@ it.each(['sms', 'email'])('%s hiba csak a sikertelen csatornát próbálja újra
   await f.due(); await f.run();
   expect(failed).toHaveBeenCalledTimes(2);
   expect(channel === 'sms' ? f.sentEmail : f.sentSms).toHaveBeenCalledTimes(1);
-  expect((await db.query('SELECT 1 FROM sms_retry_queue')).rowCount).toBe(0);
+  expect(f.sentSms).toHaveBeenCalledWith(f.entity.recipient_phone, expect.any(String), { queueOnFailure: false });
+  expect((await db.query('SELECT id FROM sms_retry_queue ORDER BY id')).rows).toEqual(legacyBefore);
+  await db.query('DELETE FROM sms_retry_queue WHERE id=$1', [legacySeed.id]);
 });
 
 it('feladatmentési hiba visszagörgeti a felvételt és a fotót', async () => {
