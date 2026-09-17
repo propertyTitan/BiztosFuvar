@@ -9,51 +9,24 @@ const express = require('express');
 const db = require('../db');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
-const {
-  collectEntityFileKeys, purgeFileKeys,
-} = require('../utils/userFiles');
+const { deleteEntity } = require('../services/entityDeletion');
 const { logAdminAccess } = require('../utils/adminAudit');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 const adminOnly = [authRequired, requireRole('admin')];
 
-// ── Adatvesztés-védelem az admin törlő-műveletekhez (2026-08-08) ──
-// A törlések kaszkádolnak: egy fizetett, folyamatban lévő ügyletet ne lehessen
-// egy admin-kattintással megsemmisíteni (a route törlése a foglalásait, a
-// user törlése a járatait → foglalásait viszi). A guard konzervatív: CSAK az
-// aktív + FIZETETT eseteket zárja; terminál/fizetetlen ügylet szabadon
-// törölhető. Ha az admin tényleg törölni akar, előbb zárja le a tranzakciót
-// (kézbesítés / lemondás / vita).
-const ACTIVE_PAID_MSG = 'Ez az elem folyamatban lévő, kifizetett ügylethez tartozik. '
-  + 'Előbb zárd le (kézbesítés / lemondás / vita), utána törölhető.';
-
-/** Aktív + fizetett fuvar-e ez a job? */
-async function jobIsActivePaid(jobId) {
-  const { rows } = await db.query(
-    `SELECT 1 FROM jobs WHERE id = $1 AND paid_at IS NOT NULL
-        AND status NOT IN ('delivered', 'completed', 'cancelled')`,
-    [jobId],
-  );
-  return rows.length > 0;
-}
-/** Aktív + fizetett foglalás-e ez a booking? */
-async function bookingIsActivePaid(bookingId) {
-  const { rows } = await db.query(
-    `SELECT 1 FROM route_bookings WHERE id = $1 AND paid_at IS NOT NULL
-        AND status NOT IN ('delivered', 'cancelled', 'rejected')`,
-    [bookingId],
-  );
-  return rows.length > 0;
-}
-/** Van-e a járaton aktív + fizetett foglalás (amit a route-törlés elvinne)? */
-async function routeHasActivePaidBooking(routeId) {
-  const { rows } = await db.query(
-    `SELECT 1 FROM route_bookings WHERE route_id = $1 AND paid_at IS NOT NULL
-        AND status NOT IN ('delivered', 'cancelled', 'rejected')`,
-    [routeId],
-  );
-  return rows.length > 0;
+// A közös szolgáltatás védi az aktív fizetést, a vitát és a zárolt bizonyítékot.
+function deleteEntityHandler(type, missingMessage) {
+  return async (req, res) => {
+    const result = await deleteEntity(type, req.params.id);
+    if (result.missing) return res.status(404).json({ error: missingMessage });
+    if (result.blocked) return res.status(409).json({
+      error: 'Az ügylet fizetése, vitája vagy bizonyítékmegőrzési zárolása miatt nem törölhető. Előbb rendezd a kapcsolódó ügyet.',
+      code: 'HAS_ACTIVE_PAID',
+    });
+    res.json({ ok: true, files_pending: result.filesPending });
+  };
 }
 
 // ===================== ÉLŐ JELENLÉT =====================
@@ -358,17 +331,7 @@ router.get('/admin/jobs', ...adminOnly, async (req, res) => {
 });
 
 // DELETE /admin/jobs/:id — fuvar törlése
-router.delete('/admin/jobs/:id', ...adminOnly, async (req, res) => {
-  if (await jobIsActivePaid(req.params.id)) {
-    return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
-  }
-  // A tárolt fájlok kulcsai a DB-CASCADE ELŐTT (különben örök árvák lesznek).
-  const fajlKulcsok = await collectEntityFileKeys('job', req.params.id);
-  const del = await db.query('DELETE FROM jobs WHERE id = $1 RETURNING id', [req.params.id]);
-  if (del.rowCount === 0) return res.status(404).json({ error: 'Fuvar nem található' });
-  await purgeFileKeys(fajlKulcsok);
-  res.json({ ok: true });
-});
+router.delete('/admin/jobs/:id', ...adminOnly, deleteEntityHandler('job', 'Fuvar nem található'));
 
 // PATCH /admin/jobs/:id — fuvar státusz módosítása
 // ⚠️ A 'disputed' NEM ÁLLÍTHATÓ BE KÉZZEL (2026-08-11, séma-audit T1-R).
@@ -475,18 +438,7 @@ router.get('/admin/routes', ...adminOnly, async (req, res) => {
 });
 
 // DELETE /admin/routes/:id — útvonal törlése
-router.delete('/admin/routes/:id', ...adminOnly, async (req, res) => {
-  if (await routeHasActivePaidBooking(req.params.id)) {
-    return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
-  }
-  // A járat törlése a foglalásain át kaszkádol a fotókra — a kulcsokat előbb
-  // gyűjtjük ki, a tárolóból törlés a sikeres DB-törlés után.
-  const fajlKulcsok = await collectEntityFileKeys('route', req.params.id);
-  const del = await db.query('DELETE FROM carrier_routes WHERE id = $1 RETURNING id', [req.params.id]);
-  if (del.rowCount === 0) return res.status(404).json({ error: 'Járat nem található' });
-  await purgeFileKeys(fajlKulcsok);
-  res.json({ ok: true });
-});
+router.delete('/admin/routes/:id', ...adminOnly, deleteEntityHandler('route', 'Járat nem található'));
 
 // ===================== FOGLALÁSOK =====================
 
@@ -508,16 +460,7 @@ router.get('/admin/bookings', ...adminOnly, async (req, res) => {
 });
 
 // DELETE /admin/bookings/:id — foglalás törlése
-router.delete('/admin/bookings/:id', ...adminOnly, async (req, res) => {
-  if (await bookingIsActivePaid(req.params.id)) {
-    return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
-  }
-  const fajlKulcsok = await collectEntityFileKeys('booking', req.params.id);
-  const del = await db.query('DELETE FROM route_bookings WHERE id = $1 RETURNING id', [req.params.id]);
-  if (del.rowCount === 0) return res.status(404).json({ error: 'Foglalás nem található' });
-  await purgeFileKeys(fajlKulcsok);
-  res.json({ ok: true });
-});
+router.delete('/admin/bookings/:id', ...adminOnly, deleteEntityHandler('booking', 'Foglalás nem található'));
 
 // ===================== KYC DOKUMENTUMOK =====================
 

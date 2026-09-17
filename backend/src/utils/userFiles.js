@@ -133,7 +133,7 @@ async function purgeUserFiles(userId, opts = {}) {
  * @param {string} id
  * @returns {Promise<string[]>}
  */
-async function collectEntityFileKeys(tipus, id) {
+async function collectEntityFileKeys(tipus, id, client = db) {
   // A vita bizonyíték-fájlja is kaszkádol az entitással (disputes.job_id /
   // booking_id ON DELETE CASCADE) — tehát ugyanígy össze kell szedni.
   const sql = {
@@ -153,11 +153,11 @@ async function collectEntityFileKeys(tipus, id) {
   }[tipus];
   if (!sql) return [];
   try {
-    const { rows } = await db.query(sql, [id]);
+    const { rows } = await client.query(sql, [id]);
     return [...new Set(rows.map((r) => r.url).filter(Boolean))];
   } catch (err) {
     console.error('[entity-files] kulcs-gyűjtés hiba:', err.message);
-    return [];
+    throw err;
   }
 }
 
