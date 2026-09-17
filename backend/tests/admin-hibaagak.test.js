@@ -1,3 +1,4 @@
+const { seenKycDocument } = require('./helpers');
 // =====================================================================
 //  ADMIN VÉGPONTOK — hibaágak, allowlistek és a naplózás
 //
@@ -573,14 +574,14 @@ describe('KYC admin-felület', () => {
     expect(rosszAction.status).toBe(400);
 
     const indokNelkul = await request(app).patch(`/admin/kyc-documents/${docId}`)
-      .set(auth(admin.token)).send({ action: 'reject', reason: '   ' });
+      .set(auth(admin.token)).send({ ...await seenKycDocument(admin, docId), action: 'reject', reason: '   ' });
     expect(
       indokNelkul.status,
       'indoklás nélkül el lehetett utasítani a KYC-t — a felhasználó nem tudná, mit javítson',
     ).toBe(400);
 
     const nincs = await request(app).patch(`/admin/kyc-documents/${NEM_LETEZIK}`)
-      .set(auth(admin.token)).send({ action: 'approve' });
+      .set(auth(admin.token)).send({ ...await seenKycDocument(admin, NEM_LETEZIK), action: 'approve' });
     expect(nincs.status).toBe(404);
 
     const { rows } = await db.query('SELECT status FROM kyc_documents WHERE id = $1', [docId]);
@@ -594,7 +595,7 @@ describe('KYC admin-felület', () => {
     const docId = await kycSor(cel.id, { pending: fuggoHash });
 
     const res = await request(app).patch(`/admin/kyc-documents/${docId}`)
-      .set(auth(admin.token)).send({ action: 'approve' });
+      .set(auth(admin.token)).send({ ...await seenKycDocument(admin, docId), action: 'approve' });
     expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.status).toBe('approved');
 
@@ -634,7 +635,7 @@ describe('KYC admin-felület', () => {
     );
 
     const res = await request(app).patch(`/admin/kyc-documents/${doc[0].id}`)
-      .set(auth(admin.token)).send({ action: 'approve' });
+      .set(auth(admin.token)).send({ ...await seenKycDocument(admin, doc[0].id), action: 'approve' });
     expect(res.status, JSON.stringify(res.body)).toBe(200);
 
     const { rows } = await db.query(
@@ -657,7 +658,7 @@ describe('KYC admin-felület', () => {
     const docId = await kycSor(cel.id, { pending: fuggoHash });
 
     const res = await request(app).patch(`/admin/kyc-documents/${docId}`)
-      .set(auth(admin.token)).send({ action: 'reject', reason: 'Olvashatatlan a fotó.' });
+      .set(auth(admin.token)).send({ ...await seenKycDocument(admin, docId), action: 'reject', reason: 'Olvashatatlan a fotó.' });
     expect(res.status, JSON.stringify(res.body)).toBe(200);
 
     const { rows: dok } = await db.query(

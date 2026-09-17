@@ -85,6 +85,7 @@ async function commitPhoto({ jobId, bookingId, uploaderId, kind, url, gps, deliv
     const statusColumn = isJob && entity.status === 'disputed' ? 'status_before_dispute' : 'status';
     if (pickedUp) {
       await client.query(`UPDATE ${table} SET ${statusColumn} = 'in_progress'${isJob ? ', updated_at = NOW()' : ''} WHERE id = $1`, [id]);
+      await require('./pickupNotifications').enqueuePickupNotifications(client, { jobId, bookingId, entity });
     }
     if (delivered) {
       await client.query(

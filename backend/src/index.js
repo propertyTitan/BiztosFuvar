@@ -556,6 +556,10 @@ if (process.env.DATABASE_URL) {
   const smsUjrakuldesKor = utemezettKor('sms-retry', runSmsRetryQueue);
   const { runPendingFeeInvoices } = require('./services/feeInvoiceQueue');
   const dijSzamlaKor = utemezettKor('fee-invoices', runPendingFeeInvoices);
+  const { runPickupNotifications } = require('./services/pickupNotifications');
+  const felvetelErtesitesKor = utemezettKor('pickup-notifications', runPickupNotifications);
+  setTimeout(felvetelErtesitesKor, 10 * 1000).unref();
+  setInterval(felvetelErtesitesKor, 60 * 1000).unref();
   setTimeout(dijSzamlaKor, 3 * 60 * 1000).unref();
   setInterval(dijSzamlaKor, 10 * 60 * 1000).unref();
   setTimeout(smsUjrakuldesKor, 2 * 60 * 1000).unref();

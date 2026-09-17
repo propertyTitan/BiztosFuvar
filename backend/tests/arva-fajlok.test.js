@@ -66,7 +66,11 @@ describe('Felülírás nem hagyhat árvát', () => {
     const user = await createUser({ role: 'shipper' });
     await db.query('UPDATE users SET avatar_url = $2 WHERE id = $1', [user.id, 'https://r2.pelda.hu/regi-avatar.jpg']);
     const torles = vi.spyOn(storage, 'deleteFile').mockResolvedValue(true);
-    vi.spyOn(storage, 'saveFile').mockResolvedValue('https://r2.pelda.hu/uj-avatar.jpg');
+    vi.spyOn(storage, 'saveFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave }) => {
+      const key = 'https://r2.pelda.hu/uj-avatar.jpg';
+      await beforeSave(key);
+      return key;
+    });
 
     await request(app)
       .post('/auth/avatar')

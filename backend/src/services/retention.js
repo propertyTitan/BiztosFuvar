@@ -206,43 +206,41 @@ const DORMANT_DELETE_DAYS = 30;
  */
 async function purgeOldChatMessages() {
   let purged = 0;
-  try {
-    const { rowCount: jobMsgs } = await db.query(
-      `DELETE FROM messages m
-        USING jobs j
-        WHERE m.job_id = j.id
-          AND (
-            (j.photo_retention_hold = FALSE
-              AND j.status = ANY($1)
-              AND j.updated_at < NOW() - ($2 || ' months')::interval)
-            OR
-            (j.photo_retention_hold = TRUE
-              AND j.updated_at < NOW() - ($3 || ' years')::interval)
-          )`,
-      [JOB_TERMINAL, CHAT_RETENTION_MONTHS, HOLD_RETENTION_YEARS],
-    );
-    const { rowCount: bookingMsgs } = await db.query(
-      `DELETE FROM messages m
-        USING route_bookings b
-        WHERE m.booking_id = b.id
-          AND (
-            (b.photo_retention_hold = FALSE
-              AND b.status::text = ANY($1)
-              AND COALESCE(b.delivered_at, b.created_at) < NOW() - ($2 || ' months')::interval)
-            OR
-            (b.photo_retention_hold = TRUE
-              AND COALESCE(b.delivered_at, b.created_at) < NOW() - ($3 || ' years')::interval)
-          )`,
-      [BOOKING_TERMINAL, CHAT_RETENTION_MONTHS, HOLD_RETENTION_YEARS],
-    );
-    purged = (jobMsgs || 0) + (bookingMsgs || 0);
-    if (purged > 0) {
-      console.log(`[retention] ${purged} chat-üzenet törölve (>${CHAT_RETENTION_MONTHS} hónap, zároltak: ${HOLD_RETENTION_YEARS} év)`);
+  for (const type of ['job', 'booking']) {
+    const table = type === 'job' ? 'jobs' : 'route_bookings';
+    const field = type === 'job' ? 'job_id' : 'booking_id';
+    const age = type === 'job' ? 'e.updated_at' : 'COALESCE(e.delivered_at, e.created_at)';
+    const eligible = `((e.photo_retention_hold = FALSE AND e.status::text = ANY($1)
+        AND ${age} < NOW() - ($2 || ' months')::interval)
+      OR (e.photo_retention_hold = TRUE AND ${age} < NOW() - ($3 || ' years')::interval))`;
+    const params = [type === 'job' ? JOB_TERMINAL : BOOKING_TERMINAL, CHAT_RETENTION_MONTHS, HOLD_RETENTION_YEARS];
+    let afterId = null;
+    while (true) {
+      const candidates = await db.query(`SELECT e.id FROM ${table} e WHERE ${eligible}
+        AND ($4::uuid IS NULL OR e.id > $4)
+        AND EXISTS (SELECT 1 FROM messages m WHERE m.${field} = e.id)
+        ORDER BY e.id LIMIT 100`, [...params, afterId]);
+      if (!candidates.rows.length) break;
+      for (const row of candidates.rows) {
+        const client = await db.pool.connect();
+        try {
+          await client.query('BEGIN');
+          // A vita és az admin-hold is ezt a szülősort zárolja. A jelöltlista
+          // elavulhat, ezért a zár UTÁN új pillanatképből ellenőrizzük a kort/holdot.
+          await client.query(`SELECT id FROM ${table} WHERE id = $1 FOR UPDATE`, [row.id]);
+          const removed = await client.query(`DELETE FROM messages m USING ${table} e
+            WHERE m.${field} = e.id AND e.id = $4 AND ${eligible}`, [...params, row.id]);
+          await client.query('COMMIT');
+          purged += removed.rowCount;
+        } catch (err) {
+          await client.query('ROLLBACK').catch(() => {});
+          throw err;
+        } finally { client.release(); }
+      }
+      afterId = candidates.rows.at(-1).id;
     }
-  } catch (err) {
-    console.error('[retention] chat-purge hiba:', err.message);
-    throw err;
   }
+  if (purged) console.log(`[retention] ${purged} chat-üzenet törölve`);
   return purged;
 }
 

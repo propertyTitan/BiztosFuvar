@@ -864,13 +864,14 @@ export const api = {
       created_at: string;
       full_name: string | null;
       email: string;
+      review_token: string;
     }>>(`/admin/kyc-documents?status=${status}`),
 
   /** KYC dokumentum jóváhagyása / elutasítása (elutasításhoz indok kell). */
-  reviewKyc: (id: string, action: 'approve' | 'reject', reason?: string) =>
+  reviewKyc: (id: string, action: 'approve' | 'reject', reviewToken: string, reason?: string) =>
     request<{ ok: boolean; status: string }>(`/admin/kyc-documents/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ action, reason }),
+      body: JSON.stringify({ action, reason, review_token: reviewToken }),
     }),
 
   /** Élő jelenlét — kik vannak éppen az oldalon (aktív socket-kapcsolatok). */

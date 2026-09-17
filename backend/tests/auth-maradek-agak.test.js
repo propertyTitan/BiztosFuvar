@@ -500,7 +500,9 @@ describe('POST /auth/kyc-document — okmány-előzmény és mellékhatás-hibá
     await db.query('UPDATE users SET full_name = $1 WHERE id = $2', ['Teszt Shipper', user.id]);
 
     // A lenyomat túléli a fiók törlését: ugyanaz a HMAC, deleted_account_count > 0.
-    const okmanyszam = 'AB1234567';
+    // Más teszt élő okmánya nem térítheti át ezt az előzményvizsgálatot
+    // a duplikáció ágára; a közös DB-ben a sorrend változhat.
+    const okmanyszam = `HISTORY-${user.id}`;
     const lenyomat = pepper.hmac(okmanyszam.trim().toUpperCase());
     await db.query(
       `INSERT INTO kyc_doc_history (doc_number_hash, hash_algo, deleted_account_count, last_deletion_reason)

@@ -23,6 +23,7 @@
  * Pontosan az egyiknek kell szerepelnie.
  */
 const RETENTION_MANIFEST = {
+  pickup_notification_queue: { szabaly: 'Csatornánként sikeres küldéskor törlődik; lezárt ügyletnél vagy 48 óra után a percenkénti runPickupNotifications törli. Csak ügylet-hivatkozás, a szülővel CASCADE.' },
   file_deletion_queue: { szabaly: 'Sikeres tárhelytörlés után azonnal törlődik; hibánál tartós retry és riasztás (processFileDeletionQueue, napi retenció).' },
   payment_sessions: { szabaly: 'Lezárt munkamenet 8 év után törlődik (purgeOldPaymentEvents); függő vagy egyeztetendő pénzkapcsolat megmarad a rendezésig.' },
   // ── Gépesített retenció ──────────────────────────────────────────────

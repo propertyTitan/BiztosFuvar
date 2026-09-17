@@ -160,7 +160,7 @@ describe('Feketedoboz: a teljes út a nyilvános felületen', () => {
     const jovahagy = await request(app)
       .patch(`/admin/kyc-documents/${dok.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ action: 'approve' });
+      .send({ action: 'approve', review_token: dok.review_token });
     expect(jovahagy.status, `a KYC-jóváhagyás elbukott: ${JSON.stringify(jovahagy.body)}`).toBe(200);
 
     // ── 3. A feladó fuvart ad fel ───────────────────────────────────

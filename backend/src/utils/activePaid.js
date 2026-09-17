@@ -2,7 +2,7 @@
 //  Adatvesztés-védelem: van-e a felhasználónak olyan ügylete, ami miatt a
 //  fiók-törlése (admin VAGY self-service) tiltandó?
 //
-//  KÉT eset zárja a törlést:
+//  Az alábbi esetek zárják a törlést:
 //   (1) AKTÍV + FIZETETT job VAGY booking (bármelyik oldalon) — a törlés
 //       kaszkádol (users → carrier_routes → route_bookings), így egy
 //       szállító törlése MÁS feladók kifizetett foglalásait is elvinné.
@@ -16,6 +16,9 @@
 //       szándékosan megmarad (5 év, ÁSZF + tájékoztató), a fióktörlés CASCADE-je
 //       viszont a fotókat/chatet vitte volna. Két ígéret ütközött; a
 //       megőrzés nyer — a törlés a zárolás lejártáig ügyfélszolgálati ügy.
+//
+//  (4) Függő fizetés vagy díjszámla: a számlapótlásnak még szüksége van
+//      a vevőre és az ügyletre. Sikeres számlázás után a védelem feloldódik.
 //
 //  Előbb le kell zárni az ügyletet (kézbesítés / lemondás / vita), utána
 //  a törlés szabad. Az admin-törlés, a self-delete ÉS az alvó-fiók auto-purge
@@ -49,7 +52,12 @@ async function userHasBlockingDealings(userId, client = db) {
              OR EXISTS (SELECT 1 FROM jobs j WHERE j.id = p.job_id AND j.carrier_id = $1)
              OR EXISTS (SELECT 1 FROM route_bookings b JOIN carrier_routes r ON r.id = b.route_id
                          WHERE b.id = p.booking_id AND (b.shipper_id = $1 OR r.carrier_id = $1)))
-            AND p.state IN ('pending', 'needs_review')) AS n`,
+            AND p.state IN ('pending', 'needs_review'))
+     + (SELECT COUNT(*) FROM fee_payment_receipts f
+          WHERE f.invoice_pending AND (f.shipper_id = $1
+             OR EXISTS (SELECT 1 FROM jobs j WHERE j.id = f.job_id AND j.shipper_id = $1)
+             OR EXISTS (SELECT 1 FROM route_bookings b JOIN carrier_routes r ON r.id = b.route_id
+                         WHERE b.id = f.booking_id AND (b.shipper_id = $1 OR r.carrier_id = $1)))) AS n`,
     [userId],
   );
   return Number(rows[0]?.n || 0) > 0;

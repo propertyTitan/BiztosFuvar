@@ -35,3 +35,23 @@ test('admin jóváhagyja a függő KYC-dokumentumot → a user verified lesz', a
   );
   expect(users[0].identity_kyc_status).toBe('verified');
 });
+
+test('a közben kicserélt okmányhoz új megtekintés és új döntés szükséges', async ({ page }) => {
+  const applicant = await createUser('carrier', 'Kyc Friss Fanni', 'pending');
+  const { rows } = await dbQuery(`INSERT INTO kyc_documents(user_id,doc_type,file_url,status)
+    VALUES($1,'id_card','/uploads/e2e-kyc-old.png','pending') RETURNING id`, [applicant.id]);
+  const admin = await createUser('admin', 'Kyc Ellenőr');
+  await loginAs(page, admin);
+  await page.goto('/admin#kyc');
+  const card = page.locator('.card', { hasText: 'Kyc Friss Fanni' }).first();
+  await expect(card.getByRole('button', { name: 'Jóváhagyom' })).toBeVisible();
+  await dbQuery(`UPDATE kyc_documents SET file_url='/uploads/e2e-kyc-new.png', uploaded_at=NOW()
+    WHERE id=$1`, [rows[0].id]);
+  await card.getByRole('button', { name: 'Jóváhagyom' }).click();
+  await expect(page.getByText(/Az okmány vagy a profil időközben megváltozott/)).toBeVisible();
+  await expect(card.locator('img')).toHaveAttribute('src', /e2e-kyc-new\.png/);
+  expect((await dbQuery('SELECT identity_kyc_status FROM users WHERE id=$1', [applicant.id])).rows[0].identity_kyc_status).toBe('pending');
+  await card.getByRole('button', { name: 'Jóváhagyom' }).click();
+  await expect(page.getByText('Jóváhagyva').first()).toBeVisible();
+  expect((await dbQuery('SELECT identity_kyc_status FROM users WHERE id=$1', [applicant.id])).rows[0].identity_kyc_status).toBe('verified');
+});

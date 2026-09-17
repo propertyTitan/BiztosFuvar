@@ -1,5 +1,101 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
+2026-09-17 – TELJES AUDIT, 1–3. JAVÍTÁSI KÖR
+
+Fejlesztési ág: fix/audit-rounds-1-3. Alap: f94377e (runtime: a1ef089).
+Összevonási ág: fix/launch-audit-rounds-1-3, közvetlenül a1ef089 mainről.
+Az eredeti három javítás megfelelői itt: 1f022b3, 93db204, ac1d50b.
+Az alkalmazáskód az eredeti javítóágéval azonos;
+a külön dokumentációs átszervezés (PR #242) önálló marad.
+A felhasználó által kért három kör 2 P0 és 6 P1 megállapítást érint.
+A korábbi bejegyzések telepítési állítása a korábbi csomagokra vonatkozik.
+Merge-előkészítés: a 091-es migráció productionben lefutott (91 alkalmazott,
+0 függő migráció). A kód összevonását a PR CI-ellenőrzése előzi meg;
+a main merge után Railway és Vercel automatikusan telepít.
+
+1. KÖR – BIZONYÍTÉKMEGŐRZÉS (54c3a7f)
+- P0-01 / P1-05: az admin fuvar-, foglalás- és járattörlése ugyanazon
+  tranzakcióban zárolja és ellenőrzi az ügyletet, gyűjti a fájlokat,
+  rögzíti a tartós fájltörlési feladatot, majd törli az adatot.
+  Fizetés, vita vagy megőrzési zárolás esetén 409. Tárhelyhiba után
+  a feladat megmarad; a válasz files_pending értéke ezt jelzi.
+  Fájlok: services/entityDeletion.js, routes/admin.js, utils/userFiles.js.
+- P0-02: a chatretenció a vitanyitással közös ügyletsorzár alatt,
+  friss jogosultsági feltétellel töröl. A közben megnyitott vita
+  bizonyítékát egy korábbi retenciós pillanatkép nem törölheti.
+  Fájl: backend/src/services/retention.js.
+Ellenőrzés: 82 célzott teszt, valódi párhuzamos zárolással és retryval.
+Kockázat: közepes (törlés, retenció és zárolási sorrend).
+
+2. KÖR – MEGÁLLAPODÁS ÉS AZONOSÍTÁS (4bd8f4d)
+- P1-01: a lemondás az olvasott sorverzióra és szállítóra feltételes.
+  Régi lemondás nem nyithatja újra az időközben megkötött megállapodást,
+  akkor sem, ha újra ugyanaz a szállító kapta a munkát.
+  Fájl: backend/src/routes/jobs.js.
+- P1-04: a kézi KYC-döntés a megtekintett okmány/profil aláírt verzióját
+  ellenőrzi user- és okmánysorzár alatt. A két státusz együtt commitol.
+  Közbeni feltöltés, névcsere vagy másik admin döntése esetén 409;
+  az adminfelület frissít, új ellenőrzést és új döntést kér.
+  Fájlok: backend/src/services/manualKyc.js, routes/admin.js,
+  web/app/admin/page.tsx, web/src/api.ts.
+Ellenőrzés: 168 célzott backendteszt, web typecheck, 2 KYC-böngészőteszt.
+Kockázat: közepes. A backend és az admin kliens szerződése együtt változik;
+régi adminoldal döntése 409-et kap, az oldal frissítése szükséges.
+
+3. KÖR – HELYREÁLLÍTHATÓSÁG
+- P1-02: függő díjszámla mellett a fiók, a fuvar, a foglalás és a
+  foglalást kaszkádoló szállító/járat törlése blokkolt. A meglévő
+  számlapótló sikeres futása után a törlés engedett. Ez a minimális
+  adatmegőrzési védelem; nem vezet be második számlázási adatmodellt.
+  Fájlok: backend/src/utils/activePaid.js, services/entityDeletion.js,
+  routes/auth.js, routes/admin.js.
+- P1-03: a felvételi állapotváltás tranzakciója SMS- és emailfeladatot
+  ment. A tartós sor csatornánként dolgozik, sikertelen csatornát próbál
+  újra, percenként és újraindítás után is. Az SMS-szöveg, a háromszegmenses
+  plafon és az egyszeri felvételi esemény megmarad. A külön SMS-retry
+  nem kap másolatot ugyanerről a feladatról. Lezárt ügyletre nem megy
+  késői „úton van” üzenet; a 48 órán át sikertelen küldés riaszt.
+  Fájlok: backend/src/services/pickupNotifications.js, photoEvidence.js,
+  routes/photos.js, index.js; 091_pickup_notification_queue.sql.
+- P1-06: a profilkép tárhelyírása előtt tartós takarítási feladat készül.
+  A profil frissítése és a feladat feloldása együtt commitol; a régi
+  kép törlése is tartós feladat. DB-hiba, párhuzamos csere, közbeni
+  fióktörlés és elveszett COMMIT-visszaigazolás mellett sincs vak törlés.
+  Fájlok: backend/src/services/avatarUpload.js, storage.js, routes/auth.js.
+Kockázat: közepes (új sorfeldolgozó, fájl-életciklus, pénzügyi törlésvédelem).
+
+TELJES ELLENŐRZÉS
+- Backend: 2032/2032 sikeres; ebből 45 új regressziós próba az 1–3. körben.
+- Lefedettségi kapu: sikeres (sor 93,33%, utasítás 91,75%, függvény 88,04%,
+  ág 84,11%). A küszöbök nem változtak.
+- Frontend: 192/192 sikeres; a production build utáni typecheck is sikeres.
+- Böngészős teljes regresszió: 240/240 sikeres, retries=0, 8,6 perc.
+  Helyi teljes stack, köztük valódi Places-címkeresés, díjfizetés/kézbesítés,
+  járatfoglalás, KYC-verziócsere, mobil, kontraszt, axe és linkellenőrzés.
+- Production build: sikeres. A sandbox elsőre blokkolta a Google Fonts
+  letöltését; engedélyezett hálózati futásban a build rendben elkészült.
+- A teljes futáskor egy korábbi KYC-teszt közös, fix okmányszáma
+  sorrendfüggő ütközést okozott. Egyedi tesztadattal javítva; a korábban
+  törölt fiók és az élő duplikátum üzleti megkülönböztetése megmaradt.
+- A PR első backend CI-futásában az SMS-teszt a teljes közös retry-sort
+  várta üresnek. Az ellenőrzés most szándékosan meglévő másik feladat
+  mellett követeli meg a sor változatlanságát és a queueOnFailure=false
+  küldési opciót. Az alkalmazás működése nem változott.
+
+TELEPÍTÉS ÉS KORLÁTOK
+- Sorrend: 091 migráció → backend és web. A migráció csak új táblát/indexet
+  hoz létre; nem javít vagy ír át történeti üzleteket. Régi backenddel
+  kompatibilis, alkalmazás-visszaállításkor a tábla maradjon meg.
+- A javítás előtti elveszett számlavevő/fájlhivatkozás vagy értesítés
+  utólagos helyreállítását nem állítjuk. Függő számla kézi egyeztetése
+  továbbra is szükséges, ha a számlázó eredménye bizonytalan.
+- Külső küldési visszaigazolás és DB-COMMIT között bekövetkező leállás
+  után ismételt üzenet lehetséges: szolgáltatói idempotencia nélkül
+  pontosan egyszeri kézbesítést nem ígérünk. A párhuzamos munkások és
+  az egyik csatorna hibája önmagukban nem dupláznak.
+- Az éles banki, SMS/email- és R2-kapcsolatot a helyi tesztek nem igazolják.
+  A launch-kapcsolók, a díjszabás és a natív alkalmazás nem változnak.
+
 2026-09-15 – A 6272f5e UTÓAUDITJÁNAK MARADÉK KÉT P1 JAVÍTÁSA
 
 Ág: fix/launch-two-p1. Két külön javító commit; a korábbi öt javítás a

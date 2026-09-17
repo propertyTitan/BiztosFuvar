@@ -101,7 +101,7 @@ function telefonMaxHossz() {
   // A sablon NORMALIZÁL (csak számjegy és '+'), ezért a mértékadó korlát a
   // számjegyek felső határa, nem a nyers string hossza. Ha a sablonból
   // eltűnne a normalizálás, ez a szám alábecsülne — ezért külön ellenőrizzük.
-  const forras = readFileSync(`${__dirname}/../src/routes/photos.js`, 'utf8');
+  const forras = readFileSync(`${__dirname}/../src/services/pickupNotifications.js`, 'utf8');
   const normalizal = /replace\(\/\[\^\\d\+\]\/g, ''\)/.test(forras);
   if (!normalizal) {
     throw new Error(

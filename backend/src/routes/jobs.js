@@ -1326,6 +1326,8 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
+    // A státusz visszatérhet accepted-re egy másik megállapodásban is.
+    // A kiolvasott sorverzió és szállító együtt zárja ki az elavult lemondást.
     const ujranyit = await client.query(
       `UPDATE jobs
           SET status = 'bidding',
@@ -1338,8 +1340,9 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
               payment_reminder_count = 0,
               last_payment_reminder_at = NULL,
               updated_at = NOW()
-        WHERE id = $1 AND status = 'accepted'`,
-      [j.id],
+        WHERE id = $1 AND status = 'accepted' AND carrier_id IS NOT DISTINCT FROM $2::uuid
+          AND xmin::text = $3`,
+      [j.id, failedCarrierId || null, j.agreement_version],
     );
     if (ujranyit.rowCount === 0) {
       await client.query('ROLLBACK');
@@ -1398,7 +1401,7 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
   if (!indok.ok) return res.status(400).json({ error: indok.error, code: indok.code });
   const reason = indok.value;
   const { rows } = await db.query(
-    `SELECT j.*,
+    `SELECT j.*, j.xmin::text AS agreement_version,
             s.full_name AS shipper_name, s.email AS shipper_email,
             c.full_name AS carrier_name, c.email AS carrier_email
        FROM jobs j
@@ -1574,7 +1577,7 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
   if (!indok.ok) return res.status(400).json({ error: indok.error, code: indok.code });
   const reason = indok.value;
   const { rows } = await db.query(
-    `SELECT j.*, c.full_name AS carrier_name
+    `SELECT j.*, j.xmin::text AS agreement_version, c.full_name AS carrier_name
        FROM jobs j
   LEFT JOIN users c ON c.id = j.carrier_id
       WHERE j.id = $1`,

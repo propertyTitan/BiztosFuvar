@@ -9,51 +9,25 @@ const express = require('express');
 const db = require('../db');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
-const {
-  collectEntityFileKeys, purgeFileKeys,
-} = require('../utils/userFiles');
+const { deleteEntity } = require('../services/entityDeletion');
+const manualKyc = require('../services/manualKyc');
 const { logAdminAccess } = require('../utils/adminAudit');
 const { authRequired, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 const adminOnly = [authRequired, requireRole('admin')];
 
-// ── Adatvesztés-védelem az admin törlő-műveletekhez (2026-08-08) ──
-// A törlések kaszkádolnak: egy fizetett, folyamatban lévő ügyletet ne lehessen
-// egy admin-kattintással megsemmisíteni (a route törlése a foglalásait, a
-// user törlése a járatait → foglalásait viszi). A guard konzervatív: CSAK az
-// aktív + FIZETETT eseteket zárja; terminál/fizetetlen ügylet szabadon
-// törölhető. Ha az admin tényleg törölni akar, előbb zárja le a tranzakciót
-// (kézbesítés / lemondás / vita).
-const ACTIVE_PAID_MSG = 'Ez az elem folyamatban lévő, kifizetett ügylethez tartozik. '
-  + 'Előbb zárd le (kézbesítés / lemondás / vita), utána törölhető.';
-
-/** Aktív + fizetett fuvar-e ez a job? */
-async function jobIsActivePaid(jobId) {
-  const { rows } = await db.query(
-    `SELECT 1 FROM jobs WHERE id = $1 AND paid_at IS NOT NULL
-        AND status NOT IN ('delivered', 'completed', 'cancelled')`,
-    [jobId],
-  );
-  return rows.length > 0;
-}
-/** Aktív + fizetett foglalás-e ez a booking? */
-async function bookingIsActivePaid(bookingId) {
-  const { rows } = await db.query(
-    `SELECT 1 FROM route_bookings WHERE id = $1 AND paid_at IS NOT NULL
-        AND status NOT IN ('delivered', 'cancelled', 'rejected')`,
-    [bookingId],
-  );
-  return rows.length > 0;
-}
-/** Van-e a járaton aktív + fizetett foglalás (amit a route-törlés elvinne)? */
-async function routeHasActivePaidBooking(routeId) {
-  const { rows } = await db.query(
-    `SELECT 1 FROM route_bookings WHERE route_id = $1 AND paid_at IS NOT NULL
-        AND status NOT IN ('delivered', 'cancelled', 'rejected')`,
-    [routeId],
-  );
-  return rows.length > 0;
+// A közös szolgáltatás védi az aktív fizetést, a vitát és a zárolt bizonyítékot.
+function deleteEntityHandler(type, missingMessage) {
+  return async (req, res) => {
+    const result = await deleteEntity(type, req.params.id);
+    if (result.missing) return res.status(404).json({ error: missingMessage });
+    if (result.blocked) return res.status(409).json({
+      error: 'Az ügylet fizetése, függő számlázása, vitája vagy bizonyítékmegőrzési zárolása miatt nem törölhető. Előbb rendezd a kapcsolódó ügyet.',
+      code: 'HAS_ACTIVE_PAID',
+    });
+    res.json({ ok: true, files_pending: result.filesPending });
+  };
 }
 
 // ===================== ÉLŐ JELENLÉT =====================
@@ -239,7 +213,7 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
 
   const result = await require('../services/accountDeletion').deleteAccount(targetId, { reason: 'admin' });
   if (result.blocked) return res.status(409).json({
-    error: 'A felhasználó függő fizetés, aktív fizetett ügylet, vita vagy zárolt bizonyíték miatt még nem törölhető.',
+    error: 'A felhasználó függő fizetés vagy számlázás, aktív fizetett ügylet, vita vagy zárolt bizonyíték miatt még nem törölhető.',
     code: 'USER_HAS_ACTIVE_PAID',
   });
   if (result.missing) return res.status(404).json({ error: 'Felhasználó nem található' });
@@ -358,17 +332,7 @@ router.get('/admin/jobs', ...adminOnly, async (req, res) => {
 });
 
 // DELETE /admin/jobs/:id — fuvar törlése
-router.delete('/admin/jobs/:id', ...adminOnly, async (req, res) => {
-  if (await jobIsActivePaid(req.params.id)) {
-    return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
-  }
-  // A tárolt fájlok kulcsai a DB-CASCADE ELŐTT (különben örök árvák lesznek).
-  const fajlKulcsok = await collectEntityFileKeys('job', req.params.id);
-  const del = await db.query('DELETE FROM jobs WHERE id = $1 RETURNING id', [req.params.id]);
-  if (del.rowCount === 0) return res.status(404).json({ error: 'Fuvar nem található' });
-  await purgeFileKeys(fajlKulcsok);
-  res.json({ ok: true });
-});
+router.delete('/admin/jobs/:id', ...adminOnly, deleteEntityHandler('job', 'Fuvar nem található'));
 
 // PATCH /admin/jobs/:id — fuvar státusz módosítása
 // ⚠️ A 'disputed' NEM ÁLLÍTHATÓ BE KÉZZEL (2026-08-11, séma-audit T1-R).
@@ -475,18 +439,7 @@ router.get('/admin/routes', ...adminOnly, async (req, res) => {
 });
 
 // DELETE /admin/routes/:id — útvonal törlése
-router.delete('/admin/routes/:id', ...adminOnly, async (req, res) => {
-  if (await routeHasActivePaidBooking(req.params.id)) {
-    return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
-  }
-  // A járat törlése a foglalásain át kaszkádol a fotókra — a kulcsokat előbb
-  // gyűjtjük ki, a tárolóból törlés a sikeres DB-törlés után.
-  const fajlKulcsok = await collectEntityFileKeys('route', req.params.id);
-  const del = await db.query('DELETE FROM carrier_routes WHERE id = $1 RETURNING id', [req.params.id]);
-  if (del.rowCount === 0) return res.status(404).json({ error: 'Járat nem található' });
-  await purgeFileKeys(fajlKulcsok);
-  res.json({ ok: true });
-});
+router.delete('/admin/routes/:id', ...adminOnly, deleteEntityHandler('route', 'Járat nem található'));
 
 // ===================== FOGLALÁSOK =====================
 
@@ -508,16 +461,7 @@ router.get('/admin/bookings', ...adminOnly, async (req, res) => {
 });
 
 // DELETE /admin/bookings/:id — foglalás törlése
-router.delete('/admin/bookings/:id', ...adminOnly, async (req, res) => {
-  if (await bookingIsActivePaid(req.params.id)) {
-    return res.status(409).json({ error: ACTIVE_PAID_MSG, code: 'HAS_ACTIVE_PAID' });
-  }
-  const fajlKulcsok = await collectEntityFileKeys('booking', req.params.id);
-  const del = await db.query('DELETE FROM route_bookings WHERE id = $1 RETURNING id', [req.params.id]);
-  if (del.rowCount === 0) return res.status(404).json({ error: 'Foglalás nem található' });
-  await purgeFileKeys(fajlKulcsok);
-  res.json({ ok: true });
-});
+router.delete('/admin/bookings/:id', ...adminOnly, deleteEntityHandler('booking', 'Foglalás nem található'));
 
 // ===================== KYC DOKUMENTUMOK =====================
 
@@ -538,22 +482,20 @@ router.get('/admin/kyc-documents', ...adminOnly, async (req, res) => {
   // az admin-felületnek — a régi, publikus URL-es sorok változatlanul
   // átmennek (a migrációs szkript költözteti őket).
   const { getSignedPrivateUrl } = require('../services/storage');
-  const out = await Promise.all(rows.map(async (r) => (
+  const out = await Promise.all(rows.map(async (row) => {
+    const r = { ...row, review_token: manualKyc.reviewToken(row) };
+    return (
     r.file_url && r.file_url.startsWith('private:')
       ? { ...r, file_url: await getSignedPrivateUrl(r.file_url) }
       : r
-  )));
+    );
+  }));
   res.json(out);
 });
 
 // PATCH /admin/kyc-documents/:id — KYC dokumentum kézi jóváhagyása/elutasítása.
 // Frissíti a dokumentum státuszát ÉS a felhasználó megfelelő KYC-mezőjét a
 // doc_type alapján, majd értesíti a felhasználót a döntésről.
-const KYC_DOC_FIELD = {
-  id_card: 'identity_kyc_status',
-  drivers_license: 'driver_kyc_status',
-  company_document: 'company_verification_status',
-};
 router.patch('/admin/kyc-documents/:id', ...adminOnly, async (req, res) => {
   const { action, reason } = req.body || {};
   if (!['approve', 'reject'].includes(action)) {
@@ -563,45 +505,15 @@ router.patch('/admin/kyc-documents/:id', ...adminOnly, async (req, res) => {
     return res.status(400).json({ error: 'Elutasításhoz indoklás szükséges.' });
   }
 
-  const { rows } = await db.query(
-    'SELECT user_id, doc_type, status FROM kyc_documents WHERE id = $1',
-    [req.params.id],
-  );
-  const doc = rows[0];
-  if (!doc) return res.status(404).json({ error: 'KYC dokumentum nem található.' });
-
-  const docStatus = action === 'approve' ? 'approved' : 'rejected';
-  const userStatus = action === 'approve' ? 'verified' : 'rejected';
-  const rejectionReason = action === 'reject' ? String(reason).trim() : null;
-
-  await db.query(
-    `UPDATE kyc_documents
-        SET status = $1, reviewed_by = $2, reviewed_at = NOW(), rejection_reason = $3,
-            -- A FUGGO LENYOMAT ELOLEP (2026-08-11, 10. meres F5).
-            -- Jovahagyaskor a duplikatum-gyanus feltoltes lenyomata bekerul az
-            -- eles oszlopba, tehat az "egy okmany = egy fiok" vedelem
-            -- visszaall. Ha a masik fiok ugye NINCS rendezve, a parcialis
-            -- UNIQUE index utkozik - ezt az admin latja, es elobb azt kell
-            -- rendeznie. Elutasitasnal a fuggo lenyomat marad, hogy egy kesobbi
-            -- jovahagyas meg elolephessen.
-            doc_number_hash = CASE WHEN $1 = 'approved'
-                                   THEN COALESCE(doc_number_hash, pending_doc_number_hash)
-                                   ELSE doc_number_hash END,
-            pending_doc_number_hash = CASE WHEN $1 = 'approved'
-                                           THEN NULL ELSE pending_doc_number_hash END,
-            hash_algo = CASE WHEN $1 = 'approved' AND doc_number_hash IS NULL
-                                  AND pending_doc_number_hash IS NOT NULL
-                             THEN 'hmac-sha256' ELSE hash_algo END
-      WHERE id = $4`,
-    [docStatus, req.user.sub, rejectionReason, req.params.id],
-  );
-
-  // A felhasználó megfelelő KYC-mezője a doc_type alapján (fix whitelist —
-  // a mezőnév sosem a kérésből jön, így nincs SQL-injekció).
-  const field = KYC_DOC_FIELD[doc.doc_type];
-  if (field) {
-    await db.query(`UPDATE users SET ${field} = $1 WHERE id = $2`, [userStatus, doc.user_id]);
-  }
+  const result = await manualKyc.reviewDocument({
+    id: req.params.id, adminId: req.user.sub, action, reason, expectedToken: req.body.review_token,
+  });
+  if (result.missing) return res.status(404).json({ error: 'KYC dokumentum nem található.' });
+  if (result.changed) return res.status(409).json({
+    error: 'Az okmány vagy a profil időközben megváltozott. Frissítsd a listát, és ellenőrizd újra a dokumentumot.',
+    code: 'KYC_REVIEW_CHANGED',
+  });
+  const { doc, docStatus, rejectionReason } = result;
 
   // Értesítés a felhasználónak a döntésről
   await createNotification({
