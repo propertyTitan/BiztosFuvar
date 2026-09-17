@@ -34,7 +34,10 @@ async function deleteEntity(type, id) {
          AND status IN ('open', 'under_review')
        UNION ALL
        SELECT 1 FROM payment_sessions WHERE (job_id = $1 OR booking_id = ANY($2::uuid[]))
-         AND state IN ('pending', 'needs_review') LIMIT 1`, [jobId, bookingIds],
+         AND state IN ('pending', 'needs_review')
+       UNION ALL
+       SELECT 1 FROM fee_payment_receipts WHERE (job_id = $1 OR booking_id = ANY($2::uuid[]))
+         AND invoice_pending LIMIT 1`, [jobId, bookingIds],
     );
     if (blockers.rows.length) return { blocked: true };
     const keys = await files.collectEntityFileKeys(type, id, client);

@@ -132,8 +132,12 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
 
     // 2. lépés: új avatar feltöltése → a kód a „régi avatart" törli
     const torles = vi.spyOn(storage, 'deleteFile').mockResolvedValue(true);
-    vi.spyOn(storage, 'saveFile').mockResolvedValue('https://r2.pelda.hu/uj-avatar.jpg');
-    await request(app).post('/auth/avatar').set(auth(tamado.token)).attach('file', JPEG, 'k.jpg');
+    vi.spyOn(storage, 'saveFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave }) => {
+      const key = 'https://r2.pelda.hu/uj-avatar.jpg';
+      await beforeSave(key);
+      return key;
+    });
+    expect((await request(app).post('/auth/avatar').set(auth(tamado.token)).attach('file', JPEG, 'k.jpg')).status).toBe(200);
 
     expect(
       torles.mock.calls.flat(),
@@ -146,9 +150,13 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
     const user = await createUser({ role: 'shipper' });
     await db.query('UPDATE users SET avatar_url = $2 WHERE id = $1', [user.id, 'https://r2.pelda.hu/regi-sajat.jpg']);
     const torles = vi.spyOn(storage, 'deleteFile').mockResolvedValue(true);
-    vi.spyOn(storage, 'saveFile').mockResolvedValue('https://r2.pelda.hu/uj.jpg');
+    vi.spyOn(storage, 'saveFile').mockImplementation(async (_buffer, _name, _mime, { beforeSave }) => {
+      const key = 'https://r2.pelda.hu/uj.jpg';
+      await beforeSave(key);
+      return key;
+    });
 
-    await request(app).post('/auth/avatar').set(auth(user.token)).attach('file', JPEG, 'k.jpg');
+    expect((await request(app).post('/auth/avatar').set(auth(user.token)).attach('file', JPEG, 'k.jpg')).status).toBe(200);
 
     expect(
       torles.mock.calls.flat(),

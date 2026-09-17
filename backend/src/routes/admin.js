@@ -23,7 +23,7 @@ function deleteEntityHandler(type, missingMessage) {
     const result = await deleteEntity(type, req.params.id);
     if (result.missing) return res.status(404).json({ error: missingMessage });
     if (result.blocked) return res.status(409).json({
-      error: 'Az ügylet fizetése, vitája vagy bizonyítékmegőrzési zárolása miatt nem törölhető. Előbb rendezd a kapcsolódó ügyet.',
+      error: 'Az ügylet fizetése, függő számlázása, vitája vagy bizonyítékmegőrzési zárolása miatt nem törölhető. Előbb rendezd a kapcsolódó ügyet.',
       code: 'HAS_ACTIVE_PAID',
     });
     res.json({ ok: true, files_pending: result.filesPending });
@@ -213,7 +213,7 @@ router.delete('/admin/users/:id', ...adminOnly, async (req, res) => {
 
   const result = await require('../services/accountDeletion').deleteAccount(targetId, { reason: 'admin' });
   if (result.blocked) return res.status(409).json({
-    error: 'A felhasználó függő fizetés, aktív fizetett ügylet, vita vagy zárolt bizonyíték miatt még nem törölhető.',
+    error: 'A felhasználó függő fizetés vagy számlázás, aktív fizetett ügylet, vita vagy zárolt bizonyíték miatt még nem törölhető.',
     code: 'USER_HAS_ACTIVE_PAID',
   });
   if (result.missing) return res.status(404).json({ error: 'Felhasználó nem található' });

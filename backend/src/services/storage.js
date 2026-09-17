@@ -118,13 +118,15 @@ if (!fs.existsSync(PRIVATE_DIR)) fs.mkdirSync(PRIVATE_DIR, { recursive: true });
  * @returns {Promise<string>} a fájl publikus URL-je (R2 esetén teljes URL,
  *                            disk esetén `/uploads/xxx.jpg` relatív)
  */
-async function saveFile(buffer, originalName, mimetype) {
+async function saveFile(buffer, originalName, mimetype, { beforeSave } = {}) {
   const ext = (originalName?.split('.').pop() || 'jpg').toLowerCase();
   const safeExt = /^[a-z0-9]{1,6}$/.test(ext) ? ext : 'jpg';
   const filename = `${crypto.randomBytes(16).toString('hex')}.${safeExt}`;
 
   // ── R2 mód ──
   if (r2Client && r2Config) {
+    // A nyilvántartás hibája nem indíthat követhetetlen disk-fallbacket.
+    if (beforeSave) await beforeSave(`${r2Config.publicUrl}/${filename}`);
     try {
       const { PutObjectCommand } = require('@aws-sdk/client-s3');
       await r2Client.send(
@@ -136,6 +138,7 @@ async function saveFile(buffer, originalName, mimetype) {
           // Cache-Control: a képek immutable-ek (hash-név), évekig cache-elhetők
           CacheControl: 'public, max-age=31536000, immutable',
         }),
+        { abortSignal: AbortSignal.timeout(60_000) },
       );
       return `${r2Config.publicUrl}/${filename}`;
     } catch (err) {
@@ -161,6 +164,7 @@ async function saveFile(buffer, originalName, mimetype) {
   }
 
   // ── Disk fallback ──
+  if (beforeSave) await beforeSave(`/uploads/${filename}`);
   const filepath = path.join(UPLOADS_DIR, filename);
   fs.writeFileSync(filepath, buffer);
   return `/uploads/${filename}`;

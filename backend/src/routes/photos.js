@@ -233,68 +233,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       link: `/dashboard/fuvar/${jobId}`,
     }).catch((e) => console.warn('[notifications] job_picked_up hiba:', e.message));
 
-    // AZ EGYETLEN CÍMZETT-SMS (2026-07-13 user-döntés): a csomag
-    // felvételekor megy ki, az átvételhez szükséges adatokkal — 6 jegyű
-    // kód + a szállító neve/telefonszáma. Minden más értesítés email/in-app
-    // (SMS ~20-30 Ft/db, email ~0). Ékezet nélkül: 1 GSM-szegmens maradjon.
-    setImmediate(async () => {
-      try {
-        const { rows: pickRows } = await db.query(
-          `SELECT j.recipient_phone, j.recipient_email, j.recipient_name, j.title,
-                  j.tracking_token, j.delivery_code,
-                  c.full_name AS carrier_name, c.phone AS carrier_phone
-             FROM jobs j
-        LEFT JOIN users c ON c.id = j.carrier_id
-            WHERE j.id = $1`,
-          [jobId],
-        );
-        const pi = pickRows[0];
-        // A CÍMZETT FELVÉTELI E-MAILJE (2026-09-11, teljes audit A4): a kód
-        // ide költözött a feladáskori levélből — most van szállító, és most
-        // kell a kód. Lazy require + objektumon át (a tesztek elkapják).
-        if (pi && pi.recipient_email && pi.delivery_code) {
-          const emailSvc = require('../services/email');
-          const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
-          emailSvc.sendRecipientPickupEmail({
-            to: pi.recipient_email, recipientName: pi.recipient_name, jobTitle: pi.title,
-            trackingUrl: `${baseUrl}/nyomon-kovetes/${pi.tracking_token}`, deliveryCode: pi.delivery_code,
-            carrierName: pi.carrier_name, carrierPhone: pi.carrier_phone,
-          }).catch((e) => console.warn('[email] recipient pickup hiba:', e.message));
-        }
-        if (pi && pi.recipient_phone && pi.delivery_code) {
-          const { sendSms } = require('../services/sms');
-          // Név-plafon: az üzenet 134 karakter alatt maradjon (= max 2
-          // UCS-2 szegmens). ⚠️ 2026-08-10: a szöveg végére bekerült a GDPR
-          // 14. cikk szerinti mutató — a CSAK TELEFONSZÁMMAL megadott
-          // címzettnek ez az EGYETLEN csatorna, amin egyáltalán megtudhatja,
-          // ki kezeli az adatait. Hogy ne kelljen 3. szegmenst fizetni
-          // (~+19 Ft/fuvar), a telefonszám zárójelei elmaradtak és a
-          // név-plafon 20 → 18. Az `sms-szegmens-or.test.js` őrzi a határt.
-          // ⚠️ A TELEFONSZÁM NORMALIZÁLVA (2026-08-11): a `cleanPhone` 30
-          // karakterig, SZÓKÖZZEL és kötőjellel is elfogadja, és a tárolt érték
-          // a felhasználó saját formázása. Egy szokványos „+36 30 123 4567"
-          // már 3 szegmensbe (~+19 Ft/fuvar) vitte volna az üzenetet. A csak
-          // számjegyekre szűkített alak rövidebb ÉS jobban hívható.
-          // Név-plafon 18 → 14, hogy a 15 számjegyes nemzetközi maximum
-          // mellett is beleférjünk 2 szegmensbe.
-          const tel = (pi.carrier_phone || '').replace(/[^\d+]/g, '');
-          const nev = (pi.carrier_name || '').slice(0, 14);
-          const sofor = nev
-            ? ` Szállító: ${nev}${tel ? ` ${tel}` : ''}.`
-            : '';
-          // ⚠️ 3 SZEGMENS (2026-09-10, user-döntés): a címzett eddig nem tudta
-          // meg, hogy a kódot CSAK átadáskor szabad kimondania — előre bediktálva
-          // a kód elveszti a bizonyíték-értékét. A mondat +~35 karakter → 3 UCS-2
-          // szegmens (~57 Ft/fuvar, +19 Ft); a user vállalta. Az őr
-          // (sms-szegmens-or) a 3-as plafont ÉS a mondat meglétét tartja.
-          sendSms(pi.recipient_phone,
-            `GoFuvar: úton a csomagod! Átvételi kód: ${pi.delivery_code} – csak az átadáskor add meg a szállítónak.${sofor} Egyeztess vele az érkezésről! Adatkezelés: gofuvar.hu/a`,
-          ).catch(() => {});
-        }
-      } catch (e) {
-        console.warn('[sms] pickup ertesites hiba:', e.message);
-      }
-    });
+    require('../services/pickupNotifications').dispatchPickupNotifications({ jobId });
   }
 
   // A fizikai átadás utóhatásai a vitajelzőtől függetlenek. A commitPhoto
@@ -563,45 +502,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     // tett, mert nem olvastam 40 sorral tovább. A fuvar-ágon viszont tényleg
     // hiányzott (ott pótoltuk).
 
-    // AZ EGYETLEN CÍMZETT-SMS a foglalás-ágon is (2026-07-13): felvételkor,
-    // kód + szállító elérhetőség. Ékezet nélkül (1 GSM-szegmens).
-    setImmediate(async () => {
-      try {
-        if (booking.recipient_phone && booking.delivery_code) {
-          const { rows: cRows } = await db.query(
-            `SELECT full_name, phone FROM users WHERE id = $1`,
-            [booking.carrier_id],
-          );
-          const c = cRows[0] || {};
-          if (booking.recipient_email) {
-            const emailSvc = require('../services/email');
-            const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
-            emailSvc.sendRecipientPickupEmail({
-              to: booking.recipient_email, recipientName: booking.recipient_name, jobTitle: booking.route_title,
-              trackingUrl: `${baseUrl}/nyomon-kovetes/${booking.tracking_token}`, deliveryCode: booking.delivery_code,
-              carrierName: c.full_name, carrierPhone: c.phone,
-            }).catch((e) => console.warn('[email] booking recipient pickup hiba:', e.message));
-          }
-          const { sendSms } = require('../services/sms');
-          // Ugyanaz a 3-szegmenses korlát és normalizálás, mint a fuvar-ágon.
-          const tel = (c.phone || '').replace(/[^\d+]/g, '');
-          const nev = (c.full_name || '').slice(0, 14);
-          const sofor = nev
-            ? ` Szállító: ${nev}${tel ? ` ${tel}` : ''}.`
-            : '';
-          // ⚠️ 3 SZEGMENS (2026-09-10, user-döntés): a címzett eddig nem tudta
-          // meg, hogy a kódot CSAK átadáskor szabad kimondania — előre bediktálva
-          // a kód elveszti a bizonyíték-értékét. A mondat +~35 karakter → 3 UCS-2
-          // szegmens (~57 Ft/fuvar, +19 Ft); a user vállalta. Az őr
-          // (sms-szegmens-or) a 3-as plafont ÉS a mondat meglétét tartja.
-          sendSms(booking.recipient_phone,
-            `GoFuvar: úton a csomagod! Átvételi kód: ${booking.delivery_code} – csak az átadáskor add meg a szállítónak.${sofor} Egyeztess vele az érkezésről! Adatkezelés: gofuvar.hu/a`,
-          ).catch(() => {});
-        }
-      } catch (e) {
-        console.warn('[sms] booking pickup ertesites hiba:', e.message);
-      }
-    });
+    require('../services/pickupNotifications').dispatchPickupNotifications({ bookingId });
     createNotification({
       user_id: booking.shipper_id,
       type: 'booking_picked_up',

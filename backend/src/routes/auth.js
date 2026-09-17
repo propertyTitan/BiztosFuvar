@@ -10,9 +10,7 @@ const { loginRateLimit, registerRateLimit, writeRateLimit, createRateLimit } = r
 const navTaxpayer = require('../services/navTaxpayer');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
 const { getOrCreateReferralCode, resolveReferrerId } = require('../services/referral');
-const { saveFile, savePrivateFile, getSignedPrivateUrl } = require('../services/storage');
-// Modul-objektumként is, hogy a törlés tesztből megfigyelhető legyen.
-const storage = require('../services/storage');
+const { savePrivateFile, getSignedPrivateUrl } = require('../services/storage');
 const {
   sendEmailVerificationEmail,
   sendPasswordResetEmail,
@@ -1049,30 +1047,10 @@ router.post('/avatar', authRequired, uploadSingle('file'), async (req, res) => {
   }
   req.file.mimetype = sniffedAvatar;
   try {
-    const url = await saveFile(
-      req.file.buffer,
-      req.file.originalname,
-      req.file.mimetype,
-    );
-    // ⚠️ ÁRVA FÁJL (2026-08-09, adatvédelmi audit): a `saveFile` minden
-    // feltöltésnél ÚJ véletlen kulcsot ad, az UPDATE viszont felülírja a
-    // régi hivatkozást — az előző profilkép így kikerül a rendszer látóköréből,
-    // miközben a PUBLIKUS bucketben marad, 1 éves immutable cache-sel. A
-    // fiók törlése sem érte el (a gyűjtő az aktuális avatar_url-t nézi).
-    // A RÉGI értéket a Postgres önjoin-idiómájával kapjuk vissza: az `elozo`
-    // külön olvasás, ezért a frissítés ELŐTTI pillanatképet látja.
-    const { rows: regi } = await db.query(
-      `UPDATE users u SET avatar_url = $1, updated_at = NOW()
-         FROM users elozo
-        WHERE u.id = $2 AND elozo.id = u.id
-       RETURNING elozo.avatar_url AS elozo`,
-      [url, req.user.sub],
-    );
-    const elozoAvatar = regi[0]?.elozo;
-    if (elozoAvatar && elozoAvatar !== url) {
-      storage.deleteFile(elozoAvatar).catch(() => {}); // nem blokkolja a választ
-    }
-    res.json({ url });
+    const result = await require('../services/avatarUpload').saveAvatar(req.user.sub, req.file);
+    if (result.missing) return res.status(404).json({ error: 'A felhasználói fiók már nem található.' });
+    if (result.expired) return res.status(409).json({ error: 'A feltöltés lejárt. Töltsd fel újra a profilképet.' });
+    res.json({ url: result.url });
   } catch (err) {
     console.error('[auth] avatar upload hiba:', err);
     res.status(500).json({ error: 'Fájl mentés sikertelen' });
@@ -1536,8 +1514,8 @@ router.delete('/me', authRequired, async (req, res) => {
 
   const result = await require('../services/accountDeletion').deleteAccount(userId, { reason: 'self' });
   if (result.blocked) return res.status(409).json({
-    error: 'A fiók függő fizetés, aktív fizetett ügylet, vita vagy zárolt bizonyíték mellett nem törölhető. '
-      + 'Várd meg a fizetés végleges eredményét, illetve az ügylet lezárását; ha elakadt, írj az info@gofuvar.hu-ra.',
+    error: 'A fiók függő fizetés vagy számlázás, aktív fizetett ügylet, vita vagy zárolt bizonyíték mellett nem törölhető. '
+      + 'Várd meg a fizetés és a számlázás befejezését, illetve az ügylet lezárását; ha elakadt, írj az info@gofuvar.hu-ra.',
     code: 'USER_HAS_ACTIVE_PAID',
   });
   if (result.missing) return res.status(404).json({ error: 'Felhasználó nem található' });
