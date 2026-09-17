@@ -167,7 +167,7 @@ export default function AdminPanel() {
 
   // Dialógusok
   const [decision, setDecision] = useState<{ id: string; mode: 'no_action' | 'refund' } | null>(null);
-  const [kycReject, setKycReject] = useState<{ id: string; name: string } | null>(null);
+  const [kycReject, setKycReject] = useState<{ id: string; name: string; reviewToken: string } | null>(null);
   const [kycBusy, setKycBusy] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ kind: 'job' | 'route' | 'booking' | 'user'; id: string; label: string } | null>(null);
 
@@ -256,13 +256,21 @@ export default function AdminPanel() {
     } catch (e: any) { toast.error('Hiba', e.message); }
   }
 
-  async function approveKyc(id: string) {
+  async function approveKyc(id: string, reviewToken: string) {
     setKycBusy(id);
     try {
-      await api.reviewKyc(id, 'approve');
+      await api.reviewKyc(id, 'approve', reviewToken);
       toast.success('Jóváhagyva', 'A felhasználó értesítést kapott.');
       setKycDocs((prev) => prev.filter((d) => d.id !== id));
-    } catch (e: any) { toast.error('Hiba', e.message); } finally { setKycBusy(null); }
+    } catch (e: any) {
+      toast.error('Hiba', e.message);
+      if (e.code === 'KYC_REVIEW_CHANGED') {
+        setKycReject(null);
+        setKycDocs([]);
+        try { setKycDocs(await api.adminKycDocuments('pending')); }
+        catch (reload: any) { toast.error('A lista frissítése sikertelen', reload.message); }
+      }
+    } finally { setKycBusy(null); }
   }
 
   async function confirmRejectKyc(reason: string) {
@@ -270,11 +278,19 @@ export default function AdminPanel() {
     const id = kycReject.id;
     setKycBusy(id);
     try {
-      await api.reviewKyc(id, 'reject', reason.trim());
+      await api.reviewKyc(id, 'reject', kycReject.reviewToken, reason.trim());
       toast.success('Elutasítva', 'A felhasználó értesítést kapott az indokkal.');
       setKycDocs((prev) => prev.filter((d) => d.id !== id));
       setKycReject(null);
-    } catch (e: any) { toast.error('Hiba', e.message); } finally { setKycBusy(null); }
+    } catch (e: any) {
+      toast.error('Hiba', e.message);
+      if (e.code === 'KYC_REVIEW_CHANGED') {
+        setKycReject(null);
+        setKycDocs([]);
+        try { setKycDocs(await api.adminKycDocuments('pending')); }
+        catch (reload: any) { toast.error('A lista frissítése sikertelen', reload.message); }
+      }
+    } finally { setKycBusy(null); }
   }
 
   async function patchUser(id: string, fields: Record<string, unknown>, okMsg: string) {
@@ -598,11 +614,11 @@ export default function AdminPanel() {
                       </div>
                     )}
                     <div className="row" style={{ gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                      <button className="btn btn-success" disabled={kycBusy === doc.id} onClick={() => approveKyc(doc.id)}>
+                      <button className="btn btn-success" disabled={kycBusy === doc.id} onClick={() => approveKyc(doc.id, doc.review_token)}>
                         {kycBusy === doc.id ? '…' : 'Jóváhagyom'}
                       </button>
                       <button className="btn btn-danger" disabled={kycBusy === doc.id}
-                        onClick={() => setKycReject({ id: doc.id, name: doc.full_name || doc.email })}>
+                        onClick={() => setKycReject({ id: doc.id, name: doc.full_name || doc.email, reviewToken: doc.review_token })}>
                         Elutasítom
                       </button>
                     </div>

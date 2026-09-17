@@ -199,9 +199,21 @@ async function seenOffer(bidId) {
     expected_amount_huf: rows[0].counter_amount_huf ?? rows[0].amount_huf } : {};
 }
 
+// A kézi döntéshez azt a tokent küldjük vissza, amelyet az admin valóban látott.
+async function seenKycDocument(admin, id) {
+  const doc = await db.query('SELECT status FROM kyc_documents WHERE id=$1', [id]);
+  if (!doc.rows[0]) return {};
+  const response = await require('supertest')(app).get(`/admin/kyc-documents?status=${doc.rows[0].status}`)
+    .set('Authorization', `Bearer ${admin.token}`);
+  if (response.status !== 200) throw new Error('A KYC-lista nem tölthető be a tesztben');
+  const row = response.body.find(item => item.id === id);
+  if (!row) throw new Error('A teszt okmánya nem szerepel az admin-listában');
+  return { review_token: row.review_token };
+}
+
 // `app`        → a FIGYELŐ szerver (ezt kapja a supertest)
 // `expressApp` → a nyers Express példány (a route-leltárnak kell, ami a
 //                router-stacket járja be — a szerver-objektumon az nincs)
 module.exports = {
-  db, app, expressApp, createUser, createJob, createBooking, logPaidFee, uniqueEmail, TINY_PNG, seenOffer,
+  db, app, expressApp, createUser, createJob, createBooking, logPaidFee, uniqueEmail, TINY_PNG, seenOffer, seenKycDocument,
 };

@@ -20,7 +20,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser, createJob, createBooking, expressApp, TINY_PNG, seenOffer } = require('./helpers');
+const { app, db, createUser, createJob, createBooking, expressApp, TINY_PNG, seenOffer, seenKycDocument } = require('./helpers');
 const { listRoutes, routeKey } = require('./routeInventory');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 
@@ -633,7 +633,7 @@ describe('Admin felület: minden nézet és művelet lefut', () => {
     );
     await sikeres('PATCH /admin/kyc-documents/:id', request(app)
       .patch(`/admin/kyc-documents/${rows[0].id}`).set(auth(V.admin.token))
-      .send({ action: 'approve' }));
+      .send({ action: 'approve', ...await seenKycDocument(V.admin, rows[0].id) }));
     await sikeres('PATCH /admin/users/:id', request(app)
       .patch(`/admin/users/${jelolt.id}`).set(auth(V.admin.token)).send({ role: 'carrier' }));
     await sikeres('POST /admin/users/:id/force-logout', request(app)

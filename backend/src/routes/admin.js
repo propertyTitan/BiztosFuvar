@@ -10,6 +10,7 @@ const db = require('../db');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { deleteEntity } = require('../services/entityDeletion');
+const manualKyc = require('../services/manualKyc');
 const { logAdminAccess } = require('../utils/adminAudit');
 const { authRequired, requireRole } = require('../middleware/auth');
 
@@ -481,22 +482,20 @@ router.get('/admin/kyc-documents', ...adminOnly, async (req, res) => {
   // az admin-felületnek — a régi, publikus URL-es sorok változatlanul
   // átmennek (a migrációs szkript költözteti őket).
   const { getSignedPrivateUrl } = require('../services/storage');
-  const out = await Promise.all(rows.map(async (r) => (
+  const out = await Promise.all(rows.map(async (row) => {
+    const r = { ...row, review_token: manualKyc.reviewToken(row) };
+    return (
     r.file_url && r.file_url.startsWith('private:')
       ? { ...r, file_url: await getSignedPrivateUrl(r.file_url) }
       : r
-  )));
+    );
+  }));
   res.json(out);
 });
 
 // PATCH /admin/kyc-documents/:id — KYC dokumentum kézi jóváhagyása/elutasítása.
 // Frissíti a dokumentum státuszát ÉS a felhasználó megfelelő KYC-mezőjét a
 // doc_type alapján, majd értesíti a felhasználót a döntésről.
-const KYC_DOC_FIELD = {
-  id_card: 'identity_kyc_status',
-  drivers_license: 'driver_kyc_status',
-  company_document: 'company_verification_status',
-};
 router.patch('/admin/kyc-documents/:id', ...adminOnly, async (req, res) => {
   const { action, reason } = req.body || {};
   if (!['approve', 'reject'].includes(action)) {
@@ -506,45 +505,15 @@ router.patch('/admin/kyc-documents/:id', ...adminOnly, async (req, res) => {
     return res.status(400).json({ error: 'Elutasításhoz indoklás szükséges.' });
   }
 
-  const { rows } = await db.query(
-    'SELECT user_id, doc_type, status FROM kyc_documents WHERE id = $1',
-    [req.params.id],
-  );
-  const doc = rows[0];
-  if (!doc) return res.status(404).json({ error: 'KYC dokumentum nem található.' });
-
-  const docStatus = action === 'approve' ? 'approved' : 'rejected';
-  const userStatus = action === 'approve' ? 'verified' : 'rejected';
-  const rejectionReason = action === 'reject' ? String(reason).trim() : null;
-
-  await db.query(
-    `UPDATE kyc_documents
-        SET status = $1, reviewed_by = $2, reviewed_at = NOW(), rejection_reason = $3,
-            -- A FUGGO LENYOMAT ELOLEP (2026-08-11, 10. meres F5).
-            -- Jovahagyaskor a duplikatum-gyanus feltoltes lenyomata bekerul az
-            -- eles oszlopba, tehat az "egy okmany = egy fiok" vedelem
-            -- visszaall. Ha a masik fiok ugye NINCS rendezve, a parcialis
-            -- UNIQUE index utkozik - ezt az admin latja, es elobb azt kell
-            -- rendeznie. Elutasitasnal a fuggo lenyomat marad, hogy egy kesobbi
-            -- jovahagyas meg elolephessen.
-            doc_number_hash = CASE WHEN $1 = 'approved'
-                                   THEN COALESCE(doc_number_hash, pending_doc_number_hash)
-                                   ELSE doc_number_hash END,
-            pending_doc_number_hash = CASE WHEN $1 = 'approved'
-                                           THEN NULL ELSE pending_doc_number_hash END,
-            hash_algo = CASE WHEN $1 = 'approved' AND doc_number_hash IS NULL
-                                  AND pending_doc_number_hash IS NOT NULL
-                             THEN 'hmac-sha256' ELSE hash_algo END
-      WHERE id = $4`,
-    [docStatus, req.user.sub, rejectionReason, req.params.id],
-  );
-
-  // A felhasználó megfelelő KYC-mezője a doc_type alapján (fix whitelist —
-  // a mezőnév sosem a kérésből jön, így nincs SQL-injekció).
-  const field = KYC_DOC_FIELD[doc.doc_type];
-  if (field) {
-    await db.query(`UPDATE users SET ${field} = $1 WHERE id = $2`, [userStatus, doc.user_id]);
-  }
+  const result = await manualKyc.reviewDocument({
+    id: req.params.id, adminId: req.user.sub, action, reason, expectedToken: req.body.review_token,
+  });
+  if (result.missing) return res.status(404).json({ error: 'KYC dokumentum nem található.' });
+  if (result.changed) return res.status(409).json({
+    error: 'Az okmány vagy a profil időközben megváltozott. Frissítsd a listát, és ellenőrizd újra a dokumentumot.',
+    code: 'KYC_REVIEW_CHANGED',
+  });
+  const { doc, docStatus, rejectionReason } = result;
 
   // Értesítés a felhasználónak a döntésről
   await createNotification({
