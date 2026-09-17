@@ -2,10 +2,16 @@ GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
 2026-09-17 – TELJES AUDIT, 1–3. JAVÍTÁSI KÖR
 
-Ág: fix/audit-rounds-1-3. Alap: f94377e (runtime: a1ef089).
+Fejlesztési ág: fix/audit-rounds-1-3. Alap: f94377e (runtime: a1ef089).
+Összevonási ág: fix/launch-audit-rounds-1-3, közvetlenül a1ef089 mainről.
+Az eredeti három javítás megfelelői itt: 1f022b3, 93db204, ac1d50b.
+Az alkalmazáskód és a tesztek az eredeti javítóágéval azonosak;
+a külön dokumentációs átszervezés (PR #242) önálló marad.
 A felhasználó által kért három kör 2 P0 és 6 P1 megállapítást érint.
 A korábbi bejegyzések telepítési állítása a korábbi csomagokra vonatkozik.
-E kör még nincs összevonva vagy telepítve.
+Merge-előkészítés: a 091-es migráció productionben lefutott (91 alkalmazott,
+0 függő migráció). A kód összevonását a PR CI-ellenőrzése előzi meg;
+a main merge után Railway és Vercel automatikusan telepít.
 
 1. KÖR – BIZONYÍTÉKMEGŐRZÉS (54c3a7f)
 - P0-01 / P1-05: az admin fuvar-, foglalás- és járattörlése ugyanazon
