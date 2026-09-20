@@ -1,5 +1,57 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
+2026-09-20 – MEGISMÉTELT AUDIT UTÁNI JAVÍTÁSOK
+
+Fejlesztési ág: fix/audit-20260920-p0-p1. Alap: b1499b2 (PR #243).
+Hatókör: 1 új P0 hibaosztály két versenyhelyzettel, 1 új P1, valamint
+a rejtett járatág korábban ismert, vita alatti teljesítési P1 hibája.
+A bejegyzés javítóági állapotot rögzít; nem telepítési igazolás.
+
+P0 – KÉSŐN BEFEJEZŐDŐ SOCKET-ENGEDÉLYEZÉS
+- A jogosultság-visszavonás a még DB-válaszra váró handshake-et és
+  job:join kérést is érvényteleníti. A job:leave szintén visszavonja
+  a függő belépést. Friss, jogosult belépés továbbra is működik.
+- Fájl: backend/src/realtime.js.
+- Regresszió: launch-20260920-socket-revocation.test.js; valódi HTTP,
+  Socket.IO és PostgreSQL mellett szándékosan késleltetett SQL-eredmény,
+  szállítócsere/GPS, admin force-logout, szerepkörváltás és fióktörlés.
+- Kockázat: közepes. A védelem a jelenlegi egyfolyamatos Socket.IO
+  topológiára készült; több replika közös visszavonási csatornát igényel.
+
+P1 – ELUTASÍTOTT FOTÓ TARTÓS TAKARÍTÁSA
+- A tárhelyírás előtt tartós törlési feladat készül; mentéskor a fotó,
+  az állapotváltás és a feladat feloldása együtt commitol. DB-/tárhelyhiba
+  után marad újrapróbálható feladat. Bizonytalan COMMIT-visszaigazolás
+  nem okozhat érvényes bizonyítékot érintő vak fájltörlést.
+- A feltöltés csak saját fájljait takarítja azonnal; más feltöltések
+  törlési hátraléka a meglévő háttérfeldolgozóra marad.
+- Fájlok: services/photoUpload.js, photoEvidence.js, fileDeletionQueue.js;
+  routes/photos.js (mind a fuvar, mind a foglalás).
+- Regresszió: launch-20260920-photo-lifecycle.test.js; hibás INSERT,
+  később helyreálló tárhely, COMMIT előtti/utáni hiba, folyamatban lévő
+  feltöltés, lejárt feltöltés, másik feltöltés törlési hátraléka.
+- Kockázat: közepes. A 086-os meglévő feladatsort használja, új migráció
+  nélkül. A korábban elveszett fájlhivatkozásokat nem rekonstruálja.
+
+ISMERT P1 – VITÁS FOGLALÁS FIZIKAI TELJESÍTÉSE
+- A status_before_dispute határozza meg a pickup/dropoff lépést a
+  foglaláson is. A státusz disputed marad, a vita nem zárul le és a
+  fotómegőrzési zárolás sem oldódik fel a fizikai átadástól.
+- A feladói listában megmarad a foglalás és az átadásig az átvételi kód;
+  a szállítónál elérhető a megfelelő fotó/kód panel. A fizikai kézbesítést
+  mindkét fél látja, az újabb teljesítési műveletek már tiltottak.
+- Fájlok: routes/photos.js, services/photoEvidence.js; web/src/api.ts,
+  web/src/components/fuvarjaim/Bookings.tsx, web/app/sofor/utvonal/[id]/page.tsx.
+- Regresszió: launch-20260920-booking-dispute.test.js és
+  web/e2e/10-foglalas-flow.spec.ts; vita pickup előtt/után, hibás és jó PIN,
+  ismételt teljesítés, adminlezárás, valódi mobilméretű kétfiókos UI-folyamat.
+- Kockázat: közepes (backend és frontend közös állapotkezelése).
+
+Az aktuális teljes teszt-, build- és CI-eredmények a javítás PR-leírásában
+szerepelnek. A tesztek elkülönített helyi adatbázist és stub szolgáltatókat
+használnak. A járatok launch-kapcsolója és a banki mód nem változott;
+a csomag nem állítja az összes lehetséges ismeretlen P0/P1 hiba hiányát.
+
 2026-09-17 – TELJES AUDIT, 1–3. JAVÍTÁSI KÖR
 
 Fejlesztési ág: fix/audit-rounds-1-3. Alap: f94377e (runtime: a1ef089).

@@ -10,6 +10,32 @@ const jwt = require('jsonwebtoken');
 const db = require('./db');
 
 let io = null;
+// A hitelesítésre váró socket még nincs az io.fetchSockets() eredményében.
+// A visszavonásnak ezt a folyamatban lévő engedélyezést is el kell érnie.
+const sessions = new Map();
+const pendingJoins = new WeakMap();
+
+function trackSession(socket, userId) {
+  const attempt = { socket, revoked: false };
+  const attempts = sessions.get(userId) || new Set();
+  sessions.set(userId, attempts);
+  attempts.add(attempt);
+  const release = () => {
+    attempts.delete(attempt);
+    if (!attempts.size && sessions.get(userId) === attempts) sessions.delete(userId);
+    socket.conn.off('close', release);
+    socket.off('disconnect', release);
+  };
+  socket.conn.once('close', release);
+  socket.once('disconnect', release);
+  return { attempt, release };
+}
+
+function revokeJob(socket, jobId) {
+  // Nincs await a függő engedély érvénytelenítése és a kiléptetés között.
+  pendingJoins.get(socket)?.delete(jobId);
+  socket.leave(`job:${jobId}`);
+}
 
 function init(httpServer) {
   // Ugyanaz a CORS policy, mint az Express-nél — prod-ban a CORS_ORIGIN
@@ -25,16 +51,18 @@ function init(httpServer) {
   io.use(async (socket, next) => {
     const token = socket.handshake.auth?.token;
     socket.data.user = null;
+    let tracked;
     if (token) {
       try {
         const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+        tracked = trackSession(socket, payload.sub);
         // Session-invalidáció a socketen is: a jelszó-reset (token_version++)
         // után a nyitott socket ne maradjon hitelesítve. Eltérő tv / hiányzó
         // user → vendégként kezeljük (szoba-join nélkül).
         const { rows } = await db.query(
           'SELECT token_version, email_verified, role FROM users WHERE id = $1', [payload.sub],
         );
-        if (rows[0] && (rows[0].token_version ?? 0) === (payload.tv ?? 0)) {
+        if (!tracked.attempt.revoked && rows[0] && (rows[0].token_version ?? 0) === (payload.tv ?? 0)) {
           // ⚠️ A SZEREPKÖR A DB-BŐL, NEM A JWT-BŐL (2026-08-11). A REST-oldali
           // ikertestvérét (middleware/auth.js) épp ezért javítottuk: egy
           // LEFOKOZOTT admin a token lejártáig (1 nap) megtartotta a jogát. A
@@ -49,6 +77,7 @@ function init(httpServer) {
         // Érvénytelen/lejárt token vagy DB-hiba → vendégként kezelve
       }
     }
+    if (!socket.data.user) tracked?.release();
     next();
   });
 
@@ -85,18 +114,27 @@ function init(httpServer) {
     socket.on('job:join', async (jobId) => {
       if (typeof jobId !== 'string' || !me()) return;
       if (isAdmin()) return void socket.join(`job:${jobId}`);
+      const userId = me();
+      let joins = pendingJoins.get(socket);
+      if (!joins) { joins = new Map(); pendingJoins.set(socket, joins); }
+      const attempt = Symbol();
+      joins.set(jobId, attempt);
       try {
         const { rows } = await db.query(
           'SELECT 1 FROM jobs WHERE id = $1 AND (shipper_id = $2 OR carrier_id = $2)',
-          [jobId, me()],
+          [jobId, userId],
         );
-        if (rows.length) socket.join(`job:${jobId}`);
+        if (rows.length && socket.connected && me() === userId && joins.get(jobId) === attempt) {
+          socket.join(`job:${jobId}`);
+        }
       } catch {
         // hibás UUID vagy DB-hiba → egyszerűen nem csatlakozik
+      } finally {
+        if (joins.get(jobId) === attempt) joins.delete(jobId);
       }
     });
     socket.on('job:leave', (jobId) => {
-      if (typeof jobId === 'string') socket.leave(`job:${jobId}`);
+      if (typeof jobId === 'string') revokeJob(socket, jobId);
     });
 
     // ── „feed" szoba: a piactér élő eseményei (új fuvar, azonnali fuvar,
@@ -148,6 +186,10 @@ function init(httpServer) {
  */
 async function evictUserFromJob(userId, jobId) {
   if (!io || !userId || !jobId) return;
+  // A még szobán kívül várakozó kapcsolatot is érvénytelenítjük, await előtt.
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data?.user?.sub === userId) revokeJob(socket, jobId);
+  }
   try {
     const szoba = `job:${jobId}`;
     for (const socket of await io.in(szoba).fetchSockets()) {
@@ -172,6 +214,12 @@ async function evictUserFromJob(userId, jobId) {
  */
 async function disconnectUser(userId) {
   if (!io || !userId) return;
+  for (const attempt of [...(sessions.get(userId) || [])]) {
+    attempt.revoked = true;
+    if (attempt.socket.connected) attempt.socket.disconnect(true);
+    attempt.socket.data.user = null;
+    attempt.socket.data.emailVerified = false;
+  }
   try {
     for (const socket of await io.fetchSockets()) {
       if (socket.data?.user?.sub === userId) socket.disconnect(true);

@@ -61,9 +61,15 @@ function UtvonalReszletek() {
     joinUserRoom(user.id);
     const socket = getSocket();
     const onPaid = () => load();
-    socket.on('route-booking:paid', onPaid);
+    const onDispute = (notification: { type?: string }) => {
+      if (['dispute_opened', 'dispute_updated', 'dispute_resolved'].includes(notification?.type || '')) load();
+    };
+    const events = ['route-booking:paid', 'route-booking:picked_up', 'route-booking:delivered'];
+    events.forEach(event => socket.on(event, onPaid));
+    socket.on('notification:new', onDispute);
     return () => {
-      socket.off('route-booking:paid', onPaid);
+      events.forEach(event => socket.off(event, onPaid));
+      socket.off('notification:new', onDispute);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, id]);
@@ -132,6 +138,7 @@ function UtvonalReszletek() {
   const rejected = bookings.filter((b) => b.status === 'rejected');
 
   function BookingCard({ b }: { b: RouteBooking }) {
+    const physicalStatus = b.status === 'disputed' ? b.status_before_dispute : b.status;
     return (
       <div className="card" style={{ marginTop: 12 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
@@ -154,7 +161,7 @@ function UtvonalReszletek() {
               {STATUS_LABEL[b.status]}
             </span>
             {/* Fizetés állapot – csak confirmed+ státuszoknál érdekes. */}
-            {['confirmed', 'in_progress', 'delivered'].includes(b.status) && (
+            {['confirmed', 'in_progress', 'delivered'].includes(physicalStatus || '') && (
               <div style={{ marginTop: 6 }}>
                 {b.paid_at ? (
                   <span
@@ -224,18 +231,22 @@ function UtvonalReszletek() {
         {/* Felvétel / kézbesítés — a foglalás lezárási útja (BUG-041 fix).
             Ugyanaz a panel, mint a licites fuvarnál: fizetett foglaláson
             pickup fotó → in_progress, dropoff fotó + 6 jegyű kód → delivered. */}
-        {['confirmed', 'in_progress'].includes(b.status) && (
+        {b.status === 'disputed' && (
+          <p role="status" style={{ marginTop: 12 }}>A vita nyitva marad az ügyfélszolgálat döntéséig. A csomag fizikai átvételét és átadását közben is igazolhatod.</p>
+        )}
+        {['confirmed', 'in_progress'].includes(physicalStatus || '') && (
           <CarrierTripPanel
             jobId={b.id}
             entity="booking"
             status={b.status}
+            statusBeforeDispute={b.status_before_dispute}
             paid={!!b.paid_at}
             onDone={load}
             idPrefix={`b-${b.id.slice(0, 8)}-`}
           />
         )}
 
-        {b.status === 'delivered' && (
+        {physicalStatus === 'delivered' && (
           <div
             style={{
               marginTop: 12,

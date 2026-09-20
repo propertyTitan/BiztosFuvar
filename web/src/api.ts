@@ -82,6 +82,7 @@ export type RouteBooking = {
   price_huf: number;
   delivery_code?: string | null;
   status: 'pending' | 'confirmed' | 'rejected' | 'in_progress' | 'delivered' | 'cancelled' | 'disputed';
+  status_before_dispute?: string | null;
   notes: string | null;
   barion_payment_id?: string | null;
   barion_gateway_url?: string | null;

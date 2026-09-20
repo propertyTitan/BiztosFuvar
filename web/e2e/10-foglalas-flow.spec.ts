@@ -19,7 +19,7 @@ async function apiPost(token: string, path: string, body: unknown) {
   return res.json();
 }
 
-test('foglalás végrehajtása: szállító pickup + kód-lezárás → feladó Kézbesítve + értékelés', async ({ browser }) => {
+async function createPaidBooking() {
   const shipper = await createUser('shipper', 'Foglaló Flóra');
   const carrier = await createUser('carrier', 'Útvonal Ubul');
 
@@ -45,6 +45,11 @@ test('foglalás végrehajtása: szállító pickup + kód-lezárás → feladó 
 
   const { rows } = await dbQuery('SELECT delivery_code FROM route_bookings WHERE id = $1', [booking.id]);
   const code = rows[0].delivery_code as string;
+  return { shipper, carrier, route, booking, code };
+}
+
+test('foglalás végrehajtása: szállító pickup + kód-lezárás → feladó Kézbesítve + értékelés', async ({ browser }) => {
+  const { shipper, carrier, route, booking, code } = await createPaidBooking();
   const idPrefix = `b-${booking.id.slice(0, 8)}-`;
 
   const carrierCtx = await browser.newContext();
@@ -86,4 +91,67 @@ test('foglalás végrehajtása: szállító pickup + kód-lezárás → feladó 
 
   await carrierCtx.close();
   await shipperCtx.close();
+});
+
+test('mobil: vitás foglalás látható marad, kézbesíthető, a vita és a fotómegőrzés nyitva marad', async ({ browser }) => {
+  const { shipper, carrier, route, booking, code } = await createPaidBooking();
+  const carrierCtx = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  const shipperCtx = await browser.newContext({ viewport: { width: 375, height: 812 } });
+  try {
+    const carrierPage = await carrierCtx.newPage();
+    const shipperPage = await shipperCtx.newPage();
+    await loginAs(carrierPage, carrier);
+    await loginAs(shipperPage, shipper);
+    await carrierPage.goto(`/sofor/utvonal/${route.id}`);
+    await shipperPage.goto('/fuvarjaim?tab=foglalasaim');
+    const pin = shipperPage.getByTitle('Átvételi kód – add át a szállítónak');
+    await expect(pin).toContainText(code);
+
+    const idPrefix = `b-${booking.id.slice(0, 8)}-`;
+    await carrierPage.locator(`#${idPrefix}pickup-photo`).setInputFiles({
+      name: 'felvetel.png', mimeType: 'image/png', buffer: TINY_PNG,
+    });
+    await carrierPage.getByRole('button', { name: /Felvétel igazolása/ }).click();
+    await expect(carrierPage.getByRole('button', { name: /Kézbesítés igazolása/ })).toBeVisible();
+
+    const dispute = await apiPost(shipper.token, '/disputes', {
+      booking_id: booking.id,
+      description: 'A csomag sérült, de az átadást szeretnénk dokumentálni.',
+    });
+    // A szállító a valódi értesítésből frissül; a vitát API-n nyitó feladó
+    // újratölti a saját listáját, ahogy egy későbbi visszalépéskor tenné.
+    await expect(carrierPage.getByText('Vitatott', { exact: true })).toBeVisible();
+    await shipperPage.reload();
+    await expect(shipperPage.getByText('Vitatott', { exact: true })).toBeVisible();
+    await expect(pin).toContainText(code);
+    await expect(carrierPage.getByText(/A vita nyitva marad/)).toBeVisible();
+
+    await carrierPage.locator(`#${idPrefix}dropoff-photo`).setInputFiles({
+      name: 'atadas.png', mimeType: 'image/png', buffer: TINY_PNG,
+    });
+    await carrierPage.getByPlaceholder('6 számjegy').fill(code);
+    await carrierPage.getByRole('button', { name: /Kézbesítés igazolása/ }).click();
+    for (const page of [carrierPage, shipperPage]) {
+      await expect(page.getByText(/Kézbesítve/).first()).toBeVisible();
+      await expect(page.getByText('Vitatott', { exact: true })).toBeVisible();
+      await expect(page.getByText(/A vita nyitva marad/)).toBeVisible();
+    }
+    await expect(pin).toHaveCount(0);
+    await expect(carrierPage.getByRole('button', { name: /Kézbesítés igazolása/ })).toHaveCount(0);
+    const { rows } = await dbQuery(
+      `SELECT b.status, b.status_before_dispute, b.photo_retention_hold, b.delivered_at,
+              d.status AS dispute_status,
+              (SELECT count(*)::int FROM photos WHERE booking_id = b.id) AS photo_count
+         FROM route_bookings b JOIN disputes d ON d.booking_id = b.id
+        WHERE b.id = $1 AND d.id = $2`, [booking.id, dispute.id],
+    );
+    expect(rows[0]).toMatchObject({
+      status: 'disputed', status_before_dispute: 'delivered',
+      photo_retention_hold: true, dispute_status: 'open', photo_count: 2,
+    });
+    expect(rows[0].delivered_at).toBeTruthy();
+  } finally {
+    await carrierCtx.close();
+    await shipperCtx.close();
+  }
 });

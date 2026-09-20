@@ -17,7 +17,7 @@ const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { sendEmail } = require('../services/email');
-const { saveFile } = require('../services/storage');
+const { withPhotoUpload } = require('../services/photoUpload');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { markTaxDataRequestedIfNeeded } = require('../services/dac7');
 const { getJobParty } = require('../utils/jobAccess');
@@ -27,11 +27,6 @@ const router = express.Router();
 // 10 MB kép-korlát: memóriából dolgozunk, mert a storage service
 // kapja meg a buffer-t és eldönti, hova ír (Cloudflare R2 / disk).
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
-
-// Fallback: ha valami miatt a storage hívás nem megy, base64 data URL
-function encodeAsDataUrl(file) {
-  return `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-}
 
 const ALLOWED_KINDS = ['listing', 'pickup', 'dropoff', 'damage', 'document'];
 // Fotó-plafon típusonként (2026-09-11, teljes audit A4): a méret (10 MB)
@@ -191,24 +186,13 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     }
   }
 
-  // Tárolás: a storage service eldönti, hogy Cloudflare R2-re vagy
-  // lokális diskre írjon (env-től függően). Ha mindkettő sikertelen,
-  // visszaesünk base64 data URL-re.
-  let url;
-  try {
-    url = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
-  } catch (err) {
-    console.warn('[photos] storage save failed, falling back to data URL:', err.message);
-    url = encodeAsDataUrl(req.file);
-  }
-
   let saved;
   try {
-    saved = await commitPhoto({
+    saved = await withPhotoUpload(req.user.sub, req.file, url => commitPhoto({
       jobId, uploaderId: req.user.sub, kind, url, deliveryCode: delivery_code,
       maxPhotos: MAX_PHOTOS_PER_KIND,
       gps: [gps_lat, gps_lng, gps_accuracy_m].map((value) => value ? parseFloat(value) : null),
-    });
+    }));
   } catch (error) {
     if (error.photoStatus) return res.status(error.photoStatus).json(error.photoBody);
     throw error;
@@ -413,7 +397,9 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
 
   // Terminál-státusz védelem
   const TERMINAL = ['delivered', 'cancelled', 'rejected'];
-  if (TERMINAL.includes(booking.status)) {
+  const physicalStatus = booking.status === 'disputed' ? booking.status_before_dispute : booking.status;
+  if (TERMINAL.includes(booking.status)
+      || (['pickup', 'dropoff'].includes(kind) && TERMINAL.includes(physicalStatus))) {
     return res.status(409).json({
       error: `Ez a foglalás már lezárult (státusz: ${booking.status}). Nem tölthető fel további fotó.`,
     });
@@ -430,7 +416,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
 
   // DROPOFF → átvételi kód kötelező (a címzett SMS-ben kapta)
   if (kind === 'dropoff') {
-    if (booking.status !== 'in_progress') {
+    if (physicalStatus !== 'in_progress') {
       return res.status(409).json({ error: 'A kézbesítés csak felvett (folyamatban lévő) foglaláson igazolható.' });
     }
     if (!delivery_code || String(delivery_code).trim().length === 0) {
@@ -470,22 +456,13 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     }
   }
 
-  // Tárolás (R2 / disk / base64 fallback — a fuvar-fotókkal azonos út)
-  let url;
-  try {
-    url = await saveFile(req.file.buffer, req.file.originalname, req.file.mimetype);
-  } catch (err) {
-    console.warn('[photos] storage save failed, falling back to data URL:', err.message);
-    url = encodeAsDataUrl(req.file);
-  }
-
   let saved;
   try {
-    saved = await commitPhoto({
+    saved = await withPhotoUpload(req.user.sub, req.file, url => commitPhoto({
       bookingId, uploaderId: req.user.sub, kind, url, deliveryCode: delivery_code,
       maxPhotos: MAX_PHOTOS_PER_KIND,
       gps: [gps_lat, gps_lng, gps_accuracy_m].map((value) => value ? parseFloat(value) : null),
-    });
+    }));
   } catch (error) {
     if (error.photoStatus) return res.status(error.photoStatus).json(error.photoBody);
     throw error;
