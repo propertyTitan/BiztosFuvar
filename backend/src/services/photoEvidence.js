@@ -36,12 +36,12 @@ async function commitPhoto({ jobId, bookingId, uploaderId, kind, url, gps, deliv
     if (kind !== 'listing' && !entity.paid_at) {
       throw reject(409, 'A kapcsolatfelvételi díj még nincs megfizetve.');
     }
-    const physicalStatus = isJob && entity.status === 'disputed' ? entity.status_before_dispute : entity.status;
+    const physicalStatus = entity.status === 'disputed' ? entity.status_before_dispute : entity.status;
     const ready = isJob ? 'accepted' : 'confirmed';
     // Régi vitás sor előállapot nélkül is fogadhat kiegészítő pickup
     // bizonyítékot, ahogy eddig; állapotot csak ismert kiindulásból léptetünk.
     if ((!isJob && ['delivered', 'cancelled', 'rejected'].includes(entity.status))
-        || (isJob && ['pickup', 'dropoff'].includes(kind)
+        || (['pickup', 'dropoff'].includes(kind)
           && ['delivered', 'completed', 'cancelled'].includes(physicalStatus))) {
       throw reject(409, 'Az ügylet állapota időközben megváltozott — frissítsd az oldalt.');
     }
@@ -78,7 +78,7 @@ async function commitPhoto({ jobId, bookingId, uploaderId, kind, url, gps, deliv
     );
     const pickedUp = kind === 'pickup' && physicalStatus === ready;
     const delivered = kind === 'dropoff';
-    const statusColumn = isJob && entity.status === 'disputed' ? 'status_before_dispute' : 'status';
+    const statusColumn = entity.status === 'disputed' ? 'status_before_dispute' : 'status';
     if (pickedUp) {
       await client.query(`UPDATE ${table} SET ${statusColumn} = 'in_progress'${isJob ? ', updated_at = NOW()' : ''} WHERE id = $1`, [id]);
       await require('./pickupNotifications').enqueuePickupNotifications(client, { jobId, bookingId, entity });

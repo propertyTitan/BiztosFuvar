@@ -397,7 +397,9 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
 
   // Terminál-státusz védelem
   const TERMINAL = ['delivered', 'cancelled', 'rejected'];
-  if (TERMINAL.includes(booking.status)) {
+  const physicalStatus = booking.status === 'disputed' ? booking.status_before_dispute : booking.status;
+  if (TERMINAL.includes(booking.status)
+      || (['pickup', 'dropoff'].includes(kind) && TERMINAL.includes(physicalStatus))) {
     return res.status(409).json({
       error: `Ez a foglalás már lezárult (státusz: ${booking.status}). Nem tölthető fel további fotó.`,
     });
@@ -414,7 +416,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
 
   // DROPOFF → átvételi kód kötelező (a címzett SMS-ben kapta)
   if (kind === 'dropoff') {
-    if (booking.status !== 'in_progress') {
+    if (physicalStatus !== 'in_progress') {
       return res.status(409).json({ error: 'A kézbesítés csak felvett (folyamatban lévő) foglaláson igazolható.' });
     }
     if (!delivery_code || String(delivery_code).trim().length === 0) {

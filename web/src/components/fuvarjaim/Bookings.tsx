@@ -115,27 +115,30 @@ export default function FoglalasaimOldal() {
         n.type === 'booking_confirmed' ||
         n.type === 'booking_rejected' ||
         n.type === 'booking_received' ||
-        n.type === 'booking_paid'
+        n.type === 'booking_paid' ||
+        n.type === 'dispute_opened' || n.type === 'dispute_updated' || n.type === 'dispute_resolved'
       ) {
         load();
       }
     };
     const onPaid = () => load();
+    const events = ['route-booking:paid', 'route-booking:picked_up', 'route-booking:delivered'];
     socket.on('notification:new', onNotif);
-    socket.on('route-booking:paid', onPaid);
+    events.forEach(event => socket.on(event, onPaid));
     return () => {
       socket.off('notification:new', onNotif);
-      socket.off('route-booking:paid', onPaid);
+      events.forEach(event => socket.off(event, onPaid));
     };
   }, [user, load]);
 
   const pending = rows.filter((r) => r.status === 'pending');
   const active = rows.filter((r) =>
-    ['confirmed', 'in_progress', 'delivered'].includes(r.status),
+    ['confirmed', 'in_progress', 'delivered', 'disputed'].includes(r.status),
   );
   const rejected = rows.filter((r) => ['rejected', 'cancelled'].includes(r.status));
 
   function BookingCard({ b }: { b: RouteBooking }) {
+    const physicalStatus = b.status === 'disputed' ? b.status_before_dispute : b.status;
     return (
       <div className="card" style={{ marginTop: 12 }}>
         <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
@@ -173,7 +176,7 @@ export default function FoglalasaimOldal() {
             <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
               {b.price_huf.toLocaleString('hu-HU')} Ft
             </div>
-            {b.delivery_code && ['confirmed', 'in_progress'].includes(b.status) && (
+            {b.paid_at && b.delivery_code && ['confirmed', 'in_progress'].includes(physicalStatus || '') && (
               <div
                 style={{
                   marginTop: 8,
@@ -262,7 +265,8 @@ export default function FoglalasaimOldal() {
         </div>
 
         {/* Kézbesítés után: kápé-emlékeztető + a szállító értékelése */}
-        {b.status === 'delivered' && (
+        {b.status === 'disputed' && <p role="status">A vita nyitva marad az ügyfélszolgálat döntéséig.</p>}
+        {physicalStatus === 'delivered' && (
           <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
             <div
               style={{
