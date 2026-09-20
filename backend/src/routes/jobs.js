@@ -1655,7 +1655,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
     const { rows: carriers } = await client.query(
       `SELECT identity_kyc_status, driver_terms_accepted_at, can_bid, phone,
               account_type, personal_tax_id, tax_data_requested_at, tax_data_reminder_count
-         FROM users WHERE id = $1 FOR UPDATE`,
+         FROM users WHERE id = $1 FOR NO KEY UPDATE`,
       [req.user.sub],
     );
     const eligibility = driverEligibilityError(carriers[0]);

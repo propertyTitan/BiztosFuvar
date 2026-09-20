@@ -34,7 +34,7 @@ it.each(['gps-read', 'photos-read', 'gps-write'])('carrier replacement: an in-fl
   // eredeti reprodukciója; az új út a visszavonást követő írást ellenőrzi.
   const clientQuery = require('pg').Client.prototype.query;
   vi.spyOn(require('pg').Client.prototype, 'query').mockImplementation(function (sql, ...args) {
-    if (kind === 'gps-write' && !paused && String(sql) === 'SELECT id FROM users WHERE id = $1 FOR UPDATE' && args[0]?.[0] === oldCarrier.id) {
+    if (kind === 'gps-write' && !paused && String(sql) === 'SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE' && args[0]?.[0] === oldCarrier.id) {
       paused = true; captured.resolve();
       return resume.promise.then(() => clientQuery.call(this, sql, ...args));
     }
@@ -87,4 +87,28 @@ it('the new carrier does not receive the previous carrier position before sendin
   const response = await request(app).get(`/jobs/${job.id}/location/last`).set(...auth(nextCarrier));
   expect(response.status).toBe(200);
   expect(response.body).toBeNull();
+});
+
+it('a pickup photo and a GPS ping from the same carrier both complete concurrently', async () => {
+  const shipper = await createUser(), carrier = await createUser({ role: 'carrier' });
+  const job = await createJob({ shipperId: shipper.id, carrierId: carrier.id, paid: true });
+  const photoLocked = gate(), gpsWaiting = gate(), resumePhoto = gate();
+  const query = require('pg').Client.prototype.query;
+  vi.spyOn(require('../src/services/pickupNotifications'), 'dispatchPickupNotifications').mockImplementation(() => {});
+  vi.spyOn(require('pg').Client.prototype, 'query').mockImplementation(function (sql, ...args) {
+    if (String(sql).includes('INSERT INTO photos') && args[0]?.[0] === job.id) {
+      photoLocked.resolve();
+      return resumePhoto.promise.then(() => query.call(this, sql, ...args));
+    }
+    if (String(sql).includes('FOR UPDATE OF j') && args[0]?.[0] === job.id) gpsWaiting.resolve();
+    return query.call(this, sql, ...args);
+  });
+  const uploading = request(app).post(`/jobs/${job.id}/photos`).set(...auth(carrier))
+    .field('kind', 'pickup').field('gps_lat', '47.48').field('gps_lng', '19.05').attach('file', TINY_PNG, 'pickup.png').then(r => r);
+  await photoLocked.promise;
+  const pinging = request(app).post(`/jobs/${job.id}/location`).set(...auth(carrier)).send({ lat: 47.48, lng: 19.05 }).then(r => r);
+  try { await gpsWaiting.promise; } finally { resumePhoto.resolve(); }
+  const [photo, ping] = await Promise.all([uploading, pinging]);
+  expect(photo.status, JSON.stringify(photo.body)).toBe(201);
+  expect(ping.status, JSON.stringify(ping.body)).toBe(200);
 });

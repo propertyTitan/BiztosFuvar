@@ -40,7 +40,8 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
   try {
     await client.query('BEGIN');
     // A felhasználó → fuvar zársorrend a fióktörléssel is megegyezik.
-    await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [req.user.sub]);
+    // A NO KEY UPDATE nem blokkolja a párhuzamos fotó uploader-FK-ját.
+    await client.query('SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE', [req.user.sub]);
     const { rows: jobRows } = await client.query(
       `SELECT j.carrier_id, j.shipper_id, j.status, j.status_before_dispute, j.dropoff_lat, j.dropoff_lng, j.dropoff_address,
               j.notif_city_sent, j.notif_nearby_sent, j.title,
