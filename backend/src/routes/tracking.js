@@ -11,7 +11,6 @@ const { authRequired } = require('../middleware/auth');
 const realtime = require('../realtime');
 const { distanceMeters } = require('../utils/geo');
 const { createNotification } = require('../services/notifications');
-const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
 
@@ -36,43 +35,61 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
     return res.status(400).json({ error: 'Érvénytelen koordináta.', code: 'INVALID_COORDINATES' });
   }
 
-  const { rows: jobRows } = await db.query(
-    `SELECT j.carrier_id, j.shipper_id, j.status, j.dropoff_lat, j.dropoff_lng, j.dropoff_address,
-            j.notif_city_sent, j.notif_nearby_sent, j.title,
-            j.recipient_name, j.recipient_phone, j.recipient_email,
-            j.tracking_token, j.delivery_code,
-            c.full_name AS carrier_name, c.phone AS carrier_phone
-       FROM jobs j
-  LEFT JOIN users c ON c.id = j.carrier_id
-      WHERE j.id = $1`,
-    [jobId],
-  );
-  const job = jobRows[0];
-  if (!job) return res.status(404).json({ error: 'Fuvar nem található' });
-  if (job.carrier_id !== req.user.sub) return res.status(403).json({ error: 'Nincs jogosultság' });
+  const client = await db.pool.connect();
+  let job;
+  try {
+    await client.query('BEGIN');
+    // A felhasználó → fuvar zársorrend a fióktörléssel is megegyezik.
+    // A NO KEY UPDATE nem blokkolja a párhuzamos fotó uploader-FK-ját.
+    await client.query('SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE', [req.user.sub]);
+    const { rows: jobRows } = await client.query(
+      `SELECT j.carrier_id, j.shipper_id, j.status, j.status_before_dispute, j.dropoff_lat, j.dropoff_lng, j.dropoff_address,
+              j.notif_city_sent, j.notif_nearby_sent, j.title,
+              j.recipient_name, j.recipient_phone, j.recipient_email,
+              j.tracking_token, j.delivery_code,
+              c.full_name AS carrier_name, c.phone AS carrier_phone
+         FROM jobs j
+    LEFT JOIN users c ON c.id = j.carrier_id
+        WHERE j.id = $1 FOR UPDATE OF j`,
+      [jobId],
+    );
+    job = jobRows[0];
+    if (!job || job.carrier_id !== req.user.sub) {
+      await client.query('ROLLBACK');
+      return res.status(job ? 403 : 404).json({ error: job ? 'Nincs jogosultság' : 'Fuvar nem található' });
+    }
 
-  // LEZÁRT FUVARRA NINCS POZÍCIÓ (2026-08-07, a teljes-út mátrix találata).
-  // Korábban a kézbesített és a LEMONDOTT fuvarra is lehetett pozíciót
-  // küldeni: értelmetlen szemétadat, ami ráadásul a GDPR-adattakarékosság
-  // ellen megy — élő helyadatot gyűjtöttünk olyan fuvarhoz, ami már nem él.
-  if (['delivered', 'completed', 'cancelled'].includes(job.status)) {
-    return res.status(409).json({
-      error: 'Ez a fuvar már lezárult — nem fogadunk hozzá pozíciót.',
-      code: 'JOB_CLOSED',
-    });
+    // LEZÁRT FUVARRA NINCS POZÍCIÓ (2026-08-07, a teljes-út mátrix találata).
+    // Korábban a kézbesített és a LEMONDOTT fuvarra is lehetett pozíciót
+    // küldeni: értelmetlen szemétadat, ami ráadásul a GDPR-adattakarékosság
+    // ellen megy — élő helyadatot gyűjtöttünk olyan fuvarhoz, ami már nem él.
+    const physicalStatus = job.status === 'disputed' ? job.status_before_dispute : job.status;
+    if (['delivered', 'completed', 'cancelled'].includes(physicalStatus)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Ez a fuvar már lezárult — nem fogadunk hozzá pozíciót.',
+        code: 'JOB_CLOSED',
+      });
+    }
+
+    await client.query(
+      `INSERT INTO location_pings (job_id, carrier_id, lat, lng, speed_kmh)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [jobId, req.user.sub, lat, lng, speed_kmh || null],
+    );
+
+    // Utolsó ismert pozíció frissítése a useren (backhaul + instant push-hoz)
+    await client.query(
+      `UPDATE users SET last_known_lat = $1, last_known_lng = $2, last_ping_at = NOW() WHERE id = $3`,
+      [lat, lng, req.user.sub],
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
   }
-
-  await db.query(
-    `INSERT INTO location_pings (job_id, carrier_id, lat, lng, speed_kmh)
-     VALUES ($1,$2,$3,$4,$5)`,
-    [jobId, req.user.sub, lat, lng, speed_kmh || null],
-  );
-
-  // Utolsó ismert pozíció frissítése a useren (backhaul + instant push-hoz)
-  db.query(
-    `UPDATE users SET last_known_lat = $1, last_known_lng = $2, last_ping_at = NOW() WHERE id = $3`,
-    [lat, lng, req.user.sub],
-  ).catch(() => {});
 
   const ping = { job_id: jobId, lat, lng, speed_kmh: speed_kmh || null, ts: Date.now() };
   realtime.emitToJob(jobId, 'tracking:ping', ping);
@@ -96,8 +113,9 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
         // senki nem nézte, fogott-e — most CSAK az küld, amelyiké fogott.
         const varosJeloles = (!job.notif_city_sent && dist <= CITY_THRESHOLD_M)
           ? await db.query(
-            `UPDATE jobs SET notif_city_sent = TRUE WHERE id = $1 AND notif_city_sent = FALSE`,
-            [jobId],
+            `UPDATE jobs SET notif_city_sent = TRUE WHERE id = $1 AND notif_city_sent = FALSE
+              AND carrier_id = $2 AND status = 'in_progress'`,
+            [jobId, req.user.sub],
           )
           : { rowCount: 0 };
         if (varosJeloles.rowCount > 0) {
@@ -134,8 +152,9 @@ router.post('/jobs/:jobId/location', authRequired, async (req, res) => {
         // 2) Egy saroknyira van (~300 m)
         const kozelJeloles = (!job.notif_nearby_sent && dist <= NEARBY_THRESHOLD_M)
           ? await db.query(
-            `UPDATE jobs SET notif_nearby_sent = TRUE WHERE id = $1 AND notif_nearby_sent = FALSE`,
-            [jobId],
+            `UPDATE jobs SET notif_nearby_sent = TRUE WHERE id = $1 AND notif_nearby_sent = FALSE
+              AND carrier_id = $2 AND status = 'in_progress'`,
+            [jobId, req.user.sub],
           )
           : { rowCount: 0 };
         if (kozelJeloles.rowCount > 0) {
@@ -187,17 +206,25 @@ function extractCity(cim) {
 // szállító élő pozícióját. (A címzett nyilvános követése külön, token-alapú
 // publicTracking route-on megy, ezt nem érinti.)
 router.get('/jobs/:jobId/location/last', authRequired, async (req, res) => {
-  const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
-  if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
-  if (!isParty) return res.status(403).json({ error: 'Nincs jogosultság ehhez a fuvarhoz.' });
-
+  // A jogosultság és a helyadat egyetlen adatbázis-pillanatképből jön.
+  // Külön SELECT-ek között a korábbi szállító már lecserélődhetett.
   const { rows } = await db.query(
-    `SELECT lat, lng, speed_kmh, recorded_at
-       FROM location_pings WHERE job_id = $1
-      ORDER BY recorded_at DESC LIMIT 1`,
-    [req.params.jobId],
+    `SELECT j.id, (j.shipper_id = $2 OR j.carrier_id = $2 OR $3) AS is_party,
+            p.lat, p.lng, p.speed_kmh, p.recorded_at
+       FROM jobs j
+       LEFT JOIN LATERAL (
+         SELECT lat, lng, speed_kmh, recorded_at FROM location_pings
+          WHERE job_id = j.id AND carrier_id = j.carrier_id
+          ORDER BY recorded_at DESC LIMIT 1
+       ) p ON (j.shipper_id = $2 OR j.carrier_id = $2 OR $3)
+      WHERE j.id = $1`,
+    [req.params.jobId, req.user.sub, req.user.role === 'admin'],
   );
-  res.json(rows[0] || null);
+  const row = rows[0];
+  if (!row) return res.status(404).json({ error: 'Fuvar nem található' });
+  if (!row.is_party) return res.status(403).json({ error: 'Nincs jogosultság ehhez a fuvarhoz.' });
+  const { lat, lng, speed_kmh, recorded_at } = row;
+  res.json(recorded_at ? { lat, lng, speed_kmh, recorded_at } : null);
 });
 
 module.exports = router;

@@ -21,10 +21,14 @@ async function invoiceReceipt(receipt) {
     throw new Error('A megkezdett díjszámla állapota bizonytalan; számlázói egyeztetés szükséges.');
   }
   if (!invoice) {
+    if (!receipt.invoice_snapshot) {
+      throw new Error('A régi díjbizonylat fizetéskori vevőadatai hiányoznak; kézi számlázási egyeztetés szükséges.');
+    }
     invoice = await generatePlatformFeeInvoice({
       jobId: receipt.job_id, bookingId: receipt.booking_id,
       platformFee: receipt.fee_huf, currency: receipt.currency,
       buyerUserId: receipt.shipper_id,
+      invoiceSnapshot: receipt.invoice_snapshot,
     });
   }
   if (invoice?.status !== 'sent') throw new Error('A díjszámla még nincs kiállítva.');

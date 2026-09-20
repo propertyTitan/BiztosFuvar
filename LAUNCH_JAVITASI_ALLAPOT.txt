@@ -1,5 +1,56 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
+2026-09-20 – PR #244 UTÁNI HÁROM IGAZOLT HIBA JAVÍTÁSA
+
+Fejlesztési ág: fix/post244-audit. Alap: f161f7e (PR #244).
+A bejegyzés javítóági állapotot rögzít; nem telepítési igazolás.
+
+P0 – SZÁLLÍTÓCSERE ALATTI HTTP-ADATHOZZÁFÉRÉS ÉS GPS-MENTÉS
+- A helyadat és a fotók lekérése a jogosultsággal azonos adatbázis-
+  pillanatképet használ. A leváltott szállító késleltetett kérése sem
+  olvassa az új szállító később létrejött helyadatát vagy bizonyítékát.
+- GPS-mentéskor a jelenlegi szállítót és fizikai állapotot tranzakcióban,
+  sorzár alatt ellenőrizzük. A vitás, de már fizikailag lezárt fuvar sem
+  fogad új pinget. Új szállító nem kapja az előző szállító utolsó helyét.
+- A felhasználói NO KEY UPDATE zár védi a profilt, és összeegyeztethető
+  a párhuzamos fotófeltöltés idegenkulcs-ellenőrzésével.
+- Fájlok: backend/src/routes/tracking.js, photos.js.
+- Regresszió: launch-http-revocation.test.js (7 eset, köztük valódi
+  szállítócsere, privát fotó, GPS és párhuzamos pickup/GPS).
+- Kockázat: közepes; az API válaszformátuma és a listing fotók publikus,
+  szűkített láthatósága változatlan.
+
+P1 – AZONNALI FUVARVÁLLALÁS ELAVULT SZÁLLÍTÓI JOGOSULTSÁGGAL
+- Az elfogadás tranzakciójában a profil zárolása után ismét lefut a
+  közös driverEligibilityError: felfüggesztés, KYC, nyilatkozat, telefon,
+  DAC7. A profil törlése/módosítása és a fuvarvállalás sorosított.
+- Fájl: backend/src/routes/jobs.js.
+- Regresszió: launch-instant-eligibility.test.js; felfüggesztés és
+  telefonszám-törlés a middleware-válasz és az elfogadás között.
+- Kockázat: alacsony-közepes; meglévő jogosultsági szabály újrahasználata.
+
+P1 – SZÁMLAPÓTLÁS MEGVÁLTOZOTT VEVŐADATOKBÓL
+- A díjfizetési tranzakció a profilból rögzíti a vevőadatokat és az
+  alkalmazott ÁFA-döntést. Az első számla és az újrapróbálkozás is ezt
+  használja. Profilváltozás vagy eltérő későbbi VIES-eredmény nem írja át.
+- Ismételt könyveléskor a fizetési napló is az eredeti ÁFA-adatot használja.
+- A 092_fee_invoice_snapshot.sql csak új JSONB-mezőt ad hozzá. Régi,
+  snapshot nélküli bizonylatot nem töltünk fel mai profiladatból:
+  meglévő sent számlával lezárható, számla nélkül kézi egyeztetést jelez.
+- A snapshot bekerül a fizető saját adatexportjába; a díjbizonylat
+  meglévő 8 éves megőrzése és törlése érvényes rá.
+- Fájlok: backend/src/services/feePayment.js, feeInvoiceQueue.js,
+  invoicing.js; backend/src/routes/auth.js; db/migrations/092_*.sql.
+- Regresszió: launch-invoice-snapshot.test.js (7 eset), a korábbi
+  számlapótlási/törlési és webhook-újrapróbálkozási tesztekkel együtt.
+- Kockázat: közepes; a migrációt az új alkalmazásverzió előtt kell futtatni.
+- Éles, csak olvasási előellenőrzés: 91 alkalmazott migráció, csak a 092
+  függő; 0 díjbizonylat és 0 függő számla. Nincs visszatöltendő régi sor.
+
+A végleges teljes teszt-, lefedettségi és CI-eredményeket a PR rögzíti.
+A banki és járat-feature kapcsolók nem változnak. Ez a csomag a fenti
+igazolt hibákat zárja, az ismeretlen hibák hiányát nem bizonyítja.
+
 2026-09-20 – MEGISMÉTELT AUDIT UTÁNI JAVÍTÁSOK
 
 Fejlesztési ág: fix/audit-20260920-p0-p1. Alap: b1499b2 (PR #243).

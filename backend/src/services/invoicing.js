@@ -168,29 +168,41 @@ async function finalizeInvoiceRow(id, { status, invoiceNumber = null }) {
  * @param {string} params.currency – 'HUF' | 'EUR'
  * @param {string} params.buyerUserId – a díjat fizető user (feladó) ID-je
  */
-async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, currency, buyerUserId }) {
-  // Vevő adatainak lekérdezése
-  const { rows: userRows } = await db.query(
-    `SELECT id, full_name, email, company_name, tax_id, billing_address, billing_country, locale
-       FROM users WHERE id = $1`,
-    [buyerUserId],
-  );
-  const buyerUser = userRows[0];
-  if (!buyerUser) {
-    console.error('[invoicing] Vevő nem található:', buyerUserId);
-    return null;
-  }
+async function generatePlatformFeeInvoice({ jobId, bookingId, platformFee, currency, buyerUserId, invoiceSnapshot }) {
+  let buyerUser;
+  let vatResult;
+  if (invoiceSnapshot) {
+    if (invoiceSnapshot.version !== 1 || !invoiceSnapshot.buyer || !invoiceSnapshot.vat
+        || invoiceSnapshot.currency !== currency || invoiceSnapshot.vat.grossAmount !== Number(platformFee)) {
+      throw new Error('Érvénytelen fizetéskori számlázási adatok; kézi egyeztetés szükséges.');
+    }
+    buyerUser = invoiceSnapshot.buyer;
+    vatResult = invoiceSnapshot.vat;
+  } else {
+    // Közvetlen számlakiállítás; a díjbizonylat-feldolgozó mindig kötelező
+    // snapshottal hívja, és régi, hiányos bizonylatnál kézi egyeztetést kér.
+    const { rows: userRows } = await db.query(
+      `SELECT id, full_name, email, company_name, tax_id, billing_address, billing_country, locale
+         FROM users WHERE id = $1`,
+      [buyerUserId],
+    );
+    buyerUser = userRows[0];
+    if (!buyerUser) {
+      console.error('[invoicing] Vevő nem található:', buyerUserId);
+      return null;
+    }
 
-  // VAT kiszámítása — a díj BRUTTÓ ár (a kommunikált 500/1000 Ft pontosan
-  // annyi, amennyi terhelődik), a nettó visszafelé számolódik
-  const vatResult = await computeVat({
-    buyerCountry: buyerUser.billing_country || 'HU',
-    buyerTaxId: buyerUser.tax_id,
-    buyerIsCompany: !!(buyerUser.company_name || buyerUser.tax_id),
-    amount: platformFee,
-    amountIsGross: true,
-    currency,
-  });
+    // VAT kiszámítása — a díj BRUTTÓ ár (a kommunikált 500/1000 Ft pontosan
+    // annyi, amennyi terhelődik), a nettó visszafelé számolódik
+    vatResult = await computeVat({
+      buyerCountry: buyerUser.billing_country || 'HU',
+      buyerTaxId: buyerUser.tax_id,
+      buyerIsCompany: !!(buyerUser.company_name || buyerUser.tax_id),
+      amount: platformFee,
+      amountIsGross: true,
+      currency,
+    });
+  }
 
   // Számla adat összeállítása
   const invoiceData = buildInvoiceData({
