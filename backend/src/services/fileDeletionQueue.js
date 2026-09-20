@@ -14,7 +14,7 @@ async function enqueueFileDeletions(client, batchId, keys, { delaySeconds = 0 } 
   }
 }
 
-async function processFileDeletionQueue({ batchId = null, limit = 100 } = {}) {
+async function processFileDeletionQueue({ batchId = null, limit = 100, keyHashes = null } = {}) {
   const client = await db.pool.connect();
   let deleted = 0;
   let failed = 0;
@@ -23,7 +23,8 @@ async function processFileDeletionQueue({ batchId = null, limit = 100 } = {}) {
     const { rows } = await client.query(
       `SELECT key_hash, file_key FROM file_deletion_queue
         WHERE next_attempt_at <= NOW() AND ($1::uuid IS NULL OR batch_id = $1)
-        ORDER BY created_at LIMIT $2 FOR UPDATE SKIP LOCKED`, [batchId, limit],
+          AND ($3::text[] IS NULL OR key_hash = ANY($3::text[]))
+        ORDER BY created_at LIMIT $2 FOR UPDATE SKIP LOCKED`, [batchId, limit, keyHashes],
     );
     for (const row of rows) {
       // A hibás kulcs nem akadályozza a többi fájl törlését. A kulcsot nem

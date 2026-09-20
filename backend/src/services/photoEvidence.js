@@ -1,8 +1,7 @@
 // A külső feltöltés után a jogosultság, a fotó és a fizikai állapot egyetlen
-// zárolt tranzakcióhoz tartozik. Hálózati feltöltés alatt nem tartunk DB-zárat.
+// zárolt tranzakcióhoz tartozik. Hálózati feltöltés alatt az ügyletet nem zároljuk.
 const crypto = require('crypto');
 const db = require('../db');
-const storage = require('./storage');
 
 function codesMatch(input, expected) {
   if (!expected) return false;
@@ -12,14 +11,6 @@ function codesMatch(input, expected) {
 
 function reject(status, error, code = 'STATE_CHANGED') {
   return Object.assign(new Error(error), { photoStatus: status, photoBody: { error, code } });
-}
-
-async function discardUpload(url) {
-  try {
-    if (await storage.deleteFile(url)) return;
-  } catch { /* A mentés hibáját nem fedheti el a takarítás hibája. */ }
-  console.error('[photos] Az elutasított feltöltés fájltakarítása sikertelen.');
-  require('@sentry/node').captureMessage('[photos] Elutasított feltöltés: sikertelen fájltakarítás', 'error');
 }
 
 async function commitPhoto({ jobId, bookingId, uploaderId, kind, url, gps, deliveryCode, maxPhotos }) {
@@ -75,6 +66,11 @@ async function commitPhoto({ jobId, bookingId, uploaderId, kind, url, gps, deliv
     if (count.rows[0].n >= maxPhotos) {
       throw reject(400, `Ehhez az ügylethez már ${maxPhotos} „${kind}" fotó tartozik — több nem tölthető fel.`, 'PHOTO_LIMIT');
     }
+    const cleanupHash = url.startsWith('data:') ? null : crypto.createHash('sha256').update(url).digest('hex');
+    if (cleanupHash) {
+      const pending = await client.query('SELECT 1 FROM file_deletion_queue WHERE key_hash = $1 FOR UPDATE', [cleanupHash]);
+      if (!pending.rows.length) throw reject(409, 'A fotó feltöltése lejárt. Töltsd fel újra.', 'UPLOAD_EXPIRED');
+    }
     const inserted = await client.query(
       `INSERT INTO photos (${foreignKey}, uploader_id, kind, url, gps_lat, gps_lng, gps_accuracy_m)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
@@ -95,6 +91,7 @@ async function commitPhoto({ jobId, bookingId, uploaderId, kind, url, gps, deliv
           WHERE id = $1`, isJob ? [id, closedByCodeType] : [id],
       );
     }
+    if (cleanupHash) await client.query('DELETE FROM file_deletion_queue WHERE key_hash = $1', [cleanupHash]);
     committing = true;
     await client.query('COMMIT');
     return { entity, photo: inserted.rows[0], pickedUp, delivered };
@@ -104,8 +101,7 @@ async function commitPhoto({ jobId, bookingId, uploaderId, kind, url, gps, deliv
     }
     // COMMIT közbeni kapcsolatvesztésnél a DB már menthetett. Ilyenkor
     // nem töröljük a lehetséges érvényes bizonyítékot találomra.
-    if (!committing) await discardUpload(url);
-    else require('@sentry/node').captureMessage('[photos] A fotótranzakció COMMIT-visszaigazolása bizonytalan', 'error');
+    if (committing) require('@sentry/node').captureMessage('[photos] A fotótranzakció COMMIT-visszaigazolása bizonytalan', 'error');
     throw error;
   } finally {
     if (client) client.release(releaseError);
