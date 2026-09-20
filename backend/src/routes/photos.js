@@ -20,7 +20,6 @@ const { sendEmail } = require('../services/email');
 const { withPhotoUpload } = require('../services/photoUpload');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { markTaxDataRequestedIfNeeded } = require('../services/dac7');
-const { getJobParty } = require('../utils/jobAccess');
 const { commitPhoto, codesMatch } = require('../services/photoEvidence');
 
 const router = express.Router();
@@ -576,13 +575,18 @@ router.get('/route-bookings/:bookingId/photos', authRequired, async (req, res) =
 // fotók (és a beágyazott GPS-koordináták) privát bizonyítékok, ezeket
 // idegen nem láthatja.
 router.get('/jobs/:jobId/photos', authRequired, requireVerifiedEmail, async (req, res) => {
-  const { notFound, isParty } = await getJobParty(req.params.jobId, req.user);
-  if (notFound) return res.status(404).json({ error: 'Fuvar nem található' });
-
+  // A fuvar feleit és a bizonyítékokat azonos pillanatképből olvassuk:
+  // szállítócsere közben sem adunk ki az új megállapodáshoz tartozó fotót.
   const { rows } = await db.query(
-    'SELECT * FROM photos WHERE job_id = $1 ORDER BY taken_at ASC',
-    [req.params.jobId],
+    `SELECT j.id, (j.shipper_id = $2 OR j.carrier_id = $2 OR $3) AS is_party,
+            to_jsonb(p) AS photo
+       FROM jobs j LEFT JOIN photos p ON p.job_id = j.id
+         AND (j.shipper_id = $2 OR j.carrier_id = $2 OR $3 OR p.kind = 'listing')
+      WHERE j.id = $1 ORDER BY p.taken_at ASC`,
+    [req.params.jobId, req.user.sub, req.user.role === 'admin'],
   );
+  if (!rows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
+  const photos = rows.map(row => row.photo).filter(Boolean);
   // A NEM-FÉL NYERS SORT KAPOTT (2026-08-11, 10. mérés A1).
   // A `listing` fotó a hirdetéshez tartozik, tehát a böngésző szállító
   // láthatja — DE eddig a teljes `photos` sort kapta meg hozzá:
@@ -593,9 +597,8 @@ router.get('/jobs/:jobId/photos', authRequired, requireVerifiedEmail, async (req
   // Ráadásul e-mail-kapu nélkül, bármilyen státuszú fuvarra — miközben
   // maga a fuvar-sor nem nyitott státuszban településre kerekedik.
   // Az ikerpár (GET /route-bookings/:id/photos) nem-félnél 403-at ad.
-  if (isParty) return res.json(rows);
-  return res.json(rows
-    .filter((f) => f.kind === 'listing')
+  if (rows[0].is_party) return res.json(photos);
+  return res.json(photos
     .map((f) => ({ id: f.id, job_id: f.job_id, kind: f.kind, url: f.url })));
 });
 
