@@ -1438,7 +1438,7 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
     ),
     dijbefizeteseim: await q(
       `SELECT payment_id, job_id, booking_id, fee_huf, currency, paid_at,
-              invoice_pending, last_invoice_attempt_at
+              invoice_pending, last_invoice_attempt_at, invoice_snapshot
          FROM fee_payment_receipts WHERE shipper_id = $1 ORDER BY paid_at DESC`,
     ),
     fizetesi_munkameneteim: await q(

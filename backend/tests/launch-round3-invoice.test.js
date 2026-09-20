@@ -34,12 +34,19 @@ it('átmeneti számlahiba után a törlés megőrzi a vevőt, a pótlás után e
 
 it.each(['job', 'booking', 'route'])('%s: admin sem törölhet függő díjszámla mellől', async type => {
   const shipper = await createUser(), carrier = await createUser({ role: 'carrier' }), admin = await createUser({ role: 'admin' });
-  const opts = { shipperId: shipper.id, carrierId: carrier.id, status: 'delivered', paid: true };
-  const booking = type === 'job' ? null : await createBooking(opts);
-  const entity = booking?.booking || await createJob(opts);
+  const opts = { shipperId: shipper.id, carrierId: carrier.id };
+  const booking = type === 'job' ? null : await createBooking({ ...opts, status: 'confirmed' });
+  const entity = booking?.booking || await createJob({ ...opts, status: 'accepted' });
   const field = type === 'job' ? 'job_id' : 'booking_id';
-  await db.query(`INSERT INTO fee_payment_receipts(payment_id,${field},shipper_id,fee_huf,currency,paid_at)
-    VALUES($1,$2,$3,500,'HUF',NOW())`, [`round3-${entity.id}`, entity.id, shipper.id]);
+  await require('../src/services/feePayment').konyvelDijFizetes({
+    entityType: type === 'job' ? 'job' : 'booking', entityId: entity.id,
+    shipperId: shipper.id, paymentId: `round3-${entity.id}`, feeHuf: 500, eventType: 'manual',
+  });
+  // Valós könyvelés hozza létre a fizetéskori snapshotot. A törlési őr
+  // tesztjéhez ezután egy hiányzó számla miatti függő feladatot állítunk be.
+  await db.query(`DELETE FROM invoices WHERE ${field}=$1`, [entity.id]);
+  await db.query('UPDATE fee_payment_receipts SET invoice_pending=TRUE WHERE payment_id=$1', [`round3-${entity.id}`]);
+  await db.query(`UPDATE ${type === 'job' ? 'jobs' : 'route_bookings'} SET status='delivered' WHERE id=$1`, [entity.id]);
   const path = `/admin/${{ job: 'jobs', booking: 'bookings', route: 'routes' }[type]}/${type === 'route' ? booking.routeId : entity.id}`;
   expect((await request(app).delete(path).set(...auth(admin))).status).toBe(409);
   expect((await request(app).delete(`/admin/users/${shipper.id}`).set(...auth(admin))).status).toBe(409);

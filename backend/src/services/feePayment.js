@@ -169,19 +169,8 @@ async function konyvelDijFizetes({
   if (!VARAKOZO_ALLAPOT[entityType]) throw new Error(`ismeretlen entitás-típus: ${entityType}`);
   const platformFee = Number(feeHuf) || 0;
 
-  const { rows: shipperRows } = await db.query(
-    `SELECT billing_country, tax_id, company_name, email, full_name FROM users WHERE id = $1`,
-    [shipperId],
-  );
-  const shipper = shipperRows[0] || {};
-  const vatResult = await computeVat({
-    buyerCountry: shipper.billing_country || 'HU',
-    buyerTaxId: shipper.tax_id,
-    buyerIsCompany: !!(shipper.company_name || shipper.tax_id),
-    amount: platformFee,
-    amountIsGross: true,
-    currency,
-  });
+  let shipper;
+  let vatResult;
 
   // A fizetett állapot, a díj-sor és a helyreállítási bizonylat együtt
   // érvényesül. Bármelyik írás hibája mindhármat visszavonja.
@@ -191,6 +180,26 @@ async function konyvelDijFizetes({
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
+    // A profilmódosítás és a fizetés könyvelése sorosított. A számlázási
+    // adatot a pénzügyi bizonylattal együtt mentjük; a későbbi retry nem
+    // olvassa újra a profilt, és nem végez új, eltérő eredményű VIES-kérést.
+    const { rows: shipperRows } = await client.query(
+      `SELECT full_name, email, company_name, tax_id, billing_address, billing_country, locale
+         FROM users WHERE id = $1 FOR NO KEY UPDATE`,
+      [shipperId],
+    );
+    shipper = shipperRows[0];
+    if (!shipper) throw new Error('A díjfizetés vevője nem található.');
+    const { viesValidation, ...vat } = await computeVat({
+      buyerCountry: shipper.billing_country || 'HU',
+      buyerTaxId: shipper.tax_id,
+      buyerIsCompany: !!(shipper.company_name || shipper.tax_id),
+      amount: platformFee,
+      amountIsGross: true,
+      currency,
+    });
+    // A VIES által visszaadott további nevet/címet nem tároljuk duplán.
+    vatResult = vat;
     if (entityType === 'job') {
       upd = await client.query(
         `UPDATE jobs SET paid_at = NOW()
@@ -225,10 +234,11 @@ async function konyvelDijFizetes({
     } else {
       const saved = await client.query(
         `INSERT INTO fee_payment_receipts
-          (payment_id, job_id, booking_id, shipper_id, fee_huf, currency, paid_at, last_invoice_attempt_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
+          (payment_id, job_id, booking_id, shipper_id, fee_huf, currency, paid_at, last_invoice_attempt_at, invoice_snapshot)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8) RETURNING *`,
         [paymentId, entityType === 'job' ? entityId : null,
-          entityType === 'booking' ? entityId : null, shipperId, platformFee, currency, upd.rows[0].paid_at],
+          entityType === 'booking' ? entityId : null, shipperId, platformFee, currency, upd.rows[0].paid_at,
+          { version: 1, currency, buyer: shipper, vat: vatResult }],
       );
       receipt = saved.rows[0];
     }
@@ -240,6 +250,12 @@ async function konyvelDijFizetes({
     client.release();
   }
   if (!receipt) return { konyvelve: 0, vatResult, platformFee, shipper };
+  // Ismételt webhooknál a napló és a visszaadott eredmény is az eredeti
+  // könyvelés adataiból készüljön, ne az azóta módosított profilból.
+  if (receipt.invoice_snapshot) {
+    shipper = receipt.invoice_snapshot.buyer;
+    vatResult = receipt.invoice_snapshot.vat;
+  }
 
   // 3) Számla a FELADÓNAK (stub is menti a metaadatot)
   let invoice = null;

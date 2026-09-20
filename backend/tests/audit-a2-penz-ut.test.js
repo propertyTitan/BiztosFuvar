@@ -100,19 +100,16 @@ describe('1. webhook idempotencia-claim', () => {
 
   it('kivétel a feldolgozásban → a claim felszabadul, a PSP ismétlése könyvel (a claim-mechanizmus önvédő őre)', async () => {
     const { job, paymentId } = await fizetesreVaro();
-    const eredeti = db.query;
-    let dobott = false;
-    db.query = async (t, p) => {
-      // A paid_at már dedikált tranzakcióban íródik; itt továbbra is a
-      // claim utáni kivételt mérjük, a könyvelés előkészítő lekérdezésén.
-      if (!dobott && /SELECT billing_country, tax_id, company_name, email, full_name FROM users/.test(String(t))) {
-        dobott = true; throw new Error('szimulált DB-kiesés');
-      }
-      return eredeti(t, p);
-    };
+    // Valódi DB-hiba a claim UTÁN: nem függ attól, hogy a könyvelés
+    // pool.query-val vagy dedikált tranzakciós kapcsolaton olvas/ír.
+    await db.query(`CREATE FUNCTION audit_claim_failure() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'szimulált DB-kiesés'; END $$`);
+    await db.query(`CREATE TRIGGER audit_claim_failure BEFORE UPDATE OF paid_at ON jobs
+      FOR EACH ROW WHEN (NEW.id='${job.id}'::uuid AND NEW.paid_at IS NOT NULL)
+      EXECUTE FUNCTION audit_claim_failure()`);
     let elso;
-    try { elso = await webhook({ PaymentId: paymentId, Status: 'Succeeded' }); } finally { db.query = eredeti; }
-    expect(dobott).toBe(true);
+    try { elso = await webhook({ PaymentId: paymentId, Status: 'Succeeded' }); }
+    finally { await db.query('DROP FUNCTION audit_claim_failure() CASCADE'); }
     expect(elso.status, 'a hibát 2xx-szel nyugtáztuk — a PSP nem ismételne').toBeGreaterThanOrEqual(500);
     expect((await naploSorok(paymentId)).filter((e) => !e.processed).length, 'processed=false claim maradt hátra — az ismétlés „feldolgozás alatt"-ként kiesne').toBe(0);
     const masodik = await webhook({ PaymentId: paymentId, Status: 'Succeeded' });

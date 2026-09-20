@@ -117,7 +117,7 @@ Top-level fájlok:
 | `instantJobs.js` | instant ("UberFuvar") matching | ÉL |
 | `backhaul.js` / `routeAlong.js` | visszafuvar + útba-eső matching | ÉL |
 | `feePayment.js` | a kapcsolatfelvételi díj KÖZÖS könyvelési magja (állapot-őr, paid_at, díj-sor, ÁFA, számla, napló, referral) + webhook idempotencia-claim — a webhook ÉS a kézi nyugtázás ezt hívja (2026-09-11, A2) | ÉL |
-| `feeInvoiceQueue.js` | a 084-es migráció `fee_payment_receipts` bizonylataiból a hiányzó számlák pótlása; bizonytalan külső számlázási eredménynél riasztás, automatikus újrakiállítás nélkül (2026-09-14, audit 1) | ÉL |
+| `feeInvoiceQueue.js` | a `fee_payment_receipts` bizonylataiból a hiányzó számlák pótlása a 092-es migráció fizetéskori vevő- és ÁFA-snapshotjából; hiányzó régi snapshotnál kézi egyeztetés; bizonytalan külső számlázási eredménynél riasztás, automatikus újrakiállítás nélkül (2026-09-14, audit 1) | ÉL |
 | `paymentReminders.js` | fizetetlen megállapodás: 24h/48h emlékeztető + 72h után lejáratás (`runPaymentExpiry`, A4) | ÉL |
 | `noOfferNudge.js` | 24 h + 0 ajánlat → egyszeri tippek a feladónak (B3) | ÉL |
 | `instantExpiry.js` | lejárt azonnali fuvar → normál ajánlatgyűjtés, óránként (C1) | ÉL |
@@ -146,7 +146,7 @@ Top-level fájlok:
 ### 1.6 Adatbázis — `backend/db/`
 
 - `schema.sql` — teljes séma snapshot
-- `migrations/` — **87 számozott migráció** (`001_*.sql` … `087_payment_sessions.sql`)
+- `migrations/` — **92 számozott migráció** (`001_*.sql` … `092_fee_invoice_snapshot.sql`)
   - `084_fee_payment_receipts`: megőrzött díjbizonylat és számlapótlás.
   - `085_kyc_uploaded_at`: az aktuális okmánykép feltöltési ideje. Régi képnél
     csak a reviewed_at/created_at ad becslést, a pontos idő nem rekonstruálható.
@@ -156,6 +156,7 @@ Top-level fájlok:
     a jelenlegi fizetésindításokat és a feldolgozott végállapotokat. A webhook
     innen keres; pending/needs_review mellett nincs fióktörlés. Lezárt sorok
     megőrzése 8 év; függő vagy egyeztetésre váró sor nem évül el automatikusan.
+  - `092_fee_invoice_snapshot`: fizetéskor rögzített vevőadatok és ÁFA-döntés; a díjbizonylat 8 éves megőrzése és saját adatexportja vonatkozik rá. Régi profilból nincs utólagos visszatöltés.
 - RLS **minden táblán KI** (backend service-role-on csatlakozik) — az anon-key
   SOHA ne kerüljön frontendre.
 
