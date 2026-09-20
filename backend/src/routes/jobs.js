@@ -3,7 +3,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const { authRequired, requireDriverKYC, requireVerifiedEmail } = require('../middleware/auth');
+const { authRequired, requireDriverKYC, requireVerifiedEmail, driverEligibilityError } = require('../middleware/auth');
 const { distanceMeters } = require('../utils/geo');
 const { maskEmail } = require('../utils/mask');
 const realtime = require('../realtime');
@@ -1645,12 +1645,25 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
 router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const expectedPrice = req.body?.expected_price_huf;
   const validExpectedPrice = Number.isInteger(expectedPrice) && expectedPrice > 0 && expectedPrice <= 100000000;
-  // Jogosítvány-követelmény megszűnt (2026-07-07): a requireDriverKYC
-  // (személyi igazolvány + szállítói nyilatkozat) elég; a can_bid-kapu kivéve.
-
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
+
+    // A middleware óta az admin felfüggeszthette a szállítót, vagy a
+    // profilból eltűnhetett a telefonszám. A profil és az elfogadás közös
+    // zár alatt dől el, ugyanazzal a jogosultsági szabállyal, mint a licit.
+    const { rows: carriers } = await client.query(
+      `SELECT identity_kyc_status, driver_terms_accepted_at, can_bid, phone,
+              account_type, personal_tax_id, tax_data_requested_at, tax_data_reminder_count
+         FROM users WHERE id = $1 FOR UPDATE`,
+      [req.user.sub],
+    );
+    const eligibility = driverEligibilityError(carriers[0]);
+    if (eligibility) {
+      await client.query('ROLLBACK');
+      const { status, ...body } = eligibility;
+      return res.status(status).json(body);
+    }
 
     // Atomi FIRST-WINS: csak akkor frissítünk, ha még senki nem fogadta el.
     // Több feltétel a WHERE-ben: is_instant=TRUE, status=bidding, még nincs
