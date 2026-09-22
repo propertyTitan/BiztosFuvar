@@ -11,7 +11,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import DeliveryPin from '@/components/DeliveryPin';
-import { Loading, EmptyState } from '@/components/StateView';
+import { Loading, EmptyState, ErrorState } from '@/components/StateView';
+import { HALOZATI_HIBA_UZENET, IDOTULLEPES_UZENET } from '@/api';
 import { SearchX } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
@@ -31,7 +32,6 @@ type TrackingData = {
   id: string;
   title: string;
   status: string;
-  pickup_address: string;
   dropoff_address: string;
   delivery_code: string;
   delivered_at: string | null;
@@ -42,42 +42,74 @@ type TrackingData = {
 
 export default function PublicTrackingPage() {
   const { token } = useParams<{ token: string }>();
-  const [data, setData] = useState<TrackingData | null>(null);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(true);
+  // Másik link megnyitásakor a korábbi címzett adatai azonnal eltűnnek.
+  return <TrackingDetails key={token} token={token} />;
+}
 
-  async function load() {
-    try {
-      const res = await fetch(`${BASE_URL}/tracking/${token}`);
-      if (!res.ok) throw new Error('Fuvar nem található');
-      setData(await res.json());
-      // Sikernél töröljük a hibát — különben egy átmeneti hálózati hiba
-      // után a 30 mp-es frissítés hiába hozna adatot, örökre a
-      // "Fuvar nem található" maradna a képernyőn.
-      setError('');
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }
+function TrackingDetails({ token }: { token: string }) {
+  const [data, setData] = useState<TrackingData | null>(null);
+  const [error, setError] = useState<{ missing?: boolean; message: string } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [attempt, setAttempt] = useState(0);
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const retry = () => setAttempt(n => n + 1);
 
   useEffect(() => {
-    load();
-    // Auto-refresh minden 30 másodpercben
-    const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
-  }, [token]);
+    let closed = false;
+    let active: AbortController | null = null;
+    async function load() {
+      if (active) return;
+      const controller = new AbortController();
+      active = controller;
+      let timedOut = false;
+      setLoading(true);
+      // Az időkeret a válasz TÖRZSÉNEK olvasására is érvényes.
+      const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15_000);
+      try {
+        const res = await fetch(`${BASE_URL}/tracking/${encodeURIComponent(token)}`, {
+          signal: controller.signal, cache: 'no-store',
+        });
+        if (closed) return;
+        if (res.status === 404 || res.status === 410) {
+          setData(null);
+          setError({ missing: true, message: 'A link érvénytelen, lejárt, vagy a fuvar már törölve lett. Ellenőrizd a kapott linket.' });
+          return;
+        }
+        if (!res.ok) throw new Error('Tracking temporarily unavailable');
+        const fresh: TrackingData = await res.json();
+        if (closed) return;
+        if (!fresh || typeof fresh.id !== 'string' || typeof fresh.status !== 'string') {
+          throw new Error('Invalid tracking response');
+        }
+        setData(fresh);
+        setUpdatedAt(new Date());
+        setError(null);
+      } catch {
+        if (!closed) setError({ message: timedOut ? IDOTULLEPES_UZENET : HALOZATI_HIBA_UZENET });
+      } finally {
+        clearTimeout(timer);
+        active = null;
+        if (!closed) setLoading(false);
+      }
+    }
+    void load();
+    const interval = setInterval(() => { void load(); }, 30_000);
+    return () => {
+      closed = true;
+      clearInterval(interval);
+      active?.abort();
+    };
+  }, [token, attempt]);
 
-  if (loading) return <Loading label="Csomag keresése…" />;
+  if (loading && !data) return <Loading label="Csomag keresése…" />;
 
-  if (error || !data) return (
+  if (!data) return (
     <div style={{ maxWidth: 500, margin: '40px auto', padding: '0 16px' }}>
-      <EmptyState
+      {error?.missing ? <EmptyState
         icon={<SearchX size={28} aria-hidden />}
         title="Fuvar nem található"
-        description="A link érvénytelen, lejárt, vagy a fuvar már törölve lett. Ellenőrizd a kapott linket."
-      />
+        description={error.message}
+      /> : <ErrorState title="A csomagkövetés most nem elérhető" message={error?.message} onRetry={retry} />}
     </div>
   );
 
@@ -85,6 +117,18 @@ export default function PublicTrackingPage() {
 
   return (
     <div style={{ maxWidth: 500, margin: '0 auto', padding: '20px 16px' }}>
+      {error && (
+        <div role="alert" className="callout" style={{ marginBottom: 16 }}>
+          <p>Nem sikerült frissíteni. Az utolsó sikeresen betöltött adatokat látod.</p>
+          <p>{error.message}</p>
+          <button type="button" className="btn btn-secondary" disabled={loading} onClick={retry}>
+            {loading ? 'Frissítés…' : 'Újrapróbálás'}
+          </button>
+        </div>
+      )}
+      {updatedAt && <p className="muted" style={{ fontSize: 12 }}>
+        Utolsó frissítés: {updatedAt.toLocaleTimeString('hu-HU')}
+      </p>}
       {/* Fejléc */}
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>
@@ -121,7 +165,6 @@ export default function PublicTrackingPage() {
         marginBottom: 16,
       }}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>{data.title}</div>
-        <div style={{ fontSize: 13 }}>📍 {data.pickup_address}</div>
         <div style={{ fontSize: 13 }}>🏁 {data.dropoff_address}</div>
       </div>
 
