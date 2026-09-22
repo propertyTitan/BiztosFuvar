@@ -1,5 +1,65 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
+2026-09-22 – A TELJES TESZTAUDIT F01–F06 JAVÍTÁSA
+
+Fejlesztési ág: fix/audit-20260922-launch. Alap: 743cf52 (PR #245).
+A bejegyzés javítóági állapotot rögzít; nem telepítési igazolás.
+
+F01 – P0, R2-KIESÉS MIATTI BIZONYÍTÉKVESZTÉS
+- Élesben a saveFile nem adhat vissza átmeneti lemezre mutató URL-t.
+  A meglévő photoUpload tartalékága a kép teljes tartalmát a státuszváltás
+  tranzakciójában menti a DB-be. Adatbázishibánál egyik sem véglegesül.
+- Profilképnél a tárhelyhiba hibaválaszt ad, a korábbi kép marad érvényes.
+- Fájl: backend/src/services/storage.js. Regresszió: durable-photos és
+  tarolo-maradek-hibaagak tesztek; valódi DB, fuvar és járatfoglalás.
+- Kockázat: közepes. R2-kieséskor nőhet az adatbázis tárhelyigénye.
+- Éles, READ ONLY előellenőrzés: 16 fotó, 0 helyi lemezre mutató fotó,
+  0 helyi lemezre mutató profilkép; nincs ilyen régi sor visszatöltendő.
+
+F02 – P1, PÁRHUZAMOS JELSZÓ-VISSZAÁLLÍTÁS
+- A jelszó UPDATE is ellenőrzi és elfogyasztja az érvényes tokent.
+  Két párhuzamos kérésből egy nyerhet; lejárt/lecserélt token sem írhat.
+- Fájl: backend/src/routes/auth.js; launch-20260922-reset-race.test.js.
+- Kockázat: alacsony; az egyszeri sikeres reset munkamenet-visszavonása él.
+
+F03 – P1, HAMIS ZÖLD FÜGGŐSÉG-AUDIT
+- Registry-, futtatási, JSON- és sémahiba sikertelen ellenőrzést jelent.
+  A részletek és az összesített súlyossági darabszámok egyezése kötelező.
+- Fájl: scripts/fuggoseg-audit.js; 11 valódi alfolyamatot futtató próba.
+- Kockázat: alacsony. Registry-kieséskor a CI tudatosan blokkol.
+
+F04 – P1, CÍMKERESŐ HIBA UTÁNI HELYREÁLLÁS
+- Hálózati hibánál vagy 15 másodperces várakozás után látható hiba és
+  újrapróbálás jelenik meg. A mezők együtt állnak helyre, az űrlap megmarad.
+- A függő Google-betöltés megosztott; nincs kikényszerített kettős script.
+  Enterkor egyetlen kiválasztási folyamat fut, házszámos mentőággal.
+- Fájl: web/src/components/AddressAutocomplete.tsx; recovery unit teszt,
+  25-ös és 47-es böngészőteszt valódi Google címkereséssel.
+- Kockázat: közepes; a külső szolgáltatás betöltését és Enter-kezelést érinti.
+
+F05 – P1, CSOMAGKÖVETŐ HÁLÓZATI HIBAKEZELÉSE
+- Véges kérésidő a válasz törzsére is, megszakítás oldalváltáskor,
+  egymást nem átfedő frissítések és kézi újrapróbálás.
+- Elérési hiba nem jelent érvénytelen linket. Frissítési hibánál megmarad
+  az utolsó adat, időbélyeggel és figyelmeztetéssel; 404/410 vagy másik
+  követőlink esetén a korábbi címzett és PIN eltűnik.
+- Fájl: web/app/nyomon-kovetes/[token]/page.tsx; 7 komponens- és 2 E2E-eset.
+- Kockázat: alacsony-közepes; a követési API és a jogosultsági kapuk élnek.
+
+F06 – P2, LEVÁLTOTT SZÁLLÍTÓ GPS-E A PUBLIKUS KÖVETŐN
+- A fuvar és a jelenlegi szállító utolsó helyadata közös lekérdezésben
+  olvasható. Az előző szállító helye nem jelenik meg az új szállító neve alatt.
+- Fájl: backend/src/routes/publicTracking.js; valódi szállítócserés API-teszt.
+- Kockázat: alacsony; a korábbi GPS-napló megőrzése változatlan.
+
+Ellenőrzés: 2090 backend- és 202 webteszt sikeres; backend lefedettségi
+kapu teljesül. A production build sikeres. Az éles függőségek között nincs
+high/critical találat (backend: 3 moderate; web: 0). A végső böngészős és
+GitHub CI-eredményeket a javítás PR-je rögzíti.
+Nincs adatbázis-migráció vagy feature/payment kapcsolóváltás. A CIB és az
+éles számlázás bekötése továbbra is külön launch-feladat. Az audit további
+P2 tételei és a natív mobilapp külön fázisa nem része ennek a csomagnak.
+
 2026-09-20 – PR #244 UTÁNI HÁROM IGAZOLT HIBA JAVÍTÁSA
 
 Fejlesztési ág: fix/post244-audit. Alap: f161f7e (PR #244).
