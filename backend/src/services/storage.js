@@ -22,7 +22,8 @@
 //                          pl. https://pub-xxx.r2.dev (dev URL)
 //                          vagy https://files.gofuvar.hu (saját domain)
 //
-// Ha az R2_* env változók közül akár csak egy is hiányzik → disk fallback.
+// Lokális fallback kizárólag dev/teszt módban engedett. Élesben a hívó
+// tartós mentést választhat (bizonyítékfotónál DB), vagy hibát jelez.
 
 const crypto = require('crypto');
 const path = require('path');
@@ -142,28 +143,26 @@ async function saveFile(buffer, originalName, mimetype, { beforeSave } = {}) {
       );
       return `${r2Config.publicUrl}/${filename}`;
     } catch (err) {
-      // Ha R2 upload sikertelen, **ne** dobjunk — essünk vissza diskre,
-      // hogy a user legalább lássa a képet az aktuális sessionben.
-      console.error('[storage] R2 upload hiba, disk fallback:', err.message);
-      // ⚠️ DE ÉLESBEN RIASSZUNK (2026-08-12, lefedettségi kör P2-4).
-      // A Railway-lemez NEM perzisztens: a következő deploynál a felvételi /
-      // kézbesítési BIZONYÍTÉKFOTÓ eltűnik, a DB-ben pedig halott `/uploads/…`
-      // URL marad — amire a deleteFile `true`-t ad, tehát a retenció
-      // „letöröltnek" könyveli. A csendes fallback így néma bizonyíték-vesztés.
-      // A savePrivateFile ágán ezt már lezártuk (ott élesben DOB); a publikus
-      // ág kimaradt alóla.
+      console.error('[storage] R2 upload hiba:', err.message);
       if (process.env.NODE_ENV === 'production') {
         try {
           require('@sentry/node').captureMessage(
-            '[storage] R2 feltöltés sikertelen, NEM PERZISZTENS disk-fallback — a fotó a következő deploynál elvész',
+            '[storage] R2 feltöltés sikertelen — nem perzisztens disk-fallback letiltva, tartós mentés szükséges',
             'error',
           );
-        } catch { /* a riasztás hiánya ne akassza meg a feltöltést */ }
+        } catch { /* a riasztás hibája nem írhatja felül a tárolási hibát */ }
+        // A photoUpload a bájtokat a státuszváltással együtt a DB-be menti.
+        // Avatar esetén a hiba megőrzi a korábbi, tartósan tárolt képet.
+        throw err;
       }
     }
   }
 
-  // ── Disk fallback ──
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('A perzisztens fájltároló nincs beállítva.');
+  }
+
+  // ── Disk fallback (dev/teszt) ──
   if (beforeSave) await beforeSave(`/uploads/${filename}`);
   const filepath = path.join(UPLOADS_DIR, filename);
   fs.writeFileSync(filepath, buffer);

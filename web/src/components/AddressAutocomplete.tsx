@@ -21,7 +21,7 @@
 //  (útvonal-figyelő) és az ár-kalkulátor szándékosan NEM használja — ott a
 //  város-szintű megadás a helyes viselkedés.
 // =====================================================================
-import { useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
@@ -105,7 +105,21 @@ export function areaPrecisionError(
   return 'Ez túl tág terület (megye/régió) — add meg legalább a települést (pl. „Szeged”).';
 }
 
-export default function AddressAutocomplete({
+const MAPS_RETRY_EVENT = 'gofuvar:retry-address-maps';
+
+export default function AddressAutocomplete(props: Props) {
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const retry = () => setAttempt(n => n + 1);
+    window.addEventListener(MAPS_RETRY_EVENT, retry);
+    return () => window.removeEventListener(MAPS_RETRY_EVENT, retry);
+  }, []);
+  // A loader hook új példánya újrahívja a közös Google Loader.load()-ot.
+  // A Loader a sikertelen betöltést maga állítja vissza; az űrlap a szülőben marad.
+  return <AddressField key={attempt} {...props} />;
+}
+
+function AddressField({
   label,
   value,
   onChange,
@@ -117,28 +131,36 @@ export default function AddressAutocomplete({
   onImprecise,
 }: Props) {
   const apiKey = getGoogleMapsApiKey();
-  const { isLoaded } = useJsApiLoader({
+  const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
     id: GOOGLE_MAPS_ID,
     libraries: GOOGLE_MAPS_LIBRARIES,
     language: GOOGLE_MAPS_LANGUAGE,
     region: GOOGLE_MAPS_REGION,
   });
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  useEffect(() => {
+    if (isLoaded || loadError || !apiKey) return;
+    const timer = setTimeout(() => setLoadTimedOut(true), 15_000);
+    return () => clearTimeout(timer);
+  }, [isLoaded, loadError, apiKey]);
+
+  function retryMaps() {
+    // A Loader újraindítja a hibás betöltést, a még függőhöz csatlakozik.
+    // Időtúllépésnél nem színlelünk script-hibát: a régi script attól még
+    // lefuthatna, és a két Google-példány egymás állapotát rontaná el.
+    // A felvételi és lerakodási mező együtt álljon helyre.
+    window.dispatchEvent(new Event(MAPS_RETRY_EVENT));
+  }
   // GF-021 (Manus, 2026-08-30): a címke eddig NEM volt a mezőhöz kötve
   // (nincs htmlFor/id) — vizuálisan címke, a képernyőolvasónak név nélküli
   // szerkesztőmező. Ugyanaz az osztály, amit a PR #177 16 mezőn már
   // javított — ez a komponens kimaradt.
   const inputId = useId();
 
-  // ⚠️ GF-007, NEGYEDIK kör (2026-08-31). A történet tanulsága: az Enter
-  // körül HÁROM szereplő versenyzett (böngésző implicit submit, Google
-  // Places kiválasztás, a mi fékjeink), és a sorrendjük nem volt a kezünkben.
-  // A 3. körös capture-fék a submitot megfogta, de ÉLESBEN MÉRVE a Google
-  // kiválasztását nem-determinisztikussá tette (3 futásból 2-ben nem
-  // választott). A végleges elv: az Enter viselkedését TELJESEN átvesszük —
-  // a submit mindig tiltva, a kiválasztást pedig MI hajtjuk végre a látható
-  // javaslat-lista kijelölt elemén (szintetikus egér-esemény — az egér-út
-  // bizonyítottan determinisztikus). Őr: 25-ös E2E-spec.
+  // Enter: nincs implicit submit és nincs párhuzamos Google-kiválasztás.
+  // A kijelölt javaslatot a saját Geocoder oldja fel; a begépelt házszám
+  // szükség esetén a mentőágban marad meg. Őrök: 25-ös és 47-es E2E-spec.
   const enterFekRef = (el: HTMLInputElement | null) => {
     if (!el || (el as any).__gofuvarEnterFek) return;
     (el as any).__gofuvarEnterFek = true;
@@ -146,11 +168,11 @@ export default function AddressAutocomplete({
       if (e.key !== 'Enter') return;
       // Implicit form-submit SOHA (a fék eddig is élt) —
       e.preventDefault();
-      // — DE a fék mellékhatásaként a Google saját Enter-kiválasztása
-      // NEM-DETERMINISZTIKUSSÁ vált (élesben mérve: 3 futásból 2-ben nem
-      // választott). Ezért a kiválasztást MI végezzük el: a látható
-      // javaslat-lista kijelölt (vagy első) elemére szintetikus mousedown
-      // megy — a Google arra választ, és az egér-út bizonyítottan stabil.
+      // Az Entert lent a saját Geocoder kezeli. A Google keydown ága
+      // külön place_changed-et is indítana, és annak későbbi, pontatlan
+      // válasza felülírhatná a már megerősített címet/koordinátát.
+      e.stopImmediatePropagation();
+      // A látható javaslat kijelölt, ennek hiányában első elemének szövege.
       const pac = Array.from(document.querySelectorAll('.pac-container'))
         .find((c) => (c as HTMLElement).offsetWidth > 0);
       const item = pac && (pac.querySelector('.pac-item-selected') || pac.querySelector('.pac-item'));
@@ -228,6 +250,10 @@ export default function AddressAutocomplete({
       const gond = requirePrecise ? precisionError(place)
         : requireArea ? areaPrecisionError(place) : null;
       if (gond) {
+        // A javaslat listája gyakran csak utcát ad. Enterrel is ugyanaz a
+        // házszámos mentőág éljen, mint az egérrel választásnál.
+        if (requirePrecise && typedRef.current.trim() !== query
+          && await rescueWithGeocoder(typedRef.current)) return;
         onTextChange?.(hit.formatted_address || query);
         onImprecise?.(gond);
         return;
@@ -311,10 +337,19 @@ export default function AddressAutocomplete({
   }
 
   if (!isLoaded) {
+    const failed = !!loadError || loadTimedOut;
     return (
       <div>
         <label htmlFor={inputId}>{label}</label>
-        <input id={inputId} className="input" value={value} disabled placeholder="Térkép betöltése…" />
+        <input id={inputId} className="input" value={value} disabled
+          aria-describedby={failed ? `${inputId}-load-error` : undefined}
+          placeholder={failed ? 'Címkereső nem elérhető' : 'Térkép betöltése…'} />
+        {failed && (
+          <div id={`${inputId}-load-error`} role="alert" style={{ marginTop: 8, fontSize: 13 }}>
+            <p>A címkereső nem töltődött be. Ellenőrizd az internetkapcsolatot, majd próbáld újra. A megadott adatok megmaradnak.</p>
+            <button type="button" className="btn btn-secondary" onClick={retryMaps}>Címkereső újratöltése</button>
+          </div>
+        )}
       </div>
     );
   }

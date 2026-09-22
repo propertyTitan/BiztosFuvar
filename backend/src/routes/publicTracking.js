@@ -22,7 +22,7 @@ const TRACKING_GRACE_DAYS = 14;
 // GET /tracking/:token — publikus, nincs auth
 router.get('/tracking/:token', async (req, res) => {
   // Keresés a jobs-ban VAGY a route_bookings-ban
-  let job, pingRows = [];
+  let job;
 
   const { rows: jobRows } = await db.query(
     `SELECT j.id, j.title, j.status, j.status_before_dispute, 'job' AS source,
@@ -34,9 +34,16 @@ router.get('/tracking/:token', async (req, res) => {
             c.full_name AS carrier_name,
             c.vehicle_type AS carrier_vehicle,
             c.phone AS carrier_phone,
-            c.rating_avg AS carrier_rating
+            c.rating_avg AS carrier_rating,
+            row_to_json(ping) AS last_position
        FROM jobs j
   LEFT JOIN users c ON c.id = j.carrier_id
+  LEFT JOIN LATERAL (
+       SELECT lat, lng, speed_kmh, recorded_at
+         FROM location_pings
+        WHERE job_id = j.id AND carrier_id = j.carrier_id
+        ORDER BY recorded_at DESC LIMIT 1
+  ) ping ON true
       WHERE j.tracking_token = $1`,
     [req.params.token],
   );
@@ -64,17 +71,6 @@ router.get('/tracking/:token', async (req, res) => {
   }
 
   if (!job) return res.status(404).json({ error: 'Fuvar nem található' });
-
-  // Utolsó GPS pozíció (jobs-hoz van location_pings)
-  if (job.source === 'job') {
-    const { rows } = await db.query(
-      `SELECT lat, lng, speed_kmh, recorded_at
-         FROM location_pings WHERE job_id = $1
-        ORDER BY recorded_at DESC LIMIT 1`,
-      [job.id],
-    );
-    pingRows = rows;
-  }
 
   // ── Díj-kapu (2026-08-09, biztonsági audit) ──
   // A szállító TELEFONSZÁMA és az átvételi KÓD csak a kapcsolatfelvételi díj
@@ -144,7 +140,7 @@ router.get('/tracking/:token', async (req, res) => {
       phone: isPaid ? job.carrier_phone : null,
       rating: job.carrier_rating,
     } : null,
-    last_position: pingRows[0] || null,
+    last_position: job.last_position || null,
     dropoff_needs_carrying: job.dropoff_needs_carrying,
     dropoff_floor: job.dropoff_floor,
     dropoff_has_elevator: job.dropoff_has_elevator,
