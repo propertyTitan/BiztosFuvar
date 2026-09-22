@@ -37,23 +37,49 @@ const konyvtar = process.argv[2] || '.';
 const nev = path.basename(path.resolve(konyvtar));
 const ELFOGADOTT = ELFOGADOTT_CSOMAGONKENT[nev] || {};
 
-let jelentes;
+let kimenet;
 try {
   // Az `npm audit` nem-nulla kóddal lép ki, ha talál valamit — ezért fogjuk el.
-  const kimenet = execSync('npm audit --omit=dev --json', {
+  kimenet = execSync('npm audit --omit=dev --json', {
     cwd: konyvtar, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
     maxBuffer: 20 * 1024 * 1024,
   });
-  jelentes = JSON.parse(kimenet);
 } catch (err) {
-  if (!err.stdout) {
-    console.error(`[audit] Az npm audit nem futott le (${nev}): ${err.message}`);
+  // A sérülékenységeket jelző exit 1 feldolgozható; a futtatási hiba nem.
+  if (err.status !== 1 || !err.stdout || err.signal) {
+    console.error(`[audit] Az npm audit nem futott le (${nev}). Próbáld újra az ellenőrzést.`);
     process.exit(1);
   }
-  jelentes = JSON.parse(err.stdout);
+  kimenet = err.stdout;
 }
 
-const sulyosak = Object.entries(jelentes.vulnerabilities || {})
+let jelentes;
+try {
+  jelentes = JSON.parse(kimenet);
+  const objektum = v => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const szintek = ['info', 'low', 'moderate', 'high', 'critical'];
+  const m = jelentes?.metadata?.vulnerabilities;
+  if (!objektum(jelentes) || jelentes.error || jelentes.auditReportVersion !== 2
+      || !objektum(jelentes.vulnerabilities) || !objektum(m)
+      || ![...szintek, 'total'].every(k => Number.isSafeInteger(m[k]) && m[k] >= 0)) {
+    throw new Error('Érvénytelen auditjelentés');
+  }
+  const darab = Object.fromEntries(szintek.map(k => [k, 0]));
+  for (const v of Object.values(jelentes.vulnerabilities)) {
+    if (!objektum(v) || !szintek.includes(v.severity)) throw new Error('Ismeretlen súlyosság');
+    darab[v.severity]++;
+  }
+  if (!szintek.every(k => darab[k] === m[k])
+      || m.total !== Object.values(darab).reduce((a, b) => a + b, 0)) {
+    throw new Error('Hiányos auditjelentés');
+  }
+} catch {
+  // Registry/proxy hibaüzenetét nem szabad nulla találatos auditnak tekinteni.
+  console.error(`[audit] Nem kaptunk teljes, érvényes npm audit jelentést (${nev}). Az ellenőrzés sikertelen.`);
+  process.exit(1);
+}
+
+const sulyosak = Object.entries(jelentes.vulnerabilities)
   .filter(([, v]) => v.severity === 'high' || v.severity === 'critical');
 
 const ujak = sulyosak.filter(([csomag]) => !ELFOGADOTT[csomag]);
