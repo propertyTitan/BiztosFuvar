@@ -8,8 +8,8 @@
 //      Railway-lemez NEM perzisztens: a következő deploynál a felvételi /
 //      kézbesítési bizonyítékfotó eltűnik, a DB-ben halott `/uploads/…` URL
 //      marad — amire a `deleteFile` `true`-t ad, tehát a retenció
-//      „letöröltnek" könyveli. Ezért került bele 2026-08-12-én a
-//      Sentry-riasztás; azt eddig SEMMI nem őrizte.
+//      „letöröltnek" könyveli. A védelem: élesben tiltott a disk-fallback;
+//      a photoUpload tartós DB-mentést végez. A riasztás továbbra is él.
 //   2. Ugyanez a riasztás NEM mehet ki dev/teszt futásban (különben zaj lesz,
 //      és a zajos riasztást előbb-utóbb kikapcsolják).
 //   3. R2-módban is előfordul RÉGI, relatív `/uploads/…` URL a DB-ben (a
@@ -139,44 +139,20 @@ function riasztasFigyelo() {
 //  1) ÉLES R2-KIESÉS A PUBLIKUS ÁGON — a néma bizonyíték-vesztés
 // =====================================================================
 describe('saveFile: R2-kiesés élesben', () => {
-  it('a fallback MEGTÖRTÉNIK (a fuvar nem akad el), de RIASZTÁST is küld', async () => {
-    const t = betoltTarolo();
+  it.each([true, false])('élesben nincs lemezmentés: R2 beállítva=%s', async r2 => {
+    const t = betoltTarolo({ r2 });
     naplo.kuldesHiba = 'R2 503 Service Unavailable';
     const uzenetek = riasztasFigyelo();
-
+    const write = vi.spyOn(fs, 'writeFileSync');
     process.env.NODE_ENV = 'production';
-    let url;
     try {
-      url = await t.saveFile(BAJTOK, 'kezbesites.jpg', 'image/jpeg');
-    } finally {
-      process.env.NODE_ENV = 'test';
-    }
-
-    expect(
-      url,
-      'Az R2-kiesés után nem kaptunk URL-t. A fotó-feltöltés végpontja '
-      + '500-zal szállna el, és a szállító nem tudná lezárni a fuvart — '
-      + 'a fallback maga tehát HELYES.',
-    ).toMatch(/^\/uploads\/[0-9a-f]{32}\.jpg$/);
-    letrehozottFajlok.push(path.join(UPLOADS_DIR, path.basename(url)));
-
-    expect(
-      uzenetek.length,
-      'ÉLES R2-KIESÉSNÉL NÉMÁN A LEMEZRE ESTÜNK. A Railway-lemez nem '
-      + 'perzisztens: a következő deploynál a felvételi/kézbesítési '
-      + 'BIZONYÍTÉKFOTÓ eltűnik, a DB-ben halott `/uploads/…` URL marad — '
-      + 'amire a deleteFile `true`-t ad, tehát a retenció „letöröltnek" '
-      + 'könyveli. Riasztás nélkül ez csak hónapokkal később, egy vitánál '
-      + 'derülne ki, amikor már nincs bizonyíték.',
-    ).toBeGreaterThan(0);
-    expect(
-      uzenetek[0].szint,
-      'a riasztás nem hiba-szintű — a Sentryben elveszne a figyelmeztetések közt',
-    ).toBe('error');
-    expect(
-      uzenetek[0].uzenet,
-      'a riasztás szövegéből nem derül ki, MI a tét (a fotó elvész a deploynál)',
-    ).toMatch(/perzisztens|elvész/i);
+      await expect(t.saveFile(BAJTOK, 'kezbesites.jpg', 'image/jpeg'))
+        .rejects.toThrow(r2 ? 'R2 503' : 'perzisztens');
+      expect(write).not.toHaveBeenCalled();
+      if (r2) expect(uzenetek).toEqual([
+        { uzenet: expect.stringMatching(/perzisztens/), szint: 'error' },
+      ]);
+    } finally { process.env.NODE_ENV = 'test'; }
   });
 
   it('dev/teszt futásban ugyanez NEM riaszt (a riasztás ne legyen zajos)', async () => {
@@ -195,28 +171,16 @@ describe('saveFile: R2-kiesés élesben', () => {
     ).toEqual([]);
   });
 
-  it('a Sentry hiánya sem akaszthatja meg a feltöltést', async () => {
+  it('a Sentry hibája nem rejti el a tartós mentést igénylő tárolási hibát', async () => {
     const t = betoltTarolo();
     naplo.kuldesHiba = 'R2 503';
-    const Sentry = require('@sentry/node');
-    vi.spyOn(Sentry, 'captureMessage').mockImplementation(() => {
-      throw new Error('a Sentry-kliens nincs inicializálva');
+    vi.spyOn(require('@sentry/node'), 'captureMessage').mockImplementation(() => {
+      throw new Error('Sentry unavailable');
     });
-
     process.env.NODE_ENV = 'production';
-    let url;
     try {
-      await expect(
-        (async () => { url = await t.saveFile(BAJTOK, 'kep.jpg', 'image/jpeg'); })(),
-        'A RIASZTÁS HIBÁJA MEGBUKTATTA A FELTÖLTÉST. A megfigyelés sosem '
-        + 'lehet kritikus út: egy Sentry-kvóta vagy hálózati hiba így az '
-        + 'egész fotó-feltöltést kiütné.',
-      ).resolves.not.toThrow();
-    } finally {
-      process.env.NODE_ENV = 'test';
-    }
-    letrehozottFajlok.push(path.join(UPLOADS_DIR, path.basename(url)));
-    expect(url).toMatch(/^\/uploads\//);
+      await expect(t.saveFile(BAJTOK, 'kep.jpg', 'image/jpeg')).rejects.toThrow('R2 503');
+    } finally { process.env.NODE_ENV = 'test'; }
   });
 });
 
