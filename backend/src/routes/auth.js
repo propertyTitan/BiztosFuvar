@@ -370,7 +370,7 @@ router.post('/reset-password', loginRateLimit, async (req, res) => {
         error: 'A link érvénytelen vagy lejárt. Kérj újat a "Elfelejtett jelszó" gombbal.',
       });
     }
-    await db.query(
+    const reset = await db.query(
       `UPDATE users
           SET password_hash = $1,
               password_reset_token_hash = NULL,
@@ -380,9 +380,19 @@ router.post('/reset-password', loginRateLimit, async (req, res) => {
               -- tokenünkkel visszaélt, a jelszó-csere kizárja.
               token_version = token_version + 1,
               updated_at = NOW()
-        WHERE id = $2`,
-      [await hashPassword(password), user.id],
+        WHERE id = $2
+          AND password_reset_token_hash = $3
+          AND password_reset_expires_at > NOW()
+        RETURNING id`,
+      [await hashPassword(password), user.id, tokenHash],
     );
+    // A token a lassú jelszóhash közben lejárhat, lecserélődhet vagy egy
+    // másik kérés elfogyaszthatja. Csak a feltételes UPDATE nyertese resetel.
+    if (!reset.rowCount) {
+      return res.status(400).json({
+        error: 'A link érvénytelen vagy lejárt. Kérj újat a "Elfelejtett jelszó" gombbal.',
+      });
+    }
     // ⚠️ A NYITOTT SOCKET IS BOMOLJON (2026-08-11, adatáramlási audit).
     // A `token_version` léptetése CSAK a REST-oldalt zárja: a socket
     // token-ellenőrzése kizárólag a HANDSHAKE-kor fut (realtime.js), egy már
