@@ -29,4 +29,3 @@ it('public tracking must not label the previous carrier GPS as the replacement c
   expect(Number(fresh.body.last_position.lat)).toBe(47.6);
   expect(Number(fresh.body.last_position.lng)).toBe(19.2);
 });
-
