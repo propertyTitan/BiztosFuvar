@@ -191,8 +191,9 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       jobId, uploaderId: req.user.sub, kind, url, deliveryCode: delivery_code,
       maxPhotos: MAX_PHOTOS_PER_KIND,
       gps: [gps_lat, gps_lng, gps_accuracy_m].map((value) => value ? parseFloat(value) : null),
-    }));
+    }), { publicImage: kind === 'listing' });
   } catch (error) {
+    if (error.code === 'INVALID_PUBLIC_IMAGE') return res.status(400).json({ error: error.message, code: error.code });
     if (error.photoStatus) return res.status(error.photoStatus).json(error.photoBody);
     throw error;
   }

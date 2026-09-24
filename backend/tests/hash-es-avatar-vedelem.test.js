@@ -20,7 +20,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import request from 'supertest';
 
-const { app, db, createUser } = require('./helpers');
+const { app, db, createUser, TINY_PNG } = require('./helpers');
 const storage = require('../src/services/storage');
 
 const JPEG = Buffer.from([
@@ -137,7 +137,7 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
       await beforeSave(key);
       return key;
     });
-    expect((await request(app).post('/auth/avatar').set(auth(tamado.token)).attach('file', JPEG, 'k.jpg')).status).toBe(200);
+    expect((await request(app).post('/auth/avatar').set(auth(tamado.token)).attach('file', TINY_PNG, 'k.png')).status).toBe(200);
 
     expect(
       torles.mock.calls.flat(),
@@ -156,7 +156,7 @@ describe('Az okmány-lenyomat nem visszafejthető', () => {
       return key;
     });
 
-    expect((await request(app).post('/auth/avatar').set(auth(user.token)).attach('file', JPEG, 'k.jpg')).status).toBe(200);
+    expect((await request(app).post('/auth/avatar').set(auth(user.token)).attach('file', TINY_PNG, 'k.png')).status).toBe(200);
 
     expect(
       torles.mock.calls.flat(),

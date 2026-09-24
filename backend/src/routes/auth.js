@@ -1062,6 +1062,7 @@ router.post('/avatar', authRequired, uploadSingle('file'), async (req, res) => {
     if (result.expired) return res.status(409).json({ error: 'A feltöltés lejárt. Töltsd fel újra a profilképet.' });
     res.json({ url: result.url });
   } catch (err) {
+    if (err.code === 'INVALID_PUBLIC_IMAGE') return res.status(400).json({ error: err.message, code: err.code });
     console.error('[auth] avatar upload hiba:', err);
     res.status(500).json({ error: 'Fájl mentés sikertelen' });
   }

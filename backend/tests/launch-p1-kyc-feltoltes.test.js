@@ -1,9 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import request from 'supertest';
 const storage = require('../src/services/storage');
-// A régi, destrukturált purge-hívást is mérje ugyanaz a próba.
-const remove = vi.spyOn(storage, 'deleteFile');
-const realRemove = remove.getMockImplementation();
 const { app, db, createUser, TINY_PNG } = require('./helpers');
 const { purgeOldKycFiles } = require('../src/services/kyc');
 afterEach(() => { vi.restoreAllMocks(); });
@@ -27,12 +24,16 @@ it('P1-05: purge közben lecserélt kép mutatója megmarad', async () => {
   const user = await createUser();
   const { rows } = await db.query(`INSERT INTO kyc_documents(user_id, doc_type, file_url, status, created_at)
     VALUES($1, 'id_card', 'data:image/png;base64,cHVyZ2U=', 'pending', NOW() - INTERVAL '61 days') RETURNING id`, [user.id]);
-  remove.mockImplementation(async (url) => {
-    if (url === 'data:image/png;base64,cHVyZ2U=') {
-      await db.query("UPDATE kyc_documents SET file_url = 'data:image/png;base64,bmV3', uploaded_at = NOW() WHERE id = $1", [rows[0].id]);
-      return true;
+  // A csere az előválogatás UTÁN, a friss sorzár ELŐTT commitol. A tároló-
+  // törlésen belüli UPDATE már helyesen blokkolna a purge sorzárán.
+  const query = db.query; let replaced = false;
+  vi.spyOn(db, 'query').mockImplementation(async (sql, args) => {
+    const result = await query(sql, args);
+    if (!replaced && String(sql).includes('SELECT id, file_url, uploaded_at')) {
+      replaced = true;
+      await query("UPDATE kyc_documents SET file_url = 'data:image/png;base64,bmV3', uploaded_at = NOW() WHERE id = $1", [rows[0].id]);
     }
-    return realRemove(url);
+    return result;
   });
   await purgeOldKycFiles();
   expect((await db.query('SELECT file_url FROM kyc_documents WHERE id = $1', [rows[0].id])).rows[0].file_url).toBe('data:image/png;base64,bmV3');
