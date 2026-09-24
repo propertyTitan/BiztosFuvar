@@ -21,6 +21,7 @@ import FieldError, { REQ, redBorder } from '@/components/FieldError';
 import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
 import { mentPiszkozat, olvasPiszkozat, torolPiszkozat, piszkozatKulcs, UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
+import { clearHozasdEl, HOZASD_EL_PREFILL, readHozasdEl, safeProductImage, saveHozasdEl, type HozasdElDraft } from '@/lib/hozasdEl';
 import { idoablakHiba } from '@/lib/idoablak';
 import ListingPhotoUpload from '@/components/ListingPhotoUpload';
 import {
@@ -123,6 +124,27 @@ const initialForm: FormState = {
   recipient_email: '',
 };
 
+type NumKey = 'length_cm' | 'width_cm' | 'height_cm' | 'weight_kg'
+  | 'suggested_price_huf' | 'declared_value_huf';
+const emptyRaw: Record<NumKey, string> = {
+  length_cm: '', width_cm: '', height_cm: '', weight_kg: '',
+  suggested_price_huf: '', declared_value_huf: '',
+};
+type SavedDraft = {
+  form: Partial<FormState>; raw?: Partial<Record<NumKey, string>>;
+  sourceStore?: string | null; sourceImage?: string | null;
+};
+function productForm(draft: HozasdElDraft): FormState {
+  return { ...initialForm, title: draft.title,
+    description: [draft.description, draft.url && draft.sourceName
+      ? `Forrás (${draft.sourceName}): ${draft.url}` : ''].filter(Boolean).join('\n\n'),
+    pickup_address: draft.pickup.address, pickup_lat: draft.pickup.lat,
+    pickup_lng: draft.pickup.lng, pickup_confirmed: draft.pickup.confirmed,
+    dropoff_address: draft.dropoff.address, dropoff_lat: draft.dropoff.lat,
+    dropoff_lng: draft.dropoff.lng, dropoff_confirmed: draft.dropoff.confirmed,
+  };
+}
+
 // A mezőszintű hibajelzés KÖZÖS (2026-08-15): az útvonal-figyelő és az
 // ajánlattétel is ugyanezt használja, hogy a felhasználó mindenhol ugyanazt
 // a visszajelzést kapja. Lásd `components/FieldError.tsx`.
@@ -137,6 +159,11 @@ export default function UjFuvar() {
   const [createdJob, setCreatedJob] = useState<{ id: string; photos: File[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
+  const [sourceStore, setSourceStore] = useState<string | null>(null);
+  const [sourceImage, setSourceImage] = useState<string | null>(null);
+  const [incomingProduct, setIncomingProduct] = useState<HozasdElDraft | null>(null);
+  const [draftReadyFor, setDraftReadyFor] = useState<string | null>(null);
+  const loadedDraftKey = useRef<string | null>(null);
   const [photos, setPhotos] = useState<File[]>([]);
   const [tried, setTried] = useState(false);
   // Cím-pontatlanság (csak várost/országot választott a legördülőből)
@@ -146,12 +173,7 @@ export default function UjFuvar() {
   //  (1) a „12," köztes gépelési állapot ne tűnjön el a mezőből;
   //  (2) ha valaki egész mezőbe tizedest ír, azt LÁSSA és hibaüzenetet
   //      kapjon rá — ne csendben 12,5 cm-ből 125 cm legyen.
-  type NumKey = 'length_cm' | 'width_cm' | 'height_cm' | 'weight_kg'
-    | 'suggested_price_huf' | 'declared_value_huf';
-  const [raw, setRaw] = useState<Record<NumKey, string>>({
-    length_cm: '', width_cm: '', height_cm: '', weight_kg: '',
-    suggested_price_huf: '', declared_value_huf: '',
-  });
+  const [raw, setRaw] = useState<Record<NumKey, string>>(emptyRaw);
 
   /** Szám-mező onChange: szűrt nyers szöveg + belőle származtatott érték. */
   // GF-019 (Manus, 2026-08-30): a beviteli szűrés a mínuszjelet eddig NÉMÁN
@@ -181,22 +203,61 @@ export default function UjFuvar() {
   // (D3, 2026-09-13) FELHASZNÁLÓHOZ kötött kulcs — a globális kulcs közös
   // eszközön a következő fióknak adta az előző feladó címzett-adatait.
   const PISZKOZAT_KULCS = me ? piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, me.id) : null;
+
+  function importProduct(product: HozasdElDraft, key: string) {
+    const next = productForm(product);
+    const store = product.sourceName || null;
+    const image = safeProductImage(product.image) || null;
+    // Az átadást csak tartós piszkozatmentés után fogyasztjuk el. Ha a
+    // localStorage nem írható, a munkamenetben még megvannak az adatok.
+    if (!mentPiszkozat(key, { form: next, raw: emptyRaw, sourceStore: store, sourceImage: image })) {
+      setError('Az adatokat nem sikerült a fuvarpiszkozatba menteni. Engedélyezd a webhelyadatok tárolását, majd próbáld újra.');
+      setIncomingProduct(product);
+      return;
+    }
+    setForm(next);
+    setRaw(emptyRaw);
+    setSourceStore(store);
+    setSourceImage(image);
+    setIncomingProduct(null);
+    setError(null);
+    clearHozasdEl();
+  }
+
   useEffect(() => {
-    if (!mounted || !me || !PISZKOZAT_KULCS) return;
-    const d = olvasPiszkozat<{ form: Partial<FormState>; raw: Partial<Record<NumKey, string>> }>(PISZKOZAT_KULCS);
-    if (!d || !d.form) return;
-    if (JSON.stringify(form) !== JSON.stringify(initialForm)) return;
-    setForm({ ...initialForm, ...d.form });
-    if (d.raw) setRaw((prev) => ({ ...prev, ...d.raw }));
-    toast.info('Piszkozat visszaállítva', 'A félbehagyott feladásod adatait betöltöttük — ha nem kell, írd felül a mezőket.');
+    if (!me) { loadedDraftKey.current = null; return; }
+    if (!mounted || !me || !PISZKOZAT_KULCS || loadedDraftKey.current === PISZKOZAT_KULCS) return;
+    loadedDraftKey.current = PISZKOZAT_KULCS;
+    const d = olvasPiszkozat<SavedDraft>(PISZKOZAT_KULCS);
+    const restored = { ...initialForm, ...d?.form };
+    const hasSavedDraft = JSON.stringify(restored) !== JSON.stringify(initialForm);
+    setForm(restored);
+    setRaw({ ...emptyRaw, ...d?.raw });
+    setSourceStore(d?.sourceStore ?? null);
+    setSourceImage(safeProductImage(d?.sourceImage) || null);
+    setIncomingProduct(null);
+    setPhotos([]);
+    setCreatedJob(null);
+    setTried(false);
+    setError(null);
+    const incoming = readHozasdEl(HOZASD_EL_PREFILL, me.id);
+    if (incoming?.ready && incoming.title.trim()) {
+      // A vendég piszkozatát a belépő fiókhoz kötjük, még a választás előtt.
+      saveHozasdEl(HOZASD_EL_PREFILL, incoming, me.id);
+      if (hasSavedDraft) setIncomingProduct(incoming);
+      else importProduct(incoming, PISZKOZAT_KULCS);
+    } else if (hasSavedDraft) {
+      toast.info('Piszkozat visszaállítva', 'A félbehagyott feladásod adatait betöltöttük — ha nem kell, írd felül a mezőket.');
+    }
+    setDraftReadyFor(PISZKOZAT_KULCS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, me]);
+  }, [mounted, PISZKOZAT_KULCS]);
   useEffect(() => {
-    if (!mounted || !PISZKOZAT_KULCS || createdJob) return;
+    if (!PISZKOZAT_KULCS || draftReadyFor !== PISZKOZAT_KULCS || incomingProduct || createdJob) return;
     if (JSON.stringify(form) === JSON.stringify(initialForm)) return;
-    const t = setTimeout(() => { mentPiszkozat(PISZKOZAT_KULCS, { form, raw }); }, 500);
+    const t = setTimeout(() => { mentPiszkozat(PISZKOZAT_KULCS, { form, raw, sourceStore, sourceImage }); }, 500);
     return () => clearTimeout(t);
-  }, [form, raw, mounted, PISZKOZAT_KULCS, createdJob]);
+  }, [form, raw, sourceStore, sourceImage, draftReadyFor, PISZKOZAT_KULCS, incomingProduct, createdJob]);
 
   function missing(filled: unknown): boolean {
     if (!tried) return false;
@@ -236,35 +297,6 @@ export default function UjFuvar() {
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
-
-  // "Hozasd el" előtöltés: ha a /hozasd-el oldalról jött (sessionStorage),
-  // a cím és a forrás-link előtöltődik, majd a kulcsot töröljük. A forrás-
-  // boltot külön eltároljuk, hogy a fuvarra "Bolti átvétel" jelvény kerüljön.
-  const [sourceStore, setSourceStore] = useState<string | null>(null);
-  // "Hozasd el" termékkép — a hirdetés OG-előnézeti képe, a szállító ezt látja
-  const [sourceImage, setSourceImage] = useState<string | null>(null);
-  useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem('gofuvar_prefill');
-      if (!raw) return;
-      sessionStorage.removeItem('gofuvar_prefill');
-      const p = JSON.parse(raw);
-      const KNOWN = ['IKEA', 'OBI', 'Praktiker', 'Jófogás'];
-      if (KNOWN.includes(p.sourceName)) setSourceStore(p.sourceName);
-      if (typeof p.image === 'string' && /^https:\/\//i.test(p.image)) setSourceImage(p.image);
-      setForm((prev) => {
-        const next = { ...prev };
-        if (p.title && !prev.title) next.title = String(p.title).slice(0, 120);
-        // A forrás-linket és a hirdetés-leírást a fuvar leírásába tesszük
-        const parts: string[] = [];
-        if (prev.description) parts.push(prev.description);
-        if (p.description) parts.push(String(p.description).slice(0, 500));
-        if (p.sourceUrl) parts.push(`Forrás (${p.sourceName || 'hirdetés'}): ${p.sourceUrl}`);
-        if (parts.length) next.description = parts.join('\n\n');
-        return next;
-      });
-    } catch {}
-  }, []);
 
   function onPickPhotos(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
@@ -459,6 +491,22 @@ export default function UjFuvar() {
     );
   }
   if (!me) return null;
+
+  if (draftReadyFor !== PISZKOZAT_KULCS) return <p role="status">Piszkozat betöltése…</p>;
+  const hasPreviousDraft = JSON.stringify(form) !== JSON.stringify(initialForm);
+  if (incomingProduct) return <section className="card" style={{ maxWidth: 720 }} aria-labelledby="draft-choice-heading">
+    <h1 id="draft-choice-heading">{hasPreviousDraft ? 'Melyik feladással folytatod?' : 'A feladás adatainak átvétele'}</h1>
+    <p>A Hozasd el oldalról ezt hoztad: <strong>{incomingProduct.title}</strong>.</p>
+    {form.title && <p>Korábbi fuvarpiszkozatod: <strong>{form.title}</strong>. Az új feladás kiválasztása ezt a piszkozatot lecseréli.</p>}
+    {!form.title && hasPreviousDraft && <p>Az új feladás kiválasztása lecseréli a korábban mentett űrlapadatokat.</p>}
+    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+      <button className="btn" type="button" onClick={() => importProduct(incomingProduct, PISZKOZAT_KULCS!)}>Az új tárgy feladását kezdem</button>
+      <button className="btn btn-secondary" type="button" onClick={() => {
+        clearHozasdEl(); setIncomingProduct(null); setError(null);
+      }}>{hasPreviousDraft ? 'A korábbi piszkozattal folytatom' : 'Üres űrlappal folytatom'}</button>
+    </div>
+    {error && <p role="alert">{error}</p>}
+  </section>;
 
   if (createdJob) return <ListingPhotoUpload jobId={createdJob.id} photos={createdJob.photos} onContinue={(uploaded) => {
     toast.success('Fuvar feladva', createdJob.photos.length > 0 ? `${uploaded} feltöltött fotóval` : undefined);

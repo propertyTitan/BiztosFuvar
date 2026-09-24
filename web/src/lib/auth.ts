@@ -1,6 +1,7 @@
 'use client';
 
 import { torolPiszkozatokElotaggal, UJ_FUVAR_PISZKOZAT_ELOTAG } from './urlapPiszkozat';
+import { clearHozasdEl } from './hozasdEl';
 
 // Aktuális bejelentkezett user kezelése – localStorage-ból olvassa.
 // Nincs külön context, nincs külön provider, egy hook, ami a kliensen
@@ -32,6 +33,8 @@ export type CurrentUser = {
 const EVENT = 'gofuvar:auth';
 
 export function setCurrentUser(user: CurrentUser, token: string) {
+  const previous = readUser();
+  if (previous && previous.id !== user.id) clearHozasdEl();
   window.localStorage.setItem('gofuvar_user', JSON.stringify(user));
   window.localStorage.setItem('gofuvar_token', token);
   // GF-016/017 (2026-08-30): ha a socket a belépés ELŐTT nyílt (token
@@ -65,6 +68,7 @@ export function clearCurrentUser() {
   // címek) ne maradjon a következő fióknak — felhasználóhoz kötött kulcs
   // ÉS kijelentkezéskor törlés (a régi, globális kulcsot is viszi).
   torolPiszkozatokElotaggal(UJ_FUVAR_PISZKOZAT_ELOTAG);
+  clearHozasdEl();
   window.dispatchEvent(new Event(EVENT));
 }
 
