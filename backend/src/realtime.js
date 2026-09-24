@@ -62,7 +62,9 @@ function init(httpServer) {
         const { rows } = await db.query(
           'SELECT token_version, email_verified, role FROM users WHERE id = $1', [payload.sub],
         );
-        if (!tracked.attempt.revoked && rows[0] && (rows[0].token_version ?? 0) === (payload.tv ?? 0)) {
+        if (!tracked.attempt.revoked && rows[0] && (rows[0].token_version ?? 0) === (payload.tv ?? 0)
+          // A DB-várakozás alatt is lejárhatott az egyszer már ellenőrzött JWT.
+          && (payload.exp === undefined || payload.exp * 1000 > Date.now())) {
           // ⚠️ A SZEREPKÖR A DB-BŐL, NEM A JWT-BŐL (2026-08-11). A REST-oldali
           // ikertestvérét (middleware/auth.js) épp ezért javítottuk: egy
           // LEFOKOZOTT admin a token lejártáig (1 nap) megtartotta a jogát. A
@@ -82,7 +84,34 @@ function init(httpServer) {
   });
 
   io.on('connection', (socket) => {
-    const me = () => socket.data.user?.sub || null;
+    const expiresAt = socket.data.user?.exp * 1000;
+    let expiryTimer;
+    let expired = false;
+    const expire = () => {
+      if (expired) return;
+      expired = true;
+      pendingJoins.delete(socket);
+      // A bontás minden user/job/feed szobából kiléptet, nem csak az új
+      // joinokat tiltja. A régi JWT-vel a kliens nem reconnectel magától.
+      socket.disconnect(true);
+      socket.data.user = null;
+      socket.data.emailVerified = false;
+    };
+    const scheduleExpiry = () => {
+      const remaining = expiresAt - Date.now();
+      if (remaining <= 0) { expire(); return; }
+      expiryTimer = setTimeout(scheduleExpiry, Math.min(remaining, 2_147_483_647));
+      expiryTimer.unref?.();
+    };
+    socket.once('disconnect', () => clearTimeout(expiryTimer));
+    const me = () => {
+      if (expired) return null;
+      if (Number.isFinite(expiresAt) && Date.now() >= expiresAt) {
+        expire();
+        return null;
+      }
+      return socket.data.user?.sub || null;
+    };
     const isAdmin = () => socket.data.user?.role === 'admin';
 
     // Aktivitás-mérés: a bejelentkezett kapcsolat kezdete. A socket
@@ -93,7 +122,9 @@ function init(httpServer) {
       db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [me()]).catch(() => {});
     }
     socket.on('disconnect', () => {
-      const uid = me();
+      // Bontáskor már lejárhatott a hitelesítés; ez csak a lezárult
+      // kapcsolat aktivitásmérése, nem új hozzáférés engedélyezése.
+      const uid = socket.data.user?.sub;
       if (!uid || !socket.data.connectedAt) return;
       const seconds = Math.round((Date.now() - socket.data.connectedAt) / 1000);
       // Anomália-szűrés: 0 alatt (óra-ugrás) vagy 24h felett (ott-felejtett
@@ -163,6 +194,7 @@ function init(httpServer) {
     socket.on('user:leave', () => {
       if (me()) socket.leave(`user:${me()}`);
     });
+    if (Number.isFinite(expiresAt)) scheduleExpiry();
   });
 
   return io;

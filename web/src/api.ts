@@ -327,8 +327,14 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
     ...(init.headers as Record<string, string> | undefined),
   };
   const token = getToken();
+  const checkSession = () => {
+    if (typeof window !== 'undefined' && getToken() !== token) {
+      throw new Error('A munkamenet megváltozott. Kérlek, próbáld újra.');
+    }
+  };
   if (token) headers['Authorization'] = `Bearer ${token}`;
   const res = await fetchWithTimeout(`${BASE_URL}${path}`, { ...init, headers });
+  checkSession();
   if (!res.ok) {
     // Token lejárt / érvénytelen → automatikus kijelentkezés + átirányítás.
     // KIVÉTEL az anonim auth-végpontok (login, regisztráció, jelszó-reset):
@@ -336,7 +342,9 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
     // az oldal újratöltődne és a felhasználó SOSEM látná a hibaüzenetet.
     const anonAuthPaths = ['/auth/login', '/auth/register', '/auth/forgot-password', '/auth/reset-password'];
     const isAnonAuth = anonAuthPaths.some((p) => path.startsWith(p));
-    if (res.status === 401 && !isAnonAuth && typeof window !== 'undefined') {
+    if (res.status === 401 && !isAnonAuth && typeof window !== 'undefined' && getToken() === token) {
+      // Egy A-tokenes, későn visszatérő kérés nem jelentkeztetheti ki a
+      // közben belépett B fiókot vagy ugyanazon fiók friss munkamenetét.
       window.localStorage.removeItem('gofuvar_token');
       window.localStorage.removeItem('gofuvar_user');
       window.dispatchEvent(new CustomEvent('gofuvar:session-expired'));
@@ -347,6 +355,7 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
     // `{ error: res.statusText }` fallback élesben mindig a semmitmondó
     // „API hiba" szövegre esett vissza. A státuszkóddal legalább kereshető.
     const errorData = await res.json().catch(() => ({} as { error?: string; code?: string }));
+    checkSession();
     if (res.status === 403 && typeof window !== 'undefined') {
       const kycCodes = ['IDENTITY_KYC_REQUIRED', 'DRIVER_KYC_REQUIRED', 'COMPANY_KYC_REQUIRED'];
       if (errorData.code === 'OUTSIDE_COVERAGE') {
@@ -362,7 +371,9 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
     (hiba as Error & { code?: string; status?: number }).status = res.status;
     throw hiba;
   }
-  return res.json();
+  const data = await res.json();
+  checkSession();
+  return data;
 }
 
 export const api = {

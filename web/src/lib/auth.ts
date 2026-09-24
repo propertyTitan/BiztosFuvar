@@ -8,7 +8,7 @@ import { clearHozasdEl } from './hozasdEl';
 // bármikor visszaadja az aktuális role-t. A login/logout hívásokkor
 // a komponens re-render-el (custom event a storage update-re).
 import { useEffect, useState } from 'react';
-import { refreshSocketAuth } from './socket';
+import { disconnectSocket, refreshSocketAuth } from './socket';
 
 export type Role = 'shipper' | 'carrier' | 'admin';
 
@@ -34,7 +34,10 @@ const EVENT = 'gofuvar:auth';
 
 export function setCurrentUser(user: CurrentUser, token: string) {
   const previous = readUser();
-  if (previous && previous.id !== user.id) clearHozasdEl();
+  if (previous && previous.id !== user.id) {
+    disconnectSocket();
+    clearHozasdEl();
+  }
   window.localStorage.setItem('gofuvar_user', JSON.stringify(user));
   window.localStorage.setItem('gofuvar_token', token);
   // GF-016/017 (2026-08-30): ha a socket a belépés ELŐTT nyílt (token
@@ -57,6 +60,7 @@ export function frissitCurrentUser(patch: Partial<CurrentUser>) {
 }
 
 export function clearCurrentUser() {
+  disconnectSocket();
   window.localStorage.removeItem('gofuvar_user');
   window.localStorage.removeItem('gofuvar_token');
   // GF-006 (Manus, 2026-08-30): a régi, GLOBÁLIS mód-kulcs kijelentkezéskor
@@ -126,6 +130,47 @@ function readUser(): CurrentUser | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Egyetlen, a teljes kliensfát védő sessionhatár. Másik tab fiókváltása
+ * nem pusztán fejlécfrissítés: a korábbi chat, fotó, PIN és függő socket-
+ * csomag sem maradhat az új fióknál. A hívó tiszta oldalbetöltést végez.
+ * A saját vendég → belépés átadást megtartjuk (Hozasd el piszkozat).
+ */
+export function watchSessionChanges(resetPage: (destination: string) => void): () => void {
+  let userId = readUser()?.id ?? null;
+  let token = window.localStorage.getItem('gofuvar_token');
+  let resetting = false;
+  const check = (event: Event) => {
+    if (resetting) return;
+    if (event instanceof StorageEvent && event.key !== null
+      && !['gofuvar_user', 'gofuvar_token'].includes(event.key)) return;
+    const nextId = readUser()?.id ?? null;
+    const nextToken = window.localStorage.getItem('gofuvar_token');
+    const previousId = userId;
+    const identityChanged = nextId !== userId;
+    const tokenChanged = nextToken !== token;
+    userId = nextId;
+    token = nextToken;
+    if (identityChanged && (previousId !== null || event.type !== EVENT)) {
+      resetting = true;
+      disconnectSocket();
+      // A sessionStorage tabonként külön van, a másik tab logoutja ezt
+      // nem tudja törölni. A feladó localStorage-piszkozata fiókhoz kötött.
+      clearHozasdEl();
+      resetPage(event.type === EVENT || event.type === 'gofuvar:session-expired'
+        ? (nextId ? '/' : '/bejelentkezes') : '/');
+    } else if (tokenChanged) {
+      // Ugyanaz a fiók új tokennel: a meglévő room-feliratkozások maradnak.
+      refreshSocketAuth();
+    }
+  };
+  // Capture: a régi kliensfát az egyedi useCurrentUser hookok frissítése
+  // előtt lezárjuk. Visszahozott/felfüggesztett tabon is ellenőrzünk.
+  const events = [EVENT, 'storage', 'focus', 'pageshow', 'gofuvar:session-expired'];
+  events.forEach(name => window.addEventListener(name, check, true));
+  return () => events.forEach(name => window.removeEventListener(name, check, true));
 }
 
 /**

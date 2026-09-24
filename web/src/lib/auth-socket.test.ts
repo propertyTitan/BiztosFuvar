@@ -15,7 +15,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const refreshSocketAuth = vi.fn();
-vi.mock('./socket', () => ({ refreshSocketAuth: (...a: unknown[]) => refreshSocketAuth(...a) }));
+vi.mock('./socket', () => ({ refreshSocketAuth: (...a: unknown[]) => refreshSocketAuth(...a), disconnectSocket: vi.fn() }));
 
 import { clearCurrentUser, setCurrentUser, type CurrentUser } from './auth';
 import { emptyHozasdElDraft, HOZASD_EL_DRAFT, HOZASD_EL_PREFILL, readHozasdEl, saveHozasdEl } from './hozasdEl';
