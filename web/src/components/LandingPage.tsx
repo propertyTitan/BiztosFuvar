@@ -157,7 +157,7 @@ export default function LandingPage() {
           <div style={{ flex: '1 1 240px' }}>
             <div style={{ fontWeight: 800, fontSize: 18 }}>Vettél valamit online? Hozasd el.</div>
             <div className="muted" style={{ fontSize: 14 }}>
-              IKEA, OBI, Praktiker vagy Jófogás link → pár kattintás, és egy szállító elhozza.
+              Próbáld ki a terméklink előnézetét belépés nélkül. Link nélkül is elkezdheted a feladást.
             </div>
           </div>
           <span className="btn" style={{ pointerEvents: 'none' }}>

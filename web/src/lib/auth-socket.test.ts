@@ -17,13 +17,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const refreshSocketAuth = vi.fn();
 vi.mock('./socket', () => ({ refreshSocketAuth: (...a: unknown[]) => refreshSocketAuth(...a) }));
 
-import { setCurrentUser, type CurrentUser } from './auth';
+import { clearCurrentUser, setCurrentUser, type CurrentUser } from './auth';
+import { emptyHozasdElDraft, HOZASD_EL_DRAFT, HOZASD_EL_PREFILL, readHozasdEl, saveHozasdEl } from './hozasdEl';
 
 const user: CurrentUser = { id: 'u-1', email: 'a@teszt.hu', role: 'shipper' };
 
 beforeEach(() => {
   window.localStorage.clear();
+  window.sessionStorage.clear();
   refreshSocketAuth.mockClear();
+});
+
+it('a vendég Hozasd el adatait belépéskor megtartja, kijelentkezéskor törli', () => {
+  saveHozasdEl(HOZASD_EL_DRAFT, { ...emptyHozasdElDraft(), title: 'Kanapé' }, null);
+  saveHozasdEl(HOZASD_EL_PREFILL, { ...emptyHozasdElDraft(), title: 'Kanapé' }, null);
+  setCurrentUser(user, 'token');
+  expect(readHozasdEl(HOZASD_EL_PREFILL, user.id)?.title).toBe('Kanapé');
+  clearCurrentUser();
+  expect(sessionStorage.getItem(HOZASD_EL_DRAFT)).toBeNull();
+  expect(sessionStorage.getItem(HOZASD_EL_PREFILL)).toBeNull();
 });
 
 describe('setCurrentUser → socket-újrakötés', () => {

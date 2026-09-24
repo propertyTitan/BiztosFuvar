@@ -1,5 +1,17 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-09-24 — Hozasd el belépőfolyamat:** az előnézet és a kézi
+> tárgymegadás belépés előtt is elérhető; a tényleges fuvarfeladás továbbra
+> is fiókot és a meglévő ellenőrzéseket igényli. Új céloldal:
+> `/hozasd-el/butor`. A termék- és címadatok ugyanazon böngészőfülben
+> átmennek a regisztráción; a munkamenetmentés 24 órás, bejelentkezve
+> fiókhoz kötött, kijelentkezéskor törlődik. Korábbi fuvarpiszkozatnál
+> választás kell a cseréhez; a termékkép a fuvarpiszkozat része is lett.
+> Facebook Marketplace esetén csak kézi adatmegadás van, automatikus
+> beolvasást nem ígérünk. Az alábbi régi, belépéshez kötött előnézetről
+> szóló bejegyzések történetiek. Ez a leírás a fejlesztési változatot
+> rögzíti; önmagában nem igazolja a merge-et vagy az éles telepítést.
+
 > **2026-09-15 — a `6272f5e` utóauditjának maradék két P1 javítása:**
 > `fix/launch-two-p1`: a KYC véglegesítése user-sorzár alatt ellenőrzi,
 > hogy a profil neve azonos-e az okmánnyal összevetett névvel; közbeni

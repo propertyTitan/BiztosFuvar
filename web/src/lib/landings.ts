@@ -155,7 +155,7 @@ const USECASES: LandingConfig[] = [
     eyebrow: 'Bútorszállítás',
     headline: 'Bútort vinnél? Van rá szállító',
     subhead: 'Egy kanapé, egy szekrény, egy marketplace-en vett asztal — a GoFuvar szállítók elviszik. A szállítók ajánlatot tesznek rá, te a neked megfelelőt választod — a verseny miatt gyakran kedvező áron.',
-    primaryCta: REGISTER_CTA,
+    primaryCta: { label: 'Elkezdem a szállítás feladását', href: '/hozasd-el/butor' },
     bullets: [
       { icon: Sofa, title: 'Nagy darab is elfér', desc: 'Nem futárcsomag-méret: bútor, több darab, terjedelmes tárgy — ami befér egy autóba vagy furgonba.' },
       { icon: BicepsFlexed, title: 'Bepakolás jelölhető', desc: 'Feladáskor jelezheted, ha emeletre kell felvinni vagy segítség kell a pakoláshoz.' },
@@ -175,7 +175,7 @@ const USECASES: LandingConfig[] = [
     metaDescription: 'Megvan a termék linkje, de nincs mivel elhozni? Másold be, és egy szállító elhozza az IKEA/OBI/Praktiker/Jófogás vásárlásod. A szállítók versenye miatt gyakran kedvező áron.',
     eyebrow: 'Hozasd el',
     headline: 'Megvetted — hozasd el',
-    subhead: 'IKEA, OBI, Praktiker, Jófogás: másold be a termék linkjét, mi kiolvassuk a méretet és a képet, egy szállító pedig elhozza neked. Rugalmas, és a szállítók versenye miatt gyakran kedvező áron.',
+    subhead: 'IKEA, OBI, Praktiker, Jófogás: másold be a termék linkjét, és beolvassuk az elérhető terméknevet és képet. A méret és az átvételi adatok megadása után feladhatod a fuvart, amelyre a szállítók ajánlatot tehetnek.',
     primaryCta: { label: 'Hozasd el most', href: '/hozasd-el' },
     bullets: [
       { icon: Link2, title: 'Csak a link kell', desc: 'Bemásolod a termék linkjét, mi előnézetet csinálunk (cím + kép), és előtöltjük a fuvart.' },

@@ -92,6 +92,7 @@ export const OLDALAK: Oldal[] = [
   { minta: '/autoszallitas', url: () => '/autoszallitas', szereplo: 'anon' },
   { minta: '/fuvar/[utvonal]', url: () => '/fuvar/budapest-szeged', szereplo: 'anon' },
   { minta: '/hozasd-el', url: () => '/hozasd-el', szereplo: 'anon' },
+  { minta: '/hozasd-el/butor', url: () => '/hozasd-el/butor', szereplo: 'anon' },
   { minta: '/nyomon-kovetes/[token]', url: (F) => `/nyomon-kovetes/${F.trackingToken}`, szereplo: 'anon' },
 
   // Mentős

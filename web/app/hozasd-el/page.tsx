@@ -4,16 +4,18 @@ import type { Metadata } from 'next';
 import HozasdElTool from '@/components/HozasdElTool';
 
 export const metadata: Metadata = {
-  title: 'Hozasd el az online vásárlásod — GoFuvar',
+  title: 'Hozasd el az online vásárlásod',
   description:
-    'IKEA-ban, OBI-ban, Praktikerben vagy a Jófogáson vásároltál bútort vagy nagyobb tárgyat? Másold be a termék linkjét, és a GoFuvar szállítójai elhozzák — a fuvardíjat közvetlenül a szállítónak fizeted, fotó bizonyíték + 6 jegyű átvételi kód.',
+    'Találtál egy jó vételt, de nincs mivel elhozni? Próbáld ki a terméklink előnézetét belépés nélkül, vagy add meg kézzel a tárgyat. A fuvarfeladás ingyenes.',
+  alternates: { canonical: '/hozasd-el' },
   keywords: [
     'ikea szállítás', 'obi szállítás', 'praktiker szállítás', 'jófogás szállítás',
     'bútorszállítás', 'használt bútor elszállítás', 'online vásárlás fuvar', 'GoFuvar',
   ],
   openGraph: {
     title: 'Vettél valamit online? Hozasd el — GoFuvar',
-    description: 'Másold be a termék linkjét (IKEA, OBI, Praktiker, Jófogás), és egy szállító elhozza. Biztonságos, és a szállítók versenye miatt gyakran kedvező áron.',
+    description: 'Terméklinkből fuvarfeladás: előnézet belépés nélkül, ingyenes feladás, szállítói ajánlatok. Te választod ki a megfelelő szállítót.',
+    url: '/hozasd-el',
     type: 'website',
     locale: 'hu_HU',
   },
