@@ -18,6 +18,7 @@ const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const paymentProvider = require('../services/paymentProvider');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const { konyvelDijFizetes } = require('../services/feePayment');
+const { startOrReuseFeePayment } = require('../services/feePaymentSession');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
@@ -1004,48 +1005,8 @@ router.post('/route-bookings/:id/pay', authRequired, writeRateLimit, async (req,
     );
   }
 
-  // Idempotens: ha már megvan, csak visszaadjuk.
-  if (b.barion_gateway_url) {
-    return res.json({
-      payment_id: b.barion_payment_id,
-      gateway_url: b.barion_gateway_url,
-      is_stub: String(b.barion_gateway_url).startsWith('stub:'),
-      reused: true,
-    });
-  }
-
-  // Nincs még fizetés → most hozzuk létre, és mentsük el a sorra.
-  const feeHuf = b.connection_fee_huf || calculateConnectionFee(b.price_huf);
-  let barionRes;
-  try {
-    barionRes = await paymentProvider.startFeePayment({
-      jobId: b.id,
-      feeHuf,
-      shipperEmail: b.shipper_email,
-      redirectPath: '/dashboard/foglalasaim',
-    });
-  } catch (err) {
-    console.error('[barion] lusta startFeePayment hiba:', err.message);
-    return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
-  }
-
-  await db.query(
-    `UPDATE route_bookings
-        SET barion_payment_id   = $1,
-            barion_gateway_url  = $2,
-            connection_fee_huf  = COALESCE(connection_fee_huf, $3),
-            carrier_share_huf   = 0,
-            platform_share_huf  = COALESCE(platform_share_huf, $3)
-      WHERE id = $4`,
-    [barionRes.paymentId, barionRes.gatewayUrl, feeHuf, b.id],
-  );
-
-  res.json({
-    payment_id: barionRes.paymentId,
-    gateway_url: barionRes.gatewayUrl,
-    is_stub: !!barionRes.stub,
-    reused: false,
-  });
+  const payment = await startOrReuseFeePayment({ entityType: 'booking', entityId: b.id, shipperId: req.user.sub });
+  res.status(payment.http).json(payment.body);
 });
 
 // POST /route-bookings/:id/confirm-payment

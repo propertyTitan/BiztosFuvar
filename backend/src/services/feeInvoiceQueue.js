@@ -37,6 +37,10 @@ async function invoiceReceipt(receipt) {
 }
 
 async function runPendingFeeInvoices() {
+  // A régi könyvelő COMMIT után írta a fizetési eseményt. Ennek pótlása
+  // akkor is kell, ha a számla már elkészült; új webhook nem garantált.
+  // Lazy import: a könyvelési mag is használja az invoiceReceiptet.
+  await require('./feePaymentRecovery').recoverFeePaymentLedger();
   // A foglalás rövid, atomi UPDATE: több példány sem dolgozza fel ugyanazt
   // a sort egyidejűleg. Összeomlás után tíz perc múlva újra próbálható.
   const { rows } = await db.query(

@@ -49,7 +49,9 @@ const VARAKOZO_ALLAPOT = {
 /**
  * Fizetési napló-sor írása. (payment_id, status) UNIQUE — ismételt írás a
  * meglévő sort frissíti (a claim-sor ezen az úton kapja meg az adatait).
- * Sose dob.
+ * A végleges esemény a session állapotának és az ajánlói jutalomnak is
+ * forrása: írási hibáját továbbadjuk. A könyvelés a saját kliensét adja át,
+ * így a napló, a paid_at és a díjbizonylat egy tranzakcióban érvényesül.
  */
 async function logPaymentEvent({
   paymentId, status, eventType,
@@ -59,45 +61,41 @@ async function logPaymentEvent({
   shipperId, carrierId, carrierCountry,
   summary,
   processed,
-}) {
-  try {
-    await db.query(
-      `INSERT INTO payment_events (
-         payment_id, status, event_type,
-         job_id, booking_id,
-         total_amount, currency, platform_fee, carrier_payout,
-         vat_rate, vat_amount, is_reverse_charge,
-         shipper_id, carrier_id, carrier_country,
-         summary, processed
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
-       ON CONFLICT (payment_id, status) DO UPDATE SET
-         event_type        = EXCLUDED.event_type,
-         job_id            = COALESCE(EXCLUDED.job_id, payment_events.job_id),
-         booking_id        = COALESCE(EXCLUDED.booking_id, payment_events.booking_id),
-         total_amount      = COALESCE(EXCLUDED.total_amount, payment_events.total_amount),
-         currency          = COALESCE(EXCLUDED.currency, payment_events.currency),
-         platform_fee      = COALESCE(EXCLUDED.platform_fee, payment_events.platform_fee),
-         carrier_payout    = COALESCE(EXCLUDED.carrier_payout, payment_events.carrier_payout),
-         vat_rate          = COALESCE(EXCLUDED.vat_rate, payment_events.vat_rate),
-         vat_amount        = COALESCE(EXCLUDED.vat_amount, payment_events.vat_amount),
-         is_reverse_charge = EXCLUDED.is_reverse_charge,
-         shipper_id        = COALESCE(EXCLUDED.shipper_id, payment_events.shipper_id),
-         carrier_id        = COALESCE(EXCLUDED.carrier_id, payment_events.carrier_id),
-         carrier_country   = COALESCE(EXCLUDED.carrier_country, payment_events.carrier_country),
-         processed         = EXCLUDED.processed,
-         summary           = COALESCE(EXCLUDED.summary, payment_events.summary)`,
-      [
-        paymentId, status, eventType,
-        jobId || null, bookingId || null,
-        totalAmount || null, currency || 'HUF', platformFee || null, carrierPayout || null,
-        vatRate || null, vatAmount || null, isReverseCharge || false,
-        shipperId || null, carrierId || null, carrierCountry || null,
-        summary || null, processed,
-      ],
-    );
-  } catch (err) {
-    console.error('[payment_events] log hiba:', err.message);
-  }
+}, client = db) {
+  await client.query(
+    `INSERT INTO payment_events (
+       payment_id, status, event_type,
+       job_id, booking_id,
+       total_amount, currency, platform_fee, carrier_payout,
+       vat_rate, vat_amount, is_reverse_charge,
+       shipper_id, carrier_id, carrier_country,
+       summary, processed
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+     ON CONFLICT (payment_id, status) DO UPDATE SET
+       event_type        = EXCLUDED.event_type,
+       job_id            = COALESCE(EXCLUDED.job_id, payment_events.job_id),
+       booking_id        = COALESCE(EXCLUDED.booking_id, payment_events.booking_id),
+       total_amount      = COALESCE(EXCLUDED.total_amount, payment_events.total_amount),
+       currency          = COALESCE(EXCLUDED.currency, payment_events.currency),
+       platform_fee      = COALESCE(EXCLUDED.platform_fee, payment_events.platform_fee),
+       carrier_payout    = COALESCE(EXCLUDED.carrier_payout, payment_events.carrier_payout),
+       vat_rate          = COALESCE(EXCLUDED.vat_rate, payment_events.vat_rate),
+       vat_amount        = COALESCE(EXCLUDED.vat_amount, payment_events.vat_amount),
+       is_reverse_charge = EXCLUDED.is_reverse_charge,
+       shipper_id        = COALESCE(EXCLUDED.shipper_id, payment_events.shipper_id),
+       carrier_id        = COALESCE(EXCLUDED.carrier_id, payment_events.carrier_id),
+       carrier_country   = COALESCE(EXCLUDED.carrier_country, payment_events.carrier_country),
+       processed         = EXCLUDED.processed,
+       summary           = COALESCE(EXCLUDED.summary, payment_events.summary)`,
+    [
+      paymentId, status, eventType,
+      jobId || null, bookingId || null,
+      totalAmount ?? null, currency || 'HUF', platformFee ?? null, carrierPayout ?? null,
+      vatRate ?? null, vatAmount ?? null, isReverseCharge || false,
+      shipperId || null, carrierId || null, carrierCountry || null,
+      summary || null, processed,
+    ],
+  );
 }
 
 /**
@@ -111,10 +109,9 @@ async function claimPaymentEvent(paymentId, status, { eventType = 'webhook' } = 
   try {
     return await claimPaymentEventBelso(paymentId, status, eventType);
   } catch (err) {
-    // ⚠️ FAIL-OPEN: a napló admin-kényelmi funkció, a fizetés maga a pénz. Ha a
-    // payment_events nem írható, a könyvelés attól még megy — az idempotencia-
-    // védelem nélkül (a paid_at-őr a dupla könyvelést így is megfogja).
-    // Őr: fizetes-hibaagak.test.js („a napló hibája sem buktatja el").
+    // Az előzetes claim hibája mellett a sorzáras könyvelés még megpróbálható.
+    // A VÉGLEGES pénzügyi esemény viszont kötelező része a tranzakciónak:
+    // annak hibája minden helyi könyvelést visszavon, és a PSP újrapróbálhat.
     console.error('[payment_events] claim hiba — feldolgozás védelem nélkül folytatva:', err.message);
     return { claimed: true, degraded: true };
   }
@@ -167,15 +164,17 @@ async function konyvelDijFizetes({
   feeHuf, currency = 'HUF', shipperId, carrierId = null, carrierCountry = null,
 }) {
   if (!VARAKOZO_ALLAPOT[entityType]) throw new Error(`ismeretlen entitás-típus: ${entityType}`);
-  const platformFee = Number(feeHuf) || 0;
+  let platformFee = Number(feeHuf) || 0;
 
   let shipper;
   let vatResult;
 
-  // A fizetett állapot, a díj-sor és a helyreállítási bizonylat együtt
-  // érvényesül. Bármelyik írás hibája mindhármat visszavonja.
+  // A fizetett állapot, a díj-sor, a helyreállítási bizonylat és a végleges
+  // pénzügyi esemény/session együtt érvényesül. Bármelyik írás hibája
+  // mindegyiket visszavonja; számlázás csak a sikeres COMMIT után indul.
   let upd;
   let receipt;
+  let summary;
   let alreadyBooked = false;
   const client = await db.pool.connect();
   try {
@@ -242,6 +241,32 @@ async function konyvelDijFizetes({
       );
       receipt = saved.rows[0];
     }
+    if (receipt) {
+      // Ismétlésnél a már tartósan könyvelt összeg és számlázási pillanatkép
+      // marad a forrás. A korábbi kód hiányos naplója így is helyreállítható.
+      platformFee = Number(receipt.fee_huf);
+      currency = receipt.currency;
+      if (receipt.invoice_snapshot) {
+        shipper = receipt.invoice_snapshot.buyer;
+        vatResult = receipt.invoice_snapshot.vat;
+      }
+      const vatLabel = vatResult.isReverseCharge
+        ? 'ford. adózás' : `${Math.round(vatResult.vatRate * 100)}% ÁFA`;
+      summary = [
+        `feladó: ${shipperId || '?'}`,
+        `kapcsolatfelvételi díj: ${platformFee} ${currency} (${vatLabel})`,
+        eventType === 'manual' ? 'kézi nyugtázás (teszt-üzem)' : null,
+      ].filter(Boolean).join(' · ');
+      await logPaymentEvent({
+        paymentId, status, eventType,
+        jobId: entityType === 'job' ? entityId : null,
+        bookingId: entityType === 'booking' ? entityId : null,
+        totalAmount: platformFee, currency, platformFee, carrierPayout: 0,
+        vatRate: vatResult.vatRate, vatAmount: vatResult.vatAmount,
+        isReverseCharge: vatResult.isReverseCharge,
+        shipperId, carrierId, carrierCountry, summary, processed: true,
+      }, client);
+    }
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
@@ -250,13 +275,6 @@ async function konyvelDijFizetes({
     client.release();
   }
   if (!receipt) return { konyvelve: 0, vatResult, platformFee, shipper };
-  // Ismételt webhooknál a napló és a visszaadott eredmény is az eredeti
-  // könyvelés adataiból készüljön, ne az azóta módosított profilból.
-  if (receipt.invoice_snapshot) {
-    shipper = receipt.invoice_snapshot.buyer;
-    vatResult = receipt.invoice_snapshot.vat;
-  }
-
   // 3) Számla a FELADÓNAK (stub is menti a metaadatot)
   let invoice = null;
   try {
@@ -266,29 +284,7 @@ async function konyvelDijFizetes({
     require('./utemezo').jelezSorHibak('fee-invoices', [err]);
   }
 
-  // 4) Fizetési napló — NÉV NÉLKÜL (2026-08-09): csak azonosítók
-  const vatLabel = vatResult.isReverseCharge
-    ? 'ford. adózás'
-    : `${Math.round(vatResult.vatRate * 100)}% ÁFA`;
-  const summary = [
-    `feladó: ${shipperId || '?'}`,
-    `kapcsolatfelvételi díj: ${platformFee} ${currency} (${vatLabel})`,
-    invoice ? `számla: ${invoice.id}` : null,
-    eventType === 'manual' ? 'kézi nyugtázás (teszt-üzem)' : null,
-  ].filter(Boolean).join(' · ');
-  await logPaymentEvent({
-    paymentId, status, eventType,
-    jobId: entityType === 'job' ? entityId : null,
-    bookingId: entityType === 'booking' ? entityId : null,
-    totalAmount: platformFee, currency, platformFee, carrierPayout: 0,
-    vatRate: vatResult.vatRate, vatAmount: vatResult.vatAmount,
-    isReverseCharge: vatResult.isReverseCharge,
-    shipperId, carrierId, carrierCountry,
-    summary,
-    processed: true,
-  });
-
-  // 5) Ajánlói jutalom — a napló megírása UTÁN (a referral a naplót olvassa)
+  // Ajánlói jutalom csak a pénzügyi napló sikeres COMMIT-ja után.
   maybeGrantReferralReward(shipperId, {
     role: 'shipper',
     jobId: entityType === 'job' ? entityId : null,
