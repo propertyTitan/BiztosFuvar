@@ -4,6 +4,7 @@
 // weboldal elérhetőségétől, de a teljes web-oldali flow-t végigjárja.
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   createUser, dbQuery, getJobRow, loginAs, selectAddress, setJobAccepted, TINY_PNG,
 } from './helpers';
@@ -15,13 +16,14 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('gofuvar_cookie_consent', JSON.stringify({ necessary: true })));
 });
 
-test('vendég kézi feladása valódi regisztráción és email-kapun át is megmarad', async ({ page }) => {
+test('vendég bútorfeladása regisztráció és új fülben megnyitott email-megerősítés után folytatható', async ({ page }, testInfo) => {
   await page.goto('/hozasd-el/butor');
   await page.getByRole('button', { name: 'Link nélkül adom meg' }).click();
   await page.getByLabel('A szállítandó tárgy').fill('Marketplace kanapé');
   await page.getByLabel('Felvétel címe').fill('Budapest, Váci út 1.');
   await page.getByRole('button', { name: /Folytatom a feladást/ }).click();
   await page.waitForURL(/bejelentkezes.*next=/);
+  await expect(page.getByRole('complementary', { name: 'A megkezdett fuvarfeladás' })).toContainText('Marketplace kanapé');
   const email = `e2e-hozasd-${Date.now()}@teszt.gofuvar.hu`;
   await page.getByPlaceholder('Pl. Kovács Péter').fill('Bútorvásárló Bea');
   await page.getByPlaceholder('pelda@email.hu').fill(email);
@@ -29,18 +31,49 @@ test('vendég kézi feladása valódi regisztráción és email-kapun át is meg
   await page.locator('form button[type="submit"]').click();
   await page.waitForURL(/dashboard\/uj-fuvar/);
   await expect(page.getByRole('heading', { name: 'Erősítsd meg az email címed' })).toBeVisible();
-  // Az email kézbesítése külső szolgáltatás; csak a teszt-DB-ben igazoljuk
-  // vissza, majd a felhasználó valós „Már megerősítettem” gombját használjuk.
-  await dbQuery('UPDATE users SET email_verified = true WHERE email = $1', [email]);
-  await page.getByRole('button', { name: /Már megerősítettem/ }).click();
-  await expect(page.getByPlaceholder(/Költöztetés Budapest/)).toHaveValue('Marketplace kanapé');
-  await expect(page.getByPlaceholder(/^pl\. Budapest/)).toHaveValue('Budapest, Váci út 1.');
+  // Külső levélküldés helyett ismert legacy token kizárólag a helyi DB-ben.
+  // A megerősítést a valódi céloldal és backend végzi, nem DB-flag átírás.
+  const token = randomBytes(32).toString('hex');
+  await dbQuery('UPDATE users SET email_verification_token_hash = $1 WHERE email = $2', [createHash('sha256').update(token).digest('hex'), email]);
+  const emailPage = await page.context().newPage();
+  await emailPage.goto(`/email-megerositese?token=${token}`);
+  await expect(emailPage.getByRole('heading', { name: 'Email megerősítve!' })).toBeVisible();
+  await emailPage.getByRole('link', { name: /Folytatom a fuvarfeladást/ }).click();
+  await emailPage.waitForURL(/dashboard\/uj-fuvar/);
+  await expect(emailPage.getByPlaceholder(/Költöztetés Budapest/)).toHaveValue('Marketplace kanapé');
+  await expect(emailPage.getByPlaceholder(/^pl\. Budapest/)).toHaveValue('Budapest, Váci út 1.');
+  await expect(emailPage.getByRole('heading', { name: 'Erősítsd meg az email címed' })).toHaveCount(0);
+  expect((await dbQuery('SELECT email_verified FROM users WHERE email = $1', [email])).rows[0].email_verified).toBe(true);
   // Gépelés még nem megerősített térképes cím: a meglévő kapu marad.
-  const confirmed = await page.evaluate(() => {
+  const confirmed = await emailPage.evaluate(() => {
     const user = JSON.parse(localStorage.getItem('gofuvar_user')!);
     return JSON.parse(localStorage.getItem(`gofuvar_uj_fuvar_piszkozat:${user.id}`)!).adat.form.pickup_confirmed;
   });
   expect(confirmed).toBe(false);
+  await expect(emailPage.getByLabel(/Hosszúság \(cm\)/)).toHaveValue('');
+  await expect(emailPage.getByLabel(/Súly \(kg\)/)).toHaveValue('');
+  await expect(emailPage.getByText(/Piszkozat visszaállítva/)).toHaveCount(0);
+  await emailPage.getByText('Mit egyeztessek az eladóval a bútorról?').click();
+  await expect(emailPage.getByText(/Összeszerelve vagy szétszerelve/)).toBeVisible();
+  await emailPage.setViewportSize({ width: 390, height: 844 });
+  await emailPage.addStyleTag({ content: '*, *::before, *::after { transition: none !important; animation: none !important; } html { scroll-behavior: auto !important; }' });
+  for (const theme of ['light', 'dark']) {
+    await emailPage.evaluate(t => document.documentElement.setAttribute('data-theme', t), theme);
+    expect(await emailPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const guide = emailPage.getByRole('region', { name: 'Ezzel a tárggyal folytatod' });
+    const result = await new AxeBuilder({ page: emailPage }).include('[aria-labelledby="hozasd-guide-heading"]').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(result.violations).toEqual([]);
+    await guide.screenshot({ path: testInfo.outputPath(`feladas-utmutato-mobile-${theme}.png`), animations: 'disabled' });
+    await emailPage.getByText('Mit egyeztessek az eladóval a bútorról?').click();
+    await guide.screenshot({ path: testInfo.outputPath(`feladas-utmutato-mobile-${theme}-csukva.png`), animations: 'disabled' });
+    await emailPage.getByText('Mit egyeztessek az eladóval a bútorról?').click();
+  }
+  await emailPage.getByRole('link', { name: /Méret és súly/ }).click();
+  await expect(emailPage.locator('#fuvar-meretek')).toBeInViewport();
+  await expect(emailPage.locator('#fuvar-meretek')).toBeFocused();
+  await emailPage.setViewportSize({ width: 1440, height: 1000 });
+  await emailPage.getByRole('region', { name: 'Ezzel a tárggyal folytatod' }).screenshot({ path: testInfo.outputPath('feladas-utmutato-desktop.png'), animations: 'disabled' });
+  await emailPage.close();
 });
 
 test('vendég előnézete belépésen át megmarad, régi piszkozatot csak választás után cserél', async ({ page }) => {
@@ -108,6 +141,7 @@ test('mobilos bútoroldal: sikertelen link után kézi út, akadálymentesség �
 test('terméklink előnézete előtölti a feladást, a kép a szállítóig jut', async ({ page }) => {
   const shipper = await createUser('shipper', 'Feladó Ferenc');
   await loginAs(page, shipper);
+  await page.route(PRODUCT_IMAGE, route => route.fulfill({ contentType: 'image/png', body: TINY_PNG }));
 
   // A backend /link-preview válaszát mockoljuk (a valódi IKEA-fetch a
   // backend SSRF-védett kódútja — azt a host-allowlisttel együtt a
@@ -138,6 +172,8 @@ test('terméklink előnézete előtölti a feladást, a kép a szállítóig jut
   await expect(page.getByPlaceholder(/Költöztetés Budapest/)).toHaveValue(/BILLY/);
   await page.reload();
   await expect(page.getByPlaceholder(/Költöztetés Budapest/)).toHaveValue(/BILLY/);
+  await expect(page.getByAltText('A hirdetésből átvett termékkép')).toBeVisible();
+  await expect(page.getByText('Mit egyeztessek az eladóval a bútorról?')).toHaveCount(0);
 
   // ---- 3. A maradék kötelező mezők + feladás ----
   await page.waitForFunction(() => Boolean((window as any).google?.maps?.places), null, {
@@ -153,6 +189,7 @@ test('terméklink előnézete előtölti a feladást, a kép a szállítóig jut
   await page.getByPlaceholder('pl. 100').fill('202');
   await page.getByPlaceholder('pl. 350').fill('30');
   await page.getByPlaceholder(/65000/).fill('12000');
+  await expect(page.getByRole('navigation', { name: 'A fuvarfeladás kitöltendő részei' }).getByText('Megadva', { exact: true })).toHaveCount(3);
 
   const [jobsResponse] = await Promise.all([
     page.waitForResponse((r) => r.url().includes('/jobs') && r.request().method() === 'POST'),
