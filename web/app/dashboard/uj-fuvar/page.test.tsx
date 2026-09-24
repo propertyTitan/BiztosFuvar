@@ -28,7 +28,7 @@ beforeEach(() => {
 const key = piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, mocks.user.id);
 const image = 'https://www.ikea.com/hu/hu/images/billy.jpg';
 function incomingProduct() {
-  saveHozasdEl(HOZASD_EL_PREFILL, { ...emptyHozasdElDraft(), title: 'BILLY polc', ready: true,
+  saveHozasdEl(HOZASD_EL_PREFILL, { ...emptyHozasdElDraft(), title: 'BILLY polc', ready: true, kind: 'furniture',
     url: 'https://www.ikea.com/hu/hu/p/billy/', sourceName: 'IKEA', image,
     pickup: { address: 'Budapest, Váci út 1.', lat: 47.5, lng: 19, confirmed: true },
     dropoff: { address: 'Szeged, Kossuth Lajos sugárút 1.', lat: 46.25, lng: 20.1, confirmed: true },
@@ -43,10 +43,20 @@ it('az előtöltést StrictMode alatt egyszer veszi át, kép és cím újratöl
   first.unmount();
   render(<Page />);
   expect(screen.getByLabelText(/Megnevezés/)).toHaveValue('BILLY polc');
+  expect(screen.getByRole('region', { name: 'Ezzel a tárggyal folytatod' })).toHaveTextContent('BILLY polc');
+  expect(screen.getByAltText('A hirdetésből átvett termékkép')).toHaveAttribute('src', image);
+  expect(screen.getByText('Mit egyeztessek az eladóval a bútorról?')).toBeVisible();
+  expect(screen.getByLabelText(/Hosszúság \(cm\)/)).toHaveValue('');
+  expect(screen.getByLabelText(/Súly \(kg\)/)).toHaveValue('');
+  const guideLinks = screen.getByRole('navigation', { name: 'A fuvarfeladás kitöltendő részei' }).querySelectorAll('a');
+  for (const link of guideLinks) expect(document.querySelector(link.getAttribute('href')!)).not.toBeNull();
+  expect(screen.getByRole('link', { name: /Méret és súly/ })).toHaveAttribute('aria-current', 'step');
   for (const [placeholder, value] of [['pl. 120', '80'], ['pl. 80', '28'], ['pl. 100', '202'], ['pl. 350', '30']]) {
     fireEvent.change(screen.getByPlaceholderText(placeholder), { target: { value } });
   }
   fireEvent.change(screen.getByPlaceholderText(/65000/), { target: { value: '12000' } });
+  expect(screen.getAllByText('Megadva')).toHaveLength(3);
+  expect(screen.queryByText('Kitöltendő')).not.toBeInTheDocument();
   vi.mocked(api.createJob).mockResolvedValue({ id: 'new-product' } as any);
   fireEvent.click(screen.getByRole('button', { name: /Fuvar feladása/ }));
   await waitFor(() => expect(api.createJob).toHaveBeenCalledWith(expect.objectContaining({
@@ -68,6 +78,7 @@ it.each(['new', 'previous'])('korábbi piszkozat mellett választást kér, az a
   expect(screen.getByLabelText('Részletes leírás')).toHaveValue(choice === 'new' ? 'Forrás (IKEA): https://www.ikea.com/hu/hu/p/billy/' : 'Régi leírás');
   expect(sessionStorage.getItem(HOZASD_EL_PREFILL)).toBeNull();
   if (choice === 'new') expect(localStorage.getItem(key)).not.toContain('Régi címzett');
+  else expect(screen.queryByRole('region', { name: 'Ezzel a tárggyal folytatod' })).not.toBeInTheDocument();
 });
 
 it('sikertelen piszkozatmentésnél az átadott termék nem vész el', () => {

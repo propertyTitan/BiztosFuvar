@@ -13,6 +13,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { biztonsagosBelsoUt } from '@/lib/navigacio';
 import { Eye, EyeOff } from 'lucide-react';
 import { api } from '@/api';
+import { HozasdElLoginHint } from '@/components/HozasdElContinuation';
 import { setCurrentUser, homeForRole, initStoredModeFromProfile, Role } from '@/lib/auth';
 
 type Mode = 'login' | 'register';
@@ -226,6 +227,8 @@ function BejelentkezesContent() {
           ? 'Lépj be a fiókodba a folytatáshoz.'
           : 'Pár másodperc az egész. Ingyenes, és nincs havidíj.'}
       </p>
+
+      {searchParams.get('next') === '/dashboard/uj-fuvar' && <HozasdElLoginHint />}
 
       <form noValidate onSubmit={onSubmit} className="card">
         {mode === 'register' && refCode && refStatus === 'valid' && (

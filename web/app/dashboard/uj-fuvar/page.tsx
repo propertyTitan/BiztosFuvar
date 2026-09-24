@@ -21,7 +21,8 @@ import FieldError, { REQ, redBorder } from '@/components/FieldError';
 import { useToast } from '@/components/ToastProvider';
 import { useCurrentUser } from '@/lib/auth';
 import { mentPiszkozat, olvasPiszkozat, torolPiszkozat, piszkozatKulcs, UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
-import { clearHozasdEl, HOZASD_EL_PREFILL, readHozasdEl, safeProductImage, saveHozasdEl, type HozasdElDraft } from '@/lib/hozasdEl';
+import { clearHozasdEl, HOZASD_EL_PREFILL, postingHozasdElKind, readHozasdEl, safeProductImage, saveHozasdEl, type HozasdElDraft, type HozasdElKind } from '@/lib/hozasdEl';
+import HozasdElPostingGuide from '@/components/HozasdElPostingGuide';
 import { idoablakHiba } from '@/lib/idoablak';
 import ListingPhotoUpload from '@/components/ListingPhotoUpload';
 import {
@@ -133,6 +134,7 @@ const emptyRaw: Record<NumKey, string> = {
 type SavedDraft = {
   form: Partial<FormState>; raw?: Partial<Record<NumKey, string>>;
   sourceStore?: string | null; sourceImage?: string | null;
+  hozasdElKind?: HozasdElKind | null;
 };
 function productForm(draft: HozasdElDraft): FormState {
   return { ...initialForm, title: draft.title,
@@ -161,6 +163,7 @@ export default function UjFuvar() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [sourceStore, setSourceStore] = useState<string | null>(null);
   const [sourceImage, setSourceImage] = useState<string | null>(null);
+  const [hozasdElKind, setHozasdElKind] = useState<HozasdElKind | null>(null);
   const [incomingProduct, setIncomingProduct] = useState<HozasdElDraft | null>(null);
   const [draftReadyFor, setDraftReadyFor] = useState<string | null>(null);
   const loadedDraftKey = useRef<string | null>(null);
@@ -210,7 +213,7 @@ export default function UjFuvar() {
     const image = safeProductImage(product.image) || null;
     // Az átadást csak tartós piszkozatmentés után fogyasztjuk el. Ha a
     // localStorage nem írható, a munkamenetben még megvannak az adatok.
-    if (!mentPiszkozat(key, { form: next, raw: emptyRaw, sourceStore: store, sourceImage: image })) {
+    if (!mentPiszkozat(key, { form: next, raw: emptyRaw, sourceStore: store, sourceImage: image, hozasdElKind: product.kind })) {
       setError('Az adatokat nem sikerült a fuvarpiszkozatba menteni. Engedélyezd a webhelyadatok tárolását, majd próbáld újra.');
       setIncomingProduct(product);
       return;
@@ -219,6 +222,7 @@ export default function UjFuvar() {
     setRaw(emptyRaw);
     setSourceStore(store);
     setSourceImage(image);
+    setHozasdElKind(product.kind);
     setIncomingProduct(null);
     setError(null);
     clearHozasdEl();
@@ -235,6 +239,7 @@ export default function UjFuvar() {
     setRaw({ ...emptyRaw, ...d?.raw });
     setSourceStore(d?.sourceStore ?? null);
     setSourceImage(safeProductImage(d?.sourceImage) || null);
+    setHozasdElKind(postingHozasdElKind(d));
     setIncomingProduct(null);
     setPhotos([]);
     setCreatedJob(null);
@@ -255,9 +260,9 @@ export default function UjFuvar() {
   useEffect(() => {
     if (!PISZKOZAT_KULCS || draftReadyFor !== PISZKOZAT_KULCS || incomingProduct || createdJob) return;
     if (JSON.stringify(form) === JSON.stringify(initialForm)) return;
-    const t = setTimeout(() => { mentPiszkozat(PISZKOZAT_KULCS, { form, raw, sourceStore, sourceImage }); }, 500);
+    const t = setTimeout(() => { mentPiszkozat(PISZKOZAT_KULCS, { form, raw, sourceStore, sourceImage, hozasdElKind }); }, 500);
     return () => clearTimeout(t);
-  }, [form, raw, sourceStore, sourceImage, draftReadyFor, PISZKOZAT_KULCS, incomingProduct, createdJob]);
+  }, [form, raw, sourceStore, sourceImage, hozasdElKind, draftReadyFor, PISZKOZAT_KULCS, incomingProduct, createdJob]);
 
   function missing(filled: unknown): boolean {
     if (!tried) return false;
@@ -521,6 +526,14 @@ export default function UjFuvar() {
         és az AI ellenőrzi a leírást.
       </p>
 
+      {hozasdElKind && <HozasdElPostingGuide title={form.title} image={sourceImage} source={sourceStore}
+        kind={hozasdElKind} isInstant={form.is_instant}
+        addressesReady={form.pickup_confirmed && form.dropoff_confirmed
+          && !errors.recipientName && !errors.recipientPhone && !errors.recipientEmail
+          && !idoablakHiba(form.pickup_window_start, form.pickup_window_end)}
+        parcelReady={!errors.length && !errors.width && !errors.height && !errors.weight}
+        priceReady={!errors.price} />}
+
       {/* noValidate: a natív böngésző-buborék („Please fill out this field")
           a böngésző nyelvén szól, és megállítja a submitot MIELŐTT a saját,
           konkrétabb magyar üzeneteink megjelenhetnének. A `required` a
@@ -634,7 +647,7 @@ export default function UjFuvar() {
         )}
 
         {/* --- Felvétel --- */}
-        <h2 style={{ marginTop: 24 }}>Felvétel helye <span style={REQ}>*</span></h2>
+        <h2 id="fuvar-felvetel" tabIndex={-1} style={{ marginTop: 24, scrollMarginTop: 90 }}>Felvétel helye <span style={REQ}>*</span></h2>
         <div style={missing(form.pickup_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
         <AddressAutocomplete
           label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
@@ -879,13 +892,18 @@ export default function UjFuvar() {
         </div>
 
         {/* --- Csomag adatai --- */}
-        <h2 style={{ marginTop: 24 }}>Csomag adatai</h2>
+        <h2 id="fuvar-meretek" tabIndex={-1} style={{ marginTop: 24, scrollMarginTop: 90 }}>Csomag adatai</h2>
         <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
           Kötelező – a szállító ezek alapján dönti el, belefér-e a járművébe,
           és hogy a jármű össztömeg-korlátját nem lépi-e át. A méreteket
           <strong> egész centiméterben</strong> add meg (tört és negatív érték
           nem adható meg); a súly lehet tizedes (pl. 12,5 kg).
         </p>
+        {hozasdElKind === 'furniture' && <p className="muted" style={{ fontSize: 13 }}>
+          Bútornál a szállításra előkészített állapot méreteit és teljes súlyát add meg.
+          Ha bizonytalan vagy, kérd el ezeket az eladótól.
+          Több darabnál a darabszámot és az egyes méreteket a részletes leírásba is írd be.
+        </p>}
         <div className="grid-2">
           <div>
             <label htmlFor="uj-hossz">Hosszúság (cm) <span style={REQ}>*</span></label>
@@ -1050,7 +1068,7 @@ export default function UjFuvar() {
         --- */}
 
         {/* --- Ár --- */}
-        <h2 style={{ marginTop: 24 }}>
+        <h2 id="fuvar-fuvardij" tabIndex={-1} style={{ marginTop: 24, scrollMarginTop: 90 }}>
           {form.is_instant ? 'Fix fuvardíj (végleges)' : 'Javasolt fuvardíj'}
         </h2>
         <label htmlFor="uj-ar">Összeg (Ft) <span style={REQ}>*</span></label>

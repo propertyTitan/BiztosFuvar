@@ -7,6 +7,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/api';
+import { HozasdElVerifiedContinue } from '@/components/HozasdElContinuation';
 
 function EmailMegerositeseInner() {
   const params = useSearchParams();
@@ -55,15 +56,7 @@ function EmailMegerositeseInner() {
             <p style={{ marginTop: 8, color: '#14532d' }}>
               Köszönjük! A fiókod most már teljesen aktív.
             </p>
-            {/* Teljes újratöltés (nem Next-navigáció), hogy az EmailVerifyGate
-                újraellenőrizze a /me-t és beengedjen az oldalra. */}
-            <a
-              href="/"
-              className="btn"
-              style={{ display: 'inline-block', marginTop: 16, textDecoration: 'none' }}
-            >
-              Tovább az oldalra →
-            </a>
+            <HozasdElVerifiedContinue />
           </>
         )}
 

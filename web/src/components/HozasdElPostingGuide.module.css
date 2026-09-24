@@ -1,0 +1,22 @@
+.guide { margin: 20px 0; }
+.product { display: flex; align-items: flex-start; gap: 16px; }
+.product > div { min-width: 0; }
+.product img { width: 80px; height: 80px; object-fit: contain; border-radius: 8px; flex-shrink: 0; }
+.product h2 { margin: 0 0 8px; font-size: 18px; }
+.title { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+.help { margin: 10px 0 0; font-size: 13px; line-height: 1.6; color: var(--text-secondary); }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; list-style: none; margin: 20px 0 0; padding: 0; }
+.steps a { display: block; height: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-decoration: none; font-size: 13px; line-height: 1.5; color: var(--text); }
+.steps a[aria-current] { border-color: var(--primary-text); background: var(--primary-subtle); }
+.steps span { display: inline-block; margin-right: 6px; font-weight: 700; }
+.steps small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: 12px; }
+.tips { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 14px; line-height: 1.6; }
+.tips summary { cursor: pointer; font-weight: 700; }
+.tips ul { padding-left: 20px; margin: 12px 0 0; }
+.tips li + li { margin-top: 8px; }
+@media (max-width: 540px) {
+  .steps { grid-template-columns: 1fr; }
+  .steps a { padding: 10px 12px; }
+  .steps small { display: inline; margin-left: 8px; }
+  .product img { width: 64px; height: 64px; }
+}

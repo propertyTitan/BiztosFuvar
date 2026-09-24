@@ -85,7 +85,8 @@ export default function HozasdElTool({ furniture = false }: { furniture?: boolea
     }
     // Az ismeretlen linket nem másoljuk a leírásba. A kézi út csak a tárgy
     // adatait viszi tovább; a meglévő kontakt-szűrő változatlan marad.
-    const payload = { ...draft, title: draft.title.trim(), url: draft.manual ? '' : draft.url };
+    const payload = { ...draft, title: draft.title.trim(), url: draft.manual ? '' : draft.url,
+      kind: furniture ? 'furniture' as const : 'general' as const };
     if (!saveHozasdEl(HOZASD_EL_PREFILL, payload, owner)) {
       setError('A böngésző nem tudta megőrizni az adatokat. Engedélyezd a webhelyadatok tárolását, majd próbáld újra. Az űrlapod itt megmaradt.');
       return;

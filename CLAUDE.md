@@ -1,5 +1,13 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-09-24 — Hozasd el, 2. kör (külön fejlesztési ág):** a feladásban
+> termékösszefoglaló és a hiányzó cím-, méret-/súly- és díjadatokra mutató
+> útmutató jelenik meg. A bútoros belépéshez eladói egyeztetési lista jár;
+> méretet és súlyt nem találunk ki. A belépés jelzi a megőrzött tárgyat,
+> email-megerősítés után a saját Hozasd el piszkozat közvetlenül folytatható,
+> ugyanabban a böngészőben új fülből is. A meglévő validáció és díjszabás
+> változatlan. Ez a bejegyzés nem állítja a 2. kör merge-ét vagy telepítését.
+
 > **2026-09-24 — Hozasd el belépőfolyamat:** az előnézet és a kézi
 > tárgymegadás belépés előtt is elérhető; a tényleges fuvarfeladás továbbra
 > is fiókot és a meglévő ellenőrzéseket igényli. Új céloldal:
@@ -9,8 +17,8 @@
 > választás kell a cseréhez; a termékkép a fuvarpiszkozat része is lett.
 > Facebook Marketplace esetén csak kézi adatmegadás van, automatikus
 > beolvasást nem ígérünk. Az alábbi régi, belépéshez kötött előnézetről
-> szóló bejegyzések történetiek. Ez a leírás a fejlesztési változatot
-> rögzíti; önmagában nem igazolja a merge-et vagy az éles telepítést.
+> szóló bejegyzések történetiek. Az első kör a **#247** PR-rel mergelve,
+> main: `6f7584b`; a Vercel és Railway telepítési állapota sikeres.
 
 > **2026-09-15 — a `6272f5e` utóauditjának maradék két P1 javítása:**
 > `fix/launch-two-p1`: a KYC véglegesítése user-sorzár alatt ellenőrzi,
