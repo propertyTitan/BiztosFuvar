@@ -27,7 +27,7 @@ const JPEG = Buffer.from([
   0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
 ]);
 
-const { app, db, createUser, createJob } = require('./helpers');
+const { app, db, createUser, createJob, TINY_PNG } = require('./helpers');
 const storage = require('../src/services/storage');
 const { collectUserFileKeys, collectEntityFileKeys } = require('../src/utils/userFiles');
 
@@ -75,7 +75,8 @@ describe('Felülírás nem hagyhat árvát', () => {
     await request(app)
       .post('/auth/avatar')
       .set(auth(user.token))
-      .attach('file', JPEG, 'kep.jpg');
+      .attach('file', TINY_PNG, 'kep.png')
+      .expect(200);
 
     expect(
       torles.mock.calls.flat(),

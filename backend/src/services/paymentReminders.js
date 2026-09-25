@@ -150,15 +150,61 @@ async function runPaymentReminders() {
 //  a piactéren tartani (zombi-hirdetés, ami újabb szállítókat fárasztana).
 //  Ha mégis aktuális, a feladó egy kattintással újra feladja.
 // =====================================================================
+async function expireSelectedAgreement(candidate) {
+  const client = await db.pool.connect();
+  let committed = false;
+  try {
+    await client.query('BEGIN');
+    // A kiválasztás óta accepted → bidding → accepted is történhetett.
+    // Ugyanazt a sorverziót és az összes lejárati feltételt ellenőrizzük
+    // a sorzárat megszerző UPDATE-ben, a fizetési könyveléssel versenyezve.
+    const updated = await client.query(
+      `UPDATE jobs
+          SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = NULL,
+              cancel_reason = 'payment_expired', cancellation_fee_huf = 0, refund_huf = 0,
+              updated_at = NOW()
+        WHERE id = $1 AND xmin::text = $2
+          AND status = 'accepted' AND paid_at IS NULL
+          AND payment_reminder_count >= $3
+          AND last_payment_reminder_at < NOW() - ($4 || ' hours')::interval
+          AND created_at >= $5::date
+        RETURNING id, title, shipper_id, carrier_id`,
+      [candidate.id, candidate.agreement_version, MAX_REMINDERS, EXPIRE_AFTER_HOURS, LEJARATAS_BEVEZETVE],
+    );
+    const job = updated.rows[0];
+    if (!job) return null;
+    // A díjsor és a státusz együtt változik; íráshibánál újrapróbálható
+    // accepted ügylet marad, téves lezárási értesítés nélkül.
+    await client.query(
+      `UPDATE escrow_transactions SET status = 'refunded', refunded_at = NOW()
+        WHERE job_id = $1 AND status = 'held'`,
+      [job.id],
+    );
+    const contacts = await client.query(
+      `SELECT s.email AS shipper_email, s.full_name AS shipper_name,
+              c.email AS carrier_email, c.full_name AS carrier_name
+         FROM users s LEFT JOIN users c ON c.id = $2
+        WHERE s.id = $1`,
+      [job.shipper_id, job.carrier_id],
+    );
+    await client.query('COMMIT');
+    committed = true;
+    return { ...job, ...contacts.rows[0] };
+  } finally {
+    let releaseError;
+    if (!committed) {
+      try { await client.query('ROLLBACK'); } catch (err) { releaseError = err; }
+    }
+    client.release(releaseError);
+  }
+}
+
 async function runPaymentExpiry() {
   let lezart = 0;
+  const sorHibak = [];
   const { rows } = await db.query(
-    `SELECT j.id, j.title, j.shipper_id, j.carrier_id,
-            s.email AS shipper_email, s.full_name AS shipper_name,
-            c.email AS carrier_email, c.full_name AS carrier_name
+    `SELECT j.id, j.xmin::text AS agreement_version
        FROM jobs j
-       JOIN users s ON s.id = j.shipper_id
-  LEFT JOIN users c ON c.id = j.carrier_id
       WHERE j.status = 'accepted'
         AND j.paid_at IS NULL
         AND j.payment_reminder_count >= $1
@@ -167,23 +213,10 @@ async function runPaymentExpiry() {
       LIMIT 500`,
     [MAX_REMINDERS, EXPIRE_AFTER_HOURS, LEJARATAS_BEVEZETVE],
   );
-  for (const j of rows) {
+  for (const candidate of rows) {
     try {
-      // Feltételes: közben fizethettek / lemondhatták — akkor nem nyúlunk hozzá.
-      const upd = await db.query(
-        `UPDATE jobs
-            SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = NULL,
-                cancel_reason = 'payment_expired', cancellation_fee_huf = 0, refund_huf = 0,
-                updated_at = NOW()
-          WHERE id = $1 AND status = 'accepted' AND paid_at IS NULL`,
-        [j.id],
-      );
-      if (upd.rowCount === 0) continue;
-      await db.query(
-        `UPDATE escrow_transactions SET status = 'refunded', refunded_at = NOW()
-          WHERE job_id = $1 AND status = 'held'`,
-        [j.id],
-      );
+      const j = await expireSelectedAgreement(candidate);
+      if (!j) continue;
       lezart += 1;
       const { sendEmail, wrapHtml, escapeHtml } = require('./email');
       await createNotification({
@@ -232,9 +265,11 @@ async function runPaymentExpiry() {
         }
       }
     } catch (err) {
-      console.error(`[payment-expiry] fuvar ${j.id} hiba:`, err.message);
+      console.error(`[payment-expiry] fuvar ${candidate.id} hiba:`, err.message);
+      sorHibak.push(err);
     }
   }
+  jelezSorHibak('payment-expiry', sorHibak);
   if (lezart > 0) console.log(`[payment-expiry] ${lezart} fizetetlen megállapodás lezárva`);
   return lezart;
 }

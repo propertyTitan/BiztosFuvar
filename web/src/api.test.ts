@@ -134,6 +134,35 @@ describe('api.request wrapper', () => {
     expect(evt).toBeTruthy();
   });
 
+  it.each(['old-a', null])('késői 401 nem törli a közben belépett új sessiont: korábbi token=%s', async oldToken => {
+    if (oldToken) localStorage.setItem(TOKEN_KEY, oldToken);
+    let finish!: (response: Response) => void;
+    global.fetch = vi.fn(() => new Promise<Response>(resolve => { finish = resolve; }));
+    const pending = api.getReviews({ job_id: 'old-job' });
+    localStorage.setItem(TOKEN_KEY, 'new-b');
+    localStorage.setItem(USER_KEY, '{"id":"b"}');
+    finish(mockResponse(401, { error: 'unauthorized' }));
+    await expect(pending).rejects.toThrow('munkamenet megváltozott');
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('new-b');
+    expect(localStorage.getItem(USER_KEY)).toBe('{"id":"b"}');
+    expect(window.location.href).toBe('');
+    expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'gofuvar:session-expired' }));
+  });
+
+  it.each([200, 403])('a régi session későn beolvasott JSON-ja nem kerül az új felületre és nem nyit kaput: %s', async status => {
+    localStorage.setItem(TOKEN_KEY, 'old-a');
+    let finish!: (body: unknown) => void;
+    const body = new Promise(resolve => { finish = resolve; });
+    const reading = vi.fn(() => body);
+    global.fetch = vi.fn().mockResolvedValue({ ...mockResponse(status, {}), json: reading });
+    const pending = api.getReviews({ job_id: 'old-job' });
+    await vi.waitFor(() => expect(reading).toHaveBeenCalledOnce());
+    localStorage.setItem(TOKEN_KEY, 'new-b');
+    finish(status === 200 ? { private: 'Anna adata' } : { error: 'KYC kell', code: 'IDENTITY_KYC_REQUIRED' });
+    await expect(pending).rejects.toThrow('munkamenet megváltozott');
+    expect(dispatchSpy).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'gofuvar:kyc-required' }));
+  });
+
   it('403 + KYC kód → gofuvar:kyc-required eseményt dob a kóddal', async () => {
     global.fetch = vi
       .fn()

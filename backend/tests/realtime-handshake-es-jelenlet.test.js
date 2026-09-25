@@ -49,7 +49,9 @@ let nyitottKliensek = [];
 
 beforeAll(async () => {
   szerver = http.createServer(expressApp);
-  await new Promise((r) => { szerver.listen(0, r); });
+  // Ugyanazon a címen foglaljunk portot, ahová a kliens csatlakozik:
+  // macOS-en a wildcard IPv6-port ütközhet egy konkrét IPv4-listenerrel.
+  await new Promise((r) => { szerver.listen(0, '127.0.0.1', r); });
   szerver.unref();
   realtime.init(szerver);
   cim = `http://127.0.0.1:${szerver.address().port}`;

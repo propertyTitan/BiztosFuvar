@@ -5,6 +5,7 @@ const queue = require('./fileDeletionQueue');
 const keyHash = key => crypto.createHash('sha256').update(key).digest('hex');
 
 async function saveAvatar(userId, file) {
+  file = await require('./publicImage').sanitizePublicImage(file);
   const allocated = new Set();
   let uploadClient;
   try {

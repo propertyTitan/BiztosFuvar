@@ -43,7 +43,8 @@ let cim;
 beforeAll(async () => {
   // Külön szerver, hogy a realtime init ne zavarja a többi teszt HTTP-jét.
   szerver = http.createServer(expressApp);
-  await new Promise((r) => { szerver.listen(0, r); });
+  // A kliens is IPv4-en csatlakozik; a portfoglalás címe egyezzen vele.
+  await new Promise((r) => { szerver.listen(0, '127.0.0.1', r); });
   szerver.unref();
   realtime.init(szerver);
   cim = `http://127.0.0.1:${szerver.address().port}`;

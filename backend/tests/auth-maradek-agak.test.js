@@ -30,7 +30,7 @@ import {
 import request from 'supertest';
 
 const {
-  app, db, createUser, uniqueEmail,
+  app, db, createUser, uniqueEmail, TINY_PNG,
 } = require('./helpers');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 const storage = require('../src/services/storage');
@@ -266,7 +266,7 @@ describe('POST /auth/avatar — feltöltési hibák és az árva-fájl guard', (
 
     const res = await request(app).post('/auth/avatar')
       .set(auth(user.token))
-      .attach('file', JPEG, 'profil.jpg');
+      .attach('file', TINY_PNG, 'profil.png');
 
     expect(res.status).toBe(200);
     const { rows } = await db.query('SELECT avatar_url FROM users WHERE id = $1', [user.id]);
@@ -287,7 +287,7 @@ describe('POST /auth/avatar — feltöltési hibák és az árva-fájl guard', (
     const figyelo = kezeletlenElutasitasFigyelo();
     const res = await request(app).post('/auth/avatar')
       .set(auth(user.token))
-      .attach('file', JPEG, 'profil.jpg');
+      .attach('file', TINY_PNG, 'profil.png');
     const kezeletlen = await figyelo.leall();
 
     expect(res.status, 'az avatar-csere nem bukhat el attól, hogy a RÉGI fájl törlése nem sikerült').toBe(200);

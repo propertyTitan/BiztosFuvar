@@ -18,6 +18,7 @@ import TestModeBanner from '@/components/TestModeBanner';
 import SzamMezoVedelem from '@/components/SzamMezoVedelem';
 import { I18nProvider } from '@/lib/i18n';
 import { THEME_BOOT_SCRIPT } from '@/lib/theme';
+import AuthSessionBoundary from '@/components/AuthSessionBoundary';
 
 // Inter önállóan, layout-shift nélkül (a globals.css @import helyett).
 const inter = Inter({
@@ -160,6 +161,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             böngésződben, majd töltsd újra az oldalt.
           </div>
         </noscript>
+        <AuthSessionBoundary>
         <I18nProvider>
         <ToastProvider>
           {/* Globális: a görgő ne írja át a szám-mezők értékét (tesztelői
@@ -181,6 +183,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CookieConsentBanner />
         </ToastProvider>
         </I18nProvider>
+        </AuthSessionBoundary>
       </body>
     </html>
   );

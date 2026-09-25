@@ -6,7 +6,10 @@ const keyHash = key => crypto.createHash('sha256').update(key).digest('hex');
 
 // A tárhelyre kerülő fotónak a bájtok írása előtt tartós nyoma van.
 // A commitPhoto a saját tranzakciójában fogyasztja el ezt a feladatot.
-async function withPhotoUpload(userId, file, finish) {
+async function withPhotoUpload(userId, file, finish, { publicImage = false } = {}) {
+  // A szűrés a storage catch ELŐTT fut: a DB-s data URL fallback is csak
+  // tisztított képet tárolhat, feldolgozási hibánál pedig nincs feltöltés.
+  if (publicImage) file = await require('./publicImage').sanitizePublicImage(file);
   const allocated = new Set();
   let uploadClient;
   let registrationFailed = false;

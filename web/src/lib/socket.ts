@@ -106,11 +106,11 @@ export function refreshSocketAuth() {
   // setCurrentUser-t ugyanazzal a tokennel), nincs miért újrakötni.
   const friss = window.localStorage.getItem('gofuvar_token') || null;
   if (lastAuthToken === friss) return;
-  if (connectHandler) {
-    socket.off('connect', connectHandler);
-    connectHandler = null;
-  }
-  joinedUserId = null;
+  // Fiókcserekor a sessionhatár teljesen eldobja ezt a példányt. Ugyanazon
+  // fiók tokenfrissítésénél a connect-handlereket meg kell tartani, különben
+  // az értesítési szobába többé nem lépnénk vissza.
+  socket.sendBuffer = [];
+  socket.receiveBuffer = [];
   socket.disconnect();
   // Az emit-ek a reconnect alatt pufferelődnek (socket.io), a feed és a
   // user-szoba connect-handlerei újra beiratkoznak — adat nem vész el.
@@ -128,9 +128,12 @@ export function disconnectSocket() {
     joinedUserId = null;
   }
   socket.removeAllListeners();
+  socket.sendBuffer = [];
+  socket.receiveBuffer = [];
   jobSubscriptions.clear();
   socket.disconnect();
   socket = null;
+  lastAuthToken = null;
 }
 
 /**

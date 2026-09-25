@@ -1,5 +1,72 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
+2026-09-24/25 – A 419f8a4 AUDIT HÉT WEB/BACKEND P1 JAVÍTÁSA
+
+Fejlesztési ág: fix/audit-seven-p1-20260924. Alap: 419f8a4 (PR #248).
+Hatókör: a hét web/backend P1. A natív mobilapp külön fázisa és az audit
+többi P2 tétele nem része ennek a körnek. A szorosan kapcsolódó KYC
+időbélyeg- és párhuzamos fizetésindítási hibát a megfelelő P1-gyel kezeljük.
+PR: https://github.com/propertyTitan/BiztosFuvar/pull/249
+Állapot: kódjavítások a fejlesztési ágon; ez nem merge/telepítési igazolás.
+
+A01 – A nyilvános listing/avatar kép mentés és DB-fallback előtt Sharp
+dekódoláson, tájoláson és metaadat nélküli újrakódoláson megy át. Hibás
+kép nem publikálható eredeti bájtokkal. A bizonyító/KYC-kép változatlan.
+Fájlok: publicImage.js, photoUpload.js, avatarUpload.js, photos.js, auth.js.
+Kockázat: közepes; a nem dekódolható HEIC JPG/PNG újramentést kér.
+Korábbi publikus fájlokat NEM tisztít visszamenőleg a deploy. Csak olvasó,
+tesztelt leltár és konkrét R2/DB/CDN migrációs menet:
+backend/scripts/public-image-dry-run.js;
+docs/nyilvanos-kepek-metaadat-migracio.md. Ez az éles rendezés még hátravan.
+
+A02 – A socket a JWT lejáratakor bontódik, függő handshake/join sem
+szerezhet utólag jogosultságot. Fájl: backend/src/realtime.js.
+Kockázat: alacsony; lejárat után új hitelesítés szükséges.
+
+A03 – Az időzített lemondás az eredeti megállapodás xmin-verzióját és a
+teljes lejárati feltételt zároló UPDATE-ben ellenőrzi. A fuvar és díjsor
+együtt commitol/rollbackel; értesítés csak sikeres véglegesítés után.
+Fájl: paymentReminders.js. A 72 órás szabály változatlan. Kockázat: közepes.
+
+A04 – KYC-purge user → dokumentum sorrendben zárol, majd frissen dönti el
+a törölhetőséget; új admin-döntés/feltöltés nem veszhet el. A mikrosecond
+időbélyeg már nem jár JS Date-en át. Fájl: kyc.js. Kockázat: közepes;
+a korlátozott idejű tárhelytörlés alatt a sorzár megmarad.
+
+A05 – paid_at, díjbizonylat és végleges pénzügyi esemény/session egy
+tranzakcióban érvényesül. Régi részleges napló callback nélkül is javulhat
+a megmaradt eredeti claim és fizetéskori snapshot alapján; bizonytalan
+tételek egyeztetési jelzést kapnak, nem kitalált könyvelést.
+Fájlok: feePayment.js, feePaymentRecovery.js, feeInvoiceQueue.js.
+Kockázat: közepes; fizetési naplóhiba hibaválaszt és teljes helyi rollbacket
+okoz. Operátori menet: docs/payment-ledger-recovery.md.
+
+A06 – Az ügylet zára alatt, friss állapotból indul/használódik újra a
+fizetés; két párhuzamos /pay nem hoz létre két sessiont. Lezárt session
+újraindítható, a története megmarad. Bizonytalan állapotnál nincs új terhelés.
+Fájlok: feePaymentSession.js, jobs.js, carrierRoutes.js. Kockázat: közepes.
+
+A07 – Fiókváltáskor minden tab régi socketje, puffere és kliensállapota
+eldobódik. Régi API-válasz nem írhat az új munkamenetbe. Azonos fiók új
+tokenje megőrzi a feliratkozásokat; saját vendég→login Hozasd el folytatás él.
+Fájlok: AuthSessionBoundary.tsx, auth.ts, socket.ts, api.ts, layout.tsx.
+Kockázat: közepes; másik tab fiókváltása tiszta oldalbetöltést vált ki.
+
+Bizonyítás: A03 régi kódon három piros ellenpróba, javítva 41/41 kapcsolódó
+teszt; pénzügy régi kódon 10/10 piros, javítva 141/141 kapcsolódó teszt.
+Web 233/233, TypeScript és production build zöld. Valódi kétfiókos,
+kétlapos E2E igazolja A privát eseményének kizárását és B saját eseményét.
+A teljes backend coverage és böngészős készlet végső futásait, eredményeit
+a PR leírása és CI-ellenőrzései rögzítik. A tesztek éles titkok nélküli,
+helyi DB-s másolatban futnak; külső fizetés/email/SMS/tárhely helyettesített.
+Az új regressziók mellett régi fixture-hibákat is korrigáltunk: érvényes
+képbájtok, izolált képleltár, egyszeri E2E-auth seed, explicit IPv4 socket.
+Független kódreview a hét módosított folyamaton nem talált új blokkolót.
+
+Nincs új migráció vagy üzletimodell-változás. A valódi banki adapter és
+szolgáltatói idempotencia igazolása továbbra is külön integrációs feladat.
+Éles adatot, tárhelyfájlt vagy feature kapcsolót ez a kör nem módosított.
+
 2026-09-22 – A TELJES TESZTAUDIT F01–F06 JAVÍTÁSA
 
 Fejlesztési ág: fix/audit-20260922-launch. Alap: 743cf52 (PR #245).

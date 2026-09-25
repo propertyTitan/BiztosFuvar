@@ -20,7 +20,7 @@ import {
 import { useCurrentUser, clearCurrentUser, frissitCurrentUser, readStoredMode } from '@/lib/auth';
 import { photoUrl } from '@/api';
 import { api } from '@/api';
-import { disconnectSocket, getSocket, joinUserRoom } from '@/lib/socket';
+import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTranslation } from '@/lib/i18n';
@@ -106,7 +106,6 @@ export default function SiteHeader() {
 
   function logout() {
     clearCurrentUser();
-    disconnectSocket();
     setMenuOpen(false);
     router.push('/bejelentkezes');
   }

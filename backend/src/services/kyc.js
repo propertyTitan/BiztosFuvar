@@ -11,7 +11,7 @@
 
 const db = require('../db');
 const { createNotification } = require('./notifications');
-const { deleteFile } = require('./storage');
+const storage = require('./storage');
 
 // Adatminimalizálás: a KYC-okmány NYERS fotóját a végleges döntés (approved/
 // rejected) után ennyi nappal töröljük a tárolóból. A metaadat (státusz,
@@ -28,9 +28,9 @@ const KYC_PENDING_MAX_DAYS = 60;
 
 /**
  * KYC-okmányok nyers fotóinak törlése a végleges döntés után
- * (adatminimalizálás). A pending okmányokat NEM érinti (azokat az admin még
- * látja). A metaadatot (státusz, doc_number_hash) megtartjuk a csalásvédelemhez.
- * Naponta fut (lásd index.js). Soha nem dob — csak naplóz.
+ * (adatminimalizálás). A pending képeknek külön 60 napos plafonjuk van.
+ * A metaadatot (státusz, doc_number_hash) megtartjuk a csalásvédelemhez.
+ * Naponta fut (lásd index.js); DB-hibát az ütemezőnek továbbad.
  * @returns {Promise<number>} a kiürített okmányok száma
  */
 async function purgeOldKycFiles() {
@@ -44,7 +44,7 @@ async function purgeOldKycFiles() {
     // másolat-gyanú — és a 18 év alattinak vélt személyek okmánya.
     // A metaadat (státusz, doc_number_hash) marad, csak a NYERS FOTÓ megy.
     const { rows } = await db.query(
-      `SELECT id, file_url, uploaded_at
+      `SELECT id, file_url, uploaded_at, user_id
          FROM kyc_documents
         WHERE file_url IS NOT NULL
           AND (
@@ -57,34 +57,52 @@ async function purgeOldKycFiles() {
       [KYC_FILE_RETENTION_DAYS, KYC_PENDING_MAX_DAYS],
     );
     for (const doc of rows) {
-      const ok = await deleteFile(doc.file_url);
-      // ⚠️ SIKERTELEN TÖRLÉSNÉL MEGTARTJUK A MUTATÓT (2026-08-11, 7. mérés).
-      // Korábban akkor is nulláztuk a file_url-t, ha a tároló-törlés elbukott
-      // — a deleteFile pedig R2-hibánál CSENDBEN false-t ad. Egy átmeneti
-      // R2-kiesés így VÉGLEGESEN a bucketben hagyta volna a SZEMÉLYI
-      // IGAZOLVÁNY fotóját, mutató nélkül: se retry, se riasztás, se
-      // sepregető. A mutató megtartásával a holnapi kör újrapróbálja.
-      // (A data:URL és a már hiányzó objektum true-t ad, tehát azok nem
-      // ragadnak be — az eredeti indoklás így is teljesül.)
-      if (!ok) {
-        console.error(`[kyc-retention] tároló-törlés sikertelen, a mutatót MEGTARTJUK (doc ${doc.id})`);
-        try {
-          require('@sentry/node').captureMessage(
-            `[kyc-retention] okmányfotó törlése sikertelen (doc ${doc.id}) — a holnapi kör újrapróbálja`,
-            'warning',
-          );
-        } catch { /* a riasztás hiánya nem akaszthatja meg a kört */ }
-        continue;
+      const client = await db.pool.connect();
+      let committed = false;
+      try {
+        await client.query('BEGIN');
+        // Az admin review, feltöltés és fióktörlés is user → dokumentum
+        // sorrendben zárol. Az előválogatott sor közben megváltozhatott.
+        await client.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [doc.user_id]);
+        const current = await client.query(
+          `SELECT file_url FROM kyc_documents WHERE id = $1 AND user_id = $4
+            AND file_url IS NOT NULL AND (
+              (status IN ('approved', 'rejected', 'expired')
+                AND GREATEST(reviewed_at, uploaded_at, created_at) < NOW() - ($2 || ' days')::interval)
+              OR (status = 'pending'
+                AND COALESCE(uploaded_at, created_at) < NOW() - ($3 || ' days')::interval)
+            ) FOR UPDATE`, [doc.id, KYC_FILE_RETENTION_DAYS, KYC_PENDING_MAX_DAYS, doc.user_id],
+        );
+        if (!current.rows.length) {
+          await client.query('COMMIT'); committed = true; continue;
+        }
+        // A tároló megszakítható (10s) kérése alatt is tartjuk a zárat:
+        // közben új admin-döntés nem commitolhat a törlés elé.
+        const ok = await storage.deleteFile(current.rows[0].file_url);
+        // Sikertelen törlésnél a mutató megmarad a napi újrapróbáláshoz.
+        // A már hiányzó objektum törlése idempotensen sikeres.
+        if (!ok) {
+          console.error(`[kyc-retention] tároló-törlés sikertelen, a mutatót MEGTARTJUK (doc ${doc.id})`);
+          try {
+            require('@sentry/node').captureMessage(
+              `[kyc-retention] okmányfotó törlése sikertelen (doc ${doc.id}) — a holnapi kör újrapróbálja`,
+              'warning',
+            );
+          } catch { /* a riasztás hiánya ne akassza meg a kört */ }
+          await client.query('COMMIT'); committed = true; continue;
+        }
+        // A sor zárolt, ezért nincs szükség JS Date-en át visszaküldött
+        // timestamp-CAS-re (a PostgreSQL mikrosecondja ott elveszne).
+        const cleared = await client.query('UPDATE kyc_documents SET file_url = NULL WHERE id = $1', [doc.id]);
+        await client.query('COMMIT'); committed = true;
+        purged += cleared.rowCount;
+      } finally {
+        if (!committed) await client.query('ROLLBACK').catch(() => {});
+        client.release();
       }
-      const cleared = await db.query(
-        `UPDATE kyc_documents SET file_url = NULL
-          WHERE id = $1 AND file_url = $2 AND uploaded_at IS NOT DISTINCT FROM $3::timestamptz`,
-        [doc.id, doc.file_url, doc.uploaded_at],
-      );
-      purged += cleared.rowCount;
     }
     if (rows.length > 0) {
-      console.log(`[kyc-retention] ${rows.length} okmány nyers fotója kiürítve (>${KYC_FILE_RETENTION_DAYS} nap)`);
+      console.log(`[kyc-retention] ${purged} okmány nyers fotója kiürítve (>${KYC_FILE_RETENTION_DAYS} nap)`);
     }
   } catch (err) {
     // (D4, 2026-09-13) TOVÁBBDOBJUK: ez a kör NEM része a retention_runs
