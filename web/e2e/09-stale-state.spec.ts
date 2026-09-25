@@ -1,40 +1,55 @@
 // Stale-state osztály-teszt — a tesztelői BUG-015/030 tanulsága: a login/
 // logout kliens-oldali navigáció, a globálisan mountolt komponensek nem
-// frissültek. Ez a spec a TELJES osztályt őrzi, reload nélkül:
+// frissültek. Ez a spec a TELJES osztályt őrzi, kézi frissítés nélkül:
 //   1) user-váltásnál a verifikációs banner SOHA nem mutathatja az előző
 //      user email-címét (BUG-015 — adatvédelmi hiba volt)
 //   2) az "Összes elolvasva" a fejléc harang-badge-ét is nullázza F5 nélkül
 import { test, expect } from '@playwright/test';
 import { createUser, dbQuery, loginAs } from './helpers';
 
-test('user-váltás reload nélkül: a kapu a MOSTANI user emailjét mutatja (BUG-015)', async ({ page }) => {
+test('user-váltás automatikus sessionhatárral: a kapu a MOSTANI user emailjét mutatja (BUG-015)', async ({ page }) => {
   // Ehhez a teszthez a userek email_verified=false kell, hogy az
   // EmailVerifyGate (megerősítő kapu) éljen és a user emailjét mutassa.
   const userA = await createUser('shipper', 'Stale Anna');
   const userB = await createUser('shipper', 'Stale Bella');
   await dbQuery('UPDATE users SET email_verified = false WHERE id IN ($1, $2)', [userA.id, userB.id]);
 
-  await loginAs(page, userA);
+  // Egyszeri seed: a loginAs addInitScript-je az automatikus dokumentumváltás
+  // után is visszaírná A-t, felülírva a valódi fiókváltás eredményét.
+  await page.goto('/');
+  await page.evaluate(({ u, token }) => {
+    window.localStorage.setItem('gofuvar_user', JSON.stringify(u));
+    window.localStorage.setItem('gofuvar_token', token);
+    window.localStorage.setItem('gofuvar_cookie_consent', JSON.stringify({ necessary: true }));
+  }, {
+    u: { id: userA.id, email: userA.email, role: userA.role, full_name: userA.full_name, avatar_url: null },
+    token: userA.token,
+  });
   await page.goto('/');
   await expect(page.getByText(userA.email).first()).toBeVisible({ timeout: 20_000 });
 
-  // In-page user-váltás — pontosan azt csinálja, amit a login-oldal
-  // setCurrentUser-je (localStorage + gofuvar:auth esemény), reload nélkül
-  await page.evaluate(
+  // A fiókváltás maga csak storage + auth esemény. Az alkalmazásnak kell
+  // automatikusan új dokumentumot betöltenie, hogy A kliensállapota eltűnjön.
+  await Promise.all([
+    page.waitForEvent('domcontentloaded', { timeout: 20_000 }),
+    page.evaluate(
     ({ u, token }) => {
       window.localStorage.setItem('gofuvar_user', JSON.stringify(u));
       window.localStorage.setItem('gofuvar_token', token);
       window.dispatchEvent(new Event('gofuvar:auth'));
     },
     {
-      u: { id: userB.id, email: userB.email, role: userB.role, full_name: userB.full_name },
+      u: { id: userB.id, email: userB.email, role: userB.role, full_name: userB.full_name, avatar_url: null },
       token: userB.token,
     },
-  );
+    ),
+  ]);
 
-  // Az ELŐZŐ user emailje tűnjön el, az újé jelenjen meg — F5 nélkül
-  await expect(page.getByText(userA.email)).toHaveCount(0, { timeout: 20_000 });
+  // Az új dokumentum a B-sessionnel álljon fel — kézi goto/reload nélkül.
+  await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText(userB.email).first()).toBeVisible({ timeout: 20_000 });
+  expect(await page.getByText(userA.email).count()).toBe(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gofuvar_user') || '{}').id)).toBe(userB.id);
 });
 
 test('harang-badge: "Összes elolvasva" után F5 nélkül nullázódik (BUG-030)', async ({ page }) => {
