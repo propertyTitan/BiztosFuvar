@@ -3,7 +3,7 @@ import request from 'supertest';
 const http = require('http');
 const jwt = require('jsonwebtoken');
 const { io: connectSocket } = require('socket.io-client');
-const { app, db, createUser, createJob } = require('./helpers');
+const { app, expressApp, db, createUser, createJob } = require('./helpers');
 const realtime = require('../src/realtime');
 let server, io, address;
 const clients = [];
@@ -11,7 +11,7 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 const gate = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 
 beforeAll(async () => {
-  server = http.createServer(app); io = realtime.init(server);
+  server = http.createServer(expressApp); io = realtime.init(server);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   address = `http://127.0.0.1:${server.address().port}`;
 });
