@@ -1034,11 +1034,25 @@ router.patch('/:id', authRequired, writeRateLimit, async (req, res) => {
     if (!Number.isFinite(n) || n <= 0 || n > 100000) return res.status(400).json({ error: 'A súly 0 és 100 000 kg közötti szám.' });
     put('weight_kg', n);
   }
-  for (const dim of ['length_cm', 'width_cm', 'height_cm']) {
-    if (b[dim] === undefined) continue;
+  const dimensions = ['length_cm', 'width_cm', 'height_cm'];
+  const volumeFactors = [];
+  let dimensionsChanged = false;
+  for (const dim of dimensions) {
+    if (b[dim] === undefined) {
+      volumeFactors.push(`${dim}::numeric`);
+      continue;
+    }
     const n = Number(b[dim]);
     if (!Number.isInteger(n) || n <= 0 || n > 2000) return res.status(400).json({ error: `A(z) ${dim} 1 és 2000 cm közötti egész szám.` });
     put(dim, n);
+    volumeFactors.push(`$${params.length}::integer::numeric`);
+    dimensionsChanged = true;
+  }
+  if (dimensionsChanged) {
+    // A kihagyott méreteket az UPDATE aktuális sorából vesszük, nem a
+    // korábbi SELECT-ből: két párhuzamos részleges szerkesztés így összeadódik.
+    // A kerekítés a feladáséval azonos; numeric védi a nagy méretek szorzatát.
+    sets.push(`volume_m3 = ROUND((${volumeFactors.join(' * ')}) / 1000000, 3)`);
   }
   const ablak = { pickup_window_start: j.pickup_window_start, pickup_window_end: j.pickup_window_end };
   for (const nev of ['pickup_window_start', 'pickup_window_end']) {
