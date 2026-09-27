@@ -18,7 +18,7 @@ const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const paymentProvider = require('../services/paymentProvider');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const { konyvelDijFizetes } = require('../services/feePayment');
-const { startOrReuseFeePayment } = require('../services/feePaymentSession');
+const { startOrReuseFeePayment, startOrReuseFeePaymentInTransaction } = require('../services/feePaymentSession');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
@@ -389,59 +389,56 @@ router.patch(
       return res.status(400).json({ error: 'Érvénytelen státusz' });
     }
 
-    // ⚠️ JÁRAT-LEMONDÁS ÉS A FOGLALÁSOK (2026-08-16, tesztelői észrevétel).
-    // Eddig a járat lemondása a foglalásokhoz NEM nyúlt: a függő foglalás
-    // örökre „elfogadásra várakozik" maradt — a feladó várt egy járatra, ami
-    // már nem létezik, és erről senki nem szólt neki.
-    if (status === 'cancelled') {
-      // FIZETETT, aktív foglalással a járat nem mondható le kézen-közön — a
-      // feladó pénzt adott ezért az útért. Előbb a foglalást kell rendezni
-      // (a route-bookings/:id/cancel útján, aminek szabályai vannak erre).
-      // Ugyanaz az elv, mint az admin-törlés HAS_ACTIVE_PAID guardja.
-      const { rows: fizetett } = await db.query(
-        `SELECT COUNT(*)::int AS db FROM route_bookings
-          WHERE route_id = $1 AND paid_at IS NOT NULL
-            AND status NOT IN ('delivered', 'cancelled', 'rejected')`,
-        [req.params.id],
+    const client = await db.pool.connect();
+    let route;
+    let cancelledBookings = [];
+    try {
+      await client.query('BEGIN');
+      const locked = await client.query(
+        'SELECT * FROM carrier_routes WHERE id = $1 AND carrier_id = $2 FOR UPDATE',
+        [req.params.id, req.user.sub],
       );
-      if (fizetett[0].db > 0) {
-        return res.status(409).json({
-          error: 'Ezen a járaton fizetett, aktív foglalás van — előbb azt kell rendezni (a foglalás lemondásával), csak utána mondható le a járat.',
-          code: 'HAS_ACTIVE_PAID',
-        });
+      if (!locked.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Nem található vagy nincs jogosultság' });
       }
-    }
-
-    const { rows } = await db.query(
-      `UPDATE carrier_routes SET status = $1, updated_at = NOW()
-        WHERE id = $2 AND carrier_id = $3 RETURNING *`,
-      [status, req.params.id, req.user.sub],
-    );
-    if (!rows[0]) return res.status(404).json({ error: 'Nem található vagy nincs jogosultság' });
-
-    if (status === 'cancelled') {
-      // A függő (nem fizetett) foglalások lezárása + a feladók értesítése.
-      const { rows: fuggok } = await db.query(
-        `UPDATE route_bookings
-            SET status = 'cancelled'
-          WHERE route_id = $1
-            AND status IN ('pending', 'confirmed')
-            AND paid_at IS NULL
-          RETURNING id, shipper_id`,
-        [req.params.id],
-      );
-      for (const f of fuggok) {
-        createNotification({
-          user_id: f.shipper_id,
-          type: 'booking_cancelled',
-          title: 'A járatot lemondták',
-          body: `A szállító lemondta a járatot, amelyre foglalásod volt (${rows[0].title || 'járat'}). A foglalásod ezzel lezárult — díjat nem fizettél, teendőd nincs. Nézz szét a többi induló járat közt!`,
-          link: '/dashboard/utvonalak',
-        }).catch((e) => console.warn('[notifications] route cancel booking hiba:', e.message));
+      if (status === 'cancelled') {
+        // A létrehozás és megerősítés előbb ugyanezt a járatot zárolja.
+        // A fizetés a foglalást zárolja: a fizetett-őr annak sorzára alatt fut.
+        const bookings = await client.query(
+          'SELECT id, paid_at, status FROM route_bookings WHERE route_id = $1 ORDER BY id FOR UPDATE', [req.params.id],
+        );
+        if (bookings.rows.some(b => b.paid_at && !['delivered', 'cancelled', 'rejected'].includes(b.status))) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            error: 'Ezen a járaton fizetett, aktív foglalás van — előbb azt kell rendezni (a foglalás lemondásával), csak utána mondható le a járat.',
+            code: 'HAS_ACTIVE_PAID',
+          });
+        }
+        cancelledBookings = (await client.query(
+          `UPDATE route_bookings SET status = 'cancelled'
+            WHERE route_id = $1 AND status IN ('pending', 'confirmed') AND paid_at IS NULL
+            RETURNING id, shipper_id`, [req.params.id],
+        )).rows;
       }
-    }
+      route = (await client.query(
+        'UPDATE carrier_routes SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [status, req.params.id],
+      )).rows[0];
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally { client.release(); }
 
-    res.json((await attachPrices(rows))[0]);
+    for (const f of cancelledBookings) {
+      createNotification({
+        user_id: f.shipper_id, type: 'booking_cancelled', title: 'A járatot lemondták',
+        body: `A szállító lemondta a járatot, amelyre foglalásod volt (${route.title || 'járat'}). A foglalásod ezzel lezárult. Ha fizetést indítottál, ellenőrizd annak állapotát; kérdés esetén keresd az ügyfélszolgálatot.`,
+        link: '/dashboard/foglalasaim',
+      }).catch((e) => console.warn('[notifications] route cancel booking hiba:', e.message));
+    }
+    res.json((await attachPrices([route]))[0]);
   },
 );
 
@@ -612,53 +609,64 @@ router.post(
       });
     }
 
-    // Útvonal + ár lekérdezése
-    const { rows: routeRows } = await db.query(
-      'SELECT * FROM carrier_routes WHERE id = $1',
-      [routeId],
-    );
-    const route = routeRows[0];
-    if (!route) return res.status(404).json({ error: 'Útvonal nem található' });
-    if (route.carrier_id === req.user.sub) {
-      return res.status(403).json({ error: 'A saját útvonaladon nem foglalhatsz helyet.' });
-    }
-    if (route.status !== 'open') {
-      return res.status(409).json({ error: 'Ez az útvonal már nem fogad foglalást' });
-    }
+    const client = await db.pool.connect();
+    let route, booking, priceHuf, trackingToken;
+    try {
+      await client.query('BEGIN');
+      const reject = async (http, body) => { await client.query('ROLLBACK'); return res.status(http).json(body); };
+      // A státusz, ár és a foglalás rögzítése egyetlen járatsorzár alatt.
+      const { rows: routeRows } = await client.query(
+        'SELECT * FROM carrier_routes WHERE id = $1 FOR UPDATE',
+        [routeId],
+      );
+      route = routeRows[0];
+      if (!route) return await reject(404, { error: 'Útvonal nem található' });
+      if (route.carrier_id === req.user.sub) {
+        return await reject(403, { error: 'A saját útvonaladon nem foglalhatsz helyet.' });
+      }
+      if (route.status !== 'open') {
+        return await reject(409, { error: 'Ez az útvonal már nem fogad foglalást' });
+      }
 
-    const { rows: priceRows } = await db.query(
-      'SELECT price_huf FROM carrier_route_prices WHERE route_id = $1 AND size = $2',
-      [routeId, size],
-    );
-    if (!priceRows[0]) {
-      return res.status(409).json({
-        error: `A szállító nem szállít "${size}" méretű csomagot ezen a járaton.`,
-      });
-    }
-    const priceHuf = priceRows[0].price_huf;
-    const deliveryCode = generateDeliveryCode();
-    const trackingToken = crypto.randomBytes(24).toString('base64url');
+      const { rows: priceRows } = await client.query(
+        'SELECT price_huf FROM carrier_route_prices WHERE route_id = $1 AND size = $2',
+        [routeId, size],
+      );
+      if (!priceRows[0]) {
+        return await reject(409, {
+          error: `A szállító nem szállít "${size}" méretű csomagot ezen a járaton.`,
+        });
+      }
+      priceHuf = priceRows[0].price_huf;
+      const deliveryCode = generateDeliveryCode();
+      trackingToken = crypto.randomBytes(24).toString('base64url');
 
-    const { rows: insertRows } = await db.query(
-      `INSERT INTO route_bookings
-         (route_id, shipper_id, package_size,
-          length_cm, width_cm, height_cm, weight_kg,
+      const { rows: insertRows } = await client.query(
+        `INSERT INTO route_bookings
+           (route_id, shipper_id, package_size,
+            length_cm, width_cm, height_cm, weight_kg,
+            pickup_address, pickup_lat, pickup_lng,
+            dropoff_address, dropoff_lat, dropoff_lng,
+            price_huf, delivery_code, notes,
+            recipient_name, recipient_phone, recipient_email, tracking_token)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+         RETURNING *`,
+        [
+          routeId, req.user.sub, size,
+          L, W, H, kg,
           pickup_address, pickup_lat, pickup_lng,
           dropoff_address, dropoff_lat, dropoff_lng,
-          price_huf, delivery_code, notes,
-          recipient_name, recipient_phone, recipient_email, tracking_token)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
-       RETURNING *`,
-      [
-        routeId, req.user.sub, size,
-        L, W, H, kg,
-        pickup_address, pickup_lat, pickup_lng,
-        dropoff_address, dropoff_lat, dropoff_lng,
-        priceHuf, deliveryCode, notes || null,
-        recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
-      ],
-    );
-    const booking = insertRows[0];
+          priceHuf, deliveryCode, notes || null,
+          recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
+        ],
+      );
+      booking = insertRows[0];
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally { client.release(); }
 
     // Real-time értesítés a szállítónak — KIZÁRÓLAG a szállító saját szobájába
     // (`emitToUser`), NEM globálisan. A korábbi `emitGlobal('...:${carrier_id}')`
@@ -821,13 +829,20 @@ router.post(
     const client = await db.pool.connect();
     try {
       await client.query('BEGIN');
+      await client.query('SELECT id FROM users WHERE id = $1 FOR NO KEY UPDATE', [req.user.sub]);
+      const parent = await client.query('SELECT route_id FROM route_bookings WHERE id = $1', [req.params.id]);
+      if (!parent.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Foglalás nem található' });
+      }
+      await client.query('SELECT id FROM carrier_routes WHERE id = $1 FOR UPDATE', [parent.rows[0].route_id]);
       const { rows: bRows } = await client.query(
-        `SELECT b.*, r.carrier_id, s.email AS shipper_email, c.email AS carrier_email
+        `SELECT b.*, r.carrier_id, r.status AS route_status, s.email AS shipper_email, c.email AS carrier_email
            FROM route_bookings b
            JOIN carrier_routes r ON r.id = b.route_id
            JOIN users s ON s.id = b.shipper_id
            JOIN users c ON c.id = r.carrier_id
-          WHERE b.id = $1 FOR UPDATE`,
+          WHERE b.id = $1 FOR UPDATE OF b`,
         [req.params.id],
       );
       const b = bRows[0];
@@ -839,12 +854,16 @@ router.post(
         await client.query('ROLLBACK');
         return res.status(403).json({ error: 'Nincs jogosultság' });
       }
+      if (!['open', 'full'].includes(b.route_status)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ code: 'ROUTE_NOT_OPEN', error: 'A járat jelenleg nem teljesíthető; a foglalás nem erősíthető meg.' });
+      }
       if (b.status !== 'pending') {
         await client.query('ROLLBACK');
         return res.status(409).json({ error: 'A foglalás már nem megerősíthető' });
       }
 
-      // A fenti FOR UPDATE a szállító user-sorát is zárolja. A jogosultság
+      // A szállító user-sorát a tranzakció elején zároltuk. A jogosultság
       // nem a járat feladásakor, hanem a megállapodás pillanatában szükséges.
       const { rows: carriers } = await client.query('SELECT * FROM users WHERE id = $1', [b.carrier_id]);
       const eligibility = driverEligibilityError(carriers[0]);
@@ -856,32 +875,19 @@ router.post(
       // Kapcsolatfelvételi díj indítása (készpénzes modell: a fuvardíjat a
       // feladó készpénzben adja a szállítónak, a platform csak a díjat szedi)
       const feeHuf = calculateConnectionFee(b.price_huf);
-      let barionRes = { paymentId: null, gatewayUrl: null };
-      try {
-        barionRes = await paymentProvider.startFeePayment({
-          jobId: b.id, // itt a booking id-t használjuk
-          feeHuf,
-          shipperEmail: b.shipper_email,
-          redirectPath: '/dashboard/foglalasaim',
-        });
-      } catch (err) {
-        console.error('[barion] startFeePayment hiba:', err.message);
-        await client.query('ROLLBACK');
-        return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
-      }
-
       await client.query(
-        `UPDATE route_bookings
-            SET status              = 'confirmed',
-                confirmed_at        = NOW(),
-                barion_payment_id   = $1,
-                barion_gateway_url  = $2,
-                connection_fee_huf  = $3,
-                carrier_share_huf   = 0,
-                platform_share_huf  = $3
-          WHERE id = $4`,
-        [barionRes.paymentId, barionRes.gatewayUrl, feeHuf, b.id],
+        `UPDATE route_bookings SET status = 'confirmed', confirmed_at = NOW(),
+                connection_fee_huf = $1, carrier_share_huf = 0, platform_share_huf = $1 WHERE id = $2`,
+        [feeHuf, b.id],
       );
+      const payment = await startOrReuseFeePaymentInTransaction(client, {
+        entityType: 'booking', entityId: b.id, shipperId: b.shipper_id, requireConsent: false,
+      });
+      if (payment.http !== 200) {
+        await client.query('ROLLBACK');
+        return res.status(payment.http).json(payment.body);
+      }
+      const barionRes = { paymentId: payment.body.payment_id, gatewayUrl: payment.body.gateway_url };
 
       await client.query('COMMIT');
       // ⚠️ 2026-08-09 (audit 3. kör): ez `emitGlobal`-lal ment, vagyis a

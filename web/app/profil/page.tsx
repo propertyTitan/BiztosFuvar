@@ -637,6 +637,9 @@ function CompanyVerifyRow({ profile, onVerified }: { profile: any; onVerified: (
         toast.info(`Az adószám érvényes, de a NAV szerinti cégnév eltér (${r.nav_name || 'ismeretlen'}). Ellenőrizd a profilban megadott cégnevet, vagy az ügyfélszolgálat kézzel jóváhagyja.`);
       } else if (r.status === 'invalid') {
         toast.error('A megadott adószámot a NAV nem találja érvényesként — ellenőrizd, jól írtad-e be.');
+      } else if (r.status === 'stale') {
+        toast.info(r.message || 'A cégadatok időközben megváltoztak. Ellenőrizd őket, és indítsd újra az ellenőrzést.');
+        onVerified();
       } else if (r.status === 'no_tax_id') {
         toast.error('Előbb add meg az adószámod a profilodban.');
       } else if (r.status === 'not_configured') {

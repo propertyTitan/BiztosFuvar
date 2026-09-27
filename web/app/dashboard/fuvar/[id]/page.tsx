@@ -166,6 +166,7 @@ export default function FuvarReszletek() {
   useEffect(() => {
     const unsub = subscribeJob(id, {
       onReconnect: () => loadAll(),
+      onUpdated: () => loadAll(),
       onPickedUp: () => loadAll(),
       onDelivered: () => loadAll(),
       onAccepted: () => loadAll(),
@@ -217,7 +218,7 @@ export default function FuvarReszletek() {
       await loadAll();
     } catch (err: any) {
       toast.error('Hiba az ajánlat elfogadásakor', err.message);
-      if (err.code === 'OFFER_CHANGED') await loadAll();
+      if (['OFFER_CHANGED', 'JOB_TERMS_CHANGED'].includes(err.code)) await loadAll();
     } finally {
       setAcceptingBidId(null);
     }
@@ -875,7 +876,11 @@ export default function FuvarReszletek() {
                 <strong>{ft(kapcsolatfelvetelDijHuf(b.counter_amount_huf ?? b.amount_huf))} Ft</strong>
                 {' '}(bevezető ár, nem visszatérítendő)
               </p>
-              {b.counter_by === 'shipper' && b.counter_amount_huf != null ? (
+              {b.needs_reconfirmation ? (
+                <p className="callout callout-info" role="status" style={{ marginTop: 8 }}>
+                  A szállító megerősítésére vár. A jelenlegi fuvaradatokra újra meg kell erősítenie az ajánlatát; utána elfogadhatod.
+                </p>
+              ) : b.counter_by === 'shipper' && b.counter_amount_huf != null ? (
                 <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
                   <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({b.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a szállító válaszára vár.
                 </p>

@@ -109,3 +109,33 @@ it.each([
   await screen.findByRole('heading', { name: 'Helyreállt fuvar' });
   expect(Boolean(screen.queryByText('741852'))).toBe(visible);
 });
+
+it('a feladó megőrzi az ajánlatot, de nem fogadhatja el az új feltételek megerősítése előtt', async () => {
+  mocks.user.id = 'shipper';
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, status: 'bidding', terms_revision: 2 } as any);
+  vi.mocked(api.listBids).mockResolvedValue([{ id: 'bid', carrier_id: 'carrier', carrier_name: 'Szállító',
+    amount_huf: 20000, status: 'pending', needs_reconfirmation: true }] as any);
+  render(<ShipperPage />);
+  expect(await screen.findByText(/A szállító megerősítésére vár/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Elfogadom/ })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Ellenajánlat' })).toBeNull();
+});
+
+it('a szállító megerősítési űrlapja megőrzi a feltételeket, és külön jóváhagyást kér a közbeni változásra', async () => {
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, status: 'bidding', terms_revision: 2 } as any);
+  vi.mocked(api.listBids).mockResolvedValue([{ id: 'bid', carrier_id: 'carrier', amount_huf: 20000, status: 'pending',
+    message: 'Rakodás benne van', eta_minutes: 90, return_policy: 'extra_fee', return_fee_huf: 5000,
+    needs_reconfirmation: true }] as any);
+  render(<CarrierPage />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Korábbi ajánlat betöltése' }));
+  expect(screen.getByPlaceholderText('pl. 58000')).toHaveValue(20000);
+  expect(screen.getByPlaceholderText('pl. Van rakodómunkás is')).toHaveValue('Rakodás benne van');
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, status: 'bidding', terms_revision: 3 } as any);
+  await act(async () => { mocks.handlers.onUpdated(); });
+  expect(await screen.findByRole('button', { name: 'Átnéztem a frissített fuvaradatokat' })).toBeInTheDocument();
+  const send = screen.getByRole('button', { name: 'Ajánlat megerősítése a jelenlegi feltételekre' });
+  expect(send).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: 'Átnéztem a frissített fuvaradatokat' }));
+  expect(send).toBeEnabled();
+  expect(screen.getByPlaceholderText('pl. 58000')).toHaveValue(20000);
+});

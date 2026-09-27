@@ -246,12 +246,13 @@ function companyNamesMatch(userName, navName, navShortName) {
  *   not_company    — nem céges fiók
  *   no_tax_id      — nincs adószám megadva
  *   not_configured — a NAV-integráció még nincs élesítve
+ *   stale          — a profil vagy az ellenőrzés közben megváltozott
  *   error          — hálózati / NAV-oldali hiba (később újrapróbálható)
  */
 async function verifyCompanyUser(userId) {
   try {
     const { rows } = await db.query(
-      `SELECT account_type, tax_id, company_name, company_verification_status
+      `SELECT account_type, tax_id, company_name, company_verification_status, xmin::text AS nav_version
          FROM users WHERE id = $1`,
       [userId],
     );
@@ -261,6 +262,18 @@ async function verifyCompanyUser(userId) {
     if (!user.tax_id) return { status: 'no_tax_id' };
     if (!isConfigured()) return { status: 'not_configured' };
 
+    const stale = { status: 'stale', message: 'A cégadatok vagy az ellenőrzés időközben megváltoztak. Frissítsd az oldalt, és indítsd újra az ellenőrzést.' };
+    // A no-op UPDATE új PostgreSQL-sorverziót foglal ennek a kérésnek.
+    // Profil- és adminírás, illetve egy új ellenőrzés is érvényteleníti.
+    // Külső NAV-hívás alatt nem tartunk tranzakciót vagy sorzárat.
+    const claim = await db.query(
+      `UPDATE users SET nav_taxpayer_checked_at = nav_taxpayer_checked_at
+        WHERE id = $1 AND xmin::text = $2 RETURNING xmin::text AS nav_version`,
+      [userId, user.nav_version],
+    );
+    if (!claim.rowCount) return stale;
+    const version = claim.rows[0].nav_version;
+
     const taxNumber8 = String(user.tax_id).replace(/\D/g, '').slice(0, 8);
     const result = await queryTaxpayer(taxNumber8);
 
@@ -268,23 +281,25 @@ async function verifyCompanyUser(userId) {
     if (!result.found || !result.valid) {
       // Érvénytelen adószám: a jelvényt nem adjuk meg, de nem is "rejected"-elünk
       // gépi úton — a státusz marad, az admin a naplózott eredmény alapján dönthet.
-      await db.query(
+      const saved = await db.query(
         `UPDATE users SET nav_taxpayer_checked_at = NOW(), nav_taxpayer_valid = FALSE,
                           nav_taxpayer_name = $2
-          WHERE id = $1`,
-        [userId, navName],
+          WHERE id = $1 AND xmin::text = $3`,
+        [userId, navName, version],
       );
+      if (!saved.rowCount) return stale;
       return { status: 'invalid', nav_name: navName };
     }
 
     const matched = companyNamesMatch(user.company_name, result.name, result.shortName);
-    await db.query(
+    const saved = await db.query(
       `UPDATE users SET nav_taxpayer_checked_at = NOW(), nav_taxpayer_valid = TRUE,
                         nav_taxpayer_name = $2
                         ${matched ? `, company_verification_status = 'verified'` : ''}
-        WHERE id = $1`,
-      [userId, navName],
+        WHERE id = $1 AND xmin::text = $3`,
+      [userId, navName, version],
     );
+    if (!saved.rowCount) return stale;
     if (matched) return { status: 'verified', nav_name: navName };
     return { status: 'name_mismatch', nav_name: navName };
   } catch (e) {

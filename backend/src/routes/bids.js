@@ -3,7 +3,7 @@ const express = require('express');
 const db = require('../db');
 const { authRequired, requireDriverKYC, requireVerifiedEmail, driverEligibilityError } = require('../middleware/auth');
 const realtime = require('../realtime');
-const paymentProvider = require('../services/paymentProvider');
+const { startOrReuseFeePaymentInTransaction } = require('../services/feePaymentSession');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendBidReceivedEmail, sendBidAcceptedEmail, sendPaymentDueEmail } = require('../services/email');
@@ -21,6 +21,11 @@ function matchesSeenOffer(body, bid, agreedPrice) {
 const OFFER_CHANGED = {
   code: 'OFFER_CHANGED',
   error: 'Az ajánlat megváltozott, vagy elavult az oldal. Frissítsd az ajánlatot, ellenőrizd az árat, és fogadd el újra.',
+};
+
+const JOB_TERMS_CHANGED = {
+  code: 'JOB_TERMS_CHANGED',
+  error: 'A fuvar feltételei megváltoztak. A szállítónak a frissített fuvarra újra meg kell erősítenie az ajánlatát.',
 };
 
 // GET /bids/preview — licit előnézet.
@@ -58,6 +63,8 @@ router.get('/bids/mine', authRequired, async (req, res) => {
         b.message,
         b.status          AS bid_status,
         b.created_at      AS bid_created_at,
+        b.job_terms_revision,
+        (b.status = 'pending' AND b.job_terms_revision <> j.terms_revision) AS needs_reconfirmation,
         j.id              AS job_id,
         j.title           AS job_title,
         j.status          AS job_status,
@@ -165,18 +172,6 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
     return res.status(400).json({ error: 'A megadott összeg irreálisan magas (legfeljebb 100 000 000 Ft).' });
   }
 
-  const { rows: jobRows } = await db.query(
-    'SELECT status, shipper_id, currency AS job_currency FROM jobs WHERE id = $1',
-    [jobId],
-  );
-  if (!jobRows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
-  if (jobRows[0].shipper_id === req.user.sub) {
-    return res.status(403).json({ error: 'A saját fuvarodra nem tehetsz ajánlatot.' });
-  }
-  if (!['pending', 'bidding'].includes(jobRows[0].status)) {
-    return res.status(409).json({ error: 'A fuvarra már nem lehet ajánlatot tenni' });
-  }
-
   // Kapcsolat-szivárgás védelem: az ajánlat-üzenet a feladóhoz jut a
   // díjfizetés ELŐTT (a bid-listán látja) — telefonszám/email itt a díj
   // (a platform egyetlen bevétele) megkerülése lenne.
@@ -186,29 +181,33 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
   // Jogosítvány-követelmény megszűnt (2026-07-07): a személyi igazolvány +
   // a szállítói nyilatkozat (requireDriverKYC) elég; a can_bid/license-kapu kivéve.
 
+  const client = await db.pool.connect();
   try {
-    // A teljes megállapodási és díjfolyamat forintban működik.
-    if ((jobRows[0].job_currency || 'HUF') !== 'HUF') {
-      return res.status(409).json({ error: 'Ehhez a fuvarhoz előbb forintban kell rögzíteni az árat.', code: 'UNSUPPORTED_CURRENCY' });
+    await client.query('BEGIN');
+    // A feltételek olvasása és az ajánlat mentése ugyanazon fuvarsorzár alatt.
+    const { rows: jobRows } = await client.query(
+      'SELECT status, shipper_id, currency AS job_currency, terms_revision FROM jobs WHERE id = $1 FOR UPDATE', [jobId],
+    );
+    const job = jobRows[0];
+    const reject = async (http, body) => { await client.query('ROLLBACK'); return res.status(http).json(body); };
+    if (!job) return await reject(404, { error: 'Fuvar nem található' });
+    if (job.shipper_id === req.user.sub) return await reject(403, { error: 'A saját fuvarodra nem tehetsz ajánlatot.' });
+    if (!['pending', 'bidding'].includes(job.status)) return await reject(409, { error: 'A fuvarra már nem lehet ajánlatot tenni' });
+    if ((job.job_currency || 'HUF') !== 'HUF') return await reject(409, { error: 'Ehhez a fuvarhoz előbb forintban kell rögzíteni az árat.', code: 'UNSUPPORTED_CURRENCY' });
+    // Régebbi kliens csak soha nem szerkesztett fuvarra küldhet verzió nélkül.
+    const seen = req.body?.expected_job_terms_revision;
+    if ((seen == null && job.terms_revision !== 1)
+        || (seen != null && (!Number.isSafeInteger(seen) || seen !== job.terms_revision))) {
+      return await reject(409, { code: 'JOB_CHANGED', error: 'A fuvar adatai megváltoztak. Nézd át a frissített adatokat, majd küldd el újra az ajánlatodat.' });
     }
     const exchangeRate = null;
     const exchangeFrozenAt = null;
 
-    // ⚠️ ELUTASÍTOTT AJÁNLAT UTÁN ÚJRA LEHET PRÓBÁLKOZNI (2026-08-16,
-    // tesztelői észrevétel). A bids-en UNIQUE (job_id, carrier_id) él, és a
-    // korábbi kód a 23505-re csak annyit mondott: „Már tettél ajánlatot".
-    // Csakhogy az alku során elutasított (vagy visszavont) ajánlat SORA
-    // megmarad — a szállító így SOHA TÖBBÉ nem tudott ajánlatot tenni arra a
-    // fuvarra, hiába nyitott újra a licit. Egy jobb árral visszatérni pedig
-    // legitim: pont ettől verseny a verseny.
-    //
-    // Az ON CONFLICT ezért az elutasított/visszavont sort ÉLESZTI ÚJRA az új
-    // értékekkel. A WHERE-feltétel miatt a 'pending' és az 'accepted' sort NEM
-    // bántja: arra továbbra is a 409 jár (ott tényleg „már tettél ajánlatot"),
-    // az elfogadott ajánlatot pedig felülírni súlyos hiba lenne.
-    const { rows } = await db.query(
-      `INSERT INTO bids (job_id, carrier_id, amount_huf, currency, exchange_rate, exchange_rate_frozen_at, message, eta_minutes, return_policy, return_fee_huf)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    // Lezárt vagy elavult feltételekre tett ajánlat újra megerősíthető.
+    // A változatlan, aktív ajánlat és az elfogadott megállapodás nem írható át.
+    const { rows } = await client.query(
+      `INSERT INTO bids (job_id, carrier_id, amount_huf, currency, exchange_rate, exchange_rate_frozen_at, message, eta_minutes, return_policy, return_fee_huf, job_terms_revision)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        ON CONFLICT (job_id, carrier_id) DO UPDATE SET
          amount_huf = EXCLUDED.amount_huf,
          currency = EXCLUDED.currency,
@@ -218,20 +217,24 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
          eta_minutes = EXCLUDED.eta_minutes,
          return_policy = EXCLUDED.return_policy,
          return_fee_huf = EXCLUDED.return_fee_huf,
+         job_terms_revision = EXCLUDED.job_terms_revision,
          status = 'pending',
          counter_amount_huf = NULL,
          counter_by = NULL,
          counter_at = NULL,
          created_at = NOW()
        WHERE bids.status IN ('rejected', 'withdrawn')
+          OR (bids.status = 'pending' AND bids.job_terms_revision <> EXCLUDED.job_terms_revision)
        RETURNING *`,
-      [jobId, req.user.sub, numAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null, return_policy, returnFeeClean],
+      [jobId, req.user.sub, numAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null, return_policy, returnFeeClean, job.terms_revision],
     );
     // Ha a WHERE nem engedte az UPDATE-et (pending/accepted sor), a Postgres
     // NULLA sort ad vissza — ez a „már tettél ajánlatot" eset.
     if (!rows[0]) {
+      await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Már tettél ajánlatot erre a fuvarra — az még függőben van, a feladó látja. Új ajánlatot akkor tehetsz, ha az lezárult.' });
     }
+    await client.query('COMMIT');
     realtime.emitToJob(jobId, 'bids:new', rows[0]);
 
     // Értesítés a feladónak: új licit érkezett (in-app + email)
@@ -273,8 +276,11 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
 
     res.status(201).json(rows[0]);
   } catch (err) {
+    await client.query('ROLLBACK');
     if (err.code === '23505') return res.status(409).json({ error: 'Már tettél ajánlatot erre a fuvarra' });
     throw err;
+  } finally {
+    client.release();
   }
 });
 
@@ -289,6 +295,7 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
   const seeAll = isShipper || isAdmin;
   const { rows } = await db.query(
     `SELECT b.*, b.currency AS bid_currency, b.exchange_rate,
+            (b.status = 'pending' AND b.job_terms_revision <> j.terms_revision) AS needs_reconfirmation,
             u.full_name AS carrier_name, u.avatar_url AS carrier_avatar,
             u.rating_avg, u.rating_count,
             u.trust_score, u.is_verified_carrier,
@@ -296,7 +303,7 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
             u.account_type AS carrier_account_type,
             u.company_name AS carrier_company_name,
             u.company_verification_status AS carrier_company_verified
-       FROM bids b JOIN users u ON u.id = b.carrier_id
+       FROM bids b JOIN users u ON u.id = b.carrier_id JOIN jobs j ON j.id = b.job_id
       WHERE b.job_id = $1 ${seeAll ? '' : 'AND b.carrier_id = $2'}
       ORDER BY b.amount_huf ASC
       LIMIT 200`,
@@ -374,40 +381,11 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
     return { ok: true, barionRes: { paymentId: null, gatewayUrl: null }, feeHuf, feeAlreadyPaid: true };
   }
 
-  let barionRes = { paymentId: null, gatewayUrl: null };
-  try {
-    barionRes = await paymentProvider.startFeePayment({
-      jobId: bid.job_id,
-      feeHuf,
-      shipperEmail: bid.shipper_email,
-    });
-  } catch (err) {
-    console.error('[barion] startFeePayment hiba:', err.message);
-    return { ok: false, status: 502, error: 'A díjfizetés indítása sikertelen', detail: err.message };
-  }
-  // A fizetés-nyilvántartás az escrow_transactions táblában marad, de a sor
-  // mostantól a kapcsolatfelvételi díjat könyveli: amount = díj,
-  // carrier_share = 0 (a szállító kápéban kap, nem rajtunk keresztül),
-  // platform_share = a teljes díj.
-  await client.query(
-    `INSERT INTO escrow_transactions
-       (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
-        carrier_share_huf, platform_share_huf)
-     VALUES ($1,$2,'held',$3,$4,0,$2)
-     ON CONFLICT (job_id) DO UPDATE SET
-       amount_huf         = EXCLUDED.amount_huf,
-       status             = 'held',
-       barion_payment_id  = EXCLUDED.barion_payment_id,
-       barion_gateway_url = EXCLUDED.barion_gateway_url,
-       carrier_share_huf  = 0,
-       platform_share_huf = EXCLUDED.platform_share_huf,
-       held_at            = NOW()
-       -- Védelem: már kifizetett díjat SOHA ne írjunk vissza 'held'-re
-       -- (normál folyamatban ez az ág nem fut, mert a paid_at guard véd;
-       -- ez biztonsági háló egy esetleges re-listázás ellen).
-       WHERE escrow_transactions.status = 'held'`,
-    [bid.job_id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
-  );
+  const payment = await startOrReuseFeePaymentInTransaction(client, {
+    entityType: 'job', entityId: bid.job_id, shipperId: bid.shipper_id, requireConsent: false,
+  });
+  if (payment.http !== 200) return { ok: false, status: payment.http, ...payment.body };
+  const barionRes = { paymentId: payment.body.payment_id, gatewayUrl: payment.body.gateway_url };
   return { ok: true, barionRes, feeHuf, feeAlreadyPaid: false };
 }
 
@@ -618,7 +596,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
 
     const { rows: bidRows } = await client.query(
       `SELECT b.*, j.shipper_id, j.status AS job_status,
-              j.paid_at, j.connection_fee_huf, j.currency AS job_currency,
+              j.paid_at, j.connection_fee_huf, j.currency AS job_currency, j.terms_revision AS current_terms_revision,
               s.email AS shipper_email,
               c.email AS carrier_email
          FROM bids b
@@ -649,6 +627,10 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     const agreedPrice = (bid.counter_by === 'carrier' && bid.counter_amount_huf != null)
       ? bid.counter_amount_huf : bid.amount_huf;
 
+    if (bid.job_terms_revision !== bid.current_terms_revision) {
+      await client.query('ROLLBACK');
+      return res.status(409).json(JOB_TERMS_CHANGED);
+    }
     if (!matchesSeenOffer(req.body, bid, agreedPrice)) {
       await client.query('ROLLBACK');
       return res.status(409).json(OFFER_CHANGED);
@@ -701,7 +683,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     await client.query('SELECT id FROM jobs WHERE id = $1 FOR UPDATE', [bidJob[0].job_id]);
     const { rows: bidRows } = await client.query(
       `SELECT b.*, j.shipper_id, j.status AS job_status,
-              j.paid_at, j.connection_fee_huf, j.currency AS job_currency,
+              j.paid_at, j.connection_fee_huf, j.currency AS job_currency, j.terms_revision AS current_terms_revision,
               s.email AS shipper_email, c.email AS carrier_email
          FROM bids b
          JOIN jobs j  ON j.id = b.job_id
@@ -726,6 +708,10 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     }
     const agreedPrice = bid.counter_amount_huf;
 
+    if (bid.job_terms_revision !== bid.current_terms_revision) {
+      await client.query('ROLLBACK');
+      return res.status(409).json(JOB_TERMS_CHANGED);
+    }
     if (!matchesSeenOffer(req.body, bid, agreedPrice)) {
       await client.query('ROLLBACK');
       return res.status(409).json(OFFER_CHANGED);
@@ -768,49 +754,65 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
   if (!Number.isInteger(amt) || amt <= 0 || amt > 100000000) {
     return res.status(400).json({ error: 'Érvénytelen összeg.' });
   }
-  const { rows } = await db.query(
-    `SELECT b.id, b.carrier_id, b.status AS bid_status, b.job_id,
-            j.shipper_id, j.status AS job_status, j.title
-       FROM bids b JOIN jobs j ON j.id = b.job_id
-      WHERE b.id = $1`,
-    [req.params.id],
-  );
-  const bid = rows[0];
-  if (!bid) return res.status(404).json({ error: 'Ajánlat nem található' });
-  const isShipper = bid.shipper_id === req.user.sub;
-  const isCarrier = bid.carrier_id === req.user.sub;
-  if (!isShipper && !isCarrier) return res.status(403).json({ error: 'Nincs jogosultság' });
-  if (!['pending', 'bidding'].includes(bid.job_status)) {
-    return res.status(409).json({ error: 'A fuvar már nem alkudható.' });
-  }
-  if (bid.bid_status !== 'pending') {
-    return res.status(409).json({ error: 'Erre az ajánlatra már nem lehet ellenajánlatot tenni.' });
-  }
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const reject = async (http, body) => { await client.query('ROLLBACK'); return res.status(http).json(body); };
+    const { rows: bidJobs } = await client.query('SELECT job_id FROM bids WHERE id = $1', [req.params.id]);
+    if (!bidJobs[0]) return await reject(404, { error: 'Ajánlat nem található' });
+    await client.query('SELECT id FROM jobs WHERE id = $1 FOR UPDATE', [bidJobs[0].job_id]);
+    const { rows } = await client.query(
+      `SELECT b.id, b.carrier_id, b.status AS bid_status, b.job_id,
+              j.shipper_id, j.status AS job_status, j.title, b.job_terms_revision, j.terms_revision AS current_terms_revision
+         FROM bids b JOIN jobs j ON j.id = b.job_id
+        WHERE b.id = $1 FOR UPDATE OF b`,
+      [req.params.id],
+    );
+    const bid = rows[0];
+    if (!bid) return await reject(404, { error: 'Ajánlat nem található' });
+    const isShipper = bid.shipper_id === req.user.sub;
+    const isCarrier = bid.carrier_id === req.user.sub;
+    if (!isShipper && !isCarrier) return await reject(403, { error: 'Nincs jogosultság' });
+    if (!['pending', 'bidding'].includes(bid.job_status)) {
+      return await reject(409, { error: 'A fuvar már nem alkudható.' });
+    }
+    if (bid.bid_status !== 'pending') {
+      return await reject(409, { error: 'Erre az ajánlatra már nem lehet ellenajánlatot tenni.' });
+    }
 
-  const role = isShipper ? 'shipper' : 'carrier';
-  // A WHERE status='pending' atomikusan védi az időközbeni elfogadás ellen:
-  // ha a licit közben accepted/rejected lett, az ellenajánlat nem íródik rá.
-  const upd = await db.query(
-    `UPDATE bids SET counter_amount_huf = $1, counter_by = $2, counter_at = NOW()
-      WHERE id = $3 AND status = 'pending'`,
-    [amt, role, bid.id],
-  );
-  if (upd.rowCount === 0) {
-    return res.status(409).json({ error: 'Erre az ajánlatra már nem lehet ellenajánlatot tenni.' });
+    if (bid.job_terms_revision !== bid.current_terms_revision) return await reject(409, JOB_TERMS_CHANGED);
+
+    const role = isShipper ? 'shipper' : 'carrier';
+    // A WHERE status='pending' atomikusan védi az időközbeni elfogadás ellen:
+    // ha a licit közben accepted/rejected lett, az ellenajánlat nem íródik rá.
+    const upd = await client.query(
+      `UPDATE bids SET counter_amount_huf = $1, counter_by = $2, counter_at = NOW()
+        WHERE id = $3 AND status = 'pending'`,
+      [amt, role, bid.id],
+    );
+    if (upd.rowCount === 0) {
+      return await reject(409, { error: 'Erre az ajánlatra már nem lehet ellenajánlatot tenni.' });
+    }
+
+    await client.query('COMMIT');
+    const otherUserId = isShipper ? bid.carrier_id : bid.shipper_id;
+    const link = isShipper ? `/sofor/fuvar/${bid.job_id}` : `/dashboard/fuvar/${bid.job_id}`;
+    await createNotification({
+      user_id: otherUserId,
+      type: 'counter_offer',
+      title: '🔁 Ellenajánlat érkezett',
+      body: `Ellenajánlat a(z) "${bid.title || 'fuvar'}" fuvarra: ${amt.toLocaleString('hu-HU')} Ft.`,
+      link,
+    });
+    realtime.emitToJob(bid.job_id, 'bid:countered', { bid_id: bid.id, counter_amount_huf: amt, counter_by: role });
+
+    res.json({ ok: true, counter_amount_huf: amt, counter_by: role });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  const otherUserId = isShipper ? bid.carrier_id : bid.shipper_id;
-  const link = isShipper ? `/sofor/fuvar/${bid.job_id}` : `/dashboard/fuvar/${bid.job_id}`;
-  await createNotification({
-    user_id: otherUserId,
-    type: 'counter_offer',
-    title: '🔁 Ellenajánlat érkezett',
-    body: `Ellenajánlat a(z) "${bid.title || 'fuvar'}" fuvarra: ${amt.toLocaleString('hu-HU')} Ft.`,
-    link,
-  });
-  realtime.emitToJob(bid.job_id, 'bid:countered', { bid_id: bid.id, counter_amount_huf: amt, counter_by: role });
-
-  res.json({ ok: true, counter_amount_huf: amt, counter_by: role });
 });
 
 module.exports = router;

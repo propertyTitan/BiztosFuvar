@@ -146,6 +146,7 @@ export function subscribeJob(
     onTrackingPing?: (p: { lat: number; lng: number; speed_kmh?: number; ts?: number }) => void;
     onPickedUp?: (data: any) => void;
     onDelivered?: (data: any) => void;
+    onUpdated?: (data: any) => void;
     onAccepted?: (data: any) => void;
     onCountered?: (data: any) => void;
     onNewBid?: (bid: any) => void;
@@ -166,6 +167,7 @@ export function subscribeJob(
   const ping     = (p: any) => handlers.onTrackingPing?.(p);
   const picked   = (p: any) => handlers.onPickedUp?.(p);
   const delivd   = (p: any) => handlers.onDelivered?.(p);
+  const updated = (p: any) => { if (p?.job_id === jobId) handlers.onUpdated?.(p); };
   const accepted = (p: any) => handlers.onAccepted?.(p);
   const countered = (p: any) => handlers.onCountered?.(p);
   const newBid   = (b: any) => handlers.onNewBid?.(b);
@@ -173,6 +175,7 @@ export function subscribeJob(
   s.on('tracking:ping',   ping);
   s.on('job:picked_up',   picked);
   s.on('job:delivered',   delivd);
+  s.on('job:updated', updated);
   s.on('job:accepted',    accepted);
   s.on('bid:countered',   countered);
   s.on('bids:new',        newBid);
@@ -191,6 +194,7 @@ export function subscribeJob(
     s.off('tracking:ping',   ping);
     s.off('job:picked_up',   picked);
     s.off('job:delivered',   delivd);
+    s.off('job:updated', updated);
     s.off('job:accepted',    accepted);
     s.off('bid:countered',   countered);
     s.off('bids:new',        newBid);
