@@ -114,3 +114,19 @@ it('a migráció a régi ajánlatot megőrzi és megerősítéshez köti; újraf
     expect((await client.query('SELECT job_terms_revision FROM bids')).rows[0].job_terms_revision).toBe(1);
   } finally { await client.query('ROLLBACK'); client.release(); }
 });
+
+it.each(['bid', 'counter'])('%s: egyetlen szabad DB-kapcsolattal is elkészül az értesítés a tranzakció után', async action => {
+  const p = await setup();
+  const newcomer = await createUser({ role: 'carrier' });
+  const held = [];
+  try {
+    for (let i = 0; i < db.pool.options.max - 1; i++) held.push(await db.pool.connect());
+    const result = action === 'bid'
+      ? await request(app).post(`/jobs/${p.job.id}/bids`).set(...auth(newcomer)).send({ amount_huf: 23000, return_policy: 'included' })
+      : await request(app).post(`/bids/${p.bid.id}/counter`).set(...auth(p.shipper)).send({ amount: 19000 });
+    expect(result.status).toBe(action === 'bid' ? 201 : 200);
+    const notification = await db.query('SELECT body FROM notifications WHERE user_id=$1 AND type=$2',
+      [action === 'bid' ? p.shipper.id : p.carrier.id, action === 'bid' ? 'bid_received' : 'counter_offer']);
+    expect(notification.rows.some(r => r.body.replace(/\s/g, '').includes(action === 'bid' ? '23000' : '19000'))).toBe(true);
+  } finally { for (const client of held) client.release(); }
+});

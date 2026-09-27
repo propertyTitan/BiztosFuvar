@@ -181,6 +181,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
   // Jogosítvány-követelmény megszűnt (2026-07-07): a személyi igazolvány +
   // a szállítói nyilatkozat (requireDriverKYC) elég; a can_bid/license-kapu kivéve.
 
+  let savedBid;
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
@@ -235,46 +236,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
       return res.status(409).json({ error: 'Már tettél ajánlatot erre a fuvarra — az még függőben van, a feladó látja. Új ajánlatot akkor tehetsz, ha az lezárult.' });
     }
     await client.query('COMMIT');
-    realtime.emitToJob(jobId, 'bids:new', rows[0]);
-
-    // Értesítés a feladónak: új licit érkezett (in-app + email)
-    try {
-      const { rows: jRows } = await db.query(
-        `SELECT j.shipper_id, j.title,
-                s.email AS shipper_email, s.full_name AS shipper_name,
-                u.full_name AS carrier_name
-           FROM jobs j
-           JOIN users s ON s.id = j.shipper_id
-           JOIN users u ON u.id = $2
-          WHERE j.id = $1`,
-        [jobId, req.user.sub],
-      );
-      if (jRows[0]) {
-        const info = jRows[0];
-        await createNotification({
-          user_id: info.shipper_id,
-          type: 'bid_received',
-          title: 'Új ajánlat érkezett 🎯',
-          body: `${info.carrier_name} ${numAmount.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
-          link: `/dashboard/fuvar/${jobId}`,
-        });
-        // Email is, fire-and-forget (ne blokkolja a választ)
-        setImmediate(() => {
-          sendBidReceivedEmail({
-            to: info.shipper_email,
-            shipperName: info.shipper_name,
-            jobTitle: info.title,
-            jobId,
-            carrierName: info.carrier_name,
-            amountHuf: numAmount,
-          }).catch((e) => console.warn('[email] bid_received hiba:', e.message));
-        });
-      }
-    } catch (e) {
-      console.warn('[notifications] bid_received hiba:', e.message);
-    }
-
-    res.status(201).json(rows[0]);
+    savedBid = rows[0];
   } catch (err) {
     await client.query('ROLLBACK');
     if (err.code === '23505') return res.status(409).json({ error: 'Már tettél ajánlatot erre a fuvarra' });
@@ -282,6 +244,48 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
   } finally {
     client.release();
   }
+
+  // Az értesítés külön pool-kapcsolatot kér; a tranzakcióét előtte elengedjük.
+  realtime.emitToJob(jobId, 'bids:new', savedBid);
+
+  // Értesítés a feladónak: új licit érkezett (in-app + email)
+  try {
+    const { rows: jRows } = await db.query(
+      `SELECT j.shipper_id, j.title,
+              s.email AS shipper_email, s.full_name AS shipper_name,
+              u.full_name AS carrier_name
+         FROM jobs j
+         JOIN users s ON s.id = j.shipper_id
+         JOIN users u ON u.id = $2
+        WHERE j.id = $1`,
+      [jobId, req.user.sub],
+    );
+    if (jRows[0]) {
+      const info = jRows[0];
+      await createNotification({
+        user_id: info.shipper_id,
+        type: 'bid_received',
+        title: 'Új ajánlat érkezett 🎯',
+        body: `${info.carrier_name} ${numAmount.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
+        link: `/dashboard/fuvar/${jobId}`,
+      });
+      // Email is, fire-and-forget (ne blokkolja a választ)
+      setImmediate(() => {
+        sendBidReceivedEmail({
+          to: info.shipper_email,
+          shipperName: info.shipper_name,
+          jobTitle: info.title,
+          jobId,
+          carrierName: info.carrier_name,
+          amountHuf: numAmount,
+        }).catch((e) => console.warn('[email] bid_received hiba:', e.message));
+      });
+    }
+  } catch (e) {
+    console.warn('[notifications] bid_received hiba:', e.message);
+  }
+
+  res.status(201).json(savedBid);
 });
 
 // GET /jobs/:jobId/bids
@@ -754,6 +758,7 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
   if (!Number.isInteger(amt) || amt <= 0 || amt > 100000000) {
     return res.status(400).json({ error: 'Érvénytelen összeg.' });
   }
+  let bid, isShipper, role;
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
@@ -768,9 +773,9 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
         WHERE b.id = $1 FOR UPDATE OF b`,
       [req.params.id],
     );
-    const bid = rows[0];
+    bid = rows[0];
     if (!bid) return await reject(404, { error: 'Ajánlat nem található' });
-    const isShipper = bid.shipper_id === req.user.sub;
+    isShipper = bid.shipper_id === req.user.sub;
     const isCarrier = bid.carrier_id === req.user.sub;
     if (!isShipper && !isCarrier) return await reject(403, { error: 'Nincs jogosultság' });
     if (!['pending', 'bidding'].includes(bid.job_status)) {
@@ -782,7 +787,7 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
 
     if (bid.job_terms_revision !== bid.current_terms_revision) return await reject(409, JOB_TERMS_CHANGED);
 
-    const role = isShipper ? 'shipper' : 'carrier';
+    role = isShipper ? 'shipper' : 'carrier';
     // A WHERE status='pending' atomikusan védi az időközbeni elfogadás ellen:
     // ha a licit közben accepted/rejected lett, az ellenajánlat nem íródik rá.
     const upd = await client.query(
@@ -795,24 +800,25 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
     }
 
     await client.query('COMMIT');
-    const otherUserId = isShipper ? bid.carrier_id : bid.shipper_id;
-    const link = isShipper ? `/sofor/fuvar/${bid.job_id}` : `/dashboard/fuvar/${bid.job_id}`;
-    await createNotification({
-      user_id: otherUserId,
-      type: 'counter_offer',
-      title: '🔁 Ellenajánlat érkezett',
-      body: `Ellenajánlat a(z) "${bid.title || 'fuvar'}" fuvarra: ${amt.toLocaleString('hu-HU')} Ft.`,
-      link,
-    });
-    realtime.emitToJob(bid.job_id, 'bid:countered', { bid_id: bid.id, counter_amount_huf: amt, counter_by: role });
-
-    res.json({ ok: true, counter_amount_huf: amt, counter_by: role });
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
   } finally {
     client.release();
   }
+
+  const otherUserId = isShipper ? bid.carrier_id : bid.shipper_id;
+  const link = isShipper ? `/sofor/fuvar/${bid.job_id}` : `/dashboard/fuvar/${bid.job_id}`;
+  await createNotification({
+    user_id: otherUserId,
+    type: 'counter_offer',
+    title: '🔁 Ellenajánlat érkezett',
+    body: `Ellenajánlat a(z) "${bid.title || 'fuvar'}" fuvarra: ${amt.toLocaleString('hu-HU')} Ft.`,
+    link,
+  });
+  realtime.emitToJob(bid.job_id, 'bid:countered', { bid_id: bid.id, counter_amount_huf: amt, counter_by: role });
+
+  res.json({ ok: true, counter_amount_huf: amt, counter_by: role });
 });
 
 module.exports = router;
