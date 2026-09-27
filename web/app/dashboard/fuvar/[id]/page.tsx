@@ -25,7 +25,6 @@ import JobQuestions from '@/components/JobQuestions';
 import MapCollapse from '@/components/MapCollapse';
 import DeliveryPin from '@/components/DeliveryPin';
 import Confetti from '@/components/Confetti';
-import CompanyVerifiedBadge from '@/components/CompanyVerifiedBadge';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
 
@@ -823,9 +822,6 @@ export default function FuvarReszletek() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 14, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       {b.carrier_name || 'Szállító'} <span style={{ fontSize: 11, color: 'var(--muted)' }}>→ profil</span>
-                      {b.carrier_account_type === 'company' && b.carrier_company_verified === 'verified' && (
-                        <CompanyVerifiedBadge small />
-                      )}
                       {freshBids[b.id] && (
                         <span style={{
                           background: 'var(--primary)', color: '#fff',

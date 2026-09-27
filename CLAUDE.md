@@ -1,5 +1,14 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-09-27 — NAV-os cégjelvény elhalasztva (felhasználói döntés):**
+> az „Ellenőrzött cég” jelvény minden felhasználói felületről kikerül,
+> a saját profil NAV-ellenőrzési sora, gombja és „hamarosan” ígérete is.
+> A jelvényhez kapcsolódó adatkezelési szöveg kikerül. A backend meglévő,
+> kulcsok nélkül inaktív ellenőrzése és adatmezői megmaradnak; az integráció
+> aktiválása egyelőre nem feladat. A korábbi aktiválási terv történeti.
+> A személyazonosítás, céges regisztráció, számlázás és DAC7 külön funkció.
+> Ez a bejegyzés önmagában nem igazolja a változás éles telepítését.
+
 > **2026-09-24 — Hozasd el, 2. kör (külön fejlesztési ág):** a feladásban
 > termékösszefoglaló és a hiányzó cím-, méret-/súly- és díjadatokra mutató
 > útmutató jelenik meg. A bútoros belépéshez eladói egyeztetési lista jár;

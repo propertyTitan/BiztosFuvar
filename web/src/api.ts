@@ -259,7 +259,7 @@ export type Bid = {
   carrier_name?: string | null;
   rating_avg?: number | null;
   rating_count?: number | null;
-  // Céges szállító ("Ellenőrzött cég" jelvény + számlaképesség jelzése)
+  // Céges szállító adatai
   carrier_account_type?: 'individual' | 'company' | null;
   carrier_company_name?: string | null;
   carrier_company_verified?: string | null;
@@ -1045,15 +1045,6 @@ export const api = {
   /** DAC7 adóügyi adatok megadása (magánszemély szállító, adóazonosító jel). */
   saveTaxData: (body: { personal_tax_id: string; birth_date: string; address: string }) =>
     request<{ ok: true }>('/auth/tax-data', { method: 'POST', body: JSON.stringify(body) }),
-
-  /** NAV adószám-ellenőrzés kézi indítása ("Ellenőrzött cég" jelvény). */
-  verifyCompany: () =>
-    request<{
-      status: 'verified' | 'name_mismatch' | 'invalid' | 'not_company'
-        | 'no_tax_id' | 'not_configured' | 'stale' | 'error';
-      nav_name?: string | null;
-      message?: string;
-    }>('/auth/verify-company', { method: 'POST' }),
 
   updateMyProfile: (data: {
     full_name?: string; phone?: string; vehicle_type?: string;

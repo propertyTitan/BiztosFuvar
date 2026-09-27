@@ -501,13 +501,6 @@ export default function SoforFuvarokLista() {
                       SAJÁT HIRDETÉS
                     </span>
                   )}
-                  {j.shipper_account_type === 'company' && j.shipper_company_verified === 'verified' && (
-                    <span className="pill" style={{
-                      background: 'var(--success-light)', color: '#166534', fontWeight: 800, fontSize: 11,
-                    }}>
-                      Ellenőrzött cég
-                    </span>
-                  )}
                   {/* Számla-igény: már a LISTÁBAN látszik, hogy erre a
                       fuvarra számlát kell adni. Magánszemély szállító így nem
                       megy bele feleslegesen az ajánlattételbe (2026-08-15). */}
