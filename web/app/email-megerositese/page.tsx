@@ -16,17 +16,22 @@ function EmailMegerositeseInner() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setState('pending');
+    setError(null);
     if (!token) {
       setState('error');
       setError('Hiányzó token a linkben.');
       return;
     }
     api.verifyEmail(token)
-      .then(() => setState('ok'))
+      .then(() => { if (!cancelled) setState('ok'); })
       .catch((e: any) => {
+        if (cancelled) return;
         setState('error');
         setError(e.message);
       });
+    return () => { cancelled = true; };
   }, [token]);
 
   return (
@@ -42,7 +47,7 @@ function EmailMegerositeseInner() {
         {state === 'pending' && (
           <>
             <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
-            <h1 style={{ margin: 0 }}>Email megerősítése…</h1>
+            <h1 style={{ margin: 0 }}>E-mail-cím megerősítése…</h1>
             <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
               Pár másodperc, és kész vagyunk.
             </p>
@@ -52,9 +57,9 @@ function EmailMegerositeseInner() {
         {state === 'ok' && (
           <>
             <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
-            <h1 style={{ margin: 0, color: '#14532d' }}>Email megerősítve!</h1>
+            <h1 style={{ margin: 0, color: '#14532d' }}>E-mail-cím megerősítve!</h1>
             <p style={{ marginTop: 8, color: '#14532d' }}>
-              Köszönjük! A fiókod most már teljesen aktív.
+              Átirányítunk a bejelentkezéshez.
             </p>
             <HozasdElVerifiedContinue />
           </>

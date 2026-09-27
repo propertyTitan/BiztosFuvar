@@ -21,7 +21,8 @@ type Mode = 'login' | 'register';
 function BejelentkezesContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialMode: Mode = searchParams.get('mode') === 'register' ? 'register' : 'login';
+  const emailVerified = searchParams.get('email_verified') === '1';
+  const initialMode: Mode = !emailVerified && searchParams.get('mode') === 'register' ? 'register' : 'login';
   const [mode, setMode] = useState<Mode>(initialMode);
   // Ajánlói kód: a linkből (?ref=…) előtöltve, de a regisztrációs mezőben
   // kézzel is beírható/módosítható (akinek csak a kódot adták, nem a linket).
@@ -63,6 +64,11 @@ function BejelentkezesContent() {
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setMode(initialMode);
+    setError(null);
+  }, [initialMode]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -169,6 +175,14 @@ function BejelentkezesContent() {
 
   return (
     <div style={{ maxWidth: 440, margin: '0 auto' }}>
+      {emailVerified && mode === 'login' && (
+        <div role="status" className="callout" style={{
+          background: 'var(--success-light)', border: '1px solid var(--success)',
+          color: 'var(--success-text)', marginBottom: 20,
+        }}>
+          Az e-mail-címedet sikeresen megerősítettük. Bejelentkezhetsz!
+        </div>
+      )}
       {/* ── Tab-váltó ── */}
       <div
         style={{
