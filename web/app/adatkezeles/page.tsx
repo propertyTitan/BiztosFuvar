@@ -18,7 +18,7 @@ export default function AdatkezelesPage() {
     >
       <h1 style={{ marginBottom: 4 }}>Adatkezelési Tájékoztató (GDPR)</h1>
       <p className="muted" style={{ margin: 0 }}>
-        <strong>Hatályos:</strong> 2026. augusztus 10-től
+        <strong>Hatályos:</strong> 2026. szeptember 27-től
       </p>
 
       <h2 style={{ marginTop: 32 }}>1. Az Adatkezelő</h2>
@@ -49,8 +49,7 @@ export default function AdatkezelesPage() {
         </li>
         <li>
           <strong>Céges adatok:</strong> Céges fiók esetén cégnév, adószám,
-          cégjegyzékszám, uniós adószám, valamint a NAV-tól visszakapott
-          hivatalos cégnév (az „Ellenőrzött cég" jelvényhez). Megőrzés: a fiók
+          cégjegyzékszám, uniós adószám. Megőrzés: a fiók
           élettartamáig; a számlákra került adatokra a 8 éves számviteli
           megőrzés vonatkozik (lásd lent).
         </li>
@@ -183,9 +182,6 @@ export default function AdatkezelesPage() {
         <li><strong>Európai Bizottság (VIES adószám-ellenőrző)</strong> (EU) — uniós céges
           vevő adószámának érvényesség-ellenőrzése a fordított adózáshoz; csak az
           adószám megy át</li>
-        <li><strong>Nemzeti Adó- és Vámhivatal (Online Számla adóalany-lekérdezés)</strong>{' '}
-          (Magyarország) — a megadott magyar adószám és cégnév ellenőrzése az
-          „Ellenőrzött cég" jelvényhez</li>
         <li><strong>OpenStreetMap Foundation (Nominatim)</strong> (EU/Egyesült Királyság) —
           címek koordinátára fordítása (geokódolás) a szerveroldalon</li>
         <li><strong>ImprovMX</strong> (EU régió) — a @gofuvar.hu címekre érkező levelek
