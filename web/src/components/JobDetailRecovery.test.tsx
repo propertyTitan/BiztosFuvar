@@ -34,7 +34,8 @@ beforeEach(() => {
 
 it('élő elfogadás után a szállító újra belép a most már elérhető privát fuvar-szobába', async () => {
   vi.mocked(api.getJob).mockResolvedValue({ ...job, status: 'bidding', carrier_id: null, paid_at: null } as any);
-  render(<CarrierPage />);
+  // A kezdeti adatbetöltés effectjei is fejeződjenek be a kiinduló mérés előtt.
+  await act(async () => { render(<CarrierPage />); });
   await screen.findByRole('heading', { name: job.title });
   const subscriptions = vi.mocked(subscribeJob);
   const before = subscriptions.mock.calls.length;
