@@ -33,6 +33,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(sp.getByText(/A szállító megerősítésére vár/)).toHaveCount(0);
       await sp.getByRole('button', { name: /^Elfogadom/ }).click();
       await expect.poll(async () => (await getJobRow(job.id)).status).toBe('accepted');
+      await expect(cp.getByText('Fizetésre vár', { exact: true })).toBeVisible();
       const result = await getJobRow(job.id);
       expect(Number(result.accepted_price_huf)).toBe(30000);
       expect(Number(result.weight_kg)).toBe(300);

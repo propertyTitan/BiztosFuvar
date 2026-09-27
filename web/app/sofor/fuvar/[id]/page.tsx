@@ -117,8 +117,8 @@ export default function SoforFuvarReszletek() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me, id]);
 
-  // Fuvar-szoba események: ha a feladó ellenajánlatot küld vagy elfogadnak,
-  // azonnal frissítsünk (ne kelljen manuálisan újratölteni az alku közben).
+  // Alku közben a saját user-szobán érkezik a frissítés. Kijelölés után
+  // újra belépünk a fuvar-szobába, amelyhez addig nem volt jogosultságunk.
   useEffect(() => {
     const unsub = subscribeJob(id, {
       onReconnect: () => load(),
@@ -130,7 +130,7 @@ export default function SoforFuvarReszletek() {
     });
     return unsub;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, job?.carrier_id]);
 
   // Mezőszintű hibajelzés — a fuvarfeladással AZONOS megjelenítés (tesztelői
   // kérés, 2026-08-15): piros keret + a mező alatt konkrét magyarázat.

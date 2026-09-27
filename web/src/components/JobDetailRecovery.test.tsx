@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ShipperPage from '../../app/dashboard/fuvar/[id]/page';
 import CarrierPage from '../../app/sofor/fuvar/[id]/page';
 import { api } from '@/api';
+import { subscribeJob } from '@/lib/socket';
 
 const mocks = vi.hoisted(() => ({ handlers: {} as Record<string, () => void>, user: { id: 'carrier', role: 'carrier' },
   socket: { on: vi.fn(), off: vi.fn() }, toast: { success: vi.fn(), error: vi.fn() } }));
@@ -11,7 +12,7 @@ vi.mock('@/lib/auth', () => ({ useCurrentUser: () => mocks.user }));
 vi.mock('@/api', () => ({ api: { getJob: vi.fn(), listBids: vi.fn(), listPhotos: vi.fn(), uploadJobPhoto: vi.fn(),
   acceptBid: vi.fn(), acceptCounter: vi.fn() }, photoUrl: (url: string) => url }));
 vi.mock('@/lib/socket', () => ({ getSocket: () => mocks.socket, joinUserRoom: vi.fn(),
-  subscribeJob: (_id: string, handlers: typeof mocks.handlers) => { mocks.handlers = handlers; return vi.fn(); } }));
+  subscribeJob: vi.fn((_id: string, handlers: typeof mocks.handlers) => { mocks.handlers = handlers; return vi.fn(); }) }));
 vi.mock('@/components/ToastProvider', () => ({ useToast: () => mocks.toast }));
 vi.mock('@/components/LiveTrackingMap', () => ({ default: () => null }));
 vi.mock('@/components/JobQuestions', () => ({ default: () => null }));
@@ -29,6 +30,25 @@ beforeEach(() => {
   vi.mocked(api.listBids).mockResolvedValue([]);
   vi.mocked(api.listPhotos).mockResolvedValue([]);
   vi.mocked(api.getJob).mockResolvedValue(job as any);
+});
+
+it('élő elfogadás után a szállító újra belép a most már elérhető privát fuvar-szobába', async () => {
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, status: 'bidding', carrier_id: null, paid_at: null } as any);
+  render(<CarrierPage />);
+  await screen.findByRole('heading', { name: job.title });
+  const subscriptions = vi.mocked(subscribeJob);
+  const before = subscriptions.mock.calls.length;
+  const unsubscribe = subscriptions.mock.results[before - 1].value;
+  vi.mocked(api.getJob).mockResolvedValue({ ...job, paid_at: null } as any);
+  await act(async () => { mocks.handlers.onUpdated(); });
+  expect(await screen.findByText('Fizetésre vár')).toBeInTheDocument();
+  expect(unsubscribe).toHaveBeenCalledOnce();
+  expect(subscriptions).toHaveBeenCalledTimes(before + 1);
+  expect(subscriptions).toHaveBeenLastCalledWith('job', expect.objectContaining({ onUpdated: expect.any(Function) }));
+
+  // Változatlan szállító mellett egy szokásos frissítés nem léptet ki-be.
+  await act(async () => { mocks.handlers.onUpdated(); });
+  expect(subscriptions).toHaveBeenCalledTimes(before + 1);
 });
 
 it.each([['shipper', ShipperPage], ['carrier', CarrierPage]])('%s: árváltozás után frissít, és csak új kattintásra fogad el', async (role, Page) => {
