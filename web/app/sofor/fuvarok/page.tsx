@@ -55,12 +55,12 @@ export default function SoforFuvarokLista() {
   const [acceptingInstantId, setAcceptingInstantId] = useState<string | null>(null);
   const [instantError, setInstantError] = useState<string | null>(null);
 
-  async function acceptInstant(jobId: string, priceHuf: number) {
+  async function acceptInstant(jobId: string, priceHuf: number, termsRevision?: number) {
     if (acceptingInstantId) return;
     setAcceptingInstantId(jobId);
     setInstantError(null);
     try {
-      const res = await api.acceptInstantJob(jobId, priceHuf);
+      const res = await api.acceptInstantJob(jobId, priceHuf, termsRevision);
       // Siker → vigyük a fuvar részletek oldalra, ahol a feladó fizethet
       // (a szállító szempontjából: várakozás kifizetésre).
       router.push(`/sofor/fuvar/${res.job_id}`);
@@ -600,7 +600,7 @@ export default function SoforFuvarokLista() {
                       // hogy csak az elvállalás fusson le.
                       e.preventDefault();
                       e.stopPropagation();
-                      acceptInstant(j.id, Number(j.suggested_price_huf));
+                      acceptInstant(j.id, Number(j.suggested_price_huf), j.terms_revision);
                     }}
                     disabled={acceptingInstantId != null}
                     style={{

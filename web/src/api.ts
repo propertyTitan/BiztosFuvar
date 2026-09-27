@@ -104,6 +104,7 @@ export type RouteBooking = {
 
 export type Job = {
   id: string;
+  terms_revision?: number;
   shipper_id: string;
   carrier_id: string | null;
   title: string;
@@ -242,6 +243,8 @@ export type BackhaulGroup = {
 
 export type Bid = {
   id: string;
+  job_terms_revision?: number;
+  needs_reconfirmation?: boolean;
   revision: number;
   job_id: string;
   carrier_id: string;
@@ -426,7 +429,7 @@ export const api = {
   },
 
   /** Azonnali fuvar elfogadása (első szállító nyer, 409-et kap a többi). */
-  acceptInstantJob: (jobId: string, expectedPriceHuf: number) =>
+  acceptInstantJob: (jobId: string, expectedPriceHuf: number, expectedTermsRevision?: number) =>
     request<{
       ok: true;
       job_id: string;
@@ -435,7 +438,7 @@ export const api = {
       // A fizetési link SZÁNDÉKOSAN nincs a válaszban: ezt a végpontot a
       // SZÁLLÍTÓ hívja, a fizető viszont a FELADÓ (2026-08-12, 11. mérés A1).
       // A feladó a linket az értesítésében és a /pay válaszában kapja.
-    }>(`/jobs/${jobId}/instant-accept`, { method: 'POST', body: JSON.stringify({ expected_price_huf: expectedPriceHuf }) }),
+    }>(`/jobs/${jobId}/instant-accept`, { method: 'POST', body: JSON.stringify({ expected_price_huf: expectedPriceHuf, expected_job_terms_revision: expectedTermsRevision }) }),
 
   /** Visszafuvar-ajánlások a hívó szállító összes aktív fuvarához. */
   backhaulSuggestions: () =>
@@ -462,6 +465,7 @@ export const api = {
     jobId: string,
     body: {
       amount_huf: number;
+      expected_job_terms_revision?: number;
       eta_minutes?: number;
       message?: string;
       return_policy: 'included' | 'extra_fee' | 'no';
@@ -478,6 +482,8 @@ export const api = {
   myBids: () =>
     request<Array<{
       bid_id: string;
+      job_terms_revision: number;
+      needs_reconfirmation: boolean;
       amount_huf: number;
       eta_minutes: number | null;
       message: string | null;
@@ -1044,7 +1050,7 @@ export const api = {
   verifyCompany: () =>
     request<{
       status: 'verified' | 'name_mismatch' | 'invalid' | 'not_company'
-        | 'no_tax_id' | 'not_configured' | 'error';
+        | 'no_tax_id' | 'not_configured' | 'stale' | 'error';
       nav_name?: string | null;
       message?: string;
     }>('/auth/verify-company', { method: 'POST' }),

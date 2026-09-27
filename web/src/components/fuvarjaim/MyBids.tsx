@@ -103,6 +103,9 @@ export default function SoforLicitjeim() {
             <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
               <Flag size={13} style={{ verticalAlign: -2 }} /> {r.dropoff_address}
             </p>
+            {r.needs_reconfirmation && r.bid_status === 'pending' && (
+              <p style={{ margin: '8px 0', fontSize: 13 }}>Nézd át a fuvar jelenlegi adatait, és erősítsd meg az ajánlatodat.</p>
+            )}
             {r.message && (
               <p className="muted" style={{ margin: '6px 0 0', fontSize: 13, fontStyle: 'italic' }}>
                 „{r.message}”
@@ -111,7 +114,7 @@ export default function SoforLicitjeim() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <span className={`pill ${BID_STATUS_PILL[r.bid_status]}`}>
-              {BID_STATUS_LABEL[r.bid_status]}
+              {r.needs_reconfirmation && r.bid_status === 'pending' ? 'Megerősítésedre vár' : BID_STATUS_LABEL[r.bid_status]}
             </span>
             <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
               {r.amount_huf.toLocaleString('hu-HU')} Ft

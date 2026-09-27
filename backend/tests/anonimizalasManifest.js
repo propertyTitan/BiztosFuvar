@@ -31,6 +31,7 @@
 
 const ANONIMIZALAS_MANIFEST = {
   jobs: {
+    terms_revision: { marad: 'A munkafeltételek technikai verziószáma; feltételszöveget vagy személyes adatot nem tárol.' },
     // ── Ürülnie kell ────────────────────────────────────────────────────
     description: 'urul',
     // A cim nem NULLAZODIK, hanem TELEPULES-SZINTRE rovidul (utils/address.js,

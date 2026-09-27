@@ -65,6 +65,7 @@ export default function SoforFuvarReszletek() {
   const [error, setError] = useState<string | null>(null);
 
   const [bidAmount, setBidAmount] = useState('');
+  const [seenTerms, setSeenTerms] = useState<{ jobId: string; revision?: number } | null>(null);
   const [feeInfoDismissed, setFeeInfoDismissed] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('gofuvar_fee_info_dismissed') === '1';
@@ -86,6 +87,7 @@ export default function SoforFuvarReszletek() {
         api.listPhotos(id),
       ]);
       setJob(j);
+      setSeenTerms(previous => previous?.jobId === j.id ? previous : { jobId: j.id, revision: j.terms_revision });
       setBids(b);
       setPhotos(p);
       setError(null);
@@ -120,6 +122,7 @@ export default function SoforFuvarReszletek() {
   useEffect(() => {
     const unsub = subscribeJob(id, {
       onReconnect: () => load(),
+      onUpdated: () => load(),
       onPickedUp: () => load(),
       onDelivered: () => load(),
       onCountered: () => load(),
@@ -147,6 +150,10 @@ export default function SoforFuvarReszletek() {
 
   async function submitBid(e: React.FormEvent) {
     e.preventDefault();
+    if (job?.terms_revision !== seenTerms?.revision) {
+      toast.error('A fuvar megváltozott', 'Előbb nézd át és erősítsd meg a frissített fuvaradatokat.');
+      return;
+    }
     setProbaltMenteni(true);
     const amount = parseInt(bidAmount, 10);
     if (dijHiba || etaHiba) {
@@ -181,6 +188,7 @@ export default function SoforFuvarReszletek() {
       }
       await api.placeBid(id, {
         amount_huf: amount,
+        expected_job_terms_revision: seenTerms?.revision,
         eta_minutes: bidEta ? parseInt(bidEta, 10) : undefined,
         message: bidMessage || undefined,
         return_policy: returnPolicy,
@@ -203,7 +211,8 @@ export default function SoforFuvarReszletek() {
       if (idotullepes) {
         try {
           const enyem = (await api.myBids()).find(
-            (b: any) => b.job_id === id && b.bid_status === 'pending',
+            (b) => b.job_id === id && b.bid_status === 'pending' && !b.needs_reconfirmation
+              && b.amount_huf === amount && b.job_terms_revision === seenTerms?.revision,
           );
           if (enyem) {
             toast.success('Az ajánlatod beérkezett', 'A szerver lassan válaszolt, de az ajánlat rögzült — nem kell újraküldeni.');
@@ -219,6 +228,7 @@ export default function SoforFuvarReszletek() {
         return;
       }
       toast.error('Ajánlatküldési hiba', err.message);
+      if (err?.code === 'JOB_CHANGED') await load();
     } finally {
       clearTimeout(lassuTimer);
       setLassuKuldes(false);
@@ -235,7 +245,7 @@ export default function SoforFuvarReszletek() {
       await load();
     } catch (err: any) {
       toast.error('Hiba', err.message);
-      if (err.code === 'OFFER_CHANGED') await load();
+      if (['OFFER_CHANGED', 'JOB_TERMS_CHANGED'].includes(err.code)) await load();
     } finally {
       setAcceptingCounter(false);
     }
@@ -560,13 +570,35 @@ export default function SoforFuvarReszletek() {
       )}
 
       {/* Licit feladás vagy meglévő licit állapota */}
-      {!iAmTheShipper && (job.status === 'pending' || job.status === 'bidding') && !myBid && (
+      {!iAmTheShipper && (job.status === 'pending' || job.status === 'bidding') && (!myBid || myBid.needs_reconfirmation) && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>{lezarultAjanlat ? 'Új ajánlat' : 'Ajánlattétel'}</h2>
+          <h2 style={{ marginTop: 0 }}>{myBid?.needs_reconfirmation ? 'Erősítsd meg az ajánlatodat' : lezarultAjanlat ? 'Új ajánlat' : 'Ajánlattétel'}</h2>
+          {myBid?.needs_reconfirmation && (
+            <div className="callout callout-info" role="status" style={{ marginBottom: 16 }}>
+              <p>A fuvar feltételeit újra át kell nézned. A feladó addig nem fogadhatja el a korábbi ajánlatodat, amíg meg nem erősíted a jelenlegi adatokra. Az áron is módosíthatsz.</p>
+              <button className="btn btn-secondary" type="button" onClick={() => {
+                setBidAmount(String(myBid.counter_by === 'carrier' ? myBid.counter_amount_huf ?? myBid.amount_huf : myBid.amount_huf));
+                setBidEta(myBid.eta_minutes ? String(myBid.eta_minutes) : '');
+                setBidMessage(myBid.message || '');
+                setReturnPolicy(myBid.return_policy || '');
+                setReturnFee(myBid.return_fee_huf ? String(myBid.return_fee_huf) : '');
+              }}>Korábbi ajánlat betöltése</button>
+            </div>
+          )}
           {lezarultAjanlat && (
             <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
               A korábbi ajánlatod {lezarultAjanlat.status === 'withdrawn' ? 'visszavontad' : 'lezárult'} — jobb feltételekkel újra ajánlatot tehetsz.
             </p>
+          )}
+
+          {job.terms_revision !== seenTerms?.revision && (
+            <div className="callout callout-warning" role="alert" style={{ marginBottom: 16 }}>
+              <p>Amíg ezen az oldalon voltál, a feladó módosította a fuvart. A friss adatokat fent látod. Nézd át őket az ajánlat elküldése előtt.</p>
+              <button className="btn btn-secondary" type="button"
+                onClick={() => setSeenTerms({ jobId: job.id, revision: job.terms_revision })}>
+                Átnéztem a frissített fuvaradatokat
+              </button>
+            </div>
           )}
 
           {/* Díj figyelmeztetés — egyszer megmutatjuk, utána "ne jelenjen meg többet" */}
@@ -755,10 +787,10 @@ export default function SoforFuvarReszletek() {
                 </p>
               </div>
             )}
-            <button className="btn" type="submit" disabled={submitting} style={{ marginTop: 16 }}>
+            <button className="btn" type="submit" disabled={submitting || job.terms_revision !== seenTerms?.revision} style={{ marginTop: 16 }}>
               {submitting
                 ? (lassuKuldes ? 'A kérés még feldolgozás alatt — a szerver lassan válaszol…' : 'Küldés…')
-                : telefonHiany ? 'Telefonszám mentése és ajánlat elküldése' : 'Ajánlat elküldése'}
+                : telefonHiany ? 'Telefonszám mentése és ajánlat elküldése' : myBid?.needs_reconfirmation ? 'Ajánlat megerősítése a jelenlegi feltételekre' : 'Ajánlat elküldése'}
             </button>
           </form>
         </div>
@@ -789,7 +821,7 @@ export default function SoforFuvarReszletek() {
             );
           })()}
           <span className={`pill pill-${kartyaAjanlat.status === 'accepted' ? 'delivered' : 'bidding'}`}>
-            {kartyaAjanlat.status === 'pending' && 'Várakozik elfogadásra'}
+            {kartyaAjanlat.status === 'pending' && (kartyaAjanlat.needs_reconfirmation ? 'Megerősítésedre vár' : 'Várakozik elfogadásra')}
             {kartyaAjanlat.status === 'accepted' && 'Elfogadva 🎉'}
             {kartyaAjanlat.status === 'rejected' && 'Elutasítva'}
             {kartyaAjanlat.status === 'withdrawn' && 'Visszavonva'}
@@ -811,7 +843,7 @@ export default function SoforFuvarReszletek() {
           )}
 
           {/* Ellenajánlat-állapot + alku-akciók (csak amíg a licit nyitott) */}
-          {kartyaAjanlat.status === 'pending' && kartyaAjanlat.counter_amount_huf != null && kartyaAjanlat.counter_by === 'shipper' && (
+          {kartyaAjanlat.status === 'pending' && !kartyaAjanlat.needs_reconfirmation && kartyaAjanlat.counter_amount_huf != null && kartyaAjanlat.counter_by === 'shipper' && (
             <div className="callout callout-info" style={{ marginTop: 12, padding: 14 }}>
               <div style={{ fontSize: 14 }}>
                 <RefreshCw size={13} style={{ verticalAlign: -2 }} /> A feladó ellenajánlata: <strong>{kartyaAjanlat.counter_amount_huf.toLocaleString('hu-HU')} Ft</strong>
@@ -832,7 +864,7 @@ export default function SoforFuvarReszletek() {
               </div>
             </div>
           )}
-          {kartyaAjanlat.status === 'pending' && kartyaAjanlat.counter_amount_huf != null && kartyaAjanlat.counter_by === 'carrier' && (
+          {kartyaAjanlat.status === 'pending' && !kartyaAjanlat.needs_reconfirmation && kartyaAjanlat.counter_amount_huf != null && kartyaAjanlat.counter_by === 'carrier' && (
             <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
               <Hourglass size={13} style={{ verticalAlign: -2 }} /> Elküldted az ellenajánlatod ({kartyaAjanlat.counter_amount_huf.toLocaleString('hu-HU')} Ft) — a feladó válaszára vár.
             </p>

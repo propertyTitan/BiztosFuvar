@@ -68,6 +68,7 @@ describe('Fuvar-adatok láthatósága (scrub)', () => {
       'suggested_price_huf', 'accepted_price_huf', 'currency', 'status',
       'pickup_window_start', 'pickup_window_end',
       'created_at', 'updated_at',
+      'terms_revision', // Nyilvános munkafeltétel-verzió, személyes adat nélkül.
       'ai_description_ok', 'ai_description_notes',
       'is_instant', 'instant_radius_km', 'instant_expires_at', 'instant_accepted_at',
       'pickup_needs_carrying', 'pickup_floor', 'pickup_has_elevator',

@@ -1,5 +1,56 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
+2026-09-27 – PR #250 UTÁNI NÉGY P1 JAVÍTÁSA
+
+Fejlesztési ág: fix/post250-four-p1. Alap: 28464d3 (PR #250).
+Állapot: helyi kódjavítások és tesztek; nem merge- vagy telepítési igazolás.
+A korábbi PR #249 és #250 már a main része; az alábbi régebbi bejegyzések
+az akkori fejlesztési állapotot rögzítik.
+
+B01 – A fuvar munkafeltételeinek verzióját az adatbázis növeli. Az ajánlat
+az elolvasott verzióra szól; feltételváltozás után sem elfogadás, sem alku
+nem lehetséges szállítói megerősítés nélkül. A felület megtartja az ajánlatot,
+lehetővé teszi az átárazást és külön jóváhagyást kér az oldal megnyitása óta
+változott adatokra. A fix áras elfogadás is ellenőrzi a feltételverziót.
+Fájlok: 093_job_terms_revision.sql, bids.js, jobs.js, webes fuvarrészletezők,
+MyBids.tsx, api.ts, socket.ts. Kockázat: közepes, migráció szükséges.
+Bevezetés: 093 migráció a backend telepítése előtt. A migráció előtti
+ajánlatok ára/státusza megmarad, de nyitott vagy később újranyitott
+ajánlatnál egyszeri szállítói megerősítés kell. Elfogadott fuvar teljesítése
+változatlan; éles adatbázison ebben a körben még nem futtattuk a migrációt.
+
+B02 – Járatlemondás, foglaláslétrehozás és megerősítés közös járatsorzár
+alatt működik. A fizetett-ellenőrzés a foglalás sorzárát is használja;
+lemondott/piszkozat járat nem kaphat megerősített foglalást.
+Fájl: carrierRoutes.js. Kockázat: közepes, tranzakciós sorrend változik.
+A JARAT_ENABLED kapcsolót nem aktiválja a javítás.
+
+B03 – A NAV-válasz csak az általa ellenőrzött, közben meg nem változott
+felhasználói sorverzióra írhat. Új ellenőrzés, profilváltozás és admin-döntés
+érvényteleníti a késői választ; a felület ilyenkor új ellenőrzést kér.
+Fájlok: navTaxpayer.js, profil/page.tsx, api.ts. Kockázat: alacsony;
+egyéb profilírás is biztonságos újrapróbálást kérhet. NAV-aktiválás nincs.
+
+B04 – Minden díjindítás a közös startOrReuseFeePaymentInTransaction utat
+használja. Újraválasztás az azonos összegű függő sessiont használja újra.
+Eltérő összeg, bizonytalan állapot vagy másik rendezetlen session esetén
+409 és egyeztetés szükséges; csak igazolt lezárás után indul új session.
+Fájlok: feePaymentSession.js, bids.js, jobs.js, carrierRoutes.js.
+Kockázat: közepes. A banki indítás/DB-commit közti hibára adott valódi
+szolgáltatói idempotencia, státuszlekérdezés és megszakítás továbbra is a
+CIB-integráció/sandbox külön kiadási feltétele; mock nem bizonyít éles banki
+viselkedést. Új banki protokoll vagy éles pénzmozgás nem része ennek.
+
+Helyi bizonyíték: 2162 backendteszt (204 fájl), lefedettségi kapu sikeres;
+235 webteszt (43 fájl); production build sikeres. Az új út két valódi
+böngészős tesztje asztali és 390 px-es mobilméretben sikeres. A teljes
+böngészős regresszió és a PR CI eredménye külön ellenőrizendő.
+Új backend regressziók: launch-20260927-{job-terms,route-races,nav-race,
+payment-reaccept}.test.js. A régi DB-query mockos counter-versenytesztet
+valódi párhuzamos HTTP-kérések és PostgreSQL-sorzár mérés váltotta fel.
+A tesztek elkülönített helyi PostgreSQL-t és külső szolgáltatási stubokat
+használnak; a production .env nem került a teszt-backendbe.
+
 2026-09-24/25 – A 419f8a4 AUDIT HÉT WEB/BACKEND P1 JAVÍTÁSA
 
 Fejlesztési ág: fix/audit-seven-p1-20260924. Alap: 419f8a4 (PR #248).

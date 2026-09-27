@@ -247,39 +247,36 @@ describe('Az elfogadás visszagördül, ha a díjfizetés indítása elhasal', (
 //  4. ELLENAJÁNLAT — verseny az elfogadással
 // =====================================================================
 describe('POST /bids/:id/counter — az időközbeni elfogadás kizárja az alkut', () => {
-  it('ha az ajánlatot az ellenőrzés és az írás KÖZÖTT elfogadják, az ellenajánlat nem íródik rá', async () => {
+  it('a párhuzamos ellenajánlat megvárja a folyamatban lévő elfogadást, és nem írja át', async () => {
     const felado = await createUser({ role: 'shipper' });
     const szallito = await createUser({ role: 'carrier' });
     const job = await createJob({ shipperId: felado.id, status: 'bidding' });
     const bid = await ajanlat({ jobId: job.id, carrierId: szallito.id, amount: 20000 });
-
-    // Verseny szimulálása: közvetlenül az ellenajánlat-írás ELŐTT elfogadottá
-    // válik az ajánlat (ezt csinálja a valóságban a másik fül / a másik fél).
-    const eredetiQuery = db.query.bind(db);
-    vi.spyOn(db, 'query').mockImplementation(async (sql, params) => {
-      if (typeof sql === 'string' && sql.includes('counter_amount_huf = $1')) {
-        await eredetiQuery(`UPDATE bids SET status = 'accepted' WHERE id = $1`, [bid.id]);
-      }
-      return eredetiQuery(sql, params);
+    let started, resume;
+    const entered = new Promise(resolve => { started = resolve; });
+    const release = new Promise(resolve => { resume = resolve; });
+    const provider = require('../src/services/paymentProvider');
+    const original = provider.startFeePayment;
+    vi.spyOn(provider, 'startFeePayment').mockImplementation(async options => {
+      started(); await release; return original(options);
     });
-
-    const res = await request(app).post(`/bids/${bid.id}/counter`)
-      .set(auth(felado.token)).send({ amount: 15000 });
-
-    expect(res.status,
-      '⚠️ Az `AND status = \'pending\'` feltétel az ATOMI védelem: enélkül a feladó '
-      + 'ellenajánlata RÁÍRÓDNA egy MÁR ELFOGADOTT ajánlatra — a megállapodott ár utólag '
-      + 'megváltozna, és a két fél két különböző összegre emlékezne.')
-      .toBe(409);
-    expect(res.body.error).toMatch(/már nem lehet ellenajánlatot tenni/i);
-
-    vi.restoreAllMocks();
-    const { rows } = await db.query(
-      'SELECT counter_amount_huf, counter_by, amount_huf FROM bids WHERE id = $1', [bid.id],
-    );
-    expect(rows[0].counter_amount_huf,
-      'a megállapodott árat semmi nem írhatta felül').toBeNull();
-    expect(rows[0].counter_by).toBeNull();
-    expect(Number(rows[0].amount_huf)).toBe(20000);
+    const accepted = request(app).post(`/bids/${bid.id}/accept`).set(auth(felado.token))
+      .send(await seenOffer(bid.id)).then(r => r);
+    await entered;
+    let counter;
+    try {
+      counter = request(app).post(`/bids/${bid.id}/counter`).set(auth(felado.token)).send({ amount: 15000 }).then(r => r);
+      let waiting = false;
+      for (let i = 0; i < 200; i++) {
+        const locks = await db.query("SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND query LIKE '%FROM jobs WHERE id = $1 FOR UPDATE%'");
+        if (locks.rowCount) { waiting = true; break; }
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      expect(waiting, 'Az ellenajánlatnak a megállapodás sorzárán kell várnia.').toBe(true);
+    } finally { resume(); }
+    expect((await accepted).status).toBe(200);
+    expect((await counter).status).toBe(409);
+    const { rows } = await db.query('SELECT status,counter_amount_huf,counter_by,amount_huf FROM bids WHERE id=$1', [bid.id]);
+    expect(rows[0]).toEqual({ status: 'accepted', counter_amount_huf: null, counter_by: null, amount_huf: 20000 });
   });
 });

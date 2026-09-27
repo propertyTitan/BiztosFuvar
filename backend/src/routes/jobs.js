@@ -17,7 +17,7 @@ const { calculateConnectionFee } = require('../services/connectionFee');
 const { redeemJobVoucher } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { konyvelDijFizetes } = require('../services/feePayment');
-const { startOrReuseFeePayment } = require('../services/feePaymentSession');
+const { startOrReuseFeePayment, startOrReuseFeePaymentInTransaction } = require('../services/feePaymentSession');
 const { firstContactLeak, ellenorizIndok } = require('../utils/contactGuard');
 const { telepulesSzint, utcaSzint } = require('../utils/address');
 
@@ -1094,11 +1094,13 @@ router.patch('/:id', authRequired, writeRateLimit, async (req, res) => {
   // A függő ajánlattevők átnézhetik az ajánlatukat (ár/méret változhatott)
   const { rows: fuggo } = await db.query(`SELECT carrier_id FROM bids WHERE job_id = $1 AND status = 'pending'`, [j.id]);
   for (const f of fuggo) {
+    // A függő ajánlattevő a privát fuvar-szobába még nem léphet be.
+    realtime.emitToUser(f.carrier_id, 'job:updated', { job_id: j.id });
     createNotification({
       user_id: f.carrier_id,
       type: 'job_updated',
       title: 'A hirdetést módosították — nézd át az ajánlatod',
-      body: `A(z) "${frissitett.title}" fuvar részletei változtak (ár, méret, időablak vagy leírás). Ha az ajánlatod már nem áll, visszavonhatod és újat tehetsz.`,
+      body: `A(z) "${frissitett.title}" fuvar részletei változtak (ár, méret, időablak vagy leírás). Nézd át a fuvar adatait: ha megerősítést kérünk, erősítsd meg vagy módosítsd az ajánlatodat, hogy a feladó elfogadhassa.`,
       link: `/sofor/fuvar/${j.id}`,
     }).catch(() => {});
   }
@@ -1579,6 +1581,8 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
 router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const expectedPrice = req.body?.expected_price_huf;
   const validExpectedPrice = Number.isInteger(expectedPrice) && expectedPrice > 0 && expectedPrice <= 100000000;
+  const expectedTerms = req.body?.expected_job_terms_revision;
+  const seenTerms = expectedTerms == null ? 1 : (Number.isSafeInteger(expectedTerms) && expectedTerms > 0 ? expectedTerms : null);
   const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
@@ -1617,16 +1621,17 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
           AND suggested_price_huf > 0
           AND currency = 'HUF'
           AND suggested_price_huf = $3
+          AND terms_revision = $4
           AND (instant_expires_at IS NULL OR instant_expires_at > NOW())
       RETURNING *`,
-      [req.user.sub, req.params.id, validExpectedPrice ? expectedPrice : null],
+      [req.user.sub, req.params.id, validExpectedPrice ? expectedPrice : null, seenTerms],
     );
 
     if (!upd[0]) {
       await client.query('ROLLBACK');
       // Megnézzük: egyáltalán létezik-e az azonnali fuvar és miért nem ment?
       const { rows: check } = await db.query(
-        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at, suggested_price_huf, currency
+        `SELECT id, is_instant, status, carrier_id, shipper_id, instant_expires_at, suggested_price_huf, currency, terms_revision
            FROM jobs WHERE id = $1`,
         [req.params.id],
       );
@@ -1641,6 +1646,7 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       if (j.status === 'bidding') {
         if (j.currency !== 'HUF') return res.status(409).json({ error: 'Jelenleg csak forintban vállalható fuvar.', code: 'UNSUPPORTED_CURRENCY' });
         if (!validExpectedPrice) return res.status(400).json({ error: 'Frissítsd a hirdetést, majd erősítsd meg a megjelenített fix árat.', code: 'PRICE_CONFIRMATION_REQUIRED' });
+        if (j.terms_revision !== seenTerms) return res.status(409).json({ code: 'JOB_CHANGED', error: 'A fuvar feltételei megváltoztak. Nézd át a frissített adatokat, majd erősítsd meg az elvállalást.' });
         return res.status(409).json({ error: 'A fuvar ára időközben megváltozott. Nézd át a frissített hirdetést, és csak az új ár ismeretében vállald el.', code: 'PRICE_CHANGED' });
       }
       return res.status(409).json({ error: 'Nem fogadható el (állapot: ' + j.status + ')' });
@@ -1676,40 +1682,15 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
       : calculateConnectionFee(job.accepted_price_huf);
     let barionRes = { paymentId: null, gatewayUrl: null };
     if (!feeAlreadyPaid) {
-      try {
-        barionRes = await paymentProvider.startFeePayment({
-          jobId: job.id,
-          feeHuf,
-          shipperEmail: parties.shipper_email,
-        });
-      } catch (err) {
-        console.error('[barion] instant startFeePayment hiba:', err.message);
+      await client.query('UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2', [feeHuf, job.id]);
+      const payment = await startOrReuseFeePaymentInTransaction(client, {
+        entityType: 'job', entityId: job.id, shipperId: job.shipper_id, requireConsent: false,
+      });
+      if (payment.http !== 200) {
         await client.query('ROLLBACK');
-        return res.status(502).json({ error: 'A díjfizetés indítása sikertelen', detail: err.message });
+        return res.status(payment.http).json(payment.body);
       }
-
-      await client.query(
-        `UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2`,
-        [feeHuf, job.id],
-      );
-      // A már kifizetett ('released') díj-sort SOHA nem írjuk vissza 'held'-re
-      // (a bids.js védőhálójának párja).
-      await client.query(
-        `INSERT INTO escrow_transactions
-           (job_id, amount_huf, status, barion_payment_id, barion_gateway_url,
-            carrier_share_huf, platform_share_huf)
-         VALUES ($1,$2,'held',$3,$4,0,$2)
-         ON CONFLICT (job_id) DO UPDATE SET
-           amount_huf         = EXCLUDED.amount_huf,
-           status             = 'held',
-           barion_payment_id  = EXCLUDED.barion_payment_id,
-           barion_gateway_url = EXCLUDED.barion_gateway_url,
-           carrier_share_huf  = 0,
-           platform_share_huf = EXCLUDED.platform_share_huf,
-           held_at            = NOW()
-         WHERE escrow_transactions.status = 'held'`,
-        [job.id, feeHuf, barionRes.paymentId, barionRes.gatewayUrl],
-      );
+      barionRes = { paymentId: payment.body.payment_id, gatewayUrl: payment.body.gateway_url };
     }
 
     await client.query('COMMIT');
