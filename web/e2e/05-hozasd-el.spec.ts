@@ -37,11 +37,16 @@ test('vendég bútorfeladása regisztráció és új fülben megnyitott email-me
   await dbQuery('UPDATE users SET email_verification_token_hash = $1 WHERE email = $2', [createHash('sha256').update(token).digest('hex'), email]);
   const emailPage = await page.context().newPage();
   await emailPage.goto(`/email-megerositese?token=${token}`);
-  await expect(emailPage.getByRole('heading', { name: 'Email megerősítve!' })).toBeVisible();
-  await emailPage.getByRole('link', { name: /Folytatom a fuvarfeladást/ }).click();
+  await emailPage.waitForURL(/bejelentkezes.*email_verified=1/);
+  await expect(emailPage.getByRole('status').filter({ hasText: 'Az e-mail-címedet sikeresen megerősítettük.' })).toHaveText('Az e-mail-címedet sikeresen megerősítettük. Bejelentkezhetsz!');
+  await expect(emailPage.getByRole('heading', { name: 'Erősítsd meg az email címed' })).toHaveCount(0);
+  await expect(emailPage.getByRole('complementary', { name: 'A megkezdett fuvarfeladás' })).toContainText('Marketplace kanapé');
+  await emailPage.getByLabel('Email', { exact: true }).fill(email);
+  await emailPage.getByLabel('Jelszó', { exact: true }).fill('Jelszo123!');
+  await emailPage.locator('form button[type="submit"]').click();
   await emailPage.waitForURL(/dashboard\/uj-fuvar/);
   await expect(emailPage.getByPlaceholder(/Költöztetés Budapest/)).toHaveValue('Marketplace kanapé');
-  await expect(emailPage.getByPlaceholder(/^pl\. Budapest/)).toHaveValue('Budapest, Váci út 1.');
+  await expect(emailPage.getByLabel('Pontos cím utcával és házszámmal (válassz a legördülő listából)').first()).toHaveValue('Budapest, Váci út 1.');
   await expect(emailPage.getByRole('heading', { name: 'Erősítsd meg az email címed' })).toHaveCount(0);
   expect((await dbQuery('SELECT email_verified FROM users WHERE email = $1', [email])).rows[0].email_verified).toBe(true);
   // Gépelés még nem megerősített térképes cím: a meglévő kapu marad.
