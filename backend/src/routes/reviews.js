@@ -7,6 +7,7 @@ const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { detectContactLeak } = require('../utils/contactGuard');
+const { nemSzovegValasz } = require('../utils/text');
 
 const router = express.Router();
 
@@ -46,6 +47,11 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
   // mindenkinek — egy telefonszám itt állandó „platformon kívül hívj" hirdetés
   // lenne a jövőbeli feladóknak. Egy értékelésben sosem indokolt elérhetőség,
   // ezért itt (a vitával ellentétben) fizetés után is szűrünk.
+  // Típus-kapu (2026-09-28, audit P1): a tömb/objektum/szám komment eddig
+  // szó szerint a publikus profilra került — a szűrő a nem-szöveget átengedte.
+  if (comment !== undefined && comment !== null && typeof comment !== 'string') {
+    return res.status(400).json(nemSzovegValasz('comment'));
+  }
   const commentLeak = detectContactLeak(comment);
   if (commentLeak) return res.status(400).json({ error: commentLeak, code: 'CONTACT_LEAK' });
 
@@ -219,6 +225,10 @@ router.post('/jobs/:jobId/reviews', authRequired, writeRateLimit, async (req, re
   // duplikálja a logikát — és a szűrés kimaradt belőle. Az értékelés-komment
   // TARTÓSAN, mindenkinek látszik a publikus profilon: egy „hívj közvetlenül:
   // 06 30…" szöveggel a díj (a platform egyetlen bevétele) megkerülhető volt.
+  // A típus-kapu is kell ide (2026-09-28, audit P1) — ugyanaz, mint fent.
+  if (comment !== undefined && comment !== null && typeof comment !== 'string') {
+    return res.status(400).json(nemSzovegValasz('comment'));
+  }
   const legacyLeak = detectContactLeak(comment);
   if (legacyLeak) return res.status(400).json({ error: legacyLeak, code: 'CONTACT_LEAK' });
   const { rows: jobRows } = await db.query(

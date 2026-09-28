@@ -122,6 +122,13 @@ function cleanPlate(v) {
   return t;
 }
 
+// A profil szabad-szöveges mezői és a hosszkorlátjuk — a PATCH /me ÉS
+// (2026-09-28 óta) a regisztráció is ezt a kaput használja.
+const PROFIL_SZOVEG_MEZOK = {
+  vehicle_type: 100, bio: 1000, company_name: 200, company_reg_number: 40,
+  eu_vat_number: 20, billing_address: 300,
+};
+
 // A telefonos fotók (iPhone / nagy MP-s Android) gyakran 6-12 MB-osak, ezért
 // a limit 15 MB. Régen 5 MB volt, és a túllépés egy nyers MulterError-t dobott,
 // amiből a központi hibakezelő ijesztő 500 "Szerverhiba"-t csinált — emiatt a
@@ -187,10 +194,10 @@ function signToken(user) {
 // POST /auth/register — óránként max 5 új fiók IP-nként
 router.post('/register', registerRateLimit, async (req, res) => {
   const {
-    email, password, full_name, phone, vehicle_type, vehicle_plate,
-    account_type: rawAccountType, company_name, tax_id, company_reg_number,
-    eu_vat_number, billing_address, ref,
+    email, password, full_name, phone, vehicle_plate,
+    account_type: rawAccountType, tax_id, ref,
   } = req.body || {};
+  // (a vehicle_type és a cégmezők a lenti típus-kapun át, `regSzoveg`-ből)
   // A role mező már opcionális — minden user lehet egyszerre feladó és szállító is.
   // A DB-ben még tároljuk a legacy role mezőt, de a logika nem használja.
   // SECURITY: az 'admin' szerepet SOHA nem fogadjuk el a body-ból — különben
@@ -226,6 +233,27 @@ router.post('/register', registerRateLimit, async (req, res) => {
     return res.status(400).json({ error: 'Érvénytelen rendszám — 2–12 karakter, betű/szám/kötőjel.' });
   }
 
+  // ⚠️ TÍPUS- ÉS HOSSZ-KAPU a regisztráción is (2026-09-28, audit P1). A
+  // PATCH /me 2026-09-11 óta szűri ezeket a mezőket, a regisztráció nem:
+  // tömb/objektum/szám nyersen ment a TEXT-oszlopba (a node-postgres a tömböt
+  // '{"…"}' literállá alakítja), a kontakt-szűrő pedig a nem-szöveget
+  // átengedte — egy „vehicle_type: 36301234567" a profilon a díj előtt látszott.
+  const regSzoveg = {};
+  for (const mezo of ['vehicle_type', 'company_name', 'company_reg_number', 'eu_vat_number', 'billing_address']) {
+    const v = req.body[mezo];
+    const max = PROFIL_SZOVEG_MEZOK[mezo];
+    if (v === undefined || v === null || v === '') { regSzoveg[mezo] = null; continue; }
+    if (typeof v !== 'string' || v.trim().length > max) {
+      return res.status(400).json({
+        error: `A(z) ${mezo} mező szöveg, legfeljebb ${max} karakter.`, code: 'FIELD_INVALID', field: mezo,
+      });
+    }
+    regSzoveg[mezo] = v.trim() || null;
+  }
+  if (tax_id !== undefined && tax_id !== null && tax_id !== '' && typeof tax_id !== 'string') {
+    return res.status(400).json({ error: 'Az adószám szöveg (pl. 12345678-1-42).', code: 'FIELD_INVALID', field: 'tax_id' });
+  }
+
   // Kapcsolat-szivárgás védelem már a regisztrációnál: a cégnév és a
   // jármű-leírás a profilba kerül, amit a másik fél a díjfizetés előtt lát
   // (ajánlat-kártya, publikus profil) — enélkül a PATCH /me-kapu megkerülhető
@@ -235,12 +263,12 @@ router.post('/register', registerRateLimit, async (req, res) => {
   // publikus profilon, MÁR a díjfizetés előtt. Egy „Hívj 0630 123 456" nevű
   // szállító minden feladónak kiadja a számát → a díj (a platform egyetlen
   // bevétele) egyetlen profil-beállítással, örökre megkerülhető lenne.
-  const regLeak = firstContactLeak([cleanName, company_name, vehicle_type]);
+  const regLeak = firstContactLeak([cleanName, regSzoveg.company_name, regSzoveg.vehicle_type]);
   if (regLeak) return res.status(400).json({ error: regLeak, code: 'CONTACT_LEAK' });
 
   const accountType = rawAccountType === 'company' ? 'company' : 'individual';
   if (accountType === 'company') {
-    if (!company_name) {
+    if (!regSzoveg.company_name) {
       return res.status(400).json({ error: 'Cégnév megadása kötelező céges fiók esetén' });
     }
     if (!tax_id) {
@@ -275,8 +303,8 @@ router.post('/register', registerRateLimit, async (req, res) => {
                           email_verification_token_hash, email_verification_sent_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
        RETURNING id, role, email, full_name, account_type, email_verified, token_version`,
-      [role, normEmail, await hashPassword(password), cleanName, cleanedPhone || null, vehicle_type || null, cleanedPlate || null,
-       accountType, company_name || null, tax_id || null, company_reg_number || null, eu_vat_number || null, billing_address || null,
+      [role, normEmail, await hashPassword(password), cleanName, cleanedPhone || null, regSzoveg.vehicle_type, cleanedPlate || null,
+       accountType, regSzoveg.company_name, tax_id || null, regSzoveg.company_reg_number, regSzoveg.eu_vat_number, regSzoveg.billing_address,
        referrerId,
        verifyHash],
     );
@@ -600,7 +628,10 @@ router.patch('/me', authRequired, async (req, res) => {
   const allowed = ['full_name', 'phone', 'vehicle_type', 'vehicle_plate', 'bio', 'company_name', 'tax_id', 'company_reg_number', 'eu_vat_number', 'billing_address'];
   // Adószám formátum-ellenőrzés (ugyanaz mint a regisztrációnál), hogy ne
   // kerüljön szemét érték a számlázási mezőbe (a Barion VAT-számítás ezt olvassa).
-  if (req.body.tax_id !== undefined && req.body.tax_id && !/^\d{8}-\d{1,2}-\d{2}$/.test(req.body.tax_id)) {
+  // ⚠️ A típus is (2026-09-28, audit P1): a regex a String()-alakot teszteli,
+  // így a `["12345678-1-42"]` tömb átment, és '{"…"}' literálként tárolódott.
+  if (req.body.tax_id !== undefined && req.body.tax_id
+      && (typeof req.body.tax_id !== 'string' || !/^\d{8}-\d{1,2}-\d{2}$/.test(req.body.tax_id))) {
     return res.status(400).json({ error: 'Érvénytelen adószám formátum (pl. 12345678-1-42)' });
   }
   // Mező-validációk (BUG-011) — ugyanazok a szabályok, mint a regisztrációnál
@@ -636,11 +667,7 @@ router.patch('/me', authRequired, async (req, res) => {
   // billing_address eddig BÁRMIT elfogadott (tömb, objektum, 10 000 karakter)
   // — a számlázási mezőkből ez a Számlázz.hu-számlára és a NAV-lekérdezésbe
   // ment volna tovább. Üres string = a mező törlése (marad engedett).
-  const SZOVEG_MEZOK = {
-    vehicle_type: 100, bio: 1000, company_name: 200, company_reg_number: 40,
-    eu_vat_number: 20, billing_address: 300,
-  };
-  for (const [mezo, max] of Object.entries(SZOVEG_MEZOK)) {
+  for (const [mezo, max] of Object.entries(PROFIL_SZOVEG_MEZOK)) {
     const v = req.body[mezo];
     if (v === undefined || v === null || v === '') continue;
     if (typeof v !== 'string' || v.trim().length > max) {

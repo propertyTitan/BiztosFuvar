@@ -23,6 +23,7 @@ const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { findJobsAlongRoute } = require('../services/routeAlong');
+const { ervenyesKoordinata } = require('../utils/geo');
 const { scrubJobForUser } = require('./jobs');
 const { utcaSzint } = require('../utils/address');
 const {
@@ -36,6 +37,7 @@ const {
 const { firstContactLeak, detectContactLeak, ellenorizIndok } = require('../utils/contactGuard');
 const { jaratIrasKapu } = require('../utils/jaratKapcsolo');
 const { ellenorizCimzett } = require('../utils/cimzett');
+const { elsoNemSzovegMezo, nemSzovegValasz } = require('../utils/text');
 
 const router = express.Router();
 
@@ -99,6 +101,47 @@ function generateDeliveryCode() {
 
 const ALLOWED_SIZES = PACKAGE_SIZES.map((s) => s.id);
 
+// ⚠️ TÍPUS- ÉS TARTOMÁNY-KAPUK a járat-ágon (2026-09-28, audit P1).
+// A megálló (waypoints elem) szabad JSON volt: egy tömb-elem, egy nem-szöveg
+// `name` vagy egy tetszőleges extra kulcs („{"a":"0630…"}") átment a
+// kontakt-szűrőn, és a díj ELŐTT a feladókhoz jutott (lista, feed). Ezért
+// zárt alak: szöveg, VAGY a web `Waypoint` típusa (name, formatted_address,
+// lat, lng, order) típus- és tartomány-ellenőrzéssel. A méret-ár pedig
+// korlátlan egész volt — egy 9 jegyű mobilszám „árként" minden feladóhoz
+// eljutott. A plafon a többi forint-mezőével azonos.
+const MAX_JARAT_AR_HUF = 100000000;
+const MEGALLO_SZOVEG = ['name', 'formatted_address'];
+const MEGALLO_SZAM = { lat: [-90, 90], lng: [-180, 180], order: [0, 1000] };
+function rosszMegallo(waypoints) {
+  return waypoints.some((w) => {
+    if (typeof w === 'string') return false;
+    if (!w || typeof w !== 'object' || Array.isArray(w)) return true;
+    return Object.entries(w).some(([kulcs, v]) => {
+      if (v === undefined || v === null) return false;
+      if (MEGALLO_SZOVEG.includes(kulcs)) return typeof v !== 'string';
+      const tartomany = MEGALLO_SZAM[kulcs];
+      if (!tartomany) return true; // ismeretlen kulcs: rejtett csatorna lenne
+      return typeof v !== 'number' || !Number.isFinite(v) || v < tartomany[0] || v > tartomany[1]
+        || (kulcs === 'order' && !Number.isInteger(v));
+    });
+  });
+}
+const ROSSZ_MEGALLO = {
+  error: 'Érvénytelen megálló: a név és a cím szöveg, a koordináta szám lehet — más mező nem.',
+  code: 'INVALID_WAYPOINTS',
+  field: 'waypoints',
+};
+// A kontakt-szűrőnek átadandó megálló-szövegek (név + formázott cím).
+function megalloSzovegek(waypoints) {
+  if (!Array.isArray(waypoints)) return [];
+  return waypoints.flatMap((w) => (w && typeof w === 'object' ? [w.name, w.formatted_address] : [w]));
+}
+function ervenyesAr(p) {
+  if (!p || typeof p !== 'object' || !ALLOWED_SIZES.includes(p.size)) return false;
+  const n = (typeof p.price_huf === 'number' || typeof p.price_huf === 'string') ? Number(p.price_huf) : NaN;
+  return Number.isInteger(n) && n > 0 && n <= MAX_JARAT_AR_HUF;
+}
+
 /**
  * Betölti egy útvonal összes méret-árát a carrier_route_prices táblából,
  * és hozzácsatolja a route objektumhoz `prices: [{size, price_huf}, ...]`
@@ -161,6 +204,12 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   if (titleClean.length < 3 || titleClean.length > 100) {
     return res.status(400).json({ error: 'Az útvonal neve 3–100 karakter legyen (nem állhat csak szóközből).' });
   }
+  // Típus-kapu (2026-09-28, audit P1): a `description || null` a tömböt /
+  // objektumot / számot is a TEXT-oszlopba írta, a szűrő a nem-szöveget
+  // átengedte; a megálló zárt alakú (lásd rosszMegallo).
+  const rosszTipus = elsoNemSzovegMezo(req.body, ['description', 'vehicle_description']);
+  if (rosszTipus) return res.status(400).json(nemSzovegValasz(rosszTipus));
+  if (Array.isArray(waypoints) && rosszMegallo(waypoints)) return res.status(400).json(ROSSZ_MEGALLO);
   // Kapcsolat-szivárgás védelem: a járat neve/leírása/jármű-leírása minden
   // feladóhoz eljut a díjfizetés ELŐTT (járat-böngésző) — a díj megkerülése
   // lenne itt telefonszámot/emailt megadni.
@@ -171,7 +220,7 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
   // lenne, pontosan úgy, ahogy az értékelés-komment volt.
   const routeLeak = firstContactLeak([
     titleClean, description, vehicle_description,
-    ...(Array.isArray(waypoints) ? waypoints.map((w) => (w && typeof w === 'object' ? w.name : w)) : []),
+    ...megalloSzovegek(waypoints),
   ]);
   if (routeLeak) return res.status(400).json({ error: routeLeak, code: 'CONTACT_LEAK' });
   // Indulás időpontja: érvényes dátum, és NEM a múltban (tesztelői észrevétel,
@@ -201,8 +250,8 @@ router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, a
     return res.status(400).json({ error: 'Érvénytelen útvonal státusz (csak draft vagy open)' });
   }
   for (const p of prices) {
-    if (!ALLOWED_SIZES.includes(p.size) || !(p.price_huf > 0)) {
-      return res.status(400).json({ error: `Érvénytelen ár: ${JSON.stringify(p)}` });
+    if (!ervenyesAr(p)) {
+      return res.status(400).json({ error: `Érvénytelen ár (pozitív egész, legfeljebb 100 000 000 Ft): ${JSON.stringify(p)}` });
     }
   }
 
@@ -466,9 +515,17 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
   // létrehozáskor — a járat a feladókhoz jut a díjfizetés előtt).
   // A PATCH-en is: a kapu nem kerülhető meg szerkesztéssel (a waypoints itt is
   // szabadon átírható lenne).
+  // Típus-kapu (2026-09-28, audit P1): a cím itt eddig NYERSEN ment a
+  // TEXT-oszlopba, a nem-tömb `waypoints` (pl. egy telefonszámos szöveg vagy
+  // objektum) pedig a kontakt-szűrőt teljesen kikerülve jsonb-ként tárolódott.
+  const rosszTipus = elsoNemSzovegMezo(req.body, ['title', 'description', 'vehicle_description']);
+  if (rosszTipus) return res.status(400).json(nemSzovegValasz(rosszTipus));
+  if (waypoints !== undefined && (!Array.isArray(waypoints) || rosszMegallo(waypoints))) {
+    return res.status(400).json(ROSSZ_MEGALLO);
+  }
   const routeEditLeak = firstContactLeak([
     title, description, vehicle_description,
-    ...(Array.isArray(waypoints) ? waypoints.map((w) => (w && typeof w === 'object' ? w.name : w)) : []),
+    ...megalloSzovegek(waypoints),
   ]);
   if (routeEditLeak) return res.status(400).json({ error: routeEditLeak, code: 'CONTACT_LEAK' });
 
@@ -526,9 +583,9 @@ router.patch('/carrier-routes/:id', authRequired, writeRateLimit, async (req, re
     // Árak cseréje, ha megadták
     if (Array.isArray(prices)) {
       for (const p of prices) {
-        if (!ALLOWED_SIZES.includes(p.size) || !(p.price_huf > 0)) {
+        if (!ervenyesAr(p)) {
           await client.query('ROLLBACK');
-          return res.status(400).json({ error: `Érvénytelen ár: ${JSON.stringify(p)}` });
+          return res.status(400).json({ error: `Érvénytelen ár (pozitív egész, legfeljebb 100 000 000 Ft): ${JSON.stringify(p)}` });
         }
       }
       await client.query('DELETE FROM carrier_route_prices WHERE route_id = $1', [req.params.id]);
@@ -580,10 +637,22 @@ router.post(
     ) {
       return res.status(400).json({ error: 'Hiányzó felvételi / lerakodási koordináták' });
     }
+    // Koordináta-kapu (2026-09-28, audit P1): a (kerekített) hely a díj előtt a
+    // szállítóhoz jut — szabad szám nem lehet (lásd utils/geo.js).
+    if (!ervenyesKoordinata(pickup_lat, pickup_lng) || !ervenyesKoordinata(dropoff_lat, dropoff_lng)) {
+      return res.status(400).json({ error: 'Érvénytelen koordináta (lat -90..90, lng -180..180).', code: 'INVALID_COORDS' });
+    }
     const L = Number(length_cm), W = Number(width_cm), H = Number(height_cm), kg = Number(weight_kg);
     if (!(L > 0 && W > 0 && H > 0 && kg > 0)) {
       return res.status(400).json({ error: 'A csomag méretei és súlya kötelezőek' });
     }
+    // Típus-kapu (2026-09-28, audit P1): a jegyzet, a címek és a címzett-mezők
+    // eddig `mezo || null`-lal nyersen mentek a TEXT-oszlopba — a tömb/objektum
+    // /szám a kontakt-szűrőt is megkerülte, és a szállító a díj előtt látta.
+    const rosszTipus = elsoNemSzovegMezo(req.body, [
+      'notes', 'pickup_address', 'dropoff_address', 'recipient_name', 'recipient_phone', 'recipient_email',
+    ]);
+    if (rosszTipus) return res.status(400).json(nemSzovegValasz(rosszTipus));
 
     // Kapcsolat-szivárgás védelem: a foglalás jegyzete a szállítóhoz jut a
     // megerősítéskor, a feladó díjfizetése ELŐTT (scrubBookingForUser) — a

@@ -60,7 +60,12 @@ router.use('/sos', (req, res, next) => {
 });
 
 router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
-  const { job_id, booking_id, lat, lng, message } = req.body || {};
+  const { job_id, booking_id, lat, lng } = req.body || {};
+  // ⚠️ NEM-SZÖVEG ÜZENET (2026-09-28, audit P1): a tömb/objektum/szám eddig
+  // szó szerint a vészjelzésbe (és a másik félhez) került, a szűrő a
+  // nem-szöveget átengedte. Itt SZÁNDÉKOSAN nem 400: vészjelzés sosem vész el
+  // egy hibás mező miatt (lásd lent) — a nem-szöveg üzenetet elhagyjuk.
+  const message = typeof req.body?.message === 'string' ? req.body.message : null;
   // Koordináta-kapu (2026-09-11, teljes audit C1): a segélykérés helye eddig
   // tartomány-ellenőrzés nélkül ment a DB-be (999-es szélesség is) — a
   // mentős-párosítás és a térkép erre épül. Hiányzó hely megengedett

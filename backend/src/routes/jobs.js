@@ -4,7 +4,7 @@ const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
 const { authRequired, requireDriverKYC, requireVerifiedEmail, driverEligibilityError } = require('../middleware/auth');
-const { distanceMeters } = require('../utils/geo');
+const { distanceMeters, ervenyesKoordinata } = require('../utils/geo');
 const { maskEmail } = require('../utils/mask');
 const realtime = require('../realtime');
 const paymentProvider = require('../services/paymentProvider');
@@ -20,6 +20,7 @@ const { konyvelDijFizetes } = require('../services/feePayment');
 const { startOrReuseFeePayment, startOrReuseFeePaymentInTransaction } = require('../services/feePaymentSession');
 const { firstContactLeak, ellenorizIndok } = require('../utils/contactGuard');
 const { ellenorizCimzett } = require('../utils/cimzett');
+const { elsoNemSzovegMezo, nemSzovegValasz } = require('../utils/text');
 const { telepulesSzint, utcaSzint } = require('../utils/address');
 
 const router = express.Router();
@@ -250,6 +251,13 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
     source_image_url,
   } = req.body || {};
 
+  // Típus-kapu a szabad-szöveges mezőkön (2026-09-28, audit P1): a
+  // `description || null` és a nyers cím eddig a tömböt/objektumot/számot is
+  // a TEXT-oszlopba írta, a kontakt-szűrő pedig a nem-szöveget átengedte —
+  // minden böngésző szállító a díj előtt látta.
+  const rosszTipus = elsoNemSzovegMezo(req.body, ['title', 'description', 'pickup_address', 'dropoff_address']);
+  if (rosszTipus) return res.status(400).json(nemSzovegValasz(rosszTipus));
+
   // Forrás-bolt engedélylista — bármi mást figyelmen kívül hagyunk
   const ALLOWED_SOURCE_STORES = ['IKEA', 'OBI', 'Praktiker', 'Jófogás'];
   const sourceStoreClean = ALLOWED_SOURCE_STORES.includes(source_store) ? source_store : null;
@@ -314,6 +322,11 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
       pickup_lat == null || pickup_lng == null ||
       dropoff_lat == null || dropoff_lng == null) {
     return res.status(400).json({ error: 'Hiányzó kötelező mezők (cím / koordináták)' });
+  }
+  // Koordináta-kapu (2026-09-28, audit P1) — a számos mellékcsatorna ellen
+  // (lásd utils/geo.js: ervenyesKoordinata).
+  if (!ervenyesKoordinata(pickup_lat, pickup_lng) || !ervenyesKoordinata(dropoff_lat, dropoff_lng)) {
+    return res.status(400).json({ error: 'Érvénytelen koordináta (lat -90..90, lng -180..180).', code: 'INVALID_COORDS' });
   }
   // Cím: trim után 3–120 karakter (TC-013/107 család: a csupa-szóköz és a
   // layout-törő végtelen string kiszűrése)

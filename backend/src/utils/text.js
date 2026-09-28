@@ -46,4 +46,26 @@ function requireText(value, { label, min = 1, max = 5000 }) {
   return { ok: true, value: text };
 }
 
-module.exports = { asText, requireText };
+/**
+ * Opcionális szöveges mezők típus-kapuja (2026-09-28, audit P1).
+ *
+ * A `mezo || null` minta a nem-stringet is továbbadta a pg-nek: a tömb
+ * '{"…"}' literálként, az objektum JSON-ként, a szám szövegként került a
+ * TEXT-oszlopba — és a kontakt-szűrő a nem-szöveget nem vizsgálta. Hiányzó
+ * mező (undefined/null) rendben; bármi más nem-string → a hívó 400-at ad.
+ * @returns {string|null} az ELSŐ megadott, de nem-string mező neve, vagy null
+ */
+function elsoNemSzovegMezo(obj, mezok) {
+  for (const mezo of mezok) {
+    const v = obj?.[mezo];
+    if (v !== undefined && v !== null && typeof v !== 'string') return mezo;
+  }
+  return null;
+}
+
+/** Az `elsoNemSzovegMezo` találatának egységes 400-as válasz-törzse. */
+function nemSzovegValasz(mezo) {
+  return { error: `A(z) ${mezo} mezőbe csak szöveg írható.`, code: 'INVALID_TEXT_FIELD', field: mezo };
+}
+
+module.exports = { asText, requireText, elsoNemSzovegMezo, nemSzovegValasz };
