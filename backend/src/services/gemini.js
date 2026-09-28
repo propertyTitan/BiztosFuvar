@@ -9,15 +9,29 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 
-let client = null;
+// ⚠️ 2026-09-28 (audit P1): a support-chat KÜLÖN kulcsot kaphat
+// (`GEMINI_CHAT_API_KEY`), mert a kvóta projekt-szintű: a chat-forgalom
+// kimerülése eddig a KYC-ellenőrzést is 429-re futtatta. Ezért a kliens
+// kulcsonként gyorsítótárazott. A KYC és a többi elemzés SOHA nem a chat-
+// kulcsot használja; chat-kulcs nélkül a chat a közösre esik vissza.
+const clients = new Map();
+function clientFor(apiKey) {
+  if (!apiKey) return null;
+  let c = clients.get(apiKey);
+  if (!c) {
+    c = new GoogleGenerativeAI(apiKey);
+    clients.set(apiKey, c);
+  }
+  return c;
+}
 function getClient() {
-  if (!process.env.GEMINI_API_KEY) return null;
-  if (!client) client = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  return client;
+  return clientFor(process.env.GEMINI_API_KEY);
+}
+function getChatClient() {
+  return clientFor(process.env.GEMINI_CHAT_API_KEY || process.env.GEMINI_API_KEY);
 }
 
-function getModel(opts = {}) {
-  const c = getClient();
+function getModel(opts = {}, c = getClient()) {
   if (!c) return null;
   return c.getGenerativeModel({
     model: process.env.GEMINI_MODEL || DEFAULT_MODEL,
@@ -121,6 +135,45 @@ félrevezető súly/méret. Csak a JSON-t add vissza.`;
 // Egy beépített, felhasználó-orientált segéd, ami válaszol a GoFuvar
 // platform használatával kapcsolatos kérdésekre. Nem csinál adatbázis-
 // műveleteket, csak magyarázatokat és irányítást ad.
+
+// ⚠️ 2026-09-28 (audit P1, R2-4): a chat bemenetének és kimenetének plafonja.
+// Eddig csak az express.json 2 MB-ja fékezett: egy kérés 20 × akármekkora
+// előzményt küldhetett a fizetős Gemini-re, a válasz hossza pedig korlátlan
+// volt. A route 400-zal utasítja el a túl hosszú üzenetet; a szolgáltatás
+// ettől függetlenül is vág, hogy egy új hívó se kerülhesse meg. A web
+// (AiChatWidget, /ai-chat) ugyanezekhez az értékekhez igazodik.
+const AI_CHAT_MAX_MESSAGE_CHARS = 2000;
+const AI_CHAT_MAX_HISTORY_ITEMS = 20;
+// A válasz 2-4 mondat (~200 token), de a 2.5-ös család GONDOLKODÁSI tokenjei
+// is ebbe a keretbe számítanak — túl szűk plafonnál üres válasz jönne.
+const AI_CHAT_MAX_OUTPUT_TOKENS = 2048;
+
+/** Levágás `max` UTF-16 egységre úgy, hogy emoji-párt ne vágjon ketté. */
+function levag(s, max) {
+  if (s.length <= max) return s;
+  const t = s.slice(0, max);
+  const utolso = t.charCodeAt(t.length - 1);
+  return utolso >= 0xd800 && utolso <= 0xdbff ? t.slice(0, -1) : t;
+}
+
+/**
+ * A kliens által tárolt előzmény tisztítása: csak tömb; csak user/model
+ * szerep (a web a modell-fordulót 'assistant'-ként tárolja — ez a Gemini
+ * 'model'-je, minden más, pl. 'system', kiesik); csak nem üres string
+ * tartalom, elemenként legfeljebb AI_CHAT_MAX_MESSAGE_CHARS karakter.
+ */
+function sanitizeChatHistory(history) {
+  if (!Array.isArray(history)) return [];
+  const out = [];
+  for (const m of history) {
+    if (!m || typeof m !== 'object') continue;
+    const role = m.role === 'assistant' ? 'model' : m.role;
+    if (role !== 'user' && role !== 'model') continue;
+    if (typeof m.content !== 'string' || !m.content.trim()) continue;
+    out.push({ role, content: levag(m.content, AI_CHAT_MAX_MESSAGE_CHARS) });
+  }
+  return out;
+}
 
 const SUPPORT_SYSTEM_PROMPT = `Te a GoFuvar nevű magyar közösségi fuvartőzsde AI segédje vagy.
 Magyarul válaszolj, röviden, barátságosan, 2-4 mondatban. A neved: GoFuvar Segéd.
@@ -458,14 +511,19 @@ Egy válaszban legfeljebb 1-2 link legyen, ne többet.`;
  * @returns {Promise<{reply: string}>}
  */
 async function supportChat(message, history = []) {
-  if (!message || !message.trim()) {
+  if (typeof message !== 'string' || !message.trim()) {
     return { reply: 'Írj be egy kérdést, és segítek!' };
   }
+  // Védő-vágás (audit P1, 2026-09-28): a route már elutasítja a hosszabbat.
+  const uzenet = levag(message, AI_CHAT_MAX_MESSAGE_CHARS);
   // FONTOS: a @google/generative-ai 0.21 SDK-ban a `systemInstruction`-t
   // a `getGenerativeModel()`-en KELL átadni, NEM a `startChat()`-ban.
   // Korábban az utóbbiban volt, ami némán elvetődött és a modell
   // rendszerprompt nélkül kapta a kérdéseket.
-  const model = getModel({ systemInstruction: SUPPORT_SYSTEM_PROMPT });
+  const model = getModel({
+    systemInstruction: SUPPORT_SYSTEM_PROMPT,
+    generationConfig: { maxOutputTokens: AI_CHAT_MAX_OUTPUT_TOKENS },
+  }, getChatClient());
   if (!model) {
     // STUB válasz, amikor nincs Gemini kulcs beállítva
     return {
@@ -480,29 +538,27 @@ async function supportChat(message, history = []) {
     // (A frontend esetleg régi kóddal még belerakja az új üzenetet is a
     // listába — ha az utolsó elem pontosan a friss user message, levágjuk,
     // mert `chat.sendMessage(message)` úgyis hozzáadja.)
-    let cleanHistory = Array.isArray(history) ? history.slice() : [];
+    let cleanHistory = sanitizeChatHistory(history);
     if (
       cleanHistory.length > 0 &&
-      cleanHistory[cleanHistory.length - 1]?.role === 'user' &&
-      String(cleanHistory[cleanHistory.length - 1]?.content || '') === message
+      cleanHistory[cleanHistory.length - 1].role === 'user' &&
+      cleanHistory[cleanHistory.length - 1].content === uzenet
     ) {
       cleanHistory.pop();
     }
+    cleanHistory = cleanHistory.slice(-AI_CHAT_MAX_HISTORY_ITEMS);
 
     // Gemini elvárja: a history első eleme 'user' kell legyen, és
-    // utána váltakozva user/model. Ha az első elem véletlenül 'model'
-    // (vagy 'assistant'), dobjuk el.
+    // utána váltakozva user/model. Ha az első elem 'model', dobjuk el
+    // (a levágás UTÁN, mert az is hagyhat model-fordulót az elején).
     while (cleanHistory.length > 0 && cleanHistory[0].role !== 'user') {
       cleanHistory.shift();
     }
 
     const chat = model.startChat({
-      history: cleanHistory.slice(-20).map((m) => ({
-        role: m.role === 'assistant' ? 'model' : m.role,
-        parts: [{ text: String(m.content || '') }],
-      })),
+      history: cleanHistory.map((m) => ({ role: m.role, parts: [{ text: m.content }] })),
     });
-    const result = await chat.sendMessage(message);
+    const result = await chat.sendMessage(uzenet);
     const reply = result.response.text().trim();
     return { reply: reply || 'Bocsánat, most nem tudtam válaszolni. Próbáld újra.' };
   } catch (err) {
@@ -626,4 +682,7 @@ ${birthDateInstruction}
   }
 }
 
-module.exports = { analyzeCargoPhoto, reviewJobDescription, supportChat, verifyKycDocument };
+module.exports = {
+  analyzeCargoPhoto, reviewJobDescription, supportChat, verifyKycDocument,
+  AI_CHAT_MAX_MESSAGE_CHARS, AI_CHAT_MAX_HISTORY_ITEMS, AI_CHAT_MAX_OUTPUT_TOKENS,
+};

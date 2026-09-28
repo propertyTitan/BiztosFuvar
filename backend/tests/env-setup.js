@@ -34,7 +34,7 @@ process.env.PORT = '0';
 // Az összes stub-ellenőrzés falsy-t néz, tehát az üres string = „nincs kulcs".
 for (const kulcs of [
   'SEEME_API_KEY', 'RESEND_API_KEY', 'SENTRY_DSN',
-  'GEMINI_API_KEY', 'GOOGLE_MAPS_API_KEY',
+  'GEMINI_API_KEY', 'GEMINI_CHAT_API_KEY', 'GOOGLE_MAPS_API_KEY',
   // Tárolás — enélkül a teszt-feltöltések az éles bucketbe mennek
   'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_ACCOUNT_ID',
   'R2_BUCKET_NAME', 'R2_PUBLIC_URL', 'R2_PRIVATE_BUCKET_NAME',
