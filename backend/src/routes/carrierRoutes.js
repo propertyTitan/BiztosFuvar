@@ -649,9 +649,9 @@ router.post(
     // Típus-kapu (2026-09-28, audit P1): a jegyzet, a címek és a címzett-mezők
     // eddig `mezo || null`-lal nyersen mentek a TEXT-oszlopba — a tömb/objektum
     // /szám a kontakt-szűrőt is megkerülte, és a szállító a díj előtt látta.
-    const rosszTipus = elsoNemSzovegMezo(req.body, [
-      'notes', 'pickup_address', 'dropoff_address', 'recipient_name', 'recipient_phone', 'recipient_email',
-    ]);
+    // (A címzett-mezők típusát a közös ellenorizCimzett adja, a fuvar-ággal
+    // azonos hibakóddal — lásd lent.)
+    const rosszTipus = elsoNemSzovegMezo(req.body, ['notes', 'pickup_address', 'dropoff_address']);
     if (rosszTipus) return res.status(400).json(nemSzovegValasz(rosszTipus));
 
     // Kapcsolat-szivárgás védelem: a foglalás jegyzete a szállítóhoz jut a

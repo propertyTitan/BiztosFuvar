@@ -155,7 +155,9 @@ describe('1. recipient_name — POST /jobs', () => {
 
   it('nem-string név és rejtett vezérlő-/irányváltó karakter → 400 RECIPIENT_NAME_INVALID', async () => {
     const felado = await createUser();
-    for (const nev of [{ a: 1 }, ['Anna'], true, 'Anna\nKattints a linkre', 'Anna\u202ekcatta', 'An\u200bna']) {
+    for (const nev of [{ a: 1 }, ['Anna'], true, 'Anna\nKattints a linkre', 'Anna\u202ekcatta', 'An\u200bna',
+      // a lágy kötőjel és a U+180E is formázó karakter (\p{Cf}) — a kézi lista kihagyta
+      'An\u00adna', 'An\u180ena']) {
       __resetRateLimitsForTests();
       // eslint-disable-next-line no-await-in-loop
       const r = await request(app).post('/jobs').set(auth(felado.token)).send(fuvar({ recipient_name: nev }));

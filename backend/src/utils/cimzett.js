@@ -26,7 +26,9 @@ const CIMZETT_NEV_MAX = 100;
 // C0/C1 vezérlők (sortörés is — a text/plain levélben új „bekezdést" nyitna),
 // zero-width és bidi-irányváltók (a „www" betűi közé tett láthatatlan jel
 // átcsúszna a link-szűrőn, a U+202E pedig megfordítja a megjelenő szöveget).
-const REJTETT_KARAKTER = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/;
+// Kategória szerint (\p{Cc} vezérlő, \p{Cf} formázó) — egy kézi lista a lágy
+// kötőjelet (U+00AD) és a U+180E-t kihagyta (utóellenőrzés, mérve).
+const REJTETT_KARAKTER = /[\p{Cc}\p{Cf}\u2028\u2029]/u;
 
 const hiba = (error, code) => ({ ok: false, error, code });
 
