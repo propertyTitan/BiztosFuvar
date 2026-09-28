@@ -34,6 +34,7 @@ const crypto = require('crypto');
 const { db, createUser } = require('./helpers');
 const laneAlerts = require('../src/services/laneAlerts');
 const { distanceMeters } = require('../src/utils/geo');
+const { publicCoordinate } = require('../src/services/backhaul');
 
 const { notifyMatchingAlerts, jobMatchesAlert } = laneAlerts;
 
@@ -591,7 +592,11 @@ describe('jobMatchesAlert — határértékek', () => {
 
   it('PONTOSAN a sugáron: illeszkedik; egy hajszállal kívül: nem', () => {
     const job = fuvar({ pickup_lat: BP_KOZEL.lat, pickup_lng: BP_KOZEL.lng });
-    const tavKm = distanceMeters(job.pickup_lat, job.pickup_lng, BP.lat, BP.lng) / 1000;
+    // (2026-09-28, audit P1) Az illesztés a NYILVÁNOS (~110 m-es, 3 tizedes)
+    // ponton dönt — a sugár szélét is onnan mérjük.
+    const tavKm = distanceMeters(
+      publicCoordinate(job.pickup_lat), publicCoordinate(job.pickup_lng), BP.lat, BP.lng,
+    ) / 1000;
 
     expect(
       jobMatchesAlert(job, { ...alapFigyelo, radius_km: tavKm }),

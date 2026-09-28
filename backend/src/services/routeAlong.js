@@ -21,6 +21,8 @@
 const db = require('../db');
 const { distanceMeters } = require('../utils/geo');
 const { PACKAGE_SIZES } = require('../constants');
+// Ugyanaz a 3 tizedes (~110 m) pont, amelyet a piactér a díj előtt mutat.
+const { publicCoordinate } = require('./backhaul');
 
 const ALONG_RADIUS_KM = 15;
 
@@ -88,6 +90,12 @@ async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_
   // Pre-filter: minden bidding fuvar, aminek pickup VAGY dropoff az
   // útvonal bounding box-ában van (tágított sugárral). A pontos waypoint-
   // közeli szűrést JS-ben csináljuk.
+  // ⚠️ MINDEN DÖNTÉS A NYILVÁNOS PONTON (2026-09-28, audit P1): a doboz, a
+  // sugár-szűrés, a kitérő és a sorrend eddig a PONTOS koordinátán futott, a
+  // kitérő 10 m-es felbontással ment ki — a szállító a saját megállóit
+  // PATCH-csel mozgatva három szondából kiszámolta a ház-pontos címet, a díj
+  // előtt. A visszafuvar-keresés (backhaul.js) mintája: bővített, indexelhető
+  // előszűrés + a döntés a kerekített ponton, LIMIT előtt.
   const { rows } = await db.query(
     `SELECT j.*,
             u.full_name AS shipper_name
@@ -95,8 +103,10 @@ async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_
        JOIN users u ON u.id = j.shipper_id
       WHERE j.status = 'bidding'
         AND j.shipper_id <> $1
-        AND j.pickup_lat  BETWEEN $2 AND $3
-        AND j.pickup_lng  BETWEEN $4 AND $5
+        AND j.pickup_lat  BETWEEN $2 - 0.000501 AND $3 + 0.000501
+        AND j.pickup_lng  BETWEEN $4 - 0.000501 AND $5 + 0.000501
+        AND floor(j.pickup_lat * 1000 + 0.5) / 1000 BETWEEN $2 AND $3
+        AND floor(j.pickup_lng * 1000 + 0.5) / 1000 BETWEEN $4 AND $5
       ORDER BY j.created_at DESC
       LIMIT 500`,
     [
@@ -119,9 +129,15 @@ async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_
     let bestDropoffWp = -1;
     let bestDropoffDist = Infinity;
 
+    // (2026-09-28, audit P1) A fuvar NYILVÁNOS pontja — a válasz is ezt mutatja.
+    const pLat = publicCoordinate(job.pickup_lat);
+    const pLng = publicCoordinate(job.pickup_lng);
+    const dLat = publicCoordinate(job.dropoff_lat);
+    const dLng = publicCoordinate(job.dropoff_lng);
+
     for (let i = 0; i < waypoints.length; i++) {
       const wp = waypoints[i];
-      const pickupDist = distanceMeters(wp.lat, wp.lng, job.pickup_lat, job.pickup_lng) / 1000;
+      const pickupDist = distanceMeters(wp.lat, wp.lng, pLat, pLng) / 1000;
       if (pickupDist <= radiusKm && pickupDist < bestPickupDist) {
         bestPickupDist = pickupDist;
         bestPickupWp = i;
@@ -133,7 +149,7 @@ async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_
     // Dropoff: csak a pickup waypoint UTÁNI waypoint-oknál keresünk.
     for (let j = bestPickupWp + 1; j < waypoints.length; j++) {
       const wp = waypoints[j];
-      const dropDist = distanceMeters(wp.lat, wp.lng, job.dropoff_lat, job.dropoff_lng) / 1000;
+      const dropDist = distanceMeters(wp.lat, wp.lng, dLat, dLng) / 1000;
       if (dropDist <= radiusKm && dropDist < bestDropoffDist) {
         bestDropoffDist = dropDist;
         bestDropoffWp = j;
@@ -144,16 +160,20 @@ async function findJobsAlongRoute(waypoints, carrierId, radiusKm = ALONG_RADIUS_
 
     // "Kitérő km": pickup eltérés + dropoff eltérés a waypoint-tól.
     // Minél kisebb, annál kevesebb extra út a szállítónak.
-    const detourKm = +(bestPickupDist + bestDropoffDist).toFixed(2);
+    // (2026-09-28, audit P1) 0,1 km-re, ahogy a GET /jobs távolsága is; az
+    // összeg a két megjelenített részből, hogy a felület számai összeadódjanak.
+    const pickupDetourKm = +bestPickupDist.toFixed(1);
+    const dropoffDetourKm = +bestDropoffDist.toFixed(1);
+    const detourKm = +(pickupDetourKm + dropoffDetourKm).toFixed(1);
 
     results.push({
       ...job,
       along_pickup_wp: bestPickupWp,
       along_pickup_wp_name: waypoints[bestPickupWp].name || `#${bestPickupWp + 1}`,
-      along_pickup_detour_km: +bestPickupDist.toFixed(2),
+      along_pickup_detour_km: pickupDetourKm,
       along_dropoff_wp: bestDropoffWp,
       along_dropoff_wp_name: waypoints[bestDropoffWp].name || `#${bestDropoffWp + 1}`,
-      along_dropoff_detour_km: +bestDropoffDist.toFixed(2),
+      along_dropoff_detour_km: dropoffDetourKm,
       along_detour_km: detourKm,
     });
   }
