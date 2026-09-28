@@ -142,6 +142,7 @@ Top-level fájlok:
 | `contactGuard.js` | kcontakt-adat szivárgás szűrése chatben |
 | `qr.js` | QR-kód generálás (átvételi kód) |
 | `text.js` | `requireText` — szöveges body-mezők típus-biztos ellenőrzése (nem-string → 4xx, nem 500) |
+| `socketDbKorlat.js` | a realtime réteg MINDEN DB-lekérdezésének közös plafonja (egyszerre ≤4, korlátos sor, csendes eldobás) + socketenkénti token-vödör — a socket-áradat nem viheti el a REST poolját (2026-09-28) |
 
 ### 1.6 Adatbázis — `backend/db/`
 
