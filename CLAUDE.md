@@ -1,5 +1,33 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-09-28 — teljes P0/P1-audit és a 7 P1 javítása (`fix/audit-20260928-p1`):**
+> 12 területi + 5 hiánykereső ügynök, tételenként 3 független ellenőrzéssel
+> (reprodukálás, cáfolás, súlyosság). **P0 nem volt; 7 P1 javítva**, mindegyik
+> őr-tesztje a javítás nélkül piros: (1) a JÁRAT-kapu nagybetűs URL-lel
+> megkerülhető volt — most közös `utils/jaratKapcsolo.js`, a foglalás-fotón
+> is; ugyanebben a körben a `/uploads/private` kódolt/normalizált útja is
+> zárva; (2) az útba eső fuvarok kitérője és minden díj előtti `distance_km`
+> a pontos pontból ment (háromszögelhető cím) → a kerekített pontból, 0,1
+> km-re; (3) a socket `job:join`-áradat kimerítette a DB-poolt → folyamatszintű
+> socket-DB-plafon + socketenkénti és fiókonkénti korlát (`SOCKET_*` env,
+> `utils/socketDbKorlat.js`); (4) AI-chat: e-mail-kapu, 2000 karakter
+> (`AI_MESSAGE_TOO_LONG`), előzmény 20×2000, `maxOutputTokens`, napi 200/fiók,
+> opcionális `GEMINI_CHAT_API_KEY` (csak KÜLÖN Google-projekt kulcsa választja
+> le a KYC kvótáját); (5) címzetti levél: a név ≤100 karakter, számjegy,
+> kontakt és rejtett karakter nélkül, közös `utils/cimzett.js` a foglalási
+> ágon is; a feladáskori címzetti levél 10/fiók/nap és 60/platform/nap
+> (`RECIPIENT_EMAIL_DAILY_CAP*`), a lane-alert levél 20/szállító/nap — a
+> Resend-kvóta a megerősítő és jelszó-levélé marad; (6) az AI-előzmény
+> fiókhoz kötött, kijelentkezéskor törlődik (adatkezelési sor igazítva);
+> (7) a kontakt-szűrő fail-closed a nem-szövegre (400 `INVALID_TEXT_FIELD`),
+> az észlelés NFKC-normalizált, formázó karakterek nélküli szövegen fut;
+> `eta_minutes` 1–10 080, koordináta- és járat-ár-tartomány. Migráció nincs,
+> env-változtatás nem kötelező. **Launch-listára:** a teszt-üzem `manual`
+> fizetési eseményei ajánlói kupont válthattak ki — a kuponok és a naplósorok
+> takarítása. Megerősített, de P2 maradékok és részletek:
+> `LAUNCH_JAVITASI_ALLAPOT.txt`. Ez a bejegyzés nem állítja a merge-et vagy
+> a telepítést.
+
 > **2026-09-27 — NAV-os cégjelvény elhalasztva (felhasználói döntés):**
 > az „Ellenőrzött cég” jelvény minden felhasználói felületről kikerül,
 > a saját profil NAV-ellenőrzési sora, gombja és „hamarosan” ígérete is.
@@ -3057,6 +3085,13 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > törlés vagy megtartás). ⚠️ ADDIG NE töröld őket, amíg a Manus-körök
 > futnak — a tesztelő fiókjai szándékosan érintetlenek, hogy újra végig
 > tudjon menni a folyamaton.
+>
+> **UGYANEKKOR: A TESZT-ÜZEM KUPONJAI (2026-09-28, audit).** A kézi
+> (teszt-üzemi) nyugtázás `manual` fizetési eseményt ír, ami ajánlói kupont
+> válthat ki valódi fizetés nélkül; a 60 napos kupon és a napló a launch után
+> is megmaradna. A takarításnál a `fee_vouchers` teszt-kuponjait és a `manual`
+> `payment_events` sorokat is rendezni kell (nem törlés-automatizmus — kézi,
+> átnézett SQL).
 
 ### 🔴 Launch-kapu — adatvédelmi/jogi ellenőrzőlista (2026-07-18 felmérés)
 
