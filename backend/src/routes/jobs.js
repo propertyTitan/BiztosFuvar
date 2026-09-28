@@ -149,7 +149,7 @@ function scrubJobForUser(job, user) {
  */
 function utcaSzintHely(job) {
   const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 1000) / 1000);
-  return {
+  return megjelenitettTavolsag(job, {
     ...job,
     pickup_address: utcaSzint(job.pickup_address),
     dropoff_address: utcaSzint(job.dropoff_address),
@@ -157,6 +157,26 @@ function utcaSzintHely(job) {
     pickup_lng: kerekit(job.pickup_lng),
     dropoff_lat: kerekit(job.dropoff_lat),
     dropoff_lng: kerekit(job.dropoff_lng),
+  });
+}
+
+/**
+ * ⚠️ A felvétel–lerakodás távolsága a MEGJELENÍTETT pontokból (2026-09-28,
+ * audit P1). A tárolt `distance_km` a POST /jobs-ban a PONTOS pontokból,
+ * 10 m-re számolódik; változatlanul továbbadva a kerekített koordináta
+ * mellett cellán belüli orákulum volt: ismert (bolti) felvételnél és
+ * utca-szintű lerakodási címnél a 10 m-es távolság az utcán a házszámig
+ * szűkít. A kimenet a kerekített pontok távolsága, 0,1 km-re — a tárolt
+ * érték és az árazás nem változik. Csak ha a sorban volt `distance_km`
+ * (a válasz alakja nem bővül); pont nélkül null (fail-closed).
+ */
+function megjelenitettTavolsag(eredeti, hely) {
+  if (!Object.prototype.hasOwnProperty.call(eredeti, 'distance_km')) return hely;
+  const pontok = [hely.pickup_lat, hely.pickup_lng, hely.dropoff_lat, hely.dropoff_lng];
+  const vanPont = pontok.every((v) => v != null && Number.isFinite(Number(v)));
+  return {
+    ...hely,
+    distance_km: vanPont ? +(distanceMeters(...pontok.map(Number)) / 1000).toFixed(1) : null,
   };
 }
 
@@ -173,7 +193,8 @@ function kozelitoHely(job) {
   // a mellette lévő ~1 km-es koordináta-kerekítést.
   const telepules = telepulesSzint;
   const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 100) / 100);
-  return {
+  // (2026-09-28, audit P1) A távolság is a ~1 km-es pontokból (megjelenitettTavolsag).
+  return megjelenitettTavolsag(job, {
     ...job,
     pickup_address: telepules(job.pickup_address),
     dropoff_address: telepules(job.dropoff_address),
@@ -182,7 +203,7 @@ function kozelitoHely(job) {
     dropoff_lat: kerekit(job.dropoff_lat),
     dropoff_lng: kerekit(job.dropoff_lng),
     approximate_location: true,
-  };
+  });
 }
 
 // POST /jobs – bárki feladhat fuvart (a szerepkör szeparálást eltöröltük;
@@ -1755,3 +1776,7 @@ module.exports = router;
 // A `jobs:new` socket-broadcast és a REST kívülálló-ág ezt a scrubot használja
 // — exportáljuk, hogy a biztonsági tesztek közvetlenül őrizhessék a határt.
 module.exports.scrubJobForUser = scrubJobForUser;
+// A kézzel épített listák (/bids/mine, szállítói dashboard) ugyanazt a díj
+// előtti hely-kerekítést használják, nem egy második változatot.
+module.exports.utcaSzintHely = utcaSzintHely;
+module.exports.kozelitoHely = kozelitoHely;

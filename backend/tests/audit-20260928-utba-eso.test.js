@@ -14,6 +14,13 @@
 //  szövegébe írt távolság) és a mentős-lista + mentős-értesítés (ott a
 //  közelítő hely ~1 km-es, 2 tizedes).
 //
+//  A felvétel–lerakodás távolsága (`distance_km`) is ide tartozik: a POST
+//  /jobs a PONTOS pontokból, 10 m-re tárolja, és a díj előtti szállító
+//  (along-jobs, GET /jobs, GET /jobs/:id, visszafuvar, /bids/mine,
+//  szállítói dashboard, `jobs:new` feed) változatlanul megkapta. Ismert
+//  (bolti) felvételnél + utca-szintű lerakodási címnél a 10 m-es távolság az
+//  utcán egy ~10 m-es szakaszra, vagyis a házszámra szűkít.
+//
 //  Az invariáns, amit minden teszt mér: két fuvar (kérés), amelyeknek a
 //  NYILVÁNOS (kerekített) koordinátája azonos, semmilyen szondával nem
 //  különböztethető meg — se a visszaadott távolságban, se a szűrésben.
@@ -28,6 +35,7 @@ const { app, db, createUser } = require('./helpers');
 const { distanceMeters } = require('../src/utils/geo');
 const { jobMatchesAlert } = require('../src/services/laneAlerts');
 const { findNearbyActiveCarriers } = require('../src/services/instantJobs');
+const { scrubJobForUser } = require('../src/routes/jobs');
 const { __resetRateLimitsForTests } = require('../src/middleware/rateLimit');
 
 const auth = (t) => ({ Authorization: `Bearer ${t}` });
@@ -39,24 +47,34 @@ const km1 = (a, b) => +(distanceMeters(a[0], a[1], b[0], b[1]) / 1000).toFixed(1
 /** 0,1 km-es lépésben van-e (a 10 m-es felbontás maga volt az orákulum). */
 const tizedKm = (v) => Math.abs(v * 10 - Math.round(v * 10)) < 1e-9;
 
-/** Nyitott (bidding) fuvar a megadott PONTOS koordinátákkal. */
-async function nyitottFuvar(shipperId, pickup, dropoff, title) {
+/**
+ * Fuvar a megadott PONTOS koordinátákkal. A tárolt `distance_km` úgy
+ * számolódik, ahogy a POST /jobs számolja (pontos pontokból, 2 tizedes km).
+ */
+async function fuvar(shipperId, pickup, dropoff, title, { status = 'bidding', carrierId = null, paid = false } = {}) {
+  const tarolt = +(distanceMeters(pickup[0], pickup[1], dropoff[0], dropoff[1]) / 1000).toFixed(2);
   const { rows } = await db.query(
     `INSERT INTO jobs (
-       shipper_id, title, description,
+       shipper_id, carrier_id, title, description,
        pickup_address, pickup_lat, pickup_lng,
-       dropoff_address, dropoff_lat, dropoff_lng,
-       suggested_price_huf, status, delivery_code, tracking_token
+       dropoff_address, dropoff_lat, dropoff_lng, distance_km,
+       suggested_price_huf, accepted_price_huf, status, delivery_code, tracking_token,
+       paid_at, fee_consent_at
      ) VALUES (
-       $1, $2, 'trilateráció-teszt',
+       $1, $8, $2, 'trilateráció-teszt',
        'Budapest, Teszt utca 12.', $3, $4,
-       'Szeged, Teszt tér 2.', $5, $6,
-       15000, 'bidding', '111222', encode(gen_random_bytes(16), 'hex')
+       'Szeged, Teszt tér 2.', $5, $6, $7,
+       15000, CASE WHEN $9::job_status = 'bidding' THEN NULL ELSE 15000 END, $9::job_status, '111222',
+       encode(gen_random_bytes(16), 'hex'),
+       CASE WHEN $10::boolean THEN NOW() ELSE NULL END, CASE WHEN $10::boolean THEN NOW() ELSE NULL END
      ) RETURNING id`,
-    [shipperId, title, pickup[0], pickup[1], dropoff[0], dropoff[1]],
+    [shipperId, title, pickup[0], pickup[1], dropoff[0], dropoff[1], tarolt, carrierId, status, paid],
   );
   return rows[0].id;
 }
+
+/** Nyitott (bidding) fuvar a megadott PONTOS koordinátákkal. */
+const nyitottFuvar = (shipperId, pickup, dropoff, title) => fuvar(shipperId, pickup, dropoff, title);
 
 async function jarat(carrier, waypoints) {
   const res = await request(app)
@@ -172,6 +190,188 @@ describe('GET /carrier-routes/:id/along-jobs — a kitérő a NYILVÁNOS koordin
     ).toBe(ids.has(yId));
     expect(ids.has(xId), 'a 47.135-ös cella közepe 15,01 km — kívül esik').toBe(false);
     expect(ids.has(zId), 'a sugáron belüli fuvarnak meg kell jelennie (a szűrő nem vak)').toBe(true);
+  });
+
+  it('a lerakodási sugár-határ is a kerekített ponton dönt', async () => {
+    const szallito = await createUser({ role: 'carrier' });
+    const shipper = await createUser();
+    const jaratId = await jarat(szallito, [[47.0, 19.0], [46.0, 20.0]]);
+    const fel = [47.0001, 19.0001];
+    // A (46.0, 20.0) megállótól 15 km északra: 46.13490 — a 46.135-ös cella
+    // (46.1345–46.1355) közepe 15,01 km. X 14,98 km (belül), Y 15,04 km (kívül).
+    const xId = await nyitottFuvar(shipper.id, fel, [46.1347, 20.0], 'Lerakodás-határ X');
+    const yId = await nyitottFuvar(shipper.id, fel, [46.1353, 20.0], 'Lerakodás-határ Y');
+    const zId = await nyitottFuvar(shipper.id, fel, [46.1337, 20.0], 'Lerakodás belül Z');
+
+    const ids = new Set((await utbaEso(szallito, jaratId)).map((j) => j.id));
+    expect(
+      ids.has(xId),
+      'a lerakodási sugár a PONTOS koordinátán döntött: az azonos nyilvános cellájú X és Y közül csak az egyik jelent meg',
+    ).toBe(ids.has(yId));
+    expect(ids.has(xId), 'a 46.135-ös cella közepe 15,01 km — kívül esik').toBe(false);
+    expect(ids.has(zId), 'a sugáron belüli lerakodású fuvarnak meg kell jelennie').toBe(true);
+  });
+
+  it('az SQL-előszűrő doboz széle is a kerekített ponton dönt (a LIMIT előtt)', async () => {
+    // Járat (47,19) → (46,20): az átlagos szélesség (46,5°) miatt a hosszúsági
+    // doboz ±0,19631°, az északi megállónál ez csak 14,89 km — a doboz nyugati
+    // széle 18,80368°. A kerekítés a doboz szélén sem árulhat el cellán belüli
+    // helyet:
+    //  · 1. pár a 18.804-es cellában (18.8035–18.8045), a PONTOS doboz-szél
+    //    két oldalán — a pontos ponton döntő szűrő csak az egyiket mutatta;
+    //  · 2. pár a 18.803-as cellában: a nyilvános pont a dobozon kívül, a
+    //    pontos pont a bővített (±0,000501) előszűrőn belül — ha csak a
+    //    bővített előszűrő dönt, az egyik átcsúszik (14,94 km, sugáron belül).
+    const szallito = await createUser({ role: 'carrier' });
+    const shipper = await createUser();
+    const jaratId = await jarat(szallito, [[47.0, 19.0], [46.0, 20.0]]);
+    const le = [46.0001, 20.0001];
+    const p1 = await nyitottFuvar(shipper.id, [47.0, 18.8036], le, 'Doboz-szél 1a');
+    const q1 = await nyitottFuvar(shipper.id, [47.0, 18.8040], le, 'Doboz-szél 1b');
+    const p2 = await nyitottFuvar(shipper.id, [47.0, 18.8028], le, 'Doboz-szél 2a');
+    const q2 = await nyitottFuvar(shipper.id, [47.0, 18.8033], le, 'Doboz-szél 2b');
+
+    const ids = new Set((await utbaEso(szallito, jaratId)).map((j) => j.id));
+    expect(
+      ids.has(p1),
+      'a doboz a PONTOS hosszúságon döntött: a 18.804-es cella két fuvarja közül csak az egyik jelent meg',
+    ).toBe(ids.has(q1));
+    expect(ids.has(p1), 'a 18.804-es cella a dobozon és a sugáron belül van').toBe(true);
+    expect(
+      ids.has(p2),
+      'a doboz a bővített előszűrőn döntött: a 18.803-as cella két fuvarja közül csak az egyik jelent meg',
+    ).toBe(ids.has(q2));
+  });
+});
+
+describe('distance_km — a felvétel–lerakodás távolsága sem pontosabb a megjelenített pontnál', () => {
+  // Mindkét fuvar ugyanabból a (bolti) pontból indul; a lerakodás UGYANABBAN
+  // a 3 tizedes cellában (46.253, 20.141), két szemközti sarkán — a tárolt,
+  // pontos pontokból számolt távolság ~0,1 km-rel eltér. Utca-szinten a kettő
+  // megkülönböztethetetlen; a 2 tizedes (~1 km-es) közelítő helyen szintén.
+  const BOLT = [47.4981, 19.0401];
+  const LE1 = [46.2526, 20.1414];
+  const LE2 = [46.2534, 20.1406];
+  const UTCA = km1([47.498, 19.040], [46.253, 20.141]);
+  const KOZELITO = km1([47.50, 19.04], [46.25, 20.14]);
+
+  let nezo; // böngésző / ajánlattevő / kijelölt szállító
+  let masik; // egy másik szállító (az elkelt fuvarok nyertese)
+  const f = {};
+
+  async function tarolt(id) {
+    const { rows } = await db.query('SELECT distance_km FROM jobs WHERE id = $1', [id]);
+    return Number(rows[0].distance_km);
+  }
+  /** A két fuvar értéke azonos, 0,1 km-es, és a megjelenített pontokból számolt. */
+  function egyezik(a, b, elvart, hol) {
+    expect(a, `${hol}: hiányzik a távolság`).not.toBeUndefined();
+    expect(
+      a,
+      `${hol}: az azonos cellájú két fuvar eltérő távolságot kapott (${a} vs ${b}) — `
+      + 'a pontos pontokból 10 m-re számolt érték a házszám nyersanyaga',
+    ).toBe(b);
+    expect(tizedKm(Number(a)), `${hol}: ${a} nem 0,1 km-es lépésű`).toBe(true);
+    expect(Number(a), `${hol}: nem a megjelenített (kerekített) pontokból számolódott`).toBe(elvart);
+  }
+
+  beforeAll(async () => {
+    nezo = await createUser({ role: 'carrier' });
+    masik = await createUser({ role: 'carrier' });
+    const shipper = await createUser();
+    f.s1 = await fuvar(shipper.id, BOLT, LE1, 'Távolság nyitott 1');
+    f.s2 = await fuvar(shipper.id, BOLT, LE2, 'Távolság nyitott 2');
+    f.u1 = await fuvar(shipper.id, BOLT, LE1, 'Távolság kijelölt 1', { status: 'accepted', carrierId: nezo.id });
+    f.u2 = await fuvar(shipper.id, BOLT, LE2, 'Távolság kijelölt 2', { status: 'accepted', carrierId: nezo.id });
+    f.k1 = await fuvar(shipper.id, BOLT, LE1, 'Távolság elkelt 1', { status: 'accepted', carrierId: masik.id });
+    f.k2 = await fuvar(shipper.id, BOLT, LE2, 'Távolság elkelt 2', { status: 'accepted', carrierId: masik.id });
+    f.p1 = await fuvar(shipper.id, BOLT, LE1, 'Távolság fizetett', { status: 'accepted', carrierId: nezo.id, paid: true });
+    for (const id of [f.s1, f.s2, f.u1, f.u2, f.k1, f.k2, f.p1]) {
+      // eslint-disable-next-line no-await-in-loop
+      await db.query(
+        `INSERT INTO bids (job_id, carrier_id, amount_huf, status) VALUES ($1, $2, 15000, 'pending')`,
+        [id, nezo.id],
+      );
+    }
+  });
+
+  it('előfeltétel: a tárolt (pontos) távolság a két fuvarnál eltér — különben a teszt vak', async () => {
+    expect(await tarolt(f.s1)).not.toBe(await tarolt(f.s2));
+    expect(await tarolt(f.u1)).not.toBe(await tarolt(f.u2));
+    expect(await tarolt(f.k1)).not.toBe(await tarolt(f.k2));
+  });
+
+  it('GET /carrier-routes/:id/along-jobs: a nyitott fuvarok távolsága utca-szintű pontokból', async () => {
+    const routeId = await jarat(nezo, [[47.52, 19.08], [46.28, 20.10]]);
+    const jobs = await utbaEso(nezo, routeId);
+    const a = jobs.find((j) => j.id === f.s1);
+    const b = jobs.find((j) => j.id === f.s2);
+    expect(a && b, 'a két fuvar hiányzik az útba esők közül').toBeTruthy();
+    egyezik(a.distance_km, b.distance_km, UTCA, 'along-jobs');
+  });
+
+  it('GET /jobs (nyitott piactér) és GET /jobs/:id kívülállónak: utca-szintű pontokból', async () => {
+    const lista = await request(app).get('/jobs?status=bidding').set(auth(nezo.token));
+    expect(lista.status).toBe(200);
+    const a = lista.body.find((j) => j.id === f.s1);
+    const b = lista.body.find((j) => j.id === f.s2);
+    expect(a && b, 'a két fuvar hiányzik a piactérről').toBeTruthy();
+    egyezik(a.distance_km, b.distance_km, UTCA, 'GET /jobs');
+
+    const ra = await request(app).get(`/jobs/${f.s1}`).set(auth(nezo.token));
+    const rb = await request(app).get(`/jobs/${f.s2}`).set(auth(nezo.token));
+    expect(ra.status).toBe(200);
+    egyezik(ra.body.distance_km, rb.body.distance_km, UTCA, 'GET /jobs/:id (nyitott)');
+  });
+
+  it('a jobs:new feed és a visszafuvar közös scrubja (scrubJobForUser, kívülálló) is utca-szintű pontokból', async () => {
+    const { rows } = await db.query('SELECT * FROM jobs WHERE id = ANY($1)', [[f.s1, f.s2]]);
+    const [a, b] = rows.map((r) => scrubJobForUser(r, null));
+    egyezik(a.distance_km, b.distance_km, UTCA, 'scrubJobForUser(kívülálló)');
+  });
+
+  it('kijelölt, de még nem fizetett szállító: GET /jobs/:id, /bids/mine és a dashboard is utca-szint', async () => {
+    const ra = await request(app).get(`/jobs/${f.u1}`).set(auth(nezo.token));
+    const rb = await request(app).get(`/jobs/${f.u2}`).set(auth(nezo.token));
+    expect(ra.status).toBe(200);
+    egyezik(ra.body.distance_km, rb.body.distance_km, UTCA, 'GET /jobs/:id (kijelölt, fizetetlen)');
+
+    const mine = await request(app).get('/bids/mine').set(auth(nezo.token));
+    expect(mine.status).toBe(200);
+    const sor = (id) => mine.body.find((r) => r.job_id === id);
+    egyezik(sor(f.s1)?.distance_km, sor(f.s2)?.distance_km, UTCA, '/bids/mine (nyitott)');
+    egyezik(sor(f.u1)?.distance_km, sor(f.u2)?.distance_km, UTCA, '/bids/mine (kijelölt, fizetetlen)');
+    // A lista alakja nem bővül koordinátával.
+    expect(sor(f.s1)).not.toHaveProperty('pickup_lat');
+
+    const dash = await request(app).get('/auth/me/driver-dashboard').set(auth(nezo.token));
+    expect(dash.status).toBe(200);
+    const d = (id) => dash.body.activeJobs.find((j) => j.id === id);
+    egyezik(d(f.u1)?.distance_km, d(f.u2)?.distance_km, UTCA, 'driver-dashboard (fizetetlen)');
+    expect(d(f.u1)).not.toHaveProperty('dropoff_lat');
+  });
+
+  it('elkelt fuvar a vesztes ajánlattevőnek: a ~1 km-es közelítő pontokból', async () => {
+    const ra = await request(app).get(`/jobs/${f.k1}`).set(auth(nezo.token));
+    const rb = await request(app).get(`/jobs/${f.k2}`).set(auth(nezo.token));
+    expect(ra.status).toBe(200);
+    expect(ra.body.approximate_location).toBe(true);
+    egyezik(ra.body.distance_km, rb.body.distance_km, KOZELITO, 'GET /jobs/:id (elkelt)');
+
+    const mine = await request(app).get('/bids/mine').set(auth(nezo.token));
+    const sor = (id) => mine.body.find((r) => r.job_id === id);
+    egyezik(sor(f.k1)?.distance_km, sor(f.k2)?.distance_km, KOZELITO, '/bids/mine (elkelt)');
+  });
+
+  it('ellenpróba: a díj UTÁN a kijelölt szállító a tárolt (pontos) távolságot kapja', async () => {
+    const pontos = await tarolt(f.p1);
+    const r = await request(app).get(`/jobs/${f.p1}`).set(auth(nezo.token));
+    expect(r.status).toBe(200);
+    expect(Number(r.body.distance_km)).toBe(pontos);
+    const mine = await request(app).get('/bids/mine').set(auth(nezo.token));
+    expect(Number(mine.body.find((x) => x.job_id === f.p1).distance_km)).toBe(pontos);
+    const dash = await request(app).get('/auth/me/driver-dashboard').set(auth(nezo.token));
+    expect(Number(dash.body.activeJobs.find((j) => j.id === f.p1).distance_km)).toBe(pontos);
   });
 });
 

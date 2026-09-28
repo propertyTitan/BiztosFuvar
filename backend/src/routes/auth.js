@@ -148,6 +148,7 @@ function uploadSingle(field) {
 
 const router = express.Router();
 const { utcaSzint } = require('../utils/address');
+const { utcaSzintHely } = require('./jobs');
 
 // ⚠️ ASZINKRON scrypt (2026-09-11, Codex-audit P2-01): a scryptSync MINDEN
 // belépésnél és regisztrációnál blokkolta az event loopot (~50-100 ms az
@@ -913,6 +914,7 @@ router.get('/me/driver-dashboard', authRequired, async (req, res) => {
     db.query(
       `SELECT j.id, j.title, j.status, j.pickup_address, j.dropoff_address,
               j.accepted_price_huf, j.distance_km, j.paid_at,
+              j.pickup_lat, j.pickup_lng, j.dropoff_lat, j.dropoff_lng,
               s.full_name AS shipper_name
          FROM jobs j
          JOIN users s ON s.id = j.shipper_id
@@ -921,9 +923,20 @@ router.get('/me/driver-dashboard', authRequired, async (req, res) => {
       [uid],
     ).then((r) => ({
       ...r,
-      rows: r.rows.map((j) => (j.paid_at ? j : {
-        ...j, pickup_address: utcaSzint(j.pickup_address), dropoff_address: utcaSzint(j.dropoff_address),
-      })),
+      // ⚠️ A `distance_km` is (2026-09-28, audit P1): a tárolt érték a PONTOS
+      // pontokból, 10 m-re számolt — díj előtt a kerekített pontokból, 0,1
+      // km-re (a scrub utcaSzintHely-je). A koordináta nem része a válasznak.
+      rows: r.rows.map(({
+        pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, ...j
+      }) => {
+        if (j.paid_at) return j;
+        const h = utcaSzintHely({
+          ...j, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
+        });
+        return {
+          ...j, pickup_address: h.pickup_address, dropoff_address: h.dropoff_address, distance_km: h.distance_km,
+        };
+      }),
     })),
     // Várakozó licitek száma
     db.query(
