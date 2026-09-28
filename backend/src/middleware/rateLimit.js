@@ -120,6 +120,19 @@ const aiChatRateLimit = createRateLimit({
   message: 'A GoFuvar segéddel percenként max 20 üzenetet válthatsz.',
 });
 
+// ⚠️ 2026-09-28 (audit P1, R2-4): a percenkénti 20 önmagában napi 28 800
+// fizetős Gemini-hívást engedett egy usernek — a napi keret a költség és a
+// közös projekt-kvóta (amin a KYC-ellenőrzés is fut) felső korlátja. A
+// tárolás in-memory, deploy után nullázódik: elfogadott, a cél a tartós
+// égetés megfékezése, nem a pontos napi elszámolás.
+const aiChatDailyRateLimit = createRateLimit({
+  windowMs: 24 * 60 * 60 * 1000,
+  max: 200,
+  keyBy: 'user',
+  name: 'ai-nap',
+  message: 'Elérted a GoFuvar segéd napi keretét (200 üzenet / 24 óra). Később újra kérdezhetsz.',
+});
+
 // ⚠️ AZ E2E_GLOBAL_RATE_LIMIT_MAX KIZÁRÓLAG A TESZT-HARNESSNEK VALÓ
 // (2026-08-16). A Playwright-suite 214 tesztre nőtt, és egy gépről, egy
 // IP-ről hajtja a teljes stacket — a futás elején már súrolta a 300/perc
@@ -156,5 +169,6 @@ module.exports = {
   registerRateLimit,
   writeRateLimit,
   aiChatRateLimit,
+  aiChatDailyRateLimit,
   globalRateLimit,
 };

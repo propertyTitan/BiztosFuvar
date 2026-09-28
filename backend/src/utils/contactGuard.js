@@ -117,14 +117,38 @@ function containsEmail(text) {
 // szöveget. Ekkora szabad-szöveges mező semmilyen legitim használatban nincs.
 const MAX_INPUT_LENGTH = 50000;
 
+// ⚠️ NEM-SZÖVEG = NEM TISZTA (2026-09-28, audit P1). A szűrő eddig minden
+// nem-string értéket „tisztának" nyilvánított, több írási végpont pedig
+// típus-ellenőrzés nélkül adta tovább a mezőt a pg-nek: a node-postgres a
+// tömböt '{"…"}' literállá, az objektumot JSON-ná, a számot szöveggé
+// alakítja, a TEXT-oszlop szó szerint eltárolja, és a másik fél a díj ELŐTT
+// látja. Egy `["Hívj: 06301234567"]` leírás így teljesen megkerülte a kaput.
+// A szűrő ezért FAIL-CLOSED: csak a hiányzó / üres érték tiszta, minden más
+// nem-string elutasítás — így minden meglévő hívó automatikusan 400-at ad.
+const NEM_SZOVEG_HIBA = 'Érvénytelen mező: ide csak szöveg írható.';
+
+// ⚠️ UNICODE-TRÜKKÖK (2026-09-28, audit P1 — mérve): a `\d` csak az ASCII
+// számjegyet ismeri, az elválasztó-halmazban pedig nem volt zéró-szélességű
+// karakter. A „０６３０１２３４５６７" (teljes szélességű), a „06​30…"
+// (zéró-szélességű szóköz) és a lágy kötőjellel tagolt szám mind ÁTMENT.
+// Az ÉSZLELÉS ezért NFKC-normalizált, formázó karakterek (\p{Cf}: U+200B–
+// U+200F, U+2060, U+FEFF, U+00AD…) nélküli szövegen fut — a TÁROLT szöveg
+// változatlan marad (a „m³", a „½" vagy a „…" nem íródik át).
+const FORMAZO_KARAKTEREK = /\p{Cf}/gu;
+function eszlelesiAlak(text) {
+  return text.normalize('NFKC').replace(FORMAZO_KARAKTEREK, '');
+}
+
 /**
  * @returns {string|null} null = OK, string = blokkolás-ok
  */
-function detectContactLeak(text) {
-  if (!text || typeof text !== 'string') return null;
-  if (text.length > MAX_INPUT_LENGTH) {
+function detectContactLeak(raw) {
+  if (raw === undefined || raw === null || raw === '') return null;
+  if (typeof raw !== 'string') return NEM_SZOVEG_HIBA;
+  if (raw.length > MAX_INPUT_LENGTH) {
     return 'A megadott szöveg túl hosszú. Kérjük, rövidítsd le.';
   }
+  const text = eszlelesiAlak(raw);
 
   // ⚠️ NORMALIZÁLÁS a szűrés előtt (2026-08-09, audit 2. kör — mérve).
   // A szűrő korábban csak a szóközt és néhány írásjelet vette ki, ezért a
@@ -190,7 +214,8 @@ function detectContactLeak(text) {
  * vissza (vagy null-t, ha mind tiszta). A díj-megkerülés ellen a
  * fizetés-ELŐTTI, a másik félhez eljutó szabad-szövegeknél használjuk
  * (fuvar cím/leírás, ajánlat-üzenet, járat-leírás, foglalás-jegyzet,
- * profil-mezők). A nem-string mezőket (undefined/null) átugorja.
+ * profil-mezők). A hiányzó / üres mezőt (undefined/null/'') átugorja, a
+ * nem-string értéket viszont elutasítja (fail-closed, 2026-09-28).
  * @param {Array<string|null|undefined>} texts
  * @returns {string|null}
  */

@@ -73,6 +73,12 @@ router.use('/towing', (req, res, next) => {
 // `requester_id`-t (amivel a teljes név lekérhető a publikus profilról).
 // Ezek MIND elvállalás után valók — a listában a döntéshez elég a közelítő
 // hely, a távolság, a probléma- és jármű-típus.
+// ⚠️ A közelítő hely EGY helyen képződik (2026-09-28, audit P1): a lista
+// távolsága, a sugár-szűrés és a push-értesítés is ebből mér — a pontos
+// GPS-ből 10 m-re mért távolság a szabadon választható ?lat/&lng szondával
+// három kérésből visszaadta a bajba jutott pontos helyét.
+const kozelitoKoordinata = (v) => Math.round(Number(v) * 100) / 100;
+
 function scrubTowRequestForList(r) {
   const {
     requester_phone, lat, lng, requester_name,
@@ -81,8 +87,8 @@ function scrubTowRequestForList(r) {
   } = r;
   return {
     ...rest,
-    approx_lat: lat != null ? Math.round(Number(lat) * 100) / 100 : null,
-    approx_lng: lng != null ? Math.round(Number(lng) * 100) / 100 : null,
+    approx_lat: lat != null ? kozelitoKoordinata(lat) : null,
+    approx_lng: lng != null ? kozelitoKoordinata(lng) : null,
     requester_first_name: requester_name ? String(requester_name).trim().split(/\s+/)[0] : null,
   };
 }
@@ -281,25 +287,32 @@ router.get('/towing/incoming', authRequired, async (req, res) => {
     const latDeg = radiusKm / 111;
     const lngDeg = radiusKm / (111 * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
 
+    // (2026-09-28, audit P1) A doboz is a közelítő helyen dönt (a JS-kerekítés
+    // SQL-párja), különben a doboz széle a pontos helyet tapogatná le. Előtte
+    // fél rácslépéssel bővített, indexelhető előszűrés (a backhaul.js mintája).
     const result = await db.query(
       `SELECT t.*, u.full_name AS requester_name, u.phone AS requester_phone
          FROM tow_requests t
          JOIN users u ON u.id = t.requester_id
         WHERE t.status = 'searching'
           AND (t.expires_at IS NULL OR t.expires_at > NOW())
-          AND t.lat BETWEEN $1 AND $2
-          AND t.lng BETWEEN $3 AND $4
+          AND t.lat BETWEEN $1 - 0.00501 AND $2 + 0.00501
+          AND t.lng BETWEEN $3 - 0.00501 AND $4 + 0.00501
+          AND floor(t.lat * 100 + 0.5) / 100 BETWEEN $1 AND $2
+          AND floor(t.lng * 100 + 0.5) / 100 BETWEEN $3 AND $4
         ORDER BY t.created_at DESC
         LIMIT 50`,
       [lat - latDeg, lat + latDeg, lng - lngDeg, lng + lngDeg],
     );
     rows = result.rows;
 
-    // Pontos távolság + szűrés
+    // Távolság + szűrés a KÖZELÍTŐ helytől, 0,1 km-re (lásd fent).
     rows = rows
       .map((r) => ({
         ...r,
-        distance_km: +(distanceMeters(lat, lng, r.lat, r.lng) / 1000).toFixed(2),
+        distance_km: +(distanceMeters(
+          lat, lng, kozelitoKoordinata(r.lat), kozelitoKoordinata(r.lng),
+        ) / 1000).toFixed(1),
       }))
       .filter((r) => r.distance_km <= r.search_radius_km)
       .sort((a, b) => a.distance_km - b.distance_km);
@@ -452,8 +465,12 @@ router.post('/towing/:id/complete', authRequired, writeRateLimit, async (req, re
 
 async function notifyNearbyTowDrivers(towReq) {
   const radiusKm = towReq.search_radius_km || DEFAULT_RADIUS_KM;
+  // (2026-09-28, audit P1) A push a még el nem vállalt kérésről szól: a doboz,
+  // a sugár és a szövegbe írt távolság is a KÖZELÍTŐ helyből (lásd fent).
+  const kLat = kozelitoKoordinata(towReq.lat);
+  const kLng = kozelitoKoordinata(towReq.lng);
   const latDeg = radiusKm / 111;
-  const lngDeg = radiusKm / (111 * Math.max(0.1, Math.cos((towReq.lat * Math.PI) / 180)));
+  const lngDeg = radiusKm / (111 * Math.max(0.1, Math.cos((kLat * Math.PI) / 180)));
 
   const { rows: drivers } = await db.query(
     `SELECT DISTINCT u.id, u.full_name,
@@ -469,15 +486,15 @@ async function notifyNearbyTowDrivers(towReq) {
       LIMIT $6`,
     [
       towReq.requester_id,
-      towReq.lat - latDeg, towReq.lat + latDeg,
-      towReq.lng - lngDeg, towReq.lng + lngDeg,
+      kLat - latDeg, kLat + latDeg,
+      kLng - lngDeg, kLng + lngDeg,
       MAX_PUSH_DRIVERS * 2,
     ],
   );
 
   const nearby = [];
   for (const d of drivers) {
-    const dist = distanceMeters(towReq.lat, towReq.lng, d.lat, d.lng) / 1000;
+    const dist = distanceMeters(kLat, kLng, d.lat, d.lng) / 1000;
     if (dist <= radiusKm) nearby.push({ ...d, distance_km: dist });
   }
   nearby.sort((a, b) => a.distance_km - b.distance_km);
@@ -507,8 +524,8 @@ async function notifyNearbyTowDrivers(towReq) {
     issue_type: towReq.issue_type,
     vehicle_type: towReq.vehicle_type,
     // ~1 km-re kerekített hely (a listás scrubbal azonos felbontás)
-    lat: Math.round(towReq.lat * 100) / 100,
-    lng: Math.round(towReq.lng * 100) / 100,
+    lat: kLat,
+    lng: kLng,
     approximate: true,
     search_radius_km: radiusKm,
     expires_at: towReq.expires_at,

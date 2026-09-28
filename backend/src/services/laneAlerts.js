@@ -11,21 +11,30 @@
 const realDb = require('../db');
 const { telepulesSzint } = require('../utils/address');
 const { distanceMeters } = require('../utils/geo');
+const { publicCoordinate } = require('./backhaul');
 const { createNotification } = require('./notifications');
 const { sendLaneAlertEmail } = require('./email');
+const { laneAlertLevelMehet } = require('./levelKeret');
 
 /**
  * Megnézi, illeszkedik-e a fuvar egy figyelőre.
  * @returns {boolean}
  */
 function jobMatchesAlert(job, alert) {
-  // Felvételi pontnak a figyelő felvételi körén belül kell lennie
-  const fromDistKm = distanceMeters(job.pickup_lat, job.pickup_lng, alert.from_lat, alert.from_lng) / 1000;
+  // ⚠️ A NYILVÁNOS (~110 m-es) ponton döntünk (2026-09-28, audit P1): a
+  // figyelő középpontját és sugarát a szállító választja, a találat ténye
+  // hozzá megy — a pontos ponton döntve egy kis sugarú figyelő-háló a
+  // cella belsejét tapogatta volna le, a díj előtt.
+  const fromDistKm = distanceMeters(
+    publicCoordinate(job.pickup_lat), publicCoordinate(job.pickup_lng), alert.from_lat, alert.from_lng,
+  ) / 1000;
   if (fromDistKm > alert.radius_km) return false;
 
   // Ha a figyelőnek van célterülete, a lerakodásnak is illeszkednie kell
   if (alert.to_lat != null && alert.to_lng != null) {
-    const toDistKm = distanceMeters(job.dropoff_lat, job.dropoff_lng, alert.to_lat, alert.to_lng) / 1000;
+    const toDistKm = distanceMeters(
+      publicCoordinate(job.dropoff_lat), publicCoordinate(job.dropoff_lng), alert.to_lat, alert.to_lng,
+    ) / 1000;
     if (toDistKm > alert.radius_km) return false;
   }
 
@@ -87,6 +96,14 @@ async function notifyMatchingAlerts(job) {
       const routeLabel = `${telepulesSzint(job.pickup_address)} → ${telepulesSzint(job.dropoff_address)}`;
       const link = `/sofor/fuvar/${job.id}`;
 
+      // ⚠️ NAPI E-MAIL-PLAFON SZÁLLÍTÓNKÉNT (2026-09-28, audit P1). Egy feladó
+      // fuvarjai (lemondással ingyen ismételve) minden illeszkedő szállítónak
+      // levelet küldtek — 1+N szorzó a Resend-kvótán, ami a megerősítő és a
+      // jelszó-visszaállító levelet is elvitte volna. Az in-app értesítés
+      // marad; a számlálás a MEGLÉVŐ lane_alert sorokból megy, ezért a mostani
+      // beszúrása ELŐTT kérdezzük.
+      const mehetLevel = await laneAlertLevelMehet(alert.carrier_id);
+
       await createNotification({
         user_id: alert.carrier_id,
         type: 'lane_alert',
@@ -96,6 +113,7 @@ async function notifyMatchingAlerts(job) {
       });
 
       // Email (Resend) — fire-and-forget, kulcs híján stub (csak logol)
+      if (!mehetLevel) continue;
       setImmediate(() => {
         sendLaneAlertEmail({
           to: alert.carrier_email,

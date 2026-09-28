@@ -4,7 +4,7 @@ const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
 const { authRequired, requireDriverKYC, requireVerifiedEmail, driverEligibilityError } = require('../middleware/auth');
-const { distanceMeters } = require('../utils/geo');
+const { distanceMeters, ervenyesKoordinata } = require('../utils/geo');
 const { maskEmail } = require('../utils/mask');
 const realtime = require('../realtime');
 const paymentProvider = require('../services/paymentProvider');
@@ -19,6 +19,8 @@ const { maybeGrantReferralReward } = require('../services/referral');
 const { konyvelDijFizetes } = require('../services/feePayment');
 const { startOrReuseFeePayment, startOrReuseFeePaymentInTransaction } = require('../services/feePaymentSession');
 const { firstContactLeak, ellenorizIndok } = require('../utils/contactGuard');
+const { ellenorizCimzett } = require('../utils/cimzett');
+const { elsoNemSzovegMezo, nemSzovegValasz } = require('../utils/text');
 const { telepulesSzint, utcaSzint } = require('../utils/address');
 
 const router = express.Router();
@@ -148,7 +150,7 @@ function scrubJobForUser(job, user) {
  */
 function utcaSzintHely(job) {
   const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 1000) / 1000);
-  return {
+  return megjelenitettTavolsag(job, {
     ...job,
     pickup_address: utcaSzint(job.pickup_address),
     dropoff_address: utcaSzint(job.dropoff_address),
@@ -156,6 +158,26 @@ function utcaSzintHely(job) {
     pickup_lng: kerekit(job.pickup_lng),
     dropoff_lat: kerekit(job.dropoff_lat),
     dropoff_lng: kerekit(job.dropoff_lng),
+  });
+}
+
+/**
+ * ⚠️ A felvétel–lerakodás távolsága a MEGJELENÍTETT pontokból (2026-09-28,
+ * audit P1). A tárolt `distance_km` a POST /jobs-ban a PONTOS pontokból,
+ * 10 m-re számolódik; változatlanul továbbadva a kerekített koordináta
+ * mellett cellán belüli orákulum volt: ismert (bolti) felvételnél és
+ * utca-szintű lerakodási címnél a 10 m-es távolság az utcán a házszámig
+ * szűkít. A kimenet a kerekített pontok távolsága, 0,1 km-re — a tárolt
+ * érték és az árazás nem változik. Csak ha a sorban volt `distance_km`
+ * (a válasz alakja nem bővül); pont nélkül null (fail-closed).
+ */
+function megjelenitettTavolsag(eredeti, hely) {
+  if (!Object.prototype.hasOwnProperty.call(eredeti, 'distance_km')) return hely;
+  const pontok = [hely.pickup_lat, hely.pickup_lng, hely.dropoff_lat, hely.dropoff_lng];
+  const vanPont = pontok.every((v) => v != null && Number.isFinite(Number(v)));
+  return {
+    ...hely,
+    distance_km: vanPont ? +(distanceMeters(...pontok.map(Number)) / 1000).toFixed(1) : null,
   };
 }
 
@@ -172,7 +194,8 @@ function kozelitoHely(job) {
   // a mellette lévő ~1 km-es koordináta-kerekítést.
   const telepules = telepulesSzint;
   const kerekit = (v) => (v == null ? v : Math.round(Number(v) * 100) / 100);
-  return {
+  // (2026-09-28, audit P1) A távolság is a ~1 km-es pontokból (megjelenitettTavolsag).
+  return megjelenitettTavolsag(job, {
     ...job,
     pickup_address: telepules(job.pickup_address),
     dropoff_address: telepules(job.dropoff_address),
@@ -181,7 +204,7 @@ function kozelitoHely(job) {
     dropoff_lat: kerekit(job.dropoff_lat),
     dropoff_lng: kerekit(job.dropoff_lng),
     approximate_location: true,
-  };
+  });
 }
 
 // POST /jobs – bárki feladhat fuvart (a szerepkör szeparálást eltöröltük;
@@ -227,6 +250,13 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
     // Forrás termékkép (Hozasd el): a hirdetés OG-előnézeti képe
     source_image_url,
   } = req.body || {};
+
+  // Típus-kapu a szabad-szöveges mezőkön (2026-09-28, audit P1): a
+  // `description || null` és a nyers cím eddig a tömböt/objektumot/számot is
+  // a TEXT-oszlopba írta, a kontakt-szűrő pedig a nem-szöveget átengedte —
+  // minden böngésző szállító a díj előtt látta.
+  const rosszTipus = elsoNemSzovegMezo(req.body, ['title', 'description', 'pickup_address', 'dropoff_address']);
+  if (rosszTipus) return res.status(400).json(nemSzovegValasz(rosszTipus));
 
   // Forrás-bolt engedélylista — bármi mást figyelmen kívül hagyunk
   const ALLOWED_SOURCE_STORES = ['IKEA', 'OBI', 'Praktiker', 'Jófogás'];
@@ -292,6 +322,11 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
       pickup_lat == null || pickup_lng == null ||
       dropoff_lat == null || dropoff_lng == null) {
     return res.status(400).json({ error: 'Hiányzó kötelező mezők (cím / koordináták)' });
+  }
+  // Koordináta-kapu (2026-09-28, audit P1) — a számos mellékcsatorna ellen
+  // (lásd utils/geo.js: ervenyesKoordinata).
+  if (!ervenyesKoordinata(pickup_lat, pickup_lng) || !ervenyesKoordinata(dropoff_lat, dropoff_lng)) {
+    return res.status(400).json({ error: 'Érvénytelen koordináta (lat -90..90, lng -180..180).', code: 'INVALID_COORDS' });
   }
   // Cím: trim után 3–120 karakter (TC-013/107 család: a csupa-szóköz és a
   // layout-törő végtelen string kiszűrése)
@@ -385,38 +420,14 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
     return res.status(400).json({ error: 'A csomag értékét kerek forintösszegben add meg.' });
   }
 
-  // Címzett: ha MÁS veszi át (bármelyik címzett-mező ki van töltve), akkor a
-  // NÉV és a TELEFONSZÁM együtt kötelező (tesztelői észrevétel, 2026-08-04).
-  // Enélkül a szállító a címen áll egy névvel, akit nem tud felhívni — és a
-  // felvételkori SMS (átvételi kód) sem tud kimenni.
-  const recipientName = typeof recipient_name === 'string' ? recipient_name.trim() : '';
-  const recipientPhone = typeof recipient_phone === 'string' ? recipient_phone.trim() : '';
-  const recipientEmail = typeof recipient_email === 'string' ? recipient_email.trim() : '';
-  const hasAnyRecipient = Boolean(recipientName || recipientPhone || recipientEmail);
-  if (hasAnyRecipient && (!recipientName || !recipientPhone)) {
-    return res.status(400).json({
-      error: 'Ha más veszi át a csomagot, a címzett neve ÉS telefonszáma is kötelező.',
-      code: 'RECIPIENT_INCOMPLETE',
-    });
-  }
-  if (recipientPhone) {
-    const digits = recipientPhone.replace(/\D/g, '');
-    if (/[a-zA-Z]/.test(recipientPhone) || digits.length < 9 || digits.length > 15) {
-      return res.status(400).json({
-        error: 'A címzett telefonszáma érvénytelen (add meg körzetszámmal, pl. +36 30 123 4567).',
-        code: 'RECIPIENT_PHONE_INVALID',
-      });
-    }
-  }
-  // GF-005 (Manus, 2026-08-30): a címzett-e-mail opcionális, de ha meg van
-  // adva, követési linket ígérünk rá — hibás címre a levél némán a semmibe
-  // ment volna. Ugyanaz a minta, mint a regisztrációs e-mailnél (auth.js).
-  if (recipientEmail && (recipientEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(recipientEmail))) {
-    return res.status(400).json({
-      error: 'A címzett e-mail címe érvénytelen (pl. nev@email.hu) — javítsd, vagy hagyd üresen.',
-      code: 'RECIPIENT_EMAIL_INVALID',
-    });
-  }
+  // Címzett-adatok: a közös validátoron (2026-09-28, audit P1). A név eddig
+  // csak trim()-et kapott — hossz- és kontakt-szűrés nélkül ment a márkázott,
+  // noreply@gofuvar.hu-s címzetti levelekbe és a publikus követő-oldalra. A
+  // szabályok (név+telefon együtt, telefon- és e-mail-formátum, név ≤100,
+  // számjegy és kontakt nélkül) a foglalási ággal közösek: utils/cimzett.js.
+  const cimzett = ellenorizCimzett({ recipient_name, recipient_phone, recipient_email });
+  if (!cimzett.ok) return res.status(400).json({ error: cimzett.error, code: cimzett.code });
+  const { recipientName, recipientPhone, recipientEmail } = cimzett;
 
   // --- Azonnali fuvar (is_instant) validáció ---
   // Az instant fuvarnál nincs licit: a suggested_price_huf a VÉGSŐ ár.
@@ -548,6 +559,13 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
       // Email küldés (ha van email + Resend API kulcs)
       if (recipientEmail) {
         try {
+          // ⚠️ NAPI KERET (2026-09-28, audit P1): a meg nem erősített címre
+          // menő levél eddig méretlen volt — egy fiók elégethette a Resend-
+          // kvótát, és utána a megerősítő/jelszó-visszaállító levél sem ment.
+          // A keret felett a fuvar létrejön, csak ez a tájékoztató levél marad
+          // ki (a kód a felvételkor úgyis megy). services/levelKeret.js
+          const { cimzettiLevelMehet } = require('../services/levelKeret');
+          if (!(await cimzettiLevelMehet(req.user.sub))) return;
           const { sendRecipientTrackingEmail } = require('../services/email');
           // ⚠️ KÓD NÉLKÜL (2026-09-11, teljes audit A4): az átvételi kód a
           // csomag FELVÉTELEKOR megy a címzettnek (e-mail + SMS, photos.js) —
@@ -1771,3 +1789,7 @@ module.exports = router;
 // A `jobs:new` socket-broadcast és a REST kívülálló-ág ezt a scrubot használja
 // — exportáljuk, hogy a biztonsági tesztek közvetlenül őrizhessék a határt.
 module.exports.scrubJobForUser = scrubJobForUser;
+// A kézzel épített listák (/bids/mine, szállítói dashboard) ugyanazt a díj
+// előtti hely-kerekítést használják, nem egy második változatot.
+module.exports.utcaSzintHely = utcaSzintHely;
+module.exports.kozelitoHely = kozelitoHely;

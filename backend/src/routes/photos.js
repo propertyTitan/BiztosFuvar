@@ -21,8 +21,14 @@ const { withPhotoUpload } = require('../services/photoUpload');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { markTaxDataRequestedIfNeeded } = require('../services/dac7');
 const { commitPhoto, codesMatch } = require('../services/photoEvidence');
+const { jaratIrasKapu } = require('../utils/jaratKapcsolo');
 
 const router = express.Router();
+// Járat-kapcsoló (2026-09-28, audit P1): a foglalás-fotó (`POST
+// /route-bookings/:bookingId/photos`) ebben a routerben él, ami a carrierRoutes
+// ELŐTT van mountolva — a kikapcsolt járat-ág kapuja ide eddig el sem jutott.
+// A kapu előtag-szűrt, a fuvar-fotókat nem érinti. A routes ELŐTT kell állnia.
+router.use(jaratIrasKapu);
 // 10 MB kép-korlát: memóriából dolgozunk, mert a storage service
 // kapja meg a buffer-t és eldönti, hova ír (Cloudflare R2 / disk).
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });

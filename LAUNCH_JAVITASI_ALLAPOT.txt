@@ -1,5 +1,104 @@
 GOFUVAR – P0/P1 JAVÍTÁSI NYILVÁNTARTÁS
 
+2026-09-28 – TELJES P0/P1-AUDIT ÉS A HÉT P1 JAVÍTÁSA
+
+Fejlesztési ág: fix/audit-20260928-p1. Alap: 8932088 (PR #253).
+Állapot: helyi kódjavítások és tesztek; nem merge- vagy telepítési igazolás.
+
+Audit: 12 területi ügynök (pénz-út, ajánlat-állapotgép, teljesítés,
+adatvédelem/kikerülés, jogosultság, KYC/fájlok, retenció, járat/SOS, web,
+friss PR-ek, üzemeltetés, validáció) + 5 hiánykereső; minden tételt három
+független ügynök vizsgált (saját reprodukció, cáfolás, súlyosság). P0 nem
+volt. A pénz-út, a teljesítés, a KYC/fájlkezelés, a #247–#253 diff és a
+maszkoló regexek (ReDoS) tisztának bizonyultak. Ez nem bizonyítja minden
+további P0/P1 hiányát.
+
+C01 – JÁRAT-kapu kis/nagybetűs megkerülése. A kapu kis/nagybetű-érzékeny
+regexet futtatott, az Express router viszont nem különbözteti meg a betűket:
+a POST /Carrier-Routes stb. kikapcsolt ágon is írt. A foglalás-fotó (a photos
+router) kapu nélkül volt. Most közös utils/jaratKapcsolo.js mindkét routerben.
+Ugyanebben: a /uploads/private 404-kapu a nyers utat nézte, a statikus
+kiszolgáló a dekódoltat — a %70rivate, //private alak kiadta a disk-fallback
+fájlt (élesben R2, ezért kis kockázat). Fájlok: jaratKapcsolo.js,
+carrierRoutes.js, photos.js, index.js.
+
+C02 – Díj előtti pontos hely az útba eső fuvarokból. A kitérő 10 m-re, a
+pontos pontból ment, a megálló mozgatásával háromszögelhető volt; a tárolt
+distance_km ugyanígy minden díj előtti úton (GET /jobs, /jobs/:id,
+visszafuvar, feed, /bids/mine, szállítói dashboard). Most minden a
+kerekített pontból, 0,1 km-re; a lane-alert, az azonnali push és a mentős
+távolság is. A tárolt érték és az árazás változatlan. Fájlok: routeAlong.js,
+laneAlerts.js, instantJobs.js, towing.js, jobs.js, bids.js, auth.js.
+
+C03 – Socket-áradat a DB-pool ellen. A job:join minden stringre, korlát
+nélkül futtatott lekérdezést; egy socket kimerítette a poolt, a REST 500-at
+adott. Most: UUID- és tagság-előszűrés, socketenkénti löket/utántöltés és
+függő-plafon, fiókonkénti függő-plafon és socketszám, folyamatszintű
+socket-DB plafon (alap 4 egyidejű, 256 várakozó). Új env-hangolók:
+SOCKET_* (backend/.env.example). Fájlok: realtime.js, socketDbKorlat.js.
+
+C04 – AI-chat költség és kvóta. Megerősítetlen fiók, korlátlan méret, a KYC-val
+közös kulcs. Most: requireVerifiedEmail, üzenet ≤2000 karakter
+(AI_MESSAGE_TOO_LONG), előzmény ≤20 × 2000, maxOutputTokens 2048 (a
+gondolkodó tokenek miatt nem 1024), napi 200/fiók, opcionális
+GEMINI_CHAT_API_KEY (kvótát csak külön Google-projekt kulcsa választ le).
+Fájlok: ai.js, gemini.js, rateLimit.js.
+
+C05 – Címzetti levél mint relé. A feladáskori levél tetszőleges címre ment,
+keret nélkül (Resend-kvóta kimeríthető → megerősítő és jelszó-levél sem
+megy), a címzett neve hossz- és kontakt-szűrés nélkül került a márkázott
+levélbe és a publikus követőoldalra. Most közös utils/cimzett.js (fuvar és
+foglalás): név ≤100, számjegy (NAME_HAS_DIGITS), kontakt és vezérlő/formázó
+karakter nélkül. Feladáskori címzetti levél: 10/fiók/24 óra és
+60/platform/24 óra (RECIPIENT_EMAIL_DAILY_CAP_PER_USER / _CAP), felette a
+fuvar létrejön, a levél kimarad (Sentry-jelzés). Lane-alert levél:
+20/szállító/24 óra. Fájlok: cimzett.js, nev.js, levelKeret.js, jobs.js,
+carrierRoutes.js, auth.js, laneAlerts.js.
+
+C06 – AI-előzmény fiókok között. A /ai-chat globális kulcsot használt, a
+widget átmásolta. Most fiókhoz kötött kulcs (web/src/lib/aiHistory.ts), a
+régi kulcs soha nem öröklődik, kijelentkezéskor törlődik; a beviteli mező
+2000 karakteres, az AI_MESSAGE_TOO_LONG magyar üzenetet kap. Az adatkezelési
+tájékoztató localStorage-sora igazítva (hatálydátum változatlan — ügyvezetői
+döntés, kell-e emelni).
+
+C07 – A kontakt-szűrő nem-szöveggel megkerülhető volt. A nem-string értéket
+„tisztának" vette, a végpontok nyersen tárolták. Most fail-closed (400
+INVALID_TEXT_FIELD), típus-kapuk a fuvar, ajánlat, regisztráció, értékelés,
+járat és foglalás írásain; az észlelés NFKC + \p{Cf} nélküli alakon fut
+(teljes szélességű számjegy, zéró-szélességű elválasztó, lágy kötőjel). Számos
+mellékcsatornák: eta_minutes 1–10 080, járat-ár ≤100 000 000 Ft, koordináta
+lat ±90 / lng ±180. A kapcsolat-szivargas teszt „nem-string → null" elvárása a
+hibát kodifikálta, igazítva. Fájlok: contactGuard.js, text.js, geo.js,
+jobs.js, bids.js, auth.js, reviews.js, carrierRoutes.js, sos.js.
+
+Munkamódszer: minden javítás külön worktree-ben, először a (javítás nélkül
+piros) őr-teszt; független ellenőrző újramérte a pirosat/zöldet és saját
+megkerülést próbált (C01, C03–C06 jóváhagyva; C02 egy javítókör után, C07 az
+ellenőrző ügynök elakadása miatt kézi átnézéssel). Új őrök:
+backend/tests/audit-20260928-{jarat-kapu,utba-eso,socket-arvizes,ai-chat,
+cimzett-level,kontakt-tipus}.test.js; web/src/lib/aiHistory.test.ts,
+web/src/components/ai-elozmeny-fiokhatar.test.tsx.
+
+Helyi bizonyíték (az összefésült ágon): teljes backend 2403/2403 (212 fájl),
+lefedettségi kapu sikeres (sor 93,96%, utasítás 92,38%, függvény 88,64%,
+ág 85,08%); web 252/252 (45 fájl), tsc tiszta, production build sikeres.
+Böngészős E2E a PR CI-jében fut. Migráció nincs.
+
+Megerősített, de P2 (nem javítva): a második újranyitás feléleszti egy
+korábban visszalépett szállító ajánlatát; szállítócsere után a szimulált díj-
+session függőben marad (CIB élesítésekor ellenőrizendő); kézbesítés után
+azonnal törölt fiók viszi a 24 órás vita-ablak bizonyítékát; 10 MB feletti
+fotó 413 helyett 500; a címzetti SMS-szám nincs kanonizálva; a jelszó-
+visszaállító levél a kérésben megadott címre megy (Unicode LOWER; gyakorlatban
+nem kihasználható); a feltöltés az R2-írás alatt fogja a DB-klienst.
+Nyitott megjegyzések: a noOfferNudge levélnek nincs feladónkénti kerete; a
+lane-alertnek nincs feladónkénti kerete; handshake-re nincs fiókonkénti
+rátakorlát (a pool védett); a zárt alakú járat-megálló régi, extra kulcsos
+waypoints-sort 400-zal utasítana (a járat-ág rejtett; élesítés előtt csak
+olvasó lekérdezéssel ellenőrizendő); a kontakt-szűrő rövid TLD-listáján kívüli
+link-rövidítők (bit.ly, t.me) nem szűrtek.
+
 2026-09-27 – PR #250 UTÁNI NÉGY P1 JAVÍTÁSA
 
 Fejlesztési ág: fix/post250-four-p1. Alap: 28464d3 (PR #250).

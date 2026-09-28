@@ -34,7 +34,7 @@ process.env.PORT = '0';
 // Az összes stub-ellenőrzés falsy-t néz, tehát az üres string = „nincs kulcs".
 for (const kulcs of [
   'SEEME_API_KEY', 'RESEND_API_KEY', 'SENTRY_DSN',
-  'GEMINI_API_KEY', 'GOOGLE_MAPS_API_KEY',
+  'GEMINI_API_KEY', 'GEMINI_CHAT_API_KEY', 'GOOGLE_MAPS_API_KEY',
   // Tárolás — enélkül a teszt-feltöltések az éles bucketbe mennek
   'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_ACCOUNT_ID',
   'R2_BUCKET_NAME', 'R2_PUBLIC_URL', 'R2_PRIVATE_BUCKET_NAME',
@@ -60,3 +60,9 @@ process.env.TOWING_ENABLED = 'true';
 process.env.SOS_ENABLED = 'true';
 // Járat-ág (2026-09-11, D1): élesben rejtett, a tesztek a teljes funkciót mérik.
 process.env.JARAT_ENABLED = 'true';
+// Címzetti levél platform-kerete (2026-09-28, audit P1): a teljes suite EGY
+// adatbázison osztozik, a keret pedig az utolsó 24 óra ÖSSZES címzettes
+// fuvarát számolja — az alapérték (60) a futás közepén betelne, és a később
+// futó fájlok levél-állításai sorrendfüggően buknának. Az őr-teszt
+// (audit-20260928-cimzett-level) a saját eseteiben explicit állítja.
+process.env.RECIPIENT_EMAIL_DAILY_CAP = '1000000';

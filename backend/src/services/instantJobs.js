@@ -16,6 +16,7 @@
 
 const db = require('../db');
 const { distanceMeters } = require('../utils/geo');
+const { publicCoordinate } = require('./backhaul');
 const { sendPushToUser } = require('./push');
 const { createNotification } = require('./notifications');
 const realtime = require('../realtime');
@@ -40,6 +41,13 @@ const MAX_NOTIFICATIONS_PER_JOB = 40;
  */
 async function findNearbyActiveCarriers(lat, lng, shipperIdToExclude, radiusKm = DEFAULT_RADIUS_KM) {
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+  // ⚠️ A fuvar NYILVÁNOS (~110 m-es) pontjától mérünk (2026-09-28, audit P1):
+  // a távolság a push szövegébe kerül („… km-re"), a szállító pedig a saját
+  // utolsó pozícióját szabadon küldi — a pontos pontból 10 m-es felbontással
+  // mérve ez a ház-pontos felvételi címet adta ki, a díj előtt. A sugár-
+  // szűrés és a sorrend is ezen a ponton dől el.
+  lat = publicCoordinate(lat);
+  lng = publicCoordinate(lng);
 
   const latDeg = radiusKm / 111;
   const lngDeg = radiusKm / (111 * Math.max(0.1, Math.cos((lat * Math.PI) / 180)));
@@ -71,7 +79,7 @@ async function findNearbyActiveCarriers(lat, lng, shipperIdToExclude, radiusKm =
   for (const r of rows) {
     const d = distanceMeters(lat, lng, r.lat, r.lng) / 1000;
     if (d <= radiusKm) {
-      out.push({ id: r.id, distance_km: +d.toFixed(2) });
+      out.push({ id: r.id, distance_km: +d.toFixed(1) });
     }
   }
   out.sort((a, b) => a.distance_km - b.distance_km);

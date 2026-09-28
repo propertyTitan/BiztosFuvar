@@ -110,18 +110,23 @@ describe('Amit SZÁNDÉKOSAN átenged — különben használhatatlan lenne a ch
 
 describe('Robusztusság: nem-szöveg és üres bemenet', () => {
   it('üres és hiányzó értékre nem dob, nem is blokkol', () => {
-    for (const ertek of [null, undefined, '', 0, false]) {
+    for (const ertek of [null, undefined, '']) {
       expect(detectContactLeak(ertek), `elszállt vagy blokkolt: ${String(ertek)}`).toBeNull();
     }
   });
 
-  it('nem-string típusra sem dob (szám, objektum, tömb)', () => {
-    for (const ertek of [12345678901, { a: 1 }, [1, 2, 3], true]) {
+  // ⚠️ 2026-09-28 (audit P1): ez a teszt korábban azt KÖVETELTE, hogy a
+  // nem-string értéket a szűrő „tisztának" lássa — pontosan ez volt a rés: a
+  // `["Hívj: 06301234567"]` tömb a pg-n át '{"…"}' literálként a TEXT-oszlopba
+  // került, a másik fél a díj előtt látta. A hívók a találatra 400-at adnak
+  // (nem néma hiba), ezért a helyes viselkedés a fail-closed.
+  it('nem-string típusra sem dob, de NEM tiszta (szám, objektum, tömb, boolean)', () => {
+    for (const ertek of [12345678901, { a: 1 }, [1, 2, 3], true, 0, false]) {
       expect(() => detectContactLeak(ertek)).not.toThrow();
       expect(
         detectContactLeak(ertek),
-        'nem-string értéket blokkolt — a hívó oldalon ez néma hibát okozna',
-      ).toBeNull();
+        'nem-string értéket tisztának látott — így a szűrő tömbbel/számmal megkerülhető',
+      ).toBeTruthy();
     }
   });
 });

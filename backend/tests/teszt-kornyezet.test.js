@@ -23,7 +23,7 @@ const paymentProvider = require('../src/services/paymentProvider');
 // külső hívást okozna. Ha új integráció jön, ide is fel kell venni.
 const TILTOTT_KULCSOK = [
   'SEEME_API_KEY', 'RESEND_API_KEY', 'SENTRY_DSN',
-  'GEMINI_API_KEY', 'GOOGLE_MAPS_API_KEY',
+  'GEMINI_API_KEY', 'GEMINI_CHAT_API_KEY', 'GOOGLE_MAPS_API_KEY',
   'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_ACCOUNT_ID',
   'R2_BUCKET_NAME', 'R2_PUBLIC_URL', 'R2_PRIVATE_BUCKET_NAME',
   'CIB_API_KEY', 'CIB_MERCHANT_ID',

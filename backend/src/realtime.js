@@ -8,6 +8,35 @@
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
+const { isUuid } = require('./middleware/validateParams');
+const { createSocketDbKorlat, createKeret } = require('./utils/socketDbKorlat');
+
+// ── Socket-eredetű DB-munka korlátai (2026-09-28, audit P1) ──────────────
+// ⚠️ A HTTP rate limit a websocket-eseményekre nem hat: egyetlen hitelesített
+// socket véletlen UUID-k ezreivel `job:join`-olva sorba állíthatta a teljes
+// poolt, és a REST 500-at adott („timeout exceeded when trying to connect").
+// A méretezés a VALÓDI klienshez igazodik (web/src/lib/socket.ts): egy
+// fuvar-oldal EGY fuvar szobájába lép (a követő-térkép ugyanarra — ezt a
+// függő-duplikátum szűrő nyeli el), újracsatlakozáskor ugyanennyit; az
+// áttekintő térkép a feladó összes folyamatban lévő fuvarjára lépne be
+// egyszerre. A plafonok ennek sokszorosát engedik, így jogos esemény nem esik ki.
+const POOL_MAX = db.pool?.options?.max || 30;
+const KORLATOK = Object.freeze({
+  // Egyszerre futó socket-lekérdezés a TELJES folyamatban — legfeljebb a pool negyede.
+  dbFut: Math.max(1, Math.min(Number(process.env.SOCKET_DB_MAX_INFLIGHT) || 4, Math.floor(POOL_MAX / 4))),
+  dbSor: Number(process.env.SOCKET_DB_MAX_QUEUE) || 256,
+  joinKeret: Number(process.env.SOCKET_JOIN_BURST) || 64,
+  joinMpenkent: Number(process.env.SOCKET_JOIN_PER_SEC) || 8,
+  joinFuggo: Number(process.env.SOCKET_JOIN_MAX_PENDING) || 32,
+  // Fiókonként is: egy fiók sok socketje se sajátíthassa ki a közös várólistát.
+  joinFuggoFiok: Number(process.env.SOCKET_JOIN_MAX_PENDING_PER_USER) || 64,
+  socketPerUser: Number(process.env.SOCKET_MAX_PER_USER) || 20,
+  sertesPlafon: Number(process.env.SOCKET_JOIN_STRIKE_LIMIT) || 500,
+});
+// Folyamat-szintű, minden socket közös plafonja (az osztály-garancia).
+const socketDb = createSocketDbKorlat({ maxInFlight: KORLATOK.dbFut, maxQueue: KORLATOK.dbSor });
+// Fiókonként függő szoba-belépési ellenőrzések száma (userId → darab).
+const fiokFuggo = new Map();
 
 let io = null;
 // A hitelesítésre váró socket még nincs az io.fetchSockets() eredményében.
@@ -55,13 +84,20 @@ function init(httpServer) {
     if (token) {
       try {
         const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+        // Fiókonként korlátos számú egyidejű (hitelesített vagy épp hitelesülő)
+        // socket: a plafon felett DB-munka nélkül vendég (2026-09-28, audit P1).
+        if ((sessions.get(payload.sub)?.size || 0) >= KORLATOK.socketPerUser) return next();
         tracked = trackSession(socket, payload.sub);
         // Session-invalidáció a socketen is: a jelszó-reset (token_version++)
         // után a nyitott socket ne maradjon hitelesítve. Eltérő tv / hiányzó
-        // user → vendégként kezeljük (szoba-join nélkül).
-        const { rows } = await db.query(
+        // user → vendégként kezeljük (szoba-join nélkül). A lekérdezés a
+        // közös socket-korláton megy: a nyit-bont áradat sem viszi el a poolt.
+        const { rows } = await socketDb.run(() => db.query(
           'SELECT token_version, email_verified, role FROM users WHERE id = $1', [payload.sub],
-        );
+        ), {
+          elsobbseg: true,
+          ervenyes: () => !tracked.attempt.revoked && socket.conn.readyState !== 'closed',
+        });
         if (!tracked.attempt.revoked && rows[0] && (rows[0].token_version ?? 0) === (payload.tv ?? 0)
           // A DB-várakozás alatt is lejárhatott az egyszer már ellenőrzött JWT.
           && (payload.exp === undefined || payload.exp * 1000 > Date.now())) {
@@ -76,7 +112,7 @@ function init(httpServer) {
           socket.data.emailVerified = !!rows[0].email_verified;
         }
       } catch {
-        // Érvénytelen/lejárt token vagy DB-hiba → vendégként kezelve
+        // Érvénytelen/lejárt token, DB-hiba vagy socket-korlát → vendégként kezelve
       }
     }
     if (!socket.data.user) tracked?.release();
@@ -117,9 +153,12 @@ function init(httpServer) {
     // Aktivitás-mérés: a bejelentkezett kapcsolat kezdete. A socket
     // élettartama a proxy az "oldal használata"-ra. Disconnectkor a két
     // időpont különbségét hozzáadjuk a felhasználó összes aktív idejéhez.
+    // A mérés elhagyható: terhelés alatt a socket-korlát eldobja.
     if (me()) {
+      const uid = me();
       socket.data.connectedAt = Date.now();
-      db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [me()]).catch(() => {});
+      socketDb.run(() => db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [uid]), { elhagyhato: true })
+        .catch(() => {});
     }
     socket.on('disconnect', () => {
       // Bontáskor már lejárhatott a hitelesítés; ez csak a lezárult
@@ -130,38 +169,74 @@ function init(httpServer) {
       // Anomália-szűrés: 0 alatt (óra-ugrás) vagy 24h felett (ott-felejtett
       // tab / szerver-anomália) nem számoljuk az időt, csak a last_seen-t.
       if (seconds <= 0 || seconds > 86400) {
-        db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [uid]).catch(() => {});
+        socketDb.run(() => db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [uid]), { elhagyhato: true })
+          .catch(() => {});
         return;
       }
-      db.query(
+      socketDb.run(() => db.query(
         'UPDATE users SET total_active_seconds = total_active_seconds + $1, last_seen_at = NOW() WHERE id = $2',
         [seconds, uid],
-      ).catch(() => {});
+      ), { elhagyhato: true }).catch(() => {});
     });
 
     // Egy konkrét fuvar élő követési szobája — csak a fuvar felei vagy admin.
     // (A címzett publikus követése nem socketen, hanem a token-alapú
     // /tracking/:token REST végponton megy.)
+    // ⚠️ Szoba-belépési korlát (2026-09-28, audit P1): socketenként token-vödör
+    // és a függő ellenőrzések plafonja; aki tartósan túllépi, bontjuk.
+    const joinKeret = createKeret({ kapacitas: KORLATOK.joinKeret, mpenkent: KORLATOK.joinMpenkent });
+    let sertesek = 0;
+    const sertes = () => {
+      sertesek += 1;
+      if (sertesek === KORLATOK.sertesPlafon) {
+        console.warn('[realtime] socket bontva: tartósan túl sok szoba-belépési kérés');
+        socket.disconnect(true);
+      }
+    };
     socket.on('job:join', async (jobId) => {
-      if (typeof jobId !== 'string' || !me()) return;
-      if (isAdmin()) return void socket.join(`job:${jobId}`);
+      // Olcsó szűrők MINDEN DB-munka előtt: nem-UUID azonosító, meglévő
+      // tagság és ugyanarra az azonosítóra már futó ellenőrzés nem ér a poolhoz.
+      if (!isUuid(jobId) || !me()) return;
+      const szoba = `job:${jobId}`;
+      if (isAdmin()) return void socket.join(szoba);
+      if (socket.rooms.has(szoba)) return;
       const userId = me();
       let joins = pendingJoins.get(socket);
       if (!joins) { joins = new Map(); pendingJoins.set(socket, joins); }
-      const attempt = Symbol();
+      const folyo = joins.get(jobId);
+      if (folyo) { folyo.ujra = true; return; }
+      const fiokNal = fiokFuggo.get(userId) || 0;
+      if (joins.size >= KORLATOK.joinFuggo || fiokNal >= KORLATOK.joinFuggoFiok || !joinKeret()) {
+        return void sertes();
+      }
+      fiokFuggo.set(userId, fiokNal + 1);
+      const attempt = { ujra: false };
       joins.set(jobId, attempt);
+      const ervenyes = () => socket.connected && socket.data.user?.sub === userId
+        && pendingJoins.get(socket) === joins && joins.get(jobId) === attempt;
       try {
-        const { rows } = await db.query(
-          'SELECT 1 FROM jobs WHERE id = $1 AND (shipper_id = $2 OR carrier_id = $2)',
-          [jobId, userId],
-        );
+        let rows;
+        do {
+          ({ rows } = await socketDb.run(() => {
+            attempt.ujra = false;
+            return db.query(
+              'SELECT 1 FROM jobs WHERE id = $1 AND (shipper_id = $2 OR carrier_id = $2)',
+              [jobId, userId],
+            );
+          }, { ervenyes }));
+          // Ha a lekérdezés FUTÁSA közben ugyanerre újabb belépés jött, és még
+          // nem jogosult, a keretből újraellenőrzünk: a jogosultság épp akkor
+          // nyílhatott meg (a duplikátum nem indít külön lekérdezést).
+        } while (!rows.length && attempt.ujra && ervenyes() && joinKeret());
         if (rows.length && socket.connected && me() === userId && joins.get(jobId) === attempt) {
-          socket.join(`job:${jobId}`);
+          socket.join(szoba);
         }
       } catch {
-        // hibás UUID vagy DB-hiba → egyszerűen nem csatlakozik
+        // korlát miatt eldobva vagy DB-hiba → egyszerűen nem csatlakozik
       } finally {
         if (joins.get(jobId) === attempt) joins.delete(jobId);
+        const maradt = (fiokFuggo.get(userId) || 1) - 1;
+        if (maradt > 0) fiokFuggo.set(userId, maradt); else fiokFuggo.delete(userId);
       }
     });
     socket.on('job:leave', (jobId) => {

@@ -10,6 +10,8 @@ const { sendBidReceivedEmail, sendBidAcceptedEmail, sendPaymentDueEmail } = requ
 const { getJobParty } = require('../utils/jobAccess');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const { detectContactLeak } = require('../utils/contactGuard');
+const { utcaSzintHely, kozelitoHely } = require('./jobs');
+const { nemSzovegValasz } = require('../utils/text');
 
 const router = express.Router();
 
@@ -71,6 +73,7 @@ router.get('/bids/mine', authRequired, async (req, res) => {
         j.pickup_address,
         j.dropoff_address,
         j.distance_km,
+        j.pickup_lat, j.pickup_lng, j.dropoff_lat, j.dropoff_lng,
         j.suggested_price_huf,
         j.accepted_price_huf,
         j.carrier_id      AS job_carrier_id,
@@ -90,26 +93,33 @@ router.get('/bids/mine', authRequired, async (req, res) => {
   //   · kijelölt szállító + FIZETVE  → pontos cím (oda kell mennie);
   //   · nyitott fuvar / kijelölt, de fizetetlen → UTCA-szint (házszám nélkül);
   //   · elkelt/lezárt, nem az enyém  → település-szint.
-  const { telepulesSzint, utcaSzint } = require('../utils/address');
+  // ⚠️ A `distance_km` is (2026-09-28, audit P1): a tárolt érték a PONTOS
+  // pontokból, 10 m-re számolt — a díj előtt a kerekített pontokból, 0,1 km-re
+  // megy ki, ugyanazzal a helperrel, mint a scrubban. A koordináta maga nem
+  // része a listának, csak ehhez olvassuk.
   const NYITOTT = ['bidding', 'pending'];
+  const hely = (ki, pontok, fn) => {
+    const h = fn({
+      pickup_address: ki.pickup_address, dropoff_address: ki.dropoff_address,
+      distance_km: ki.distance_km, ...pontok,
+    });
+    return {
+      ...ki, pickup_address: h.pickup_address, dropoff_address: h.dropoff_address, distance_km: h.distance_km,
+    };
+  };
   res.json(rows.map((r) => {
     // A paid_at belső döntési adat — a (vesztes) ajánlattevőre nem tartozik
     // a másik ügylet fizetési állapota (BUG-038 osztálya).
-    const { job_paid_at, ...ki } = r;
+    const {
+      job_paid_at, pickup_lat, pickup_lng, dropoff_lat, dropoff_lng, ...ki
+    } = r;
+    const pontok = {
+      pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
+    };
     const enVagyok = r.job_carrier_id === req.user.sub;
     if (enVagyok && job_paid_at) return ki;
-    if (NYITOTT.includes(r.job_status) || enVagyok) {
-      return {
-        ...ki,
-        pickup_address: utcaSzint(ki.pickup_address),
-        dropoff_address: utcaSzint(ki.dropoff_address),
-      };
-    }
-    return {
-      ...ki,
-      pickup_address: telepulesSzint(ki.pickup_address),
-      dropoff_address: telepulesSzint(ki.dropoff_address),
-    };
+    if (NYITOTT.includes(r.job_status) || enVagyok) return hely(ki, pontok, utcaSzintHely);
+    return hely(ki, pontok, kozelitoHely);
   }));
 });
 
@@ -172,6 +182,26 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
     return res.status(400).json({ error: 'A megadott összeg irreálisan magas (legfeljebb 100 000 000 Ft).' });
   }
 
+  // Típus-kapu + számos mellékcsatorna (2026-09-28, audit P1): az üzenet
+  // tömbként/objektumként/számként eddig szó szerint a TEXT-oszlopba ment (a
+  // kontakt-szűrő a nem-szöveget átengedte), az `eta_minutes` pedig korlátlan
+  // egész volt — egy 9 jegyű mobilszám belefért, és a feladó a díj előtt látta.
+  // 1 perc … 7 nap (10 080 perc) bőven lefed minden valós érkezési becslést.
+  if (message !== undefined && message !== null && typeof message !== 'string') {
+    return res.status(400).json(nemSzovegValasz('message'));
+  }
+  let etaClean = null;
+  if (eta_minutes !== undefined && eta_minutes !== null && eta_minutes !== '') {
+    const n = (typeof eta_minutes === 'number' || typeof eta_minutes === 'string') ? Number(eta_minutes) : NaN;
+    if (!Number.isInteger(n) || n < 1 || n > 10080) {
+      return res.status(400).json({
+        error: 'Az érkezési idő 1 és 10 080 perc (7 nap) közötti egész szám legyen.',
+        code: 'ETA_INVALID',
+      });
+    }
+    etaClean = n;
+  }
+
   // Kapcsolat-szivárgás védelem: az ajánlat-üzenet a feladóhoz jut a
   // díjfizetés ELŐTT (a bid-listán látja) — telefonszám/email itt a díj
   // (a platform egyetlen bevétele) megkerülése lenne.
@@ -227,7 +257,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
        WHERE bids.status IN ('rejected', 'withdrawn')
           OR (bids.status = 'pending' AND bids.job_terms_revision <> EXCLUDED.job_terms_revision)
        RETURNING *`,
-      [jobId, req.user.sub, numAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, eta_minutes || null, return_policy, returnFeeClean, job.terms_revision],
+      [jobId, req.user.sub, numAmount, bidCurrency, exchangeRate, exchangeFrozenAt, message || null, etaClean, return_policy, returnFeeClean, job.terms_revision],
     );
     // Ha a WHERE nem engedte az UPDATE-et (pending/accepted sor), a Postgres
     // NULLA sort ad vissza — ez a „már tettél ajánlatot" eset.
