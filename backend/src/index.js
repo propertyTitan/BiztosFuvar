@@ -194,7 +194,19 @@ app.get('/coverage/zones', (_req, res) => {
 // szolgálható ki statikusan (2026-08-09, audit 3. kör). Eddig az express.static
 // hitelesítés nélkül kiadta — élesben egy R2-kiesés is idesodorhatott egy
 // személyi igazolvány fotót. Olvasni csak az aláírt /private-files/ úton lehet.
-app.use('/uploads/private', (_req, res) => res.status(404).json({ error: 'Nem található' }));
+// ⚠️ (2026-09-28, audit P1 osztály-zárás) A régi `app.use('/uploads/private')`
+// a NYERS, kódolt útvonalon illesztett, az express.static viszont DEKÓDOL és
+// normalizál: a `/uploads/%70rivate/<fájl>`, a `/uploads//private/<fájl>` és a
+// `/uploads/%2Fprivate/<fájl>` átcsúszott, és kiadta a privát fájlt. A kapu
+// ezért azt az alakot nézi, amit a static ténylegesen kiszolgálna.
+app.use('/uploads', (req, res, next) => {
+  let ut;
+  try { ut = decodeURIComponent(req.path); } catch { ut = null; }
+  if (ut === null || /^\/private(\/|$)/i.test(path.posix.normalize(ut.replace(/\\/g, '/')))) {
+    return res.status(404).json({ error: 'Nem található' });
+  }
+  return next();
+});
 
 // Statikus fájl-kiszolgálás a feltöltött fotókhoz — a limiter MÖGÖTT
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));

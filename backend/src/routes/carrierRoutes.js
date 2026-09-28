@@ -34,6 +34,7 @@ const {
   sendFeeConfirmationEmail,
 } = require('../services/email');
 const { firstContactLeak, detectContactLeak, ellenorizIndok } = require('../utils/contactGuard');
+const { jaratIrasKapu } = require('../utils/jaratKapcsolo');
 
 const router = express.Router();
 
@@ -137,18 +138,11 @@ async function attachPrices(routes) {
 //  az OLVASÓ végpontok élnek (meglévő adat, admin). ⚠️ Az útvonal-előtag
 //  ellenőrzése KÖTELEZŐ (a SOS-kapcsoló tanulsága): a router '/'-ra van
 //  csatolva, előtag nélkül minden utána mountolt végpont 503-at kapna.
+//  (2026-09-28, audit P1) A kapu közös modulba került: a régi, kis/nagybetű-
+//  érzékeny regexet a `POST /Carrier-Routes` megkerülte (az Express router
+//  érzéketlen), és a photos router foglalás-fotója sem volt kapuzva.
 // =====================================================================
-function jaratEnabled() {
-  return String(process.env.JARAT_ENABLED || '').toLowerCase() === 'true';
-}
-router.use((req, res, next) => {
-  if (req.method === 'GET' || jaratEnabled()) return next();
-  if (!/^\/(carrier-routes|route-bookings)(\/|$)/.test(req.path)) return next();
-  return res.status(503).json({
-    error: 'Az induló járatok funkció még nem elérhető — hamarosan. Addig add fel a fuvart, és a szállítók ajánlatot tesznek rá.',
-    code: 'JARAT_DISABLED',
-  });
-});
+router.use(jaratIrasKapu);
 
 router.post('/carrier-routes', authRequired, requireDriverKYC, writeRateLimit, async (req, res) => {
   const {
