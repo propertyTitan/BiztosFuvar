@@ -19,6 +19,7 @@ const { maybeGrantReferralReward } = require('../services/referral');
 const { konyvelDijFizetes } = require('../services/feePayment');
 const { startOrReuseFeePayment, startOrReuseFeePaymentInTransaction } = require('../services/feePaymentSession');
 const { firstContactLeak, ellenorizIndok } = require('../utils/contactGuard');
+const { ellenorizCimzett } = require('../utils/cimzett');
 const { telepulesSzint, utcaSzint } = require('../utils/address');
 
 const router = express.Router();
@@ -385,38 +386,14 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
     return res.status(400).json({ error: 'A csomag értékét kerek forintösszegben add meg.' });
   }
 
-  // Címzett: ha MÁS veszi át (bármelyik címzett-mező ki van töltve), akkor a
-  // NÉV és a TELEFONSZÁM együtt kötelező (tesztelői észrevétel, 2026-08-04).
-  // Enélkül a szállító a címen áll egy névvel, akit nem tud felhívni — és a
-  // felvételkori SMS (átvételi kód) sem tud kimenni.
-  const recipientName = typeof recipient_name === 'string' ? recipient_name.trim() : '';
-  const recipientPhone = typeof recipient_phone === 'string' ? recipient_phone.trim() : '';
-  const recipientEmail = typeof recipient_email === 'string' ? recipient_email.trim() : '';
-  const hasAnyRecipient = Boolean(recipientName || recipientPhone || recipientEmail);
-  if (hasAnyRecipient && (!recipientName || !recipientPhone)) {
-    return res.status(400).json({
-      error: 'Ha más veszi át a csomagot, a címzett neve ÉS telefonszáma is kötelező.',
-      code: 'RECIPIENT_INCOMPLETE',
-    });
-  }
-  if (recipientPhone) {
-    const digits = recipientPhone.replace(/\D/g, '');
-    if (/[a-zA-Z]/.test(recipientPhone) || digits.length < 9 || digits.length > 15) {
-      return res.status(400).json({
-        error: 'A címzett telefonszáma érvénytelen (add meg körzetszámmal, pl. +36 30 123 4567).',
-        code: 'RECIPIENT_PHONE_INVALID',
-      });
-    }
-  }
-  // GF-005 (Manus, 2026-08-30): a címzett-e-mail opcionális, de ha meg van
-  // adva, követési linket ígérünk rá — hibás címre a levél némán a semmibe
-  // ment volna. Ugyanaz a minta, mint a regisztrációs e-mailnél (auth.js).
-  if (recipientEmail && (recipientEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(recipientEmail))) {
-    return res.status(400).json({
-      error: 'A címzett e-mail címe érvénytelen (pl. nev@email.hu) — javítsd, vagy hagyd üresen.',
-      code: 'RECIPIENT_EMAIL_INVALID',
-    });
-  }
+  // Címzett-adatok: a közös validátoron (2026-09-28, audit P1). A név eddig
+  // csak trim()-et kapott — hossz- és kontakt-szűrés nélkül ment a márkázott,
+  // noreply@gofuvar.hu-s címzetti levelekbe és a publikus követő-oldalra. A
+  // szabályok (név+telefon együtt, telefon- és e-mail-formátum, név ≤100,
+  // számjegy és kontakt nélkül) a foglalási ággal közösek: utils/cimzett.js.
+  const cimzett = ellenorizCimzett({ recipient_name, recipient_phone, recipient_email });
+  if (!cimzett.ok) return res.status(400).json({ error: cimzett.error, code: cimzett.code });
+  const { recipientName, recipientPhone, recipientEmail } = cimzett;
 
   // --- Azonnali fuvar (is_instant) validáció ---
   // Az instant fuvarnál nincs licit: a suggested_price_huf a VÉGSŐ ár.
@@ -548,6 +525,13 @@ router.post('/', authRequired, requireVerifiedEmail, writeRateLimit, async (req,
       // Email küldés (ha van email + Resend API kulcs)
       if (recipientEmail) {
         try {
+          // ⚠️ NAPI KERET (2026-09-28, audit P1): a meg nem erősített címre
+          // menő levél eddig méretlen volt — egy fiók elégethette a Resend-
+          // kvótát, és utána a megerősítő/jelszó-visszaállító levél sem ment.
+          // A keret felett a fuvar létrejön, csak ez a tájékoztató levél marad
+          // ki (a kód a felvételkor úgyis megy). services/levelKeret.js
+          const { cimzettiLevelMehet } = require('../services/levelKeret');
+          if (!(await cimzettiLevelMehet(req.user.sub))) return;
           const { sendRecipientTrackingEmail } = require('../services/email');
           // ⚠️ KÓD NÉLKÜL (2026-09-11, teljes audit A4): az átvételi kód a
           // csomag FELVÉTELEKOR megy a címzettnek (e-mail + SMS, photos.js) —

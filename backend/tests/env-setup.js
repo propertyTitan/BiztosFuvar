@@ -60,3 +60,9 @@ process.env.TOWING_ENABLED = 'true';
 process.env.SOS_ENABLED = 'true';
 // Járat-ág (2026-09-11, D1): élesben rejtett, a tesztek a teljes funkciót mérik.
 process.env.JARAT_ENABLED = 'true';
+// Címzetti levél platform-kerete (2026-09-28, audit P1): a teljes suite EGY
+// adatbázison osztozik, a keret pedig az utolsó 24 óra ÖSSZES címzettes
+// fuvarát számolja — az alapérték (60) a futás közepén betelne, és a később
+// futó fájlok levél-állításai sorrendfüggően buknának. Az őr-teszt
+// (audit-20260928-cimzett-level) a saját eseteiben explicit állítja.
+process.env.RECIPIENT_EMAIL_DAILY_CAP = '1000000';

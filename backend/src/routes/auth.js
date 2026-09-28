@@ -91,10 +91,9 @@ function cleanFullName(v) {
 // konverziót veszített (Manus 3. futás). A számjegy-tiltás egyszerre
 // ERŐSEBB díj-védelem (szám nélkül telefonszám sem írható a névbe) és
 // értelmes hibaüzenet. Az e-mail-minta szűrése (contactGuard) a néven marad.
-const NEV_SZAMJEGY_HIBA = 'A név nem tartalmazhat számokat.';
-function nevbenSzamjegy(nev) {
-  return /\d/.test(nev);
-}
+// (2026-09-28, audit P1) A szabály közös modulba került, hogy a címzett neve
+// (POST /jobs, járat-foglalás) ugyanazt kapja.
+const { NEV_SZAMJEGY_HIBA, nevbenSzamjegy } = require('../utils/nev');
 
 /** Jelszó: 8–128 karakter, és trim után is legalább 8 érdemi karakter
  *  (a csupa/szinte-csupa szóköz jelszó nem jelszó). */

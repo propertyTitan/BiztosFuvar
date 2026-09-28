@@ -13,6 +13,7 @@ const { telepulesSzint } = require('../utils/address');
 const { distanceMeters } = require('../utils/geo');
 const { createNotification } = require('./notifications');
 const { sendLaneAlertEmail } = require('./email');
+const { laneAlertLevelMehet } = require('./levelKeret');
 
 /**
  * Megnézi, illeszkedik-e a fuvar egy figyelőre.
@@ -87,6 +88,14 @@ async function notifyMatchingAlerts(job) {
       const routeLabel = `${telepulesSzint(job.pickup_address)} → ${telepulesSzint(job.dropoff_address)}`;
       const link = `/sofor/fuvar/${job.id}`;
 
+      // ⚠️ NAPI E-MAIL-PLAFON SZÁLLÍTÓNKÉNT (2026-09-28, audit P1). Egy feladó
+      // fuvarjai (lemondással ingyen ismételve) minden illeszkedő szállítónak
+      // levelet küldtek — 1+N szorzó a Resend-kvótán, ami a megerősítő és a
+      // jelszó-visszaállító levelet is elvitte volna. Az in-app értesítés
+      // marad; a számlálás a MEGLÉVŐ lane_alert sorokból megy, ezért a mostani
+      // beszúrása ELŐTT kérdezzük.
+      const mehetLevel = await laneAlertLevelMehet(alert.carrier_id);
+
       await createNotification({
         user_id: alert.carrier_id,
         type: 'lane_alert',
@@ -96,6 +105,7 @@ async function notifyMatchingAlerts(job) {
       });
 
       // Email (Resend) — fire-and-forget, kulcs híján stub (csak logol)
+      if (!mehetLevel) continue;
       setImmediate(() => {
         sendLaneAlertEmail({
           to: alert.carrier_email,

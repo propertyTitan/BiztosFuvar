@@ -35,6 +35,7 @@ const {
 } = require('../services/email');
 const { firstContactLeak, detectContactLeak, ellenorizIndok } = require('../utils/contactGuard');
 const { jaratIrasKapu } = require('../utils/jaratKapcsolo');
+const { ellenorizCimzett } = require('../utils/cimzett');
 
 const router = express.Router();
 
@@ -594,6 +595,14 @@ router.post(
     // lyuk 2026-08-09-én bezárult, a foglalási ágon nyitva maradt.
     const bookingLeak = firstContactLeak([notes, pickup_address, dropoff_address]);
     if (bookingLeak) return res.status(400).json({ error: bookingLeak, code: 'CONTACT_LEAK' });
+    // ⚠️ A CÍMZETT-MEZŐK IS (2026-09-28, audit P1). A foglalási ág a címzett
+    // nevét, telefonját és e-mailjét SEMMILYEN ellenőrzés nélkül írta a
+    // sorba, és a meg nem erősített címre márkázott levelet küldött — a
+    // fuvar-ág kapuja (név+telefon együtt, formátumok) itt sosem futott, a név
+    // hossz- és kontakt-szűrése pedig egyik ágon sem. Közös validátor.
+    const cimzett = ellenorizCimzett({ recipient_name, recipient_phone, recipient_email });
+    if (!cimzett.ok) return res.status(400).json({ error: cimzett.error, code: cimzett.code });
+    const { recipientName, recipientPhone, recipientEmail } = cimzett;
 
     // Csomag kategória besorolása
     const size = classifyPackage(L, W, H, kg);
@@ -651,7 +660,7 @@ router.post(
           pickup_address, pickup_lat, pickup_lng,
           dropoff_address, dropoff_lat, dropoff_lng,
           priceHuf, deliveryCode, notes || null,
-          recipient_name || null, recipient_phone || null, recipient_email || null, trackingToken,
+          recipientName || null, recipientPhone || null, recipientEmail || null, trackingToken,
         ],
       );
       booking = insertRows[0];
@@ -721,17 +730,21 @@ router.post(
     res.status(201).json(scrubBookingForUser(booking, req.user));
 
     // Címzett értesítése (email + SMS log)
-    if (recipient_phone || recipient_email) {
+    if (recipientPhone || recipientEmail) {
       const baseUrl = process.env.PUBLIC_URL || 'https://gofuvar.hu';
       const trackUrl = `${baseUrl}/nyomon-kovetes/${trackingToken}`;
       setImmediate(async () => {
-        if (recipient_email) {
+        if (recipientEmail) {
           try {
+            // Napi keret (2026-09-28, audit P1) — a fuvar-ággal KÖZÖS számláló
+            // (jobs + route_bookings), lásd services/levelKeret.js.
+            const { cimzettiLevelMehet } = require('../services/levelKeret');
+            if (!(await cimzettiLevelMehet(req.user.sub))) return;
             const { sendRecipientTrackingEmail } = require('../services/email');
             // Kód nélkül (2026-09-11, A4): a kód a felvételkor megy (photos.js).
             await sendRecipientTrackingEmail({
-              to: recipient_email,
-              recipientName: recipient_name,
+              to: recipientEmail,
+              recipientName,
               jobTitle: route.title,
               trackingUrl: trackUrl,
             });
