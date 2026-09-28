@@ -2,6 +2,7 @@
 
 import { torolPiszkozatokElotaggal, UJ_FUVAR_PISZKOZAT_ELOTAG } from './urlapPiszkozat';
 import { clearHozasdEl } from './hozasdEl';
+import { clearAllAiHistory } from './aiHistory';
 
 // Aktuális bejelentkezett user kezelése – localStorage-ból olvassa.
 // Nincs külön context, nincs külön provider, egy hook, ami a kliensen
@@ -72,6 +73,9 @@ export function clearCurrentUser() {
   // címek) ne maradjon a következő fióknak — felhasználóhoz kötött kulcs
   // ÉS kijelentkezéskor törlés (a régi, globális kulcsot is viszi).
   torolPiszkozatokElotaggal(UJ_FUVAR_PISZKOZAT_ELOTAG);
+  // (audit P1 R1-7, 2026-09-28) Az AI-beszélgetés se maradjon a következő
+  // fióknak: a kilépő fiók előzménye és a régi, globális kulcs is törlődik.
+  clearAllAiHistory();
   clearHozasdEl();
   window.dispatchEvent(new Event(EVENT));
 }

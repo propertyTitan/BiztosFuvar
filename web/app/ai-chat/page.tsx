@@ -2,17 +2,14 @@
 
 // Teljes oldalas AI segéd — a fejléc menü és a HomeHub "AI segéd" linkje
 // ide navigál. A lebegő AiChatWidget továbbra is elérhető; mindkettő
-// ugyanazt a /ai/chat végpontot és ugyanazt a localStorage history-t
-// használja, így a beszélgetés a kettő közt szinkronban marad.
+// ugyanazt a /ai/chat végpontot és ugyanazt a FIÓKHOZ kötött előzményt
+// (lib/aiHistory.ts) használja, így a beszélgetés a kettő közt szinkronban marad.
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { AI_MESSAGE_MAX_LENGTH, aiErrorText, useAiHistory, type AiMessage } from '@/lib/aiHistory';
 import AiMessageContent from '@/components/AiMessageContent';
-
-type Message = { role: 'user' | 'assistant'; content: string };
-
-const STORAGE_KEY = 'gofuvar_ai_history';
 
 const SUGGESTIONS = [
   'Hogyan adok fel új fuvart?',
@@ -25,34 +22,23 @@ export default function AiChatPage() {
   const router = useRouter();
   const me = useCurrentUser();
   const [mounted, setMounted] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Audit P1 R1-7 (2026-09-28): eddig fiókfüggetlen localStorage-kulcsba
+  // írt, amit a kijelentkezés nem törölt — a következő fiók az
+  // előző teljes beszélgetését kapta. Mostantól fiókhoz kötött, és
+  // fiókváltáskor (újratöltés nélkül is) az új fiók kulcsáról töltődik.
+  const { messages, update, clear, isOwner } = useAiHistory(me?.id);
   const [input, setInput] = useState('');
+  const [hiba, setHiba] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Csak betöltés után mentünk, nehogy a kezdeti üres [] kitörölje a historyt.
-  const loadedRef = useRef(false);
 
   useEffect(() => { setMounted(true); }, []);
   // Belépés-kapu (2026-09-11, C2): a redirect EFFEKTBEN, nem render közben
   // (React: render alatti navigáció figyelmeztetés + dupla push).
   useEffect(() => { if (mounted && !me) router.push('/bejelentkezes'); }, [mounted, me, router]);
 
-  // History betöltés
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setMessages(JSON.parse(raw));
-    } catch {}
-    loadedRef.current = true;
-  }, []);
-
-  // History mentés (csak betöltés után)
-  useEffect(() => {
-    if (!loadedRef.current) return;
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch {}
-  }, [messages]);
+  // Fiókváltáskor a be nem küldött szöveg és a hibajelzés sem marad a mezőben.
+  useEffect(() => { setInput(''); setHiba(null); }, [me?.id]);
 
   // Scroll aljára
   useEffect(() => {
@@ -63,25 +49,34 @@ export default function AiChatPage() {
 
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
-    const userMsg: Message = { role: 'user', content: trimmed };
+    if (!trimmed || loading || !me) return;
+    // A kérdező fiók: a késve érkező válasz csak az ő előzményébe kerülhet.
+    const owner = me.id;
+    const userMsg: AiMessage = { role: 'user', content: trimmed };
     const historyBeforeSend = messages;
-    setMessages((prev) => [...prev, userMsg]);
+    update(owner, (prev) => [...prev, userMsg]);
     setInput('');
+    setHiba(null);
     setLoading(true);
     try {
       const res = await api.aiChat(trimmed, historyBeforeSend);
-      setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }]);
+      update(owner, (prev) => [...prev, { role: 'assistant', content: res.reply }]);
     } catch (e: any) {
-      setMessages((prev) => [...prev, { role: 'assistant', content: `Hiba: ${e.message}` }]);
+      if (e?.code === 'AI_MESSAGE_TOO_LONG') {
+        // Az elutasított kérdés ne maradjon az előzményben (minden további
+        // kérés újraküldené); visszakerül a mezőbe, hogy le lehessen rövidíteni.
+        update(owner, (prev) => (prev[prev.length - 1]?.content === trimmed ? prev.slice(0, -1) : prev));
+        if (isOwner(owner)) { setInput(trimmed); setHiba(aiErrorText(e)); }
+      } else {
+        update(owner, (prev) => [...prev, { role: 'assistant', content: aiErrorText(e) }]);
+      }
     } finally {
       setLoading(false);
     }
   }
 
   function clearHistory() {
-    setMessages([]);
-    localStorage.removeItem(STORAGE_KEY);
+    clear();
   }
 
   if (!mounted) {
@@ -191,6 +186,15 @@ export default function AiChatPage() {
           )}
         </div>
 
+        {hiba && (
+          <div
+            id="ai-oldal-hiba"
+            role="alert"
+            style={{ padding: '8px 12px', fontSize: 14, color: 'var(--danger)', borderTop: '1px solid var(--border)' }}
+          >
+            {hiba}
+          </div>
+        )}
         <form noValidate
           onSubmit={(e) => {
             e.preventDefault();
@@ -205,7 +209,10 @@ export default function AiChatPage() {
         >
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); setHiba(null); }}
+            maxLength={AI_MESSAGE_MAX_LENGTH}
+            aria-invalid={hiba ? true : undefined}
+            aria-describedby={hiba ? 'ai-oldal-hiba' : undefined}
             placeholder="Kérdezz bármit…"
             className="input"
             style={{ flex: 1, marginTop: 0 }}

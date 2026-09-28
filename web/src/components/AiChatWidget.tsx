@@ -4,19 +4,13 @@
 // - Zárt: kék kör "🤖" ikonnal
 // - Nyitott: egy kis chatablak, üzenetlistával és bemeneti mezővel
 // - Az üzeneteket a /ai/chat végpontra küldi (Gemini)
-// - A history localStorage-ben marad meg, ameddig a user nem törli
+// - A history fiókonként localStorage-ben marad meg (lib/aiHistory.ts),
+//   amíg a user nem törli vagy ki nem jelentkezik
 import { useEffect, useRef, useState } from 'react';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { AI_MESSAGE_MAX_LENGTH, aiErrorText, useAiHistory, type AiMessage } from '@/lib/aiHistory';
 import AiMessageContent from './AiMessageContent';
-
-type Message = { role: 'user' | 'assistant'; content: string };
-
-// Felhasználónként külön kulcs: fiókváltásnál ne az előző user beszélgetése
-// jelenjen meg (és ne az menjen kontextusként a Geminihez).
-const STORAGE_KEY_BASE = 'gofuvar_ai_history';
-const storageKey = (userId?: string | null) =>
-  userId ? `${STORAGE_KEY_BASE}:${userId}` : STORAGE_KEY_BASE;
 
 const SUGGESTIONS = [
   'Hogyan adok fel új fuvart?',
@@ -28,41 +22,21 @@ const SUGGESTIONS = [
 export default function AiChatWidget() {
   const user = useCurrentUser();
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Fiókhoz kötött előzmény (audit P1 R1-7, 2026-09-28): a régi globális
+  // kulcsot többé nem „migráljuk" — az egy korábbi fiók beszélgetése volt.
+  const { messages, update, clear, isOwner } = useAiHistory(user?.id);
   const [input, setInput] = useState('');
+  const [hiba, setHiba] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  // Csak a localStorage-ből való betöltés UTÁN mentünk — különben a kezdeti
-  // üres [] felülírná a korábbi beszélgetést (ezért "felejtett" a bot reload után).
-  const loadedRef = useRef(false);
   // Amíg a süti-banner (alul, teljes szélességben, z-index 9999) látszik, az
   // ELTAKARJA a lebegő chat-gombot (z-index 1000) — a kattintás a bannerre
   // megy, ezért tűnt úgy, hogy "a gomb nem reagál". Amíg nincs süti-döntés,
   // a chatet elrejtjük; a döntés után (event vagy localStorage) megjelenik.
   const [consentPending, setConsentPending] = useState(true);
 
-  // History betöltés — fiókváltáskor (user.id változás) újratöltünk.
-  // Egyszeri migráció: a régi, közös kulcson tárolt beszélgetést átvisszük
-  // a user-specifikus kulcsra, hogy a frissítés után ne "tűnjön el".
-  useEffect(() => {
-    loadedRef.current = false;
-    try {
-      const key = storageKey(user?.id);
-      let raw = localStorage.getItem(key);
-      if (!raw && user?.id) {
-        const legacy = localStorage.getItem(STORAGE_KEY_BASE);
-        if (legacy) {
-          localStorage.setItem(key, legacy);
-          localStorage.removeItem(STORAGE_KEY_BASE);
-          raw = legacy;
-        }
-      }
-      setMessages(raw ? JSON.parse(raw) : []);
-    } catch {
-      setMessages([]);
-    }
-    loadedRef.current = true;
-  }, [user?.id]);
+  // Fiókváltáskor a be nem küldött szöveg és a hibajelzés sem marad a mezőben.
+  useEffect(() => { setInput(''); setHiba(null); }, [user?.id]);
 
   // Süti-döntés állapota — ha már döntött a user, a chat azonnal látszhat.
   useEffect(() => {
@@ -78,14 +52,6 @@ export default function AiChatWidget() {
     return () => window.removeEventListener('gofuvar:cookie-consent', onConsent);
   }, []);
 
-  // History mentés (csak betöltés után)
-  useEffect(() => {
-    if (!loadedRef.current) return;
-    try {
-      localStorage.setItem(storageKey(user?.id), JSON.stringify(messages));
-    } catch {}
-  }, [messages, user?.id]);
-
   // Scroll aljára
   useEffect(() => {
     if (open && scrollRef.current) {
@@ -95,32 +61,38 @@ export default function AiChatWidget() {
 
   async function send(text: string) {
     const trimmed = text.trim();
-    if (!trimmed || loading) return;
-    const userMsg: Message = { role: 'user', content: trimmed };
+    if (!trimmed || loading || !user) return;
+    // A kérdező fiók: a késve érkező válasz csak az ő előzményébe kerülhet.
+    const owner = user.id;
+    const userMsg: AiMessage = { role: 'user', content: trimmed };
     // FONTOS: a backend a `message`-t külön paraméterként kapja és
     // önmaga adja hozzá a beszélgetéshez, a `history` csak az eddig
     // lezajlott üzenetváltást jelenti. Korábban duplán küldtük: a
     // history-ban is és a message mezőben is, ami összezavarta Gemini-t.
     const historyBeforeSend = messages;
-    setMessages((prev) => [...prev, userMsg]);
+    update(owner, (prev) => [...prev, userMsg]);
     setInput('');
+    setHiba(null);
     setLoading(true);
     try {
       const res = await api.aiChat(trimmed, historyBeforeSend);
-      setMessages((prev) => [...prev, { role: 'assistant', content: res.reply }]);
+      update(owner, (prev) => [...prev, { role: 'assistant', content: res.reply }]);
     } catch (e: any) {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: `Hiba: ${e.message}` },
-      ]);
+      if (e?.code === 'AI_MESSAGE_TOO_LONG') {
+        // Az elutasított kérdés ne maradjon az előzményben (minden további
+        // kérés újraküldené); visszakerül a mezőbe, hogy le lehessen rövidíteni.
+        update(owner, (prev) => (prev[prev.length - 1]?.content === trimmed ? prev.slice(0, -1) : prev));
+        if (isOwner(owner)) { setInput(trimmed); setHiba(aiErrorText(e)); }
+      } else {
+        update(owner, (prev) => [...prev, { role: 'assistant', content: aiErrorText(e) }]);
+      }
     } finally {
       setLoading(false);
     }
   }
 
   function clearHistory() {
-    setMessages([]);
-    localStorage.removeItem(storageKey(user?.id));
+    clear();
   }
 
   if (!user) return null; // csak bejelentkezett usernek mutatjuk
@@ -313,6 +285,15 @@ export default function AiChatWidget() {
             )}
           </div>
 
+          {hiba && (
+            <div
+              id="ai-widget-hiba"
+              role="alert"
+              style={{ padding: '8px 12px', fontSize: 12, color: 'var(--danger)', borderTop: '1px solid var(--border)' }}
+            >
+              {hiba}
+            </div>
+          )}
           <form noValidate
             onSubmit={(e) => {
               e.preventDefault();
@@ -328,7 +309,10 @@ export default function AiChatWidget() {
           >
             <input
               value={input}
-              onChange={(e) => setInput(e.target.value)}
+              onChange={(e) => { setInput(e.target.value); setHiba(null); }}
+              maxLength={AI_MESSAGE_MAX_LENGTH}
+              aria-invalid={hiba ? true : undefined}
+              aria-describedby={hiba ? 'ai-widget-hiba' : undefined}
               placeholder="Kérdezz…"
               style={{
                 flex: 1,
