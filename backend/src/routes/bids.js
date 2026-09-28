@@ -655,6 +655,8 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     realtime.emitToJob(bid.job_id, 'job:accepted', {
       job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: agreedPrice,
     });
+    // A függő ajánlattevő még nincs a privát fuvar-szobában.
+    realtime.emitToUser(bid.carrier_id, 'job:updated', { job_id: bid.job_id });
     realtime.emitToUser(bid.shipper_id, 'job:payment-due', {
       job_id: bid.job_id, barion_gateway_url: fin.barionRes.gatewayUrl,
     });
@@ -736,6 +738,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     realtime.emitToJob(bid.job_id, 'job:accepted', {
       job_id: bid.job_id, carrier_id: bid.carrier_id, amount_huf: agreedPrice,
     });
+    realtime.emitToUser(bid.carrier_id, 'job:updated', { job_id: bid.job_id });
     realtime.emitToUser(bid.shipper_id, 'job:payment-due', {
       job_id: bid.job_id, barion_gateway_url: fin.barionRes.gatewayUrl,
     });
@@ -807,6 +810,7 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
     client.release();
   }
 
+  realtime.emitToUser(bid.carrier_id, 'job:updated', { job_id: bid.job_id });
   const otherUserId = isShipper ? bid.carrier_id : bid.shipper_id;
   const link = isShipper ? `/sofor/fuvar/${bid.job_id}` : `/dashboard/fuvar/${bid.job_id}`;
   await createNotification({
