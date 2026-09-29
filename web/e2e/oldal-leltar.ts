@@ -44,7 +44,47 @@ export type Oldal = {
    * Ha hiányzik, a kezdeti nézetet mérjük — ami a legtöbb oldalnál helyes.
    */
   allapot?: (page: import('@playwright/test').Page) => Promise<void>;
+  /**
+   * Az állapot neve a tesztcímben (alapból „állapot"). ⚠️ Akkor KÖTELEZŐ,
+   * ha egy oldalnak több állapot-bejegyzése van (pl. a /fizetes/eredmeny
+   * négy mért állapota): a Playwright a duplikált tesztcímre a TELJES
+   * futást leállítja, a 20-as spec címe pedig a szereplőt sem tartalmazza.
+   */
+  allapotNev?: string;
 };
+
+/** A tesztcímek állapot-utótagja — a 16/19/20-as spec közösen használja. */
+export function allapotCimke(oldal: Oldal): string {
+  return oldal.allapot ? ` [${oldal.allapotNev ?? 'állapot'}]` : '';
+}
+
+/**
+ * A CIB-eredményoldal egy állapotának felvétele MOCKOLT API-val (CIB PR-3).
+ *
+ * Az E2E-backend CIB nélkül (stub-módban) fut, tehát valódi eredmény-token
+ * nincs — a `GET /payments/cib/eredmeny` választ a böngészőben helyettesítjük,
+ * és úgy nyitjuk meg újra az oldalt. A `job_id` szándékosan null: így a
+ * „Vissza a fuvarhoz" a /fuvarjaim-ra mutat (a halott-link mérés valódi
+ * célt nyit meg), és nincs kitalált fuvar-azonosító a linkekben.
+ */
+function cibEredmenyAllapot(
+  valasz: Record<string, unknown>,
+  jel: RegExp,
+): (page: import('@playwright/test').Page) => Promise<void> {
+  return async (page) => {
+    await page.route('**/payments/cib/eredmeny**', (route) => route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        trid: '1234567812345678', rc: null, rt: null, amo: 500, cur: 'HUF', anum: null,
+        rc_csoport: null, job_id: null, ujra_fizetheto: false, frissult: null,
+        ...valasz,
+      }),
+    }));
+    await page.goto('/fizetes/eredmeny?e=e2e-leltar-token');
+    await page.getByText(jel).first().waitFor({ timeout: 15_000 });
+  };
+}
 
 export type Fixtures = {
   felado: E2EUser;
@@ -94,6 +134,47 @@ export const OLDALAK: Oldal[] = [
   { minta: '/hozasd-el', url: () => '/hozasd-el', szereplo: 'anon' },
   { minta: '/hozasd-el/butor', url: () => '/hozasd-el/butor', szereplo: 'anon' },
   { minta: '/nyomon-kovetes/[token]', url: (F) => `/nyomon-kovetes/${F.trackingToken}`, szereplo: 'anon' },
+
+  // CIB kártyás díjfizetés (PR-3). A tájékoztató publikus és kötelező; az
+  // eredményoldal BELÉPÉS NÉLKÜL is működik (a bank más böngészőbe is
+  // visszaküldhet), ezért anon szereplővel mérjük.
+  { minta: '/bankkartyas-fizetes', url: () => '/bankkartyas-fizetes', szereplo: 'anon' },
+  // Hibás / elhasznált link: API-hívás nélkül renderel.
+  { minta: '/fizetes/eredmeny', url: () => '/fizetes/eredmeny?hiba=link', szereplo: 'anon' },
+  {
+    minta: '/fizetes/eredmeny',
+    url: () => '/fizetes/eredmeny?hiba=link',
+    szereplo: 'anon',
+    allapotNev: 'sikeres',
+    allapot: cibEredmenyAllapot(
+      { allapot: 'sikeres', rc: '00', rt: 'Sikeres tranzakció', anum: 'AB1234' },
+      /A kapcsolatfelvételi díjat kifizetted/,
+    ),
+  },
+  {
+    minta: '/fizetes/eredmeny',
+    url: () => '/fizetes/eredmeny?hiba=link',
+    szereplo: 'anon',
+    allapotNev: 'sikertelen',
+    allapot: cibEredmenyAllapot(
+      { allapot: 'sikertelen', rc: '51', rt: 'Nincs fedezet', rc_csoport: 'szamla' },
+      /A fizetés nem sikerült/,
+    ),
+  },
+  {
+    minta: '/fizetes/eredmeny',
+    url: () => '/fizetes/eredmeny?hiba=link',
+    szereplo: 'anon',
+    allapotNev: 'feldolgozas',
+    allapot: cibEredmenyAllapot({ allapot: 'feldolgozas' }, /A bank megerősíti/),
+  },
+  {
+    minta: '/fizetes/eredmeny',
+    url: () => '/fizetes/eredmeny?hiba=link',
+    szereplo: 'anon',
+    allapotNev: 'ellenorzes',
+    allapot: cibEredmenyAllapot({ allapot: 'ellenorzes' }, /Ne fizess újra/),
+  },
 
   // Mentős
   { minta: '/mentes', url: () => '/mentes', szereplo: 'felado' },

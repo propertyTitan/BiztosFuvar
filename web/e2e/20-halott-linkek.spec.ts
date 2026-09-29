@@ -32,7 +32,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loginAs } from './helpers';
 import {
-  OLDALAK, keszitsFixtures, varjStabilOldalt, Fixtures,
+  OLDALAK, keszitsFixtures, varjStabilOldalt, Fixtures, allapotCimke,
 } from './oldal-leltar';
 
 type Link = {
@@ -110,7 +110,7 @@ test.describe('halott linkek: begyűjtés a renderelt oldalakról', () => {
   test.setTimeout(240_000);
 
   for (const oldal of OLDALAK) {
-    test(`linkek begyűjtése: ${oldal.minta}${oldal.allapot ? ' [állapot]' : ''}`, async ({ page }) => {
+    test(`linkek begyűjtése: ${oldal.minta}${allapotCimke(oldal)}`, async ({ page }) => {
       if (oldal.szereplo !== 'anon') {
         await loginAs(page, F[oldal.szereplo]);
       }

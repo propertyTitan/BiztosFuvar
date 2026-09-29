@@ -7,7 +7,8 @@ export const metadata: Metadata = {
   // Privát/hitelesített felület (2026-09-11, C2): a robots.txt Allow-ra váltása után se indexelődjön.
   robots: { index: false, follow: false },
   title: 'Fizetés',
-  description: 'A kapcsolatfelvételi díj biztonságos fizetése.',
+  // Szövegszabály (GF-024): „biztonságos fizetés" sehol — a kápé-modellben félrevezető.
+  description: 'A kapcsolatfelvételi díj fizetése.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

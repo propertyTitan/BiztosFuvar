@@ -222,7 +222,9 @@ AiChatWidget, CookieConsentBanner, header/footer).
 
 **Egyéb:** `admin` (CRUD panel), `profil` + `profil/[id]`, `ertesitesek`,
 `uzenetek` (a GoFuvar csapatának üzenetei; válasz csak megnyitott csatornánál),
-`nyomon-kovetes/[token]` (nyilvános követés), `fizetes-stub`, `ai-chat`
+`nyomon-kovetes/[token]` (nyilvános követés), `fizetes-stub`, `ai-chat`,
+`fizetes/eredmeny` (CIB-visszatérés eredménye, aláírt `?e=` tokennel, belépés
+nélkül is; noindex), `bankkartyas-fizetes` (a CIB vásárlói tájékoztatója, publikus)
 
 ### 2.3 Komponensek — `web/src/components/` (kiemeltek)
 
@@ -240,6 +242,10 @@ AiChatWidget, CookieConsentBanner, header/footer).
 | `EmailVerifyBanner`, `InstallPromptBanner`, `TestModeBanner` | állapot-bannerek |
 | `ThemeToggle` | világos/sötét/rendszer téma-kapcsoló a fejlécben (logika: `lib/theme.ts`) |
 | `CarrierTripPanel` | sofőri aktív-fuvar panel (felvétel/lezárás) |
+| `DijFizetesKartya` | a kapcsolatfelvételi díj fizetése (fuvaroldal + eredményoldal): consent, kupon, stub → `/fizetes-stub`, CIB → egyszer használatos hop-link; állapotok a `GET /jobs/:id/fee-payment`-ből; FIX hibaszövegek (`lib/cibFizetes.ts`) |
+| `CibFizetesInfo`, `CibLogok`, `BankiTranzakcioAdatok` | a CIB banki teszt kötelező elemei: logók + „Kártyás fizetés szolgáltatója:", „Elfogadott kártyák" (`lib/kartyaLogok.ts` — EGY konstans), a TrID/RC/RT/AMO/ANUM adatsor szó szerinti feliratokkal (`lib/cibFeliratok.ts`) |
+| `TesztFizetesSav` | teszt-fizetési sáv: `payment_test_kind` 'stub' → sárga, 'cib_teszt' → kék |
+| `admin/CibFizetesekAdmin` | admin Áttekintés: CIB-kísérletek keresése, banki üzenetnapló, újraellenőrzés, kétes lezárás rendezése |
 
 ### 2.4 Lib — `web/src/lib/`
 
@@ -250,6 +256,9 @@ AiChatWidget, CookieConsentBanner, header/footer).
 | `maps.ts` | Google Maps betöltés (kulcs ÉL) |
 | `socket.ts` | Socket.io kliens; minden connect után job-room újrabelépés és `onReconnect` állapotlekérés; több azonos feliratkozó közül csak az utolsó lép ki |
 | `packageSizes.ts` | csomagméret-definíciók |
+| `cibFeliratok.ts`, `cibRcCsoport.ts` | a CIB kötelező feliratai és az RC-csoportok ügyfélüzenetei (backend-tükör: `backend/src/data/…`) |
+| `cibFizetes.ts` | a díjfizetési kártya állapota, a /pay-hibakódok fix szövegei, az eredményoldal lekérdezési üteme |
+| `kereskedo.ts` | a Tiszta Hód Kft. adatai a lábléchez és a banki tájékoztatóhoz |
 
 ---
 

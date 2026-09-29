@@ -24,7 +24,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loginAs } from './helpers';
 import {
-  OLDALAK, KIVETELEK, keszitsFixtures, Oldal, Fixtures,
+  OLDALAK, KIVETELEK, keszitsFixtures, Oldal, Fixtures, allapotCimke,
 } from './oldal-leltar';
 
 // ── Ami zajnak számít, nem hibának ────────────────────────────────────
@@ -134,7 +134,7 @@ async function ellenorizOldalt(page: Page, oldal: Oldal) {
 // ── A tesztek ─────────────────────────────────────────────────────────
 test.describe('oldal-lefedettség: minden oldal megnyílik és renderel', () => {
   for (const oldal of OLDALAK) {
-    test(`${oldal.minta}${oldal.allapot ? ' [állapot]' : ''} (${oldal.szereplo})`, async ({ page }) => {
+    test(`${oldal.minta}${allapotCimke(oldal)} (${oldal.szereplo})`, async ({ page }) => {
       await ellenorizOldalt(page, oldal);
     });
   }

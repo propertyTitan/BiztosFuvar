@@ -269,6 +269,92 @@ export type Bid = {
   counter_at?: string | null;
 };
 
+// ---------- CIB kártyás díjfizetés (PR-3, web) ----------
+// A backend a CIB-mag PR-jében épül UGYANERRE a szerződésre (terv:
+// [endpoints_and_flow] B, E, F, H, K). A mezőnevek a bank üzenetmezői.
+
+/** A banki hibacsoport (a MSGT32-re adott MSGT31 kódjaiból, CIB-besorolás). */
+export type CibRcCsoport = 'kartya' | 'szamla' | 'kapcsolat' | 'technikai';
+
+/** Az eredményoldal / a fizetési kártya állapot-szótára. */
+export type CibEredmenyAllapot =
+  | 'feldolgozas' | 'sikeres' | 'sikertelen' | 'nem_terhelt' | 'mar_fizetve' | 'ellenorzes';
+
+/** A bank által kötelezővé tett adatsor (TrID, RC, RT, AMO, ANUM) + csoport. */
+export type CibBankiAdatok = {
+  trid: string | null;
+  rc?: string | null;
+  rt?: string | null;
+  amo?: number | string | null;
+  cur?: string | null;
+  anum?: string | null;
+  rc_csoport?: CibRcCsoport | null;
+};
+
+/** GET /jobs/:id/fee-payment — csak a feladó (és az admin) kapja. */
+export type FeePaymentAllapot = {
+  provider_kind: 'cib' | 'stub';
+  can_pay: boolean;
+  open_attempt: { trid: string; started_at: string; allapot: string } | null;
+  last_result: (CibBankiAdatok & { allapot: string }) | null;
+};
+
+/** GET /payments/cib/eredmeny?e=<token> — publikus, token-kapus. */
+export type CibEredmeny = CibBankiAdatok & {
+  allapot: CibEredmenyAllapot;
+  job_id: string | null;
+  ujra_fizetheto: boolean;
+  frissult?: string | boolean | null;
+};
+
+/** POST /jobs/:id/pay válasza — CIB, stub, kupon és a régi gateway-ág. */
+export type PayJobValasz = {
+  provider?: 'cib' | 'stub' | string;
+  trid?: string;
+  payment_id?: string | null;
+  fee_huf: number;
+  /** CIB: az egyszer használatos átirányító link (api.gofuvar.hu/payments/cib/tovabb/…). */
+  redirect_url?: string | null;
+  /** Visszafelé kompatibilitás: CIB-nél ugyanaz, mint a redirect_url. */
+  gateway_url: string | null;
+  is_stub?: boolean;
+  reused?: boolean;
+  deferred?: boolean;
+  paid_via_voucher?: boolean;
+  ok?: boolean;
+};
+
+export type AdminCibSor = {
+  trid: string;
+  job_id: string | null;
+  allapot: string;
+  cib_state: string | null;
+  amount_huf: number | null;
+  rc: string | null;
+  anum: string | null;
+  created_at: string;
+  closed_at: string | null;
+};
+
+export type AdminCibUzenet = {
+  created_at: string;
+  direction: string;
+  msgt: string | null;
+  endpoint: string | null;
+  http_status: number | null;
+  rc: string | null;
+  error_class: string | null;
+  /** A titkosított (PID=…&CRYPTO=1&DATA=…) szöveg — a banki kivizsgáláshoz. */
+  raw: string | null;
+};
+
+export type AdminCibReszlet = {
+  session: Record<string, any> | null;
+  result: (CibBankiAdatok & Record<string, any>) | null;
+  events: Array<Record<string, any>>;
+  messages: AdminCibUzenet[];
+};
+
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem('gofuvar_token');
@@ -754,14 +840,47 @@ export const api = {
   /** Licites fuvar díj-fizetés indítása — consent kötelező (elállási nyilatkozat a redirect előtt).
    *  Ha a feladónak van ingyen-feladás kuponja (ajánlói program), a válasz
    *  `paid_via_voucher: true` + `gateway_url: null` — ilyenkor nincs Barion-redirect. */
+  //
+  // ⚠️ 55 mp-es keret (CIB PR-3): CIB-módban a backend a válasz előtt a bankkal
+  // inicializál (MSGT10, összesen legfeljebb 40 mp) — a 15 mp-es alapkeret a
+  // lassú banki válasznál „nem válaszolt" hibát adna, miközben a bankoldali
+  // előkészítés még fut. Időtúllépésnél sincs terhelés (MSGT20 nélkül nincs mit
+  // terhelni), és az újrapróba új tranzakciót kap.
   payJob: (id: string, consent: boolean) =>
-    request<{
-      payment_id?: string; gateway_url: string | null; fee_huf: number;
-      is_stub?: boolean; reused?: boolean; paid_via_voucher?: boolean; ok?: boolean;
-    }>(
+    request<PayJobValasz>(
       `/jobs/${id}/pay`,
-      { method: 'POST', body: JSON.stringify({ consent }) },
+      { method: 'POST', body: JSON.stringify({ consent }), timeoutMs: 55_000 },
     ),
+
+  /** A fuvar kapcsolatfelvételi díjának fizetési állapota (CIB-kísérletek). */
+  getFeePayment: (jobId: string) =>
+    request<FeePaymentAllapot>(`/jobs/${jobId}/fee-payment`),
+
+  /**
+   * A banki visszatérés eredménye az aláírt tokennel — BEARER NÉLKÜL.
+   *
+   * ⚠️ Szándékosan NEM a `request()`-en megy: (1) a bank a böngészőt gyakran
+   * MÁS böngészőbe küldi vissza (telepített kezdőképernyős GoFuvar → Safari,
+   * Facebook/Gmail beépített böngésző), ahol nincs munkamenet — az eredményt
+   * ott is mutatni kell; (2) a `request()` 401-re kiléptet és átirányít, egy
+   * publikus végpont hibája viszont nem érintheti a munkamenetet.
+   */
+  getCibEredmeny: async (token: string): Promise<CibEredmeny> => {
+    const res = await fetchWithTimeout(
+      `${BASE_URL}/payments/cib/eredmeny?e=${encodeURIComponent(token)}`,
+      { headers: { Accept: 'application/json' } },
+    );
+    if (!res.ok) {
+      const adat = await res.json().catch(() => ({} as { code?: string }));
+      const hiba = new Error(res.status === 404
+        ? 'Ez az eredmény-link lejárt vagy érvénytelen.'
+        : `Hiba történt (HTTP ${res.status}). Próbáld újra pár perc múlva.`);
+      (hiba as Error & { code?: string; status?: number }).code = (adat as { code?: string }).code;
+      (hiba as Error & { code?: string; status?: number }).status = res.status;
+      throw hiba;
+    }
+    return res.json();
+  },
 
   /** Él-e egy ajánlói kód (GF-014) — publikus, csak {valid} jön vissza. */
   referralCheck: (code: string) =>
@@ -904,6 +1023,31 @@ export const api = {
 
   adminPaymentLog: (limit = 50) =>
     request<any[]>(`/payments/admin/log?limit=${limit}`),
+
+  // ---------- Admin: CIB kártyás fizetések (PR-3) ----------
+
+  /** Keresés TrID / ANUM / fuvar-azonosító szerint, állapot- és dátumszűrővel. */
+  adminCibKereses: (p: { q?: string; allapot?: string; from?: string; to?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (p.q?.trim()) qs.set('q', p.q.trim());
+    if (p.allapot) qs.set('allapot', p.allapot);
+    if (p.from) qs.set('from', p.from);
+    if (p.to) qs.set('to', p.to);
+    qs.set('limit', String(p.limit ?? 25));
+    qs.set('offset', String(p.offset ?? 0));
+    return request<{ items: AdminCibSor[]; total: number }>(`/payments/admin/cib?${qs.toString()}`);
+  },
+  /** Egy kísérlet teljes képe: session, eredmény, események, banki üzenetnapló. */
+  adminCibReszlet: (trid: string) =>
+    request<AdminCibReszlet>(`/payments/admin/cib/${encodeURIComponent(trid)}`),
+  /** A következő banki lekérdezés előrehozása (a D04-köz tiszteletben tartásával). */
+  adminCibUjraellenorzes: (trid: string) =>
+    request<{ ok: true }>(`/payments/admin/cib/${encodeURIComponent(trid)}/ujraellenorzes`, { method: 'POST' }),
+  /** Kétes (close_unknown) lezárás kézi rendezése a bankkal egyeztetve. */
+  adminCibRendezes: (trid: string, body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string }) =>
+    request<{ ok: true; allapot: string }>(`/payments/admin/cib/${encodeURIComponent(trid)}/rendezes`, {
+      method: 'POST', body: JSON.stringify(body),
+    }),
 
   /**
    * Belső, banki felkészülési anyag. SZÁNDÉKOSAN a szerverről jön, nem a

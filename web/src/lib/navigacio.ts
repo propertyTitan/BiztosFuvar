@@ -13,3 +13,15 @@ export function biztonsagosBelsoUt(ertek: string | null | undefined): string | n
   if (s.length > 512) return null;
   return s;
 }
+
+/**
+ * Teljes oldalas navigáció egy KÜLSŐ (vagy az API-n lévő) címre — pl. a CIB
+ * egyszer használatos átirányító linkjére (CIB PR-3).
+ *
+ * Külön függvény, hogy a hívók tesztelhetők legyenek: a jsdom a
+ * `window.location.assign`-t nem tudja végrehajtani, és felüldefiniálni sem
+ * engedi — a tesztek ezt a modult mockolják.
+ */
+export function kulsoOldalraLep(url: string): void {
+  window.location.assign(url);
+}
