@@ -46,3 +46,9 @@ backend/reports/
 # Claude Code session-állományok (worktree-k, futásidejű state)
 .claude/worktrees/
 scratch/
+
+# CIB kulcsfájlok (teszt és éles; a banknál azonos néven jönnek) — soha ne
+# kerüljenek a NYILVÁNOS repóba. A kulcs helye a Railway titkos env-je
+# (CIB_KEY_B64).
+*.des
+*.reg
