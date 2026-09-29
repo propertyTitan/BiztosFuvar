@@ -418,6 +418,19 @@ describe('ellenorizMsgt11 / ellenorizMsgt31', () => {
     });
   }
 
+  it('MSGT31: a SIKERES válaszban kötelező az AMO; nem-sikeres válasznál csak ha jelen van, akkor egyezzen', () => {
+    for (const rc of ['PR', 'TO', '05']) {
+      const m = j31({ RC: rc });
+      delete m.AMO;
+      expect(p.ellenorizMsgt31(m, S, K.pid), `${rc} AMO nélkül`).toMatchObject({ ok: true });
+      expect(p.ellenorizMsgt31(j31({ RC: rc, AMO: '999' }), S, K.pid), `${rc} eltérő AMO-val`)
+        .toMatchObject({ ok: false, mezo: 'AMO' });
+    }
+    const siker = j31({ RC: '00' });
+    delete siker.AMO;
+    expect(p.ellenorizMsgt31(siker, S, K.pid)).toMatchObject({ ok: false, mezo: 'AMO' });
+  });
+
   it('az RT legfeljebb 255 karakter, vezérlőkarakter nélkül; a szóközös ANUM levágódik', () => {
     const r = p.ellenorizMsgt31(j31({ RT: `a\u0000b${'x'.repeat(400)}`, ANUM: ' A1B2 ' }), S, K.pid);
     expect(r.ok).toBe(true);

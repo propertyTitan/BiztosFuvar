@@ -585,11 +585,17 @@ function ellenorizMsgt31(mezok, session, pid) {
   if (!mezok || typeof mezok !== 'object' || mezok.MSGT !== '31') return elteres('MSGT');
   if (mezok.PID !== pid) return elteres('PID');
   if (vagott(mezok.TRID) !== session.payment_id) return elteres('TRID');
-  if (!amoEgyezik(mezok.AMO, session.amount_huf)) return elteres('AMO');
-  const cur = mezok.CUR !== undefined ? vagott(mezok.CUR).toUpperCase() : (session.currency || 'HUF');
-  if (cur !== (session.currency || 'HUF')) return elteres('CUR');
   const rc = rcOlvas(mezok);
   if (!rc) return elteres('RC');
+  // Az összeg a SIKERES (RC=00) válaszban kötelező és egyező — terhelést csak
+  // arra az összegre fogadunk el, amit mi indítottunk. Nem-sikeres válasznál
+  // (PR, TO, elutasítás) csak akkor ellenőrizzük, ha a bank elküldi: ha a
+  // valódi bank ezekben nem ad AMO-t, a „mezőeltérés" három kör után
+  // close_unknown-ba vinné a folyamatban lévő fizetést (2026-09-29, a PR-2
+  // utóellenőrzése; a teszt-banknál mérendő).
+  if ((rc === '00' || mezok.AMO !== undefined) && !amoEgyezik(mezok.AMO, session.amount_huf)) return elteres('AMO');
+  const cur = mezok.CUR !== undefined ? vagott(mezok.CUR).toUpperCase() : (session.currency || 'HUF');
+  if (cur !== (session.currency || 'HUF')) return elteres('CUR');
   const rt = typeof mezok.RT === 'string'
     ? mezok.RT.replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, 255) : null;
   const anumNyers = vagott(mezok.ANUM);
