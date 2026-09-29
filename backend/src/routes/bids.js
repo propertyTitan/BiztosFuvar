@@ -365,7 +365,9 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
 // indítunk új fizetést: a díj a fuvarra szól, egyszeri.
 //
 // Visszaad: { ok:true, barionRes, feeHuf, feeAlreadyPaid } VAGY
-//           { ok:false, status, error, detail? } — ekkor a hívó ROLLBACK-el.
+//           { ok:false, status, error, code? } — ekkor a hívó ROLLBACK-el.
+//           (2026-09-29, CIB PR-1: belső `detail` nincs — a fizetésindítás
+//           hibaszövege csak a szerver-naplóba kerül.)
 async function finalizeAcceptedBid(client, bid, agreedPrice) {
   // Régi EUR-ajánlat sem értelmezhető át forintnak. Új HUF-ajánlat kell.
   if ((bid.currency || 'HUF') !== 'HUF' || (bid.job_currency || 'HUF') !== 'HUF') {
@@ -673,7 +675,7 @@ router.post('/bids/:id/accept', authRequired, writeRateLimit, async (req, res) =
     const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
     if (!fin.ok) {
       await client.query('ROLLBACK');
-      return res.status(fin.status).json({ error: fin.error, ...(fin.code ? { code: fin.code } : {}), ...(fin.detail ? { detail: fin.detail } : {}) });
+      return res.status(fin.status).json({ error: fin.error, ...(fin.code ? { code: fin.code } : {}) });
     }
     await client.query('COMMIT');
 
@@ -756,7 +758,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
     const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
     if (!fin.ok) {
       await client.query('ROLLBACK');
-      return res.status(fin.status).json({ error: fin.error, ...(fin.code ? { code: fin.code } : {}), ...(fin.detail ? { detail: fin.detail } : {}) });
+      return res.status(fin.status).json({ error: fin.error, ...(fin.code ? { code: fin.code } : {}) });
     }
     await client.query('COMMIT');
 

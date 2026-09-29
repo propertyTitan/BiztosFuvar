@@ -10,7 +10,8 @@ const realtime = require('../realtime');
 const paymentProvider = require('../services/paymentProvider');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
-const { sendJobPaidEmail, sendCancellationEmail, sendFeeConfirmationEmail } = require('../services/email');
+const { sendCancellationEmail } = require('../services/email');
+const { dijFizetesUtaniErtesitesek } = require('../services/feeNotifications');
 const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
 const { publicCoordinate } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
@@ -1152,18 +1153,10 @@ router.patch('/:id', authRequired, writeRateLimit, async (req, res) => {
 //   2) `paid_at` beállítása, a díj-sor 'released'
 //   3) Értesítés + díj-visszaigazoló email a feladónak
 router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, res) => {
-  const { rows } = await db.query(
-    `SELECT j.*,
-            s.full_name AS shipper_name,
-            s.email AS shipper_email,
-            c.full_name AS carrier_name,
-            c.email AS carrier_email
-       FROM jobs j
-       JOIN users s ON s.id = j.shipper_id
-  LEFT JOIN users c ON c.id = j.carrier_id
-      WHERE j.id = $1`,
-    [req.params.id],
-  );
+  // A címzettek nevét/e-mailjét a közös értesítő helper a könyvelés UTÁN,
+  // a díjbizonylat claimjével egy utasításban olvassa (2026-09-29, CIB PR-1)
+  // — az itt beolvasott szállító egy újranyitási verseny után már elavult.
+  const { rows } = await db.query('SELECT j.* FROM jobs j WHERE j.id = $1', [req.params.id]);
   const j = rows[0];
   if (!j) return res.status(404).json({ error: 'Fuvar nem található' });
   if (j.shipper_id !== req.user.sub) {
@@ -1205,9 +1198,10 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
   const { rows: dijSor } = await db.query(
     `SELECT barion_payment_id FROM escrow_transactions WHERE job_id = $1`, [j.id],
   );
+  const paymentId = dijSor[0]?.barion_payment_id || `manual-${j.id}`;
   const k = await konyvelDijFizetes({
     entityType: 'job', entityId: j.id,
-    paymentId: dijSor[0]?.barion_payment_id || `manual-${j.id}`, eventType: 'manual',
+    paymentId, eventType: 'manual',
     feeHuf: j.connection_fee_huf || calculateConnectionFee(j.accepted_price_huf || 0),
     currency: j.currency || 'HUF', shipperId: j.shipper_id, carrierId: j.carrier_id,
   });
@@ -1219,56 +1213,14 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
   }
   const paidAt = k.paidAt;
 
-  // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §):
-  // a megfizetett díj + a fizetéskor tett elállási nyilatkozat szövege.
-  if (j.shipper_email) {
-    setImmediate(() => {
-      sendFeeConfirmationEmail({
-        to: j.shipper_email,
-        shipperName: j.shipper_name,
-        jobTitle: j.title,
-        feeHuf: j.connection_fee_huf || 0,
-        cashHuf: j.accepted_price_huf,
-        paidAtIso: paidAt,
-        detailsPath: `/dashboard/fuvar/${j.id}`,
-      }).catch((e) => console.warn('[email] fee_confirmation hiba:', e.message));
-    });
-  }
-
-  // Értesítés a szállítónak (a licitet nyert carrier): in-app + email
-  if (j.carrier_id) {
-    try {
-      await createNotification({
-        user_id: j.carrier_id,
-        type: 'job_paid',
-        title: '🤝 Indulhat a fuvar!',
-        body: `${j.shipper_name || 'A feladó'} kifizette a kapcsolatfelvételi díjat a(z) "${j.title}" fuvarhoz. Mostantól látjátok egymás elérhetőségét — a fuvardíjat (${(j.accepted_price_huf || 0).toLocaleString('hu-HU')} Ft) közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek).`,
-        link: `/sofor/fuvar/${j.id}`,
-      });
-    } catch (e) {
-      console.warn('[notifications] job_paid hiba:', e.message);
-    }
-    if (j.carrier_email) {
-      setImmediate(() => {
-        sendJobPaidEmail({
-          to: j.carrier_email,
-          carrierName: j.carrier_name,
-          jobTitle: j.title,
-          jobId: j.id,
-          amountHuf: j.accepted_price_huf,
-          shipperName: j.shipper_name,
-        }).catch((e) => console.warn('[email] job_paid hiba:', e.message));
-      });
-    }
-    realtime.emitToUser(j.carrier_id, 'job:paid', {
-      job_id: j.id,
-      paid_at: paidAt,
-    });
-  }
-  realtime.emitToUser(j.shipper_id, 'job:paid', {
-    job_id: j.id,
-    paid_at: paidAt,
-  });
+  // Díj-visszaigazolás (45/2014. 18. §) + szállítói in-app/levél + job:paid —
+  // a közös, pontosan egyszeri helperen át (2026-09-29, CIB PR-1). Eddig a
+  // párhuzamos nyugtázás VESZTESE is mindent újra kiküldött (a mag neki is
+  // konyvelve=1-et ad, alreadyBooked), és egy újranyitási verseny után a
+  // kérés elején beolvasott, azóta visszalépett szállító kapott „Indulhat a
+  // fuvar!"-t. A helper a díjbizonylaton claimel, és a claim pillanatában
+  // tárolt szállítónak ír.
+  await dijFizetesUtaniErtesitesek(paymentId);
 
   res.json({ ok: true, paid_at: paidAt });
 });

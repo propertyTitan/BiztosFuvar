@@ -117,6 +117,7 @@ Top-level fájlok:
 | `instantJobs.js` | instant ("UberFuvar") matching | ÉL |
 | `backhaul.js` / `routeAlong.js` | visszafuvar + útba-eső matching | ÉL |
 | `feePayment.js` | a kapcsolatfelvételi díj KÖZÖS könyvelési magja (állapot-őr, paid_at, díj-sor, ÁFA, számla, napló, referral) + webhook idempotencia-claim — a webhook ÉS a kézi nyugtázás ezt hívja (2026-09-11, A2) | ÉL |
+| `feeNotifications.js` | a díjfizetés UTÁNI értesítések (szállítói in-app + levél, feladói díj-visszaigazolás, `job:paid`/`route-booking:paid`) PONTOSAN EGYSZER díjbizonylatonként: atomi claim a `fee_payment_receipts.notifications_sent_at`-on, a claim pillanatában tárolt szállítónak — a webhook és mindkét kézi nyugtázás ezt hívja (2026-09-29, CIB PR-1) | ÉL |
 | `feeInvoiceQueue.js` | a `fee_payment_receipts` bizonylataiból a hiányzó számlák pótlása a 092-es migráció fizetéskori vevő- és ÁFA-snapshotjából; hiányzó régi snapshotnál kézi egyeztetés; bizonytalan külső számlázási eredménynél riasztás, automatikus újrakiállítás nélkül (2026-09-14, audit 1) | ÉL |
 | `paymentReminders.js` | fizetetlen megállapodás: 24h/48h emlékeztető + 72h után lejáratás (`runPaymentExpiry`, A4) | ÉL |
 | `noOfferNudge.js` | 24 h + 0 ajánlat → egyszeri tippek a feladónak (B3) | ÉL |
