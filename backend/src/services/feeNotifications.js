@@ -15,8 +15,8 @@
 //      visszalépett szállítónak írt „Indulhat a fuvar!"-t.
 //
 //  Most MINDEN díjkönyvelő út ezt hívja, a könyvelés UTÁN. A döntés a
-//  díjbizonylaton születik: az `UPDATE … SET notifications_sent_at = NOW()
-//  WHERE … IS NULL` claim egyetlen hívónak sikerül, a többi semmit nem küld.
+//  díjbizonylaton születik: az „UPDATE … SET notifications_sent_at = NOW()
+//  WHERE … IS NULL" claim egyetlen hívónak sikerül, a többi semmit nem küld.
 //  A címzettek és a tartalom a claim UGYANAZON utasításában olvasódnak ki
 //  (CTE) — tehát a claim pillanatában tárolt szállító kap értesítést, a
 //  levélben a bizonylat összege és időpontja áll.
