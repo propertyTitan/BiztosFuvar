@@ -198,6 +198,10 @@ router.post('/payments/admin/cib/:trid/ujraellenorzes', authRequired, requireRol
   if (cibKonfig() !== 'teljes') return res.status(409).json({ error: 'A CIB-konfiguráció nem teljes.', code: 'CIB_UNAVAILABLE' });
   const r = await cibFizetes.ujraellenorzes(req.params.trid);
   if (!r) return res.status(404).json({ error: 'Nem található' });
+  // Az admin-írás napló (app-szintű middleware) a TrID-et nem tudja célként
+  // rögzíteni (a target_id UUID) — a fuvarhoz kötött, kifejezett sor
+  // (2026-09-29, 1. javítókör) teszi visszakereshetővé, ki mozdította.
+  await logAdminAccess(req, 'cib_ujraellenorzes', { type: 'job', id: r.jobId });
   return res.json({ ok: true });
 });
 
@@ -207,6 +211,11 @@ router.post('/payments/admin/cib/:trid/rendezes', authRequired, requireRole('adm
   const r = await cibFizetes.rendezes(req.params.trid, {
     eredmeny: b.eredmeny, indoklas: b.indoklas, anum: b.anum,
   }, req.user.sub);
+  // Pénzügyi hatású admin-döntés (kontakt-felfedés + könyvelés, vagy a
+  // kísérlet lezárása): a fuvarhoz kötve, a döntés irányával naplózzuk
+  // (2026-09-29, 1. javítókör — a terv H) pontja). A szabad szöveges
+  // indoklás NEM kerül a naplóba, az a cib_result-ban van.
+  if (r.http === 200) await logAdminAccess(req, `cib_rendezes:${b.eredmeny}`, { type: 'job', id: r.jobId });
   return res.status(r.http).json(r.body);
 });
 

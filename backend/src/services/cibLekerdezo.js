@@ -119,10 +119,25 @@ async function runCibKor() {
       // szabályos leállás a futót megvárja (a pool.end() előtt).
       // eslint-disable-next-line no-await-in-loop
       await cibFizetes.munkaban(async () => {
+        if (ctx.megszakitva || cibFizetes.leallasFolyamatban()) {
+          await cibFizetes.berletFelszabadit(sor.payment_id, berlo).catch(() => {});
+          return;
+        }
+        // ⚠️ 2026-09-29 (1. javítókör): a kör legfeljebb 25 sort bérel 3
+        // percre, de sorosan dolgozza fel — néhány 30 s-os banki hívás után
+        // egy későbbi sor bérlete lejárhat, és egy másik munkás átveheti.
+        // Ezért minden sor ELŐTT megújítjuk a bérletet (csak ha még a miénk),
+        // és a FRISS sorral dolgozunk: egy elavult `redirected` sorra így nem
+        // megy fölösleges MSGT33, miközben más tartja.
+        const friss = await cibFizetes.berletMegujit(sor.payment_id, berlo);
+        if (!friss) {
+          // Közben más vette át, vagy végállapotba került. Az elengedés a
+          // bérlőre feltételes: egy más által tartott bérletet nem bánt.
+          await cibFizetes.berletFelszabadit(sor.payment_id, berlo).catch(() => {});
+          return;
+        }
         try {
-          if (!ctx.megszakitva && !cibFizetes.leallasFolyamatban()) {
-            await cibFizetes.lepes(sor, berlo, 'kor', ctx);
-          }
+          await cibFizetes.lepes(friss, berlo, 'kor', ctx);
         } finally {
           await cibFizetes.berletFelszabadit(sor.payment_id, berlo).catch(() => {});
         }

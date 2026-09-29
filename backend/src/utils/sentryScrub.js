@@ -41,7 +41,10 @@ const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', '
 // `/nyomon-kovetes/` (a webes publikus követő-oldal) hiányzott, a webből
 // pedig a `/vat/` és a `/private-files/`. Mostantól a lista SZIMMETRIKUS —
 // a backend a webes URL-t is láthatja (referer, hibaüzenet, breadcrumb).
-const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/|\/vat\/|\/private-files\/)[^/?#]+/gi;
+// ⚠️ 2026-09-29 (CIB PR-2, 1. javítókör): a kártyás fizetés egyszer
+// használatos átirányító linkje (/payments/cib/tovabb/<token>) is ide
+// tartozik — a token az ÚTVONALBAN utazik, a query-szűrő nem érte el.
+const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/|\/vat\/|\/private-files\/|\/payments\/cib\/tovabb\/)[^/?#]+/gi;
 
 // A breadcrumb-adatok azon kulcsai, amelyekben URL vagy query string állhat.
 // A `http.query` a Sentry Node SDK saját mezője: a kimenő fetch NYERS query

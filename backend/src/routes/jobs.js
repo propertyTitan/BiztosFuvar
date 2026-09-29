@@ -24,6 +24,7 @@ const { ellenorizCimzett } = require('../utils/cimzett');
 const { elsoNemSzovegMezo, nemSzovegValasz } = require('../utils/text');
 const { telepulesSzint, utcaSzint } = require('../utils/address');
 const { cibZarasFolyamatban, fagyasztvaValasz } = require('../utils/cibZaras');
+const { TRID_RE } = require('../services/cibProtokoll');
 const cibFizetes = require('../services/cibFizetes');
 
 const router = express.Router();
@@ -1251,7 +1252,12 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
   const { rows: dijSor } = await db.query(
     `SELECT barion_payment_id FROM escrow_transactions WHERE job_id = $1`, [j.id],
   );
-  const paymentId = dijSor[0]?.barion_payment_id || `manual-${j.id}`;
+  // ⚠️ 2026-09-29 (CIB PR-2, 1. javítókör): ha a díj-sor egy (lezárt,
+  // sikertelen) CIB-kísérletre mutat — a feladó a teszt-allowlistről lekerült
+  // —, a kézi nyugtázás NEM írhat erre a banki TRID-re: a 'manual' Succeeded
+  // esemény a banki kísérletet „sikeressé" tenné, miközben a bank nem terhelt.
+  const dijSorId = dijSor[0]?.barion_payment_id;
+  const paymentId = dijSorId && !TRID_RE.test(dijSorId) ? dijSorId : `manual-${j.id}`;
   const k = await konyvelDijFizetes({
     entityType: 'job', entityId: j.id,
     paymentId, eventType: 'manual',

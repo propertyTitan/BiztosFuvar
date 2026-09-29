@@ -299,6 +299,11 @@ function feloldas(env) {
       }
     }
   }
+  // A PID 4. karaktere a terminál devizája (T 9–10. o.: 0 = HUF). Minden
+  // üzenetünk CUR=HUF-ot visz, így egy nem forintos (pl. EUR) terminál
+  // kulcsával a fizetés csak az első banki hibánál derülne ki — inkább hibás
+  // konfig és 503 (2026-09-29, 1. javítókör).
+  if (kulcs && String(kulcs.pid).charAt(3) !== '0') okok.push('pid_nem_huf');
 
   // A 3DES-EDE-CBC egy jövőbeli Node/OpenSSL-frissítéssel legacy providerbe
   // kerülhet — akkor inkább 503, mint egy rejtélyes első banki hiba.
@@ -386,7 +391,31 @@ function naplozCibKonfigot({ env = process.env, konzol = console, sentry = null 
   konzol.log(`[CIB] EKI-konfiguráció teljes — környezet: ${b.kornyezet}, PID: ${b.pid}, `
     + `kulcs-ujjlenyomat: ${b.ujjlenyomat}, bank: ${bankHost}, visszatérés: ${b.apiOrigin}`
     + `${b.tesztFelhasznalok.length ? `, teszt-allowlist: ${b.tesztFelhasznalok.length} fiók` : ''}`);
+  leuritesEllenorzes(env, b, konzol, sentry);
   return b;
+}
+
+/**
+ * Railway-leürítés (2026-09-29, 1. javítókör): a szabályos leállás a futó
+ * zárást (MSGT32 + rögzítés + könyvelés) legfeljebb a zárási keret + 10 s-ig
+ * várja — de csak akkor ér valamit, ha a Railway a SIGTERM és a SIGKILL között
+ * legalább ennyit hagy (RAILWAY_DEPLOYMENT_DRAINING_SECONDS; alapból 0 → minden
+ * deploy egy épp futó zárást close_unknown-ba tehet). Kódból a platform
+ * beállítását kikényszeríteni nem lehet, ezért teljes CIB-konfignál minden
+ * induláskor hangosan szólunk, ha a Railway-en hiányzik vagy kevés.
+ */
+function leuritesEllenorzes(env, b, konzol, sentry) {
+  const railwayn = [env.RAILWAY_ENVIRONMENT, env.RAILWAY_ENVIRONMENT_NAME, env.RAILWAY_PROJECT_ID].some(nemUres);
+  if (!railwayn) return;
+  const kell = Math.ceil(((b.hangolok && b.hangolok.zarasIdokeretMs) || 45000) / 1000) + 10;
+  const nyers = env.RAILWAY_DEPLOYMENT_DRAINING_SECONDS;
+  const van = nemUres(nyers) ? Number(nyers.trim()) : 0;
+  if (Number.isFinite(van) && van >= kell) return;
+  const uzenet = `[CIB] 🚨 RAILWAY_DEPLOYMENT_DRAINING_SECONDS=${nemUres(nyers) ? nyers.trim() : '(nincs)'} — `
+    + `legalább ${kell} mp kell (javasolt: 60), különben egy deploy a futó kártyás zárást megszakítja, `
+    + 'és a tétel kézi egyeztetésre (close_unknown) kerül. Állítsd be a Railway service-változók között.';
+  konzol.error(uzenet);
+  try { if (sentry) sentry.captureMessage(uzenet, 'warning'); } catch { /* no-op */ }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
