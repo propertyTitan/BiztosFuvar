@@ -348,25 +348,51 @@ router.get('/payments/admin/log', authRequired, async (req, res) => {
   if (req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Csak admin' });
   }
-  await logAdminAccess(req, 'payment_log', { type: 'all' });
+  // TrID-szűrő (2026-09-29, CIB PR-2/C): a banki „Tranzakció kivizsgálás
+  // kérés" egy TrID-ről szól — az admin egy fizetés TELJES eseménysorát
+  // kérheti le, nem kell a legutóbbi 200 sorban keresgélnie. Csak pontos
+  // egyezés; a formátum-kapu a szemetet 400-zal utasítja el (soha 500).
+  const pid = req.query.payment_id;
+  if (pid !== undefined && pid !== '' && (typeof pid !== 'string' || !/^[A-Za-z0-9._:-]{1,100}$/.test(pid))) {
+    return res.status(400).json({ error: 'Érvénytelen fizetés-azonosító.', code: 'INVALID_VALUE' });
+  }
+  // A target_id UUID-oszlop: a TrID nem fér bele (a napló-írás elbukna, és
+  // a hozzáférés nyom nélkül maradna) — a szűrt lekérés a típusában látszik.
+  await logAdminAccess(req, 'payment_log', { type: pid ? 'payment' : 'all' });
   const { limit = 50, offset = 0 } = req.query;
-  const { rows } = await db.query(
-    `SELECT pe.*,
-            j.title AS job_title,
-            r.title AS route_title
-       FROM payment_events pe
-  LEFT JOIN jobs j ON j.id = pe.job_id
-  LEFT JOIN route_bookings rb ON rb.id = pe.booking_id
-  LEFT JOIN carrier_routes r ON r.id = rb.route_id
-      ORDER BY pe.created_at DESC
-      LIMIT $1 OFFSET $2`,
+  const params = [
     // ⚠️ ALSÓ KORLÁT IS (2026-08-12, lefedettségi kör T1). A `Number(x) || d`
     // a NEGATÍV számot truthy-ként átengedte → Postgres `2201X: OFFSET must
     // not be negative` → 500 „Szerverhiba". Sérti az SZ1 szabályt.
     // ⚠️ A hülyebiztos-mátrix azért nem fogta meg, mert CSAK a path-
     // paramétereket és a TÖRZSET mutálja — a QUERY STRING egy egész,
     // őrizetlen input-osztály volt.
-    [Math.min(Math.max(1, Number(limit) || 50), 200), Math.max(0, Number(offset) || 0)],
+    // 2026-09-29: egészre vágva és felülről is határolva (a tört érték
+    // eddig a Postgres bigint-paraméterén bukott el).
+    Math.min(Math.max(1, Math.floor(Number(limit)) || 50), 200),
+    Math.min(Math.max(0, Math.floor(Number(offset)) || 0), 100000),
+  ];
+  if (pid) params.push(pid);
+  // A munkamenet (payment_sessions) szolgáltatója és CIB-állapota: az admin
+  // lássa, hogy egy esemény valódi kártyás kísérlethez vagy a teszt-üzemi
+  // (szimulált) munkamenethez tartozik, és hol tart a banki zárás.
+  const { rows } = await db.query(
+    `SELECT pe.*,
+            j.title AS job_title,
+            r.title AS route_title,
+            ps.provider AS provider,
+            ps.is_simulated AS session_simulated,
+            ps.state AS session_state,
+            ps.cib_state AS cib_state
+       FROM payment_events pe
+  LEFT JOIN jobs j ON j.id = pe.job_id
+  LEFT JOIN route_bookings rb ON rb.id = pe.booking_id
+  LEFT JOIN carrier_routes r ON r.id = rb.route_id
+  LEFT JOIN payment_sessions ps ON ps.payment_id = pe.payment_id
+      ${pid ? 'WHERE pe.payment_id = $3' : ''}
+      ORDER BY pe.created_at DESC
+      LIMIT $1 OFFSET $2`,
+    params,
   );
   res.json(rows);
 });

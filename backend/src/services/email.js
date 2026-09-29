@@ -551,13 +551,50 @@ async function sendFeePaymentFailedEmail({
   });
 }
 
+// A TrID NÉLKÜLI riasztás RENDSZER-szintű (2026-09-29, CIB PR-2/C): nem egy
+// fuvar kézi egyeztetéséről szól, hanem arról, hogy a kártyás fizetés épp
+// nem indítható. Eddig ugyanaz a „fuvar fagyasztva, rendezd ANUM-mal" szöveg
+// ment ki rájuk — éjjel félrevezetné azt, aki reagál.
+const CIB_RENDSZER_RIASZTAS = Object.freeze({
+  szivveres: {
+    targy: 'a CIB lekérdező kör nem fut',
+    szoveg: 'A CIB lekérdező kör 3 perce nem futott le sikeresen (vagy az indulás óta egyszer sem). Amíg nem fut, '
+      + 'a kártyás fizetés 503-at ad, és a már jóváhagyott tételek lezárása is áll — a bank a 10–15 perces ablak '
+      + 'után reverzál, terhelés nem marad. Nézd meg a Railway-logot (DB-kapcsolat, migráció, összeomlási ciklus).',
+  },
+  megszakito: {
+    targy: 'a CIB-kapcsolat megszakítója nyitva',
+    szoveg: 'Több egymás utáni banki kapcsolati vagy S-hiba után a megszakító nyitva: 10 percig nem indul új '
+      + 'kártyás fizetés. Valószínű ok: IP-engedélyezés, port, felcserélt teszt/éles kulcs vagy környezet.',
+  },
+});
+
 /**
  * Belső riasztás (2026-09-29, CIB PR-2/B): egy kártyás fizetés kétes
  * (close_unknown) vagy könyvelési árva — ember dönt, a bankkal egyeztetve.
  * CSAK a TrID és a fuvar azonosítója megy ki, személyes adat nem.
+ * TrID nélkül (PR-2/C) rendszer-riasztás: `ok` = szivveres | megszakito.
  */
 async function sendCibRiasztasEmail({ to, trid, jobId, ok }) {
-  const maszk = trid ? `…${String(trid).slice(-4)}` : '—';
+  const rendszer = !trid ? CIB_RENDSZER_RIASZTAS[ok] : null;
+  if (!trid) {
+    const bodyHtml = `
+    <p><strong>Rendszer-riasztás</strong> (${escapeHtml(ok || '?')}): ${escapeHtml(rendszer ? rendszer.szoveg : 'a kártyás fizetés üzemzavara.')}</p>
+    ${jobId ? `<p>Érintett fuvar: ${escapeHtml(jobId)}</p>` : ''}
+    <p>Ha közben kétes kísérlet keletkezik, arról külön, TrID-s levél megy.</p>
+  `;
+    return sendEmail({
+      to,
+      subject: `[GoFuvar] CIB rendszer-riasztás: ${rendszer ? rendszer.targy : 'üzemzavar'}`,
+      html: wrapHtml({
+        heading: '🚨 Kártyás fizetés — rendszer-riasztás',
+        bodyHtml,
+        ctaText: 'Admin megnyitása',
+        ctaHref: `${getWebBase()}/admin#fizetesek`,
+      }),
+    });
+  }
+  const maszk = `…${String(trid).slice(-4)}`;
   const bodyHtml = `
     <p>Egy kártyás díjfizetés <strong>kézi egyeztetést</strong> igényel (${escapeHtml(ok || '?')}).</p>
     <table style="border-collapse:collapse;font-size:13px">

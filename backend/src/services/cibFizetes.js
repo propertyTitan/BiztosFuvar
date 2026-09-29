@@ -108,6 +108,12 @@ function hibaValasz(kod) {
 const allapot = {
   utolsoTick: 0,
   leallas: false,
+  // A folyamatban lévő CIB-MUNKA (indítás, feldolgozás egy TRID-en) —
+  // nem csak a banki HTTP-hívás. A szabályos leállás ERRE vár (2026-09-29,
+  // PR-2/C): a MSGT32 válasza után még a closed_ok rögzítése és a könyvelés
+  // hátravan; ha közben jön a pool.end(), a bank lezárta a tranzakciót, a
+  // sorunk viszont `closing`-ban marad → hamis `close_unknown`, ember kell.
+  munka: 0,
   megszakito: { hibak: 0, nyitvaEddig: 0, utolsoRiasztas: 0 },
   visszalepes: { eddig: 0, ms: 0 },
   hatter: new Set(),
@@ -125,6 +131,23 @@ function utolsoSzivveres() {
 }
 function leallasFolyamatban() {
   return allapot.leallas;
+}
+
+/**
+ * Egy CIB-munkaegység futtatása a számláló alatt (a leállás erre vár).
+ * A számláló a hívás ELSŐ await-je előtt nő — egy szálon ez atomi a
+ * `leallas` ellenőrzésével együtt.
+ */
+async function munkaban(fn) {
+  allapot.munka += 1;
+  try {
+    return await fn();
+  } finally {
+    allapot.munka -= 1;
+  }
+}
+function folyamatbanLevoMunka() {
+  return allapot.munka;
 }
 
 function megszakitoNyitva() {
@@ -634,9 +657,16 @@ async function inditCibDijFizetes({ entityType = 'job', entityId, shipperId }) {
   // Nem engedélyeztetünk pénzt, ha nincs, ami lezárja (a lekérdező kör ezen
   // a példányon nem fut), vagy ha a bank-kapcsolat épp rossz.
   if (allapot.leallas || !szivveresFriss() || megszakitoNyitva()) return hibaValasz('PAYMENT_TEMPORARILY_UNAVAILABLE');
+  return munkaban(() => inditas({ b, entityId, shipperId }));
+}
 
+async function inditas({ b, entityId, shipperId }) {
   const kezd = Date.now();
   for (let kiserlet = 1; kiserlet <= 3; kiserlet += 1) {
+    // Leállás közben (SIGTERM) új engedélyeztetés nem indul — az RC=02 utáni
+    // újrapróba sem (2026-09-29, PR-2/C): a lezárni képes példány épp
+    // megszűnik, egy most jóváhagyott tranzakció a következő példányra várna.
+    if (kiserlet > 1 && allapot.leallas) return hibaValasz('PAYMENT_TEMPORARILY_UNAVAILABLE');
     // eslint-disable-next-line no-await-in-loop
     const a = await aFazis({ b, jobId: entityId, shipperId });
     if (a.valasz) return a.valasz;
@@ -884,6 +914,11 @@ async function feldolgoz(trid, forras = 'kulso') {
   if (allapot.leallas) return { kihagyva: 'leallas' };
   const b = p.cibBeallitasok();
   if (b.allapot !== 'teljes' || !p.TRID_RE.test(String(trid || ''))) return { kihagyva: 'konfig' };
+  // A bérlettől a felszabadításig egy munkaegység: a leállás megvárja.
+  return munkaban(() => feldolgozBerlettel(trid, forras));
+}
+
+async function feldolgozBerlettel(trid, forras) {
   const berlo = ujBerlo();
   const { rows } = await db.query(
     `UPDATE payment_sessions
@@ -1389,16 +1424,34 @@ async function rendezes(trid, { eredmeny, indoklas, anum }, adminId) {
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
- * SIGTERM: nincs új bérlet, új zárási claim és új MSGT32; a futó banki
- * hívásokat (egy MSGT32-t) megvárjuk a megadott ideig.
+ * SIGTERM: nincs új bérlet, új zárási claim, új MSGT10 és új MSGT32; a
+ * futó CIB-MUNKÁT (nem csak a banki HTTP-hívást, hanem az eredmény
+ * rögzítését és a könyvelést is) megvárjuk a megadott ideig.
+ *
+ * ⚠️ 2026-09-29 (PR-2/C): eddig csak a futó HTTP-hívások számlálóját
+ * figyeltük — a MSGT32 válasza után a leállás azonnal elengedett, a
+ * `closed_ok` rögzítése a már lezárt poolba ütközött volna.
  */
 async function leallitas({ varakozasMs = 0 } = {}) {
   allapot.leallas = true;
   const hatar = Date.now() + varakozasMs;
-  while (kliens.futoHivasokSzama() > 0 && Date.now() < hatar) {
+  while ((kliens.futoHivasokSzama() > 0 || allapot.munka > 0) && Date.now() < hatar) {
     // eslint-disable-next-line no-await-in-loop
     await varj(25);
   }
+}
+
+/**
+ * Az erőszakos kilépés időkerete SIGTERM-kor (index.js): futó CIB-munka
+ * mellett a zárási keret + 10 s (alapból 55 s — a Railway-en ehhez
+ * RAILWAY_DEPLOYMENT_DRAINING_SECONDS=60 kell), egyébként a megszokott 10 s.
+ */
+function leallasiKeretMs() {
+  if (kliens.futoHivasokSzama() > 0 || allapot.munka > 0) {
+    const b = p.cibBeallitasok();
+    return ((b.hangolok && b.hangolok.zarasIdokeretMs) || 45000) + 10_000;
+  }
+  return 10_000;
 }
 
 /** CSAK TESZTHEZ: a memóriabeli állapot alaphelyzetbe. */
@@ -1433,6 +1486,9 @@ module.exports = {
   utolsoSzivveres,
   leallasFolyamatban,
   leallitas,
+  leallasiKeretMs,
+  munkaban,
+  folyamatbanLevoMunka,
   varjHatterre,
   hibaValasz,
   __resetCibAllapotForTests,

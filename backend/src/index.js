@@ -459,12 +459,14 @@ if (require.main === module) {
     // futó banki hívást (egy MSGT32-t) megvárjuk — különben a zárás
     // `close_unknown` lenne, és ember döntene róla. Futó CIB-hívás mellett az
     // erőszakos kilépés a zárási keret + 10 s (alapból 55 s), egyébként 10 s.
+    // 2026-09-29 (PR-2/C): a futó CIB-MUNKÁT (az eredmény rögzítését és a
+    // könyvelést is) várjuk, nem csak a banki HTTP-hívást — a keretet a
+    // cibFizetes.leallasiKeretMs() adja (munka nélkül a megszokott 10 s).
     const cibFizetes = require('./services/cibFizetes');
-    const cibKliens = require('./services/cibKliens');
     const cibBeall = require('./services/cibProtokoll').cibBeallitasok();
     const cibVarakozasMs = ((cibBeall.hangolok && cibBeall.hangolok.zarasIdokeretMs) || 45000) + 10_000;
     const ero = setTimeout(() => { console.error('[gofuvar] leállás időtúllépés, kilépés'); process.exit(0); },
-      cibKliens.futoHivasokSzama() > 0 ? cibVarakozasMs : 10_000);
+      cibFizetes.leallasiKeretMs());
     ero.unref();
     const cibLeall = cibFizetes.leallitas({ varakozasMs: cibVarakozasMs });
     server.close(async () => {
@@ -609,23 +611,18 @@ if (process.env.DATABASE_URL) {
   // indul). A tick a memóriabeli szívverést is frissíti: a /pay csak friss
   // szívverés mellett indít új engedélyeztetést. Ha 3 percig nincs tick
   // (elakadt kör, összeomlási ciklus), riasztunk — a fizetés addig 503.
+  // 2026-09-29 (PR-2/C): a szívverés-figyelő a cibLekerdezo-ban él (tesztelt:
+  // az indulás óta SOHA le nem futó kört is jelzi, Sentry MELLETT levélben),
+  // és ugyanazon a közös burkolón fut; ugyanez a kör pótolja 5 percenként az
+  // elveszett díjfizetés utáni értesítéseket.
   if (require('./services/paymentProvider').usesCibEki()) {
     const { runCibKor } = require('./services/cibLekerdezo');
-    const cibFizetesSzolg = require('./services/cibFizetes');
     const cibTickMs = require('./services/cibProtokoll').cibBeallitasok().hangolok.korTickMs;
     const cibKor = utemezettKor('cib-lekerdezes', runCibKor);
     setTimeout(cibKor, 10 * 1000).unref();
     setInterval(cibKor, cibTickMs).unref();
-    let cibSzivRiasztva = 0;
-    setInterval(() => {
-      const kor = Date.now() - cibFizetesSzolg.utolsoSzivveres();
-      if (cibFizetesSzolg.utolsoSzivveres() && kor > 3 * 60 * 1000 && Date.now() - cibSzivRiasztva > 30 * 60 * 1000) {
-        cibSzivRiasztva = Date.now();
-        const uzenet = `[cib-lekerdezes] ${Math.round(kor / 1000)} mp óta nincs tick — a kártyás fizetés 503-at ad, a jóváhagyott tételek zárása áll`;
-        console.error(uzenet);
-        try { require('@sentry/node').captureMessage(uzenet, 'error'); } catch { /* nincs Sentry */ }
-      }
-    }, 60 * 1000).unref();
-    console.log(`[cib-lekerdezes] CIB lekérdező kör ütemezve (${Math.round(cibTickMs / 1000)} mp)`);
+    const cibSzivFigyelo = utemezettKor('cib-szivveres', async () => require('./services/cibLekerdezo').szivveresFigyelo());
+    setInterval(cibSzivFigyelo, 60 * 1000).unref();
+    console.log(`[cib-lekerdezes] CIB lekérdező kör ütemezve (${Math.round(cibTickMs / 1000)} mp) + szívverés-figyelő`);
   }
 }

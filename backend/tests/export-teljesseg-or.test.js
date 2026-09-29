@@ -55,6 +55,10 @@ const KIVETELEK = {
   admin_messages: 'az exportban szerepel (gofuvar_uzenetvaltas)',
   push_tokens: 'az exportban szerepel (ertesitesi_eszkozeim)',
   tow_requests: 'a mentés-funkció kikapcsolva (TOWING_ENABLED); élesedéskor felveendő',
+  // CIB (2026-09-29): nincs felhasználói oszlopa, ezért a séma-lekérdezés nem
+  // is hozza — a döntés mégis itt legyen leírva.
+  cib_messages: 'titkosított technikai banki napló, felhasználói oszlop nélkül; a kísérlet állapota és eredménye '
+    + 'a fizetesi_munkameneteim-ben szerepel, a nyers napló kérésre a TrID-hez kiadható',
 };
 
 describe('Export-teljesség őr', () => {

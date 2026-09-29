@@ -40,6 +40,9 @@ const PARAMETEREK = [
   'job_id', 'booking_id', 'user_id', 'route_id',
   'lat', 'lng', 'radius_km', 'min_price', 'max_price', 'max_weight',
   'pickup_city', 'dropoff_city', 'from', 'to', 'date', 'sort', 'order',
+  // CIB (2026-09-29, PR-2/C): a fizetési napló TrID-szűrője és az admin
+  // CIB-kereső állapot-szűrője.
+  'payment_id', 'allapot',
 ];
 
 /** Szemét, ami a valóságban is előfordul (rossz kliens, támadó, elgépelés). */

@@ -55,6 +55,16 @@ const LOGIKAI = Object.freeze([
 const EGYEB_ENV = Object.freeze([
   'CIB_KEY_UJJLENYOMAT', 'CIB_TESZT_FELHASZNALOK', 'CIB_RIASZTAS_EMAIL', 'CIB_TS_IDOZONA', 'CIB_BEVEZETES',
 ]);
+// A kód által olvasott ÖSSZES CIB-változó (2026-09-29, PR-2/C): a
+// .env.example-őr ehhez méri a dokumentációt, a forrás-szkennelés pedig azt,
+// hogy a lista ne avulhasson el (új env.CIB_X olvasás = ide is fel kell venni).
+const OLVASOTT_ENV = Object.freeze([
+  ...KOTELEZO_ENV,
+  ...ELAVULT_ENV,
+  ...HANGOLOK.map(([nev]) => nev),
+  ...LOGIKAI.map(([nev]) => nev),
+  ...EGYEB_ENV,
+]);
 
 const TESZT_HOST = 'ekit.cib.hu';
 const RETURN_UT = '/payments/cib/vissza';
@@ -690,6 +700,7 @@ module.exports = {
   naplozCibKonfigot,
   KOTELEZO_ENV,
   ELAVULT_ENV,
+  OLVASOTT_ENV,
   CIB_BEVEZETES_ALAP,
   RETURN_UT,
   // mezők
