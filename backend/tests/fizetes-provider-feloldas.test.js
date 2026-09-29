@@ -61,7 +61,10 @@ describe('paymentProvider: melyik provider oldódik fel', () => {
   });
 });
 
-describe('CIB provider (skeleton, integrációig stub)', () => {
+// 2026-09-29 (CIB PR-2/A): a CIB-adapter a háromállapotú EKI-konfigot
+// követi (cibProtokoll.cibKonfig: nincs / teljes / hibás). A teljes
+// feloldást a cib-protokoll.test.js méri; itt az adapter-szerződés marad.
+describe('CIB provider-adapter (EKI-konfig nélkül stub)', () => {
   const EREDETI_KEY = process.env.CIB_API_KEY;
   const EREDETI_MERCH = process.env.CIB_MERCHANT_ID;
   afterEach(() => {
@@ -69,26 +72,26 @@ describe('CIB provider (skeleton, integrációig stub)', () => {
     if (EREDETI_MERCH === undefined) delete process.env.CIB_MERCHANT_ID; else process.env.CIB_MERCHANT_ID = EREDETI_MERCH;
   });
 
-  it('kulcs nélkül stub, és a stub egy fake gateway-t ad (a flow tesztelhető)', async () => {
+  it('CIB-konfig nélkül stub, és a stub a determinisztikus fake gateway-t adja (a flow tesztelhető)', async () => {
     delete process.env.CIB_API_KEY;
     delete process.env.CIB_MERCHANT_ID;
     expect(cib.isStub()).toBe(true);
     const res = await cib.startFeePayment({ jobId: 'teszt-1', feeHuf: 500, shipperEmail: 'a@b.hu' });
-    expect(res.stub).toBe(true);
-    expect(res.paymentId).toBeTruthy();
-    expect(res.gatewayUrl).toBeTruthy();
+    expect(res).toMatchObject({ stub: true, paymentId: 'cib-stub-teszt-1', gatewayUrl: 'stub:cib/teszt-1' });
   });
 
-  it('MINDKÉT kulcs kell a stub kikapcsolásához (vPOS: merchant + kulcs)', () => {
+  it('a kivezetett vPOS-pár (kulcs + kereskedő) „hibás" módot ad: a stub zárva marad, mint eddig', () => {
     process.env.CIB_API_KEY = 'kulcs';
     delete process.env.CIB_MERCHANT_ID;
-    expect(cib.isStub(), 'merchant nélkül is nem-stubnak látszott').toBe(true);
+    expect(cib.isStub(), 'egyetlen régi változó még nem konfig — stub marad').toBe(true);
 
     process.env.CIB_MERCHANT_ID = 'merchant';
-    expect(cib.isStub(), 'mindkét kulccsal is stubnak látszott').toBe(false);
+    expect(cib.isStub(), 'a régi párral a stub kinyílt volna (a kézi nyugtázással együtt)').toBe(false);
+    expect(require('../src/services/cibProtokoll').cibKonfig()).toBe('hibas');
+    expect(paymentProvider.manualConfirmAllowed()).toBe(false);
   });
 
-  it('éles módban (kulcsokkal) a valódi hívás egyelőre „nincs bekötve" hibát ad', async () => {
+  it('nem-stub (hibás vagy EKI) módban az adapter „nincs bekötve" hibát ad — a CIB-út nem ezen fut', async () => {
     process.env.CIB_API_KEY = 'kulcs';
     process.env.CIB_MERCHANT_ID = 'merchant';
     await expect(cib.startFeePayment({ jobId: 'x', feeHuf: 500 })).rejects.toThrow(/nincs bekötve/i);

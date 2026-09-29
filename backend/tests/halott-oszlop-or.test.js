@@ -37,6 +37,28 @@ const KIVETELEK = {
     + 'tábla rendezéséhez és a sorok megkülönböztetéséhez kell.',
 };
 
+// ⏳ ÁTMENETI, ÖNMAGÁT MEGSZÜNTETŐ KIVÉTEL (2026-09-29, CIB PR-2/A). A 096-os
+// migráció a CIB-kísérlet teljes sémáját egyszerre hozza (egy fájl, egy
+// telepítés), de az alábbi oszlopokat a fizetési folyamat PR-2 további
+// lépései (indítás, hop, visszatérés, lekérdező kör, zárás) írják és
+// olvassák. Amíg a kód nem hivatkozik rájuk, itt állnak — AMINT hivatkozik,
+// a lenti ellenőrzés elbukik, és a sort törölni kell (nem maradhat „örök"
+// kivétel egy élő oszlopra).
+const CIB_BEKOTES_ALATT = {
+  'payment_sessions.cib_hop_hash': 'az egyszer használatos átirányító link hash-e (a /pay írja, a hop fogyasztja)',
+  'payment_sessions.cib_hop_expires_at': 'a hop-link lejárata (a /pay írja, a kör a lejártat abandoned-ra teszi)',
+  'payment_sessions.cib_redirected_at': 'a hop felhasználásának ideje (a böngésző eljutott a bankhoz)',
+  'payment_sessions.cib_returned_at': 'az első érvényes MSGT21 visszatérés ideje',
+  'payment_sessions.cib_close_sent_at': 'a zárási claim / MSGT32 elküldésének ideje',
+  'payment_sessions.cib_close_attempts': 'a bizonyítottan fel nem dolgozott MSGT32-k száma (legfeljebb 3)',
+  'payment_sessions.cib_query_count': 'a MSGT33-lekérdezések száma (D04-fék)',
+  'payment_sessions.cib_last_query_at': 'az utolsó MSGT33 ideje (TRID-enkénti köz)',
+  'payment_sessions.cib_next_action_at': 'a lekérdező kör következő esedékes lépése',
+  'payment_sessions.cib_lease_until': 'a DB-bérlet lejárata (egy TRID-en egyszerre egy munkás)',
+  'payment_sessions.cib_lease_owner': 'a DB-bérlet birtokosa (példány:pid)',
+  'payment_sessions.cib_notified_at': 'a sikertelen / nem terhelt kísérlet e-mailjének egyszeri claimje',
+};
+
 // Ezeket a séma-elemeket nem vizsgáljuk (nem a mi adatunk).
 const KIHAGYOTT_TABLAK = new Set(['schema_migrations', 'pgmigrations']);
 
@@ -116,10 +138,15 @@ describe('Halott oszlop őr: minden séma-oszlopnak van gazdája', () => {
     };
 
     const arvak = [];
+    const bekotve = [];
     for (const { table_name: tabla, column_name: oszlop } of rows) {
       if (KIHAGYOTT_TABLAK.has(tabla)) continue;
       const kulcs = `${tabla}.${oszlop}`;
       if (KIVETELEK[kulcs]) continue;
+      if (CIB_BEKOTES_ALATT[kulcs]) {
+        if (hivatkozott(tabla, oszlop)) bekotve.push(kulcs);
+        continue;
+      }
       // Az `id`, `created_at`, `updated_at` szinte mindenhol előfordul —
       // ezeket a szó-határos keresés amúgy is megtalálja, nem kell külön kezelni.
       if (!hivatkozott(tabla, oszlop)) arvak.push(kulcs);
@@ -140,6 +167,14 @@ describe('Halott oszlop őr: minden séma-oszlopnak van gazdája', () => {
       + 'ezt csinálta), fájl-URL-nél árva-gyár, és amit senki nem olvas, arra\n'
       + 'retenciót sem ír senki.',
     ).toEqual([]);
+
+    expect(
+      bekotve,
+      `Ezekre a CIB-oszlopokra MÁR van kód-hivatkozás, de még a CIB_BEKOTES_ALATT\n`
+      + `átmeneti listán állnak:\n  ${bekotve.join('\n  ')}\n\n`
+      + 'Töröld őket a listáról — az átmeneti kivétel csak a bekötésig él, különben\n'
+      + 'egy később ÚJRA halottá váló oszlopot is elnézne az őr.',
+    ).toEqual([]);
   });
 
   it('a kivétel-lista nem avulhat el', async () => {
@@ -148,7 +183,7 @@ describe('Halott oszlop őr: minden séma-oszlopnak van gazdája', () => {
          FROM information_schema.columns WHERE table_schema = 'public'`,
     );
     const letezo = new Set(rows.map((r) => r.kulcs));
-    const holt = Object.keys(KIVETELEK).filter((k) => !letezo.has(k));
+    const holt = [...Object.keys(KIVETELEK), ...Object.keys(CIB_BEKOTES_ALATT)].filter((k) => !letezo.has(k));
     expect(holt, `Nem létező oszlop a kivétel-listán: ${holt.join(', ')}`).toEqual([]);
   });
 

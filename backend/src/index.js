@@ -391,6 +391,14 @@ process.on('uncaughtException', (err) => {
       );
       return;
     }
+    // CIB EKI (2026-09-29, PR-2/A): a konfig-feloldás eredménye induláskor —
+    // CSAK a kulcs-ujjlenyomat, a környezet és a hiba-okok kódjai kerülnek a
+    // naplóba (kulcs, HMAC-titok, env-érték soha). „Hibás" konfig (részleges,
+    // rossz host, felcserélt kulcs, elbukott 3DES-önteszt) → hangos hiba +
+    // Sentry error: a kártyás fizetés 503, a stub NEM nyílik vissza.
+    if (providerName === 'cib') {
+      require('./services/cibProtokoll').naplozCibKonfigot({ sentry: Sentry });
+    }
     if (paymentProvider.stubEngedelyezve()) {
       // ⚠️⚠️⚠️ TESZT-ÜZEM: a stub-fizetés ÉLESBEN IS engedélyezve van.
       // User-döntés (2026-08-15): a tesztelő így tudja végigjárni a fizetés
@@ -414,11 +422,15 @@ process.on('uncaughtException', (err) => {
         + 'provider STUB módban van (nincs beállítva a szolgáltató kulcsa). '
         + 'A kapcsolatfelvételi díj NEM szedhető be — a kézi fizetés-nyugtázás és a '
         + 'PSP-callback ezért ZÁRVA marad (fizetés nélkül senki nem juthat kontakthoz). '
-        + 'Élesítéshez: CIB_API_KEY / CIB_MERCHANT_ID / CIB_BASE_URL.';
+        + 'Élesítéshez: CIB_PID / CIB_KEY_B64 / CIB_MARKET_URL / CIB_CUSTOMER_URL / '
+        + 'CIB_KORNYEZET / CIB_RETURN_URL / CIB_HMAC_TITOK.';
       console.error(uzenet);
       if (Sentry) Sentry.captureMessage(uzenet, 'warning');
     } else {
-      console.log(`[FIZETÉS] provider: ${providerName}${paymentProvider.isStub() ? ' (stub/teszt mód)' : ' (éles)'}`);
+      let mod = ' (éles)';
+      if (paymentProvider.isStub()) mod = ' (stub/teszt mód)';
+      else if (providerName === 'cib') mod = paymentProvider.usesCibEki() ? ' (CIB EKI)' : ' (NEM MŰKÖDŐKÉPES — lásd a fenti CIB-hibát)';
+      console.log(`[FIZETÉS] provider: ${providerName}${mod}`);
     }
   } catch (err) {
     console.error('[FIZETÉS] konfig-ellenőrzés hiba:', err.message);

@@ -123,6 +123,10 @@ Top-level fájlok:
 | `noOfferNudge.js` | 24 h + 0 ajánlat → egyszeri tippek a feladónak (B3) | ÉL |
 | `instantExpiry.js` | lejárt azonnali fuvar → normál ajánlatgyűjtés, óránként (C1) | ÉL |
 | `smsRetry.js` | elakadt SMS-ek újraküldési sora (10 percenként, 48 h) | ÉL |
+| `ekiCrypt.js` | CIB EKI (SAKI 1.50) titkosító réteg — az EGYETLEN kripto: kulcsfájl, 3DES + CRC, `ekiDecrypt(raw, kulcs, {bankValasz})` (titkosítatlan `RC=Sxx/Dxx` felismerése) | kész (2026-09-28) |
+| `cibProtokoll.js` | CIB-konfig feloldása (`cibKonfig()`: nincs / teljes / hibás — környezet↔host, visszatérési URL, HMAC-titok, kulcs + önteszt + ujjlenyomat), üzenetépítők (MSGT10/20/32/33), TRID/UID/TS, MSGT11/31 ellenőrzés a tárolt kísérlethez, kimenet-osztályozás (indítás / lekérdezés / zárás: nem feldolgozott vs. kétes) | 2026-09-29, CIB PR-2/A (még bekötés nélkül) |
+| `cibKliens.js` | szerver–szerver POST a CIB „market" végpontra időkerettel; a TÖRZS a döntő (az `RC=S01` HTTP 200-zal is jöhet); nem küldött vs. elküldött-de-válasz-nélküli szétválasztása; write-ahead `cib_messages` napló autocommittal | 2026-09-29, CIB PR-2/A (még bekötés nélkül) |
+| `cib.js` / `paymentProvider.js` | a provider-adapter CIB-tagja: EKI-konfig nélkül a régi stub (`cib-stub-<id>`), egyébként nem nyílik vissza; `fizetesiUt(userId)` (stub / cib / hibás, a teszt-allowlist csak `CIB_KORNYEZET=teszt` mellett), `usesCibEki()`, `manualConfirmAllowed(userId?)` | 2026-09-29, CIB PR-2/A |
 | `retention.js` | napi adat-retenció (fotó/chat/GPS/anonimizálás…), watchdog | ÉL |
 
 ### 1.4 Middleware — `backend/src/middleware/`

@@ -1493,9 +1493,14 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
               invoice_pending, last_invoice_attempt_at, invoice_snapshot, notifications_sent_at
          FROM fee_payment_receipts WHERE shipper_id = $1 ORDER BY paid_at DESC`,
     ),
+    // 2026-09-29 (CIB PR-2/A): a kártyás kísérlet állapota és a banki
+    // eredmény (TrID/RC/RT/AMO/ANUM) is a FIZETŐ adata — a szállító nem kapja.
+    // A banki bizonyíték-gyűjtés és az admin azonosítója belső, nem jár ki.
     fizetesi_munkameneteim: await q(
       `SELECT CASE WHEN shipper_id = $1 THEN payment_id ELSE NULL END AS payment_id,
-              job_id, booking_id, amount_huf, currency, state, created_at, settled_at
+              job_id, booking_id, amount_huf, currency, state, created_at, settled_at,
+              CASE WHEN shipper_id = $1 THEN cib_state END AS cib_state,
+              CASE WHEN shipper_id = $1 THEN cib_result - 'bizonyitek' - 'admin_id' END AS cib_result
          FROM payment_sessions WHERE shipper_id = $1 OR carrier_id = $1 ORDER BY created_at DESC`,
     ),
     kyc_metaadat: await q(

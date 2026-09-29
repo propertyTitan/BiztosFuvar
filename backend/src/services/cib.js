@@ -1,86 +1,66 @@
-// CIB vPOS — bankkártyás elfogadás a KAPCSOLATFELVÉTELI DÍJ beszedésére.
+// CIB bankkártyás elfogadás — a KAPCSOLATFELVÉTELI DÍJ beszedésére.
 //
-// A LAUNCH FIZETÉSI RENDSZERE (2026-08-08, user-döntés): a QVIK helyett a CIB
-// (a cég számlavezető bankja) bankkártyás vPOS-a. Előny: a kártyás láb
-// megnyitja a nem-magyar (diaszpóra-) feladókat is; a CIB ajánlata ~1,6%
-// jutalék (500/1000 Ft-os díjnál 8-16 Ft/tranzakció).
+// A LAUNCH FIZETÉSI RENDSZERE (2026-08-08, user-döntés): a CIB (a cég
+// számlavezető bankja) kártyás elfogadása. 2026-09-29 (CIB PR-2/A): a banki
+// protokoll az EKI (SAKI 1.50) — nem REST-es vPOS. A valódi út NEM ezen az
+// adapteren megy: a kétfázisú indítás, a böngészős átirányítás és a
+// pontosan egyszeri zárás külön modulokban él (services/cibProtokoll.js,
+// cibKliens.js, és a rájuk épülő fizetési folyamat). Ez a fájl a
+// provider-interfész (isStub / startFeePayment / getPaymentState) CIB-tagja:
 //
-// A KÖD FEL VAN KÉSZÍTVE, de a valódi vPOS-hívások TODO-val jelöltek — ezeket
-// a CIB vPOS API-dokumentációja alapján kell kitölteni, amint megvan a
-// szerződés + a hozzáférés (a CIB-egyeztetés megtörtént, véglegesítés a
-// család nyaralása után — lásd CLAUDE.md 🟡 szakasz).
+//  * CIB-konfiguráció NÉLKÜL (cibKonfig() === 'nincs' — ma a Railway-en) a
+//    stub-ág bitre a régi: `cib-stub-<id>` + `stub:cib/<id>` (a 089-es
+//    migráció PONTOSAN ezt a párt sorolja „szimulált"-nak);
+//  * 'teljes' vagy 'hibas' konfignál a stub SZÁNDÉKOSAN nem nyílik vissza:
+//    a startFeePayment/getPaymentState kivételt dob (a CIB-út a saját
+//    moduljain fut, a hibás konfig pedig 503).
 //
-// Aktiválás (amikor élesedik):
-//   1) PAYMENT_PROVIDER=cib  (a paymentProvider.js erre vált)
-//   2) CIB_MERCHANT_ID / CIB_API_KEY (vagy vPOS terminál-azonosító + kulcs) +
-//      CIB_BASE_URL env (a CIB adja a szerződéssel)
-//   3) a lenti két függvény (startFeePayment, getPaymentState) kitöltése a
-//      CIB vPOS API szerint
-//   4) egy /payments/cib/callback bekötése (payments.js — a barion/qvik
-//      callback mintájára; a fizetés-visszaigazolás AZONNALI webhookja kell a
-//      kontakt-felfedéshez)
-//
-// Interfész: SZÁNDÉKOSAN azonos a barion.js/qvik.js fee-függvényeivel, hogy a
-// paymentProvider.js bármelyiket be tudja húzni.
+// ⚠️ A 2026-08-08-i vPOS-skeleton env-párosa (CIB_API_KEY + CIB_MERCHANT_ID
+// + CIB_BASE_URL) KIVEZETVE: a kód nem olvassa, a boot figyelmeztet rá. Ha
+// mégis mindkettő be van állítva (és nincs EKI-konfig), a feloldás
+// fail-closed „hibás" — ma e kettővel a stub zárva volt, így is marad.
 
-const CIB_BASE_URL = process.env.CIB_BASE_URL || 'https://sandbox.example-cib-vpos.hu';
+const { cibKonfig } = require('./cibProtokoll');
 
-// STUB, amíg nincs vPOS-kulcs — a teljes díj-workflow így is tesztelhető,
-// pontosan mint a Barion/QVIK stub (fejlesztés/teszt közben nincs valódi pénz).
-// A merchant-azonosítót ÉS a kulcsot is megköveteljük: vPOS-hoz mindkettő kell.
+/** Stub mód: SEMMILYEN CIB-konfiguráció nincs (dev/teszt, ma az éles is). */
 function isStub() {
-  return !(process.env.CIB_API_KEY && process.env.CIB_MERCHANT_ID);
+  return cibKonfig() === 'nincs';
 }
 
 /**
- * A kapcsolatfelvételi díj fizetésének indítása. Ugyanaz a szerződés, mint a
- * barion.startFeePayment: { jobId, feeHuf, shipperEmail, redirectPath } →
- * { paymentId, gatewayUrl, stub }.
- *
- * CIB vPOS-nál a `gatewayUrl` a bank fizetőoldala, ahová a feladót átirányítjuk;
- * ott adja meg a kártyaadatait, majd a redirectUrl-re tér vissza, a hiteles
- * fizetés-állapotot pedig a webhook + getPaymentState adja (a redirectben nem
- * bízunk, pontosan mint Barionnál).
+ * A determinisztikus stub-kísérlet. Külön is hívható: teszt-környezetben a
+ * teszt-allowlisten KÍVÜLI felhasználók a teljes CIB-konfig mellett is ezt
+ * az utat kapják (paymentProvider.fizetesiUt), változatlan formátummal.
  */
-async function startFeePayment({ jobId, feeHuf, shipperEmail, redirectPath }) {
-  if (isStub()) {
-    return {
-      paymentId: `cib-stub-${jobId}`,
-      gatewayUrl: `stub:cib/${jobId}`,
-      stub: true,
-      currency: 'HUF',
-      message: `CIB STUB – ${feeHuf} Ft kapcsolatfelvételi díj.`,
-    };
-  }
-
-  // TODO(CIB): a vPOS fizetés-indítás. Tipikus vPOS-alak:
-  //   POST `${CIB_BASE_URL}/vpos/init`  (a pontos útvonalat a CIB doksi adja)
-  //   auth: a CIB által előírt aláírás/HMAC vagy Bearer (CIB_API_KEY)
-  //   body: {
-  //     merchantId: process.env.CIB_MERCHANT_ID,
-  //     amount: feeHuf, currency: 'HUF',
-  //     orderRef: `FEE-${jobId}`,
-  //     customerEmail: shipperEmail,
-  //     callbackUrl: `${process.env.API_BASE_URL}/payments/cib/callback`,
-  //     redirectUrl: `${process.env.WEB_BASE_URL}${redirectPath || `/dashboard/fuvar/${jobId}`}`,
-  //   }
-  //   → válasz: { transactionId, paymentUrl }
-  // A visszaadott objektumnak { paymentId, gatewayUrl, stub:false } formájúnak
-  // kell lennie (a /pay ezt várja a redirecthez).
-  throw new Error('CIB vPOS integráció még nincs bekötve (CIB_API_KEY / CIB_MERCHANT_ID hiányzik / TODO: startFeePayment).');
+function stubFeePayment({ jobId, feeHuf }) {
+  return {
+    paymentId: `cib-stub-${jobId}`,
+    gatewayUrl: `stub:cib/${jobId}`,
+    stub: true,
+    currency: 'HUF',
+    message: `CIB STUB – ${feeHuf} Ft kapcsolatfelvételi díj.`,
+  };
 }
 
 /**
- * A fizetés valódi állapotának visszaolvasása a CIB-től (a webhook/redirect
- * body-jának NEM hiszünk — pontosan mint Barionnál). Stub módban null.
- * Visszaadott alak: { Status: 'Succeeded' | 'Pending' | 'Failed' | ... }
- * (a payment-callback a Status-t nézi).
+ * Provider-interfész: { jobId, feeHuf, shipperEmail, redirectPath } →
+ * { paymentId, gatewayUrl, stub }. Csak stub módban ad eredményt.
  */
-async function getPaymentState(paymentId) {
+async function startFeePayment(opts) {
+  if (isStub()) return stubFeePayment(opts);
+  throw new Error('A CIB EKI-fizetés nem a provider-adapteren át fut — a startFeePayment ebben a módban nincs bekötve '
+    + `(CIB-konfiguráció: ${cibKonfig()}).`);
+}
+
+/**
+ * A fizetés valódi állapota. Stub módban null (a callback a body-t veszi).
+ * EKI-módban a hiteles eredményt a MSGT32-re kapott MSGT31 adja, nem ez.
+ */
+async function getPaymentState() {
   if (isStub()) return null;
-  // TODO(CIB): GET `${CIB_BASE_URL}/vpos/status/${paymentId}` (CIB auth)
-  //   → { status } → normalizáld { Status: 'Succeeded' | ... } alakra.
-  throw new Error('CIB getPaymentState még nincs bekötve (TODO).');
+  throw new Error('A CIB EKI-állapot nem a provider-adapteren át jön — a getPaymentState ebben a módban nincs bekötve.');
 }
 
-module.exports = { isStub, startFeePayment, getPaymentState, CIB_BASE_URL };
+module.exports = {
+  isStub, startFeePayment, getPaymentState, stubFeePayment,
+};
