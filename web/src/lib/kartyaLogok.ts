@@ -8,7 +8,10 @@
 //
 //  ⚠️ TULAJDONOSI MEGERŐSÍTÉSRE VÁR (2026-09-29): az alapérték a CIB
 //  logócsomagjának négy márkája. Ha a szerződés mást mond (pl. nincs V Pay
-//  vagy Maestro), csak az ELFOGADOTT_KARTYAK sorát kell átírni.
+//  vagy Maestro), csak az ELFOGADOTT_KARTYAK sorát kell átírni — a
+//  tájékoztató márka-specifikus mondatai (Visa Electron, co-branded, Visa
+//  Secure, Mastercard Identity Check) a `kartyaElfogadva`-n át követik.
+//  ⚠️ A lábléc GLOBÁLIS: a merge után minden oldalon ez a lista látszik.
 //
 //  A logók a bank nyilvános marketinganyagai (SAKI 1.50 „Logó/SVG"), a
 //  web/public/cib/ alatt. Banki dokumentáció vagy kulcs SOHA nem kerül a
@@ -38,6 +41,15 @@ export const HAROMDS_LOGOK: LogoAdat[] = [
   { nev: 'Visa Secure', src: '/cib/visa-secure.svg', szel: 26, mag: 26 },
   { nev: 'Mastercard Identity Check', src: '/cib/mc-idcheck.svg', szel: 38, mag: 26 },
 ];
+
+/**
+ * Elfogadjuk-e a márkát? A tájékoztató márka-specifikus mondatai (Visa
+ * Electron, co-branded, Visa Secure, Mastercard Identity Check) ezen múlnak,
+ * hogy a lista módosításakor ne maradjon bent olyan állítás, ami már nem igaz.
+ */
+export function kartyaElfogadva(id: KartyaId): boolean {
+  return ELFOGADOTT_KARTYAK.includes(id);
+}
 
 /** Az elfogadott márkák nevei felsorolásként („Visa, V Pay, Mastercard és Maestro"). */
 export function elfogadottKartyakSzoveg(): string {

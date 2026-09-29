@@ -22,16 +22,18 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { CibSzolgaltato, ElfogadottKartyak } from '@/components/CibLogok';
-import { HAROMDS_LOGOK, elfogadottKartyakSzoveg } from '@/lib/kartyaLogok';
+import { HAROMDS_LOGOK, elfogadottKartyakSzoveg, kartyaElfogadva } from '@/lib/kartyaLogok';
 import { KARTYAADAT_SOR, KERESKEDO_ORSZAG_SOR } from '@/lib/cibFeliratok';
 import { BANKI_TOVABBI_INFO, RC_CSOPORT_NEV } from '@/lib/cibRcCsoport';
 import { DIJ_SZABALY_SZOVEG } from '@/lib/connectionFee';
 import { KERESKEDO } from '@/lib/kereskedo';
 
+// Címsor-hierarchia: a „Kérdések és válaszok" (h2) csoportjai h3-ak, az
+// egyes kérdések alattuk h4-ek.
 function Kerdes({ kerdes, children }: { kerdes: string; children: ReactNode }) {
   return (
     <section style={{ marginTop: 20 }}>
-      <h3 style={{ fontSize: 16, margin: '0 0 6px' }}>{kerdes}</h3>
+      <h4 style={{ fontSize: 16, margin: '0 0 6px' }}>{kerdes}</h4>
       {children}
     </section>
   );
@@ -44,6 +46,14 @@ const LOGO_CHIP = {
 
 export default function BankkartyasFizetesOldal() {
   const kartyak = elfogadottKartyakSzoveg();
+  // A márka-specifikus mondatok az ELFOGADOTT_KARTYAK listát követik: ha a
+  // szerződés szerint egy márka kiesik, a rá vonatkozó állítás is eltűnik.
+  const visa = kartyaElfogadva('visa');
+  const visaCsalad = visa || kartyaElfogadva('vpay');
+  const mastercardCsalad = kartyaElfogadva('mastercard') || kartyaElfogadva('maestro');
+  const cobrandedAlap = [kartyaElfogadva('mastercard') && 'Mastercard', visa && 'Visa']
+    .filter(Boolean).join(' vagy ');
+  const visaElectron = visa ? ' A Visa Electron kártyák internetes használata a kibocsátó banktól függ.' : '';
   return (
     <article style={{ maxWidth: 820, margin: '0 auto', padding: '32px 20px', lineHeight: 1.65, fontSize: 16 }}>
       <h1 style={{ marginBottom: 8 }}>Bankkártyás fizetés</h1>
@@ -87,7 +97,8 @@ export default function BankkartyasFizetesOldal() {
       <ul>
         <li>
           Olvasd el az <Link href="/aszf">Általános Szerződési Feltételeket (ÁSZF)</Link>: a
-          kapcsolatfelvételi díj és a fizetés feltételeit a 4. pont tartalmazza.
+          kapcsolatfelvételi díj és a fizetés feltételeit a 4. pont, az elállást és a panaszkezelést a
+          6. pont tartalmazza.
         </li>
         <li>
           Tanulmányozd az <Link href="/adatkezeles">Adatkezelési tájékoztatót</Link>: ebből megtudod, hogyan
@@ -111,7 +122,7 @@ export default function BankkartyasFizetesOldal() {
       <p>
         A CIB Bank internetes fizetési rendszerén keresztül {kartyak} kártyával fizethetsz, ha a kártyád
         kibocsátó bankja engedélyezte az internetes fizetést, valamint internetes használatra alkalmas
-        webkártyával. A Visa Electron kártyák internetes használata a kibocsátó banktól függ.
+        webkártyával.{visaElectron}
       </p>
       <ElfogadottKartyak />
 
@@ -153,8 +164,8 @@ export default function BankkartyasFizetesOldal() {
       <Kerdes kerdes="Milyen típusú kártyákkal lehet fizetni?">
         <p style={{ margin: 0 }}>
           {kartyak} kártyával, amennyiben a kártyát kibocsátó bank internetes fizetésre engedélyezte, valamint
-          a kifejezetten internetes használatra szánt webkártyákkal. A Visa Electron kártyák interneten
-          történő használatának lehetősége a kártyát kibocsátó banktól függ.
+          a kifejezetten internetes használatra szánt webkártyákkal.
+          {visa && ' A Visa Electron kártyák interneten történő használatának lehetősége a kártyát kibocsátó banktól függ.'}
         </p>
       </Kerdes>
       <Kerdes kerdes="Lehet-e vásárlókártyákkal fizetni?">
@@ -163,12 +174,14 @@ export default function BankkartyasFizetesOldal() {
           interneten nem lehet fizetni.
         </p>
       </Kerdes>
-      <Kerdes kerdes="Lehet-e co-branded kártyákkal fizetni?">
-        <p style={{ margin: 0 }}>
-          Igen, bármilyen olyan co-branded kártyával, amely internetes fizetésre alkalmas Mastercard vagy Visa
-          alapú kártya.
-        </p>
-      </Kerdes>
+      {cobrandedAlap && (
+        <Kerdes kerdes="Lehet-e co-branded kártyákkal fizetni?">
+          <p style={{ margin: 0 }}>
+            Igen, bármilyen olyan co-branded kártyával, amely internetes fizetésre alkalmas {cobrandedAlap}{' '}
+            alapú kártya.
+          </p>
+        </Kerdes>
+      )}
 
       <h3 style={{ fontSize: 16, marginTop: 28, textTransform: 'uppercase', letterSpacing: 0.4 }}>A fizetés folyamata</h3>
       <Kerdes kerdes="Hogyan működik az online fizetés banki háttérfolyamata?">
@@ -282,32 +295,36 @@ export default function BankkartyasFizetesOldal() {
           internetes fizetésnél.
         </p>
       </Kerdes>
-      <Kerdes kerdes="Mit jelent a Visa Secure?">
-        <p style={{ margin: 0 }}>
-          <span style={LOGO_CHIP}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={HAROMDS_LOGOK[0].src} alt={HAROMDS_LOGOK[0].nev} width={HAROMDS_LOGOK[0].szel} height={HAROMDS_LOGOK[0].mag} />
-          </span>
-          A Visa Secure a Visa-kártyabirtokosok számára a kártyát kibocsátó banknál beállított, egyszeri
-          kódon vagy biometrikus azonosításon (például arcfelismerésen vagy ujjlenyomaton) alapuló ellenőrzés,
-          amellyel internetes fizetésnél azonosíthatod magad, és amely véd a Visa-kártyák jogosulatlan
-          használata ellen. A CIB Bank elfogadja a Visa Secure rendszer keretében kibocsátott kártyákat.
-        </p>
-      </Kerdes>
-      <Kerdes kerdes="Mit jelent a Mastercard Identity Check (ID Check)?">
-        <p style={{ margin: 0 }}>
-          <span style={LOGO_CHIP}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={HAROMDS_LOGOK[1].src} alt={HAROMDS_LOGOK[1].nev} width={HAROMDS_LOGOK[1].szel} height={HAROMDS_LOGOK[1].mag} />
-          </span>
-          A Mastercard Identity Check a Mastercard- és Maestro-kártyabirtokosok számára a kártyát kibocsátó
-          banknál beállított, egyszeri kódon vagy biometrikus azonosításon alapuló ellenőrzés, amellyel
-          internetes fizetésnél azonosíthatod magad, és amely véd a kártyák jogosulatlan használata ellen. A CIB
-          Bank elfogadja a Mastercard Identity Check rendszer keretében kibocsátott kártyákat.
-        </p>
-      </Kerdes>
+      {visaCsalad && (
+        <Kerdes kerdes="Mit jelent a Visa Secure?">
+          <p style={{ margin: 0 }}>
+            <span style={LOGO_CHIP}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={HAROMDS_LOGOK[0].src} alt={HAROMDS_LOGOK[0].nev} width={HAROMDS_LOGOK[0].szel} height={HAROMDS_LOGOK[0].mag} />
+            </span>
+            A Visa Secure a Visa-kártyabirtokosok számára a kártyát kibocsátó banknál beállított, egyszeri
+            kódon vagy biometrikus azonosításon (például arcfelismerésen vagy ujjlenyomaton) alapuló ellenőrzés,
+            amellyel internetes fizetésnél azonosíthatod magad, és amely véd a Visa-kártyák jogosulatlan
+            használata ellen. A CIB Bank elfogadja a Visa Secure rendszer keretében kibocsátott kártyákat.
+          </p>
+        </Kerdes>
+      )}
+      {mastercardCsalad && (
+        <Kerdes kerdes="Mit jelent a Mastercard Identity Check (ID Check)?">
+          <p style={{ margin: 0 }}>
+            <span style={LOGO_CHIP}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={HAROMDS_LOGOK[1].src} alt={HAROMDS_LOGOK[1].nev} width={HAROMDS_LOGOK[1].szel} height={HAROMDS_LOGOK[1].mag} />
+            </span>
+            A Mastercard Identity Check a Mastercard- és Maestro-kártyabirtokosok számára a kártyát kibocsátó
+            banknál beállított, egyszeri kódon vagy biometrikus azonosításon alapuló ellenőrzés, amellyel
+            internetes fizetésnél azonosíthatod magad, és amely véd a kártyák jogosulatlan használata ellen. A CIB
+            Bank elfogadja a Mastercard Identity Check rendszer keretében kibocsátott kártyákat.
+          </p>
+        </Kerdes>
+      )}
 
-      <h2 style={{ marginTop: 32 }}>A kereskedő adatai</h2>
+      <h2 id="kereskedo-adatai" style={{ marginTop: 32 }}>Kapcsolat és a kereskedő adatai</h2>
       <ul>
         <li><strong>Cégnév:</strong> {KERESKEDO.teljesNev} ({KERESKEDO.rovidNev})</li>
         <li><strong>Székhely:</strong> {KERESKEDO.szekhely}</li>
@@ -321,8 +338,12 @@ export default function BankkartyasFizetesOldal() {
       <p>
         A kapcsolatfelvételi díjra vonatkozó feltételeket (a díj nem visszatérítendő; ha a fuvar a szállító
         hibájából hiúsul meg, díjmentesen választhatsz másik szállítót ugyanerre a fuvarra) az{' '}
-        <Link href="/aszf">ÁSZF</Link> 4. pontja tartalmazza. Az adatkezelésről az{' '}
-        <Link href="/adatkezeles">Adatkezelési tájékoztató</Link> szól.
+        <Link href="/aszf">ÁSZF</Link> 4. pontja tartalmazza. Az elállásról (a díj megfizetésével a
+        szolgáltatás azonnal teljesül, ezért az elállási jog a fizetéskor tett nyilatkozat szerint
+        megszűnik), a panaszkezelésről és a békéltető testületről az ÁSZF 6. pontja szól. Panaszodat
+        a <a href={`mailto:${KERESKEDO.panaszEmail}`}>{KERESKEDO.panaszEmail}</a> címen vagy a
+        székhelyre küldött levélben teheted meg; 30 napon belül érdemben válaszolunk. Az adatkezelésről
+        az <Link href="/adatkezeles">Adatkezelési tájékoztató</Link> szól.
       </p>
     </article>
   );

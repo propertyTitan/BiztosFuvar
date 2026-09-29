@@ -16,9 +16,17 @@
 //
 //  ÁLLAPOTOK (GET /jobs/:id/fee-payment, lib/cibFizetes.ts:kartyaAllapot):
 //  alap · nyitott (vissza nem tért kísérlet — újat indíthat) · lezaras (a
-//  gomb rejtve) · ellenorzes („Ne fizess újra") · elozo_sikertelen (az
-//  RC-csoport szerinti magyarázat + a kötelező adatsor + újrapróba — a bank
-//  szerint sikertelen fizetés után az újrapróbát KÖTELEZŐ felkínálni).
+//  gomb rejtve, 5 mp-es frissítés) · sikeres (a fuvar EGYSZER újratöltődik,
+//  megnyílik a kontakt; a lekérdezés leáll — nem a socketen múlik) ·
+//  ellenorzes („Ne fizess újra") · elozo_sikertelen (az RC-csoport szerinti
+//  magyarázat + a kötelező adatsor + újrapróba — a bank szerint sikertelen
+//  fizetés után az újrapróbát KÖTELEZŐ felkínálni).
+//
+//  BETÖLTÉS: amíg a fizetési mód nem ismert, a gomb nem nyomható (CIB-módban
+//  különben a banki kötelező blokk nélkül lehetne fizetni); átmeneti hibánál
+//  (5xx, 429, időtúllépés, hálózat) újrapróbálunk, a 401/403/404 a mai
+//  (stub) felületet adja. VISSZA A BANKTÓL (bfcache, főleg iOS Safari): a
+//  `pageshow` (persisted) visszaállítja a gombot és újraolvassa az állapotot.
 //
 //  HIBÁK: minden /pay-hiba FIX magyar szöveget kap (lib/cibFizetes.ts) —
 //  banki vagy szerver-belső szöveg soha nem jut a felhasználóhoz.
@@ -28,8 +36,9 @@
 //  felület marad, a gomb felirata is („Díj fizetése").
 // =====================================================================
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Clock, Hourglass, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Hourglass, ShieldAlert } from 'lucide-react';
 import { api, type FeePaymentAllapot } from '@/api';
 import FeeConsentLabel from '@/components/FeeConsentLabel';
 import CibFizetesInfo from '@/components/CibFizetesInfo';
@@ -40,6 +49,7 @@ import { kulsoOldalraLep } from '@/lib/navigacio';
 import { CIB_FELIRATOK, CIB_IDO_TIPP } from '@/lib/cibFeliratok';
 import { BANKI_TOVABBI_INFO, ugyfelUzenet } from '@/lib/cibRcCsoport';
 import {
+  ALLAPOT_UJRAPROBA_MS, GYORS_SZAKASZ_MS, LASSU_LEKERDEZES_MS, atmenetiHiba,
   biztonsagosAtiranyitasiCel, fizetesHibaUzenet, kartyaAllapot, percKiiras, type HibaUzenet,
 } from '@/lib/cibFizetes';
 
@@ -72,9 +82,13 @@ export default function DijFizetesKartya({
   const [consent, setConsent] = useState(false);
   const [inditas, setInditas] = useState<Inditas>('nincs');
   const [hiba, setHiba] = useState<HibaUzenet | null>(null);
+  /** Lefutott-e már legalább egy állapot-lekérdezés (sikerrel vagy hibával). */
+  const [betoltve, setBetoltve] = useState(false);
   const gyokerRef = useRef<HTMLDivElement>(null);
   const eletben = useRef(true);
   const fpRef = useRef<FeePaymentAllapot | null>(null);
+  const ujraprobaOra = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ujraprobaSzam = useRef(0);
 
   const allapotBetoltes = useCallback(async (): Promise<FeePaymentAllapot | null> => {
     try {
@@ -82,14 +96,31 @@ export default function DijFizetesKartya({
       // egy régi mockban) is elutasítássá alakítja — az oldal nem törik el.
       const r = await Promise.resolve().then(() => api.getFeePayment(jobId));
       const ertek = r && typeof r === 'object' ? r : null;
+      ujraprobaSzam.current = 0;
       if (eletben.current) { fpRef.current = ertek; setFp(ertek); }
       return ertek;
-    } catch {
-      // 404/403/hálózati hiba: a mai (stub) felület marad. Egy már ismert
-      // CIB-állapotot viszont nem írunk felül egy átmeneti hiba miatt.
+    } catch (err) {
+      // 404/403: a mai (stub) felület marad. Egy már ismert CIB-állapotot
+      // viszont nem írunk felül egy átmeneti hiba miatt. Átmeneti hibánál
+      // (5xx, 429, időtúllépés, hálózat) néhányszor újrapróbálunk — különben
+      // CIB-módban a banki kötelező blokk nélküli felület maradna itt.
+      if (eletben.current && atmenetiHiba(err) && ujraprobaSzam.current < ALLAPOT_UJRAPROBA_MS.length) {
+        const varakozas = ALLAPOT_UJRAPROBA_MS[ujraprobaSzam.current];
+        ujraprobaSzam.current += 1;
+        if (ujraprobaOra.current) clearTimeout(ujraprobaOra.current);
+        ujraprobaOra.current = setTimeout(() => {
+          ujraprobaOra.current = null;
+          if (eletben.current) allapotBetoltesRef.current();
+        }, varakozas);
+      }
       return fpRef.current;
+    } finally {
+      if (eletben.current) setBetoltve(true);
     }
   }, [jobId]);
+  // Az időzített újrapróba mindig a legfrissebb lekérdezőt hívja.
+  const allapotBetoltesRef = useRef(allapotBetoltes);
+  allapotBetoltesRef.current = allapotBetoltes;
 
   // Betöltés + URL-paraméterek (?fizetes=ujra | link-lejart) + socket.
   useEffect(() => {
@@ -118,8 +149,20 @@ export default function DijFizetesKartya({
       socket.on('job:paid', frissit);
     } catch { socket = null; }
 
+    // Vissza a bank oldaláról: a böngésző (főleg iOS Safari) a gyorsítótárból
+    // állítja vissza az oldalt — a gomb „Átirányítás…" állapotban ragadna.
+    const oldalVissza = (e: Event) => {
+      if (!(e as PageTransitionEvent).persisted || !eletben.current) return;
+      setInditas('nincs');
+      setHiba(null);
+      allapotBetoltes();
+    };
+    window.addEventListener('pageshow', oldalVissza);
+
     return () => {
       eletben.current = false;
+      window.removeEventListener('pageshow', oldalVissza);
+      if (ujraprobaOra.current) { clearTimeout(ujraprobaOra.current); ujraprobaOra.current = null; }
       if (socket) {
         socket.off('cib:eredmeny', frissit);
         socket.off('job:paid', frissit);
@@ -131,20 +174,34 @@ export default function DijFizetesKartya({
   const allapot = kartyaAllapot(fp);
   const cib = fp?.provider_kind === 'cib';
 
-  // A lezárás alatt 5 mp-enként újraolvasunk; amikor véget ér, a fuvart is
-  // frissítjük (siker esetén megnyílik a kontakt, a kártya eltűnik).
+  // A lezárás alatt 5 mp-enként (3 perc után 20 mp-enként) újraolvasunk.
+  // SIKERNÉL a fuvart EGYSZER újratöltjük (megnyílik a kontakt, a kártya
+  // eltűnik), és a lekérdezés leáll — ez nem múlhat a socket-eseményen. Ha a
+  // lezárás más állapotba (sikertelen, ellenőrzés) fut ki, szintén frissítünk.
   const elozoAllapot = useRef(allapot);
+  const sikerFrissitve = useRef(false);
   useEffect(() => {
     const elozo = elozoAllapot.current;
     elozoAllapot.current = allapot;
+    if (allapot === 'sikeres') {
+      if (!sikerFrissitve.current) { sikerFrissitve.current = true; onFrissites?.(); }
+      return;
+    }
     if (elozo === 'lezaras' && allapot !== 'lezaras') onFrissites?.();
     if (allapot !== 'lezaras') return;
-    const ora = setInterval(() => { allapotBetoltes(); }, LEZARAS_FRISSITES_MS);
-    return () => clearInterval(ora);
+    const kezdet = Date.now();
+    let ora: ReturnType<typeof setTimeout> | null = null;
+    const utemez = () => {
+      const kov = Date.now() - kezdet < GYORS_SZAKASZ_MS ? LEZARAS_FRISSITES_MS : LASSU_LEKERDEZES_MS;
+      ora = setTimeout(() => { allapotBetoltes(); utemez(); }, kov);
+    };
+    utemez();
+    return () => { if (ora) clearTimeout(ora); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allapot]);
 
   async function indit() {
+    if (!betoltve) return;
     if (!consent) {
       toast.error('Beleegyezés szükséges', 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.');
       return;
@@ -191,13 +248,16 @@ export default function DijFizetesKartya({
   }
 
   const fee = (feeHuf ?? 0).toLocaleString('hu-HU');
-  const gombLathato = allapot !== 'lezaras' && allapot !== 'ellenorzes';
+  const gombLathato = allapot !== 'lezaras' && allapot !== 'ellenorzes' && allapot !== 'sikeres';
   const foglalt = inditas !== 'nincs';
-  const gombFelirat = inditas === 'atiranyitas'
-    ? 'Átirányítás a CIB Bankhoz…'
-    : foglalt
-      ? (cib ? 'Kapcsolódás a CIB Bankhoz…' : 'Fizetés indítása…')
-      : (cib ? `Fizetés bankkártyával (${fee} Ft)` : `Díj fizetése (${fee} Ft)`);
+  const gombFelirat = !betoltve
+    ? 'Betöltés…'
+    : inditas === 'atiranyitas'
+      ? 'Átirányítás a CIB Bankhoz…'
+      : foglalt
+        ? (cib ? 'Kapcsolódás a CIB Bankhoz…' : 'Fizetés indítása…')
+        : (cib ? `Fizetés bankkártyával (${fee} Ft)` : `Díj fizetése (${fee} Ft)`);
+  const gombTiltva = !betoltve || foglalt || !consent;
 
   const oa = fp?.open_attempt || null;
   const lr = fp?.last_result || null;
@@ -241,8 +301,46 @@ export default function DijFizetesKartya({
             <Hourglass size={18} aria-hidden /> <span>A fizetés lezárása folyamatban…</span>
           </div>
           <p style={{ margin: '6px 0 0', fontSize: 14 }}>
-            A bank jóváhagyta a fizetést, most véglegesítjük. Ne indíts újat — pár másodperc múlva
-            frissül az oldal, és megnyílik a szállító elérhetősége.
+            Egy fizetésed feldolgozása még tart. Ne indíts újat — pár másodperc múlva frissül az
+            oldal; ha a fizetés sikerült, itt megnyílik a szállító elérhetősége.
+          </p>
+        </div>
+      )}
+
+      {allapot === 'sikeres' && (
+        <div
+          role="status"
+          style={{
+            marginTop: 12, padding: 14, borderRadius: 8,
+            background: 'rgba(22,163,74,0.10)', border: '1px solid rgba(22,163,74,0.45)', color: 'var(--text)',
+          }}
+        >
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
+            <CheckCircle2 size={18} aria-hidden /> <span>Sikeres fizetés</span>
+          </div>
+          <p style={{ margin: '6px 0 0', fontSize: 14 }}>
+            A kapcsolatfelvételi díjat kifizetted. A szállító elérhetősége pár másodpercen belül
+            megjelenik ezen az oldalon.
+          </p>
+          {lr && (
+            <details style={{ marginTop: 8 }}>
+              <summary style={{ cursor: 'pointer', fontSize: 13 }}>A banki tranzakció adatai</summary>
+              <div style={{ marginTop: 8 }}>
+                <BankiTranzakcioAdatok adatok={lr} />
+              </div>
+            </details>
+          )}
+          {onFrissites ? (
+            <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={() => { onFrissites(); }}>
+              Oldal frissítése
+            </button>
+          ) : (
+            <Link href={`/dashboard/fuvar/${jobId}`} className="btn" style={{ marginTop: 10 }}>
+              Szállító elérhetőségének megnyitása
+            </Link>
+          )}
+          <p className="muted" style={{ margin: '8px 0 0', fontSize: 12 }}>
+            Ha nem jelenik meg, írj nekünk a TrID-vel: <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a>
           </p>
         </div>
       )}
@@ -310,14 +408,14 @@ export default function DijFizetesKartya({
           <button
             type="button"
             onClick={indit}
-            disabled={foglalt || !consent}
+            disabled={gombTiltva}
             className="btn"
             style={{
               marginTop: 12,
-              background: consent ? 'var(--success-strong)' : 'var(--muted)',
+              background: consent && betoltve ? 'var(--success-strong)' : 'var(--muted)',
               border: 'none',
-              cursor: foglalt ? 'wait' : consent ? 'pointer' : 'not-allowed',
-              opacity: foglalt || !consent ? 0.7 : 1,
+              cursor: foglalt || !betoltve ? 'wait' : consent ? 'pointer' : 'not-allowed',
+              opacity: gombTiltva ? 0.7 : 1,
             }}
           >
             {gombFelirat}

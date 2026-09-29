@@ -15,17 +15,23 @@
 //  kér (a fizetést csak a fuvar feladója indíthatja).
 //
 //  LEKÉRDEZÉS: 3 mp-enként 3 percig, utána 20 mp-enként; végleges állapotban
-//  leáll. Bejelentkezve a socket-események (`cib:eredmeny`, `job:paid`)
-//  azonnali újrakérdezést váltanak ki. A lekérdezés csak a DB-t olvassa; a
-//  banki lekérdezés ütemét a backend fékezi.
+//  leáll, és 30 perc után is (a token 24 órás — egy nyitva hagyott fül ne
+//  kérdezzen addig; utána „Frissítés" gomb). Tartós, nem 404-es hibánál
+//  (5xx, 429, hálózat) három próba után kiírjuk, hogy most nem érjük el, és
+//  kiutat adunk — a háttérben tovább próbálkozunk. Bejelentkezve a
+//  socket-események (`cib:eredmeny`, `job:paid`) azonnali újrakérdezést
+//  váltanak ki. A lekérdezés csak a DB-t olvassa; a banki lekérdezés ütemét
+//  a backend fékezi. ⚠️ A 3 mp-es ütem ~20 kérés/perc/IP — a backend
+//  IP-limitjének ezt el kell bírnia.
 //
 //  „Vissza a fuvarhoz" gomb MINDIG van: a böngésző Vissza gombja a bank
-//  oldalára vinne (amit a bank biztonsági okból elutasít).
+//  oldalára vinne (amit a bank biztonsági okból elutasít). Kijelentkezve a
+//  fuvar-linkek a belépésen át (`?next=`) visznek a fuvarhoz.
 // =====================================================================
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, CheckCircle2, CircleCheck, Hourglass, ShieldAlert, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleCheck, Hourglass, RefreshCw, ShieldAlert, WifiOff, XCircle } from 'lucide-react';
 import { api, type CibEredmeny } from '@/api';
 import { Loading } from '@/components/StateView';
 import BankiTranzakcioAdatok from '@/components/BankiTranzakcioAdatok';
@@ -34,7 +40,9 @@ import { useCurrentUser } from '@/lib/auth';
 import { getSocket } from '@/lib/socket';
 import { CIB_FELIRATOK } from '@/lib/cibFeliratok';
 import { BANKI_TOVABBI_INFO, ugyfelUzenet } from '@/lib/cibRcCsoport';
-import { GYORS_SZAKASZ_MS, kovetkezoLekeresMs, vegleges } from '@/lib/cibFizetes';
+import {
+  ELERHETETLEN_HIBASZAM, GYORS_SZAKASZ_MS, kovetkezoLekeresMs, lekerdezesFolytathato, vegleges,
+} from '@/lib/cibFizetes';
 
 type Nezet =
   | { fajta: 'betoltes' }
@@ -43,15 +51,29 @@ type Nezet =
 
 const KARTYA = { marginTop: 16 } as const;
 
-function fuvarUt(jobId: string | null | undefined): string {
-  return jobId ? `/dashboard/fuvar/${jobId}` : '/fuvarjaim';
+/**
+ * A fuvar oldala. Kijelentkezve a belépésen át (`?next=`) visz oda: a
+ * fuvaroldal 401-e különben cél nélkül dobná a belépésre.
+ */
+function fuvarUt(jobId: string | null | undefined, bejelentkezve: boolean): string {
+  if (!jobId) return '/fuvarjaim';
+  const ut = `/dashboard/fuvar/${jobId}`;
+  return bejelentkezve ? ut : `/bejelentkezes?next=${encodeURIComponent(ut)}`;
 }
 
-function VisszaGomb({ jobId }: { jobId: string | null | undefined }) {
+function VisszaGomb({ jobId, bejelentkezve }: { jobId: string | null | undefined; bejelentkezve: boolean }) {
   return (
-    <Link href={fuvarUt(jobId)} className="btn btn-secondary" style={{ marginTop: 12 }}>
+    <Link href={fuvarUt(jobId, bejelentkezve)} className="btn btn-secondary" style={{ marginTop: 12 }}>
       Vissza a fuvarhoz
     </Link>
+  );
+}
+
+function FrissitesGomb({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="btn btn-secondary" style={{ marginTop: 8 }} onClick={onClick}>
+      <RefreshCw size={14} aria-hidden /> Frissítés
+    </button>
   );
 }
 
@@ -96,6 +118,10 @@ function EredmenyTartalom() {
 
   const [nezet, setNezet] = useState<Nezet>({ fajta: 'betoltes' });
   const [lassu, setLassu] = useState(false);
+  /** Egymást követő, nem 404-es hibák száma (5xx, 429, hálózat). */
+  const [hibaSzam, setHibaSzam] = useState(0);
+  /** A 30 perces felső korlát után az automatikus lekérdezés leállt. */
+  const [megallt, setMegallt] = useState(false);
   const indulas = useRef(Date.now());
   const ora = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leallt = useRef(false);
@@ -107,6 +133,7 @@ function EredmenyTartalom() {
     try {
       const r = await api.getCibEredmeny(token);
       if (leallt.current) return;
+      setHibaSzam(0);
       setNezet({ fajta: 'eredmeny', e: r });
       if (vegleges(r.allapot)) tovabb = false;
     } catch (err) {
@@ -114,14 +141,32 @@ function EredmenyTartalom() {
       if ((err as { status?: number }).status === 404) {
         setNezet({ fajta: 'lejart' });
         tovabb = false;
+      } else {
+        // Átmeneti hiba: tovább kérdezünk (a nézet marad), de számoljuk —
+        // néhány próba után kiírjuk, hogy most nem érjük el.
+        setHibaSzam((n) => n + 1);
       }
-      // Átmeneti hálózati hiba: tovább kérdezünk (a nézet marad).
     }
     if (!tovabb) { leallt.current = true; return; }
     const eltelt = Date.now() - indulas.current;
     if (eltelt >= GYORS_SZAKASZ_MS) setLassu(true);
+    if (!lekerdezesFolytathato(eltelt)) {
+      leallt.current = true;
+      setMegallt(true);
+      return;
+    }
     ora.current = setTimeout(() => { lekerdez(); }, kovetkezoLekeresMs(eltelt));
   }, [token]);
+
+  /** A „Frissítés" gomb: a felső korlát után újraindítja a lekérdezést. */
+  const ujraindit = useCallback(() => {
+    if (ora.current) { clearTimeout(ora.current); ora.current = null; }
+    leallt.current = false;
+    indulas.current = Date.now();
+    setMegallt(false);
+    setLassu(false);
+    lekerdez();
+  }, [lekerdez]);
 
   useEffect(() => {
     if (!token || hiba) return;
@@ -151,7 +196,26 @@ function EredmenyTartalom() {
 
   if (hiba || !token) return <AltalanosHiba hiba={hiba || 'link'} />;
 
-  if (nezet.fajta === 'betoltes') return <Loading label="A fizetés eredményének betöltése…" />;
+  if (nezet.fajta === 'betoltes') {
+    if (hibaSzam < ELERHETETLEN_HIBASZAM && !megallt) {
+      return <Loading label="A fizetés eredményének betöltése…" />;
+    }
+    return (
+      <div className="card" style={KARTYA}>
+        <h1 style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 24 }}>
+          <WifiOff size={24} aria-hidden /> Most nem érjük el az eredményt
+        </h1>
+        <p role="status">
+          A kapcsolat a szerverrel akadozik{megallt ? '' : ' — a háttérben tovább próbálkozunk'}. Ha
+          fizettél, az eredményről e-mailben is értesítünk, és a fuvar oldalán is látod. Új fizetést
+          csak azután indíts, hogy ott megnézted az állapotát.
+        </p>
+        {megallt && <FrissitesGomb onClick={ujraindit} />}
+        <div><Link href="/fuvarjaim" className="btn" style={{ marginTop: 12 }}>Fuvarjaim</Link></div>
+        <KezdokepernyoTipp />
+      </div>
+    );
+  }
 
   if (nezet.fajta === 'lejart') {
     return (
@@ -184,21 +248,33 @@ function EredmenyTartalom() {
             <Hourglass size={18} aria-hidden /> Lezárás
           </li>
         </ol>
-        <Loading label="Ellenőrizzük a bank válaszát…" />
-        {lassu ? (
-          <p role="status">
-            Még tart. Nem kell várnod: amint a bank megerősíti, e-mailt küldünk, és a fuvar oldalán is
-            látod az eredményt.
-          </p>
+        {megallt ? (
+          <>
+            <p role="status">
+              Az automatikus frissítést leállítottuk. Az eredményről e-mailben értesítünk, és a fuvar
+              oldalán is látod; most is lekérdezheted:
+            </p>
+            <FrissitesGomb onClick={ujraindit} />
+          </>
         ) : (
-          <p className="muted">Nem kell itt várnod, e-mailt is küldünk.</p>
+          <>
+            <Loading label="Ellenőrizzük a bank válaszát…" />
+            {lassu ? (
+              <p role="status">
+                Még tart. Nem kell várnod: amint a bank megerősíti, e-mailt küldünk, és a fuvar oldalán is
+                látod az eredményt.
+              </p>
+            ) : (
+              <p className="muted">Nem kell itt várnod, e-mailt is küldünk.</p>
+            )}
+          </>
         )}
         {e.trid && (
           <p className="muted" style={{ fontSize: 13 }}>
             {CIB_FELIRATOK.trid}: <strong>{e.trid}</strong>
           </p>
         )}
-        <VisszaGomb jobId={jobId} />
+        <VisszaGomb jobId={jobId} bejelentkezve={!!user} />
         <KezdokepernyoTipp />
       </div>
     );
@@ -214,10 +290,10 @@ function EredmenyTartalom() {
         <BankiTranzakcioAdatok adatok={e} mentesTipp />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
           {jobId && (
-            <Link href={fuvarUt(jobId)} className="btn">Szállító elérhetőségének megnyitása</Link>
+            <Link href={fuvarUt(jobId, !!user)} className="btn">Szállító elérhetőségének megnyitása</Link>
           )}
         </div>
-        <VisszaGomb jobId={jobId} />
+        <VisszaGomb jobId={jobId} bejelentkezve={!!user} />
         <KezdokepernyoTipp />
       </div>
     );
@@ -238,7 +314,7 @@ function EredmenyTartalom() {
           Kérdésed van? Írj nekünk a TrID-vel: <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a>
           {' '}vagy hívj: <a href="tel:+36203979223">+36 20 397 9223</a>
         </p>
-        <VisszaGomb jobId={jobId} />
+        <VisszaGomb jobId={jobId} bejelentkezve={!!user} />
       </div>
     );
   }
@@ -305,7 +381,7 @@ function EredmenyTartalom() {
           </Link>
         )
       )}
-      <div><VisszaGomb jobId={jobId} /></div>
+      <div><VisszaGomb jobId={jobId} bejelentkezve={!!user} /></div>
       <KezdokepernyoTipp />
     </div>
   );

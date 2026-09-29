@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import CibFizetesekAdmin from './CibFizetesekAdmin';
+import CibFizetesekAdmin, { bankiNaploSzoveg } from './CibFizetesekAdmin';
 import { api } from '@/api';
 
 // Admin „Kártyás fizetések (CIB)" blokk (CIB PR-3): kereső, állapot-szűrő,
@@ -76,6 +76,14 @@ describe('CIB admin blokk', () => {
     expect(masolt).toContain(TRID);
     expect(masolt).toContain('DATA=AAAA');
     expect(masolt).toContain('DATA=BBBB');
+    // A Fejlesztői útmutató (Support) szerinti levél: címzett, a tárgyban a
+    // boltazonosító (PID — a titkosított üzenet nyílt részéből), és a kért
+    // adatok helye (a probléma leírása, a kereskedői szerver IP-címe).
+    expect(masolt).toContain('ecommerce@cib.hu');
+    expect(masolt).toMatch(/^Tárgy: Tranzakció kivizsgálás kérés ABC0001$/m);
+    expect(masolt).toMatch(/A problémás tranzakció azonosítója \(TrID\): 1234567812345678/);
+    expect(masolt).toMatch(/A kereskedői szerver IP-címe:/);
+    expect(masolt).toMatch(/A probléma leírása:/);
 
     fireEvent.click(within(panel).getByRole('button', { name: /Újraellenőrzés/ }));
     await waitFor(() => expect(api.adminCibUjraellenorzes).toHaveBeenCalledWith(TRID));
@@ -120,6 +128,25 @@ describe('CIB admin blokk', () => {
     await waitFor(() => expect(api.adminCibRendezes).toHaveBeenCalledWith(TRID, {
       eredmeny: 'nem_lezarva', indoklas: 'A bank szerint a lezárás nem történt meg.',
     }));
+  });
+
+  it('a döntés rögzítése dupla kattintásra is EGY kérés', async () => {
+    vi.mocked(api.adminCibRendezes).mockImplementation(() => new Promise(() => {}));
+    render(<CibFizetesekAdmin />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`Részletek.*${TRID}`) }));
+    const panel = await screen.findByTestId('cib-reszlet');
+    fireEvent.click(within(panel).getByRole('button', { name: /^Nem lezárva/ }));
+    const dialog = (await screen.findAllByRole('dialog')).at(-1)!;
+    fireEvent.change(within(dialog).getByLabelText(/Indoklás/), { target: { value: 'A bank szerint a lezárás nem történt meg.' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
+    fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
+    await waitFor(() => expect(api.adminCibRendezes).toHaveBeenCalled());
+    expect(api.adminCibRendezes).toHaveBeenCalledTimes(1);
+  });
+
+  it('boltazonosító nélküli naplónál a tárgyban kitöltendő helyőrző áll', () => {
+    const szoveg = bankiNaploSzoveg(TRID, { ...RESZLET, messages: [] } as any);
+    expect(szoveg).toMatch(/^Tárgy: Tranzakció kivizsgálás kérés \[boltazonosító\]$/m);
   });
 
   it('nem kétes sornál nincs rendezés-gomb', async () => {

@@ -78,6 +78,56 @@ describe('útválasztás: CIB átirányítás vs stub', () => {
     expect(screen.getByRole('button', { name: /Átirányítás a CIB Bankhoz/ })).toBeDisabled();
   });
 
+  it.each([
+    ['hiányzó gateway_url', null],
+    ['eltérő (régi) gateway_url', 'https://regi.example/gateway'],
+  ])('CIB: a redirect_url az elsődleges cél (%s)', async (_nev, gatewayUrl) => {
+    // Ha a CIB-ág kiesne, a régi gateway_url-ág vinné tovább a felhasználót —
+    // ezért a két cél itt SZÁNDÉKOSAN eltér (vagy a régi hiányzik).
+    vi.mocked(api.getFeePayment).mockResolvedValue(CIB as any);
+    vi.mocked(api.payJob).mockResolvedValue({
+      provider: 'cib', trid: '1234567812345678', fee_huf: 500, is_stub: false, reused: false,
+      redirect_url: 'https://api.gofuvar.hu/payments/cib/tovabb/uj', gateway_url: gatewayUrl,
+    } as any);
+    kartya();
+    await screen.findByText('Kártyás fizetés szolgáltatója:');
+    await pipalEsFizet(/Fizetés bankkártyával/);
+    await waitFor(() => expect(kulsoOldalraLep).toHaveBeenCalledWith('https://api.gofuvar.hu/payments/cib/tovabb/uj'));
+    expect(kulsoOldalraLep).toHaveBeenCalledTimes(1);
+  });
+
+  it('amíg a fizetési mód nem ismert, a gomb nem nyomható és nem ígér (stub-)fizetési módot', async () => {
+    vi.mocked(api.getFeePayment).mockImplementation(() => new Promise(() => {}));
+    kartya();
+    fireEvent.click(screen.getByRole('checkbox'));
+    const gomb = screen.getByRole('button', { name: /Betöltés/ });
+    expect(gomb).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Díj fizetése/ })).toBeNull();
+    fireEvent.click(gomb);
+    expect(api.payJob).not.toHaveBeenCalled();
+  });
+
+  it('a fee-payment átmeneti hibája (5xx) után újrapróbál — CIB-módban nem ragad a stub-felületen', async () => {
+    vi.useFakeTimers();
+    vi.mocked(api.getFeePayment)
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 503 }))
+      .mockResolvedValue(CIB as any);
+    kartya();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.queryByText('Kártyás fizetés szolgáltatója:')).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_100); });
+    expect(screen.getByText('Kártyás fizetés szolgáltatója:')).toBeInTheDocument();
+    expect(api.getFeePayment).toHaveBeenCalledTimes(2);
+  });
+
+  it('404-re (nincs CIB-végpont) nincs újrapróba', async () => {
+    vi.useFakeTimers();
+    vi.mocked(api.getFeePayment).mockRejectedValue(Object.assign(new Error('nincs'), { status: 404 }));
+    kartya();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(api.getFeePayment).toHaveBeenCalledTimes(1);
+  });
+
   it('a fee-payment 404/403 → a stub-felület marad (nem törik az oldal)', async () => {
     vi.mocked(api.getFeePayment).mockRejectedValue(Object.assign(new Error('nincs'), { status: 404 }));
     kartya();
@@ -198,6 +248,75 @@ describe('állapotok a fee-payment válaszból', () => {
     expect(await screen.findByText(/A fizetés lezárása folyamatban/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Fizetés bankkártyával/ })).toBeNull();
     expect(screen.queryByRole('checkbox')).toBeNull();
+    // A „feldolgozas" egy másik fülben épp induló kísérlet is lehet — a doboz
+    // nem állíthatja, hogy a bank már jóváhagyta a fizetést.
+    expect(document.body.textContent).not.toMatch(/jóváhagyta/);
+  });
+
+  it('SIKERES fizetés a lezárás után: a fuvar EGYSZER frissül, a lekérdezés leáll, fizetés-gomb nincs', async () => {
+    vi.useFakeTimers();
+    const onFrissites = vi.fn();
+    vi.mocked(api.getFeePayment)
+      .mockResolvedValueOnce({
+        ...CIB, can_pay: false, open_attempt: { trid: '1111222233334444', started_at: new Date().toISOString(), allapot: 'feldolgozas' },
+      } as any)
+      .mockResolvedValue({
+        ...CIB, can_pay: false, open_attempt: null, last_result: {
+          trid: '1111222233334444', rc: '00', rt: 'Sikeres tranzakció', amo: 500, cur: 'HUF', anum: 'AB1234',
+          rc_csoport: null, allapot: 'sikeres',
+        },
+      } as any);
+    kartya({ onFrissites });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText(/A fizetés lezárása folyamatban/)).toBeInTheDocument();
+    expect(onFrissites).not.toHaveBeenCalled();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_100); });
+    expect(screen.getByText('Sikeres fizetés')).toBeInTheDocument();
+    expect(screen.queryByText(/A fizetés lezárása folyamatban/)).toBeNull();
+    expect(onFrissites).toHaveBeenCalledTimes(1);
+
+    // A lekérdezés leállt: sem új kérés, sem újabb frissítés.
+    const hivasok = vi.mocked(api.getFeePayment).mock.calls.length;
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(api.getFeePayment).toHaveBeenCalledTimes(hivasok);
+    expect(onFrissites).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('button', { name: /Fizetés bankkártyával/ })).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
+  });
+
+  it('már SIKERES díjfizetés betöltéskor: a fuvar egyszer frissül, nincs lekérdezési ciklus', async () => {
+    vi.useFakeTimers();
+    const onFrissites = vi.fn();
+    vi.mocked(api.getFeePayment).mockResolvedValue({
+      ...CIB, can_pay: false, last_result: { trid: '1', rc: '00', allapot: 'sikeres' },
+    } as any);
+    kartya({ onFrissites });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(onFrissites).toHaveBeenCalledTimes(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(api.getFeePayment).toHaveBeenCalledTimes(1);
+    expect(onFrissites).toHaveBeenCalledTimes(1);
+  });
+
+  it('Vissza a bank oldaláról (bfcache): a gomb újra nyomható, az állapot újraolvasva', async () => {
+    vi.mocked(api.getFeePayment).mockResolvedValue(CIB as any);
+    vi.mocked(api.payJob).mockResolvedValue({
+      provider: 'cib', redirect_url: 'https://api.gofuvar.hu/payments/cib/tovabb/tok', gateway_url: null, fee_huf: 500,
+    } as any);
+    kartya();
+    await screen.findByText('Kártyás fizetés szolgáltatója:');
+    await pipalEsFizet(/Fizetés bankkártyával/);
+    expect(await screen.findByRole('button', { name: /Átirányítás a CIB Bankhoz/ })).toBeDisabled();
+    const elotte = vi.mocked(api.getFeePayment).mock.calls.length;
+
+    // Nem gyorsítótárból jövő pageshow: semmi nem változik.
+    act(() => { window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: false })); });
+    expect(screen.getByRole('button', { name: /Átirányítás a CIB Bankhoz/ })).toBeDisabled();
+
+    act(() => { window.dispatchEvent(Object.assign(new Event('pageshow'), { persisted: true })); });
+    expect(await screen.findByRole('button', { name: /Fizetés bankkártyával/ })).not.toBeDisabled();
+    await waitFor(() => expect(vi.mocked(api.getFeePayment).mock.calls.length).toBeGreaterThan(elotte));
   });
 
   it('ellenőrzés: „Ne fizess újra" TrID-del és elérhetőséggel, gomb nélkül', async () => {

@@ -48,6 +48,17 @@ describe('lábléc: a banki teszt kötelező elemei', () => {
     expect(within(lablec).getByRole('link', { name: 'Adatkezelési tájékoztató' })).toHaveAttribute('href', '/adatkezeles');
   });
 
+  it('„Kapcsolat" link a kereskedő elérhetőségéhez (a banki javaslat szerint)', () => {
+    render(<SiteFooter />);
+    const lablec = screen.getByRole('contentinfo');
+    const link = within(lablec).getByRole('link', { name: 'Kapcsolat' });
+    expect(link).toHaveAttribute('href', '#kapcsolat');
+    // A cél a láblécben van — minden oldalon létezik.
+    const cel = lablec.querySelector('#kapcsolat');
+    expect(cel).not.toBeNull();
+    expect(cel?.textContent || '').toMatch(/Adószám/);
+  });
+
   it('a kereskedő neve, székhelye (országgal), cégjegyzékszáma, adószáma, telefonja és e-mailje', () => {
     render(<SiteFooter />);
     const szoveg = screen.getByRole('contentinfo').textContent || '';
@@ -106,6 +117,22 @@ describe('/bankkartyas-fizetes — a CIB vásárlói tájékoztatója GoFuvarra 
     const cib = screen.getByAltText('CIB Bank').closest('a');
     expect(cib).toHaveAttribute('href', 'https://www.cib.hu/');
     expect(cib?.getAttribute('rel') || '').toMatch(/noopener/);
+  });
+
+  it('panasz, elállás és garancia: az ÁSZF 6. pontjára és a panasz-címre mutat', () => {
+    render(<BankkartyasFizetesOldal />);
+    const szoveg = document.body.textContent || '';
+    expect(szoveg).toMatch(/ÁSZF[^.]*6\. pont/);
+    expect(szoveg).toMatch(/[Ee]lállás/);
+    expect(screen.getAllByRole('link', { name: 'panasz@gofuvar.hu' })[0]).toHaveAttribute('href', 'mailto:panasz@gofuvar.hu');
+    expect(screen.getByRole('heading', { level: 2, name: /Kapcsolat/ })).toBeInTheDocument();
+  });
+
+  it('címsor-hierarchia: a csoportok h3-ak, a kérdések alattuk h4-ek', () => {
+    render(<BankkartyasFizetesOldal />);
+    expect(screen.getByRole('heading', { level: 3, name: /Kártyaelfogadás/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 4, name: /Milyen típusú kártyákkal lehet fizetni/ })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 3, name: /Milyen típusú kártyákkal lehet fizetni/ })).toBeNull();
   });
 
   it('a logók a nyilvános /cib/ mappában vannak (dokumentum nem)', () => {

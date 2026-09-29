@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   kartyaAllapot, fizetesHibaUzenet, kovetkezoLekeresMs, vegleges, percKiiras,
-  biztonsagosAtiranyitasiCel,
+  biztonsagosAtiranyitasiCel, lekerdezesFolytathato, LEKERDEZES_PLAFON_MS, atmenetiHiba,
 } from './cibFizetes';
 import { IDOTULLEPES_UZENET, HALOZATI_HIBA_UZENET } from '@/api';
 
@@ -32,6 +32,17 @@ describe('a díjfizetési kártya állapota a GET /jobs/:id/fee-payment válasz�
     const oa = { trid: '1', started_at: '2026-09-29T10:00:00Z', allapot: 'ellenorzes' };
     expect(kartyaAllapot(cib({ open_attempt: oa, can_pay: false }))).toBe('ellenorzes');
     expect(kartyaAllapot(cib({ last_result: { trid: '1', allapot: 'ellenorzes' } }))).toBe('ellenorzes');
+  });
+
+  it('SIKERES díjfizetés: külön állapot, NEM lezárás (különben a kártya sosem lép ki a lekérdezésből)', () => {
+    // A javítás előtt a 'sikeres' a lezárás-halmazban volt: a kártya
+    // „A fizetés lezárása folyamatban…"-t mutatott, 5 mp-enként végtelenül
+    // kérdezett, és a fuvart sosem töltötte újra.
+    expect(kartyaAllapot(cib({ last_result: { trid: '1', rc: '00', anum: 'AB1234', allapot: 'sikeres' } }))).toBe('sikeres');
+    expect(kartyaAllapot(cib({ can_pay: false, last_result: { trid: '1', allapot: 'sikeres' } }))).toBe('sikeres');
+    expect(kartyaAllapot(cib({ open_attempt: { trid: '1', started_at: '2026-09-29T10:00:00Z', allapot: 'sikeres' } }))).toBe('sikeres');
+    // A banki lezárás utáni, még függő könyvelés (closed_ok) marad lezárás.
+    expect(kartyaAllapot(cib({ open_attempt: { trid: '1', started_at: '2026-09-29T10:00:00Z', allapot: 'closed_ok' } }))).toBe('lezaras');
   });
 
   it('előző kísérlet sikertelen / nem terhelt: magyarázat + azonnali újrapróba', () => {
@@ -96,6 +107,14 @@ describe('eredményoldal-lekérdezés ütemezése', () => {
     expect(kovetkezoLekeresMs(3_600_000)).toBe(20_000);
   });
 
+  it('felső korlát: 30 perc után az automatikus lekérdezés leáll', () => {
+    expect(LEKERDEZES_PLAFON_MS).toBe(30 * 60_000);
+    expect(lekerdezesFolytathato(0)).toBe(true);
+    expect(lekerdezesFolytathato(29 * 60_000)).toBe(true);
+    expect(lekerdezesFolytathato(30 * 60_000)).toBe(false);
+    expect(lekerdezesFolytathato(24 * 3_600_000)).toBe(false);
+  });
+
   it('csak a „feldolgozas" nem végleges', () => {
     expect(vegleges('feldolgozas')).toBe(false);
     for (const a of ['sikeres', 'sikertelen', 'nem_terhelt', 'mar_fizetve', 'ellenorzes']) {
@@ -110,6 +129,15 @@ describe('segédek', () => {
     expect(percKiiras('2026-09-29T10:07:00Z', most)).toBe('3 perce');
     expect(percKiiras('2026-09-29T10:09:50Z', most)).toBe('néhány másodperce');
     expect(percKiiras('nem-dátum', most)).toBe('nemrég');
+  });
+
+  it('átmeneti hiba (újrapróbálandó): 5xx, 429, időtúllépés, hálózat — a 401/403/404 és a programhiba nem', () => {
+    for (const status of [500, 502, 503, 504, 429]) expect(atmenetiHiba({ status })).toBe(true);
+    expect(atmenetiHiba({ message: IDOTULLEPES_UZENET })).toBe(true);
+    expect(atmenetiHiba({ message: HALOZATI_HIBA_UZENET })).toBe(true);
+    for (const status of [400, 401, 403, 404, 409]) expect(atmenetiHiba({ status })).toBe(false);
+    expect(atmenetiHiba(new TypeError('api.getFeePayment is not a function'))).toBe(false);
+    expect(atmenetiHiba(null)).toBe(false);
   });
 
   it('átirányítani csak http(s) címre szabad (javascript: soha)', () => {

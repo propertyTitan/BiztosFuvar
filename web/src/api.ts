@@ -838,8 +838,8 @@ export const api = {
     ),
 
   /** Licites fuvar díj-fizetés indítása — consent kötelező (elállási nyilatkozat a redirect előtt).
-   *  Ha a feladónak van ingyen-feladás kuponja (ajánlói program), a válasz
-   *  `paid_via_voucher: true` + `gateway_url: null` — ilyenkor nincs Barion-redirect. */
+   *  Ha a feladónak van ingyenes kapcsolatfelvétele (ajánlói program), a válasz
+   *  `paid_via_voucher: true` + `gateway_url: null` — ilyenkor nincs banki átirányítás. */
   //
   // ⚠️ 55 mp-es keret (CIB PR-3): CIB-módban a backend a válasz előtt a bankkal
   // inicializál (MSGT10, összesen legfeljebb 40 mp) — a 15 mp-es alapkeret a

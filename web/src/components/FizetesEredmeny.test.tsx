@@ -58,11 +58,60 @@ describe('eredményoldal állapotai', () => {
       expect(screen.getByText(ertek)).toBeInTheDocument();
     }
     expect(screen.getByText(/Érdemes elmentened ezeket az adatokat/)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Szállító elérhetőségének megnyitása/ })).toHaveAttribute('href', '/dashboard/fuvar/job-1');
-    expect(screen.getByRole('link', { name: /Vissza a fuvarhoz/ })).toHaveAttribute('href', '/dashboard/fuvar/job-1');
+    // Kijelentkezve (a bank gyakran MÁS böngészőbe küld vissza) a fuvar
+    // linkje a belépésen át, `next`-tel visz — különben a fuvaroldal 401-e
+    // cél nélkül dobna a belépésre.
+    const beleptetve = `/bejelentkezes?next=${encodeURIComponent('/dashboard/fuvar/job-1')}`;
+    expect(screen.getByRole('link', { name: /Szállító elérhetőségének megnyitása/ })).toHaveAttribute('href', beleptetve);
+    expect(screen.getByRole('link', { name: /Vissza a fuvarhoz/ })).toHaveAttribute('href', beleptetve);
     await atfolyat(30_000);
     expect(api.getCibEredmeny).toHaveBeenCalledTimes(1);
     expect(api.getCibEredmeny).toHaveBeenCalledWith('tok-1');
+  });
+
+  it('sikeres, bejelentkezve: a linkek közvetlenül a fuvarra visznek', async () => {
+    m.user = { id: 'shipper', role: 'shipper' };
+    vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, allapot: 'sikeres' } as any);
+    render(<EredmenyOldal />);
+    await atfolyat();
+    expect(screen.getByRole('link', { name: /Szállító elérhetőségének megnyitása/ })).toHaveAttribute('href', '/dashboard/fuvar/job-1');
+    expect(screen.getByRole('link', { name: /Vissza a fuvarhoz/ })).toHaveAttribute('href', '/dashboard/fuvar/job-1');
+  });
+
+  it('tartós (nem 404-es) hiba: néhány próba után kimondja, és kiutat ad — tovább próbálkozik', async () => {
+    vi.mocked(api.getCibEredmeny)
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 503 }))
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 503 }))
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 429 }))
+      .mockResolvedValue({ ...ALAP, allapot: 'sikeres' } as any);
+    render(<EredmenyOldal />);
+    await atfolyat();
+    expect(screen.queryByText(/Most nem érjük el/)).toBeNull();
+    await atfolyat(6_100);
+    expect(api.getCibEredmeny).toHaveBeenCalledTimes(3);
+    expect(screen.getByText(/Most nem érjük el/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Fuvarjaim/ })).toHaveAttribute('href', '/fuvarjaim');
+    // Közben tovább kérdez, és a sikeres eredmény felülírja a hibaüzenetet.
+    await atfolyat(3_100);
+    expect(screen.getByText(/A kapcsolatfelvételi díjat kifizetted/)).toBeInTheDocument();
+    expect(screen.queryByText(/Most nem érjük el/)).toBeNull();
+  });
+
+  it('felső korlát: 30 perc után az automatikus lekérdezés leáll, „Frissítés" gombbal újraindítható', async () => {
+    vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, rc: null, anum: null, allapot: 'feldolgozas' } as any);
+    render(<EredmenyOldal />);
+    await atfolyat();
+    await atfolyat(31 * 60_000);
+    const leallaskor = vi.mocked(api.getCibEredmeny).mock.calls.length;
+    await atfolyat(10 * 60_000);
+    expect(api.getCibEredmeny).toHaveBeenCalledTimes(leallaskor);
+    const gomb = screen.getByRole('button', { name: /Frissítés/ });
+    await act(async () => { gomb.click(); });
+    await atfolyat();
+    expect(vi.mocked(api.getCibEredmeny).mock.calls.length).toBe(leallaskor + 1);
+    // Újraindítás után ismét a rövid ütem jön.
+    await atfolyat(3_100);
+    expect(vi.mocked(api.getCibEredmeny).mock.calls.length).toBe(leallaskor + 2);
   });
 
   it('feldolgozás → 3 mp múlva újra kérdez → sikeres, utána nem kérdez tovább', async () => {

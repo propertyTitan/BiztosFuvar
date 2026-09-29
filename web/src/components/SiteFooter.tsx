@@ -46,6 +46,9 @@ export default function SiteFooter() {
         <Link href="/adatkezeles" style={{ color: 'inherit', textDecoration: 'underline' }}>Adatkezelési tájékoztató</Link>
         {/* A CIB vásárlói tájékoztatója (banki teszt: „Bankkártyás fizetés" link). */}
         <Link href="/bankkartyas-fizetes" style={{ color: 'inherit', textDecoration: 'underline' }}>Bankkártyás fizetés</Link>
+        {/* A banki javaslat: a kereskedő elérhetősége lehetőleg „Kapcsolat"
+            linken érhető el — a cél a lent álló cím-blokk (minden oldalon). */}
+        <a href="#kapcsolat" style={{ color: 'inherit', textDecoration: 'underline' }}>Kapcsolat</a>
       </div>
       {/* CIB PR-3 — a banki átvételi teszt kötelező elemei a főoldalon is:
           CIB-logó a „Kártyás fizetés szolgáltatója:" felirattal (a
@@ -63,7 +66,9 @@ export default function SiteFooter() {
       {/* A kereskedő elérhetősége (banki teszt: adószám, székhely, telefon,
           e-mail kötelező; az ÁSZF-link fent). */}
       <address
+        id="kapcsolat"
         style={{
+          scrollMarginTop: 80,
           marginTop: 10, fontSize: 12, fontStyle: 'normal', lineHeight: 1.6,
           maxWidth: 760, marginLeft: 'auto', marginRight: 'auto',
         }}

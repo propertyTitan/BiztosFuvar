@@ -16,8 +16,11 @@ export type KartyaAllapot =
   | 'alap'
   /** Egy korábbi kísérlet a bankhoz ment, de nem tért vissza — újat indíthat. */
   | 'nyitott'
-  /** A bank jóváhagyta, a lezárás fut — a gomb rejtve. */
+  /** Egy kísérlet feldolgozása / lezárása fut — a gomb rejtve, 5 mp-es frissítés. */
   | 'lezaras'
+  /** A díjfizetés sikerült — a gomb rejtve, a fuvart EGYSZER újratöltjük
+   *  (megnyílik a kontakt), a lekérdezés leáll. */
+  | 'sikeres'
   /** Kétes lezárás (close_unknown / needs_review) — „Ne fizess újra". */
   | 'ellenorzes'
   /** Az előző kísérlet sikertelen / nem terhelt — magyarázat + újrapróba. */
@@ -26,8 +29,16 @@ export type KartyaAllapot =
 // Az `allapot` mező két szótárral is érkezhet: az eredményoldaléval
 // ('feldolgozas' / 'ellenorzes' / …) vagy a nyers CIB-alállapottal. Mindkettőt
 // elfogadjuk, hogy a backend apró szótár-döntése ne törje a felületet.
+//
+// ⚠️ A 'sikeres' KÜLÖN állapot, NEM a lezárásé: a lezárás alatt a kártya
+// 5 mp-enként kérdez, és csak a lezárásból KILÉPVE tölti újra a fuvart — ha a
+// siker is „lezárás" volna, a kártya sosem lépne ki belőle (végtelen lekérdezés,
+// a kontakt csak a socket-eseményen múlna). A 'closed_ok' viszont marad a
+// lezárásnál: a terv szerint a banki lezárás után a könyvelés még függőben
+// lehet (closed_ok + pending = 'feldolgozas').
 const ELLENORZES = new Set(['ellenorzes', 'close_unknown', 'needs_review']);
-const LEZARAS = new Set(['lezaras', 'authorized', 'closing', 'closed_ok', 'sikeres']);
+const SIKERES = new Set(['sikeres', 'succeeded']);
+const LEZARAS = new Set(['lezaras', 'authorized', 'closing', 'closed_ok']);
 const SIKERTELEN = new Set(['sikertelen', 'nem_terhelt', 'mar_fizetve', 'failed', 'expired', 'not_closed', 'abandoned', 'init_failed']);
 
 export function kartyaAllapot(fp: FeePaymentAllapot | null | undefined): KartyaAllapot {
@@ -36,10 +47,15 @@ export function kartyaAllapot(fp: FeePaymentAllapot | null | undefined): KartyaA
   if (oa) {
     const a = String(oa.allapot || '');
     if (ELLENORZES.has(a)) return 'ellenorzes';
+    if (SIKERES.has(a)) return 'sikeres';
     if (LEZARAS.has(a)) return 'lezaras';
     // A „feldolgozas" a bankhoz ment, vissza nem tért kísérletet ÉS a lezárás
     // alattit is jelentheti: a `can_pay` dönt (a redirected nem blokkolja az
     // új fizetést, a zárás igen — lásd a terv „Mit blokkol" táblázatát).
+    // ⚠️ A can_pay=false egy másik fülben ÉPP INDULÓ kísérletet is jelenthet,
+    // ezért a lezárás-doboz szövege semleges (nem állít banki jóváhagyást).
+    // Az open_attempt.allapot pontos értékkészletét a CIB-mag PR-rel kell
+    // egyeztetni (a szerződés csak az eredményoldal szótárát rögzíti).
     if (a === 'feldolgozas') return fp.can_pay === false ? 'lezaras' : 'nyitott';
     return 'nyitott';
   }
@@ -47,6 +63,7 @@ export function kartyaAllapot(fp: FeePaymentAllapot | null | undefined): KartyaA
   if (lr) {
     const a = String(lr.allapot || '');
     if (ELLENORZES.has(a)) return 'ellenorzes';
+    if (SIKERES.has(a)) return 'sikeres';
     if (LEZARAS.has(a)) return 'lezaras';
     if (a === 'feldolgozas') return fp.can_pay === false ? 'lezaras' : 'nyitott';
     if (SIKERTELEN.has(a)) return 'elozo_sikertelen';
@@ -165,6 +182,34 @@ export const GYORS_SZAKASZ_MS = 180_000;
 
 export function kovetkezoLekeresMs(elteltMs: number): number {
   return elteltMs < GYORS_SZAKASZ_MS ? GYORS_LEKERDEZES_MS : LASSU_LEKERDEZES_MS;
+}
+
+/**
+ * Az automatikus lekérdezés felső korlátja: egy nyitva hagyott fül ne
+ * kérdezzen a token 24 órás lejáratáig. Utána az oldal „Frissítés" gombot
+ * ad (az eredményről e-mail is megy).
+ */
+export const LEKERDEZES_PLAFON_MS = 30 * 60_000;
+
+export function lekerdezesFolytathato(elteltMs: number): boolean {
+  return elteltMs < LEKERDEZES_PLAFON_MS;
+}
+
+/** Ennyi egymást követő (nem 404-es) hiba után mondjuk ki, hogy most nem érjük el. */
+export const ELERHETETLEN_HIBASZAM = 3;
+
+/**
+ * A díjfizetési állapot (GET /jobs/:id/fee-payment) átmeneti hibájánál ennyi
+ * várakozás után próbáljuk újra — különben CIB-módban egyetlen elbukott
+ * kérés a stub-felületet hagyná ott (a banki kötelező blokk nélkül).
+ */
+export const ALLAPOT_UJRAPROBA_MS = [2_000, 5_000, 15_000] as const;
+
+/** Átmeneti-e a hiba (újrapróbálandó)? A 401/403/404 és a programhiba nem az. */
+export function atmenetiHiba(err: unknown): boolean {
+  const e = (err || {}) as { status?: number; message?: string };
+  if (typeof e.status === 'number') return e.status === 429 || e.status >= 500;
+  return e.message === IDOTULLEPES_UZENET || e.message === HALOZATI_HIBA_UZENET;
 }
 
 /** Csak a „feldolgozas" nem végleges — minden más állapotnál a lekérdezés leáll. */

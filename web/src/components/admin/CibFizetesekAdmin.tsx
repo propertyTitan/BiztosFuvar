@@ -19,7 +19,7 @@
 //  backend még nem tartalmazza), a blokk ezt csendes jelzéssel mondja — az
 //  admin-felület többi része ettől nem törik.
 // =====================================================================
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Copy, CreditCard, RefreshCw, Search, X } from 'lucide-react';
 import { api, type AdminCibReszlet, type AdminCibSor } from '@/api';
@@ -67,12 +67,43 @@ function Pill({ allapot }: { allapot: string }) {
   );
 }
 
-/** A banknak küldhető kivizsgálási szöveg (titkosított üzenetekkel). */
+/** A CIB e-kereskedelmi ügyfélszolgálata (Fejlesztői útmutató, „Support"). */
+export const CIB_KIVIZSGALAS_EMAIL = 'ecommerce@cib.hu';
+
+/**
+ * A boltazonosító (PID): a session mezőjéből, vagy a titkosított üzenetek
+ * NYÍLT részéből (`PID=…&CRYPTO=1&DATA=…`). Ha egyik sincs, helyőrző.
+ */
+function boltazonosito(r: AdminCibReszlet): string {
+  const sajat = r.session?.pid;
+  if (typeof sajat === 'string' && /^[A-Za-z0-9]{1,20}$/.test(sajat)) return sajat;
+  for (const m of r.messages) {
+    const talalat = /(?:^|[?&])PID=([A-Za-z0-9]{1,20})(?:&|$)/.exec(m.raw ?? '');
+    if (talalat) return talalat[1];
+  }
+  return '[boltazonosító]';
+}
+
+/**
+ * A banknak küldhető kivizsgálási levél (a Fejlesztői útmutató „Support"
+ * pontja szerint): címzett, a tárgyban a boltazonosító, a tranzakció
+ * azonosítója, a probléma leírásának és a kereskedői szerver IP-címének
+ * helye (ezeket az admin tölti ki), és a küldött/fogadott titkosított
+ * üzenetek időpecséttel.
+ */
 export function bankiNaploSzoveg(trid: string, r: AdminCibReszlet): string {
   const sorok = [
-    `Tranzakció kivizsgálás kérés – TrID: ${trid}`,
+    `Címzett: ${CIB_KIVIZSGALAS_EMAIL}`,
+    `Tárgy: Tranzakció kivizsgálás kérés ${boltazonosito(r)}`,
+    '',
+    `A problémás tranzakció azonosítója (TrID): ${trid}`,
+    'A probléma leírása: [kitöltendő]',
+    'A kereskedői szerver IP-címe: [kitöltendő]',
+    'Képernyőkép: [ha van, csatold]',
     `Kereskedő: ${KERESKEDO.teljesNev} (${KERESKEDO.rovidNev}), adószám: ${KERESKEDO.adoszam}`,
     r.session?.job_id ? `Belső hivatkozás (fuvar): ${r.session.job_id}` : null,
+    '',
+    'A küldött/fogadott titkosított üzenetek (időpecséttel):',
     '',
     ...r.messages.flatMap((m) => [
       `[${m.created_at}] ${m.direction} MSGT${m.msgt ?? '?'} ${m.endpoint ?? ''} HTTP ${m.http_status ?? '–'} RC ${m.rc ?? '–'}${m.error_class ? ` (${m.error_class})` : ''}`,
@@ -98,6 +129,9 @@ export default function CibFizetesekAdmin() {
   const [reszletBetolt, setReszletBetolt] = useState<string | null>(null);
   const [dontes, setDontes] = useState<'lezarva' | 'nem_lezarva' | null>(null);
   const [muvelet, setMuvelet] = useState(false);
+  // Szinkron őr a dupla kattintás ellen (a state csak a következő renderben
+  // látszik; a backend a close_unknown+pending feltétellel amúgy is véd).
+  const folyamatban = useRef(false);
 
   const betoltLista = useCallback(async (p: { q: string; allapot: string; from: string; to: string; offset: number }) => {
     setBetolt(true);
@@ -165,7 +199,7 @@ export default function CibFizetesekAdmin() {
   }
 
   async function rendez(v: Record<string, string>) {
-    if (!reszlet || !dontes) return;
+    if (!reszlet || !dontes || folyamatban.current) return;
     const indoklas = (v.indoklas || '').trim();
     if (indoklas.length < 10 || indoklas.length > 2000) {
       toast.error('Túl rövid indoklás', 'Az indoklás 10–2000 karakter legyen (a bankkal való egyeztetés lényege).');
@@ -182,6 +216,7 @@ export default function CibFizetesekAdmin() {
     } else {
       body = { eredmeny: 'nem_lezarva', indoklas };
     }
+    folyamatban.current = true;
     setMuvelet(true);
     try {
       await api.adminCibRendezes(reszlet.trid, body);
@@ -192,6 +227,7 @@ export default function CibFizetesekAdmin() {
     } catch {
       toast.error('A döntés nem rögzült', 'Frissítsd a részleteket, és próbáld újra.');
     } finally {
+      folyamatban.current = false;
       setMuvelet(false);
     }
   }
@@ -330,8 +366,9 @@ export default function CibFizetesekAdmin() {
               <BankiTranzakcioAdatok adatok={{ ...(reszlet.adat.result || {}), trid: reszlet.trid }} />
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
-                <button type="button" className="btn btn-secondary" onClick={masol}>
-                  <Copy size={14} style={{ verticalAlign: -2 }} aria-hidden /> Titkosított napló másolása a banknak
+                {/* A .btn alapból nowrap — 390 px-en ez a hosszú felirat kilógna. */}
+                <button type="button" className="btn btn-secondary" onClick={masol} style={{ whiteSpace: 'normal', textAlign: 'left' }}>
+                  <Copy size={14} style={{ verticalAlign: -2, flexShrink: 0 }} aria-hidden /> Titkosított napló másolása a banknak
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={ujraellenoriz} disabled={muvelet}>
                   <RefreshCw size={14} style={{ verticalAlign: -2 }} aria-hidden /> Újraellenőrzés
