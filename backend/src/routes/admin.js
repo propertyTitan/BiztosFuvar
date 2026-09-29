@@ -13,6 +13,7 @@ const { deleteEntity } = require('../services/entityDeletion');
 const manualKyc = require('../services/manualKyc');
 const { logAdminAccess } = require('../utils/adminAudit');
 const { authRequired, requireRole } = require('../middleware/auth');
+const { cibZarasFolyamatban, fagyasztvaValasz } = require('../utils/cibZaras');
 
 const router = express.Router();
 const adminOnly = [authRequired, requireRole('admin')];
@@ -359,12 +360,34 @@ router.patch('/admin/jobs/:id', ...adminOnly, async (req, res) => {
       code: 'DISPUTED_NOT_MANUAL',
     });
   }
-  const { rows } = await db.query(
-    `UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-    [status, req.params.id],
-  );
-  if (!rows[0]) return res.status(404).json({ error: 'Fuvar nem található' });
-  res.json(rows[0]);
+  // A fuvarsor zára + CIB fagyasztási őr (2026-09-29, CIB PR-2/B): amíg a
+  // fuvar kártyás díja a banknál lezárul, az admin sem írhatja át a
+  // státuszát (egy „cancelled" alatt a bank terhelne) — előbb a fizetést
+  // kell rendezni (Fizetések → CIB).
+  const client = await db.pool.connect();
+  try {
+    await client.query('BEGIN');
+    // A sorzárat az UPDATE veszi fel; az őr UTÁNA, új utasításként fut.
+    const { rows } = await client.query(
+      `UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [status, req.params.id],
+    );
+    if (!rows[0]) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Fuvar nem található' });
+    }
+    if (await cibZarasFolyamatban(client, req.params.id)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json(fagyasztvaValasz());
+    }
+    await client.query('COMMIT');
+    res.json(rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 // POST /admin/users/:id/force-logout — azonnali kijelentkeztetés minden

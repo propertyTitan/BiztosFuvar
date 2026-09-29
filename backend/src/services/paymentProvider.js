@@ -158,8 +158,23 @@ function manualConfirmAllowed(userId) {
   return stubEngedelyezve() || !isProduction();
 }
 
+/**
+ * A determinisztikus stub-kísérlet a teszt-allowlisten KÍVÜLI felhasználónak,
+ * amikor az aktív provider (teljes CIB-konfig mellett) már nem stub
+ * (2026-09-29, CIB PR-2/B): a `cib-stub-<id>` / `stub:cib/<id>` pár és a
+ * 089-es „szimulált" besorolás bitre a régi.
+ */
+function startTesztStubFizetes(opts) {
+  const provider = active();
+  if (typeof provider.stubFeePayment !== 'function') {
+    throw new Error('Az aktív provider nem tud teszt-stub kísérletet adni.');
+  }
+  return provider.stubFeePayment(opts);
+}
+
 module.exports = {
   name,
+  startTesztStubFizetes,
   stubEngedelyezve,
   STUB_ENGEDELY_ENV,
   providers: Object.keys(PROVIDERS),

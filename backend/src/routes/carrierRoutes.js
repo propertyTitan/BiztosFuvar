@@ -956,7 +956,7 @@ router.post(
         [feeHuf, b.id],
       );
       const payment = await startOrReuseFeePaymentInTransaction(client, {
-        entityType: 'booking', entityId: b.id, shipperId: b.shipper_id, requireConsent: false,
+        entityType: 'booking', entityId: b.id, shipperId: b.shipper_id, requireConsent: false, atAcceptance: true,
       });
       if (payment.http !== 200) {
         await client.query('ROLLBACK');
@@ -1136,7 +1136,9 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
   // konkrétan a barion-t: QVIK-launchkor a barion.isStub() tévesen true lenne,
   // és kinyitná ezt a fizetés-megkerülő ágat. ⚠️ 2026-08-09: a feltétel
   // `manualConfirmAllowed()` — éles futásban a kulcs-hiányos stub sem nyitja ki.
-  if (!paymentProvider.manualConfirmAllowed()) {
+  // 2026-09-29 (CIB PR-2/B): a fizető feladó útja szerint — a CIB-úton (a
+  // teszt-allowlisten is) SOHA.
+  if (!paymentProvider.manualConfirmAllowed(b.shipper_id)) {
     return res.status(409).json({
       error: 'A fizetést a fizetésszolgáltató igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
     });

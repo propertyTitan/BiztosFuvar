@@ -18,6 +18,7 @@ const { createNotification } = require('./notifications');
 const { sendPaymentDueEmail } = require('./email');
 const { calculateConnectionFee } = require('./connectionFee');
 const { jelezSorHibak } = require('./utemezo');
+const { nincsFuggoCibKiserlet } = require('../utils/cibZaras');
 
 // ⚠️ BEVEZETÉS-DÁTUM KÜSZÖB (2026-09-13, teljes audit D4). A lejáratás
 // első éles futása (2026-09-11 18:37) a TÖRTÉNELMI adatokon cselekedett:
@@ -53,6 +54,9 @@ async function runPaymentReminders() {
         WHERE j.status = 'accepted'
           AND j.paid_at IS NULL
           AND j.payment_reminder_count < $1
+          -- (2026-09-29, CIB PR-2/B) függő kártyás kísérlet mellett nem
+          -- sürgetünk: a feladó épp fizet (vagy a bank zár).
+          AND ${nincsFuggoCibKiserlet('j')}
           AND (
             (j.payment_reminder_count = 0
               AND j.updated_at < NOW() - ($2 || ' hours')::interval)
@@ -155,6 +159,16 @@ async function expireSelectedAgreement(candidate) {
   let committed = false;
   try {
     await client.query('BEGIN');
+    // (2026-09-29, CIB PR-2/B) Előbb a fuvarsor zára, utána ÚJ utasításként
+    // a CIB-őr: amíg a fuvarnak függő kártyás kísérlete van (a feladó épp a
+    // bank oldalán jár, vagy a bank zár), a lejáratás kihagyja — különben a
+    // jóváhagyott fizetés egy közben lezárt fuvarra érkezne.
+    await client.query('SELECT id FROM jobs WHERE id = $1 FOR UPDATE', [candidate.id]);
+    const { rowCount: cibFuggo } = await client.query(
+      `SELECT 1 FROM payment_sessions WHERE job_id = $1 AND cib_state IS NOT NULL AND state IN ('pending', 'needs_review')`,
+      [candidate.id],
+    );
+    if (cibFuggo > 0) return null;
     // A kiválasztás óta accepted → bidding → accepted is történhetett.
     // Ugyanazt a sorverziót és az összes lejárati feltételt ellenőrizzük
     // a sorzárat megszerző UPDATE-ben, a fizetési könyveléssel versenyezve.
@@ -210,6 +224,7 @@ async function runPaymentExpiry() {
         AND j.payment_reminder_count >= $1
         AND j.last_payment_reminder_at < NOW() - ($2 || ' hours')::interval
         AND j.created_at >= $3::date
+        AND ${nincsFuggoCibKiserlet('j')}
       LIMIT 500`,
     [MAX_REMINDERS, EXPIRE_AFTER_HOURS, LEJARATAS_BEVEZETVE],
   );

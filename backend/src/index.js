@@ -58,6 +58,7 @@ const photoRoutes = require('./routes/photos');
 const trackingRoutes = require('./routes/tracking');
 const reviewRoutes = require('./routes/reviews');
 const paymentRoutes = require('./routes/payments');
+const cibFizetesRoutes = require('./routes/cibFizetes');
 const carrierRoutes = require('./routes/carrierRoutes');
 const carrierAlertsRoutes = require('./routes/carrierAlerts');
 const { router: notificationsRouter } = require('./services/notifications');
@@ -271,6 +272,7 @@ app.use('/', photoRoutes);
 app.use('/', trackingRoutes);
 app.use('/', reviewRoutes);
 app.use('/', paymentRoutes);
+app.use('/', cibFizetesRoutes);
 app.use('/', carrierRoutes);
 app.use('/', carrierAlertsRoutes);
 app.use('/', notificationsRouter);
@@ -453,9 +455,20 @@ if (require.main === module) {
     if (leallas) return;
     leallas = true;
     console.log(`[gofuvar] ${jel} — szabályos leállás indul`);
-    const ero = setTimeout(() => { console.error('[gofuvar] leállás időtúllépés, kilépés'); process.exit(0); }, 10_000);
+    // CIB (2026-09-29, PR-2/B): nincs új bérlet, zárási claim és MSGT32; a
+    // futó banki hívást (egy MSGT32-t) megvárjuk — különben a zárás
+    // `close_unknown` lenne, és ember döntene róla. Futó CIB-hívás mellett az
+    // erőszakos kilépés a zárási keret + 10 s (alapból 55 s), egyébként 10 s.
+    const cibFizetes = require('./services/cibFizetes');
+    const cibKliens = require('./services/cibKliens');
+    const cibBeall = require('./services/cibProtokoll').cibBeallitasok();
+    const cibVarakozasMs = ((cibBeall.hangolok && cibBeall.hangolok.zarasIdokeretMs) || 45000) + 10_000;
+    const ero = setTimeout(() => { console.error('[gofuvar] leállás időtúllépés, kilépés'); process.exit(0); },
+      cibKliens.futoHivasokSzama() > 0 ? cibVarakozasMs : 10_000);
     ero.unref();
+    const cibLeall = cibFizetes.leallitas({ varakozasMs: cibVarakozasMs });
     server.close(async () => {
+      try { await cibLeall; } catch { /* a leállás nem akadhat el */ }
       try { await require('./db').pool.end(); } catch { /* már zárva */ }
       process.exit(0);
     });
@@ -589,4 +602,30 @@ if (process.env.DATABASE_URL) {
   setTimeout(smsUjrakuldesKor, 2 * 60 * 1000).unref();
   setInterval(smsUjrakuldesKor, 10 * 60 * 1000).unref();
   console.log('[sms-retry] újraküldési kör ütemezve (10 percenként, 48 órás ablak)');
+
+  // CIB EKI LEKÉRDEZŐ KÖR (2026-09-29, CIB PR-2/B): nincs banki webhook — a
+  // jóváhagyott kártyás díjat a GoFuvarnak kell a banki ablakon belül
+  // lezárnia. CSAK teljes CIB-konfignál ütemezzük (ma, CIB-env nélkül el sem
+  // indul). A tick a memóriabeli szívverést is frissíti: a /pay csak friss
+  // szívverés mellett indít új engedélyeztetést. Ha 3 percig nincs tick
+  // (elakadt kör, összeomlási ciklus), riasztunk — a fizetés addig 503.
+  if (require('./services/paymentProvider').usesCibEki()) {
+    const { runCibKor } = require('./services/cibLekerdezo');
+    const cibFizetesSzolg = require('./services/cibFizetes');
+    const cibTickMs = require('./services/cibProtokoll').cibBeallitasok().hangolok.korTickMs;
+    const cibKor = utemezettKor('cib-lekerdezes', runCibKor);
+    setTimeout(cibKor, 10 * 1000).unref();
+    setInterval(cibKor, cibTickMs).unref();
+    let cibSzivRiasztva = 0;
+    setInterval(() => {
+      const kor = Date.now() - cibFizetesSzolg.utolsoSzivveres();
+      if (cibFizetesSzolg.utolsoSzivveres() && kor > 3 * 60 * 1000 && Date.now() - cibSzivRiasztva > 30 * 60 * 1000) {
+        cibSzivRiasztva = Date.now();
+        const uzenet = `[cib-lekerdezes] ${Math.round(kor / 1000)} mp óta nincs tick — a kártyás fizetés 503-at ad, a jóváhagyott tételek zárása áll`;
+        console.error(uzenet);
+        try { require('@sentry/node').captureMessage(uzenet, 'error'); } catch { /* nincs Sentry */ }
+      }
+    }, 60 * 1000).unref();
+    console.log(`[cib-lekerdezes] CIB lekérdező kör ütemezve (${Math.round(cibTickMs / 1000)} mp)`);
+  }
 }

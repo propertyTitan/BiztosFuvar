@@ -17,14 +17,23 @@ const { logAdminAccess } = require('../utils/adminAudit');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
 const { createNotification } = require('../services/notifications');
-const {
-  logPaymentEvent, claimPaymentEvent, releasePaymentClaim, konyvelDijFizetes,
-} = require('../services/feePayment');
+// A könyvelési magot a modulon át hívjuk (nem destrukturálva): a CIB-ág
+// könyvelés-újrapróbájának tesztje egy átmeneti hibát injektál bele
+// (2026-09-29, CIB PR-2/B).
+const feePayment = require('../services/feePayment');
+
+const { logPaymentEvent, claimPaymentEvent, releasePaymentClaim } = feePayment;
 const paymentProvider = require('../services/paymentProvider');
+const cibProtokoll = require('../services/cibProtokoll');
 const { dijFizetesUtaniErtesitesek } = require('../services/feeNotifications');
 const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
+
+// A naplóba (console, Sentry) a 16 jegyű CIB TRID csak maszkolva kerül: egy
+// kártyaszámnak látszó szám a logban adatvédelmi és banki audit-kérdés
+// (2026-09-29, CIB PR-2/B). A többi azonosító (stub, UUID) változatlan.
+const naploId = (id) => (/^[0-9]{16}$/.test(String(id)) ? `…${String(id).slice(-4)}` : id);
 
 // ============================================================
 // PROVIDER-FÜGGETLEN DÍJ-FIZETÉS MEGERŐSÍTÉS (közös webhook-mag)
@@ -35,7 +44,16 @@ const router = express.Router();
 // flag véd a dupla feldolgozás ellen. Sose dob — `{ http, body }`-t ad
 // vissza, amit a hívó route továbbít.
 // ============================================================
-async function confirmFeePayment(PaymentId, verifiedStatus) {
+//
+// A harmadik, opcionális paraméter (2026-09-29, CIB PR-2/B):
+//   csendes — Canceled/Expired esetén a „Próbáld újra" in-app értesítés
+//             NEM megy ki: a CIB-ág a pontos okkal maga értesít (nem
+//             terheltünk / már rendezve / sikertelen), és egy el sem küldött
+//             vagy felülírt kísérletre nincs mit újrapróbálni.
+//   cib     — a hívó a CIB EKI-ág (a banki adatsor a payment_sessions
+//             cib_result-jában; a díj-visszaigazoló levél onnan olvassa).
+// Nélküle a mai viselkedés marad.
+async function confirmFeePayment(PaymentId, verifiedStatus, opciok = {}) {
   const status = verifiedStatus || 'Unknown';
 
   // === IDEMPOTENCIA-CLAIM A FELDOLGOZÁS ELEJÉN (2026-09-11, teljes audit A2) ===
@@ -49,18 +67,18 @@ async function confirmFeePayment(PaymentId, verifiedStatus) {
   // processed=false sor (leállt folyamat) átvehető — a fizetés nem vész el.
   const claim = await claimPaymentEvent(PaymentId, status);
   if (!claim.claimed) {
-    console.log(`[fee-webhook] SKIP: ${PaymentId}/${status} ${claim.reason === 'processed' ? 'már feldolgozva' : 'feldolgozás alatt'} (idempotens)`);
+    console.log(`[fee-webhook] SKIP: ${naploId(PaymentId)}/${status} ${claim.reason === 'processed' ? 'már feldolgozva' : 'feldolgozás alatt'} (idempotens)`);
     return { http: 200, body: { ok: true, skipped: true, reason: claim.reason } };
   }
   try {
-    return await confirmFeePaymentBelso(PaymentId, status);
+    return await confirmFeePaymentBelso(PaymentId, status, opciok || {});
   } catch (err) {
     await releasePaymentClaim(PaymentId, status);
     throw err;
   }
 }
 
-async function confirmFeePaymentBelso(PaymentId, status) {
+async function confirmFeePaymentBelso(PaymentId, status, opciok) {
   // === ENTITÁS KERESÉSE (fuvar VAGY foglalás a payment-id alapján) ===
   let entity = null;
   const { rows: escrowRows } = await db.query(
@@ -101,7 +119,7 @@ async function confirmFeePaymentBelso(PaymentId, status) {
   }
 
   if (!entity) {
-    console.warn(`[fee-webhook] PaymentId nem található: ${PaymentId}`);
+    console.warn(`[fee-webhook] PaymentId nem található: ${naploId(PaymentId)}`);
     await logPaymentEvent({
       paymentId: PaymentId, status, eventType: 'webhook',
       summary: `Ismeretlen PaymentId: ${PaymentId}`,
@@ -117,7 +135,7 @@ async function confirmFeePaymentBelso(PaymentId, status) {
         Sentry.captureMessage('[fee-webhook] SIKERES fizetés ISMERETLEN PaymentId-vel — a pénz beérkezett, a platform nem könyvelt', {
           level: 'error',
           tags: { csatorna: 'fizetes', hibamod: 'ismeretlen_payment_id' },
-          extra: { payment_id: String(PaymentId).slice(0, 80) },
+          extra: { payment_id: String(naploId(PaymentId)).slice(0, 80) },
         });
       } catch { /* a riasztás hibája nem érintheti a webhook-választ */ }
     }
@@ -151,7 +169,7 @@ async function confirmFeePaymentBelso(PaymentId, status) {
     // KÖZÖS KÖNYVELÉSI MAG (services/feePayment.js): állapot-őr + paid_at +
     // díj-sor + ÁFA + számla + napló + ajánlói trigger. A kézi nyugtázás
     // (teszt-üzem) ugyanezt hívja — a két út nem csúszhat szét.
-    const k = await konyvelDijFizetes({
+    const k = await feePayment.konyvelDijFizetes({
       entityType: entity.type,
       entityId: entity.type === 'job' ? d.job_id : d.id,
       paymentId: PaymentId, eventType: 'webhook', status,
@@ -168,7 +186,7 @@ async function confirmFeePaymentBelso(PaymentId, status) {
     // sztornó/visszatérítés a teendő. Őr: audit-a1-p0-mag.test.js.
     if (k.konyvelve === 0) {
       const allapot = entity.type === 'job' ? d.job_status : d.status;
-      const uzenet = `[fee-webhook] ÁRVA FIZETÉS: ${PaymentId} egy ${allapot || '?'} állapotú `
+      const uzenet = `[fee-webhook] ÁRVA FIZETÉS: ${naploId(PaymentId)} egy ${allapot || '?'} állapotú `
         + `${entity.type === 'job' ? 'fuvarra' : 'foglalásra'} érkezett (nem várakozó) — kézi rendezés kell`;
       console.error(uzenet);
       try { require('@sentry/node').captureMessage(uzenet, 'error'); } catch { /* nincs Sentry */ }
@@ -224,7 +242,7 @@ async function confirmFeePaymentBelso(PaymentId, status) {
         : 'SELECT paid_at FROM route_bookings WHERE id = $1',
       [entity.type === 'job' ? d.job_id : d.id],
     );
-    if (d.shipper_id && !friss[0]?.paid_at) {
+    if (d.shipper_id && !friss[0]?.paid_at && !opciok.csendes) {
       await createNotification({
         user_id: d.shipper_id,
         type: 'payment_failed',
@@ -297,9 +315,26 @@ async function handleProviderCallback(req, res) {
   return res.status(r.http).json(r.body);
 }
 
-// CIB vPOS (a launch fizetése) + QVIK (dormant, ha valaha bekötjük).
+// ⚠️ A CIB EKI-NEK NINCS WEBHOOKJA (2026-09-29, CIB PR-2/B). Teljes vagy
+// hibás CIB-konfignál ez a publikus végpont 410-et ad, banki hívás és
+// könyvelés NÉLKÜL: a kártyás díj eredményét KIZÁRÓLAG a GoFuvar saját
+// lekérdezése (MSGT33 → MSGT32 → MSGT31) állapítja meg, így egy publikus
+// POST sem indíttathat banki lekérdezést (DoS) és nem könyvelhet. CIB-env
+// nélkül (ma) a régi stub-callback marad — erre épülnek a stub-tesztek.
+function cibCallbackKapu(req, res, next) {
+  const konfig = cibProtokoll.cibKonfig();
+  if (konfig === 'teljes' || konfig === 'hibas') {
+    return res.status(410).json({
+      error: 'A kártyás fizetés eredményét a GoFuvar közvetlenül a banktól kérdezi le — ez a végpont megszűnt.',
+      code: 'CIB_NO_CALLBACK',
+    });
+  }
+  return next();
+}
+
+// CIB (a launch fizetése; stub módban a régi callback) + QVIK (dormant).
 // A régi /payments/barion/callback SZÁNDÉKOSAN megszűnt (Barion törölve).
-router.post('/payments/cib/callback', express.json(), handleProviderCallback);
+router.post('/payments/cib/callback', cibCallbackKapu, express.json(), handleProviderCallback);
 router.post('/payments/qvik/callback', express.json(), handleProviderCallback);
 
 // ============================================================
@@ -393,3 +428,6 @@ router.get('/payments/payout-status/:jobId', authRequired, async (req, res) => {
 });
 
 module.exports = router;
+// A CIB-ág (services/cibFizetes.js) a végállapot-eseményt és a könyvelést
+// ugyanezen a magon át írja — egy fizetési igazságforrás.
+module.exports.confirmFeePayment = confirmFeePayment;

@@ -18,8 +18,27 @@ function reconciliationRequired() {
   } };
 }
 
+function cibNemElerheto() {
+  return { http: 503, body: {
+    error: 'A kártyás fizetés átmenetileg nem elérhető. Nem történt terhelés — próbáld újra később.',
+    code: 'CIB_UNAVAILABLE',
+  } };
+}
+
 // A hívó kezeli a tranzakciót, így az elfogadás és a fizetés hivatkozása együtt mentődik.
-async function startOrReuseFeePaymentInTransaction(client, { entityType, entityId, shipperId, requireConsent = true }) {
+//
+// `atAcceptance` (2026-09-29, CIB PR-2/B): az elfogadás (ajánlat, ellenajánlat,
+// azonnali fuvar, járat-foglalás megerősítése) CIB-úton NEM indít banki
+// kísérletet — se MSGT10, se session, se díj-sor. A kártyás kísérlet egyszer
+// használatos banki linkkel jár, és a feladó böngészőjéből kell indulnia
+// (/pay); ha az elfogadás indítaná, a kísérlet a SZÁLLÍTÓ kérésében születne,
+// és egy soha meg nem nyitott banki tranzakció foglalná a fuvart. A díj
+// összege ettől még rögzül (connection_fee_huf). Hibás CIB-konfignál az
+// elfogadás sem bukik el: a fizetés később, a /pay-en ad 503-at. Stub-úton
+// (ma, CIB-env nélkül) a viselkedés bitre a régi.
+async function startOrReuseFeePaymentInTransaction(client, {
+  entityType, entityId, shipperId, requireConsent = true, atAcceptance = false,
+}) {
   const isJob = entityType === 'job';
   if (!isJob && entityType !== 'booking') throw new Error('Ismeretlen fizetési ügylet.');
   // A kezdeti route-SELECT óta másik kérés indíthatott fizetést, vagy a
@@ -46,6 +65,19 @@ async function startOrReuseFeePaymentInTransaction(client, { entityType, entityI
   }
   const feeHuf = entity.connection_fee_huf
     ?? calculateConnectionFee(isJob ? entity.accepted_price_huf || entity.suggested_price_huf || 0 : entity.price_huf);
+  const ut = paymentProvider.fizetesiUt(shipperId);
+  if (ut !== 'stub') {
+    // A fuvar /pay-je a CIB-ágat külön hívja (services/cibFizetes.js); ide
+    // nem elfogadásként CIB-úton csak a még be nem kötött járat-ág juthat.
+    if (!atAcceptance) return cibNemElerheto();
+    await client.query(isJob
+      ? 'UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2 AND connection_fee_huf IS NULL'
+      : 'UPDATE route_bookings SET connection_fee_huf = COALESCE(connection_fee_huf, $1) WHERE id = $2',
+    [feeHuf, entity.id]);
+    return { http: 200, body: {
+      payment_id: null, gateway_url: null, fee_huf: feeHuf, deferred: true,
+    } };
+  }
   // Régi/felülírt, de még fizethető session mellett sem indítható újabb.
   const sessions = (await client.query(
     `SELECT * FROM payment_sessions WHERE ${isJob ? 'job_id' : 'booking_id'} = $1 ORDER BY payment_id FOR UPDATE`, [entity.id],
@@ -69,10 +101,15 @@ async function startOrReuseFeePaymentInTransaction(client, { entityType, entityI
 
   let payment;
   try {
-    payment = await paymentProvider.startFeePayment({
+    const opts = {
       jobId: entity.id, feeHuf, shipperEmail: entity.shipper_email,
       ...(isJob ? {} : { redirectPath: '/dashboard/foglalasaim' }),
-    });
+    };
+    // Teljes CIB-konfig mellett a teszt-allowlisten kívüli felhasználó a
+    // régi stub-kísérletet kapja (a provider-adapter ilyenkor nem stub).
+    payment = paymentProvider.isStub()
+      ? await paymentProvider.startFeePayment(opts)
+      : await paymentProvider.startTesztStubFizetes(opts);
     if (!payment?.paymentId || !payment.gatewayUrl
         || (previous?.state === 'closed' && payment.paymentId === entity.barion_payment_id && !payment.stub)) {
       throw new Error('A fizetésszolgáltató nem adott új, használható fizetési munkamenetet.');

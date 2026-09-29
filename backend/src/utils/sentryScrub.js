@@ -24,8 +24,12 @@ const REDACTED = '[SZURVE]';
 // közben. Az `/admin/users?search=…` pedig épp az az érték, amit az
 // admin-naplóból SZÁNDÉKOSAN kihagyunk („a napló nem lehet a PII második
 // példánya") — az egyenértékű úton mégis kiment volna.
+// ⚠️ 2026-09-29 (CIB PR-2/B): a `data` a banki visszatérés
+// (/payments/cib/vissza?PID=…&CRYPTO=1&DATA=…) titkosított üzenete — a saját
+// kulcsunkkal visszafejthető, benne a TRID —, az `e` pedig az eredmény-oldal
+// aláírt belépő-tokenje. Egyik sem mehet a Sentrybe.
 const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code', 'sig', 'exp',
-  'search', 'q', 'lat', 'lng', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng', 'email', 'phone'];
+  'search', 'q', 'lat', 'lng', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng', 'email', 'phone', 'data', 'e'];
 
 // Útvonal-szegmensek, amelyek után titok vagy személyes adat áll.
 //   /tracking/<token>  — a publikus követő-link

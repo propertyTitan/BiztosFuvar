@@ -75,8 +75,10 @@ async function dijFizetesUtaniErtesitesek(paymentId) {
               b.route_id, b.price_huf AS booking_price_huf,
               r.title AS route_title, r.carrier_id AS route_carrier_id,
               s.full_name AS shipper_name, s.email AS shipper_email,
-              c.full_name AS carrier_name, c.email AS carrier_email
+              c.full_name AS carrier_name, c.email AS carrier_email,
+              ps.cib_state, ps.cib_result, ps.currency AS session_currency
          FROM claim
+    LEFT JOIN payment_sessions ps ON ps.payment_id = claim.payment_id
     LEFT JOIN jobs j ON j.id = claim.job_id
     LEFT JOIN route_bookings b ON b.id = claim.booking_id
     LEFT JOIN carrier_routes r ON r.id = b.route_id
@@ -144,6 +146,21 @@ async function dijFizetesUtaniErtesitesek(paymentId) {
 
     // 2) A FELADÓ: díj-visszaigazolás tartós adathordozón (45/2014. 18. §) —
     //    a bizonylat összegével és könyvelt időpontjával.
+    //    CIB-kártyás fizetésnél (2026-09-29, CIB PR-2/B) a bank által
+    //    KÖTELEZŐVÉ tett adatsorral (TrID, RC, RT, AMO + HUF, ANUM) — a banki
+    //    átvételi teszt a levélben is keresi a fix feliratokat. A forrás a
+    //    lezárt kísérlet banki eredménye (cib_result), CNUM nélkül.
+    const r = sor.cib_result || {};
+    const bankiAdatok = sor.cib_state === 'closed_ok' && typeof r.rc === 'string'
+      ? {
+        trid: sor.payment_id,
+        rc: r.rc,
+        rt: typeof r.rt === 'string' ? r.rt : null,
+        amo: Number(sor.fee_huf),
+        cur: sor.session_currency || 'HUF',
+        anum: typeof r.anum === 'string' && r.anum ? r.anum : null,
+      }
+      : null;
     if (sor.shipper_email) {
       hatterben(() => email.sendFeeConfirmationEmail({
         to: sor.shipper_email,
@@ -153,6 +170,7 @@ async function dijFizetesUtaniErtesitesek(paymentId) {
         cashHuf: fuvardij,
         paidAtIso,
         detailsPath: fuvar ? `/dashboard/fuvar/${sor.job_id}` : '/dashboard/foglalasaim',
+        ...(bankiAdatok ? { bankiAdatok } : {}),
       }), 'fee_confirmation');
     }
     if (feladoId) realtime.emitToUser(feladoId, esemeny, payload);

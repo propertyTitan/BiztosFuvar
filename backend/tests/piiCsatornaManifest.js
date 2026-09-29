@@ -44,6 +44,10 @@ const PII_CSATORNA_MANIFEST = {
   'GET /disputes/mine': 'sajat',
   'GET /driver-stats': 'sajat',
   'GET /jobs/mine/list': 'sajat',
+  // A feladó SAJÁT fizetési munkamenete (2026-09-29, CIB PR-2/B): a handler
+  // a fuvar feladóján és az adminon kívül mindenkinek 403 — a szállító sem
+  // kapja meg (fizetesi-link-cimzett-or).
+  'GET /jobs/:id/fee-payment': 'sajat',
   'GET /me/admin-messages': 'sajat',
   'GET /notifications': 'sajat',
   'GET /notifications/unread-count': 'sajat',
@@ -94,6 +98,10 @@ const PII_CSATORNA_MANIFEST = {
   'GET /admin/dm/with/:userId': 'admin',
   'GET /auth/admin/stats': 'admin',
   'GET /payments/admin/log': 'admin',
+  'GET /payments/admin/cib': 'admin',
+  'GET /payments/admin/cib/:trid': 'admin',
+  'POST /payments/admin/cib/:trid/ujraellenorzes': 'admin',
+  'POST /payments/admin/cib/:trid/rendezes': 'admin',
 
   // ── Indokolt kivételek ──────────────────────────────────────────────
   'GET /carrier-routes/:id': {

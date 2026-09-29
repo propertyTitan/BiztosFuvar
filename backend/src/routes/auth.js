@@ -593,10 +593,23 @@ router.get('/me', authRequired, async (req, res) => {
   // élesben: nem az emlékezetre épül, hanem arra, hogy egy valódi felhasználó
   // is AZONNAL LÁTJA. Lásd: services/paymentProvider.js.
   const paymentProvider = require('../services/paymentProvider');
+  // payment_test_kind (2026-09-29, CIB PR-2/B): MELYIK teszt-üzem — a stub
+  // (ALLOW_STUB_PAYMENTS, sárga sáv) vagy a bank TESZT-környezete
+  // (CIB_KORNYEZET=teszt, a kártyás út a banki tesztrendszerbe megy). A
+  // felhasználónkénti útválasztás szerint: a teszt-allowlisten lévő feladó
+  // a banki tesztet, a többi a stubot látja. Élesben mindkettő null.
+  let ut = null;
+  try {
+    ut = paymentProvider.fizetesiUt(req.user.sub);
+  } catch { /* ismeretlen provider: a boot már hangosan jelez */ }
+  let tesztFajta = null;
+  if (ut === 'stub' && paymentProvider.stubEngedelyezve()) tesztFajta = 'stub';
+  else if (ut === 'cib' && require('../services/cibProtokoll').cibBeallitasok().kornyezet === 'teszt') tesztFajta = 'cib_teszt';
   res.json({
     ...rows[0],
     company_nav_available: navTaxpayer.isConfigured(),
-    payment_test_mode: paymentProvider.stubEngedelyezve(),
+    payment_test_mode: tesztFajta !== null,
+    payment_test_kind: tesztFajta,
     tax_data: computeTaxDataState(rows[0]),
   });
 });

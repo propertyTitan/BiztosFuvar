@@ -33,6 +33,7 @@ const db = require('../db');
 // ellenőrizni, hogy a fájl tényleg elmegy a tárolóból.
 const storage = require('./storage');
 const { telepulesSzint } = require('../utils/address');
+const { nincsFuggoCibKiserlet } = require('../utils/cibZaras');
 
 const DEFAULT_RETENTION_DAYS = 30;
 const HOLD_RETENTION_YEARS = 5;
@@ -754,7 +755,13 @@ async function expireAbandonedJobs() {
             -- nem zárhat le egy időzítő.
             (status IN ('accepted', 'in_progress')
               AND updated_at < NOW() - ($1 || ' years')::interval)
-          )`,
+          )
+          -- (2026-09-29, CIB PR-2/B) függő / egyeztetésre váró kártyás
+          -- kísérlet mellett az időzítő nem zárhatja le a fuvart. (A bank
+          -- zárási claimje a fuvarsort zárolja; egy év mozdulatlanság után a
+          -- két kör egybeesése gyakorlatilag kizárt — ha mégis, a könyvelés
+          -- árvát jelez és kézi rendezésre kerül.)
+          AND ${nincsFuggoCibKiserlet('jobs')}`,
       [ABANDONED_JOB_YEARS],
     );
     if (rowCount > 0) {
