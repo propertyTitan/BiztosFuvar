@@ -29,11 +29,10 @@ const { utcaSzint } = require('../utils/address');
 const {
   sendBookingReceivedEmail,
   sendBookingConfirmedEmail,
-  sendBookingPaidEmail,
   sendBookingRejectedEmail,
   sendCancellationEmail,
-  sendFeeConfirmationEmail,
 } = require('../services/email');
+const { dijFizetesUtaniErtesitesek } = require('../services/feeNotifications');
 const { firstContactLeak, detectContactLeak, ellenorizIndok } = require('../utils/contactGuard');
 const { jaratIrasKapu } = require('../utils/jaratKapcsolo');
 const { ellenorizCimzett } = require('../utils/cimzett');
@@ -1153,9 +1152,10 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
 
   // ⚠️ KÖZÖS KÖNYVELÉSI MAG (2026-09-11, teljes audit A2) — a fuvar-ág párja:
   // állapot-őr + napló + számla, a csupasz UPDATE helyett.
+  const paymentId = b.barion_payment_id || `manual-booking-${b.id}`;
   const k = await konyvelDijFizetes({
     entityType: 'booking', entityId: b.id,
-    paymentId: b.barion_payment_id || `manual-booking-${b.id}`, eventType: 'manual',
+    paymentId, eventType: 'manual',
     feeHuf: b.connection_fee_huf || calculateConnectionFee(b.price_huf),
     currency: b.currency || 'HUF', shipperId: b.shipper_id, carrierId: b.carrier_id,
   });
@@ -1167,57 +1167,12 @@ router.post('/route-bookings/:id/confirm-payment', authRequired, writeRateLimit,
   }
   const paidAt = k.paidAt;
 
-  // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §)
-  if (b.shipper_email) {
-    setImmediate(() => {
-      sendFeeConfirmationEmail({
-        to: b.shipper_email,
-        shipperName: b.shipper_name,
-        jobTitle: b.route_title,
-        feeHuf: b.connection_fee_huf || 0,
-        cashHuf: b.price_huf,
-        paidAtIso: paidAt,
-        detailsPath: '/dashboard/foglalasaim',
-      }).catch((e) => console.warn('[email] fee_confirmation hiba:', e.message));
-    });
-  }
-
-  // 1) Értesítés a szállítónak (a hirdetés létrehozójának): in-app + email
-  try {
-    await createNotification({
-      user_id: b.carrier_id,
-      type: 'booking_paid',
-      title: '🤝 Indulhat a foglalás!',
-      body: `${b.shipper_name || 'A feladó'} kifizette a kapcsolatfelvételi díjat a(z) "${b.route_title}" foglaláshoz. A fuvardíjat (${b.price_huf.toLocaleString('hu-HU')} Ft) közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek).`,
-      link: `/sofor/utvonal/${b.route_id}`,
-    });
-  } catch (e) {
-    console.warn('[notifications] booking_paid hiba:', e.message);
-  }
-  if (b.carrier_email) {
-    setImmediate(() => {
-      sendBookingPaidEmail({
-        to: b.carrier_email,
-        carrierName: b.carrier_name,
-        routeTitle: b.route_title,
-        bookingId: b.id,
-        priceHuf: b.price_huf,
-        shipperName: b.shipper_name,
-      }).catch((e) => console.warn('[email] booking_paid hiba:', e.message));
-    });
-  }
-
-  // 2) Realtime event a feladónak – a Foglalásaim oldala ebből tudja
-  //    azonnal újratölteni és lecserélni a gombot "FIZETVE" címkére.
-  realtime.emitToUser(b.shipper_id, 'route-booking:paid', {
-    booking_id: b.id,
-    paid_at: paidAt,
-  });
-  // És a szállítónak is, hogy a route részletek oldal frissüljön.
-  realtime.emitToUser(b.carrier_id, 'route-booking:paid', {
-    booking_id: b.id,
-    paid_at: paidAt,
-  });
+  // Díj-visszaigazolás (45/2014. 18. §) + szállítói in-app/levél + a
+  // `route-booking:paid` mindkét félnek (a Foglalásaim a „FIZETVE" címkét
+  // ebből frissíti) — a közös, pontosan egyszeri helperen át (2026-09-29,
+  // CIB PR-1). Eddig a párhuzamos nyugtázás vesztese (alreadyBooked) is
+  // mindent újra kiküldött.
+  await dijFizetesUtaniErtesitesek(paymentId);
 
   res.json({ ok: true, paid_at: paidAt });
 });

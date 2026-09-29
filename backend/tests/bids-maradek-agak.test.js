@@ -150,9 +150,11 @@ describe('Az elfogadás visszagördül, ha a díjfizetés indítása elhasal', (
       'a fizetés-indítás hibája a fizetési szolgáltató hibája — 502, nem 500 és nem néma 200')
       .toBe(502);
     expect(res.body.error).toMatch(/díjfizetés indítása sikertelen/i);
-    expect(res.body.detail,
-      'a részletet visszaadjuk, hogy a hibakeresés ne a semmiből induljon')
-      .toBeTruthy();
+    // 2026-09-29 (CIB PR-1): a belső hibaszöveg NEM megy ki a válaszban (a
+    // korábbi „detail" egy banki/hálózati hiba belső részleteit adta a
+    // böngészőnek) — a hibakereséshez a szerver-napló maszkolt sora szolgál.
+    expect(res.body.detail, 'a belső hibaszöveg kiszivárgott a válaszba').toBeUndefined();
+    expect(res.body.code).toBe('PAYMENT_START_FAILED');
 
     const { rows: jobRows } = await db.query(
       'SELECT status, carrier_id, accepted_price_huf, connection_fee_huf FROM jobs WHERE id = $1',

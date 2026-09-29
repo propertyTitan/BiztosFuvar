@@ -3,6 +3,7 @@
 const db = require('../db');
 const paymentProvider = require('./paymentProvider');
 const { calculateConnectionFee } = require('./connectionFee');
+const { maskInText } = require('../utils/mask');
 
 function stateChanged() {
   return { http: 409, body: {
@@ -77,8 +78,16 @@ async function startOrReuseFeePaymentInTransaction(client, { entityType, entityI
       throw new Error('A fizetésszolgáltató nem adott új, használható fizetési munkamenetet.');
     }
   } catch (err) {
-    console.error('[fee-payment] indítási hiba:', err.message);
-    return { http: 502, body: { error: 'A díjfizetés indítása sikertelen', detail: err.message } };
+    // ⚠️ A BELSŐ HIBASZÖVEG NEM MEGY KI (2026-09-29, CIB PR-1): eddig a 502-es
+    // válasz `detail: err.message`-et adott — egy banki/hálózati hiba belső
+    // címet, végpontot, akár konfigurációs részletet tett a böngészőbe (és a
+    // /bids/:id/accept válaszán át is). A részlet csak a szerver-naplóba
+    // kerül, maszkolva; a felhasználó általános üzenetet és kódot kap.
+    console.error('[fee-payment] indítási hiba:', maskInText(String(err?.message || err)));
+    return { http: 502, body: {
+      error: 'A díjfizetés indítása sikertelen. Próbáld újra néhány perc múlva.',
+      code: 'PAYMENT_START_FAILED',
+    } };
   }
 
   if (isJob) {

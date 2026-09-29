@@ -21,7 +21,7 @@ const {
   logPaymentEvent, claimPaymentEvent, releasePaymentClaim, konyvelDijFizetes,
 } = require('../services/feePayment');
 const paymentProvider = require('../services/paymentProvider');
-const realtime = require('../realtime');
+const { dijFizetesUtaniErtesitesek } = require('../services/feeNotifications');
 const { getJobParty } = require('../utils/jobAccess');
 
 const router = express.Router();
@@ -158,7 +158,6 @@ async function confirmFeePaymentBelso(PaymentId, status) {
       feeHuf: platformFee, currency,
       shipperId: d.shipper_id, carrierId: d.carrier_id, carrierCountry: d.carrier_country,
     });
-    const shipper = k.shipper;
 
     // ⚠️ ÁRVA FIZETÉS (2026-09-11, teljes audit P0-1): a feladó elindítja a
     // fizetést, LEMONDJA a fuvart, majd a banki oldalon befejezi — a
@@ -189,40 +188,14 @@ async function confirmFeePaymentBelso(PaymentId, status) {
     }
     const summary = k.summary;
 
-    // Értesítések: a kontakt felfedve, indulhat a fuvar
-    if (d.carrier_id) {
-      await createNotification({
-        user_id: d.carrier_id,
-        type: entity.type === 'job' ? 'job_paid' : 'booking_paid',
-        title: '🤝 Indulhat a fuvar!',
-        body: `"${title}" — a feladó kifizette a kapcsolatfelvételi díjat. Mostantól látjátok egymás elérhetőségét; a fuvardíjat közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek).`,
-        link: entity.type === 'job' ? `/sofor/fuvar/${d.job_id}` : `/sofor/utvonal/${d.route_id}`,
-      }).catch(() => {});
-      realtime.emitToUser(d.carrier_id, entity.type === 'job' ? 'job:paid' : 'route-booking:paid', {
-        job_id: d.job_id, booking_id: d.id,
-      });
-    }
-    if (d.shipper_id) {
-      realtime.emitToUser(d.shipper_id, entity.type === 'job' ? 'job:paid' : 'route-booking:paid', {
-        job_id: d.job_id, booking_id: d.id,
-      });
-    }
-
-    // Díj-visszaigazolás a FELADÓNAK tartós adathordozón (45/2014. 18. §)
-    if (shipper.email) {
-      const { sendFeeConfirmationEmail } = require('../services/email');
-      setImmediate(() => {
-        sendFeeConfirmationEmail({
-          to: shipper.email,
-          shipperName: shipper.full_name,
-          jobTitle: title,
-          feeHuf: totalAmount,
-          cashHuf: d.accepted_price_huf || d.price_huf,
-          paidAtIso: new Date().toISOString(),
-          detailsPath: entity.type === 'job' ? `/dashboard/fuvar/${d.job_id}` : '/dashboard/foglalasaim',
-        }).catch((e) => console.warn('[email] fee_confirmation hiba:', e.message));
-      });
-    }
+    // ÉRTESÍTÉSEK — a közös, pontosan egyszeri helperen át (2026-09-29, CIB
+    // PR-1). Eddig itt, kézzel: a díj-visszaigazolásból hiányzott a fuvardíj
+    // (a fenti lekérdezés nem kérte le az accepted_price_huf-ot), az időpont
+    // a küldés pillanata volt (new Date()) a könyvelt paid_at helyett, a
+    // szállító nem kapott levelet, és egy ismételt könyvelés (alreadyBooked /
+    // átvett claim) MINDENT újra kiküldött. A helper a díjbizonylaton
+    // claimel, és a claim pillanatában tárolt szállítónak ír.
+    await dijFizetesUtaniErtesitesek(PaymentId);
 
     console.log(`[fee-webhook] ✅ SUCCEEDED: ${summary}`);
   }
@@ -241,7 +214,17 @@ async function confirmFeePaymentBelso(PaymentId, status) {
       summary: `${status}: fuvar ${entity.type === 'job' ? d.job_id : d.id} — ${totalAmount} ${currency}`,
       processed: true,
     });
-    if (d.shipper_id) {
+    // ⚠️ KIFIZETETT ÜGYLETRE NINCS „PRÓBÁLD ÚJRA" (2026-09-29, CIB PR-1): egy
+    // régebbi kísérlet késői Canceled/Expired jelzése akkor is újrafizetésre
+    // hívta a feladót, ha az ügyletet közben (másik kísérlettel, kuponnal)
+    // már kifizette. Friss olvasás: a jelzés a fizetés UTÁN is érkezhet.
+    const { rows: friss } = await db.query(
+      entity.type === 'job'
+        ? 'SELECT paid_at FROM jobs WHERE id = $1'
+        : 'SELECT paid_at FROM route_bookings WHERE id = $1',
+      [entity.type === 'job' ? d.job_id : d.id],
+    );
+    if (d.shipper_id && !friss[0]?.paid_at) {
       await createNotification({
         user_id: d.shipper_id,
         type: 'payment_failed',

@@ -1487,8 +1487,10 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
          FROM invoices WHERE buyer_user_id = $1 ORDER BY created_at DESC`,
     ),
     dijbefizeteseim: await q(
+      // notifications_sent_at (2026-09-29, CIB PR-1): mikor ment ki a
+      // díj-visszaigazolás — a fizető saját adata, a bizonylattal együtt jár.
       `SELECT payment_id, job_id, booking_id, fee_huf, currency, paid_at,
-              invoice_pending, last_invoice_attempt_at, invoice_snapshot
+              invoice_pending, last_invoice_attempt_at, invoice_snapshot, notifications_sent_at
          FROM fee_payment_receipts WHERE shipper_id = $1 ORDER BY paid_at DESC`,
     ),
     fizetesi_munkameneteim: await q(
