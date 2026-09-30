@@ -75,8 +75,10 @@ async function dijFizetesUtaniErtesitesek(paymentId) {
               b.route_id, b.price_huf AS booking_price_huf,
               r.title AS route_title, r.carrier_id AS route_carrier_id,
               s.full_name AS shipper_name, s.email AS shipper_email,
-              c.full_name AS carrier_name, c.email AS carrier_email
+              c.full_name AS carrier_name, c.email AS carrier_email,
+              ps.cib_state, ps.cib_result, ps.currency AS session_currency
          FROM claim
+    LEFT JOIN payment_sessions ps ON ps.payment_id = claim.payment_id
     LEFT JOIN jobs j ON j.id = claim.job_id
     LEFT JOIN route_bookings b ON b.id = claim.booking_id
     LEFT JOIN carrier_routes r ON r.id = b.route_id
@@ -144,6 +146,21 @@ async function dijFizetesUtaniErtesitesek(paymentId) {
 
     // 2) A FELADÓ: díj-visszaigazolás tartós adathordozón (45/2014. 18. §) —
     //    a bizonylat összegével és könyvelt időpontjával.
+    //    CIB-kártyás fizetésnél (2026-09-29, CIB PR-2/B) a bank által
+    //    KÖTELEZŐVÉ tett adatsorral (TrID, RC, RT, AMO + HUF, ANUM) — a banki
+    //    átvételi teszt a levélben is keresi a fix feliratokat. A forrás a
+    //    lezárt kísérlet banki eredménye (cib_result), CNUM nélkül.
+    const r = sor.cib_result || {};
+    const bankiAdatok = sor.cib_state === 'closed_ok' && typeof r.rc === 'string'
+      ? {
+        trid: sor.payment_id,
+        rc: r.rc,
+        rt: typeof r.rt === 'string' ? r.rt : null,
+        amo: Number(sor.fee_huf),
+        cur: sor.session_currency || 'HUF',
+        anum: typeof r.anum === 'string' && r.anum ? r.anum : null,
+      }
+      : null;
     if (sor.shipper_email) {
       hatterben(() => email.sendFeeConfirmationEmail({
         to: sor.shipper_email,
@@ -153,6 +170,7 @@ async function dijFizetesUtaniErtesitesek(paymentId) {
         cashHuf: fuvardij,
         paidAtIso,
         detailsPath: fuvar ? `/dashboard/fuvar/${sor.job_id}` : '/dashboard/foglalasaim',
+        ...(bankiAdatok ? { bankiAdatok } : {}),
       }), 'fee_confirmation');
     }
     if (feladoId) realtime.emitToUser(feladoId, esemeny, payload);
@@ -162,4 +180,76 @@ async function dijFizetesUtaniErtesitesek(paymentId) {
   return { kuldve: true };
 }
 
-module.exports = { dijFizetesUtaniErtesitesek };
+// =====================================================================
+//  HELYREÁLLÍTÁS (2026-09-29, CIB PR-2/C — a PR-1 folytatása)
+//
+//  A claim a könyvelés COMMIT-ja UTÁN, külön utasításként fut. Ha a
+//  folyamat a kettő között hal el (deploy, összeomlás), vagy maga a claim
+//  bukik el DB-hibán, a bizonylat értesítetlen marad: a feladó nem kapja meg
+//  a díj-visszaigazolást (45/2014. 18. § — CIB-nél a bank által kötelező
+//  adatsorral), a szállító nem tudja, hogy indulhat. Eddig ez VÉGLEGES
+//  veszteség volt.
+//
+//  Ez a kör (a CIB lekérdező körből, 5 percenként) a legalább 5 perce
+//  könyvelt, még értesítetlen bizonylatokra UGYANAZT a claimet futtatja —
+//  tehát dupla levél így sem mehet ki: a még futó könyvelés (5 percen belül)
+//  érintetlen, a már kiküldött bizonylat claimje nem sikerül.
+//
+//  ⚠️ A D4-szabály (idő-alapú kör = bevezetés-dátum küszöb): a `since` a
+//  CIB-bevezetés dátuma. A 095-ös visszatöltés előtti bizonylatok értesítése
+//  a könyveléskor már kiment — azokhoz a kör nem nyúl.
+// =====================================================================
+const HELYREALLITAS_KESLELTETES_PERC = 5;
+const HELYREALLITAS_KOTEG = 50;
+const HELYREALLITAS_MAX = 200;
+
+/**
+ * @param {{ since: string }} opciok — ÉÉÉÉ-HH-NN, a kör bevezetés-dátuma
+ * @returns {Promise<{ talalt: number, kuldve: number }>}
+ */
+async function runDijErtesitesHelyreallitas({ since } = {}) {
+  if (typeof since !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(since) || Number.isNaN(Date.parse(`${since}T00:00:00Z`))) {
+    // Bevezetés-dátum nélkül a kör a történelmi adatokon cselekedne.
+    throw new Error('runDijErtesitesHelyreallitas: érvényes bevezetés-dátum (since, ÉÉÉÉ-HH-NN) kötelező');
+  }
+  let talalt = 0;
+  let kuldve = 0;
+  const lattuk = new Set();
+  while (talalt < HELYREALLITAS_MAX) {
+    // eslint-disable-next-line no-await-in-loop
+    const { rows } = await db.query(
+      `SELECT payment_id FROM fee_payment_receipts
+        WHERE notifications_sent_at IS NULL
+          AND paid_at < NOW() - make_interval(mins => $2::int)
+          AND paid_at >= $1::date
+          AND NOT (payment_id = ANY($4::text[]))
+        ORDER BY paid_at, payment_id
+        LIMIT $3`,
+      [since, HELYREALLITAS_KESLELTETES_PERC, HELYREALLITAS_KOTEG, [...lattuk]],
+    );
+    if (!rows.length) break;
+    for (const r of rows) {
+      lattuk.add(r.payment_id);
+      talalt += 1;
+      // eslint-disable-next-line no-await-in-loop
+      const e = await dijFizetesUtaniErtesitesek(r.payment_id);
+      if (e.kuldve) kuldve += 1;
+    }
+    if (rows.length < HELYREALLITAS_KOTEG) break;
+  }
+  if (kuldve) {
+    // Nem hiba, de jel: valahol összeomlás volt a könyvelés és a claim között.
+    const uzenet = `[fee-notify] ${kuldve} díjbizonylat értesítése a helyreállító körből ment ki `
+      + '(a könyvelés és az értesítés között megszakadt a folyamat)';
+    console.warn(uzenet);
+    try {
+      require('@sentry/node').captureMessage(uzenet, {
+        level: 'warning',
+        tags: { csatorna: 'fizetes', hibamod: 'dij_ertesites_helyreallitas' },
+      });
+    } catch { /* nincs Sentry */ }
+  }
+  return { talalt, kuldve };
+}
+
+module.exports = { dijFizetesUtaniErtesitesek, runDijErtesitesHelyreallitas };

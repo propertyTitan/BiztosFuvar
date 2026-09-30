@@ -33,6 +33,7 @@ const db = require('../db');
 // ellenőrizni, hogy a fájl tényleg elmegy a tárolóból.
 const storage = require('./storage');
 const { telepulesSzint } = require('../utils/address');
+const { nincsFuggoCibKiserlet } = require('../utils/cibZaras');
 
 const DEFAULT_RETENTION_DAYS = 30;
 const HOLD_RETENTION_YEARS = 5;
@@ -754,7 +755,13 @@ async function expireAbandonedJobs() {
             -- nem zárhat le egy időzítő.
             (status IN ('accepted', 'in_progress')
               AND updated_at < NOW() - ($1 || ' years')::interval)
-          )`,
+          )
+          -- (2026-09-29, CIB PR-2/B) függő / egyeztetésre váró kártyás
+          -- kísérlet mellett az időzítő nem zárhatja le a fuvart. (A bank
+          -- zárási claimje a fuvarsort zárolja; egy év mozdulatlanság után a
+          -- két kör egybeesése gyakorlatilag kizárt — ha mégis, a könyvelés
+          -- árvát jelez és kézi rendezésre kerül.)
+          AND ${nincsFuggoCibKiserlet('jobs')}`,
       [ABANDONED_JOB_YEARS],
     );
     if (rowCount > 0) {
@@ -1127,6 +1134,35 @@ async function purgeOldPaymentEvents() {
   }
 }
 
+// A CIB-bel váltott (titkosított) üzenetek naplója: 13 hónap (2026-09-29, CIB
+// PR-2/A). A TRID/RC/ANUM a payment_sessions-ben 8 évig megmarad; ez a napló a
+// bank „tranzakció kivizsgálás" kéréséhez kell, ahhoz egy év bőven elég.
+const CIB_MESSAGE_RETENTION_MONTHS = 13;
+
+/**
+ * A banki üzenetnapló elévülése (13 hónap) — KIVÉVE a még rendezetlen
+ * kísérletekét (függő vagy egyeztetendő session): egy lezáratlan vagy
+ * ellenőrzés alatti fizetésnél a bank kivizsgálásához pont ez a szöveg kell.
+ * A TRID nélküli sorok (pl. egy értelmezhetetlen böngészős visszatérés)
+ * ugyanígy elévülnek.
+ * @returns {Promise<number>}
+ */
+async function purgeOldCibMessages() {
+  // ⚠️ A hibát TOVÁBBDOBJUK (P1-09): a napi kör naplóz, ok=false-t ír, riaszt.
+  const { rowCount } = await db.query(
+    `DELETE FROM cib_messages m
+      WHERE m.created_at < NOW() - make_interval(months => $1)
+        AND NOT EXISTS (SELECT 1 FROM payment_sessions s
+                         WHERE s.payment_id = m.payment_id
+                           AND s.state IN ('pending', 'needs_review'))`,
+    [CIB_MESSAGE_RETENTION_MONTHS],
+  );
+  if (rowCount > 0) {
+    console.log(`[retention] ${rowCount} CIB-naplósor elévült (>${CIB_MESSAGE_RETENTION_MONTHS} hónap)`);
+  }
+  return rowCount || 0;
+}
+
 // A DAC7-adatszolgáltatáshoz gyűjtött adóazonosító jel és születési dátum
 // megőrzése. Pontosan annyi, amennyit az adatkezelési tájékoztató ígér.
 const TAX_DATA_RETENTION_YEARS = 5;
@@ -1261,6 +1297,7 @@ async function runDailyRetention() {
     'purgeOldTaxData',
     'purgeDormantAccounts',
     'purgeExpiredSmsRetryQueue',
+    'purgeOldCibMessages',
     'processFileDeletionQueue',
   ];
 
@@ -1339,6 +1376,7 @@ module.exports = {
   lastSuccessfulRetentionRun,
   purgeEmergencyLocations, purgeOldDeletedAccounts, purgeOldKycDocHistory, runDailyRetention,
   purgeExpiredSmsRetryQueue, SMS_RETRY_MAX_AGE_HOURS,
+  purgeOldCibMessages, CIB_MESSAGE_RETENTION_MONTHS,
   DELETED_ACCOUNT_RETENTION_YEARS, PHOTO_KINDS, INVOICE_RETENTION_YEARS,
   SOS_LOCATION_RETENTION_DAYS, SOS_EVENT_RETENTION_YEARS,
   JOB_PII_RETENTION_YEARS,

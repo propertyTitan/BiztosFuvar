@@ -12,6 +12,7 @@ const { calculateConnectionFee } = require('../services/connectionFee');
 const { detectContactLeak } = require('../utils/contactGuard');
 const { utcaSzintHely, kozelitoHely } = require('./jobs');
 const { nemSzovegValasz } = require('../utils/text');
+const { cibZarasFolyamatban, fagyasztvaValasz } = require('../utils/cibZaras');
 
 const router = express.Router();
 
@@ -369,6 +370,12 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
 //           (2026-09-29, CIB PR-1: belső `detail` nincs — a fizetésindítás
 //           hibaszövege csak a szerver-naplóba kerül.)
 async function finalizeAcceptedBid(client, bid, agreedPrice) {
+  // CIB FAGYASZTÁSI ŐR (2026-09-29, CIB PR-2/B): a hívó a fuvarsort már
+  // zárolta — ha a fuvar egy korábbi kártyás kísérlete épp lezárul a
+  // banknál, új megállapodás (szállító/díjsáv) nem jöhet létre alatta.
+  if (await cibZarasFolyamatban(client, bid.job_id)) {
+    return { ok: false, status: 409, ...fagyasztvaValasz() };
+  }
   // Régi EUR-ajánlat sem értelmezhető át forintnak. Új HUF-ajánlat kell.
   if ((bid.currency || 'HUF') !== 'HUF' || (bid.job_currency || 'HUF') !== 'HUF') {
     return { ok: false, status: 409, code: 'UNSUPPORTED_CURRENCY', error: 'Jelenleg csak forintban kötünk megállapodást. Kérj új, forintban megadott ajánlatot.' };
@@ -418,7 +425,7 @@ async function finalizeAcceptedBid(client, bid, agreedPrice) {
   }
 
   const payment = await startOrReuseFeePaymentInTransaction(client, {
-    entityType: 'job', entityId: bid.job_id, shipperId: bid.shipper_id, requireConsent: false,
+    entityType: 'job', entityId: bid.job_id, shipperId: bid.shipper_id, requireConsent: false, atAcceptance: true,
   });
   if (payment.http !== 200) return { ok: false, status: payment.http, ...payment.body };
   const barionRes = { paymentId: payment.body.payment_id, gatewayUrl: payment.body.gateway_url };
@@ -582,11 +589,30 @@ router.post('/bids/:id/withdraw', authRequired, writeRateLimit, async (req, res)
   if (!['pending', 'bidding'].includes(bid.job_status)) {
     return res.status(409).json({ error: 'A fuvar már nem nyitott.', code: 'JOB_NOT_OPEN' });
   }
-  const upd = await db.query(
-    `UPDATE bids SET status = 'withdrawn', counter_amount_huf = NULL, counter_by = NULL, counter_at = NULL
-      WHERE id = $1 AND status = 'pending'`,
-    [bid.id],
-  );
+  // A visszavonás is a fuvarsor zárolása alatt, a CIB fagyasztási őrrel
+  // (2026-09-29, CIB PR-2/B): amíg a fuvar egy kártyás díjfizetése a banknál
+  // lezárul, az ügylet semmilyen oldalról nem mozdulhat.
+  const client = await db.pool.connect();
+  let upd;
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT id FROM jobs WHERE id = $1 FOR UPDATE', [bid.job_id]);
+    if (await cibZarasFolyamatban(client, bid.job_id)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json(fagyasztvaValasz());
+    }
+    upd = await client.query(
+      `UPDATE bids SET status = 'withdrawn', counter_amount_huf = NULL, counter_by = NULL, counter_at = NULL
+        WHERE id = $1 AND status = 'pending'`,
+      [bid.id],
+    );
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
   if (upd.rowCount === 0) {
     return res.status(409).json({ error: 'Az ajánlat állapota időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
   }

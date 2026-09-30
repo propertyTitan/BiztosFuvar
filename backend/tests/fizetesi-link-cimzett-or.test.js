@@ -84,6 +84,27 @@ describe('Fizetési link: kizárólag a fizetőhöz', () => {
     ).toEqual([]);
   });
 
+  // (2026-09-29, CIB PR-2/B) A kártyás díjfizetés állapota — a nyitott banki
+  // kísérlet és az utolsó eredmény (TrID, banki kódok) — a FELADÓ fizetési
+  // munkamenete. A szállító semmilyen alakban nem kaphatja meg.
+  it('a díjfizetés állapota (GET /jobs/:id/fee-payment) a szállítónak nem jár', async () => {
+    const felado = await createUser({ role: 'shipper' });
+    const szallito = await createUser({ role: 'carrier' });
+    const job = await createJob({ shipperId: felado.id, carrierId: szallito.id, status: 'accepted' });
+    await db.query(`INSERT INTO payment_sessions (payment_id, job_id, shipper_id, carrier_id, amount_huf, provider, state, cib_state, cib_result)
+                    VALUES ('7777000077770001', $1, $2, $3, 500, 'cib', 'closed', 'failed', '{"rc":"51"}'::jsonb)`,
+    [job.id, felado.id, szallito.id]);
+    const res = await request(app)
+      .get(`/jobs/${job.id}/fee-payment`)
+      .set('Authorization', `Bearer ${szallito.token}`);
+    expect(res.status).toBe(403);
+    expect(JSON.stringify(res.body)).not.toContain('7777000077770001');
+    expect(fizetesiLinket(res.body)).toEqual([]);
+    const sajat = await request(app).get(`/jobs/${job.id}/fee-payment`).set('Authorization', `Bearer ${felado.token}`);
+    expect(sajat.status).toBe(200);
+    expect(sajat.body.last_result.trid).toBe('7777000077770001');
+  });
+
   it('a FIZETŐ viszont megkapja (a védelem nem túl széles)', async () => {
     const felado = await createUser({ role: 'shipper' });
     const szallito = await createUser({ role: 'carrier' });

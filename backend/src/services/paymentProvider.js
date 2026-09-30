@@ -15,6 +15,7 @@
 
 const qvik = require('./qvik');
 const cib = require('./cib');
+const cibProtokoll = require('./cibProtokoll');
 
 // ⚠️ EXPLICIT provider-térkép (2026-08-08). Korábban a feloldás
 // `name() === 'qvik' ? qvik : barion` volt — vagyis MINDEN más érték (pl. a
@@ -104,20 +105,76 @@ function isUnsafeStub() {
   return isProduction() && active().isStub();
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// FELHASZNÁLÓNKÉNTI ÚTVÁLASZTÁS (2026-09-29, CIB PR-2/A)
+//
+// A CIB EKI a teljes konfigurációval sem feltétlenül mindenkinek szól: a
+// bank tesztkulcsával az éles domainen (2b. fázis) csak 2–3 kijelölt fiók
+// (CIB_TESZT_FELHASZNALOK) megy a banki tesztkörnyezetbe, a többi tesztelő a
+// stub teszt-üzemet használja tovább — változatlan `cib-stub-<id>`
+// formátummal. Élesben (CIB_KORNYEZET=eles) az allowlist HATÁSTALAN: mindenki
+// a valódi utat kapja, így egy bent felejtett lista sem nyithat stub-kaput.
+//
+//   konfig 'nincs'                       → 'stub'  (ma: bitre a régi működés)
+//   konfig 'hibas'                       → 'hibas' (503; a stub NEM nyílik vissza)
+//   'teljes' + eles                      → 'cib'
+//   'teljes' + teszt, üres allowlist     → 'cib'
+//   'teljes' + teszt, a user a listán    → 'cib'
+//   'teljes' + teszt, a user nincs rajta → 'stub'
+// ─────────────────────────────────────────────────────────────────────────
+
 /**
- * Szabad-e a kézi fizetés-nyugtázás (a webhook megkerülése)? Csak akkor, ha a
- * provider stub ÉS ez nem éles futás — így élesben a webhook marad az egyetlen
- * hiteles forrás, kulcs-hiány esetén sem nyílik meg a megkerülő ág.
+ * Melyik fizetési úton megy EZ a felhasználó?
+ * @param {string} [userId] — felhasználó nélkül a globális út (a listán kívüli)
+ * @returns {'stub'|'cib'|'hibas'}
  */
-function manualConfirmAllowed() {
-  // A TESZT-ÜZEM (ALLOW_STUB_PAYMENTS=true) élesben is kinyitja — lásd a fenti
-  // figyelmeztetést. Launch előtt az env-változót TÖRÖLNI kell.
-  if (stubEngedelyezve()) return active().isStub();
-  return active().isStub() && !isUnsafeStub();
+function fizetesiUt(userId) {
+  const provider = active(); // ismeretlen PAYMENT_PROVIDER → hangos hiba
+  // ⚠️ Az isStub az aktív provider-objektumon át (a tesztek ezt cserélik le).
+  if (provider.isStub()) return 'stub';
+  if (name() !== 'cib') return 'hibas'; // a QVIK valódi útja nincs bekötve
+  const b = cibProtokoll.cibBeallitasok();
+  if (b.allapot !== 'teljes') return 'hibas';
+  if (b.kornyezet === 'eles' || b.tesztFelhasznalok.length === 0) return 'cib';
+  const id = typeof userId === 'string' ? userId.trim().toLowerCase() : '';
+  return id && b.tesztFelhasznalok.includes(id) ? 'cib' : 'stub';
+}
+
+/** Él-e a CIB EKI-gépezet (a lekérdező kör, a banki végpontok)? */
+function usesCibEki() {
+  return name() === 'cib' && cibProtokoll.cibKonfig() === 'teljes';
+}
+
+/**
+ * Szabad-e a kézi fizetés-nyugtázás (a webhook megkerülése)? Csak a STUB
+ * úton, és csak nem éles futásban — vagy a tudatos TESZT-ÜZEMBEN
+ * (ALLOW_STUB_PAYMENTS=true, lásd a fenti figyelmeztetést; launch előtt az
+ * env-változót TÖRÖLNI kell). A CIB-úton SOHA: ott a banki zárás (MSGT32 →
+ * MSGT31 RC=00) az egyetlen hiteles forrás, és a hibás konfig sem nyitja ki.
+ * @param {string} [userId] — a fizető feladó (a teszt-allowlisthez)
+ */
+function manualConfirmAllowed(userId) {
+  if (fizetesiUt(userId) !== 'stub') return false;
+  return stubEngedelyezve() || !isProduction();
+}
+
+/**
+ * A determinisztikus stub-kísérlet a teszt-allowlisten KÍVÜLI felhasználónak,
+ * amikor az aktív provider (teljes CIB-konfig mellett) már nem stub
+ * (2026-09-29, CIB PR-2/B): a `cib-stub-<id>` / `stub:cib/<id>` pár és a
+ * 089-es „szimulált" besorolás bitre a régi.
+ */
+function startTesztStubFizetes(opts) {
+  const provider = active();
+  if (typeof provider.stubFeePayment !== 'function') {
+    throw new Error('Az aktív provider nem tud teszt-stub kísérletet adni.');
+  }
+  return provider.stubFeePayment(opts);
 }
 
 module.exports = {
   name,
+  startTesztStubFizetes,
   stubEngedelyezve,
   STUB_ENGEDELY_ENV,
   providers: Object.keys(PROVIDERS),
@@ -125,6 +182,8 @@ module.exports = {
   isStub: () => active().isStub(),
   isUnsafeStub,
   manualConfirmAllowed,
+  fizetesiUt,
+  usesCibEki,
   startFeePayment: (opts) => active().startFeePayment(opts),
   getPaymentState: (id) => active().getPaymentState(id),
 };

@@ -35,7 +35,10 @@ const ROUTE_MANIFEST = {
   'POST /auth/login': { access: 'public', why: 'belépés' },
   'POST /auth/forgot-password': { access: 'public', why: 'jelszó-emlékeztető kérése' },
   'POST /auth/reset-password': { access: 'public', why: 'jelszó-visszaállítás a token birtokában' },
-  'POST /payments/cib/callback': { access: 'public', why: 'PSP szerver-szerver webhook (CIB vPOS, a launch fizetése); a státuszt a PSP-től olvassuk vissza, nem a body-ból' },
+  'POST /payments/cib/callback': { access: 'public', why: 'CIB-konfignál (teljes/hibás) 410 CIB_NO_CALLBACK banki hívás és könyvelés nélkül (a CIB EKI-nek nincs webhookja); CIB-env nélkül a régi stub-callback, ahol a státuszt a providertől olvassuk vissza' },
+  'GET /payments/cib/tovabb/:token': { access: 'public', why: 'egyszer használatos átirányító link a bank fizetőoldalára: a 32 bájtos véletlen token (csak a hash-e tárolt) a belépő; felhasznált/lejárt/ismeretlen tokenre 303, adatot nem ad; IP-limit' },
+  'GET /payments/cib/vissza': { access: 'public', why: 'a bank visszatérési URL-je (a böngésző hozza): a banki kulccsal titkosított MSGT21-et fejtjük vissza, hamis/idegen/ismeretlen üzenetre 303 a hibaoldalra feldolgozás nélkül; teljes CIB-konfig nélkül 404; IP-limit' },
+  'GET /payments/cib/eredmeny': { access: 'public', why: 'a fizetés eredménye belépés nélkül (PWA → Safari, beépített böngészők): HMAC-aláírt, 24 órás token a belépő; csak a banki adatsort adja, név/cím nélkül; rossz tokenre 404; IP-limit' },
   'POST /payments/qvik/callback': { access: 'public', why: 'PSP szerver-szerver webhook (QVIK, dormant); a státuszt a PSP-től olvassuk vissza' },
 
   // ── Admin-only ──────────────────────────────────────────────────────
@@ -68,6 +71,10 @@ const ROUTE_MANIFEST = {
   'PATCH /admin/photo-hold': { access: 'admin' },
   'PATCH /admin/coverage/:zoneId': { access: 'admin' },
   'GET /payments/admin/log': { access: 'admin' },
+  'GET /payments/admin/cib': { access: 'admin' },
+  'GET /payments/admin/cib/:trid': { access: 'admin' },
+  'POST /payments/admin/cib/:trid/ujraellenorzes': { access: 'admin' },
+  'POST /payments/admin/cib/:trid/rendezes': { access: 'admin' },
   'POST /auth/admin/grant-monthly-vouchers': { access: 'admin' },
 
   // ── Bejelentkezés kell ──────────────────────────────────────────────
@@ -100,6 +107,7 @@ const ROUTE_MANIFEST = {
   'GET /jobs/mine/list': { access: 'auth' },
   'POST /jobs/:id/pay': { access: 'auth' },
   'POST /jobs/:id/confirm-payment': { access: 'auth' },
+  'GET /jobs/:id/fee-payment': { access: 'auth' },
   'POST /jobs/:id/cancel': { access: 'auth' },
   'PATCH /jobs/:id': { access: 'auth' },
   'POST /jobs/:id/reopen': { access: 'auth' },

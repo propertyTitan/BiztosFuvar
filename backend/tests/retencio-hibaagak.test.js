@@ -86,6 +86,9 @@ const TOVABBDOBJA = [
   'purgeOldInvoices', 'purgeEmergencyLocations', 'purgeOldDeletedAccounts',
   'purgeOldKycDocHistory', 'purgeOldPaymentEvents', 'purgeOldEscrowTransactions',
   'purgeOldTaxData', 'purgeDormantAccounts', 'purgeExpiredSmsRetryQueue',
+  // 2026-09-29 (CIB PR-2/A): a banki üzenetnapló 13 hónapos törlése is
+  // megőrzési ígéret — csendes kiesése határidő nélkül gyűjtené a naplót.
+  'purgeOldCibMessages',
   'processFileDeletionQueue',
 ];
 

@@ -219,6 +219,15 @@ async function redeemJobVoucher(userId, jobId) {
       await client.query('ROLLBACK');
       return { changed: true };
     }
+    // CIB FAGYASZTÁSI ŐR (2026-09-29, CIB PR-2/B): a fuvarsor zára UTÁN, új
+    // utasításként. Ha a kártyás díj a banknál épp lezárul (vagy kétes), a
+    // kupon nem válthat be alatta — a bank egy már kuponnal rendezett
+    // ügyletre terhelne (árva terhelés, kézi visszatérítés).
+    const fagy = await require('../utils/cibZaras').cibZarasFolyamatban(client, jobId);
+    if (fagy) {
+      await client.query('ROLLBACK');
+      return { frozen: fagy.cib_state === 'close_unknown' ? 'CIB_PAYMENT_REVIEW' : 'CIB_PAYMENT_FINISHING' };
+    }
     const { calculateConnectionFee } = require('./connectionFee');
     const feeHuf = job.connection_fee_huf ?? calculateConnectionFee(job.accepted_price_huf || job.suggested_price_huf || 0);
     const used = await useVoucherIfAvailable(userId, { jobId, feeHuf }, client);

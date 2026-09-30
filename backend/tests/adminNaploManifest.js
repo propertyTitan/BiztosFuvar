@@ -40,6 +40,11 @@ const ADMIN_NAPLO_MANIFEST = {
   // ⚠️ 2026-08-11: ez a kettő NEM az /admin/ prefix alatt lakik, ezért az őr
   // korábbi (útvonal-alapú) szűrője nem is látta őket.
   'GET /payments/admin/log': 'naplozando',
+  // CIB kártyás kísérletek (2026-09-29, CIB PR-2/B): a lista fuvar-
+  // azonosítót és banki engedélyszámot, a részlet a titkosított banki
+  // naplót (benne a maszkolt kártyaszámmal) adja — naplózandó.
+  'GET /payments/admin/cib': 'naplozando',
+  'GET /payments/admin/cib/:trid': 'naplozando',
 
   // ── Indokolt kivételek ───────────────────────────────────────────────
   'GET /auth/admin/stats': {

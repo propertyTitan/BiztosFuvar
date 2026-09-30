@@ -24,8 +24,12 @@ const REDACTED = '[SZURVE]';
 // közben. Az `/admin/users?search=…` pedig épp az az érték, amit az
 // admin-naplóból SZÁNDÉKOSAN kihagyunk („a napló nem lehet a PII második
 // példánya") — az egyenértékű úton mégis kiment volna.
+// ⚠️ 2026-09-29 (CIB PR-2/B): a `data` a banki visszatérés
+// (/payments/cib/vissza?PID=…&CRYPTO=1&DATA=…) titkosított üzenete — a saját
+// kulcsunkkal visszafejthető, benne a TRID —, az `e` pedig az eredmény-oldal
+// aláírt belépő-tokenje. Egyik sem mehet a Sentrybe.
 const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code', 'sig', 'exp',
-  'search', 'q', 'lat', 'lng', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng', 'email', 'phone'];
+  'search', 'q', 'lat', 'lng', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng', 'email', 'phone', 'data', 'e'];
 
 // Útvonal-szegmensek, amelyek után titok vagy személyes adat áll.
 //   /tracking/<token>  — a publikus követő-link
@@ -37,7 +41,10 @@ const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', '
 // `/nyomon-kovetes/` (a webes publikus követő-oldal) hiányzott, a webből
 // pedig a `/vat/` és a `/private-files/`. Mostantól a lista SZIMMETRIKUS —
 // a backend a webes URL-t is láthatja (referer, hibaüzenet, breadcrumb).
-const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/|\/vat\/|\/private-files\/)[^/?#]+/gi;
+// ⚠️ 2026-09-29 (CIB PR-2, 1. javítókör): a kártyás fizetés egyszer
+// használatos átirányító linkje (/payments/cib/tovabb/<token>) is ide
+// tartozik — a token az ÚTVONALBAN utazik, a query-szűrő nem érte el.
+const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/|\/vat\/|\/private-files\/|\/payments\/cib\/tovabb\/)[^/?#]+/gi;
 
 // A breadcrumb-adatok azon kulcsai, amelyekben URL vagy query string állhat.
 // A `http.query` a Sentry Node SDK saját mezője: a kimenő fetch NYERS query

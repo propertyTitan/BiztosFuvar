@@ -15,6 +15,8 @@
 
 const { maskEmail, maskInText } = require('../utils/mask');
 const { kulsoHivasSignal } = require('../utils/httpIdokeret');
+const { CIB_FELIRATOK, CIB_ADATSOR_SORREND } = require('../data/cibFeliratok');
+const { RC_CSOPORT_UZENET, X0_UZENET } = require('../data/cibRcCsoportok');
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 
@@ -420,8 +422,35 @@ async function sendJobPaidEmail({ to, carrierName, jobTitle, jobId, amountHuf, s
  * @param {string} [p.paidAtIso] — a fizetés időpontja (ISO string)
  * @param {string} [p.detailsPath] — a fuvar/foglalás oldala (pl. /dashboard/fuvar/<id>)
  */
+/**
+ * A CIB kártyás fizetés KÖTELEZŐ banki adatsora (2026-09-29, CIB PR-2/B):
+ * TrID, RC, RT, AMO + HUF, ANUM — a fix feliratok a közös forrásból
+ * (data/cibFeliratok.js), mert a bank átvételi tesztje szó szerint keresi
+ * őket. Kártyaadat (CNUM) SOHA nem kerül bele; a hiányzó érték „—".
+ */
+function bankiAdatsorHtml(bankiAdatok) {
+  if (!bankiAdatok) return '';
+  const ertek = {
+    trid: bankiAdatok.trid,
+    rc: bankiAdatok.rc,
+    rt: bankiAdatok.rt,
+    amo: Number.isFinite(Number(bankiAdatok.amo)) && bankiAdatok.amo != null
+      ? `${formatHuf(bankiAdatok.amo)} ${CIB_FELIRATOK.penznem}` : null,
+    anum: bankiAdatok.anum,
+  };
+  const sorok = CIB_ADATSOR_SORREND.map((k) => `
+        <tr><td style="padding:4px 12px 4px 0;color:#475569;vertical-align:top">${escapeHtml(CIB_FELIRATOK[k])}</td>
+            <td style="padding:4px 0;font-weight:600;vertical-align:top">${ertek[k] == null || ertek[k] === '' ? '—' : escapeHtml(String(ertek[k]))}</td></tr>`).join('');
+  return `
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin:16px 0;font-size:13px;line-height:1.5">
+      <strong>A kártyás fizetés banki adatai</strong>
+      <table style="border-collapse:collapse;margin-top:8px">${sorok}
+      </table>
+    </div>`;
+}
+
 async function sendFeeConfirmationEmail({
-  to, shipperName, jobTitle, feeHuf, cashHuf, paidAtIso, detailsPath,
+  to, shipperName, jobTitle, feeHuf, cashHuf, paidAtIso, detailsPath, bankiAdatok = null,
 }) {
   const heading = '🧾 Díj-visszaigazolás — kapcsolatfelvételi díj megfizetve';
   const paidAtTxt = paidAtIso
@@ -435,6 +464,7 @@ async function sendFeeConfirmationEmail({
       ${formatHuf(feeHuf)} Ft <span style="font-size:13px;font-weight:400;color:#666">(bruttó, bevezető ár)</span>
     </p>
     <p style="font-size:13px;color:#666;margin:0 0 16px">Fizetés időpontja: ${escapeHtml(paidAtTxt)}</p>
+    ${bankiAdatsorHtml(bankiAdatok)}
     <p>A szolgáltatás (a szállító kapcsolatfelvételi adatainak átadása és a fuvar-folyamat
     elindítása) a fizetéssel <strong>teljesült</strong> — a szállító elérhetőségét a fuvar
     oldalán találod.</p>
@@ -461,6 +491,127 @@ async function sendFeeConfirmationEmail({
       bodyHtml,
       ctaText: 'Fuvar megnyitása',
       ctaHref: `${getWebBase()}${detailsPath || '/dashboard'}`,
+    }),
+  });
+}
+
+const SIKERTELEN_LEVEL = {
+  sikertelen: {
+    heading: '❌ A kártyás fizetés nem sikerült',
+    targy: 'A kártyás fizetés nem sikerült',
+    torzs: 'a kapcsolatfelvételi díj kártyás fizetése <strong>nem sikerült</strong> — a kártyádat <strong>nem terheltük</strong>.',
+  },
+  nem_terhelt: {
+    heading: 'ℹ️ A kártyádat nem terheltük',
+    targy: 'A kártyádat nem terheltük',
+    torzs: 'a kártyás fizetést <strong>nem zártuk le</strong>, mert a fuvar közben megváltozott (például lemondták, '
+      + 'vagy más lett a szállító vagy a díj) — a kártyádat <strong>nem terheltük</strong>. A zárolt összeget a '
+      + 'bank magától feloldja; a kivonatodon pár napig függő tételként látszhat.',
+  },
+  mar_fizetve: {
+    heading: 'ℹ️ A díj már rendezve volt — nem terheltünk kétszer',
+    targy: 'A díj már rendezve volt — nem terheltünk kétszer',
+    torzs: 'a kapcsolatfelvételi díj már rendezve volt (egy korábbi fizetéssel vagy kuponnal), ezért ezt a '
+      + 'kártyás fizetést <strong>nem zártuk le</strong> — kétszer nem terhelünk. A zárolt összeget a bank '
+      + 'magától feloldja; a kivonatodon pár napig függő tételként látszhat.',
+  },
+};
+
+/**
+ * Sikertelen / nem terhelt kártyás kísérlet (2026-09-29, CIB PR-2/B) — a
+ * bank által előírt adatsorral és az RC-csoport szerinti magyarázattal.
+ * Csak akkor megy ki, ha a kísérlet eljutott a bankig (a hívó ellenőrzi,
+ * egyszeri claimmel). Kártyaadat nincs benne.
+ */
+async function sendFeePaymentFailedEmail({
+  to, shipperName, jobTitle, jobId, bankiAdatok, rcCsoport = null, tipus = 'sikertelen',
+}) {
+  const l = SIKERTELEN_LEVEL[tipus] || SIKERTELEN_LEVEL.sikertelen;
+  const x0 = bankiAdatok && String(bankiAdatok.rc || '').toUpperCase() === 'X0';
+  const magyarazat = tipus === 'sikertelen'
+    ? (x0 ? X0_UZENET : RC_CSOPORT_UZENET[rcCsoport] || RC_CSOPORT_UZENET.kapcsolat)
+    : null;
+  const ujra = tipus === 'sikertelen';
+  const bodyHtml = `
+    <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
+    <p>A(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarnál ${l.torzs}</p>
+    ${magyarazat ? `<p style="font-size:13px;color:#475569">${escapeHtml(magyarazat)}</p>` : ''}
+    ${bankiAdatsorHtml(bankiAdatok)}
+    ${ujra ? '<p>Új fizetést a fuvar oldalán egy kattintással indíthatsz — a korábbi kísérlet nem akadályozza.</p>' : ''}
+  `;
+  return sendEmail({
+    to,
+    subject: `${l.targy}: ${jobTitle}`,
+    html: wrapHtml({
+      heading: l.heading,
+      bodyHtml,
+      ctaText: ujra ? 'Új fizetés indítása' : 'Fuvar megnyitása',
+      ctaHref: `${getWebBase()}/dashboard/fuvar/${encodeURIComponent(jobId || '')}${ujra ? '?fizetes=ujra' : ''}`,
+    }),
+  });
+}
+
+// A TrID NÉLKÜLI riasztás RENDSZER-szintű (2026-09-29, CIB PR-2/C): nem egy
+// fuvar kézi egyeztetéséről szól, hanem arról, hogy a kártyás fizetés épp
+// nem indítható. Eddig ugyanaz a „fuvar fagyasztva, rendezd ANUM-mal" szöveg
+// ment ki rájuk — éjjel félrevezetné azt, aki reagál.
+const CIB_RENDSZER_RIASZTAS = Object.freeze({
+  szivveres: {
+    targy: 'a CIB lekérdező kör nem fut',
+    szoveg: 'A CIB lekérdező kör 3 perce nem futott le sikeresen (vagy az indulás óta egyszer sem). Amíg nem fut, '
+      + 'a kártyás fizetés 503-at ad, és a már jóváhagyott tételek lezárása is áll — a bank a 10–15 perces ablak '
+      + 'után reverzál, terhelés nem marad. Nézd meg a Railway-logot (DB-kapcsolat, migráció, összeomlási ciklus).',
+  },
+  megszakito: {
+    targy: 'a CIB-kapcsolat megszakítója nyitva',
+    szoveg: 'Több egymás utáni banki kapcsolati vagy S-hiba után a megszakító nyitva: 10 percig nem indul új '
+      + 'kártyás fizetés. Valószínű ok: IP-engedélyezés, port, felcserélt teszt/éles kulcs vagy környezet.',
+  },
+});
+
+/**
+ * Belső riasztás (2026-09-29, CIB PR-2/B): egy kártyás fizetés kétes
+ * (close_unknown) vagy könyvelési árva — ember dönt, a bankkal egyeztetve.
+ * CSAK a TrID és a fuvar azonosítója megy ki, személyes adat nem.
+ * TrID nélkül (PR-2/C) rendszer-riasztás: `ok` = szivveres | megszakito.
+ */
+async function sendCibRiasztasEmail({ to, trid, jobId, ok }) {
+  const rendszer = !trid ? CIB_RENDSZER_RIASZTAS[ok] : null;
+  if (!trid) {
+    const bodyHtml = `
+    <p><strong>Rendszer-riasztás</strong> (${escapeHtml(ok || '?')}): ${escapeHtml(rendszer ? rendszer.szoveg : 'a kártyás fizetés üzemzavara.')}</p>
+    ${jobId ? `<p>Érintett fuvar: ${escapeHtml(jobId)}</p>` : ''}
+    <p>Ha közben kétes kísérlet keletkezik, arról külön, TrID-s levél megy.</p>
+  `;
+    return sendEmail({
+      to,
+      subject: `[GoFuvar] CIB rendszer-riasztás: ${rendszer ? rendszer.targy : 'üzemzavar'}`,
+      html: wrapHtml({
+        heading: '🚨 Kártyás fizetés — rendszer-riasztás',
+        bodyHtml,
+        ctaText: 'Admin megnyitása',
+        ctaHref: `${getWebBase()}/admin#fizetesek`,
+      }),
+    });
+  }
+  const maszk = `…${String(trid).slice(-4)}`;
+  const bodyHtml = `
+    <p>Egy kártyás díjfizetés <strong>kézi egyeztetést</strong> igényel (${escapeHtml(ok || '?')}).</p>
+    <table style="border-collapse:collapse;font-size:13px">
+      <tr><td style="padding:4px 12px 4px 0">${escapeHtml(CIB_FELIRATOK.trid)}</td><td><strong>${escapeHtml(trid || '—')}</strong></td></tr>
+      <tr><td style="padding:4px 12px 4px 0">Fuvar</td><td>${escapeHtml(jobId || '—')}</td></tr>
+    </table>
+    <p>A fuvar fagyasztva, a kontakt rejtve; MSGT32 újraküldés nincs. Egyeztess a bankkal, majd az adminban
+    (Fizetések → CIB) rendezd: „lezárva" (ANUM-mal) vagy „nem zárult le".</p>
+  `;
+  return sendEmail({
+    to,
+    subject: `[GoFuvar] CIB-fizetés kézi egyeztetést igényel (${maszk})`,
+    html: wrapHtml({
+      heading: '🚨 Kártyás fizetés — kézi egyeztetés',
+      bodyHtml,
+      ctaText: 'Admin megnyitása',
+      ctaHref: `${getWebBase()}/admin#fizetesek`,
     }),
   });
 }
@@ -833,6 +984,9 @@ module.exports = {
   sendBidAcceptedEmail,
   sendJobPaidEmail,
   sendFeeConfirmationEmail,
+  sendFeePaymentFailedEmail,
+  sendCibRiasztasEmail,
+  bankiAdatsorHtml,
   sendBookingReceivedEmail,
   sendBookingConfirmedEmail,
   sendBookingPaidEmail,

@@ -316,6 +316,10 @@ const SABLONOK = {
   sendAdminMessageEmail: ['name', 'bodyText'],
   sendPaymentDueEmail: ['shipperName', 'jobTitle'],
   sendDormantAccountWarningEmail: ['name'],
+  // CIB kártyás díj (2026-09-29, CIB PR-2/B): a sikertelen/nem terhelt
+  // kísérlet levele a feladónak, és a belső riasztás (TrID + fuvar).
+  sendFeePaymentFailedEmail: ['shipperName', 'jobTitle'],
+  sendCibRiasztasEmail: ['ok', 'jobId'],
 };
 
 /** Nem sablon-küldők (nyers API vagy segédfüggvény) — indoklással. */

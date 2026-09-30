@@ -25,7 +25,8 @@
 const RETENTION_MANIFEST = {
   pickup_notification_queue: { szabaly: 'Csatornánként sikeres küldéskor törlődik; lezárt ügyletnél vagy 48 óra után a percenkénti runPickupNotifications törli. Csak ügylet-hivatkozás, a szülővel CASCADE.' },
   file_deletion_queue: { szabaly: 'Sikeres tárhelytörlés után azonnal törlődik; hibánál tartós retry és riasztás (processFileDeletionQueue, napi retenció).' },
-  payment_sessions: { szabaly: 'Lezárt munkamenet 8 év után törlődik (purgeOldPaymentEvents); függő vagy egyeztetendő pénzkapcsolat megmarad a rendezésig.' },
+  payment_sessions: { szabaly: 'Lezárt munkamenet 8 év után törlődik (purgeOldPaymentEvents); függő vagy egyeztetendő pénzkapcsolat megmarad a rendezésig. A CIB-kísérlet (cib_* oszlopok, 2026-09-29) a sorral együtt él: a TRID/RC/ANUM így bőven a banki 1 éves minimum felett kereshető.' },
+  cib_messages: { szabaly: 'A bankkal váltott titkosított üzenetek naplója 13 hónap után törlődik, kivéve a még függő / egyeztetendő (pending, needs_review) kísérletekét (purgeOldCibMessages).' },
   // ── Gépesített retenció ──────────────────────────────────────────────
   photos:              { szabaly: '30 nap a lezárás után; zárolt ügyletnél 5 év (purgeOldDeliveryPhotos, minden fotótípus)' },
   messages:            { szabaly: '6 hónap a lezárás után; zárolt ügyletnél 5 év (purgeOldChatMessages)' },

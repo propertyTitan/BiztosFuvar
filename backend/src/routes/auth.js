@@ -593,10 +593,23 @@ router.get('/me', authRequired, async (req, res) => {
   // élesben: nem az emlékezetre épül, hanem arra, hogy egy valódi felhasználó
   // is AZONNAL LÁTJA. Lásd: services/paymentProvider.js.
   const paymentProvider = require('../services/paymentProvider');
+  // payment_test_kind (2026-09-29, CIB PR-2/B): MELYIK teszt-üzem — a stub
+  // (ALLOW_STUB_PAYMENTS, sárga sáv) vagy a bank TESZT-környezete
+  // (CIB_KORNYEZET=teszt, a kártyás út a banki tesztrendszerbe megy). A
+  // felhasználónkénti útválasztás szerint: a teszt-allowlisten lévő feladó
+  // a banki tesztet, a többi a stubot látja. Élesben mindkettő null.
+  let ut = null;
+  try {
+    ut = paymentProvider.fizetesiUt(req.user.sub);
+  } catch { /* ismeretlen provider: a boot már hangosan jelez */ }
+  let tesztFajta = null;
+  if (ut === 'stub' && paymentProvider.stubEngedelyezve()) tesztFajta = 'stub';
+  else if (ut === 'cib' && require('../services/cibProtokoll').cibBeallitasok().kornyezet === 'teszt') tesztFajta = 'cib_teszt';
   res.json({
     ...rows[0],
     company_nav_available: navTaxpayer.isConfigured(),
-    payment_test_mode: paymentProvider.stubEngedelyezve(),
+    payment_test_mode: tesztFajta !== null,
+    payment_test_kind: tesztFajta,
     tax_data: computeTaxDataState(rows[0]),
   });
 });
@@ -1493,9 +1506,14 @@ router.get('/me/export', authRequired, writeRateLimit, async (req, res) => {
               invoice_pending, last_invoice_attempt_at, invoice_snapshot, notifications_sent_at
          FROM fee_payment_receipts WHERE shipper_id = $1 ORDER BY paid_at DESC`,
     ),
+    // 2026-09-29 (CIB PR-2/A): a kártyás kísérlet állapota és a banki
+    // eredmény (TrID/RC/RT/AMO/ANUM) is a FIZETŐ adata — a szállító nem kapja.
+    // A banki bizonyíték-gyűjtés és az admin azonosítója belső, nem jár ki.
     fizetesi_munkameneteim: await q(
       `SELECT CASE WHEN shipper_id = $1 THEN payment_id ELSE NULL END AS payment_id,
-              job_id, booking_id, amount_huf, currency, state, created_at, settled_at
+              job_id, booking_id, amount_huf, currency, state, created_at, settled_at,
+              CASE WHEN shipper_id = $1 THEN cib_state END AS cib_state,
+              CASE WHEN shipper_id = $1 THEN cib_result - 'bizonyitek' - 'admin_id' END AS cib_result
          FROM payment_sessions WHERE shipper_id = $1 OR carrier_id = $1 ORDER BY created_at DESC`,
     ),
     kyc_metaadat: await q(

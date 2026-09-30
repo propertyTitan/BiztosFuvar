@@ -701,6 +701,57 @@ describe('Admin felület: minden nézet és művelet lefut', () => {
 // =====================================================================
 //  FIÓK-TÖRLÉS (a végén, mert visszafordíthatatlan)
 // =====================================================================
+// =====================================================================
+//  CIB KÁRTYÁS DÍJFIZETÉS (2026-09-29, CIB PR-2/B) — minden új út sikeres
+//  hívással, a helyi HAMIS BANKKAL (a valódi bankot teszt soha nem hívja).
+// =====================================================================
+describe('CIB kártyás díjfizetés: minden út lefut (hamis bankkal)', () => {
+  it('hop, visszatérés, eredmény, a feladó állapot-nézete és az admin-műveletek', async () => {
+    const { inditHamisBank, beallitEnv } = require('./cibHamisBank');
+    const cibFizetes = require('../src/services/cibFizetes');
+    const bank = await inditHamisBank();
+    const visszaallit = beallitEnv(bank.env({ CIB_BEVEZETES: '2026-01-01', CIB_ZARAS_TIMEOUT_MS: '2000' }));
+    try {
+      cibFizetes.__resetCibAllapotForTests();
+      cibFizetes.szivveres();
+      const job = await createJob({ shipperId: V.felado.id, carrierId: V.szallito.id, status: 'accepted' });
+      await sikeres('GET /jobs/:id/fee-payment',
+        request(app).get(`/jobs/${job.id}/fee-payment`).set(auth(V.felado.token)));
+      const pay = await sikeres('POST /jobs/:id/pay (CIB)',
+        request(app).post(`/jobs/${job.id}/pay`).set(auth(V.felado.token)).send({ consent: true }));
+      const token = pay.body.redirect_url.split('/tovabb/')[1];
+      await sikeres('GET /payments/cib/tovabb/:token', request(app).get(`/payments/cib/tovabb/${token}`));
+      bank.dont(pay.body.trid, 'fizet');
+      const vissza = await sikeres('GET /payments/cib/vissza',
+        request(app).get(`/payments/cib/vissza?${bank.msgt21Query(pay.body.trid)}`));
+      await cibFizetes.varjHatterre();
+      const e = new URL(vissza.headers.location).searchParams.get('e');
+      await sikeres('GET /payments/cib/eredmeny', request(app).get(`/payments/cib/eredmeny?e=${encodeURIComponent(e)}`));
+
+      await sikeres('GET /payments/admin/cib',
+        request(app).get(`/payments/admin/cib?q=${pay.body.trid}`).set(auth(V.admin.token)));
+      await sikeres('GET /payments/admin/cib/:trid',
+        request(app).get(`/payments/admin/cib/${pay.body.trid}`).set(auth(V.admin.token)));
+      await sikeres('POST /payments/admin/cib/:trid/ujraellenorzes',
+        request(app).post(`/payments/admin/cib/${pay.body.trid}/ujraellenorzes`).set(auth(V.admin.token)).send({}));
+
+      // Egy kétes (close_unknown) kísérlet kézi rendezése.
+      const job2 = await createJob({ shipperId: V.felado.id, carrierId: V.szallito.id, status: 'accepted' });
+      const pay2 = await sikeres('POST /jobs/:id/pay (CIB, 2.)',
+        request(app).post(`/jobs/${job2.id}/pay`).set(auth(V.felado.token)).send({ consent: true }));
+      await db.query(`UPDATE payment_sessions SET cib_state = 'close_unknown', cib_close_attempts = 1,
+                      cib_redirected_at = NOW() WHERE payment_id = $1`, [pay2.body.trid]);
+      await sikeres('POST /payments/admin/cib/:trid/rendezes',
+        request(app).post(`/payments/admin/cib/${pay2.body.trid}/rendezes`).set(auth(V.admin.token))
+          .send({ eredmeny: 'nem_lezarva', indoklas: 'A bank szerint a tranzakció nem zárult le.' }));
+      await cibFizetes.varjHatterre();
+    } finally {
+      visszaallit();
+      await bank.leallit();
+    }
+  });
+});
+
 describe('Fiók törlése', () => {
   it('a felhasználó törölheti a saját fiókját', async () => {
     const elkoszono = await createUser({ role: 'shipper' });

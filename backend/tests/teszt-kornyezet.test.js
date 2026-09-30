@@ -27,6 +27,9 @@ const TILTOTT_KULCSOK = [
   'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_ACCOUNT_ID',
   'R2_BUCKET_NAME', 'R2_PUBLIC_URL', 'R2_PRIVATE_BUCKET_NAME',
   'CIB_API_KEY', 'CIB_MERCHANT_ID', 'CIB_KEY_B64',
+  // CIB EKI (2026-09-29): a PID + a kulcs + a HMAC-titok együtt tenné
+  // „teljessé" a konfigot — a tesztek csak a hamis bankkal, ideiglenesen.
+  'CIB_PID', 'CIB_HMAC_TITOK', 'CIB_MARKET_URL', 'CIB_CUSTOMER_URL', 'CIB_RETURN_URL',
   'QVIK_API_KEY', 'QVIK_MERCHANT_ID',
   'SZAMLAZZ_AGENT_KEY',
   'NAV_ONLINE_LOGIN', 'NAV_ONLINE_PASSWORD', 'NAV_ONLINE_SIGNKEY',
@@ -51,6 +54,13 @@ describe('Teszt-környezet: semmi nem megy ki élesbe', () => {
     expect(email.isStub(), 'a tesztek valódi e-mailt küldenének').toBe(true);
     expect(sms.isStub(), 'a tesztek valódi (fizetős) SMS-t küldenének').toBe(true);
     expect(paymentProvider.isStub(), 'a tesztek valódi fizetést indítanának').toBe(true);
+  });
+
+  it('a CIB EKI-konfiguráció „nincs" — a valódi bankot teszt nem érheti el', () => {
+    // A CIB-tesztek a hamis bankkal, loopback címen futnak, és a fájl végén
+    // visszaállítják az env-et; itt egyetlen CIB-kulcs sem maradhat bent.
+    expect(require('../src/services/cibProtokoll').cibKonfig()).toBe('nincs');
+    expect(paymentProvider.fizetesiUt(), 'a tesztek a valódi CIB-utat kapnák').toBe('stub');
   });
 
   it('az adatbázis a beágyazott teszt-példány, nem a prod Neon', () => {

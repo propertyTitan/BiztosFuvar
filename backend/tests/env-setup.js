@@ -41,6 +41,9 @@ for (const kulcs of [
   // Fizetés + számlázás + NAV: teszt alatt SOHA nem éles
   'CIB_API_KEY', 'CIB_MERCHANT_ID', 'CIB_BASE_URL',
   'CIB_PID', 'CIB_KEY_B64', 'CIB_MARKET_URL', 'CIB_CUSTOMER_URL',
+  // CIB EKI (2026-09-29, PR-2/A): a teljes konfig többi eleme — a tesztek a
+  // hamis bankkal fájlonként, explicit állítják be, és utána visszaállítják.
+  'CIB_KORNYEZET', 'CIB_RETURN_URL', 'CIB_HMAC_TITOK', 'CIB_KEY_UJJLENYOMAT', 'CIB_TESZT_FELHASZNALOK',
   'QVIK_API_KEY', 'QVIK_MERCHANT_ID', 'QVIK_BASE_URL',
   'SZAMLAZZ_AGENT_KEY', 'INVOICE_PROVIDER',
   'NAV_ONLINE_LOGIN', 'NAV_ONLINE_PASSWORD', 'NAV_ONLINE_SIGNKEY', 'NAV_ONLINE_TAXNUMBER',

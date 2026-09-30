@@ -37,6 +37,11 @@ const KIVETELEK = {
     + 'tábla rendezéséhez és a sorok megkülönböztetéséhez kell.',
 };
 
+// ✅ A PR-2/A átmeneti CIB-kivétellistája (CIB_BEKOTES_ALATT) 2026-09-29-én,
+// a PR-2/B-ben MEGSZŰNT: a 096-os migráció mind a 14 cib_* oszlopát a
+// fizetési folyamat (indítás, hop, visszatérés, lekérdező kör, zárás,
+// értesítés) írja és olvassa — a lista önmagát szüntette meg, ahogy tervezve.
+
 // Ezeket a séma-elemeket nem vizsgáljuk (nem a mi adatunk).
 const KIHAGYOTT_TABLAK = new Set(['schema_migrations', 'pgmigrations']);
 
