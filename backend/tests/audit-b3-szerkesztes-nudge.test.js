@@ -11,6 +11,21 @@ const auth = (t) => ({ Authorization: `Bearer ${t}` });
 const ertesitesek = async (userId, tipus) => (await db.query(
   'SELECT count(*)::int AS n FROM notifications WHERE user_id = $1 AND type = $2', [userId, tipus],
 )).rows[0].n;
+// A PATCH a választ az értesítés létrehozása ELŐTT küldi (fire-and-forget) —
+// a teszt ezért legfeljebb 2 mp-ig vár a sorra (2026-09-30: a CI-ben lassabb
+// gépen a közvetlen lekérdezés megelőzte a beszúrást). A „pontosan egy"
+// elvárás marad: a várakozás után sem lehet kettő.
+async function varjErtesitesre(userId, tipus, { ms = 2000 } = {}) {
+  const hatarido = Date.now() + ms;
+  let n = await ertesitesek(userId, tipus);
+  while (n === 0 && Date.now() < hatarido) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((r) => { setTimeout(r, 50); });
+    // eslint-disable-next-line no-await-in-loop
+    n = await ertesitesek(userId, tipus);
+  }
+  return n;
+}
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -30,7 +45,7 @@ describe('PATCH /jobs/:id — a nyitott fuvar szerkesztése', () => {
     expect(r.body.title).toBe('Javított cím');
     expect(Number(r.body.suggested_price_huf)).toBe(18000);
     expect(r.body.pickup_window_start).toBeTruthy();
-    expect(await ertesitesek(szallito.id, 'job_updated'), 'a függő ajánlattevő nem tudta meg, hogy változott a hirdetés').toBe(1);
+    expect(await varjErtesitesre(szallito.id, 'job_updated'), 'a függő ajánlattevő nem tudta meg, hogy változott a hirdetés').toBe(1);
 
     expect((await request(app).patch(`/jobs/${job.id}`).set(auth(idegen.token)).send({ title: 'Hack' })).status).toBe(403);
     expect((await request(app).patch(`/jobs/${job.id}`).set(auth(felado.token)).send({ title: 'Hívj: 06301234567' })).body.code).toBe('CONTACT_LEAK');
