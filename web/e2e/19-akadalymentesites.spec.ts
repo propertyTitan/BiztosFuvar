@@ -33,7 +33,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loginAs } from './helpers';
 import {
-  OLDALAK, keszitsFixtures, varjStabilOldalt, Fixtures,
+  OLDALAK, keszitsFixtures, varjStabilOldalt, Fixtures, allapotCimke,
 } from './oldal-leltar';
 
 // ⚠️ MIÉRT FÁJL, ÉS NEM MODUL-SZINTŰ TÖMB (2026-08-12, mért tapasztalat):
@@ -91,7 +91,7 @@ test.describe('akadálymentesítés: axe-core minden oldalon', () => {
   test.setTimeout(240_000);
 
   for (const oldal of OLDALAK) {
-    test(`axe: ${oldal.minta}${oldal.allapot ? ' [állapot]' : ''} (${oldal.szereplo})`, async ({ page }) => {
+    test(`axe: ${oldal.minta}${allapotCimke(oldal)} (${oldal.szereplo})`, async ({ page }) => {
       if (oldal.szereplo !== 'anon') {
         await loginAs(page, F[oldal.szereplo]);
       }

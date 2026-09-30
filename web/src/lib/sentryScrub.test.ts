@@ -15,6 +15,15 @@ describe('scrubUrlLike (web)', () => {
       .not.toContain('a1b2c3');
   });
 
+  it('a CIB eredmény-tokent, a banki DATA-t és az átirányító linket kitakarja (2026-09-29)', () => {
+    const e = scrubUrlLike('https://www.gofuvar.hu/fizetes/eredmeny?e=MDEyMzQ1Njc4OTAxMjM0NS4xNzkw.abc');
+    expect(e).not.toContain('MDEyMzQ1');
+    const vissza = scrubUrlLike('https://api.gofuvar.hu/payments/cib/vissza?PID=TIH0001&CRYPTO=1&DATA=Skh7aoFK%2FJEU');
+    expect(vissza).not.toContain('Skh7aoFK');
+    const hop = scrubUrlLike('https://api.gofuvar.hu/payments/cib/tovabb/Zm9vYmFyYmF6cXV4');
+    expect(hop).not.toContain('Zm9vYmFyYmF6cXV4');
+  });
+
   it('ártalmatlan oldal-URL-t nem bánt', () => {
     const url = 'https://gofuvar.hu/sofor/fuvarok?pickup_city=Szeged';
     expect(scrubUrlLike(url)).toBe(url);

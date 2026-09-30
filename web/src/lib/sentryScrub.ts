@@ -14,7 +14,11 @@
 const REDACTED = '[SZURVE]';
 
 const SENSITIVE_PARAMS = ['token', 'access_token', 'refresh_token', 'api_key', 'apikey', 'secret', 'password', 'code', 'sig', 'exp',
-  'search', 'q', 'lat', 'lng', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng', 'email', 'phone'];
+  'search', 'q', 'lat', 'lng', 'pickup_lat', 'pickup_lng', 'dropoff_lat', 'dropoff_lng', 'email', 'phone',
+  // CIB kártyás fizetés (2026-09-29): a banki visszatérés titkosított DATA-ja
+  // és az eredményoldal (/fizetes/eredmeny?e=) 24 órás tokenje — a backend
+  // listájával szimmetrikusan.
+  'data', 'e'];
 
 // ⚠️ NEM CSAK URL-ALAKÚ ADAT SZIVÁROG (2026-08-11, adatáramlási audit).
 // A backend 2026-08-11-én alak-független PII-szűrést kapott, a WEB NEM — és a
@@ -37,7 +41,8 @@ export function piiSzures<T>(ertek: T): T {
 
 // Útvonal-szegmens, ami után titok áll (publikus tracking-token)
 // ⚠️ SZIMMETRIKUS a backend listájával (2026-08-11, közös korpusz).
-const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/|\/vat\/|\/private-files\/)[^/?#]+/gi;
+// A CIB egyszer használatos átirányító linkje (/payments/cib/tovabb/<token>) is.
+const SENSITIVE_PATH_RE = /(\/tracking\/|\/nyomon-kovetes\/|\/vat\/|\/private-files\/|\/payments\/cib\/tovabb\/)[^/?#]+/gi;
 
 /** Query string / teljes URL token-paramétereinek kitakarása. */
 export function scrubUrlLike<T>(value: T): T {

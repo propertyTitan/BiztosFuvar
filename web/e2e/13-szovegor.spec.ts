@@ -31,6 +31,10 @@ const MARKETING_PAGES = [
   '/autoszallitas',
   '/hozasd-el',
   '/fuvar/budapest-szeged',
+  // A CIB vásárlói tájékoztatója (CIB PR-3) — publikus, a leendő feladó
+  // olvassa; a banki sablon „biztonságos fizetés"-szerű fordulatai itt sem
+  // csúszhatnak vissza.
+  '/bankkartyas-fizetes',
 ];
 
 type Rule = { pattern: RegExp; miert: string };

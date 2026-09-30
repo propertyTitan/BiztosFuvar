@@ -3,7 +3,8 @@
 // Admin panel v2 — teljes értékű üzemeltetési felület, fülekre szedve.
 //
 // Fülek (hash-alapú, így az értesítések #kyc linkje továbbra is él):
-//   #attekintes    — élő jelenlét, statisztikák, fizetési napló
+//   #attekintes    — élő jelenlét, statisztikák, fizetési napló,
+//                    kártyás fizetések (CIB: kereső, banki napló, rendezés)
 //   #kyc           — KYC kézi jóváhagyás (kép-előnézettel)
 //   #felhasznalok  — aktivitás + szerep/KYC szerkesztés, teljes részletnézet,
 //                    közvetlen üzenet, kiléptetés, törlés
@@ -23,6 +24,7 @@ import { getSocket } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
+import CibFizetesekAdmin from '@/components/admin/CibFizetesekAdmin';
 import { Loading, ListSkeleton, EmptyState } from '@/components/StateView';
 import {
   LayoutDashboard, IdCard, Users as UsersIcon, Package, Route as RouteIcon,
@@ -579,6 +581,11 @@ export default function AdminPanel() {
               </div>
             ))}
           </div>
+
+          {/* Kártyás fizetések (CIB PR-3): kereső, banki üzenetnapló,
+              újraellenőrzés, kétes lezárás rendezése — saját komponensben,
+              saját (lusta) adatbetöltéssel. */}
+          <CibFizetesekAdmin />
         </>
       )}
 

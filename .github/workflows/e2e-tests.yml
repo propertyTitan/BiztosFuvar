@@ -18,7 +18,10 @@ jobs:
   e2e:
     name: E2E tesztek
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 30 perc (2026-09-30): a CIB PR-3 két új oldala (eredményoldal, bankkártyás
+    # tájékoztató) bekerült az oldal-leltárba, így a mérések (a11y, halott link,
+    # mobil) 279 tesztre nőttek — a 20 perces keret a 270. tesztnél lejárt.
+    timeout-minutes: 30
     env:
       NEXT_PUBLIC_GOOGLE_MAPS_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_KEY }}
     steps:

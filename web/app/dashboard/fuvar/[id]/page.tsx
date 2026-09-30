@@ -15,7 +15,7 @@ import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, CheckCircle2 } fr
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import TesztFizetesSav from '@/components/TesztFizetesSav';
 import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
-import FeeConsentLabel from '@/components/FeeConsentLabel';
+import DijFizetesKartya from '@/components/DijFizetesKartya';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
@@ -74,10 +74,6 @@ export default function FuvarReszletek() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [counterTarget, setCounterTarget] = useState<Bid | null>(null);
-  const [paying, setPaying] = useState(false);
-  // 45/2014. 29.§ (1) a) nyilatkozat — a fizetés indításának feltétele,
-  // a backend a redirect ELŐTT rögzíti (fee_consent_at).
-  const [feeConsent, setFeeConsent] = useState(false);
   const [acceptingBidId, setAcceptingBidId] = useState<string | null>(null);
   // Élőben (Socket.IO) érkezett ajánlatok id-i: belépő animáció + „ÚJ"
   // jelvény, ami ~10 mp után magától elhalványul. A timereket unmountkor
@@ -85,32 +81,9 @@ export default function FuvarReszletek() {
   const [freshBids, setFreshBids] = useState<Record<string, boolean>>({});
   const freshTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  async function startPayment() {
-    if (!feeConsent) {
-      toast.error('Beleegyezés szükséges', 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.');
-      return;
-    }
-    setPaying(true);
-    try {
-      const r = await api.payJob(id, feeConsent);
-      if (r.paid_via_voucher) {
-        // Ajánlói jutalom fedezte a díjat — nincs bankkártyás fizetés.
-        toast.success('Ingyenes kapcsolatfelvétel! 🎉', 'Az ajánlói jutalmadat felhasználtuk — a kapcsolatfelvételi díj elmaradt, a kapcsolat megnyílt.');
-        // (D3, 2026-09-13) A `router.refresh()` a szerver-komponenseket
-        // frissíti, a kliens useState-et NEM — a fizetés-kártya és a
-        // consent-pipa F5-ig maradt, a kontakt-kártya nem jelent meg.
-        await loadAll();
-      } else if (r.is_stub) {
-        router.push(`/fizetes-stub?job=${id}`);
-      } else if (r.gateway_url) {
-        window.location.href = r.gateway_url;
-      }
-    } catch (e: any) {
-      toast.error('Fizetés indítása sikertelen', e.message);
-    } finally {
-      setPaying(false);
-    }
-  }
+  // A díjfizetés (consent, kupon, stub, CIB-átirányítás, hibakódok) a közös
+  // DijFizetesKartya komponensben él (CIB PR-3) — az eredményoldal is azt
+  // használja újrapróbához, így a két felület nem csúszhat szét.
 
   // Dialógus-állapotok (window.confirm/prompt kiváltva)
   const [showCancelDialog, setShowCancelDialog] = useState(false);
@@ -523,41 +496,20 @@ export default function FuvarReszletek() {
                   <BadgeCheck size={14} style={{ verticalAlign: -2 }} /> DÍJ FIZETVE
                 </div>
               ) : job.status === 'accepted' ? (
-                <>
-                  {/* A consent-label KÖZÖS komponens (2026-08-18): a tesztelőnél
-                      a szöveg betűnként, függőlegesen tört — a javítás és a
-                      magyarázat a FeeConsentLabel-ben. */}
-                  <FeeConsentLabel
-                    checked={feeConsent}
-                    onChange={setFeeConsent}
-                    zaroMondat={
-                      <>
-                        ha a fuvar a szállító hibájából hiúsul meg, díjmentesen
-                        választhatok másik szállítót ugyanerre a fuvarra.
-                      </>
-                    }
-                  />
-                  <button
-                    type="button"
-                    onClick={startPayment}
-                    disabled={paying || !feeConsent}
-                    className="btn"
-                    style={{
-                      marginTop: 12,
-                      background: feeConsent ? 'var(--success-strong)' : 'var(--muted)',
-                      border: 'none',
-                      cursor: paying ? 'wait' : feeConsent ? 'pointer' : 'not-allowed',
-                      opacity: paying || !feeConsent ? 0.7 : 1,
-                    }}
-                  >
-                    {paying ? 'Fizetés indítása…' : `Díj fizetése (${(job.connection_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}
-                  </button>
-                  <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>
-                    A díj ellenében azonnal megkapod a szállító telefonszámát, és
-                    elindul a fuvar-folyamat (SMS a címzettnek, átvételi kód,
-                    fotó-bizonyíték). A fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek.
-                  </p>
-                </>
+                // A consent-label (FeeConsentLabel, 2026-08-18: a tesztelőnél
+                // a szöveg betűnként tört) és a teljes fizetés-indítás a közös
+                // kártyában. CIB-módban a banki kötelező blokk is itt jelenik meg.
+                <DijFizetesKartya
+                  jobId={id}
+                  feeHuf={job.connection_fee_huf}
+                  onFrissites={loadAll}
+                  zaroMondat={
+                    <>
+                      ha a fuvar a szállító hibájából hiúsul meg, díjmentesen
+                      választhatok másik szállítót ugyanerre a fuvarra.
+                    </>
+                  }
+                />
               ) : null}
 
               {/* KONTAKT — ezt vetted meg a díjjal */}

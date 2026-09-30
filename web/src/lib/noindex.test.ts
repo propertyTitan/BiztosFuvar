@@ -14,8 +14,16 @@ const PRIVAT = [
   'app/admin/layout.tsx', 'app/fuvarjaim/layout.tsx', 'app/profil/layout.tsx', 'app/ai-chat/layout.tsx',
   'app/ertesitesek/layout.tsx', 'app/fizetes-stub/layout.tsx', 'app/uzenetek/layout.tsx',
   'app/nyomon-kovetes/[token]/layout.tsx',
+  // CIB PR-3: a banki visszatérés eredményoldala (aláírt, 24 órás tokennel) —
+  // egyedi, személyes állapot, indexelni értelmetlen és kerülendő.
+  'app/fizetes/layout.tsx',
 ];
-const PUBLIKUS = ['app/aszf/layout.tsx', 'app/adatkezeles/layout.tsx', 'app/hozasd-el/layout.tsx', 'app/bejelentkezes/layout.tsx'];
+const PUBLIKUS = [
+  'app/aszf/layout.tsx', 'app/adatkezeles/layout.tsx', 'app/hozasd-el/layout.tsx', 'app/bejelentkezes/layout.tsx',
+  // A CIB vásárlói tájékoztatója publikus kötelező tartalom — a bank és a
+  // vásárló is keresheti.
+  'app/bankkartyas-fizetes/layout.tsx',
+];
 
 describe('noindex a privát felületeken', () => {
   it('minden privát szegmens layoutja robots index:false', () => {

@@ -17,44 +17,94 @@
 //  hogy egy VALÓDI FELHASZNÁLÓ is azonnal látja, ha a teszt-üzem élesben
 //  maradt. A boot-log és a Sentry-riasztás csak akkor ér valamit, ha valaki
 //  nézi; ezt a sávot nem lehet nem észrevenni.
+//
+//  KÉT FAJTA (CIB PR-3, 2026-09-29) — a `GET /auth/me` `payment_test_kind`
+//  mezője dönt:
+//   - 'stub'      → a mai SÁRGA sáv (szimulált fizetés, nincs bank);
+//   - 'cib_teszt' → KÉK sáv: a CIB banki TESZTKÖRNYEZETE fut (valódi banki
+//                    oldal, de valódi terhelés nincs, csak a bank tesztkártyái
+//                    működnek) — a kijelölt tesztfiókoknak;
+//   - null        → éles üzem, nincs sáv.
+//  Régi backendnél (csak `payment_test_mode` boolean) a mai sárga sáv marad.
 // =====================================================================
 import { useEffect, useState } from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, FlaskConical } from 'lucide-react';
 import { api } from '@/api';
+import { CIB_TESZT_SAV_SZOVEG } from '@/lib/cibFeliratok';
+
+export type TesztFizetesFajta = 'stub' | 'cib_teszt' | null;
 
 /** Modul-szintű gyorsítótár: oldalanként egyszer kérdezzük le. */
-let gyorsitotar: boolean | null = null;
-let folyamatban: Promise<boolean> | null = null;
+let gyorsitotar: TesztFizetesFajta | undefined;
+let folyamatban: Promise<TesztFizetesFajta> | null = null;
 
-async function tesztUzemE(): Promise<boolean> {
-  if (gyorsitotar !== null) return gyorsitotar;
+function fajtaProfilbol(m: any): TesztFizetesFajta {
+  const k = m?.payment_test_kind;
+  if (k === 'stub' || k === 'cib_teszt') return k;
+  if (k === null) return null;
+  // Régi backend: csak a boolean jön — az a stub-üzem volt.
+  return m?.payment_test_mode ? 'stub' : null;
+}
+
+async function tesztFajta(): Promise<TesztFizetesFajta> {
+  if (gyorsitotar !== undefined) return gyorsitotar;
   if (!folyamatban) {
     folyamatban = api.getMyProfile()
       .then((m: any) => {
-        gyorsitotar = Boolean(m?.payment_test_mode);
+        gyorsitotar = fajtaProfilbol(m);
         return gyorsitotar;
       })
       // Hiba esetén NEM mutatunk sávot: a figyelmeztetés hiánya kevésbé
       // zavaró, mint egy téves riasztás minden hálózati hibánál.
-      .catch(() => false);
+      .catch(() => {
+        folyamatban = null;
+        return null;
+      });
   }
   return folyamatban;
 }
 
 export default function TesztFizetesSav() {
-  const [mutat, setMutat] = useState(false);
+  const [fajta, setFajta] = useState<TesztFizetesFajta>(null);
 
   useEffect(() => {
     let el = true;
-    tesztUzemE().then((v) => { if (el) setMutat(v); });
+    tesztFajta().then((v) => { if (el) setFajta(v); });
     return () => { el = false; };
   }, []);
 
-  if (!mutat) return null;
+  if (!fajta) return null;
+
+  if (fajta === 'cib_teszt') {
+    return (
+      <div
+        role="status"
+        data-testid="teszt-fizetes-sav"
+        data-fajta="cib_teszt"
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 10,
+          padding: '12px 14px',
+          margin: '12px 0',
+          borderRadius: 8,
+          background: 'rgba(37,99,235,0.12)',
+          border: '2px solid rgba(37,99,235,0.55)',
+          color: 'var(--text)',
+          fontSize: 14,
+        }}
+      >
+        <FlaskConical size={18} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
+        <div><strong>{CIB_TESZT_SAV_SZOVEG}</strong></div>
+      </div>
+    );
+  }
 
   return (
     <div
       role="status"
+      data-testid="teszt-fizetes-sav"
+      data-fajta="stub"
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -67,7 +117,7 @@ export default function TesztFizetesSav() {
         fontSize: 14,
       }}
     >
-      <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} />
+      <AlertTriangle size={18} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
       <div>
         <strong>TESZT FIZETÉSI MÓD</strong>
         <div style={{ marginTop: 2 }}>

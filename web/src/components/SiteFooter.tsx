@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { Truck } from 'lucide-react';
 import { landingLinks } from '@/lib/landings';
+import { KERESKEDO } from '@/lib/kereskedo';
+import { CibSzolgaltato, ElfogadottKartyak } from '@/components/CibLogok';
 
 export default function SiteFooter() {
   const links = landingLinks();
@@ -42,6 +44,18 @@ export default function SiteFooter() {
       <div style={{ marginTop: 10, fontSize: 13, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
         <Link href="/aszf" style={{ color: 'inherit', textDecoration: 'underline' }}>ÁSZF</Link>
         <Link href="/adatkezeles" style={{ color: 'inherit', textDecoration: 'underline' }}>Adatkezelési tájékoztató</Link>
+        {/* A CIB vásárlói tájékoztatója (banki teszt: „Bankkártyás fizetés" link). */}
+        <Link href="/bankkartyas-fizetes" style={{ color: 'inherit', textDecoration: 'underline' }}>Bankkártyás fizetés</Link>
+        {/* A banki javaslat: a kereskedő elérhetősége lehetőleg „Kapcsolat"
+            linken érhető el — a cél a lent álló cím-blokk (minden oldalon). */}
+        <a href="#kapcsolat" style={{ color: 'inherit', textDecoration: 'underline' }}>Kapcsolat</a>
+      </div>
+      {/* CIB PR-3 — a banki átvételi teszt kötelező elemei a főoldalon is:
+          CIB-logó a „Kártyás fizetés szolgáltatója:" felirattal (a
+          tájékoztatóra linkelve) és az „Elfogadott kártyák" logósor. */}
+      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
+        <CibSzolgaltato igazitas="kozep" />
+        <ElfogadottKartyak igazitas="kozep" />
       </div>
       {/* Support-csatorna (2026-09-11, C2): eddig SEHOL nem volt látható elérhetőség a felületen */}
       <div style={{ marginTop: 10, fontSize: 13, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -49,8 +63,23 @@ export default function SiteFooter() {
         <a href="mailto:panasz@gofuvar.hu" style={{ color: 'inherit', textDecoration: 'underline' }}>Panasz: panasz@gofuvar.hu</a>
         <Link href="/ai-chat" style={{ color: 'inherit', textDecoration: 'underline' }}>AI-asszisztens</Link>
       </div>
+      {/* A kereskedő elérhetősége (banki teszt: adószám, székhely, telefon,
+          e-mail kötelező; az ÁSZF-link fent). */}
+      <address
+        id="kapcsolat"
+        style={{
+          scrollMarginTop: 80,
+          marginTop: 10, fontSize: 12, fontStyle: 'normal', lineHeight: 1.6,
+          maxWidth: 760, marginLeft: 'auto', marginRight: 'auto',
+        }}
+      >
+        {KERESKEDO.teljesNev} ({KERESKEDO.rovidNev}) · Székhely: {KERESKEDO.szekhely}, {KERESKEDO.orszag}
+        {' · '}Cégjegyzékszám: {KERESKEDO.cegjegyzekszam} · Adószám: {KERESKEDO.adoszam}
+        {' · '}Telefon: <a href={KERESKEDO.telefonHref} style={{ color: 'inherit' }}>{KERESKEDO.telefon}</a>
+        {' · '}E-mail: <a href={`mailto:${KERESKEDO.email}`} style={{ color: 'inherit' }}>{KERESKEDO.email}</a>
+      </address>
       <div style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-        © {new Date().getFullYear()} GoFuvar · Tiszta Hód Kft. · Minden jog fenntartva.
+        © {new Date().getFullYear()} GoFuvar · {KERESKEDO.rovidNev} · Minden jog fenntartva.
       </div>
     </footer>
   );
