@@ -18,4 +18,16 @@ const CIB_FELIRATOK = Object.freeze({
 // A kötelező adatsor sorrendje (a bank a fenti sorrendben sorolja fel).
 const CIB_ADATSOR_SORREND = Object.freeze(['trid', 'rc', 'rt', 'amo', 'anum']);
 
-module.exports = { CIB_FELIRATOK, CIB_ADATSOR_SORREND };
+// A CIB felé történő adattovábbítási nyilatkozat (2026-10-01, a bank írásos
+// válasza: a hozzájárulás akkor is kötelező, ha vásárlói adatot nem
+// küldünk). A fizetési kártyán egy külön, előre ki nem pipált jelölőnégyzet
+// szövege; az „Adatkezelési tájékoztató" a weben link a tájékoztató CIB-
+// szakaszára. A webes tükör (`web/src/lib/cibFeliratok.ts`,
+// CIB_ADATKEZELESI_NYILATKOZAT) SZÓ SZERINT ugyanez — a szinkronőr
+// (cib-web-szinkron) veti össze. Átírni csak a bankkal egyeztetve szabad.
+const CIB_ADATKEZELESI_NYILATKOZAT = 'Kijelentem, hogy az adatkezeléshez kapcsolódó tájékoztatást megértettem és '
+  + 'tudomásul vettem. Ezennel önkéntesen és megfelelő tájékoztatás birtokában hozzájárulok ahhoz, hogy a '
+  + 'Tiszta Hód Kft. az önkéntesen megadott személyes adataimat az Adatkezelési tájékoztatóban meghatározott '
+  + 'célból továbbítsa a CIB Bank Zrt. részére.';
+
+module.exports = { CIB_FELIRATOK, CIB_ADATSOR_SORREND, CIB_ADATKEZELESI_NYILATKOZAT };

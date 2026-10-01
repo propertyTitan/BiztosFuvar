@@ -18,7 +18,7 @@ export default function AdatkezelesPage() {
     >
       <h1 style={{ marginBottom: 4 }}>Adatkezelési Tájékoztató (GDPR)</h1>
       <p className="muted" style={{ margin: 0 }}>
-        <strong>Hatályos:</strong> 2026. szeptember 27-től
+        <strong>Hatályos:</strong> 2026. október 1-től
       </p>
 
       <h2 style={{ marginTop: 32 }}>1. Az Adatkezelő</h2>
@@ -157,6 +157,14 @@ export default function AdatkezelesPage() {
         kezelése a fuvarozási szerződés hatékony teljesítéséhez és a biztonságos kódátadáshoz,
         a Feladó tájékoztatása a sikeres kézbesítésről) [GDPR 6. cikk (1) f)].
       </p>
+      {/* 2026-10-01 (a CIB PR-4 1. javítóköre): a 4/A. szakasz a CIB Bank által
+          előírt hozzájárulásra (is) épít — a jogalapok felsorolása eddig ezt
+          nem tartalmazta (jogi koherencia). */}
+      <p>
+        <strong>Hozzájárulás</strong> — a kapcsolatfelvételi díj bankkártyás megfizetésénél a
+        CIB Bank Zrt. felé történő adattovábbításhoz, a fizetéskor adott nyilatkozattal
+        [GDPR 6. cikk (1) a)]; részletek: <a href="#cib-kartyas-fizetes">4/A. pont</a>.
+      </p>
       <p>
         A KYC dokumentumokon szereplő fénykép és személyes azonosító adatok a 9. cikk szerinti
         különleges adatkategóriába <strong>nem</strong> tartoznak; ugyanakkor az Adatkezelő ezen
@@ -175,8 +183,8 @@ export default function AdatkezelesPage() {
         <strong>4.1. Adatfeldolgozók (EU területén belül):</strong>
       </p>
       <ul>
-        <li><strong>CIB Bank Zrt.</strong> (1027 Budapest) — bankkártyás fizetés elfogadása
-          (kapcsolatfelvételi díj)</li>
+        <li><strong>CIB Bank Zrt.</strong> (1024 Budapest, Petrezselyem u. 2–8.) — bankkártyás
+          fizetés elfogadása (kapcsolatfelvételi díj; részletek: 4/A. pont)</li>
         <li><strong>KBOSS.hu Kft. (Számlázz.hu)</strong> (1031 Budapest) — számlázás: a számla
           kiállítása és kiküldése (név, számlázási cím, adószám, e-mail cím)</li>
         <li><strong>Európai Bizottság (VIES adószám-ellenőrző)</strong> (EU) — uniós céges
@@ -217,6 +225,59 @@ export default function AdatkezelesPage() {
         EU-US Data Privacy Framework biztosítják. A szolgáltatók az Adatkezelő nevében járnak el,
         adatfeldolgozói szerződéssel.
       </p>
+
+      {/* ── A CIB kártyás fizetés tájékoztatója (2026-10-01) ──
+          A CIB írásos válasza szerint a kártyás fizetéshez az adattovábbítási
+          hozzájárulás akkor is kötelező, ha vásárlói adatot nem küldünk. A
+          fizetési kártya nyilatkozata IDE linkel (#cib-kartyas-fizetes — a
+          horgonyt a web cibFeliratok.ts CIB_ADATKEZELESI_LINK-je és egy őr
+          tartja egyben). A napló megőrzési ideje a retention.js
+          CIB_MESSAGE_RETENTION_MONTHS konstansához horgonyzott (a horgony-őr
+          a megjelenő szöveget nézi — ide számot ne írj). */}
+      {/* A scrollMarginTop a sticky fejléc miatt kell: a #cib-kartyas-fizetes
+          horgonyra ugráskor a cím különben a fejléc alá bukna (a fizetési
+          kártya is így csinálja). */}
+      <h2 id="cib-kartyas-fizetes" style={{ marginTop: 32, scrollMarginTop: 80 }}>
+        4/A. Bankkártyás fizetés (CIB Bank Zrt.)
+      </h2>
+      <ul>
+        <li>
+          Adatkezelő: Tiszta Hód Kft. (6800 Hódmezővásárhely, Szántó Kovács János utca 144.;
+          telefon: +36 20 397 9223; fax: nincs; e-mail: info@gofuvar.hu). Adatvédelmi
+          tisztviselő: nincs kijelölve.
+        </li>
+        <li>
+          A kapcsolatfelvételi díj bankkártyás fizetését a CIB Bank Zrt. (1024 Budapest,
+          Petrezselyem u. 2–8.) bonyolítja. A kártyaadatokat (kártyaszám, lejárati dátum,
+          ellenőrző kód) Ön közvetlenül a CIB Bank fizetőoldalán adja meg; ezeket a GoFuvar nem
+          látja és nem tárolja. A kártyaadatok kezelésére a CIB Bank Zrt. saját adatkezelési
+          tájékoztatója vonatkozik.
+        </li>
+        <li>
+          A CIB Bank részére továbbított adatok: a tranzakció azonosítója, a fizetendő összeg és
+          pénznem, valamint egy álnevesített vásárló-azonosító, amelyből az Ön személye nem
+          állapítható meg. A nevét, számlázási címét, e-mail-címét és telefonszámát nem
+          továbbítjuk a banknak.
+        </li>
+        <li>
+          Az adatkezelés célja a kapcsolatfelvételi díj bankkártyás megfizetése. Jogalapja a
+          szolgáltatási szerződés teljesítése (GDPR 6. cikk (1) bekezdés b) pont), valamint a
+          fizetéskor adott, a CIB Bank által előírt hozzájárulása (GDPR 6. cikk (1) bekezdés a)
+          pont). Hozzájárulását bármikor visszavonhatja; ez nem érinti a visszavonás előtti
+          adatkezelés jogszerűségét. A bankkártyás fizetés a nyilatkozat elfogadásával
+          indítható.
+        </li>
+        <li>
+          A fizetés eredményéről a banktól kapott adatokat (tranzakció-azonosító, eredménykód és
+          annak szöveges leírása, összeg, engedélyszám) a díjbizonylattal együtt a számviteli
+          előírások szerint 8 évig őrizzük. A bankkal váltott titkosított technikai üzenetek
+          naplóját 13 hónapig őrizzük, a banki reklamációk kivizsgálásához.
+        </li>
+        <li>
+          Jogairól és a jogorvoslati lehetőségekről (NAIH) a jelen tájékoztató{' '}
+          <a href="#erintettek-jogai">vonatkozó pontjai</a> rendelkeznek.
+        </li>
+      </ul>
 
       <h2 style={{ marginTop: 32 }}>5. Adatbiztonság és Konkrét Megőrzési Idők</h2>
       <ul>
@@ -503,7 +564,8 @@ export default function AdatkezelesPage() {
         értesítjük, hogy a küldemény kézbesítését más módon kell egyeztetnie.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>8. Az Érintettek Jogai és Eljárási Rend</h2>
+      {/* Horgony (2026-10-01): a 4/A. szakasz NAIH-mondata ide linkel. */}
+      <h2 id="erintettek-jogai" style={{ marginTop: 32, scrollMarginTop: 80 }}>8. Az Érintettek Jogai és Eljárási Rend</h2>
       <p>
         A GDPR 13—22. cikkei alapján a Felhasználót megilletik a következő jogok
         (a Címzettre vonatkozó eltéréseket lásd a 7/A. pontban):

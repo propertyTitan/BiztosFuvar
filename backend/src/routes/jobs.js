@@ -955,17 +955,31 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
     return res.status(409).json({ error: 'A kapcsolatfelvételi díj már ki van fizetve ehhez a fuvarhoz.' });
   }
 
+  // A fizetési út (CIB / stub / hibás) már itt kell: a CIB-úton egy második
+  // nyilatkozat is kötelező, és azt MINDEN DB-írás (fee_consent_at, kupon)
+  // ELŐTT ellenőrizzük (2026-10-01). A döntés tiszta konfig + felhasználó —
+  // írás és banki hívás nincs benne.
+  const ut = paymentProvider.fizetesiUt(req.user.sub);
+
   // FOGYASZTÓVÉDELMI KAPU a fizetés INDÍTÁSAKOR: a feladó kifejezetten kéri
   // az azonnali teljesítést és tudomásul veszi az elállási jog elvesztését
   // (45/2014. 29. § (1) a)). Élesben a tényleges fizetés a Barion oldalán
   // történik, ezért a nyilatkozatot MÉG A REDIRECT ELŐTT rögzítjük.
+  if (!j.fee_consent_at && req.body?.consent !== true) {
+    return res.status(400).json({
+      error: 'A fizetéshez kérned kell az azonnali teljesítést és tudomásul venned, hogy a kapcsolatfelvételi adatok átadása után elállási jogod elvész.',
+      code: 'CONSENT_REQUIRED',
+    });
+  }
+  // ADATTOVÁBBÍTÁSI NYILATKOZAT a CIB felé (2026-10-01, a bank írásos
+  // válasza: a hozzájárulás akkor is kötelező, ha vásárlói adatot — név,
+  // cím, e-mail — nem küldünk). Szigorúan `true`: a "true" szöveg, az 1 vagy
+  // a hiány nem hozzájárulás. A stub-út nem érintett.
+  if (ut === 'cib' && req.body?.cib_adatkezelesi_hozzajarulas !== true) {
+    const k = cibFizetes.hibaValasz('CIB_CONSENT_REQUIRED');
+    return res.status(k.http).json(k.body);
+  }
   if (!j.fee_consent_at) {
-    if (req.body?.consent !== true) {
-      return res.status(400).json({
-        error: 'A fizetéshez kérned kell az azonnali teljesítést és tudomásul venned, hogy a kapcsolatfelvételi adatok átadása után elállási jogod elvész.',
-        code: 'CONSENT_REQUIRED',
-      });
-    }
     await db.query(
       `UPDATE jobs SET fee_consent_at = NOW() WHERE id = $1 AND fee_consent_at IS NULL`,
       [j.id],
@@ -1022,10 +1036,15 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   // ÚTVÁLASZTÁS FELHASZNÁLÓNKÉNT (2026-09-29, CIB PR-2/B): teljes CIB EKI-
   // konfignál a kártyás, kétfázisú indítás (MSGT10 zár NÉLKÜL, egyszer
   // használatos átirányító link); hibás konfignál 503, és a stub SEM nyílik
-  // vissza; CIB-env nélkül (ma) bitre a régi stub-út.
-  const ut = paymentProvider.fizetesiUt(req.user.sub);
+  // vissza; CIB-env nélkül (ma) bitre a régi stub-út. (Az `ut` a fenti
+  // nyilatkozat-kapunál dőlt el.)
   if (ut === 'cib') {
-    const r = await cibFizetes.inditCibDijFizetes({ entityType: 'job', entityId: j.id, shipperId: req.user.sub });
+    const r = await cibFizetes.inditCibDijFizetes({
+      entityType: 'job',
+      entityId: j.id,
+      shipperId: req.user.sub,
+      adatkezelesiHozzajarulas: req.body.cib_adatkezelesi_hozzajarulas,
+    });
     return res.status(r.http).json(r.body);
   }
   if (ut === 'hibas') {

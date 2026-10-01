@@ -80,33 +80,13 @@ const HORGONYOK = {
   KYC_PENDING_MAX_DAYS: [60, 'a függőben maradt KYC-okmány fotója', '60 nap', 'okmány'],
   DORMANT_WARN_YEARS: [3, 'alvó fiók: figyelmeztetés tétlenség után', '3 év', 'Alvó fiókok'],
   DORMANT_DELETE_DAYS: [30, 'alvó fiók: törlés a figyelmeztetés után', '30 nap', 'Alvó fiókok'],
+  // 2026-10-01: a CIB banki üzenetnapló 13 hónapja. A 2026-09-29-i átmeneti,
+  // önmagát megszüntető kivétel (a tájékoztató még nem közölte) ezzel
+  // megszűnt: a tájékoztató CIB-szakasza (id="cib-kartyas-fizetes") közli,
+  // így a szám a publikált ígérethez kötött. A kifejezés a bekezdésre egyedi
+  // („technikai üzenetek"), a 8 éves díjbizonylat-mondat nem elégíti ki.
+  CIB_MESSAGE_RETENTION_MONTHS: [13, 'a CIB-bankkal váltott titkosított üzenetek naplója', '13 hónap', 'technikai üzenetek'],
 };
-
-// ⏳ ÁTMENETI, ÖNMAGÁT MEGSZÜNTETŐ KIVÉTEL (2026-09-29, CIB PR-2/A): a CIB
-// banki üzenetnapló 13 hónapos megőrzését a tájékoztató CIB-szakasza közli
-// majd — az a jogi szöveg-kiegészítés user-jóváhagyáshoz kötött (a terv 4.
-// fázisa), és a naplóba addig élesben egyetlen sor sem kerül (a CIB-út
-// konfiguráció nélkül el sem indul). Addig a SZÁM itt, literálisan rögzített
-// (lent külön mérve); amint a tájékoztató közli, a lenti teszt elbukik, és a
-// konstans a HORGONYOK közé kerül.
-const ATMENETI_HORGONY_NELKUL = {
-  CIB_MESSAGE_RETENTION_MONTHS: 'a CIB-napló 13 hónapja — a tájékoztató CIB-szakasza a jóváhagyás után',
-};
-
-describe('Megőrzési idők — átmeneti (még nem publikált) konstansok', () => {
-  it('a CIB-napló megőrzése 13 hónap, és amint a tájékoztató közli, horgonnyá kell tenni', () => {
-    expect(R.CIB_MESSAGE_RETENTION_MONTHS, 'a CIB-napló megőrzése elcsúszott a tervezett 13 hónaptól').toBe(13);
-    const bekezdesek = TAJEKOZTATO
-      .split(/<\/li>|<\/p>/i)
-      .map((b2) => b2.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '));
-    const kozolve = bekezdesek.some((b2) => b2.includes('13 hónap') && /CIB/.test(b2));
-    expect(
-      kozolve,
-      'A tájékoztató MÁR közli a CIB-napló 13 hónapját — vedd át a CIB_MESSAGE_RETENTION_MONTHS-t '
-      + 'a HORGONYOK táblába (érték + a bekezdés kifejezése), és töröld az átmeneti kivételt.',
-    ).toBe(false);
-  });
-});
 
 describe('Megőrzési idők — a szám a publikált ígérethez van kötve', () => {
   it('egyetlen megőrzési idő sem csúszhat el némán', () => {
@@ -180,7 +160,6 @@ describe('Megőrzési idők — a szám a publikált ígérethez van kötve', ()
 
     const KIVETELEK = {
       // ide kerülhet olyan konstans, ami NEM megőrzési idő (pl. limit)
-      ...ATMENETI_HORGONY_NELKUL,
     };
 
     const talalt = [];

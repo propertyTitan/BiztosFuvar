@@ -76,7 +76,9 @@ describe('fizetési kártya: CibFizetesInfo', () => {
     expect(screen.getByAltText('CIB Bank').closest('a')).toHaveAttribute('href', '/bankkartyas-fizetes');
     expect(screen.getByText('Elfogadott kártyák')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Bankkártyás fizetés' })).toHaveAttribute('href', '/bankkartyas-fizetes');
-    expect(screen.getByRole('link', { name: 'Adatkezelési tájékoztató' })).toHaveAttribute('href', '/adatkezeles');
+    // A fizetési kártyán a nyilatkozat azonos nevű linkjével azonos célra
+    // mutat: a tájékoztató CIB-szakaszára (2026-10-01, WCAG 2.4.4).
+    expect(screen.getByRole('link', { name: 'Adatkezelési tájékoztató' })).toHaveAttribute('href', '/adatkezeles#cib-kartyas-fizetes');
     expect(screen.getByText('A Kereskedő/Tiszta Hód Kft. székhelyének országa és országkódja: Magyarország (HU)')).toBeInTheDocument();
     expect(screen.getByText('A kártyaadataidat kizárólag a CIB Bank oldalán adod meg, a GoFuvar nem látja őket.')).toBeInTheDocument();
   });

@@ -2,8 +2,11 @@
 //  CIB EKI — A LEKÉRDEZŐ KÖR (2026-09-29, CIB PR-2/B, üzemeltetés: PR-2/C)
 //
 //  Nincs banki webhook: a jóváhagyott tranzakciót a GoFuvarnak kell a
-//  10–15 perces banki ablakon belül lezárnia (MSGT32), különben a bank
-//  reverzál. A visszatérés (a böngésző) megbízhatatlan — bezárt fül,
+//  banki lezárási határidőn belül lezárnia (MSGT32), különben a bank
+//  visszautal. 2026-10-01 (a CIB írásos válasza): a határidő 10 perc a MSGT10
+//  beérkezésétől; a helyi ablak ennél rövidebb (CIB_ZARAS_HATARIDO_MP). A
+//  bank szerint a percenkénti vagy 3 percenkénti MSGT33-lekérdezés megfelelő
+//  (nálunk TRID-enként legalább CIB_LEKERDEZES_KOZ_MS, alap 60 s). A visszatérés (a böngésző) megbízhatatlan — bezárt fül,
 //  PWA → Safari, alkalmazásváltás 3DS közben —, ezért ez a DB-alapú kör
 //  30 s-onként felveszi az esedékes kísérleteket, és ugyanazt a
 //  `feldolgoz` motort futtatja, mint a visszatérés.

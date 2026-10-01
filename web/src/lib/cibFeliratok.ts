@@ -55,10 +55,36 @@ export const BANKKARTYAS_FIZETES_LINK = 'Bankkártyás fizetés';
 /** Az adatkezelési tájékoztató linkjének kötelező szövege. */
 export const ADATKEZELESI_LINK = 'Adatkezelési tájékoztató';
 
+/**
+ * A CIB felé történő adattovábbítási nyilatkozat (2026-10-01, a bank írásos
+ * válasza: a hozzájárulás akkor is KÖTELEZŐ, ha vásárlói adatot nem
+ * küldünk). A fizetési kártyán egy KÜLÖN, előre ki nem pipált jelölőnégyzet
+ * szövege — a 45/2014-es nyilatkozat mellett, nem helyette; a fizetés gombja
+ * csak mindkettővel nyomható. SZÓ SZERINT a bank által kért mondat: ne
+ * fogalmazd át. Az „Adatkezelési tájékoztató" rész link a tájékoztató CIB-
+ * szakaszára (CIB_ADATKEZELESI_LINK). A backend-tükör
+ * (backend/src/data/cibFeliratok.js) ugyanez — a cib-web-szinkron őr veti
+ * össze.
+ */
+export const CIB_ADATKEZELESI_NYILATKOZAT =
+  'Kijelentem, hogy az adatkezeléshez kapcsolódó tájékoztatást megértettem és tudomásul vettem. '
+  + 'Ezennel önkéntesen és megfelelő tájékoztatás birtokában hozzájárulok ahhoz, hogy a Tiszta Hód Kft. '
+  + 'az önkéntesen megadott személyes adataimat az Adatkezelési tájékoztatóban meghatározott célból '
+  + 'továbbítsa a CIB Bank Zrt. részére.';
+
+/** A nyilatkozatban linkelt rész és a célja (a tájékoztató CIB-szakasza). */
+export const CIB_ADATKEZELESI_LINK = {
+  szoveg: 'Adatkezelési tájékoztató',
+  href: '/adatkezeles#cib-kartyas-fizetes',
+} as const;
+
 /** A bank 10 perc után reverzál; a mobilos alkalmazásváltás a leggyakoribb
- *  megszakító — ezt előre elmondjuk (failure mode 10). */
+ *  megszakító — ezt előre elmondjuk (failure mode 10). 2026-10-01 (a PR-4 1.
+ *  javítóköre): a helyi lezárási ablak a MSGT10-től 9 perc 30 mp
+ *  (CIB_ZARAS_HATARIDO_MP), és a lezárás (egy lekérdezés + a MSGT32) is ebbe
+ *  esik — a „kb. 10 perc" túlígéret volt. */
 export const CIB_IDO_TIPP =
-  'A bank oldalán kb. 10 perced van befejezni; ne frissítsd és ne lépj vissza. Ha a bankod alkalmazásában hagyod jóvá, utána térj vissza ebbe a böngészőbe.';
+  'A bank oldalán kb. 9 perced van befejezni; ne frissítsd és ne lépj vissza. Ha a bankod alkalmazásában hagyod jóvá, utána térj vissza ebbe a böngészőbe.';
 
 /** A CIB banki tesztkörnyezet sávjának szövege (TesztFizetesSav, 'cib_teszt'). */
 export const CIB_TESZT_SAV_SZOVEG =

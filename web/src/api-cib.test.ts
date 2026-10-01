@@ -53,6 +53,18 @@ describe('payJob — 55 másodperces keret', () => {
     global.fetch = vi.fn().mockResolvedValue(valasz(503, { error: 'x', code: 'CIB_UNAVAILABLE' }));
     await expect(api.payJob('job-1', true)).rejects.toMatchObject({ code: 'CIB_UNAVAILABLE', status: 503 });
   });
+
+  // 2026-10-01 (a CIB írásos válasza): a kártyás úton az adattovábbítási
+  // nyilatkozat is kötelező — a backend nélküle 400 CIB_CONSENT_REQUIRED-et ad.
+  it('CIB-úton a kérés a cib_adatkezelesi_hozzajarulas: true mezőt is viszi; a stub-úton nem', async () => {
+    const f = vi.fn().mockResolvedValue(valasz(200, { provider: 'cib', redirect_url: 'https://x.hu/a' }));
+    global.fetch = f;
+    await api.payJob('job-1', true, true);
+    expect(JSON.parse(f.mock.calls[0][1].body)).toEqual({ consent: true, cib_adatkezelesi_hozzajarulas: true });
+    expect(f.mock.calls[0][1].method).toBe('POST');
+    await api.payJob('job-1', true);
+    expect(JSON.parse(f.mock.calls[1][1].body)).toEqual({ consent: true });
+  });
 });
 
 describe('getFeePayment', () => {

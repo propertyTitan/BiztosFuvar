@@ -17,7 +17,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${BASE}/hozasd-el`, lastModified: hozasdUpdated, changeFrequency: 'monthly', priority: 0.8 },
     { url: `${BASE}/hozasd-el/butor`, lastModified: hozasdUpdated, changeFrequency: 'monthly', priority: 0.7 },
     { url: `${BASE}/aszf`, lastModified: now, changeFrequency: 'monthly', priority: 0.3 },
-    { url: `${BASE}/adatkezeles`, lastModified: hozasdUpdated, changeFrequency: 'monthly', priority: 0.3 },
+    // 2026-10-01: a tájékoztató új CIB-szakasza (bankkártyás fizetés).
+    { url: `${BASE}/adatkezeles`, lastModified: new Date('2026-10-01'), changeFrequency: 'monthly', priority: 0.3 },
     // A CIB vásárlói tájékoztatója (CIB PR-3) — publikus, kötelező tartalom.
     { url: `${BASE}/bankkartyas-fizetes`, lastModified: new Date('2026-09-29'), changeFrequency: 'monthly', priority: 0.3 },
   ];

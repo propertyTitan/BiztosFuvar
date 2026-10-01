@@ -83,7 +83,7 @@ async function elfogadottFuvar() {
   const job = await createJob({ shipperId: felado.id, carrierId: szallito.id, status: 'accepted' });
   return { felado, szallito, job };
 }
-const fizet = (f, job) => request(app).post(`/jobs/${job.id}/pay`).set(...auth(f)).send({ consent: true });
+const fizet = (f, job) => request(app).post(`/jobs/${job.id}/pay`).set(...auth(f)).send({ consent: true, cib_adatkezelesi_hozzajarulas: true });
 const hopToken = (v) => /\/tovabb\/([A-Za-z0-9_-]+)$/.exec(v.body.redirect_url || '')[1];
 const bankDb = (trid, msgt) => bank.szamol(trid, msgt);
 async function sor(trid) {
