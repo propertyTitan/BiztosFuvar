@@ -11,10 +11,28 @@
 // =====================================================================
 import { describe, it, expect } from 'vitest';
 
-const { CIB_FELIRATOK } = require('../src/data/cibFeliratok');
+const { CIB_FELIRATOK, CIB_ADATKEZELESI_NYILATKOZAT } = require('../src/data/cibFeliratok');
 const rcBackend = require('../src/data/cibRcCsoportok');
 
 describe('CIB: web-tükör = backend', () => {
+  // 2026-10-01 (a CIB írásos válasza): az adattovábbítási nyilatkozat a
+  // fizetési kártyán egy külön jelölőnégyzet szövege. A backend-tükör a
+  // rögzített hozzájárulás bizonyítéka (mire mondott igent a feladó) — ha a
+  // két szöveg elcsúszik, a felület mást kérdez, mint amit mi annak hiszünk.
+  it('az adattovábbítási nyilatkozat szó szerint azonos, és a banki mondat', async () => {
+    const web = await import('../../web/src/lib/cibFeliratok.ts');
+    expect(web.CIB_ADATKEZELESI_NYILATKOZAT, 'ELCSÚSZOTT AZ ADATTOVÁBBÍTÁSI NYILATKOZAT: a web mást kérdez')
+      .toBe(CIB_ADATKEZELESI_NYILATKOZAT);
+    expect(CIB_ADATKEZELESI_NYILATKOZAT).toBe(
+      'Kijelentem, hogy az adatkezeléshez kapcsolódó tájékoztatást megértettem és tudomásul vettem. '
+      + 'Ezennel önkéntesen és megfelelő tájékoztatás birtokában hozzájárulok ahhoz, hogy a Tiszta Hód Kft. '
+      + 'az önkéntesen megadott személyes adataimat az Adatkezelési tájékoztatóban meghatározott célból '
+      + 'továbbítsa a CIB Bank Zrt. részére.',
+    );
+    // A weben link a szövegben: a link szövegének a mondatban kell állnia.
+    expect(CIB_ADATKEZELESI_NYILATKOZAT).toContain(web.CIB_ADATKEZELESI_LINK.szoveg);
+  });
+
   it('az öt kötelező felirat szó szerint azonos', async () => {
     const web = await import('../../web/src/lib/cibFeliratok.ts');
     for (const kulcs of ['trid', 'rc', 'rt', 'amo', 'anum']) {

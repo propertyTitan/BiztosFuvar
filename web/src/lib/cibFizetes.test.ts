@@ -58,6 +58,7 @@ describe('fizetési hibakódok → FIX magyar szöveg (nyers hiba soha)', () => 
     ['CIB_PAYMENT_REVIEW', 409], ['PAYMENT_STARTING', 409], ['FEE_PAYMENT_FINALIZING', 409],
     ['PAYMENT_RETRY_LIMIT', 429], ['CIB_INIT_FAILED', 502], ['PAYMENT_START_FAILED', 502],
     ['CIB_BUSY', 503], ['CIB_UNAVAILABLE', 503], ['PAYMENT_TEMPORARILY_UNAVAILABLE', 503],
+    ['CIB_CONSENT_REQUIRED', 400],
   ];
 
   it.each(kodok)('%s (%i): saját szöveg, a szerver üzenete nem jut át', (code, status) => {
@@ -70,6 +71,13 @@ describe('fizetési hibakódok → FIX magyar szöveg (nyers hiba soha)', () => 
   it('minden kódnak KÜLÖN szövege van (nem egy közös általános)', () => {
     const szovegek = new Set(kodok.map(([code, status]) => fizetesHibaUzenet({ code, status }).szoveg));
     expect(szovegek.size).toBe(kodok.length);
+  });
+
+  it('CIB_CONSENT_REQUIRED (2026-10-01): a CIB felé történő adattovábbítási nyilatkozatot kéri, nem az azonnali teljesítésit', () => {
+    const u = fizetesHibaUzenet({ code: 'CIB_CONSENT_REQUIRED', status: 400 });
+    expect(u.szoveg).toBe('A bankkártyás fizetéshez el kell fogadnod a CIB Bank felé történő adattovábbításról szóló nyilatkozatot.');
+    expect(u.szoveg).not.toBe(fizetesHibaUzenet({ code: 'CONSENT_REQUIRED', status: 400 }).szoveg);
+    expect(u.teendo).toBeNull();
   });
 
   it('CIB_INIT_FAILED: a terv szerinti szó szerinti mondat', () => {

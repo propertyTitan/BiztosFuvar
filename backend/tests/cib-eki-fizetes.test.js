@@ -94,7 +94,7 @@ async function elfogadottFuvar({ priceHuf = 15000 } = {}) {
   const job = await createJob({ shipperId: felado.id, carrierId: szallito.id, status: 'accepted', priceHuf });
   return { felado, szallito, job };
 }
-const fizet = (f, job, body = { consent: true }) => request(app).post(`/jobs/${job.id}/pay`).set(...auth(f)).send(body);
+const fizet = (f, job, body = { consent: true, cib_adatkezelesi_hozzajarulas: true }) => request(app).post(`/jobs/${job.id}/pay`).set(...auth(f)).send(body);
 function hopToken(valasz) {
   const m = /\/payments\/cib\/tovabb\/([A-Za-z0-9_-]+)$/.exec(valasz.body.redirect_url || '');
   return m ? m[1] : null;

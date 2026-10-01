@@ -144,6 +144,13 @@ const FIX: Record<string, HibaUzenet> = {
     szoveg: 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.',
     teendo: null,
   },
+  // 2026-10-01 (a CIB írásos válasza): a kártyás úton a CIB felé történő
+  // adattovábbítási nyilatkozat is kötelező — a backend szövegével azonos.
+  CIB_CONSENT_REQUIRED: {
+    cim: 'Adattovábbítási nyilatkozat szükséges',
+    szoveg: 'A bankkártyás fizetéshez el kell fogadnod a CIB Bank felé történő adattovábbításról szóló nyilatkozatot.',
+    teendo: null,
+  },
 };
 
 const IDOTULLEPES: HibaUzenet = {

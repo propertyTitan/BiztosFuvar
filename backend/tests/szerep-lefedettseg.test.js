@@ -718,7 +718,7 @@ describe('CIB kártyás díjfizetés: minden út lefut (hamis bankkal)', () => {
       await sikeres('GET /jobs/:id/fee-payment',
         request(app).get(`/jobs/${job.id}/fee-payment`).set(auth(V.felado.token)));
       const pay = await sikeres('POST /jobs/:id/pay (CIB)',
-        request(app).post(`/jobs/${job.id}/pay`).set(auth(V.felado.token)).send({ consent: true }));
+        request(app).post(`/jobs/${job.id}/pay`).set(auth(V.felado.token)).send({ consent: true, cib_adatkezelesi_hozzajarulas: true }));
       const token = pay.body.redirect_url.split('/tovabb/')[1];
       await sikeres('GET /payments/cib/tovabb/:token', request(app).get(`/payments/cib/tovabb/${token}`));
       bank.dont(pay.body.trid, 'fizet');
@@ -738,7 +738,7 @@ describe('CIB kártyás díjfizetés: minden út lefut (hamis bankkal)', () => {
       // Egy kétes (close_unknown) kísérlet kézi rendezése.
       const job2 = await createJob({ shipperId: V.felado.id, carrierId: V.szallito.id, status: 'accepted' });
       const pay2 = await sikeres('POST /jobs/:id/pay (CIB, 2.)',
-        request(app).post(`/jobs/${job2.id}/pay`).set(auth(V.felado.token)).send({ consent: true }));
+        request(app).post(`/jobs/${job2.id}/pay`).set(auth(V.felado.token)).send({ consent: true, cib_adatkezelesi_hozzajarulas: true }));
       await db.query(`UPDATE payment_sessions SET cib_state = 'close_unknown', cib_close_attempts = 1,
                       cib_redirected_at = NOW() WHERE payment_id = $1`, [pay2.body.trid]);
       await sikeres('POST /payments/admin/cib/:trid/rendezes',

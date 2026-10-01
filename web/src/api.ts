@@ -846,10 +846,21 @@ export const api = {
   // lassú banki válasznál „nem válaszolt" hibát adna, miközben a bankoldali
   // előkészítés még fut. Időtúllépésnél sincs terhelés (MSGT20 nélkül nincs mit
   // terhelni), és az újrapróba új tranzakciót kap.
-  payJob: (id: string, consent: boolean) =>
+  //
+  // 2026-10-01 (a CIB írásos válasza): a kártyás úton a CIB felé történő
+  // adattovábbítási hozzájárulás is kötelező — `cibAdatkezelesiHozzajarulas`
+  // true esetén a kérés `cib_adatkezelesi_hozzajarulas: true`-t visz (nélküle
+  // a backend 400 CIB_CONSENT_REQUIRED). A stub-út kérése változatlan.
+  payJob: (id: string, consent: boolean, cibAdatkezelesiHozzajarulas = false) =>
     request<PayJobValasz>(
       `/jobs/${id}/pay`,
-      { method: 'POST', body: JSON.stringify({ consent }), timeoutMs: 55_000 },
+      {
+        method: 'POST',
+        body: JSON.stringify(cibAdatkezelesiHozzajarulas
+          ? { consent, cib_adatkezelesi_hozzajarulas: true }
+          : { consent }),
+        timeoutMs: 55_000,
+      },
     ),
 
   /** A fuvar kapcsolatfelvételi díjának fizetési állapota (CIB-kísérletek). */

@@ -34,6 +34,13 @@
 //  A CIB-es kötelező infó-blokk (logók, linkek, ország) CSAK CIB-módban
 //  látszik; stub-üzemben (és ha a fee-payment végpont nem érhető el) a mai
 //  felület marad, a gomb felirata is („Díj fizetése").
+//
+//  KÉT NYILATKOZAT CIB-MÓDBAN (2026-10-01, a CIB írásos válasza): a 45/2014-
+//  es (FeeConsentLabel, változatlan) MELLETT egy külön, előre ki nem pipált
+//  adattovábbítási hozzájárulás (CibAdatkezelesiNyilatkozat) — a bank akkor
+//  is kéri, ha vásárlói adatot nem küldünk. A gomb csak mindkettővel
+//  nyomható, és a /pay a `cib_adatkezelesi_hozzajarulas: true`-t is viszi
+//  (nélküle a backend 400 CIB_CONSENT_REQUIRED). Stub-módban nincs ilyen.
 // =====================================================================
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -41,6 +48,7 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, CheckCircle2, Clock, Hourglass, ShieldAlert } from 'lucide-react';
 import { api, type FeePaymentAllapot } from '@/api';
 import FeeConsentLabel from '@/components/FeeConsentLabel';
+import CibAdatkezelesiNyilatkozat from '@/components/CibAdatkezelesiNyilatkozat';
 import CibFizetesInfo from '@/components/CibFizetesInfo';
 import BankiTranzakcioAdatok from '@/components/BankiTranzakcioAdatok';
 import { useToast } from '@/components/ToastProvider';
@@ -80,6 +88,8 @@ export default function DijFizetesKartya({
   const toast = useToast();
   const [fp, setFp] = useState<FeePaymentAllapot | null>(null);
   const [consent, setConsent] = useState(false);
+  /** A CIB felé történő adattovábbítási hozzájárulás (csak CIB-módban kell). */
+  const [cibHozzajarulas, setCibHozzajarulas] = useState(false);
   const [inditas, setInditas] = useState<Inditas>('nincs');
   const [hiba, setHiba] = useState<HibaUzenet | null>(null);
   /** Lefutott-e már legalább egy állapot-lekérdezés (sikerrel vagy hibával). */
@@ -206,6 +216,10 @@ export default function DijFizetesKartya({
       toast.error('Beleegyezés szükséges', 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.');
       return;
     }
+    if (cib && !cibHozzajarulas) {
+      toast.error('Nyilatkozat szükséges', 'A bankkártyás fizetéshez pipáld ki a CIB Bank felé történő adattovábbításról szóló nyilatkozatot.');
+      return;
+    }
     if (inditas !== 'nincs') return;
     setHiba(null);
     setInditas('fut');
@@ -214,7 +228,9 @@ export default function DijFizetesKartya({
     }, LASSU_UZENET_MS);
     let elnavigal = false;
     try {
-      const r = await api.payJob(jobId, true);
+      // CIB-úton a hozzájárulás is megy (a gomb nélküle nem nyomható); a
+      // stub-út kérése változatlan.
+      const r = cib ? await api.payJob(jobId, true, true) : await api.payJob(jobId, true);
       if (r.paid_via_voucher) {
         toast.success('Ingyenes kapcsolatfelvétel!', 'Az ajánlói jutalmadat felhasználtuk — a kapcsolatfelvételi díj elmaradt, a kapcsolat megnyílt.');
         await onFrissites?.();
@@ -257,7 +273,10 @@ export default function DijFizetesKartya({
       : foglalt
         ? (cib ? 'Kapcsolódás a CIB Bankhoz…' : 'Fizetés indítása…')
         : (cib ? `Fizetés bankkártyával (${fee} Ft)` : `Díj fizetése (${fee} Ft)`);
-  const gombTiltva = !betoltve || foglalt || !consent;
+  // Minden szükséges nyilatkozat megvan: a 45/2014-es mindig, CIB-módban az
+  // adattovábbítási hozzájárulás is (2026-10-01).
+  const nyilatkozatokMegvannak = consent && (!cib || cibHozzajarulas);
+  const gombTiltva = !betoltve || foglalt || !nyilatkozatokMegvannak;
 
   const oa = fp?.open_attempt || null;
   const lr = fp?.last_result || null;
@@ -401,6 +420,7 @@ export default function DijFizetesKartya({
       {gombLathato && (
         <>
           <FeeConsentLabel checked={consent} onChange={setConsent} zaroMondat={zaroMondat} />
+          {cib && <CibAdatkezelesiNyilatkozat checked={cibHozzajarulas} onChange={setCibHozzajarulas} />}
           {cib && <CibFizetesInfo />}
           {cib && (
             <p className="muted" style={{ fontSize: 12, margin: '10px 0 0', lineHeight: 1.5 }}>{CIB_IDO_TIPP}</p>
@@ -412,9 +432,9 @@ export default function DijFizetesKartya({
             className="btn"
             style={{
               marginTop: 12,
-              background: consent && betoltve ? 'var(--success-strong)' : 'var(--muted)',
+              background: nyilatkozatokMegvannak && betoltve ? 'var(--success-strong)' : 'var(--muted)',
               border: 'none',
-              cursor: foglalt || !betoltve ? 'wait' : consent ? 'pointer' : 'not-allowed',
+              cursor: foglalt || !betoltve ? 'wait' : nyilatkozatokMegvannak ? 'pointer' : 'not-allowed',
               opacity: gombTiltva ? 0.7 : 1,
             }}
           >

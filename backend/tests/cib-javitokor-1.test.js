@@ -70,7 +70,7 @@ async function elfogadottFuvar() {
   const job = await createJob({ shipperId: felado.id, carrierId: szallito.id, status: 'accepted' });
   return { felado, szallito, job };
 }
-const fizet = (f, job) => request(app).post(`/jobs/${job.id}/pay`).set(...auth(f)).send({ consent: true });
+const fizet = (f, job) => request(app).post(`/jobs/${job.id}/pay`).set(...auth(f)).send({ consent: true, cib_adatkezelesi_hozzajarulas: true });
 const hopToken = (v) => /\/tovabb\/([A-Za-z0-9_-]+)$/.exec(v.body.redirect_url || '')[1];
 const atiranyit = (token) => request(app).get(`/payments/cib/tovabb/${token}`).redirects(0);
 const bankDb = (trid, msgt) => bank.szamol(trid, msgt);
@@ -247,7 +247,9 @@ describe('Zárás: összeomlás és átmeneti DB-hiba után sem kell ember, ha a
 
 // =====================================================================
 describe('Idő: minden határidő a DB órájából', () => {
-  it('az authorized_at a DB órája (egy elcsúszott alkalmazás-óra nem torzítja a 8 perces türelmet)', async () => {
+  // 2026-10-01: a zárási ablak már a MSGT10-től számít (cib-pr4-banki-
+  // valaszok), az authorized_at az admin-nézet adata — a DB-óra szabálya marad.
+  it('az authorized_at a DB órája (egy elcsúszott alkalmazás-óra nem torzítja)', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
     bank.tridre(trid, 32, [{ nyers: 'RC=D03', http: 500 }]);

@@ -17,7 +17,9 @@
 //   3. PONTOSAN EGYSZERI ZÁRÁS: a zárási jog egy rövid tranzakció a
 //      fuvarsorzár alatt, üzleti újraellenőrzéssel, egy részleges UNIQUE
 //      index védelmében. A MSGT32-t csak bizonyítottan fel nem dolgozott
-//      kérés után küldjük újra; kétes kimenetnél `close_unknown` + ember.
+//      kérés után küldjük újra (2026-10-01 óta a bank szavára az S05/S04 is
+//      ilyen); kétes kimenetnél `close_unknown` + ember. Minden zárási ablak
+//      a MSGT10-től számított határidőig tart (CIB_ZARAS_HATARIDO_MP).
 //   4. NEM FIZETHETŐ ÜGYLETET NEM ZÁRUNK LE: a lemondott / közben kifizetett /
 //      díjsávot vagy szállítót váltott fuvarnál a MSGT32 elmarad
 //      (`not_closed`), a bank magától feloldja a zárolást.
@@ -57,7 +59,12 @@ const SZIVVERES_MAX_MS = 2 * 60 * 1000;
 const INDITAS_BLOKK_MP = 60; // ennél fiatalabb „initializing" mellett nincs új /pay
 const INDITAS_ELHAGYOTT_MP = 120; // ennél régebbi „initializing" → abandoned
 const ELSO_LEKERDEZES_MP = 90; // visszatérés nélkül ennyi után kérdezzük a bankot
-const ZARAS_TURELEM_PERC = 8; // a 10–15 perces banki ablakon belül
+// ⚠️ 2026-10-01: a jóváhagyástól (authorized_at) számolt 8 perces türelem
+// kivezetve. A bank írásban: „10 perc a lezárási határidő, ami a kapott 10-es
+// üzenet beérkezésétől számítódik" — a vásárló bankoldalon töltött ideje is
+// benne van, így egy 5 perces fizetés után a régi türelem a MSGT10-től 13
+// percig várt, a bank határidején túl. Minden zárási ablak a MSGT10-től
+// számít (CIB_ZARAS_HATARIDO_MP, lásd zarasiHataridoLejart).
 const MAX_ZARASI_KISERLET = 3;
 const MEGSZAKITO_KUSZOB = 5;
 const MEGSZAKITO_NYITVA_MS = 10 * 60 * 1000;
@@ -97,6 +104,9 @@ const HIBAK = Object.freeze({
   CIB_BUSY: [503, 'A bank most túlterhelt, nem történt terhelés. Próbáld újra egy perc múlva.'],
   CIB_UNAVAILABLE: [503, 'A kártyás fizetés átmenetileg nem elérhető. Nem történt terhelés — próbáld újra később.'],
   PAYMENT_TEMPORARILY_UNAVAILABLE: [503, 'A kártyás fizetés átmenetileg szünetel. Nem történt terhelés — próbáld újra néhány perc múlva.'],
+  // 2026-10-01 (a CIB írásos válasza): az adattovábbítási nyilatkozat a
+  // kártyás fizetéshez akkor is kötelező, ha vásárlói adatot nem küldünk.
+  CIB_CONSENT_REQUIRED: [400, 'A bankkártyás fizetéshez el kell fogadnod a CIB Bank felé történő adattovábbításról szóló nyilatkozatot.'],
 });
 
 function hibaValasz(kod) {
@@ -159,9 +169,11 @@ function megszakitoNyitva() {
 }
 
 /**
- * A megszakító számlálója: 5 egymás utáni hálózati / S-hiba (IP-allowlist,
- * port, felcserélt kulcs) után 10 percig nem engedélyeztetünk új pénzt.
- * A már jóváhagyott tételek zárása ez alatt is fut.
+ * A megszakító számlálója: 5 egymás utáni hálózati / S-hiba (kimenő hálózat,
+ * felcserélt kulcs, rossz környezet) után 10 percig nem engedélyeztetünk új
+ * pénzt. A már jóváhagyott tételek zárása ez alatt is fut.
+ * (2026-10-01, a CIB írásos válasza: IP-regisztráció nincs, a teszt- és az
+ * éles végpont is a 443-as porton érhető el — ezek nem gyanúokok.)
  */
 function megszakitoJelez(hibaE, ertelmesValasz) {
   const m = allapot.megszakito;
@@ -174,7 +186,7 @@ function megszakitoJelez(hibaE, ertelmesValasz) {
   m.nyitvaEddig = Date.now() + MEGSZAKITO_NYITVA_MS;
   m.hibak = 0;
   const uzenet = `[cib] 🚨 MEGSZAKÍTÓ NYITVA: ${MEGSZAKITO_KUSZOB} egymás utáni banki kapcsolati/S-hiba — `
-    + '10 percig nem indul új kártyás fizetés (IP-allowlist, port, kulcs vagy környezet gyanú)';
+    + '10 percig nem indul új kártyás fizetés (hálózat, kulcs vagy környezet gyanú)';
   console.error(uzenet);
   if (Date.now() - m.utolsoRiasztas > MEGSZAKITO_RIASZTAS_MS) {
     m.utolsoRiasztas = Date.now();
@@ -609,12 +621,16 @@ async function aFazis({ b, jobId, shipperId }) {
     let trid = null;
     for (let i = 0; i < 5 && !trid; i += 1) {
       const jelolt = p.ujTrid();
+      // A CIB felé történő adattovábbítási nyilatkozat időpontja (2026-10-01,
+      // a bank írásos válasza: a hozzájárulás kötelező) a kísérleten, a DB
+      // órájából — a hívó (a /pay) a nyilatkozat nélkül ide el sem jut.
       // eslint-disable-next-line no-await-in-loop
       const ins = await client.query(
         `INSERT INTO payment_sessions (payment_id, job_id, shipper_id, carrier_id, amount_huf, currency,
                                        provider, is_simulated, state, cib_state, cib_next_action_at, cib_result)
          VALUES ($1, $2, $3, $4, $5, 'HUF', 'cib', FALSE, 'pending', 'initializing',
-                 NOW() + make_interval(secs => $6::int), $7::jsonb)
+                 NOW() + make_interval(secs => $6::int),
+                 $7::jsonb || jsonb_build_object('hozzajarulas_at', NOW()))
          ON CONFLICT (payment_id) DO NOTHING RETURNING payment_id`,
         [jelolt, jobId, shipperId, job.carrier_id, fee, INDITAS_ELHAGYOTT_MP, JSON.stringify({ ts })],
       );
@@ -672,8 +688,15 @@ async function inditasiVegallapot(trid, uj, varAllapot, ok, tobb = {}) {
 /**
  * A kártyás díjfizetés indítása. Visszaad: `{ http, body }` — hibánál csak
  * kód és fix magyar szöveg, banki szöveg és belső hiba soha.
+ *
+ * Az `adatkezelesiHozzajarulas` a feladó nyilatkozata a CIB felé történő
+ * adattovábbításról (2026-10-01): a route már a DB-írások ELŐTT ellenőrzi,
+ * itt másodszor is — egy új hívó se indíthasson nélküle banki kísérletet.
  */
-async function inditCibDijFizetes({ entityType = 'job', entityId, shipperId }) {
+async function inditCibDijFizetes({
+  entityType = 'job', entityId, shipperId, adatkezelesiHozzajarulas,
+}) {
+  if (adatkezelesiHozzajarulas !== true) return hibaValasz('CIB_CONSENT_REQUIRED');
   if (entityType !== 'job') return hibaValasz('CIB_UNAVAILABLE');
   const b = p.cibBeallitasok();
   if (b.allapot !== 'teljes') return hibaValasz('CIB_UNAVAILABLE');
@@ -1054,10 +1077,10 @@ async function readyLepes(sor, berlo) {
  * Egy lekérdezés-eredmény rögzítése a várt állapotból (redirected), a
  * lekérdezés-számlálóval együtt. `uj` null → az állapot marad.
  *
- * Az `authorized_at` a DB órájából jön (2026-09-29, 1. javítókör): a zárási
- * jog 8 perces türelme a DB-órával (`NOW()`) veti össze — egy alkalmazás-
- * órából írt időbélyeg óraeltérésnél soha fel nem adott vagy azonnal
- * feladott várakozást adna.
+ * Az `authorized_at` a DB órájából jön (2026-09-29, 1. javítókör) — egy
+ * alkalmazás-órából írt időbélyeg óraeltérésnél félrevezető lenne. 2026-10-01
+ * óta a zárási ablakok nem ebből, hanem a MSGT10 idejéből számolnak
+ * (zarasiHataridoLejart); az authorized_at az admin-nézet adata maradt.
  */
 async function lekerdezesIras(trid, berlo, {
   uj = null, eredmeny = {}, kovetkezoKif = null, kovetkezoParam = [],
@@ -1293,7 +1316,7 @@ async function closingLepes(sor, berlo, b) {
     const kim = p.zarasKimenet(v, s, b.pid, { eredete });
     console.warn(`[cib] ${p.maszkoltTrid(trid)}: a megszakadt zárás kimenete a banki naplóból: ${kim.kimenet}`);
     return zarasEredmeny({
-      trid, berlo, k: s.cib_close_attempts, kim,
+      trid, berlo, k: s.cib_close_attempts, kim, b,
     });
   }
   // (2) Elutasított eredetű zárás (a MSGT33 már elutasítást adott): egy
@@ -1331,6 +1354,38 @@ async function closeUnknownLepes(sor, berlo) {
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
+ * Lejárt-e (vagy `tartalekMp` múlva lejár-e) a kísérlet zárási határideje?
+ *
+ * 2026-10-01 (a CIB írásos válasza): „10 perc a lezárási határidő, ami a
+ * kapott 10-es üzenet beérkezésétől számítódik." A helyi ablak ennél 30 mp-cel
+ * rövidebb (CIB_ZARAS_HATARIDO_MP, alap 570 mp). A HORGONY a MSGT10 kimenő
+ * write-ahead naplósora (a cib_messages `clock_timestamp`-je a küldés előtti
+ * pillanatban — a bank beérkezéséhez ez a legközelebbi tárolt időpont),
+ * ennek hiányában a kísérlet létrehozása (az A-fázis tranzakciója, = a TS).
+ * Mindkettő a DB órája, és mindkettő a bank beérkezése ELŐTT van: a helyi
+ * határidő legfeljebb korábbra eshet, soha nem későbbre. Az összevetés is a
+ * DB órájával (NOW()) megy, nem az alkalmazáséval.
+ * Hiányzó sor: lejártnak számít (fail-closed — ismeretlen kísérletre MSGT32
+ * nem megy).
+ * @param {{query:Function}} kliens — a pool vagy egy nyitott tranzakció kliense
+ * @param {string} trid
+ * @param {object} b — cibBeallitasok()
+ * @param {number} [tartalekMp] — egy ütemezett újrapróba ennyi mp múlva menne ki
+ * @returns {Promise<boolean>}
+ */
+async function zarasiHataridoLejart(kliens, trid, b, tartalekMp = 0) {
+  const { rows } = await kliens.query(
+    `SELECT NOW() + make_interval(secs => $3::int) >= COALESCE(
+              (SELECT MIN(m.created_at) FROM cib_messages m
+                WHERE m.payment_id = ps.payment_id AND m.direction = 'ki' AND m.msgt = 10),
+              ps.created_at) + make_interval(secs => $2::int) AS lejart
+       FROM payment_sessions ps WHERE ps.payment_id = $1`,
+    [trid, b.hangolok.zarasHataridoMp, Math.max(0, Math.ceil(tartalekMp))],
+  );
+  return !rows[0] || rows[0].lejart !== false;
+}
+
+/**
  * A zárási jog (Tx1): fuvarsor FOR UPDATE → a fuvar összes sessionje FOR
  * UPDATE → üzleti újraellenőrzés → authorized → closing (a részleges UNIQUE
  * index védelmében). Külső hívás nincs benne.
@@ -1363,7 +1418,17 @@ async function zarasiJog(trid, berlo, b) {
     const masok = sessions.filter((s) => s.payment_id !== trid);
     const masikFizetett = masok.some((s) => ['succeeded', 'needs_review'].includes(s.state)
       || (s.state === 'pending' && s.cib_state === 'closed_ok'));
-    const masikZar = masok.some((s) => s.state === 'pending' && ['closing', 'close_unknown'].includes(s.cib_state));
+    // „Másik zár": egy másik TRID zárási sora (closing / close_unknown) — és
+    // 2026-10-01 óta egy másik TRID FÜGGŐ ÚJRAPRÓBÁJA is (authorized, de már
+    // ment rá MSGT32). Az S05 után a bank szerint egy MSGT33 sikert is
+    // mutathat, a tétel pedig a határidőn belül még lezárható: amíg az az
+    // újrapróba él, egy második TRID MSGT32-je kettős terhelés lehetne.
+    const masikZar = masok.some((s) => s.state === 'pending'
+      && (['closing', 'close_unknown'].includes(s.cib_state)
+        || (s.cib_state === 'authorized' && Number(s.cib_close_attempts) > 0)));
+    // A MSGT10-től számított zárási határidő (a DB órájával).
+    const hataridoLejart = await zarasiHataridoLejart(client, trid, b);
+    const voltZaras = Number(sor.cib_close_attempts) > 0;
 
     let ok = null;
     if (!job) ok = 'nem_fizetheto';
@@ -1378,31 +1443,52 @@ async function zarasiJog(trid, berlo, b) {
     else if (Number(job.connection_fee_huf) !== Number(sor.amount_huf)) ok = 'dijsav_valtozott';
     else if (r.amo != null && Number(r.amo) !== Number(sor.amount_huf)) ok = 'amo_elteres';
 
+    // 2026-10-01: a határidő után zárási claim NINCS. Ha erre a kísérletre már
+    // ment MSGT32 (S05/S04, D03… után függő újrapróba), a bank szerint a tétel
+    // „még visszautalásra kerülhet" — nem tudjuk biztosan, mi lett: ember
+    // egyeztet (close_unknown + riasztás, a hívó küldi).
+    if (!ok && hataridoLejart && voltZaras) ok = 'zaras_hatarido';
     if (!ok && masikZar) {
-      // Egy másik TRID épp zár (vagy kétes). Az elutasított eredetű kísérlet
-      // (2026-09-29, 1. javítókör) nem vár: elutasított authorizációból
-      // terhelés nem lehet, a MSGT32 csak a GYFK szerinti rendrakás — a terv
-      // 9b lépése szerint enélkül közvetlenül failed. A jóváhagyott vár; 8
-      // perc után feladjuk (a bank a zárolást magától feloldja). Az idő a DB
-      // órájából jön (az authorized_at is NOW()).
-      const authorizedAt = r.authorized_at ? new Date(r.authorized_at).getTime() : NaN;
-      const most = new Date(job.most).getTime();
-      if (eredete === 'declined') ok = 'masik_zaras';
-      else if (Number.isFinite(authorizedAt) && most - authorizedAt > ZARAS_TURELEM_PERC * 60000) ok = 'masik_zaras';
+      // Egy másik TRID épp zár (vagy kétes, vagy az újrapróbája függ). Az
+      // elutasított eredetű kísérlet (2026-09-29, 1. javítókör) nem vár:
+      // elutasított authorizációból terhelés nem lehet, a MSGT32 csak a GYFK
+      // szerinti rendrakás — a terv 9b lépése szerint enélkül közvetlenül
+      // failed. A jóváhagyott vár, de legfeljebb a SAJÁT zárási határidejéig
+      // (2026-10-01: a MSGT10-től, nem a jóváhagyástól számított 8 percig) —
+      // utána a bank úgyis visszautal, MSGT32 nélkül feladjuk.
+      if (eredete === 'declined' || hataridoLejart) ok = 'masik_zaras';
       else return { eredmeny: 'var' };
     }
+    // Erre a kísérletre még nem ment MSGT32, és a határidő lejárt: a bank a
+    // jóváhagyást lezárás nélkül visszautalja (terhelés nincs) → expired.
+    if (!ok && hataridoLejart) ok = 'zarasi_hatarido';
 
     if (ok) {
-      // Nem fizethető: MSGT32 NINCS. Az elutasított eredetű kísérlet
-      // „failed" (a MSGT33 adataival), a jóváhagyott „not_closed".
-      const uj = eredete === 'declined' ? 'failed' : 'not_closed';
+      // Nem zárható: MSGT32 NINCS. Az elutasított eredetű kísérlet „failed"
+      // (a MSGT33 adataival); a határidőn túl jóváhagyott „expired"; a már
+      // zárási kísérletet kapott, határidőn túli „close_unknown" (riasztással,
+      // a hívó küldi); a többi jóváhagyott „not_closed".
+      let uj = 'not_closed';
+      if (eredete === 'declined') uj = 'failed';
+      else if (ok === 'zarasi_hatarido') uj = 'expired';
+      else if (ok === 'zaras_hatarido') uj = 'close_unknown';
       const eredmeny = eredete === 'declined' ? { zaras_elmaradt: ok } : { ok };
-      await client.query(
-        `UPDATE payment_sessions SET cib_state = $3, cib_next_action_at = NOW() + INTERVAL '30 seconds',
-                cib_result = COALESCE(cib_result, '{}'::jsonb) || $4::jsonb
-          WHERE payment_id = $1 AND cib_state = 'authorized' AND cib_lease_owner = $2`,
-        [trid, berlo, uj, JSON.stringify(eredmeny)],
-      );
+      try {
+        await client.query(
+          `UPDATE payment_sessions
+              SET cib_state = $3::text,
+                  cib_next_action_at = CASE WHEN $3::text = 'close_unknown' THEN NULL ELSE NOW() + INTERVAL '30 seconds' END,
+                  cib_result = COALESCE(cib_result, '{}'::jsonb) || $4::jsonb
+            WHERE payment_id = $1 AND cib_state = 'authorized' AND cib_lease_owner = $2`,
+          [trid, berlo, uj, JSON.stringify(eredmeny)],
+        );
+      } catch (err) {
+        // 23505: a close_unknown-t a fuvaronkénti egy-zárási index nem engedi
+        // (egy másik TRID közben zárási sort kapott) — a sor marad, és a kör
+        // 30 s múlva újra dönt. MSGT32 a határidő után így sem megy ki.
+        if (err && err.code === '23505') return { eredmeny: 'var' };
+        throw err;
+      }
       await client.query('COMMIT');
       lezarva = true;
       return { eredmeny: 'nem_zarhato', ok, uj };
@@ -1445,9 +1531,17 @@ async function zar(sor, berlo, b) {
     return null;
   }
   if (jog.eredmeny === 'nem_zarhato') {
-    console.log(`[cib] ${p.maszkoltTrid(trid)}: nem fizethető a jóváhagyáskor (${jog.ok}) → ${jog.uj}, MSGT32 nélkül`);
+    console.log(`[cib] ${p.maszkoltTrid(trid)}: nem zárható (${jog.ok}) → ${jog.uj}, MSGT32 nélkül`);
+    // 2026-10-01: a határidőn túli, már zárási kísérletet kapott tétel kétes
+    // — ember egyeztet a bankkal (riasztás TRID-enként egyszer).
+    if (jog.uj === 'close_unknown') {
+      await riaszt(trid, jog.ok);
+      return null;
+    }
     let tipus = 'nem_terhelt';
-    if (jog.uj === 'failed') tipus = 'sikertelen';
+    // A határidőn túl jóváhagyott (expired) kísérlet a feladónak sikertelen
+    // fizetés: a kártyáját nem terheltük, újat indíthat.
+    if (jog.uj === 'failed' || jog.uj === 'expired') tipus = 'sikertelen';
     else if (jog.ok === 'mar_fizetve' || jog.ok === 'kupon') tipus = 'mar_fizetve';
     await vegeSikertelen(trid, berlo, tipus);
     return null;
@@ -1464,7 +1558,7 @@ async function zar(sor, berlo, b) {
   const kim = p.zarasKimenet(v, sor, b.pid, { eredete: jog.eredete });
   megszakitoJelez(['nem_kuldott', 'idokeret', 'halozat', 'bank_S'].includes(v.hibaOsztaly), !!v.mezok);
   return zarasEredmeny({
-    trid, berlo, k, kim,
+    trid, berlo, k, kim, b,
   });
 }
 
@@ -1512,10 +1606,10 @@ async function zarasSikerIras(trid, k, adatok) {
 /**
  * Egy MSGT32-kimenet alkalmazása a `closing` sorra — élőben (a zár után) és
  * a megszakadt zárás helyreállításakor (a naplózott válaszból) UGYANÍGY.
- * @param {{trid:string, berlo:string, k:number, kim:object}} o
+ * @param {{trid:string, berlo:string, k:number, kim:object, b?:object}} o
  */
 async function zarasEredmeny({
-  trid, berlo, k, kim,
+  trid, berlo, k, kim, b = p.cibBeallitasok(),
 }) {
   if (kim.kimenet === 'siker') {
     const ok = await zarasSikerIras(trid, k, {
@@ -1553,21 +1647,21 @@ async function zarasEredmeny({
     return null;
   }
   if (kim.kimenet === 'nem_feldolgozott') {
-    // A 8 perces türelem a DB órájából (2026-09-29, 1. javítókör) — az
-    // authorized_at is NOW(). Hiányzó authorized_at: még türelmen belül.
-    const { rows: ido } = await db.query(
-      `SELECT COALESCE((cib_result->>'authorized_at')::timestamptz, NOW()) > NOW() - make_interval(mins => $2::int) AS turelemben
-         FROM payment_sessions WHERE payment_id = $1`,
-      [trid, ZARAS_TURELEM_PERC],
-    );
-    const turelemben = !!(ido[0] && ido[0].turelemben);
-    if (k < MAX_ZARASI_KISERLET && turelemben) {
-      const mp = Math.ceil((kim.visszalepesMs || 30000) / 1000);
+    // A bizonyítottan fel nem dolgozott zárás (D03/D04/D07, PR, a küldés
+    // előtti hiba, és 2026-10-01 óta a bank szavára az S05/S04): vissza
+    // authorized-ba, és rövid várakozás után ÚJ zárási claim. Az újrapróba
+    // csak akkor ütemeződik, ha a MSGT10-től számított határidő előtt
+    // kimehet (2026-10-01: eddig a jóváhagyástól számított 8 perc döntött) —
+    // egy határidőn túli MSGT32-re a bank már nem zár.
+    const mp = Math.ceil((kim.visszalepesMs || 30000) / 1000);
+    const hataridoElott = !(await zarasiHataridoLejart(db, trid, b, mp));
+    if (k < MAX_ZARASI_KISERLET && hataridoElott) {
       await zarasIras('authorized', { zaras_bank_rc: kim.bankRc || null }, `NOW() + make_interval(secs => ${mp})`);
       return null;
     }
-    if (await zarasIras('close_unknown', { ok: 'zaras_nem_feldolgozott', zaras_bank_rc: kim.bankRc || null }, 'NULL')) {
-      await riaszt(trid, 'zaras_nem_feldolgozott');
+    const ok = k < MAX_ZARASI_KISERLET ? 'zaras_hatarido' : 'zaras_nem_feldolgozott';
+    if (await zarasIras('close_unknown', { ok, zaras_bank_rc: kim.bankRc || null }, 'NULL')) {
+      await riaszt(trid, ok);
     }
     return null;
   }

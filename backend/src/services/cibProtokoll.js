@@ -45,6 +45,12 @@ const HANGOLOK = Object.freeze([
   ['CIB_HOP_TTL_MP', 'hopTtlMp', 120, 10, 3600],
   ['CIB_MAX_INDITAS_ORANKENT', 'maxInditasOrankent', 6, 1, 100],
   ['CIB_MAX_INDITAS_NAPONTA', 'maxInditasNaponta', 20, 1, 1000],
+  // 2026-10-01 (a CIB írásos válasza): „10 perc a lezárási határidő, ami a
+  // kapott 10-es üzenet beérkezésétől számítódik." A helyi zárási ablak a
+  // MSGT10-től ennyi másodpercig tart — 30 mp tartalék a bank 600 mp-ével
+  // szemben (a MSGT32 útja és válasza is beleférjen). A felső korlát 590:
+  // a bank határidejét a beállítás sem érheti el.
+  ['CIB_ZARAS_HATARIDO_MP', 'zarasHataridoMp', 570, 60, 590],
 ]);
 const LOGIKAI = Object.freeze([
   ['CIB_EXTRA01', 'extra01', false],
@@ -677,9 +683,20 @@ function lekerdezesKimenet(valasz, session, pid) {
   return { kimenet: 'elutasitva', ok: 'bank_elutasitas', adatok: e.adatok, rcCsoport: rcCsoport(rc) };
 }
 
+// A MSGT32-re kapott S-kódok közül ezek a bizonyítottan FEL NEM DOLGOZOTT
+// zárás jelei (2026-10-01, a CIB írásos válasza): „csak akkor tekinthető
+// sikeresnek a tranzakció, ha a kapott MSGT32-es üzenetre teljes értékű
+// választ adunk vissza. Előfordulhat, hogy az MSGT32-es üzenetre S05 választ
+// adunk […] ha 10 percen belül nem kerül lezárásra MSGT32-es üzenettel, még
+// visszautalásra kerülhet." Vagyis a lezárás NEM történt meg, a MSGT32-t a
+// határidőn belül újra kell küldeni. Az S04-et a bank ugyanígy kezeli.
+// Minden más S-kód (kulcs-, környezet-, formátumhiba) a zárásra kétes marad.
+const ZARAS_UJRAKULDHETO_S = Object.freeze(['S04', 'S05']);
+
 function zarasAlap(valasz, session, pid) {
   if (valasz.bankRc) {
     const rc = valasz.bankRc;
+    if (ZARAS_UJRAKULDHETO_S.includes(rc)) return { kimenet: 'nem_feldolgozott', bankRc: rc, visszalepesMs: 30000 };
     if (bankKodOsztaly(rc) === 'bank_S') return { kimenet: 'ketes', ok: 'zaras_s', bankRc: rc };
     // D03 (hibás sorrend), D07 (adatformátum): a kérést NEM szolgálták ki.
     if (rc === 'D03' || rc === 'D07') return { kimenet: 'nem_feldolgozott', bankRc: rc, visszalepesMs: 30000 };
@@ -711,6 +728,9 @@ function zarasAlap(valasz, session, pid) {
  *   'lejart'           → expired (RC=TO: elkéstünk, a bank reverzált)
  *   'elutasitva'       → failed
  *   'nem_feldolgozott' → vissza authorized-ba, újrapróba `visszalepesMs` után
+ *                        (D03/D04/D07, PR, a küldés előtti hiba, és 2026-10-01
+ *                        óta a bank szavára az S05/S04 is) — legfeljebb 3
+ *                        MSGT32, és csak a MSGT10-től számított határidőn belül
  *   'ketes'            → close_unknown — a MSGT32-t SOHA nem küldjük újra
  * Elutasított eredetű zárásnál (`eredete: 'declined'`) minden nem-siker
  * 'elutasitva': elutasított authorizációból terhelés nem lehet.
