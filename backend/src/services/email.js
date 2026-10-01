@@ -508,6 +508,30 @@ const SIKERTELEN_LEVEL = {
       + 'vagy más lett a szállító vagy a díj) — a kártyádat <strong>nem terheltük</strong>. A zárolt összeget a '
       + 'bank magától feloldja; a kivonatodon pár napig függő tételként látszhat.',
   },
+  // 2026-10-01 (a CIB PR-4 1. javítóköre): a bank JÓVÁHAGYTA a fizetést, de a
+  // banki lezárási határidőn belül nem véglegesítettük (határidőn túli
+  // jóváhagyás, vagy a zárási kérés egyszer sem jutott el a bankhoz). A
+  // „nem sikerült" és a „fuvar megváltozott" szöveg itt hamis lenne — a
+  // vásárló a bank oldalán épp sikert látott, a kártyáján zárolt összeg áll.
+  nem_zart: {
+    heading: 'ℹ️ A kártyádat nem terheltük',
+    targy: 'A kártyádat nem terheltük',
+    torzs: 'a bank a kártyás fizetést jóváhagyta, de a banki lezárási határidőn belül <strong>nem tudtuk '
+      + 'véglegesíteni</strong> — a kártyádat <strong>nem terheltük</strong>. A zárolt összeget a bank magától '
+      + 'feloldja; a kivonatodon pár napig függő tételként látszhat.',
+  },
+  // 2026-10-01 (a CIB PR-4 1. javítóköre): a bank jóváhagyta, de ugyanerre a
+  // fuvarra egy MÁSIK kísérlet zárása volt folyamatban (masik_zaras) — a
+  // „fuvar megváltozott" indok itt hamis volt. Újrapróbát NEM ajánlunk: a
+  // másik kísérlet épp sikerülhet, vagy egyeztetés alatt állhat.
+  masik_kiserlet: {
+    heading: 'ℹ️ Ezzel a kísérlettel nem terheltük a kártyádat',
+    targy: 'Ezzel a kísérlettel nem terheltük a kártyádat',
+    torzs: 'a bank az egyik kártyás fizetésedet jóváhagyta, de <strong>nem zártuk le</strong>, mert ugyanerre a '
+      + 'fuvarra egy másik fizetésed lezárása volt folyamatban — kétszer nem terhelünk. Ezzel a kísérlettel a '
+      + 'kártyádat <strong>nem terheltük</strong>; a zárolt összeget a bank magától feloldja (a kivonatodon pár '
+      + 'napig függő tételként látszhat). A díj állapotát a fuvar oldalán látod.',
+  },
   mar_fizetve: {
     heading: 'ℹ️ A díj már rendezve volt — nem terheltünk kétszer',
     targy: 'A díj már rendezve volt — nem terheltünk kétszer',
@@ -531,7 +555,9 @@ async function sendFeePaymentFailedEmail({
   const magyarazat = tipus === 'sikertelen'
     ? (x0 ? X0_UZENET : RC_CSOPORT_UZENET[rcCsoport] || RC_CSOPORT_UZENET.kapcsolat)
     : null;
-  const ujra = tipus === 'sikertelen';
+  // A le nem zárt (nem_zart) kísérlet után is új fizetés indítható — a
+  // banki újrapróba felkínálása ott is kötelező.
+  const ujra = tipus === 'sikertelen' || tipus === 'nem_zart';
   const bodyHtml = `
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
     <p>A(z) <strong>"${escapeHtml(jobTitle)}"</strong> fuvarnál ${l.torzs}</p>
@@ -559,13 +585,17 @@ const CIB_RENDSZER_RIASZTAS = Object.freeze({
   szivveres: {
     targy: 'a CIB lekérdező kör nem fut',
     szoveg: 'A CIB lekérdező kör 3 perce nem futott le sikeresen (vagy az indulás óta egyszer sem). Amíg nem fut, '
-      + 'a kártyás fizetés 503-at ad, és a már jóváhagyott tételek lezárása is áll — a bank a 10–15 perces ablak '
-      + 'után reverzál, terhelés nem marad. Nézd meg a Railway-logot (DB-kapcsolat, migráció, összeomlási ciklus).',
+      + 'a kártyás fizetés 503-at ad, és a már jóváhagyott tételek lezárása is áll — a bank a MSGT10-től számított '
+      + '10 perces lezárási határidő után visszautal, terhelés nem marad. Nézd meg a Railway-logot (DB-kapcsolat, '
+      + 'migráció, összeomlási ciklus).',
   },
+  // 2026-10-01 (a CIB írásos válasza): IP-regisztráció nincs, a teszt- és az
+  // éles végpont is a 443-as porton érhető el — ezek nem gyanúokok.
   megszakito: {
     targy: 'a CIB-kapcsolat megszakítója nyitva',
     szoveg: 'Több egymás utáni banki kapcsolati vagy S-hiba után a megszakító nyitva: 10 percig nem indul új '
-      + 'kártyás fizetés. Valószínű ok: IP-engedélyezés, port, felcserélt teszt/éles kulcs vagy környezet.',
+      + 'kártyás fizetés. Valószínű ok: a kimenő hálózat (DNS, TLS) hibája, felcserélt teszt/éles kulcs vagy '
+      + 'rossz környezet (CIB_MARKET_URL).',
   },
 });
 

@@ -71,12 +71,18 @@ describe('útválasztás: CIB átirányítás vs stub', () => {
     expect(screen.getByText('Elfogadott kártyák')).toBeInTheDocument();
     expect(screen.getByText('A Kereskedő/Tiszta Hód Kft. székhelyének országa és országkódja: Magyarország (HU)')).toBeInTheDocument();
     expect(screen.getByText('A kártyaadataidat kizárólag a CIB Bank oldalán adod meg, a GoFuvar nem látja őket.')).toBeInTheDocument();
-    expect(screen.getByText(/kb\. 10 perced van/)).toBeInTheDocument();
+    // 2026-10-01 (a PR-4 1. javítóköre): a helyi lezárási ablak a MSGT10-től
+    // 9 perc 30 mp, és a zárás is ebbe esik — „kb. 10 perc" túlígéret volt.
+    expect(screen.getByText(/kb\. 9 perced van/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Bankkártyás fizetés' })).toHaveAttribute('href', '/bankkartyas-fizetes');
-    // Az infó-blokk adatkezelési linkje a tájékoztató elejére visz; a
-    // nyilatkozaté (2026-10-01) a CIB-szakaszra — két külön link.
+    // 2026-10-01 (a PR-4 1. javítóköre, WCAG 2.4.4): a kártyán két azonos
+    // nevű „Adatkezelési tájékoztató" link van (az infó-blokké és a
+    // nyilatkozaté) — azonos névvel azonos célra kell mutatniuk: a
+    // tájékoztató CIB-szakaszára.
     expect(within(screen.getByTestId('cib-fizetes-info')).getByRole('link', { name: 'Adatkezelési tájékoztató' }))
-      .toHaveAttribute('href', '/adatkezeles');
+      .toHaveAttribute('href', '/adatkezeles#cib-kartyas-fizetes');
+    const celok = new Set(screen.getAllByRole('link', { name: 'Adatkezelési tájékoztató' }).map((a) => a.getAttribute('href')));
+    expect([...celok], 'azonos nevű linkek eltérő célra mutatnak').toEqual(['/adatkezeles#cib-kartyas-fizetes']);
     expect(screen.getByRole('link', { name: /CIB Bank/ })).toHaveAttribute('href', '/bankkartyas-fizetes');
     for (const alt of ['Visa', 'V Pay', 'Mastercard', 'Maestro']) expect(screen.getByAltText(alt)).toBeInTheDocument();
 
@@ -247,6 +253,24 @@ describe('CIB adattovábbítási nyilatkozat (második jelölőnégyzet)', () =>
     expect(gomb).not.toBeDisabled();
     fireEvent.click(gomb);
     await waitFor(() => expect(api.payJob).toHaveBeenCalledWith('job-1', true, true));
+  });
+
+  it('zsákutca ellen: ha a fee-payment nem töltött be (stub-felület), a CIB_CONSENT_REQUIRED újraolvassa az állapotot, és megjelenik a nyilatkozat', async () => {
+    // 2026-10-01 (a PR-4 1. javítóköre): a fee-payment 404-e után a kártya a
+    // stub-felületet mutatja (egy jelölőnégyzet), a /pay viszont CIB-úton
+    // fut, és 400 CIB_CONSENT_REQUIRED-et ad — eddig az állapot nem töltődött
+    // újra, a kért nyilatkozat oldal-újratöltésig nem jelent meg.
+    vi.mocked(api.getFeePayment)
+      .mockRejectedValueOnce(Object.assign(new Error('nincs'), { status: 404 }))
+      .mockResolvedValue(CIB as any);
+    vi.mocked(api.payJob).mockRejectedValue(Object.assign(new Error('x'), { code: 'CIB_CONSENT_REQUIRED', status: 400 }));
+    kartya();
+    await screen.findByRole('button', { name: /Díj fizetése/ });
+    expect(screen.getAllByRole('checkbox')).toHaveLength(1);
+    await pipalEsFizet(/Díj fizetése/);
+    await waitFor(() => expect(api.getFeePayment).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole('checkbox', { name: /^Kijelentem, hogy az adatkezeléshez/ })).not.toBeChecked();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2);
   });
 
   it('a backend CIB_CONSENT_REQUIRED kódja saját magyar szöveget kap (a szerver üzenete nem jut át)', async () => {

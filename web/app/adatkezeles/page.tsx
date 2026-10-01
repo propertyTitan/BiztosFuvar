@@ -157,6 +157,14 @@ export default function AdatkezelesPage() {
         kezelése a fuvarozási szerződés hatékony teljesítéséhez és a biztonságos kódátadáshoz,
         a Feladó tájékoztatása a sikeres kézbesítésről) [GDPR 6. cikk (1) f)].
       </p>
+      {/* 2026-10-01 (a CIB PR-4 1. javítóköre): a 4/A. szakasz a CIB Bank által
+          előírt hozzájárulásra (is) épít — a jogalapok felsorolása eddig ezt
+          nem tartalmazta (jogi koherencia). */}
+      <p>
+        <strong>Hozzájárulás</strong> — a kapcsolatfelvételi díj bankkártyás megfizetésénél a
+        CIB Bank Zrt. felé történő adattovábbításhoz, a fizetéskor adott nyilatkozattal
+        [GDPR 6. cikk (1) a)]; részletek: <a href="#cib-kartyas-fizetes">4/A. pont</a>.
+      </p>
       <p>
         A KYC dokumentumokon szereplő fénykép és személyes azonosító adatok a 9. cikk szerinti
         különleges adatkategóriába <strong>nem</strong> tartoznak; ugyanakkor az Adatkezelő ezen
@@ -226,7 +234,10 @@ export default function AdatkezelesPage() {
           tartja egyben). A napló megőrzési ideje a retention.js
           CIB_MESSAGE_RETENTION_MONTHS konstansához horgonyzott (a horgony-őr
           a megjelenő szöveget nézi — ide számot ne írj). */}
-      <h2 id="cib-kartyas-fizetes" style={{ marginTop: 32 }}>
+      {/* A scrollMarginTop a sticky fejléc miatt kell: a #cib-kartyas-fizetes
+          horgonyra ugráskor a cím különben a fejléc alá bukna (a fizetési
+          kártya is így csinálja). */}
+      <h2 id="cib-kartyas-fizetes" style={{ marginTop: 32, scrollMarginTop: 80 }}>
         4/A. Bankkártyás fizetés (CIB Bank Zrt.)
       </h2>
       <ul>
@@ -263,8 +274,8 @@ export default function AdatkezelesPage() {
           naplóját 13 hónapig őrizzük, a banki reklamációk kivizsgálásához.
         </li>
         <li>
-          Jogairól és a jogorvoslati lehetőségekről (NAIH) a jelen tájékoztató vonatkozó pontjai
-          rendelkeznek.
+          Jogairól és a jogorvoslati lehetőségekről (NAIH) a jelen tájékoztató{' '}
+          <a href="#erintettek-jogai">vonatkozó pontjai</a> rendelkeznek.
         </li>
       </ul>
 
@@ -553,7 +564,8 @@ export default function AdatkezelesPage() {
         értesítjük, hogy a küldemény kézbesítését más módon kell egyeztetnie.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>8. Az Érintettek Jogai és Eljárási Rend</h2>
+      {/* Horgony (2026-10-01): a 4/A. szakasz NAIH-mondata ide linkel. */}
+      <h2 id="erintettek-jogai" style={{ marginTop: 32, scrollMarginTop: 80 }}>8. Az Érintettek Jogai és Eljárási Rend</h2>
       <p>
         A GDPR 13—22. cikkei alapján a Felhasználót megilletik a következő jogok
         (a Címzettre vonatkozó eltéréseket lásd a 7/A. pontban):

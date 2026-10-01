@@ -146,10 +146,13 @@ const FIX: Record<string, HibaUzenet> = {
   },
   // 2026-10-01 (a CIB írásos válasza): a kártyás úton a CIB felé történő
   // adattovábbítási nyilatkozat is kötelező — a backend szövegével azonos.
+  // Az állapotot újraolvassuk (a PR-4 1. javítóköre): ha a fee-payment hibája
+  // miatt a kártya stub-felületet mutatott, a /pay viszont CIB-úton futott,
+  // így jelenik meg a kért második jelölőnégyzet — különben zsákutca.
   CIB_CONSENT_REQUIRED: {
     cim: 'Adattovábbítási nyilatkozat szükséges',
     szoveg: 'A bankkártyás fizetéshez el kell fogadnod a CIB Bank felé történő adattovábbításról szóló nyilatkozatot.',
-    teendo: null,
+    teendo: 'allapot',
   },
 };
 

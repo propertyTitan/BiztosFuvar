@@ -316,7 +316,7 @@ describe('(b) Zárási határidő: a MSGT10-től számított 9 perc 30 mp, DB-ó
     expect((await jobSor(job.id)).paid_at).toBeNull();
     expect(riasztasok(trid)).toHaveLength(0);
     const l = LEVELEK.filter((x) => x.nev === 'sendFeePaymentFailedEmail' && x.jobId === job.id);
-    expect(l.map((x) => x.tipus)).toEqual(['sikertelen']);
+    expect(l.map((x) => x.tipus), 'a határidőn túl JÓVÁHAGYOTT kísérlet nem „sikertelen" (a PR-4 1. javítóköre)').toEqual(['nem_zart']);
     // Új fizetés azonnal indítható.
     const uj = await fizet(felado, job);
     expect(uj.status, JSON.stringify(uj.body)).toBe(200);

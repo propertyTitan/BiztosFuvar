@@ -53,6 +53,9 @@ const HANGOLOK = Object.freeze([
   ['CIB_ZARAS_HATARIDO_MP', 'zarasHataridoMp', 570, 60, 590],
 ]);
 const LOGIKAI = Object.freeze([
+  // ⚠️ 2026-10-01: bekapcsolva a fuvar rövid hivatkozása is a bankhoz megy —
+  // az adatkezelési tájékoztató 4/A. pontja ezt ma NEM sorolja a továbbított
+  // adatok közé; bekapcsolás előtt a tájékoztatót bővíteni kell.
   ['CIB_EXTRA01', 'extra01', false],
   // A GYFK javasolt algoritmusa szerint az elutasított authorizációt is
   // MSGT32-vel kell lezárni — a bank megerősítéséig ez az alapérték.
@@ -689,7 +692,11 @@ function lekerdezesKimenet(valasz, session, pid) {
 // választ adunk vissza. Előfordulhat, hogy az MSGT32-es üzenetre S05 választ
 // adunk […] ha 10 percen belül nem kerül lezárásra MSGT32-es üzenettel, még
 // visszautalásra kerülhet." Vagyis a lezárás NEM történt meg, a MSGT32-t a
-// határidőn belül újra kell küldeni. Az S04-et a bank ugyanígy kezeli.
+// határidőn belül újra kell küldeni. ⚠️ A levél CSAK az S05-öt nevezi meg; az
+// S04-et a SAJÁT döntésünk (a PR-4 feladatleírása) sorolja ugyanide — a bank
+// ezt nem erősítette meg, a teszt-banknál mérendő. Pénzkockázata nincs: egy
+// már kiszolgált MSGT32 ismétlésére a bank D05-öt ad (→ close_unknown, ember),
+// kettős terhelés nem lehet (2026-10-01, a PR-4 1. javítóköre).
 // Minden más S-kód (kulcs-, környezet-, formátumhiba) a zárásra kétes marad.
 const ZARAS_UJRAKULDHETO_S = Object.freeze(['S04', 'S05']);
 
@@ -729,7 +736,8 @@ function zarasAlap(valasz, session, pid) {
  *   'elutasitva'       → failed
  *   'nem_feldolgozott' → vissza authorized-ba, újrapróba `visszalepesMs` után
  *                        (D03/D04/D07, PR, a küldés előtti hiba, és 2026-10-01
- *                        óta a bank szavára az S05/S04 is) — legfeljebb 3
+ *                        óta az S05 — a bank szavára — meg az S04 — saját
+ *                        döntésünkre, lásd ZARAS_UJRAKULDHETO_S) — legfeljebb 3
  *                        MSGT32, és csak a MSGT10-től számított határidőn belül
  *   'ketes'            → close_unknown — a MSGT32-t SOHA nem küldjük újra
  * Elutasított eredetű zárásnál (`eredete: 'declined'`) minden nem-siker
@@ -775,6 +783,7 @@ module.exports = {
   inditasKimenet,
   lekerdezesKimenet,
   zarasKimenet,
+  ZARAS_UJRAKULDHETO_S,
   CibProtokollHiba,
   TRID_RE,
 };

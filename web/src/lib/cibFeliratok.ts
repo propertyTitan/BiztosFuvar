@@ -79,9 +79,12 @@ export const CIB_ADATKEZELESI_LINK = {
 } as const;
 
 /** A bank 10 perc után reverzál; a mobilos alkalmazásváltás a leggyakoribb
- *  megszakító — ezt előre elmondjuk (failure mode 10). */
+ *  megszakító — ezt előre elmondjuk (failure mode 10). 2026-10-01 (a PR-4 1.
+ *  javítóköre): a helyi lezárási ablak a MSGT10-től 9 perc 30 mp
+ *  (CIB_ZARAS_HATARIDO_MP), és a lezárás (egy lekérdezés + a MSGT32) is ebbe
+ *  esik — a „kb. 10 perc" túlígéret volt. */
 export const CIB_IDO_TIPP =
-  'A bank oldalán kb. 10 perced van befejezni; ne frissítsd és ne lépj vissza. Ha a bankod alkalmazásában hagyod jóvá, utána térj vissza ebbe a böngészőbe.';
+  'A bank oldalán kb. 9 perced van befejezni; ne frissítsd és ne lépj vissza. Ha a bankod alkalmazásában hagyod jóvá, utána térj vissza ebbe a böngészőbe.';
 
 /** A CIB banki tesztkörnyezet sávjának szövege (TesztFizetesSav, 'cib_teszt'). */
 export const CIB_TESZT_SAV_SZOVEG =

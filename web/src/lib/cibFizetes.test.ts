@@ -77,7 +77,10 @@ describe('fizetési hibakódok → FIX magyar szöveg (nyers hiba soha)', () => 
     const u = fizetesHibaUzenet({ code: 'CIB_CONSENT_REQUIRED', status: 400 });
     expect(u.szoveg).toBe('A bankkártyás fizetéshez el kell fogadnod a CIB Bank felé történő adattovábbításról szóló nyilatkozatot.');
     expect(u.szoveg).not.toBe(fizetesHibaUzenet({ code: 'CONSENT_REQUIRED', status: 400 }).szoveg);
-    expect(u.teendo).toBeNull();
+    // 2026-10-01 (a PR-4 1. javítóköre): az állapotot újraolvassuk — ha a
+    // kártya a fee-payment hibája miatt stub-felületet mutatott, így
+    // megjelenik a kért második jelölőnégyzet (különben zsákutca).
+    expect(u.teendo).toBe('allapot');
   });
 
   it('CIB_INIT_FAILED: a terv szerinti szó szerinti mondat', () => {
