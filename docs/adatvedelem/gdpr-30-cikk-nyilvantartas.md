@@ -85,11 +85,19 @@ intézkedések (közös lista a dokumentum végén).
 - **Adatkategóriák**: fizetési tranzakció-azonosítók, összeg, időpont,
   fizetési mód; számlázási név/cím/adószám; kiállított számla adatai;
   45/2014. Korm. r. szerinti nyilatkozat időbélyege
-- **Címzettek/feldolgozók**: fizetési szolgáltató (tervezett: CIB Bank —
-  QVIK/kártya), Számlázz.hu (KBOSS.hu Kft., számla-kiállítás és
-  NAV-adatszolgáltatás), Railway, Neon
+- **Címzettek/feldolgozók**: CIB Bank Zrt. (1024 Budapest, Petrezselyem u.
+  2–8.) — bankkártyás elfogadás (EKI); a banknak csak a tranzakció-azonosító,
+  az összeg/pénznem és egy álnevesített vásárló-azonosító megy (név, cím,
+  e-mail, telefon NEM); a kártyaadatot a vásárló közvetlenül a CIB
+  fizetőoldalán adja meg, arra a CIB saját tájékoztatója vonatkozik. A bank
+  előírása szerint a fizetéskor külön hozzájárulási nyilatkozat (időbélyege a
+  kísérleten tárolva). Továbbá: Számlázz.hu (KBOSS.hu Kft., számla-kiállítás és
+  NAV-adatszolgáltatás), Railway, Neon (2026-10-01)
 - **Harmadik országba továbbítás**: nincs
-- **Törlés**: számviteli bizonylatok a Számv. tv. szerinti 8 évig;
+- **Törlés**: számviteli bizonylatok a Számv. tv. szerinti 8 évig (a banki
+  eredményadatok — TrID, RC/RT, összeg, engedélyszám — a díjbizonylattal
+  együtt); a bankkal váltott titkosított technikai üzenetek naplója
+  (`cib_messages`) 13 hónapig, a függő/kétes kísérleteké a rendezésig;
   tranzakció-naplók a fiók törlése után a jogi igényérvényesítési időig
 - **TOM**: közös lista; a fuvardíj magát a platform NEM kezeli (a felek
   közt mozog)
