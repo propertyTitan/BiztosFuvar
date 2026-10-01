@@ -1,5 +1,44 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-10-01 — CIB KÁRTYÁS DÍJFIZETÉS (EKI / SAKI 1.50): ÉLESBEN, TESZT-MÓDBAN.**
+> A kapcsolatfelvételi díjat a CIB Bank kártyás elfogadása szedi (Barion és
+> QVIK történeti). Mergelve: #255 (`ekiCrypt.js` — a banki 3DES-titkosítás
+> tiszta Node-ban, a dokumentáció példáját bájtra adja), #256 (díjfizetés utáni
+> értesítések egyszeri claimmel, 094/095), #258 (szervermag: `cibProtokoll`,
+> `cibKliens`, `cibFizetes`, `cibLekerdezo`, `cibZaras`, 096/097), #257 (web:
+> fizetési kártya, `/fizetes/eredmeny`, `/bankkartyas-fizetes`, logók,
+> admin-blokk), #259 (next 16.3.8 / engine.io biztonsági frissítés), #260 (a
+> bank írásos válaszai). **Működés:** /pay → MSGT10 (kétfázisú, zár nélküli
+> banki hívás) → egyszer használatos átirányító link → CIB fizetőoldal (3DS) →
+> `GET /payments/cib/vissza` (nyers query) → MSGT33 → pontosan EGY MSGT32
+> (DB-bérlet + claim + részleges UNIQUE index) → csak a MSGT32-re kapott
+> teljes MSGT31 RC=00 után `paid_at` / kontakt / bizonylat / e-mail a banki
+> adatsorral. Nincs webhook: percenkénti lekérdező kör; nem fizethető ügyletet
+> nem zárunk (a bank reverzál); kétes esetben `close_unknown` + riasztás +
+> admin-rendezés. **A bank válaszai (2026-10-01):** IP-regisztráció NEM kell;
+> port 443 (teszt és éles); siker csak teljes MSGT32-válasszal; MSGT32-re
+> jöhet `S05` → újrazárás (nálunk S05/S04 újrapróba, max 3); a 10 perces
+> lezárási határidő az MSGT10-től számít (nálunk 9:30, `CIB_ZARAS_HATARIDO_MP`);
+> 1–3 perces MSGT33 rendben; az adatkezelési pipa akkor is kell, ha személyes
+> adatot nem adunk át (második, kötelező pipa a bank szövegével + az
+> adatkezelési tájékoztató „Bankkártyás fizetés (CIB Bank Zrt.)” szakasza);
+> kosár nélkül és az éles címen, jelölt teszt-módban tesztelhet. **Mérve a
+> teszt-banknál:** EXTRA01 nem kell; a MSGT31 minden válaszban hozza az AMO-t;
+> a fizetőoldalon hagyott kísérletet a bank ~7 perc múlva TO-val zárja;
+> elfogadott kártyák: Visa, V Pay, Mastercard, Maestro (a bank oldala is ezt
+> mutatja). **Most:** a Railway-en `CIB_KORNYEZET=teszt` (ekit.cib.hu, TIH0001,
+> kulcs-ujjlenyomat `5540ea8b5541`), `CIB_TESZT_FELHASZNALOK` = jovanybusz@ +
+> tisztahod@ — csak ők fizetnek kártyával (tesztkártyák: `4111…` siker,
+> `4999…` hiba), mindenki más a sárga stub-teszt-fizetést látja. A user
+> helyben és élesben is végigpróbálta. **Hátra:** (1) banki átvételi teszt
+> kérése az ecommerce@cib.hu-ra (webcím, PID, tesztfiók a listán, előkészített
+> elfogadott fuvarok, a folyamat leírása); (2) éles kulcs (jelszó SMS-ben) →
+> launch-lépések a 🚨 STUB-szakaszban. Ha a CIB-env hibás vagy hiányos, a
+> /pay 503-at ad (a stub sem nyílik): visszaállás = minden `CIB_` sor +
+> `PAYMENT_PROVIDER` törlése. ⚠️ CIB-módban az e-mailben és az eredményoldalon
+> a bank által előírt öt adat (TrID, RC, RT, AMO, ANUM) fix feliratokkal; a
+> szöveg web↔backend szinkronőrrel (`cib-web-szinkron.test.js`).
+
 > **2026-09-28 — teljes P0/P1-audit és a 7 P1 javítása (`fix/audit-20260928-p1`):**
 > 12 területi + 5 hiánykereső ügynök, tételenként 3 független ellenőrzéssel
 > (reprodukálás, cáfolás, súlyosság). **P0 nem volt; 7 P1 javítva**, mindegyik
@@ -219,11 +258,11 @@ Web (Vercel)          Mobil (Expo React Native, NEM élesedett)
    ┌───────────────────┼────────────────────┐
    ↓                   ↓                    ↓
  Neon (Postgres)    Cloudflare R2        Külső:
- (eu-central-1)     (privát bucket)       Fizetés: QVIK (user-döntés
-                                            2026-07-11: Barion VÉGLEG elvetve
-                                            — "meguntam a velük lévő harcot";
-                                            a Barion-kód dormant fallback,
-                                            NEM élesítjük, Pixel se kell)
+ (eu-central-1)     (privát bucket)       Fizetés: CIB EKI (SAKI 1.50)
+                                            kártyás díjfizetés — 2026-10-01
+                                            óta élesben TESZT-módban (lásd a
+                                            legfelső bejegyzést); Barion és
+                                            QVIK történeti
                                           SeeMe.hu (SMS, STUB)
                                           Resend (email, ✅ ÉLES)
                                           Sentry (hibafigyelés, ✅ ÉLES)
@@ -3086,6 +3125,21 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > futnak — a tesztelő fiókjai szándékosan érintetlenek, hogy újra végig
 > tudjon menni a folyamaton.
 >
+> **UGYANEKKOR: A CIB ÉLESRE VÁLTÁSA (2026-10-01).** Egy lépésben a
+> Railway-en: `CIB_KORNYEZET=eles`; `CIB_MARKET_URL` / `CIB_CUSTOMER_URL` az
+> éles hostra (eki.cib.hu, a bank e-mailben megerősíti); `CIB_KEY_B64` = az
+> ÉLES kulcs (a teszt-kulccsal azonos fájlnév!) és `CIB_KEY_UJJLENYOMAT` = az
+> éles kulcs ujjlenyomata (az első boot naplója kiírja); `CIB_TESZT_FELHASZNALOK`
+> TÖRLÉSE (élesben hatástalan, de figyelmeztet); `CIB_BEVEZETES` = aznap; és
+> UGYANAKKOR az `ALLOW_STUB_PAYMENTS` törlése. Ellenőrzés: a boot-napló
+> „EKI-konfiguráció teljes — környezet: eles”, majd az első valódi 500 Ft-os
+> fizetés a user saját kártyájával (kontakt, e-mail a banki adatsorral, számla,
+> admin TrID-keresés). Rend kedvéért ekkor törölhetők a Railway-ről a régi,
+> semmi által nem olvasott változók: `BARION_ENV`, `BARION_POS_KEY`,
+> `BARION_PLATFORM_PAYEE`, `BARION_RESERVATION_PERIOD`,
+> `PLATFORM_COMMISSION_PCT`, `DELIVERY_MAX_DISTANCE_METERS` (2026-10-01-én a
+> user úgy döntött, egyelőre maradnak).
+>
 > **UGYANEKKOR: A TESZT-ÜZEM KUPONJAI (2026-09-28, audit).** A kézi
 > (teszt-üzemi) nyugtázás `manual` fizetési eseményt ír, ami ajánlói kupont
 > válthat ki valódi fizetés nélkül; a 60 napos kupon és a napló a launch után
@@ -3191,7 +3245,14 @@ változtatnak semmit — belső, nem publikus anyagok. Maradék munka:
 NAV-ügyintézés), 9. pont (ügyvédi review, Phase 6).
 
 ### 🟡 Várakozóban
-- **FIZETÉS: QVIK-re váltás (2026-07-08 döntés)** — a Barion drága; a
+- **FIZETÉS: CIB ÉLESÍTÉS ÚTJA (2026-10-01)** — a kód kész és élesben fut
+  teszt-módban (legfelső bejegyzés). Hátra: banki átvételi teszt (kérés az
+  ecommerce@cib.hu-ra a szerződéses címről; a banki tesztfiók azonosítóját a
+  `CIB_TESZT_FELHASZNALOK`-ba fel kell venni, és elfogadott, fizetésre váró
+  fuvarokat kell neki előkészíteni) → éles kulcs (titkosított zip, jelszó
+  SMS-ben) → launch-lépések (🚨 STUB-szakasz). Az alábbi QVIK/vPOS bejegyzések
+  TÖRTÉNETIEK.
+- **(TÖRTÉNETI) FIZETÉS: QVIK-re váltás (2026-07-08 döntés)** — a Barion drága; a
   kapcsolatfelvételi díjat **QVIK-kel** (magyar azonnali fizetés, QR /
   request-to-pay, ~0,4–0,8% díj, azonnali jóváírás, nincs chargeback) szedjük.
   **ELŐKÉSZÍTVE + MERGELVE (PR #69, 2026-07-09; a qvik-callback a prodon él):**
@@ -3487,8 +3548,9 @@ git log --oneline -20
 
 1. **Üdvözöld a user-t magyarul**, röviden
 2. **Kérdezd meg**: van-e konkrét feladat, vagy státusz-update kell
-3. Ha **QVIK-helyzet**: kérdezd meg, megjött-e a fizetés-elfogadási
-   jogosultság (a Barion 2026-07-11 óta VÉGLEG elvetve — ne hozd fel)
+3. Ha **fizetés / CIB**: a legfelső bejegyzés az állapot (teszt-módban él);
+   kérdezd meg, hol tart a banki átvételi teszt és az éles kulcs (a Barion és
+   a QVIK történeti — ne hozd fel)
 3/b. Ha **launch-előkészítés** zajlik (QVIK megjött / launch-dátum szóba
    kerül): **🚨 ELŐSZÖR az `ALLOW_STUB_PAYMENTS` env TÖRLÉSE a Railway-en 🚨**
    (6. szakasz legeleje — enélkül a kapcsolatfelvételi díj TELJESEN
