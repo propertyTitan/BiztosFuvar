@@ -301,12 +301,13 @@ export type CibBankiAdatok = {
 export type FizetesTiltasOka = 'masik_kiserlet_folyamatban' | 'probalkozasi_limit' | 'szunetel' | 'nem_fizetheto';
 
 /**
- * A „nem terhelt" kimenet oka (C5): admin-egyeztetés vagy banki visszafordítás.
- * 2026-10-04 (a C5 bővítése): az admin-visszatérítés ('admin_visszaterites')
- * NEM „nem terhelt" — a bank terhelt, a díjat visszautaltuk; a web
- * (lib/cibFizetes.ts: visszateritett) ezt külön, igaz szöveggel mutatja.
+ * A „nem terhelt" kimenet oka (C5): admin-egyeztetés vagy banki visszafordítás
+ * — a backend (adatsor) csak ezt a kettőt adja ki, minden másra null.
+ * ⚠️ Az admin-visszatérítést a backend ok NÉLKÜL, „nem_terhelt" + RC=00
+ * kimenetként adja; a web (lib/cibFizetes.ts: visszateritett) az RC-ből
+ * ismeri fel, és külön, igaz szöveggel mutatja (a bank terhelt).
  */
-export type NemTerheltOk = 'admin_nem_lezarva' | 'bank_visszaforditotta' | 'admin_visszaterites';
+export type NemTerheltOk = 'admin_nem_lezarva' | 'bank_visszaforditotta';
 
 /** GET /jobs/:id/fee-payment — csak a feladó (és az admin) kapja. */
 export type FeePaymentAllapot = {
@@ -1119,6 +1120,18 @@ export const api = {
   // C6 (2026-10-03): a „lezarva" döntés a bank szöveges eredményét (RT) is viszi.
   adminCibRendezes: (trid: string, body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string; rt?: string }) =>
     request<{ ok: true; allapot: string }>(`/payments/admin/cib/${encodeURIComponent(trid)}/rendezes`, {
+      method: 'POST', body: JSON.stringify(body),
+    }),
+  /**
+   * Konfig NÉLKÜL is elérhető kézi műveletek (CIB PR-5): könyvelés (függő
+   * closed_ok), lejáratás (a zárási határidő után), visszatérítés
+   * (könyvelési árva). Bankot nem hív, MSGT32 nem megy ki.
+   */
+  adminCibKeziRendezes: (
+    trid: string,
+    body: { muvelet: 'konyveles' | 'lejaratas' | 'visszaterites'; indoklas: string; banki_hivatkozas?: string },
+  ) =>
+    request<{ ok: true; allapot: string }>(`/payments/admin/cib/${encodeURIComponent(trid)}/kezi-rendezes`, {
       method: 'POST', body: JSON.stringify(body),
     }),
 

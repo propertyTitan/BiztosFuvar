@@ -12,9 +12,19 @@
 //    tartalmaz, kártyaadatot nem);
 //  - „Újraellenőrzés": a következő banki lekérdezés előrehozása;
 //  - KÉTES LEZÁRÁS (close_unknown): a két döntés ConfirmDialog mögött — a
-//    „Lezárva" ANUM-ot (1–6 alfanumerikus), a bank szöveges eredményét (RT,
-//    alapból „Tranzakció elfogadva" — 2026-10-03, C6) és indoklást, a „Nem
-//    lezárva" indoklást követel (10–2000 karakter), a bankkal egyeztetve.
+//    „Lezárva" ANUM-ot (1–6 alfanumerikus) és indoklást követel, a bank
+//    szöveges eredménye (RT) opcionális (C6: üresen a backend alapértéke,
+//    „Tranzakció elfogadva"; ≤255 karakter); a „Nem lezárva" indoklást
+//    (10–2000 karakter) — mindkettő a bankkal egyeztetve. A „Nem lezárva"
+//    kimenete „nem terhelt" (C5), a feladó újra fizethet.
+//  - KÉZI MŰVELETEK (2026-10-04, W2 — a backend PR-5-ös kezi-rendezes
+//    végpontja, konfig NÉLKÜL is): könyvelés (függő closed_ok), lejáratás
+//    (függő, nem végső, a zárási határidő után), visszatérítés (könyvelési
+//    árva) — csak abban az állapotban kínálva, ahol a backend engedi
+//    (lib/cibAdmin.ts: keziMuveletek), ConfirmDialog mögött, indoklással és
+//    opcionális banki hivatkozással. Bankot egyik sem hív, MSGT32 nem megy ki.
+//  - A lista állapot-szűrője a backend szótárát küldi (lib/cibAdmin.ts:
+//    ALLAPOT_SZURO) — eddig a felület szótára ment, és 400-ra futott.
 //
 //  Ha a végpont nem érhető el (a CIB-integráció nincs bekapcsolva, vagy a
 //  backend még nem tartalmazza), a blokk ezt csendes jelzéssel mondja — az
@@ -30,6 +40,10 @@ import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { useToast } from '@/components/ToastProvider';
 import { KERESKEDO } from '@/lib/kereskedo';
 import { visszateritett } from '@/lib/cibFizetes';
+import {
+  ALLAPOT_SZURO, RT_MAX, adminMuveletHiba, allapotValtozott, bankiHivatkozasHiba, indoklasHiba, keziMuveletek, rtHiba,
+  type KeziMuvelet,
+} from '@/lib/cibAdmin';
 
 const ALLAPOT_NEV: Record<string, string> = {
   feldolgozas: 'Feldolgozás alatt',
@@ -62,9 +76,40 @@ function kijelzettAllapot(s: { allapot: string; rc?: string | null; ok?: string 
 
 const OLDALMERET = 25;
 const ANUM_MINTA = /^[A-Za-z0-9]{1,6}$/;
-/** A bank RC=00-hoz tartozó szöveges eredménye — az RT mező alapértéke (C6). */
+/** A bank RC=00-hoz tartozó szöveges eredménye — az RT mező alapértéke (C6, a backendé is). */
 export const RT_ALAP_RC00 = 'Tranzakció elfogadva';
-const RT_MAX = 200;
+
+/** A kézi műveletek gombja és megerősítő dialógusa (W2, 2026-10-04). */
+const KEZI: Record<KeziMuvelet, { gomb: string; cim: string; uzenet: string; hivatkozas: string; danger: boolean }> = {
+  konyveles: {
+    gomb: 'Könyvelés (banki hívás nélkül)',
+    cim: 'Könyvelés',
+    uzenet: 'A bank ezt a tranzakciót lezárta (closed_ok), de a könyvelés nem futott le. A díjat a tárolt banki '
+      + 'adatsorral fizetettként könyveljük: a feladó megkapja a szállító elérhetőségét, a díj-visszaigazolást és a '
+      + 'számlát. Ha a fuvar közben már nem fizethető, a tétel felülvizsgálandó lesz (könyvelési árva). Bankot nem '
+      + 'hívunk, zárási kérés (MSGT32) nem megy ki.',
+    hivatkozas: 'Banki hivatkozás (opcionális)',
+    danger: false,
+  },
+  lejaratas: {
+    gomb: 'Lejáratás (a zárási határidő után)',
+    cim: 'Lejáratás',
+    uzenet: 'Csak a zárási határidő (alapból a MSGT10 után 9 perc 30 mp) lejárta után rögzíthető. Ha zárási kérés '
+      + '(MSGT32) nem ment ki, a kísérlet lejárt lesz: a bank a zárolást feloldja, terhelés nincs. Ha kiment, a tétel '
+      + 'kétes lesz — azt a bankkal egyeztetve, „Lezárva" vagy „Nem lezárva" döntéssel rendezd. Bankot nem hívunk.',
+    hivatkozas: 'Banki hivatkozás (opcionális)',
+    danger: true,
+  },
+  visszaterites: {
+    gomb: 'Visszatérítve (a banki visszautalás után)',
+    cim: 'Visszatérítés rögzítése',
+    uzenet: 'Csak akkor rögzítsd, ha a díjat a banknál ténylegesen visszatérítetted: a bank terhelt, de az ügylet már '
+      + 'nem volt fizethető (könyvelési árva). A tételt lezárjuk, a feladó „A díjat visszatérítettük" értesítést és '
+      + 'levelet kap.',
+    hivatkozas: 'Banki hivatkozás (a visszatérítés azonosítója, ajánlott)',
+    danger: true,
+  },
+};
 
 function ido(iso: string | null | undefined): string {
   if (!iso) return '–';
@@ -144,6 +189,7 @@ export default function CibFizetesekAdmin() {
   const [reszlet, setReszlet] = useState<{ trid: string; adat: AdminCibReszlet } | null>(null);
   const [reszletBetolt, setReszletBetolt] = useState<string | null>(null);
   const [dontes, setDontes] = useState<'lezarva' | 'nem_lezarva' | null>(null);
+  const [keziDontes, setKeziDontes] = useState<KeziMuvelet | null>(null);
   const [muvelet, setMuvelet] = useState(false);
   // Szinkron őr a dupla kattintás ellen (a state csak a következő renderben
   // látszik; a backend a close_unknown+pending feltétellel amúgy is véd).
@@ -207,8 +253,10 @@ export default function CibFizetesekAdmin() {
       await api.adminCibUjraellenorzes(reszlet.trid);
       toast.success('Újraellenőrzés ütemezve', 'A következő banki lekérdezés a lehető leghamarabb lefut.');
       await nyit(reszlet.trid);
-    } catch {
-      toast.error('Az újraellenőrzés nem indult el', 'Próbáld újra pár perc múlva.');
+    } catch (e) {
+      // W2: hiányos CIB-konfignál (CIB_UNAVAILABLE) a kézi műveletekre utalunk.
+      const u = adminMuveletHiba(e, { cim: 'Az újraellenőrzés nem indult el', szoveg: 'Próbáld újra pár perc múlva.' });
+      toast.error(u.cim, u.szoveg);
     } finally {
       setMuvelet(false);
     }
@@ -217,8 +265,9 @@ export default function CibFizetesekAdmin() {
   async function rendez(v: Record<string, string>) {
     if (!reszlet || !dontes || folyamatban.current) return;
     const indoklas = (v.indoklas || '').trim();
-    if (indoklas.length < 10 || indoklas.length > 2000) {
-      toast.error('Túl rövid indoklás', 'Az indoklás 10–2000 karakter legyen (a bankkal való egyeztetés lényege).');
+    const indHiba = indoklasHiba(indoklas);
+    if (indHiba) {
+      toast.error('Hibás indoklás', indHiba);
       return;
     }
     let body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string; rt?: string };
@@ -228,14 +277,16 @@ export default function CibFizetesekAdmin() {
         toast.error('Hibás engedélyszám', 'Az ANUM 1–6 betű vagy számjegy (a bank által adott engedélyszám).');
         return;
       }
-      // C6 (2026-10-03, lelet 33): az RT is a bank kötelező adatsorának része
-      // — enélkül a díj-visszaigazolásban és az eredményoldalon „–" állt.
+      // C6: az RT a bank kötelező adatsorának része. Opcionális — üresen a
+      // backend a bank RC=00-hoz tartozó szövegét („Tranzakció elfogadva")
+      // írja; megadva legfeljebb 255 karakter, vezérlőkarakter nélkül.
       const rt = (v.rt || '').trim();
-      if (!rt || rt.length > RT_MAX) {
-        toast.error('Hiányzó banki szöveg', `Add meg a bank szöveges eredményét (RT, legfeljebb ${RT_MAX} karakter).`);
+      const rHiba = rtHiba(rt);
+      if (rHiba) {
+        toast.error('Hibás banki szöveg (RT)', rHiba);
         return;
       }
-      body = { eredmeny: 'lezarva', anum, rt, indoklas };
+      body = rt ? { eredmeny: 'lezarva', anum, rt, indoklas } : { eredmeny: 'lezarva', anum, indoklas };
     } else {
       body = { eredmeny: 'nem_lezarva', indoklas };
     }
@@ -243,12 +294,72 @@ export default function CibFizetesekAdmin() {
     setMuvelet(true);
     try {
       await api.adminCibRendezes(reszlet.trid, body);
-      toast.success('Döntés rögzítve', dontes === 'lezarva' ? 'A fizetést lezártként könyveljük.' : 'A kísérletet sikertelenként zártuk; a feladó értesítést kap.');
+      // C5: a „nem lezárva" kimenete „nem terhelt" (nem „sikertelen").
+      toast.success('Döntés rögzítve', dontes === 'lezarva'
+        ? 'A fizetést lezártként könyveljük.'
+        : 'A kísérletet „nem terhelt"-ként zártuk; a feladó értesítést kap, és újra fizethet.');
       setDontes(null);
       await nyit(reszlet.trid);
       keres(offset);
-    } catch {
-      toast.error('A döntés nem rögzült', 'Frissítsd a részleteket, és próbáld újra.');
+    } catch (e) {
+      const u = adminMuveletHiba(e, { cim: 'A döntés nem rögzült', szoveg: 'Frissítsd a részleteket, és próbáld újra.' });
+      toast.error(u.cim, u.szoveg);
+      if (allapotValtozott(e)) {
+        setDontes(null);
+        await nyit(reszlet.trid);
+      }
+    } finally {
+      folyamatban.current = false;
+      setMuvelet(false);
+    }
+  }
+
+  /** A konfig nélkül is elérhető kézi műveletek (W2, 2026-10-04). */
+  async function keziRendez(v: Record<string, string>) {
+    if (!reszlet || !keziDontes || folyamatban.current) return;
+    const muv = keziDontes;
+    const indoklas = (v.indoklas || '').trim();
+    const indHiba = indoklasHiba(indoklas);
+    if (indHiba) {
+      toast.error('Hibás indoklás', indHiba);
+      return;
+    }
+    const hivatkozas = (v.banki_hivatkozas || '').trim();
+    const hHiba = bankiHivatkozasHiba(hivatkozas);
+    if (hHiba) {
+      toast.error('Hibás banki hivatkozás', hHiba);
+      return;
+    }
+    folyamatban.current = true;
+    setMuvelet(true);
+    try {
+      const r = await api.adminCibKeziRendezes(reszlet.trid, hivatkozas
+        ? { muvelet: muv, indoklas, banki_hivatkozas: hivatkozas }
+        : { muvelet: muv, indoklas });
+      const allapot = r?.allapot;
+      if (muv === 'konyveles' && allapot === 'ellenorzes') {
+        toast.info('Könyvelési árva', 'A fuvar közben már nem fizethető — a díjat a banknál vissza kell téríteni, majd a „Visszatérítve" művelettel lezárni.');
+      } else if (muv === 'konyveles' && allapot === 'sikeres') {
+        toast.success('Könyvelve', 'A díjat a banki adatsorral fizetettként könyveltük; a feladó megkapta a szállító elérhetőségét.');
+      } else if (muv === 'konyveles') {
+        toast.success('Könyvelés elindítva', 'A könyvelés még fut — frissítsd a részleteket pár másodperc múlva.');
+      } else if (muv === 'lejaratas' && allapot === 'ellenorzes') {
+        toast.info('Kétesként rögzítve', 'A zárási kérés (MSGT32) kiment — egyeztess a bankkal, és rendezd „Lezárva" vagy „Nem lezárva" döntéssel.');
+      } else if (muv === 'lejaratas') {
+        toast.success('Lejáratva', 'A kísérletet lejártként zártuk: zárási kérés nem ment ki, a bank nem terhelhetett.');
+      } else {
+        toast.success('Visszatérítés rögzítve', 'A tételt lezártuk; a feladó értesítést kap a visszatérítésről.');
+      }
+      setKeziDontes(null);
+      await nyit(reszlet.trid);
+      keres(offset);
+    } catch (e) {
+      const u = adminMuveletHiba(e);
+      toast.error(u.cim, u.szoveg);
+      if (allapotValtozott(e)) {
+        setKeziDontes(null);
+        await nyit(reszlet.trid);
+      }
     } finally {
       folyamatban.current = false;
       setMuvelet(false);
@@ -257,6 +368,7 @@ export default function CibFizetesekAdmin() {
 
   const kettes = reszlet?.adat.session?.cib_state === 'close_unknown'
     && (reszlet.adat.session?.state ?? 'pending') === 'pending';
+  const keziLehetosegek = keziMuveletek(reszlet?.adat.session);
 
   return (
     <section style={{ marginTop: 24 }}>
@@ -290,9 +402,9 @@ export default function CibFizetesekAdmin() {
               <label htmlFor="cib-allapot" style={{ fontSize: 12, display: 'block' }}>Állapot</label>
               <select id="cib-allapot" className="input" value={allapot} onChange={(e) => setAllapot(e.target.value)}>
                 <option value="">Mind</option>
-                {/* A „Visszatérítve" csak kijelzés (a backend „nem_terhelt"-ként szűri). */}
-                {Object.entries(ALLAPOT_NEV).filter(([k]) => k !== 'visszateritve')
-                  .map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+                {/* A backend szótára (W2): a felület kijelzett állapotai
+                    („Sikeres", „Nem terhelt"…) szűrőként 400-at kapnának. */}
+                {ALLAPOT_SZURO.map((o) => <option key={o.ertek} value={o.ertek}>{o.nev}</option>)}
               </select>
             </div>
             <div style={{ flex: '0 1 150px' }}>
@@ -408,7 +520,24 @@ export default function CibFizetesekAdmin() {
                     </button>
                   </>
                 )}
+                {keziLehetosegek.map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    className={KEZI[k].danger ? 'btn btn-danger' : 'btn'}
+                    style={{ whiteSpace: 'normal', textAlign: 'left' }}
+                    onClick={() => setKeziDontes(k)}
+                    disabled={muvelet}
+                  >
+                    {KEZI[k].gomb}
+                  </button>
+                ))}
               </div>
+              {keziLehetosegek.length > 0 && (
+                <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
+                  Kézi művelet — a CIB-konfiguráció nélkül is elérhető; bankot nem hív, zárási kérést (MSGT32) nem küld.
+                </p>
+              )}
 
               {reszlet.adat.events.length > 0 && (
                 <>
@@ -466,7 +595,12 @@ export default function CibFizetesekAdmin() {
         fields={dontes === 'lezarva'
           ? [
             { key: 'anum', label: 'ANUM (a bank engedélyszáma, 1–6 karakter)', type: 'text', required: true, placeholder: 'pl. AB1234' },
-            { key: 'rt', label: 'RT (a bank szöveges eredménye, a vásárló is látja)', type: 'text', required: true, placeholder: RT_ALAP_RC00 },
+            {
+              key: 'rt',
+              label: `RT (a bank szöveges eredménye, a vásárló is látja; legfeljebb ${RT_MAX} karakter — üresen: „${RT_ALAP_RC00}")`,
+              type: 'text',
+              placeholder: RT_ALAP_RC00,
+            },
             { key: 'indoklas', label: 'Indoklás (legalább 10 karakter)', type: 'textarea', required: true, placeholder: 'pl. A CIB e-mailben megerősítette a lezárást (dátum, ügyintéző).' },
           ]
           : [
@@ -475,6 +609,22 @@ export default function CibFizetesekAdmin() {
         initialValues={dontes === 'lezarva' ? { rt: RT_ALAP_RC00 } : undefined}
         onConfirm={(v) => { rendez(v); }}
         onClose={() => setDontes(null)}
+      />
+
+      <ConfirmDialog
+        open={keziDontes !== null}
+        title={keziDontes ? `${KEZI[keziDontes].cim} (${reszlet?.trid ?? ''})` : ''}
+        message={keziDontes ? KEZI[keziDontes].uzenet : undefined}
+        confirmLabel="Rögzítés"
+        danger={keziDontes ? KEZI[keziDontes].danger : false}
+        fields={keziDontes
+          ? [
+            { key: 'indoklas', label: 'Indoklás (legalább 10 karakter)', type: 'textarea', required: true, placeholder: 'pl. A CIB-konfiguráció hiányzott; a bank naplója szerint (dátum, ügyintéző)…' },
+            { key: 'banki_hivatkozas', label: KEZI[keziDontes].hivatkozas, type: 'text', placeholder: 'pl. CIB-2026/10-123' },
+          ]
+          : []}
+        onConfirm={(v) => { keziRendez(v); }}
+        onClose={() => setKeziDontes(null)}
       />
     </section>
   );

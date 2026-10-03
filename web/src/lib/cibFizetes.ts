@@ -440,6 +440,21 @@ export function vegleges(allapot: string | null | undefined): boolean {
   return !!allapot && allapot !== 'feldolgozas';
 }
 
+/**
+ * Az eredményoldal következő lekérdezéséig várandó idő az állapot szerint;
+ * null: a lekérdezés leáll. Ismeretlen állapotnál (még nincs válasz) a
+ * megszokott ütem. 2026-10-04 (W2): az egyeztetés alatti („ellenorzes")
+ * kísérletet a backend magától rendezi (a MSGT10 után CIB_EGYEZTETES_PERC,
+ * alapból 20 perccel csak-olvasó MSGT33) — eddig itt leállt a lekérdezés, és a
+ * kijelentkezett (socket nélküli) böngészőben a döntés soha nem jelent meg.
+ * Lassú ütemben figyelünk, a 30 perces plafonig.
+ */
+export function lekerdezesUtem(allapot: string | null | undefined, elteltMs: number): number | null {
+  if (allapot === 'ellenorzes') return LASSU_LEKERDEZES_MS;
+  if (allapot && vegleges(allapot)) return null;
+  return kovetkezoLekeresMs(elteltMs);
+}
+
 // ── Segédek ────────────────────────────────────────────────────────────
 
 /** „3 perce" / „néhány másodperce" a sárga sávhoz. */

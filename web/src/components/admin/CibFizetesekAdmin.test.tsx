@@ -50,10 +50,12 @@ describe('CIB admin blokk', () => {
     expect(await screen.findByText(TRID)).toBeInTheDocument();
     expect(screen.getByText('Kártyás fizetések (CIB)')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/TrID, ANUM vagy fuvar/), { target: { value: 'AB1234' } });
-    fireEvent.change(screen.getByLabelText(/Állapot/), { target: { value: 'sikertelen' } });
+    // 2026-10-04 (W2): a szűrő a backend szótárát küldi (nyers CIB-állapot,
+    // needs_review, ellenorzes) — a felület „sikertelen" szava 400-at kapott.
+    fireEvent.change(screen.getByLabelText(/Állapot/), { target: { value: 'failed' } });
     fireEvent.click(screen.getByRole('button', { name: /Keresés/ }));
     await waitFor(() => expect(api.adminCibKereses).toHaveBeenLastCalledWith(
-      expect.objectContaining({ q: 'AB1234', allapot: 'sikertelen' }),
+      expect.objectContaining({ q: 'AB1234', allapot: 'failed' }),
     ));
   });
 
@@ -120,7 +122,9 @@ describe('CIB admin blokk', () => {
     }));
   });
 
-  it('close_unknown — „Lezárva": az admin a bank RT-szövegét maga is beírhatja; üresen nem megy ki', async () => {
+  it('close_unknown — „Lezárva": az admin a bank RT-szövegét maga is beírhatja; vezérlőkarakterrel nem megy ki', async () => {
+    // 2026-10-04 (W2): az RT a backendben opcionális (üresen „Tranzakció
+    // elfogadva") — az üres mező már nem tiltja a rögzítést (cib-pr5-w2.test).
     render(<CibFizetesekAdmin />);
     fireEvent.click(await screen.findByRole('button', { name: new RegExp(`Részletek.*${TRID}`) }));
     const panel = await screen.findByTestId('cib-reszlet');
@@ -128,7 +132,7 @@ describe('CIB admin blokk', () => {
     const dialog = (await screen.findAllByRole('dialog')).at(-1)!;
     fireEvent.change(within(dialog).getByLabelText(/ANUM/), { target: { value: 'AB1234' } });
     fireEvent.change(within(dialog).getByLabelText(/Indoklás/), { target: { value: 'A bank levélben megerősítette a lezárást.' } });
-    fireEvent.change(within(dialog).getByLabelText(/RT/), { target: { value: '   ' } });
+    fireEvent.change(within(dialog).getByLabelText(/RT/), { target: { value: 'Sikeres\ttranzakció' } });
     fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
     expect(api.adminCibRendezes).not.toHaveBeenCalled();
     fireEvent.change(within(dialog).getByLabelText(/RT/), { target: { value: 'Sikeres tranzakció' } });

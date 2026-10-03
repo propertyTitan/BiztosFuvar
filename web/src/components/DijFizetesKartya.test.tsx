@@ -477,12 +477,14 @@ describe('URL-paraméterek', () => {
     expect(window.location.search).not.toMatch(/fizetes=/);
   });
 
-  it('?fizetes=link-lejart → toast: a link elhasználódott', async () => {
+  it('?fizetes=link-lejart → toast: a link már nem használható', async () => {
+    // 2026-10-04 (W2): a backend a szünet és a másik kísérlet miatt nem
+    // használható linkről is ide küld — „indíts újat" nem ígérhető (cib-pr5-w2).
     window.history.replaceState({}, '', '/dashboard/fuvar/job-1?fizetes=link-lejart');
     vi.mocked(api.getFeePayment).mockResolvedValue(CIB as any);
     kartya();
     await waitFor(() => expect(m.toast.info).toHaveBeenCalledWith(
-      expect.any(String), 'Ez a fizetési link már elhasználódott, indíts újat.',
+      expect.any(String), expect.stringMatching(/már nem használható/),
     ));
   });
 });

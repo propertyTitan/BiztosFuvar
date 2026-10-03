@@ -15,7 +15,9 @@
 //  kér (a fizetést csak a fuvar feladója indíthatja).
 //
 //  LEKÉRDEZÉS: 3 mp-enként 3 percig, utána 20 mp-enként; végleges állapotban
-//  leáll, és 30 perc után is (a token 24 órás — egy nyitva hagyott fül ne
+//  leáll (az egyeztetés alatti „ellenőrzés" nem az: ott 20 mp-enként figyel,
+//  mert a backend az egyeztetést magától is lezárja — W2, 2026-10-04), és 30
+//  perc után is (a token 24 órás — egy nyitva hagyott fül ne
 //  kérdezzen addig; utána „Frissítés" gomb). Tartós, nem 404-es hibánál
 //  (5xx, 429, hálózat) három próba után kiírjuk, hogy most nem érjük el, és
 //  kiutat adunk — a háttérben tovább próbálkozunk. Bejelentkezve a
@@ -58,8 +60,8 @@ import { CIB_FELIRATOK, CIB_TESZT_SAV_SZOVEG } from '@/lib/cibFeliratok';
 import { BANKI_TOVABBI_INFO, ugyfelUzenet } from '@/lib/cibRcCsoport';
 import { publikusKonfig } from '@/lib/publikusKonfig';
 import {
-  ELERHETETLEN_HIBASZAM, GYORS_SZAKASZ_MS, kovetkezoLekeresMs, lekerdezesFolytathato,
-  nemTerheltMagyarazat, varakozasHibaUtan, vegleges, visszateritesMagyarazat, visszateritett,
+  ELERHETETLEN_HIBASZAM, GYORS_SZAKASZ_MS, kovetkezoLekeresMs, lekerdezesFolytathato, lekerdezesUtem,
+  nemTerheltMagyarazat, varakozasHibaUtan, visszateritesMagyarazat, visszateritett,
 } from '@/lib/cibFizetes';
 
 type Nezet =
@@ -181,6 +183,8 @@ function EredmenyTartalom() {
   const indulas = useRef(Date.now());
   const ora = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leallt = useRef(false);
+  /** Az utolsó ismert állapot — egy átmeneti hiba után is ennek az ütemével kérdezünk. */
+  const utolsoAllapot = useRef<string | null>(null);
 
   const lekerdez = useCallback(async () => {
     if (!token || leallt.current) return;
@@ -192,7 +196,11 @@ function EredmenyTartalom() {
       if (leallt.current) return;
       setHibaSzam(0);
       setNezet({ fajta: 'eredmeny', e: r });
-      if (vegleges(r.allapot)) tovabb = false;
+      utolsoAllapot.current = r.allapot;
+      // Az „ellenőrzés" sem végállapot a lekérdezésnek (W2, 2026-10-04): a
+      // backend az egyeztetést magától lezárja, a döntésnek itt is meg kell
+      // jelennie (lib: lekerdezesUtem).
+      if (lekerdezesUtem(r.allapot, 0) === null) tovabb = false;
     } catch (err) {
       if (leallt.current) return;
       if ((err as { status?: number }).status === 404) {
@@ -215,7 +223,7 @@ function EredmenyTartalom() {
     }
     // 429-re a szerver kérte ideig várunk (lelet 11): közös NAT mögött a
     // 3 mp-es ütem a banki visszatérés keretét is elfogyasztotta.
-    const alap = kovetkezoLekeresMs(eltelt);
+    const alap = lekerdezesUtem(utolsoAllapot.current, eltelt) ?? kovetkezoLekeresMs(eltelt);
     ora.current = setTimeout(() => { lekerdez(); }, hiba ? varakozasHibaUtan(hiba, alap) : alap);
   }, [token]);
 
@@ -371,6 +379,17 @@ function EredmenyTartalom() {
           nem terhelünk — az eredményről e-mailben értesítünk.
         </p>
         <BankiTranzakcioAdatok adatok={e} mentesTipp kimenet="ellenorzes" />
+        {/* W2 (2026-10-04): az egyeztetést a backend magától is lezárhatja —
+            az oldal lassan tovább figyel, a plafon után kézi frissítéssel. */}
+        {megallt && (
+          <>
+            <p role="status">
+              Az automatikus frissítést leállítottuk. Az eredményről e-mailben értesítünk, és a fuvar
+              oldalán is látod; most is lekérdezheted:
+            </p>
+            <FrissitesGomb onClick={ujraindit} />
+          </>
+        )}
         <p style={{ fontSize: 13 }}>
           Kérdésed van? Írj nekünk a TrID-vel: <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a>
           {' '}vagy hívj: <a href="tel:+36203979223">+36 20 397 9223</a>

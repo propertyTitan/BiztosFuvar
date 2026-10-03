@@ -64,7 +64,9 @@
 //     (vagy nem kártyás úton), már nem „pár másodpercet" ígér, hanem
 //     percekről beszél, és kézi frissítést kínál (lib: lezarasKesik);
 //   - a „nyitott" sáv tiltás mellett nem biztat új fizetésre;
-//   - a lezárás lekérdezése 30 perc után leáll, utána kézi frissítés.
+//   - a lezárás lekérdezése 30 perc után leáll, utána kézi frissítés;
+//   - (W2) az egyeztetés alatt („Ne fizess újra") is lassan figyelünk, kézi
+//     frissítéssel: a backend a kétes kísérletet magától is lezárja.
 // =====================================================================
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
@@ -112,8 +114,15 @@ const LEZARAS_FRISSITES_MS = 5_000;
  */
 const NYITOTT_FIGYELES_MS = 20 * 60_000;
 
+/**
+ * W2 (2026-10-04): a backend ugyanezzel a paraméterrel küld vissza a
+ * felhasznált, a lejárt, a szünet alatti (CIB_UJ_FIZETES_TILTVA) és a másik
+ * kísérlet zárása miatt nem használható linkről — az „indíts újat" ezek
+ * felében hamis volt. Terhelésről sem állítunk semmit (egy felhasznált link
+ * mögött már elindult fizetés is lehet); a kártya maga mutatja az állapotot.
+ */
 function linkLejartToastSzoveg() {
-  return 'Ez a fizetési link már elhasználódott, indíts újat.';
+  return 'Ez a fizetési link már nem használható. A díj aktuális állapotát itt látod; ha új fizetés indítható, innen indíthatod.';
 }
 
 /** Kézi újraolvasás, ha az automatikus figyelés már leállt (vagy lassú). */
@@ -192,7 +201,7 @@ export default function DijFizetesKartya({
       const url = new URL(window.location.href);
       const fizetes = url.searchParams.get('fizetes');
       if (fizetes === 'ujra' || fizetes === 'link-lejart') {
-        if (fizetes === 'link-lejart') toast.info('A fizetési link lejárt', linkLejartToastSzoveg());
+        if (fizetes === 'link-lejart') toast.info('A fizetési link már nem érvényes', linkLejartToastSzoveg());
         gyokerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         // A paramétert levesszük, hogy egy újratöltés ne ismételje.
         url.searchParams.delete('fizetes');
@@ -289,7 +298,9 @@ export default function DijFizetesKartya({
   // figyeljük (2026-10-03, lelet 10): eddig ebben az állapotban a kártya csak
   // socket-eseményre frissült, és a sárga sáv akkor is új fizetésre
   // biztatott, amikor a háttér már lezárta a kísérletet.
-  const lassanFigyel = allapot === 'nyitott'
+  // W2 (2026-10-04): az egyeztetés alatti kísérletet is — a backend a kétes
+  // kísérletet magától is lezárja (csak-olvasó MSGT33), nem csak az admin.
+  const lassanFigyel = allapot === 'nyitott' || allapot === 'ellenorzes'
     || (!!tiltas && fp?.pay_blocked_reason === 'masik_kiserlet_folyamatban');
   useEffect(() => {
     if (!lassanFigyel) return;
@@ -401,6 +412,7 @@ export default function DijFizetesKartya({
           </div>
           <p style={{ margin: '6px 0 0', fontSize: 14 }}>
             A bank válaszát egyeztetjük; legkésőbb 1 munkanapon belül rendezzük, és kétszer biztosan nem terhelünk.
+            Az eredményről itt és e-mailben is értesítünk.
           </p>
           {ellenorzesTrid && (
             <p style={{ margin: '6px 0 0', fontSize: 13 }}>
@@ -410,6 +422,7 @@ export default function DijFizetesKartya({
           <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
             Kérdésed van? Írj nekünk a TrID-vel: <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a>
           </p>
+          <AllapotFrissites onClick={() => { allapotBetoltes(); }} />
         </div>
       )}
 
