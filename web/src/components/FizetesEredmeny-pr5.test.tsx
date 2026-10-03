@@ -4,8 +4,9 @@
 //  Leletek: 9 (admin-egyeztetés utáni hamis „a bank nem fogadta el"), 11
 //  (429-re is 3 mp-es ütem), 25c (újrapróba magyarázat nélkül hiányzik),
 //  28 (az eredményoldalon nincs teszt-jelölés), és a valódi banknál talált
-//  hibák: „A fizetett összeg (AMO)" sikertelen fizetésnél, a böngésző Vissza
-//  gombja a bank POST-oldalára visz.
+//  hibák: „A fizetett összeg (AMO)" sikertelen fizetésnél (a banki felirat
+//  marad, a kimenetet külön mondat mondja), a böngésző Vissza gombja a bank
+//  POST-oldalára visz.
 // =====================================================================
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -51,21 +52,47 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); });
 
-describe('az összeg felirata a kimenethez igazodik', () => {
-  it.each(['sikertelen', 'nem_terhelt', 'mar_fizetve', 'ellenorzes'])('%s: nem „fizetett összeg", de az AMO ott van', async (allapot) => {
+// 2026-10-03 (a PR-5 web 1. javítóköre): az AMO felirata SZÓ SZERINT a
+// banki marad MINDEN kimenetnél (a CIB „Fejlesztési javaslatok": „a fenti
+// értékek kísérőszövege meg kell egyezzen a fenti lista elemeivel"; a banki
+// átvételi teszt a 4999…-es kártyával épp egy sikertelen fizetést néz) — a
+// nem sikeres kimenetet egy KÜLÖN mondat mondja el. Az e-mail is a banki
+// feliratot írja, így a web és a levél ugyanazt mondja.
+const BANKI_FELIRATOK = [
+  'A tranzakció azonosítója (TrID)',
+  'A tranzakció eredményének kódja (RC)',
+  'A tranzakció eredményének szöveges ismertetése (RT)',
+  'A fizetett összeg (AMO)',
+  'A kibocsátó bank által adott engedélyszám (ANUM)',
+];
+const feliratok = () => Array.from(document.querySelectorAll('[data-testid="banki-tranzakcio-adatok"] dt')).map((d) => d.textContent);
+const megjegyzes = () => document.querySelector('[data-testid="amo-megjegyzes"]')?.textContent ?? null;
+
+describe('az öt banki felirat szó szerint, minden kimenetnél', () => {
+  it.each(['sikertelen', 'nem_terhelt', 'mar_fizetve'])('%s: a banki AMO-felirat marad, a „nem terheltük" külön mondat', async (allapot) => {
     vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, rc: '05', anum: null, allapot } as any);
     render(<EredmenyOldal />);
     await atfolyat();
-    expect(screen.queryByText('A fizetett összeg (AMO)')).toBeNull();
-    expect(screen.getByText(/összege \(AMO\)/)).toBeInTheDocument();
+    expect(feliratok()).toEqual(BANKI_FELIRATOK);
     expect(screen.getByText('500 HUF')).toBeInTheDocument();
+    expect(megjegyzes()).toMatch(/nem terheltük/);
   });
 
-  it('sikeres: a banki felirat szó szerint', async () => {
+  it('ellenőrzés alatt: a banki AMO-felirat marad, és a megjegyzés nem állít terhelést vagy annak hiányát', async () => {
+    vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, rc: null, rt: null, anum: null, allapot: 'ellenorzes' } as any);
+    render(<EredmenyOldal />);
+    await atfolyat();
+    expect(feliratok()).toEqual(BANKI_FELIRATOK);
+    expect(megjegyzes()).toMatch(/egyeztet/);
+    expect(megjegyzes()).not.toMatch(/nem terheltük|terheltük a kártyádat/);
+  });
+
+  it('sikeres: a banki feliratok, külön megjegyzés nélkül', async () => {
     vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, allapot: 'sikeres' } as any);
     render(<EredmenyOldal />);
     await atfolyat();
-    expect(screen.getByText('A fizetett összeg (AMO)')).toBeInTheDocument();
+    expect(feliratok()).toEqual(BANKI_FELIRATOK);
+    expect(megjegyzes()).toBeNull();
   });
 });
 
@@ -109,6 +136,16 @@ describe('újrapróba nélkül is van magyarázat (lelet 25c)', () => {
     render(<EredmenyOldal />);
     await atfolyat();
     expect(screen.getByText(/most nem indítható új fizetés/)).toBeInTheDocument();
+  });
+
+  it('banki eredmény nélkül sem mond ellent önmagának („bármikor indíthatsz" ↔ „most nem indítható")', async () => {
+    vi.mocked(api.getCibEredmeny).mockResolvedValue({
+      ...ALAP, rc: null, rt: null, anum: null, allapot: 'sikertelen', ujra_fizetheto: false,
+    } as any);
+    render(<EredmenyOldal />);
+    await atfolyat();
+    expect(screen.getByText(/most nem indítható új fizetés/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/bármikor indíthatsz/);
   });
 });
 

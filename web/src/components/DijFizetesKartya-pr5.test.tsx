@@ -141,23 +141,27 @@ describe('a nem terhelt kimenet oka (C5, lelet 9)', () => {
     expect(screen.getByRole('button', { name: /Fizetés bankkártyával/ })).toBeInTheDocument();
   });
 
-  it('a nem terhelt / sikertelen kísérlet adatsorában az összeg nem „fizetett"', async () => {
+  // 2026-10-03 (a PR-5 web 1. javítóköre): az AMO banki felirata SZÓ SZERINT
+  // marad; a nem sikeres kimenetet külön mondat mondja (a bank előírása).
+  it('a sikertelen kísérlet adatsorában a banki AMO-felirat marad, a „nem terheltük" külön mondat', async () => {
     vi.mocked(api.getFeePayment).mockResolvedValue({
       ...CIB, last_result: { trid: '1', rc: '05', amo: 500, allapot: 'sikertelen' },
     } as any);
     kartya();
     await screen.findByText(/Az előző fizetési kísérlet nem sikerült/);
-    expect(screen.queryByText('A fizetett összeg (AMO)')).toBeNull();
-    expect(screen.getByText(/összege \(AMO\)/)).toBeInTheDocument();
+    expect(screen.getByText('A fizetett összeg (AMO)')).toBeInTheDocument();
+    expect(screen.queryByText(/összege \(AMO\)/)).toBeNull();
+    expect(screen.getByTestId('amo-megjegyzes').textContent).toMatch(/nem terheltük/);
   });
 
-  it('sikeres fizetés adatsorában a banki felirat szó szerint marad', async () => {
+  it('sikeres fizetés adatsorában a banki felirat szó szerint marad, megjegyzés nélkül', async () => {
     vi.mocked(api.getFeePayment).mockResolvedValue({
       ...CIB, can_pay: false, last_result: { trid: '1', rc: '00', amo: 500, anum: 'AB1234', allapot: 'sikeres' },
     } as any);
     kartya();
     await screen.findByText('Sikeres fizetés');
     expect(screen.getByText('A fizetett összeg (AMO)')).toBeInTheDocument();
+    expect(screen.queryByTestId('amo-megjegyzes')).toBeNull();
   });
 });
 

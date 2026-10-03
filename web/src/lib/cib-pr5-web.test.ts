@@ -13,8 +13,10 @@ import {
   kartyaAllapot, fizetesHibaUzenet, fizetesTiltasUzenet, nemTerheltMagyarazat,
   varakozasHibaUtan, nyilatkozatHiany, LASSU_LEKERDEZES_MS,
 } from './cibFizetes';
-import { CIB_FELIRATOK, CIB_IDO_TIPP, amoFelirat } from './cibFeliratok';
+import * as feliratModul from './cibFeliratok';
+import { CIB_FELIRATOK, CIB_IDO_TIPP } from './cibFeliratok';
 import { ervenyesKonfig, tesztUzemSav } from './publikusKonfig';
+import { ugyfelUzenet } from './cibRcCsoport';
 
 const cib = (x: Record<string, unknown> = {}) => ({
   provider_kind: 'cib' as const, can_pay: true, open_attempt: null, last_result: null, ...x,
@@ -154,10 +156,27 @@ describe('feliratok (leletek 27 és a nem fizetett AMO)', () => {
     expect(CIB_IDO_TIPP).not.toMatch(/9 perc|10 perc/);
   });
 
-  it('a fizetett összeg felirata csak sikeres fizetésnél „fizetett"; az AMO-kód mindig ott van', () => {
-    expect(amoFelirat(true)).toBe(CIB_FELIRATOK.amo);
-    expect(amoFelirat(false)).not.toMatch(/fizetett/);
-    expect(amoFelirat(false)).toMatch(/\(AMO\)$/);
+  // 2026-10-03 (a PR-5 web 1. javítóköre): az előző kör a nem sikeres
+  // kimenetnél „A tranzakció összege (AMO)"-ra írta át a banki feliratot — a
+  // CIB szerint a kísérőszövegnek a banki listával KELL egyeznie, és a
+  // sikertelen-fizetés levele is a banki feliratot írja. Az AMO-nak tehát
+  // egyetlen felirata van; a kimenetet külön mondat (amoMegjegyzes) mondja.
+  it('az AMO-nak egyetlen, banki felirata van — „(AMO)"-ra végződő másik felirat nem exportálható', () => {
+    const amoFeliratok = Object.values(feliratModul)
+      .filter((v): v is string => typeof v === 'string' && /\(AMO\)$/.test(v));
+    expect(amoFeliratok).toEqual([]);
+    expect(CIB_FELIRATOK.amo).toBe('A fizetett összeg (AMO)');
+    expect(Object.keys(feliratModul)).not.toContain('amoFelirat');
+  });
+
+  it('a kimenet mondata: sikernél nincs; nem terhelt kísérletnél „nem terheltük"; egyeztetésnél semmit nem állít', () => {
+    const { amoMegjegyzes } = feliratModul as unknown as { amoMegjegyzes?: (k: string) => string | null };
+    expect(typeof amoMegjegyzes).toBe('function');
+    expect(amoMegjegyzes!('sikeres')).toBeNull();
+    expect(amoMegjegyzes!('nem_terhelt')).toMatch(/nem terheltük/);
+    expect(amoMegjegyzes!('ellenorzes')).toMatch(/egyeztet/);
+    expect(amoMegjegyzes!('ellenorzes')).not.toMatch(/nem terheltük|terheltük a kártyádat/);
+    for (const k of ['nem_terhelt', 'ellenorzes']) expect(amoMegjegyzes!(k)).not.toMatch(/fizetett összeg/);
   });
 });
 
@@ -185,6 +204,30 @@ describe('publikus konfiguráció és a teszt-üzem sávja (C1)', () => {
       const s = tesztUzemSav(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: kf }))!;
       expect(s, kf).not.toBeNull();
       expect(s.szoveg).not.toMatch(/nincs valódi|valódi pénzmozgás nincs|valódi terhelés nincs|szimuláció/);
+    }
+  });
+});
+
+// 2026-10-03 (a PR-5 web 1. javítóköre) — az átnézés nem blokkoló, de olcsó
+// és egyértelmű pontjai.
+describe('1. javítókör', () => {
+  it('a publikus konfigurációból hiányzó kartyas_fizetes kulcs nem „szimuláció" (fail-closed)', () => {
+    // A szerződés szerint a mező mindig jelen van; ha mégsem, a legmegengedőbb
+    // állítás („valódi pénzmozgás nincs") nem jelenhet meg.
+    expect(ervenyesKonfig({ teszt_uzem: true })).toBeNull();
+    expect(tesztUzemSav(ervenyesKonfig({ teszt_uzem: true }))).toBeNull();
+    expect(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: null })).toEqual({ teszt_uzem: true, kartyas_fizetes: null });
+  });
+
+  it('a szünetelés nem állítja, hogy nem történt terhelés (egy már elindított fizetést lezárunk)', () => {
+    const u = fizetesTiltasUzenet(cib({ can_pay: false, pay_blocked_reason: 'szunetel' }) as any)!;
+    expect(u.szoveg).not.toMatch(/nem történt terhelés/i);
+    expect(u.szoveg).toMatch(/lezárjuk/);
+  });
+
+  it('a sikertelen kísérlet magyarázata nem ígér feltétel nélkül új fizetést (az újrapróbát a felület külön kínálja)', () => {
+    for (const rc of [null, '', 'ZZ', '05', '51', '91', 'X0', 'TO', '08']) {
+      for (const p of ugyfelUzenet({ rc }).pontok) expect(p, String(rc)).not.toMatch(/bármikor indíthatsz/);
     }
   });
 });

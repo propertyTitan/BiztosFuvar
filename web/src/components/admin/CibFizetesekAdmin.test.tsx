@@ -69,6 +69,9 @@ describe('CIB admin blokk', () => {
     const panel = await screen.findByTestId('cib-reszlet');
     expect(within(panel).getByText('MSGT32')).toBeInTheDocument();
     expect(within(panel).getByText('idotullepes')).toBeInTheDocument();
+    // A banki adatsor felirata egy nem lezárt kísérletnél is SZÓ SZERINT a
+    // banki (2026-10-03, a PR-5 web 1. javítóköre).
+    expect(within(panel).getByText('A fizetett összeg (AMO)')).toBeInTheDocument();
 
     fireEvent.click(within(panel).getByRole('button', { name: /Titkosított napló másolása a banknak/ }));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled());

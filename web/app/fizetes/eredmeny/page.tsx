@@ -33,7 +33,9 @@
 //
 //  2026-10-03 (CIB PR-5) továbbá: 429-re a szerver kérte ideig várunk
 //  (lelet 11); a „nem terhelt" kimenet oka saját szöveget kap (C5, lelet 9);
-//  az összeg felirata csak sikeres fizetésnél „fizetett"; újrapróba nélkül is
+//  a banki adatsor felirata minden kimenetnél szó szerint a banki, a nem
+//  sikeres kimenetet külön mondat mondja (a PR-5 web 1. javítóköre — az AMO
+//  feliratának átírása a bank előírását sértette); újrapróba nélkül is
 //  megmondjuk, miért nincs (lelet 25c); a CIB tesztkörnyezete jelölve
 //  (lelet 28, C1).
 // =====================================================================
@@ -341,7 +343,7 @@ function EredmenyTartalom() {
           <CheckCircle2 size={24} color="var(--success)" aria-hidden /> Sikeres fizetés
         </h1>
         <p>A kapcsolatfelvételi díjat kifizetted, a szállító elérhetősége megnyílt.</p>
-        <BankiTranzakcioAdatok adatok={e} mentesTipp fizetett />
+        <BankiTranzakcioAdatok adatok={e} mentesTipp kimenet="sikeres" />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
           {jobId && (
             <Link href={fuvarUt(jobId, !!user)} className="btn">Szállító elérhetőségének megnyitása</Link>
@@ -363,7 +365,7 @@ function EredmenyTartalom() {
           A bank válaszát egyeztetjük. Legkésőbb 1 munkanapon belül rendezzük, és kétszer biztosan
           nem terhelünk — az eredményről e-mailben értesítünk.
         </p>
-        <BankiTranzakcioAdatok adatok={e} mentesTipp />
+        <BankiTranzakcioAdatok adatok={e} mentesTipp kimenet="ellenorzes" />
         <p style={{ fontSize: 13 }}>
           Kérdésed van? Írj nekünk a TrID-vel: <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a>
           {' '}vagy hívj: <a href="tel:+36203979223">+36 20 397 9223</a>
@@ -404,7 +406,7 @@ function EredmenyTartalom() {
           <p className="muted" style={{ fontSize: 12 }}>{BANKI_TOVABBI_INFO}</p>
         </>
       )}
-      <BankiTranzakcioAdatok adatok={e} mentesTipp />
+      <BankiTranzakcioAdatok adatok={e} mentesTipp kimenet="nem_terhelt" />
 
       {ujraProba && (
         user ? (

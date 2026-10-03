@@ -109,9 +109,14 @@ const IDOTULLEPES: UgyfelUzenet = {
   ujraProbalhato: true,
 };
 
+// 2026-10-03 (a PR-5 web 1. javítóköre): az „Új fizetést bármikor
+// indíthatsz" ígéret kikerült a pontokból — ha a díj épp nem fizethető (egy
+// másik kísérlet fut, a díj közben rendeződött), ugyanazon a képernyőn
+// ellentmondott a „most nem indítható" magyarázatnak. Az újrapróbát a
+// felület maga kínálja, ahol valóban lehet.
 const ALTALANOS: UgyfelUzenet = {
   cim: 'A bank nem fogadta el a fizetést.',
-  pontok: ['Új fizetést bármikor indíthatsz — egy sikertelen kísérlet után nem terheljük a kártyádat.'],
+  pontok: ['Egy sikertelen kísérlet után nem terheljük a kártyádat.'],
   ujraProbalhato: true,
 };
 
@@ -124,7 +129,6 @@ const NINCS_BANKI_EREDMENY: UgyfelUzenet = {
   cim: 'A fizetés nem fejeződött be.',
   pontok: [
     'A fizetést nem zártuk le, ezért a kártyádat nem terheltük. Ha a bank közben zárolt összeget, azt feloldja.',
-    'Új fizetést bármikor indíthatsz.',
   ],
   ujraProbalhato: true,
 };

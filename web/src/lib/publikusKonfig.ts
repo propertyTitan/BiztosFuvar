@@ -16,10 +16,13 @@ export function ervenyesKonfig(x: unknown): PublikusKonfig | null {
   if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
   const o = x as Record<string, unknown>;
   if (typeof o.teszt_uzem !== 'boolean') return null;
+  // A hiányzó kulcs nem „null" (= stub, „csak szimuláció"): az a
+  // legmegengedőbb állítás volna — inkább semmi (a PR-5 web 1. javítóköre).
+  if (!('kartyas_fizetes' in o)) return null;
   const kf = o.kartyas_fizetes;
   // Az ismeretlen környezet-név nem „teszt": éles kártyás fizetésnek vesszük,
   // vagyis semmilyen „nincs valódi pénz" állítás nem társul hozzá.
-  const kartyas: PublikusKonfig['kartyas_fizetes'] = kf === 'teszt' ? 'teszt' : kf === null || kf === undefined ? null : 'eles';
+  const kartyas: PublikusKonfig['kartyas_fizetes'] = kf === 'teszt' ? 'teszt' : kf === null ? null : 'eles';
   return { teszt_uzem: o.teszt_uzem, kartyas_fizetes: kartyas };
 }
 

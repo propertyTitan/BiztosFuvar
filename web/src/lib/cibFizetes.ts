@@ -106,7 +106,9 @@ export function fizetesTiltasUzenet(fp: FeePaymentAllapot | null | undefined): O
     case 'szunetel':
       return {
         cim: 'A kártyás fizetés átmenetileg szünetel',
-        szoveg: 'Új kártyás fizetés most nem indítható; a már elindított fizetéseket lezárjuk. Nem történt terhelés — próbáld újra később.',
+        // „Nem történt terhelés" szándékosan nincs benne: egy már elindított
+        // (a bankban jóváhagyott) fizetést szünet alatt is lezárunk.
+        szoveg: 'Új kártyás fizetés most nem indítható; a már elindított fizetéseket lezárjuk, az eredményükről e-mailben értesítünk. Próbáld újra később.',
       };
     case 'nem_fizetheto':
       return {

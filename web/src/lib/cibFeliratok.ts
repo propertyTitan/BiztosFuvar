@@ -27,18 +27,26 @@ export type CibFeliratKulcs = keyof typeof CIB_FELIRATOK;
 /** A banki lista sorrendje — a megjelenítés is ezt követi. */
 export const CIB_FELIRAT_SORREND: readonly CibFeliratKulcs[] = ['trid', 'rc', 'rt', 'amo', 'anum'];
 
-/**
- * Az AMO felirata NEM sikeres kimenetnél (sikertelen, nem terhelt, már
- * fizetett, ellenőrzés alatt). 2026-10-03 (CIB PR-5, a valódi banknál
- * talált hiba): a „fizetett összeg" egy el nem fogadott vagy le nem zárt
- * fizetésnél hamis. Az AMO-kód és az érték marad (a bank kötelező adata);
- * sikeres fizetésnél a banki felirat (CIB_FELIRATOK.amo) szó szerint áll.
- */
-export const CIB_AMO_NEM_FIZETETT_FELIRAT = 'A tranzakció összege (AMO)';
+/** A banki adatsor kimenete: ehhez igazodik az adatsor alatti mondat. */
+export type AmoKimenet = 'sikeres' | 'nem_terhelt' | 'ellenorzes';
 
-/** Az AMO felirata a kimenet szerint: csak sikeres fizetésnél „fizetett". */
-export function amoFelirat(fizetett: boolean): string {
-  return fizetett ? CIB_FELIRATOK.amo : CIB_AMO_NEM_FIZETETT_FELIRAT;
+/**
+ * Az adatsor alatti mondat a kimenet szerint — sikernél nincs.
+ *
+ * 2026-10-03 (CIB PR-5): egy elutasított vagy le nem zárt fizetésnél „A
+ * fizetett összeg (AMO)" félrevezető. A FELIRAT ettől még SZÓ SZERINT a banki
+ * marad (a bank előírása, és a sikertelen-fizetés e-mailje is ezt írja); a
+ * kimenetet ez a KÜLÖN mondat mondja el. Az ellenőrzés alatti kísérletről
+ * nem állítjuk, hogy nem terheltünk — azt csak az egyeztetés dönti el.
+ */
+export function amoMegjegyzes(kimenet: AmoKimenet): string | null {
+  if (kimenet === 'nem_terhelt') {
+    return 'A fenti összeg (AMO) ennek a fizetési kísérletnek az összege — ezzel a kísérlettel nem terheltük a kártyádat.';
+  }
+  if (kimenet === 'ellenorzes') {
+    return 'A fenti összeg (AMO) ennek a fizetési kísérletnek az összege; hogy terheltük-e, a bankkal való egyeztetés után derül ki.';
+  }
+  return null;
 }
 
 /** Az AMO mellé kiírt pénznem (a díj mindig forintban megy). */

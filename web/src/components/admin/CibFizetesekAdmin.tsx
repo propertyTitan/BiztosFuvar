@@ -374,10 +374,7 @@ export default function CibFizetesekAdmin() {
                 )}
               </p>
 
-              <BankiTranzakcioAdatok
-                adatok={{ ...(reszlet.adat.result || {}), trid: reszlet.trid }}
-                fizetett={reszlet.adat.session?.state === 'succeeded'}
-              />
+              <BankiTranzakcioAdatok adatok={{ ...(reszlet.adat.result || {}), trid: reszlet.trid }} />
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
                 {/* A .btn alapból nowrap — 390 px-en ez a hosszú felirat kilógna. */}

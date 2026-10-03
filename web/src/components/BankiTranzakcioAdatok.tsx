@@ -9,27 +9,29 @@
 //  engedélyszám): „–" — a sor ettől még látszik.
 // =====================================================================
 import type { CibBankiAdatok } from '@/api';
-import { CIB_FELIRAT_SORREND, CIB_FELIRATOK, amoFelirat, bankiErtek, osszegKiiras } from '@/lib/cibFeliratok';
+import {
+  CIB_FELIRAT_SORREND, CIB_FELIRATOK, amoMegjegyzes, bankiErtek, osszegKiiras, type AmoKimenet,
+} from '@/lib/cibFeliratok';
 
 type Props = {
   adatok: CibBankiAdatok;
   /** A „mentsd el" tipp (az eredményoldalon kötelezően ajánlott). */
   mentesTipp?: boolean;
   /**
-   * Sikeres (lezárt, terhelt) fizetés-e. Csak ekkor „A fizetett összeg
-   * (AMO)" a felirat; egyébként „A tranzakció összege (AMO)" — 2026-10-03
-   * (CIB PR-5): egy elutasított vagy le nem zárt fizetésnél a „fizetett"
-   * hamis. Az alapérték szándékosan a semleges felirat.
+   * A kísérlet kimenete. A FELIRATOK ettől függetlenül szó szerint a bankiak
+   * (az AMO-é sikertelen fizetésnél is „A fizetett összeg (AMO)" — 2026-10-03,
+   * a PR-5 web 1. javítóköre); nem sikeres kimenetnél egy KÜLÖN mondat mondja
+   * el, mi történt a kártyával. Megadása nélkül nincs ilyen mondat (admin).
    */
-  fizetett?: boolean;
+  kimenet?: AmoKimenet;
 };
 
-export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false, fizetett = false }: Props) {
+export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false, kimenet }: Props) {
   const ertek = (k: (typeof CIB_FELIRAT_SORREND)[number]): string => {
     if (k === 'amo') return osszegKiiras(adatok.amo);
     return bankiErtek(adatok[k] as string | null | undefined);
   };
-  const felirat = (k: (typeof CIB_FELIRAT_SORREND)[number]): string => (k === 'amo' ? amoFelirat(fizetett) : CIB_FELIRATOK[k]);
+  const megjegyzes = kimenet ? amoMegjegyzes(kimenet) : null;
   return (
     <div data-testid="banki-tranzakcio-adatok">
       <dl
@@ -49,7 +51,7 @@ export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false, fize
               paddingBottom: 6, borderBottom: '1px solid var(--border)',
             }}
           >
-            <dt className="muted" style={{ margin: 0, flex: '1 1 220px', minWidth: 0 }}>{felirat(k)}</dt>
+            <dt className="muted" style={{ margin: 0, flex: '1 1 220px', minWidth: 0 }}>{CIB_FELIRATOK[k]}</dt>
             <dd
               style={{
                 margin: 0, fontWeight: 700, flex: '0 1 auto', minWidth: 0,
@@ -61,6 +63,9 @@ export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false, fize
           </div>
         ))}
       </dl>
+      {megjegyzes && (
+        <p data-testid="amo-megjegyzes" style={{ fontSize: 13, margin: '8px 0 0' }}>{megjegyzes}</p>
+      )}
       {mentesTipp && (
         <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
           Érdemes elmentened ezeket az adatokat (képernyőkép vagy jegyzet) — a bankod

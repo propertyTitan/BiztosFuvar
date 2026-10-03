@@ -46,7 +46,9 @@
 //   - KUPON (C4): ha beváltható ajánlói kupon fedezi a díjat
 //     (`kupon_elerheto`), a CIB felé semmi nem megy — a CIB-nyilatkozat és a
 //     banki infó-blokk nem jelenik meg, a gomb az ingyenes kapcsolatfelvételt
-//     kínálja, a /pay csak a 45/2014-es nyilatkozatot viszi;
+//     kínálja, a /pay csak a 45/2014-es nyilatkozatot viszi; ha a backend
+//     mégis CIB_CONSENT_REQUIRED-et ad, a CIB-nyilatkozat megjelenik (a
+//     kártyás tiltás — szünetel, kísérleti korlát — a kupont nem rejti el);
 //   - TILTÁS (C3): `can_pay: false` mellett NINCS fizetés-gomb; a tiltás oka
 //     (`pay_blocked_reason`) a gomb helyén olvasható;
 //   - a letiltott gomb mellett a hiányzó nyilatkozat neve (aria-describedby);
@@ -109,6 +111,13 @@ export default function DijFizetesKartya({
   const [consent, setConsent] = useState(false);
   /** A CIB felé történő adattovábbítási hozzájárulás (csak CIB-módban kell). */
   const [cibHozzajarulas, setCibHozzajarulas] = useState(false);
+  /**
+   * A /pay CIB_CONSENT_REQUIRED-del válaszolt: a backend a kártyás úton van,
+   * bármit mondjon is az állapot (kupon, stub). 2026-10-03 (a PR-5 web 1.
+   * javítóköre): kuponos módban ez eddig zsákutca volt — a kártya továbbra
+   * is elrejtette a CIB-nyilatkozatot, így a fizetés sosem indulhatott el.
+   */
+  const [cibKenyszer, setCibKenyszer] = useState(false);
   const [inditas, setInditas] = useState<Inditas>('nincs');
   const [hiba, setHiba] = useState<HibaUzenet | null>(null);
   /** Lefutott-e már legalább egy állapot-lekérdezés (sikerrel vagy hibával). */
@@ -204,12 +213,17 @@ export default function DijFizetesKartya({
   const cib = fp?.provider_kind === 'cib';
   // C4: a kupon a bank nélkül rendezi a díjat — ilyenkor CIB-nyilatkozat
   // sem kell (nincs mit továbbítani a banknak).
-  const kupon = fp?.kupon_elerheto === true;
-  const cibUt = cib && !kupon;
+  const kupon = fp?.kupon_elerheto === true && !cibKenyszer;
+  const cibUt = (cib || cibKenyszer) && !kupon;
   // C3: a fizetés tiltása (can_pay=false). Ha a kártya állapota maga
   // magyaráz (lezárás / ellenőrzés / siker), a tiltást nem mondjuk el külön.
   const allapotMagyaraz = allapot === 'lezaras' || allapot === 'ellenorzes' || allapot === 'sikeres';
-  const tiltas = allapotMagyaraz ? null : fizetesTiltasUzenet(fp);
+  // A kártyás fizetésre szóló tiltás (szünetel, kísérleti korlát) a bank
+  // nélküli kupont nem érinti — függő kísérlet nélkül a kupon kínálható
+  // (a PR-5 web 1. javítóköre). Függő kísérlet mellett marad a tiltás.
+  const kuponKiveteles = kupon && !fp?.open_attempt
+    && (fp?.pay_blocked_reason === 'szunetel' || fp?.pay_blocked_reason === 'probalkozasi_limit');
+  const tiltas = allapotMagyaraz || kuponKiveteles ? null : fizetesTiltasUzenet(fp);
 
   // A lezárás alatt 5 mp-enként (3 perc után 20 mp-enként) újraolvasunk.
   // SIKERNÉL a fuvart EGYSZER újratöltjük (megnyílik a kontakt, a kártya
@@ -299,7 +313,10 @@ export default function DijFizetesKartya({
       }
     } catch (e) {
       const u = fizetesHibaUzenet(e as { code?: string; status?: number; message?: string });
-      if (eletben.current) setHiba(u);
+      if (eletben.current) {
+        setHiba(u);
+        if ((e as { code?: string })?.code === 'CIB_CONSENT_REQUIRED') setCibKenyszer(true);
+      }
       toast.error(u.cim, u.szoveg);
       if (u.teendo === 'allapot') await allapotBetoltes();
       if (u.teendo === 'fuvar') await onFrissites?.();
@@ -322,7 +339,7 @@ export default function DijFizetesKartya({
         ? (cibUt ? 'Kapcsolódás a CIB Bankhoz…' : 'Fizetés indítása…')
         : kupon
           ? 'Ingyenes kapcsolatfelvétel (ajánlói jutalom)'
-          : (cib ? `Fizetés bankkártyával (${fee} Ft)` : `Díj fizetése (${fee} Ft)`);
+          : (cibUt ? `Fizetés bankkártyával (${fee} Ft)` : `Díj fizetése (${fee} Ft)`);
   // Minden szükséges nyilatkozat megvan: a 45/2014-es mindig, CIB-úton az
   // adattovábbítási hozzájárulás is (2026-10-01; kuponnál nem kell — C4).
   const nyilatkozatokMegvannak = consent && (!cibUt || cibHozzajarulas);
@@ -399,7 +416,7 @@ export default function DijFizetesKartya({
             <details style={{ marginTop: 8 }}>
               <summary style={{ cursor: 'pointer', fontSize: 13 }}>A banki tranzakció adatai</summary>
               <div style={{ marginTop: 8 }}>
-                <BankiTranzakcioAdatok adatok={lr} fizetett />
+                <BankiTranzakcioAdatok adatok={lr} kimenet="sikeres" />
               </div>
             </details>
           )}
@@ -470,7 +487,7 @@ export default function DijFizetesKartya({
             <details style={{ marginTop: 8 }}>
               <summary style={{ cursor: 'pointer', fontSize: 13 }}>A banki tranzakció adatai</summary>
               <div style={{ marginTop: 8 }}>
-                <BankiTranzakcioAdatok adatok={lr} />
+                <BankiTranzakcioAdatok adatok={lr} kimenet="nem_terhelt" />
               </div>
             </details>
             {gombLathato && (
@@ -531,6 +548,8 @@ export default function DijFizetesKartya({
             className="btn"
             style={{
               marginTop: 12,
+              // A .btn alapból nowrap — 390 px-en a kupon-felirat kilógna.
+              whiteSpace: 'normal',
               background: nyilatkozatokMegvannak && betoltve ? 'var(--success-strong)' : 'var(--muted)',
               border: 'none',
               cursor: foglalt || !betoltve ? 'wait' : nyilatkozatokMegvannak ? 'pointer' : 'not-allowed',
