@@ -745,6 +745,20 @@ describe('CIB kártyás díjfizetés: minden út lefut (hamis bankkal)', () => {
         request(app).post(`/payments/admin/cib/${pay2.body.trid}/rendezes`).set(auth(V.admin.token))
           .send({ eredmeny: 'nem_lezarva', indoklas: 'A bank szerint a tranzakció nem zárult le.' }));
       await cibFizetes.varjHatterre();
+
+      // 2026-10-03 (PR-5): konfig nélkül is elérhető kézi művelet — egy
+      // banknál lezárt, de könyveletlen kísérlet könyvelése (banki hívás nélkül).
+      const job3 = await createJob({ shipperId: V.felado.id, carrierId: V.szallito.id, status: 'accepted' });
+      const pay3 = await sikeres('POST /jobs/:id/pay (CIB, 3.)',
+        request(app).post(`/jobs/${job3.id}/pay`).set(auth(V.felado.token)).send({ consent: true, cib_adatkezelesi_hozzajarulas: true }));
+      await db.query(`UPDATE payment_sessions SET cib_state = 'closed_ok', cib_close_attempts = 1, cib_redirected_at = NOW(),
+                      cib_result = COALESCE(cib_result, '{}'::jsonb) || jsonb_build_object('rc', '00', 'anum', '123456', 'closed_at', NOW())
+                      WHERE payment_id = $1`, [pay3.body.trid]);
+      await sikeres('POST /payments/admin/cib/:trid/kezi-rendezes',
+        request(app).post(`/payments/admin/cib/${pay3.body.trid}/kezi-rendezes`).set(auth(V.admin.token))
+          .send({ muvelet: 'konyveles', indoklas: 'A bank lezárta, a könyvelés kézzel.' }));
+      await sikeres('GET /config/public', request(app).get('/config/public'));
+      await cibFizetes.varjHatterre();
     } finally {
       visszaallit();
       await bank.leallit();

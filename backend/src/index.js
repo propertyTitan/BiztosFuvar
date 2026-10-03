@@ -59,6 +59,7 @@ const trackingRoutes = require('./routes/tracking');
 const reviewRoutes = require('./routes/reviews');
 const paymentRoutes = require('./routes/payments');
 const cibFizetesRoutes = require('./routes/cibFizetes');
+const publikusKonfigRoutes = require('./routes/publikusKonfig');
 const carrierRoutes = require('./routes/carrierRoutes');
 const carrierAlertsRoutes = require('./routes/carrierAlerts');
 const { router: notificationsRouter } = require('./services/notifications');
@@ -273,6 +274,7 @@ app.use('/', trackingRoutes);
 app.use('/', reviewRoutes);
 app.use('/', paymentRoutes);
 app.use('/', cibFizetesRoutes);
+app.use('/', publikusKonfigRoutes);
 app.use('/', carrierRoutes);
 app.use('/', carrierAlertsRoutes);
 app.use('/', notificationsRouter);
@@ -625,4 +627,14 @@ if (process.env.DATABASE_URL) {
     setInterval(cibSzivFigyelo, 60 * 1000).unref();
     console.log(`[cib-lekerdezes] CIB lekérdező kör ütemezve (${Math.round(cibTickMs / 1000)} mp) + szívverés-figyelő`);
   }
+  // KONFIG NÉLKÜL MARADT KÁRTYÁS KÍSÉRLETEK (2026-10-03, CIB PR-5): ha a CIB
+  // EKI nem él (a CIB_* sorok törlése, hibás konfig, provider-váltás), de
+  // maradt nem végső kísérlet, azt semmi nem zárja le — induláskor és naponta
+  // hangos hiba + Sentry + riasztó levél, állapotonkénti darabszámmal. Teljes
+  // CIB-konfignál csendes (a kör dolgozik).
+  const cibArvaKor = utemezettKor('cib-arva-kiserletek', async () => {
+    await require('./services/cibFizetes').arvaKiserletekEllenorzese();
+  });
+  setTimeout(cibArvaKor, 20 * 1000).unref();
+  setInterval(cibArvaKor, DAY_MS).unref();
 }

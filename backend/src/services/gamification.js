@@ -168,6 +168,26 @@ async function grantMonthlyVouchers() {
 }
 
 /**
+ * Van-e a felhasználónak most beváltható kuponja erre a díjra? CSAK olvas
+ * (a beváltás a useVoucherIfAvailable atomi UPDATE-je) — ugyanazokkal a
+ * feltételekkel. 2026-10-03 (CIB PR-5, C4): a /pay a CIB-hozzájárulást csak
+ * akkor kéri, ha banki fizetés lesz; a fee-payment ebből mondja meg a
+ * felületnek, kell-e a CIB-nyilatkozat.
+ * @returns {Promise<boolean>}
+ */
+async function vanFelhasznalhatoKupon(userId, feeHuf = null, client = db) {
+  const { rowCount } = await client.query(
+    `SELECT 1 FROM fee_vouchers
+      WHERE user_id = $1 AND used_at IS NULL
+        AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE
+        AND (max_fee_huf IS NULL OR $2::int IS NULL OR max_fee_huf >= $2::int)
+      LIMIT 1`,
+    [userId, feeHuf],
+  );
+  return rowCount > 0;
+}
+
+/**
  * Ellenőrzi, hogy a szállítónak van-e felhasználható voucher-je.
  * Ha igen, felhasználja (used_at = NOW) és true-t ad vissza.
  */
@@ -331,6 +351,7 @@ module.exports = {
   grantVoucher,
   grantMonthlyVouchers,
   useVoucherIfAvailable,
+  vanFelhasznalhatoKupon,
   redeemJobVoucher,
   getDriverGameStats,
 };

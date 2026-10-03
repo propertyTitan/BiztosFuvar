@@ -34,12 +34,20 @@ const ELAVULT_ENV = Object.freeze(['CIB_API_KEY', 'CIB_MERCHANT_ID', 'CIB_BASE_U
 // Hangolók: [env, kulcs, alapérték, min, max] — egész számok. A hibás
 // érték figyelmeztetést ad és az alapérték marad (egy elgépelt időkeret ne
 // tegye „hibás"-sá az egész fizetést, de ne is fusson némán 0 ms-mal).
+// ⚠️ 2026-10-03 (PR-5): a felső határok a 9:30-as zárási ablakhoz és a web
+// 55 mp-es /pay-keretéhez kötöttek. Eddig egy 600 000 ms-os köz vagy tick, egy
+// 120 s-os indítási keret figyelmeztetés nélkül átment: a lekérdezés vagy a
+// zárás rendszeresen a bank határidején túlra csúszott, a web pedig feladta a
+// még futó /pay-t. A banki hívások 60 s-os plafonja a bérletet is rövidre
+// fogja (berletMp a cibFizetes-ben). A tick 60 s fölött a 2 perces
+// szívverés-kaput is elbuktatná (a /pay folyamatosan 503 lenne).
 const HANGOLOK = Object.freeze([
-  ['CIB_HTTP_TIMEOUT_MS', 'httpIdokeretMs', 30000, 1000, 120000],
-  ['CIB_ZARAS_TIMEOUT_MS', 'zarasIdokeretMs', 45000, 1000, 120000],
-  ['CIB_INDITAS_OSSZKERET_MS', 'inditasOsszkeretMs', 40000, 1000, 120000],
-  ['CIB_LEKERDEZES_KOZ_MS', 'lekerdezesKozMs', 60000, 5000, 600000],
-  ['CIB_KOR_TICK_MS', 'korTickMs', 30000, 5000, 600000],
+  ['CIB_HTTP_TIMEOUT_MS', 'httpIdokeretMs', 30000, 1000, 60000],
+  ['CIB_ZARAS_TIMEOUT_MS', 'zarasIdokeretMs', 45000, 1000, 60000],
+  ['CIB_INDITAS_OSSZKERET_MS', 'inditasOsszkeretMs', 40000, 1000, 50000],
+  // A bank szerint az 1–3 perces MSGT33 megfelelő (2026-10-01).
+  ['CIB_LEKERDEZES_KOZ_MS', 'lekerdezesKozMs', 60000, 5000, 180000],
+  ['CIB_KOR_TICK_MS', 'korTickMs', 30000, 5000, 60000],
   ['CIB_KOR_MAX_KERES', 'korMaxKeres', 10, 1, 100],
   ['CIB_KISERLET_MAX_PERC', 'kiserletMaxPerc', 30, 5, 240],
   ['CIB_HOP_TTL_MP', 'hopTtlMp', 120, 10, 3600],
@@ -51,7 +59,17 @@ const HANGOLOK = Object.freeze([
   // szemben (a MSGT32 útja és válasza is beleférjen). A felső korlát 590:
   // a bank határidejét a beállítás sem érheti el.
   ['CIB_ZARAS_HATARIDO_MP', 'zarasHataridoMp', 570, 60, 590],
+  // 2026-10-03 (PR-5): a kétes (close_unknown) kísérlet automatikus
+  // egyeztetése a MSGT10 után ennyi perccel indul — egy CSAK-OLVASÓ MSGT33
+  // (MSGT32 soha). Mérve a teszt-banknál: a le nem zárt jóváhagyásra a MSGT33
+  // a MSGT10 után ~11–13 percig még 00-t adhat, utána TO; a lezárt tétel
+  // végig 00-t ad az ANUM-jával. Ezért legalább 12 perc, alapból 20.
+  ['CIB_EGYEZTETES_PERC', 'egyeztetesPerc', 20, 12, 120],
 ]);
+// A hangolók együttese a zárási ablakba férjen: a jóváhagyás után egy tick,
+// egy köz, egy MSGT33 és egy MSGT32 a határidő előtt (30 mp tartalékkal).
+const ABLAK_TARTALEK_MS = 30000;
+const ABLAK_HANGOLOK = Object.freeze(['korTickMs', 'lekerdezesKozMs', 'httpIdokeretMs', 'zarasIdokeretMs']);
 const LOGIKAI = Object.freeze([
   // ⚠️ 2026-10-01: bekapcsolva a fuvar rövid hivatkozása is a bankhoz megy —
   // az adatkezelési tájékoztató 4/A. pontja ezt ma NEM sorolja a továbbított
@@ -60,6 +78,13 @@ const LOGIKAI = Object.freeze([
   // A GYFK javasolt algoritmusa szerint az elutasított authorizációt is
   // MSGT32-vel kell lezárni — a bank megerősítéséig ez az alapérték.
   ['CIB_SIKERTELEN_LEZARAS', 'sikertelenLezaras', true],
+  // 2026-10-03 (PR-5): SZÜNET-KAPCSOLÓ. true → új kártyás fizetés nem indul
+  // (a /pay 503 CIB_PAUSED, a még fel nem használt hop-link sem visz a
+  // bankhoz), de a lekérdező kör és a zárás a MEGLÉVŐ kísérleteket befejezi.
+  // A visszaállás és a teszt→éles átállás receptje: előbb ez, és csak ha az
+  // admin „ellenorzes" szűrője és az SQL-ellenőrzés is 0 nem végső kísérletet
+  // mutat, jöhet a CIB_* törlése / a kulcs-, host- és környezetváltás.
+  ['CIB_UJ_FIZETES_TILTVA', 'ujFizetesTiltva', false],
 ]);
 const EGYEB_ENV = Object.freeze([
   'CIB_KEY_UJJLENYOMAT', 'CIB_TESZT_FELHASZNALOK', 'CIB_RIASZTAS_EMAIL', 'CIB_TS_IDOZONA', 'CIB_BEVEZETES',
@@ -182,7 +207,34 @@ function hangolok(env, figyelmeztetesek) {
       ki[kulcs] = n;
     }
   }
+  ablakEllenorzes(ki, figyelmeztetesek);
   return ki;
+}
+
+const ablakOsszeg = (h) => ABLAK_HANGOLOK.reduce((o, k) => o + h[k], 0);
+const ablakMs = (h) => h.zarasHataridoMp * 1000 - ABLAK_TARTALEK_MS;
+
+/**
+ * 2026-10-03 (PR-5): a tick + köz + MSGT33 + MSGT32 keret a zárási ablakba
+ * férjen. Ha nem fér, a négy hangoló az alapértékre áll (egy elgépelés ne
+ * tegye „hibás"-sá — 503-assá — az egész fizetést, de a jóváhagyott
+ * tételek se csússzanak rendszeresen a bank határidején túlra); ha az
+ * alapértékekkel sem fér (túl rövid CIB_ZARAS_HATARIDO_MP), az ablak is.
+ */
+function ablakEllenorzes(h, figyelmeztetesek) {
+  if (ablakOsszeg(h) <= ablakMs(h)) return;
+  const elotte = ablakOsszeg(h);
+  for (const [, kulcs, alap] of HANGOLOK) {
+    if (ABLAK_HANGOLOK.includes(kulcs)) h[kulcs] = alap;
+  }
+  let uzenet = `A CIB-hangolók együtt (${Math.round(elotte / 1000)} mp) nem férnek a ${h.zarasHataridoMp} mp-es `
+    + 'zárási ablakba — a CIB_KOR_TICK_MS, CIB_LEKERDEZES_KOZ_MS, CIB_HTTP_TIMEOUT_MS és CIB_ZARAS_TIMEOUT_MS az alapértékre áll.';
+  if (ablakOsszeg(h) > ablakMs(h)) {
+    const alap = HANGOLOK.find((x) => x[1] === 'zarasHataridoMp')[2];
+    uzenet += ` A ${h.zarasHataridoMp} mp-es ablak az alapértékekkel sem elég — a CIB_ZARAS_HATARIDO_MP is (${alap}).`;
+    h.zarasHataridoMp = alap;
+  }
+  figyelmeztetesek.push(uzenet);
 }
 
 function logikai(env, nev, alap, figyelmeztetesek) {
@@ -400,6 +452,11 @@ function naplozCibKonfigot({ env = process.env, konzol = console, sentry = null 
   konzol.log(`[CIB] EKI-konfiguráció teljes — környezet: ${b.kornyezet}, PID: ${b.pid}, `
     + `kulcs-ujjlenyomat: ${b.ujjlenyomat}, bank: ${bankHost}, visszatérés: ${b.apiOrigin}`
     + `${b.tesztFelhasznalok.length ? `, teszt-allowlist: ${b.tesztFelhasznalok.length} fiók` : ''}`);
+  if (b.ujFizetesTiltva) {
+    // 2026-10-03 (PR-5): a szünet szándékos üzemállapot, de ne felejtődjön bent.
+    konzol.warn('[CIB] ⏸️ SZÜNET (CIB_UJ_FIZETES_TILTVA=true): új kártyás fizetés nem indul (503 CIB_PAUSED); '
+      + 'a meglévő kísérleteket a kör befejezi. Ha a szünet véget ért, töröld a változót.');
+  }
   leuritesEllenorzes(env, b, konzol, sentry);
   return b;
 }

@@ -15,7 +15,7 @@ const { dijFizetesUtaniErtesitesek } = require('../services/feeNotifications');
 const { notifyNearbyCarriersOfInstantJob } = require('../services/instantJobs');
 const { publicCoordinate } = require('../services/backhaul');
 const { calculateConnectionFee } = require('../services/connectionFee');
-const { redeemJobVoucher } = require('../services/gamification');
+const { redeemJobVoucher, vanFelhasznalhatoKupon } = require('../services/gamification');
 const { maybeGrantReferralReward } = require('../services/referral');
 const { konyvelDijFizetes } = require('../services/feePayment');
 const { startOrReuseFeePayment, startOrReuseFeePaymentInTransaction } = require('../services/feePaymentSession');
@@ -975,9 +975,19 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   // válasza: a hozzájárulás akkor is kötelező, ha vásárlói adatot — név,
   // cím, e-mail — nem küldünk). Szigorúan `true`: a "true" szöveg, az 1 vagy
   // a hiány nem hozzájárulás. A stub-út nem érintett.
+  // 2026-10-03 (CIB PR-5, C4): a kuponos rendezéshez nem kell — a CIB felé
+  // ilyenkor semmi nem megy (a kupon a bankot nem érinti). A kupon csak
+  // olvasva (beváltás nélkül) dönt itt, MINDEN DB-írás ELŐTT; ha a kupon
+  // közben elfogy, a CIB-indítás maga is visszadobja a nyilatkozat nélküli
+  // kérést (inditCibDijFizetes) — banki kísérlet nélküle nem indul.
   if (ut === 'cib' && req.body?.cib_adatkezelesi_hozzajarulas !== true) {
-    const k = cibFizetes.hibaValasz('CIB_CONSENT_REQUIRED');
-    return res.status(k.http).json(k.body);
+    const dij = j.connection_fee_huf != null
+      ? Number(j.connection_fee_huf)
+      : calculateConnectionFee(j.accepted_price_huf || j.suggested_price_huf || 0);
+    if (!(await vanFelhasznalhatoKupon(req.user.sub, dij))) {
+      const k = cibFizetes.hibaValasz('CIB_CONSENT_REQUIRED');
+      return res.status(k.http).json(k.body);
+    }
   }
   if (!j.fee_consent_at) {
     await db.query(

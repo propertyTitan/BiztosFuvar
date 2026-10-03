@@ -33,6 +33,10 @@
 //    könyvelés és az értesítési claim között).
 //  * Leállás: minden sor feldolgozása egy munkaegység (cibFizetes.munkaban),
 //    a szabályos leállás a futó egységet megvárja.
+//  * 2026-10-03 (PR-5): a kétes (close_unknown) sor nem parkol — a kör az
+//    automatikus egyeztetést (csak-olvasó MSGT33) is futtatja; percenkénti
+//    riasztás-söprés (parkoló sorok ébresztése, hiányzó riasztások, napi
+//    emlékeztető); a bérlet a leghosszabb banki hívás + tartalék.
 // =====================================================================
 const db = require('../db');
 const p = require('./cibProtokoll');
@@ -47,11 +51,16 @@ const SZIVVERES_RIASZTAS_KOZ_MS = 30 * 60 * 1000;
 // claimjét (másik példány) ne előzzük meg, és a 30 s-os tick ne kérdezze
 // minden alkalommal a díjbizonylatokat.
 const HELYREALLITAS_KOZ_MS = 5 * 60 * 1000;
+// A riasztás-söprés ritmusa (2026-10-03, PR-5): percenként, az első az
+// értesítés-helyreállítással egy időben (az újraindulás utáni, még futó
+// riasztásokat ne előzze meg).
+const SOPRES_KOZ_MS = 60 * 1000;
 
 const korAllapot = {
   indulas: Date.now(),
   utolsoSzivRiasztas: 0,
   kovHelyreallitas: Date.now() + HELYREALLITAS_KOZ_MS,
+  kovSopres: Date.now() + HELYREALLITAS_KOZ_MS,
 };
 
 function sentry(uzenet) {
@@ -90,7 +99,7 @@ async function runCibKor() {
   const berlo = cibFizetes.ujBerlo();
   const { rows } = await db.query(
     `UPDATE payment_sessions
-        SET cib_lease_until = NOW() + make_interval(mins => $3::int), cib_lease_owner = $1
+        SET cib_lease_until = NOW() + make_interval(secs => $3::int), cib_lease_owner = $1
       WHERE payment_id IN (
         SELECT payment_id FROM payment_sessions
          WHERE provider = 'cib' AND state = 'pending' AND cib_state IS NOT NULL
@@ -102,7 +111,7 @@ async function runCibKor() {
          LIMIT $4
          FOR UPDATE SKIP LOCKED)
       RETURNING *, NOW() AS db_most`,
-    [berlo, b.bevezetes, cibFizetes.BERLET_PERC, KOR_LIMIT],
+    [berlo, b.bevezetes, cibFizetes.berletMp(b), KOR_LIMIT],
   );
   // A kör MŰKÖDIK (a DB elérhető, a séma a kódhoz illik): csak most él.
   cibFizetes.szivveres();
@@ -151,8 +160,27 @@ async function runCibKor() {
     }
   }
   await ertesitesHelyreallitas(b, hibak);
+  await riasztasSopresKor(hibak);
   jelezSorHibak('cib-lekerdezes', hibak);
   return rows.length;
+}
+
+/**
+ * A riasztás-söprés (2026-10-03, PR-5) — percenként, nem leállás közben:
+ * a parkoló kétes sorok visszakerülnek a körbe, a riasztás nélküli
+ * rendezetlen tételek riasztást kapnak, a 24 óránál régebbiekről napi
+ * összesítő megy (cibFizetes.riasztasSopres). A hibája a kör soronkénti
+ * hibái közé kerül — nem állítja meg a zárásokat.
+ */
+async function riasztasSopresKor(hibak) {
+  if (Date.now() < korAllapot.kovSopres || cibFizetes.leallasFolyamatban()) return;
+  korAllapot.kovSopres = Date.now() + SOPRES_KOZ_MS;
+  try {
+    await cibFizetes.riasztasSopres();
+  } catch (err) {
+    console.error('[cib-lekerdezes] riasztás-söprés hiba:', err && err.message);
+    hibak.push(err);
+  }
 }
 
 /**

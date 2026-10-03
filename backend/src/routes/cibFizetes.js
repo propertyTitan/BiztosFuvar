@@ -16,6 +16,8 @@
 //    GET  /payments/admin/cib/:trid                 — részletek + titkosított banki napló
 //    POST /payments/admin/cib/:trid/ujraellenorzes  — a következő lekérdezés esedékessé
 //    POST /payments/admin/cib/:trid/rendezes        — kétes kísérlet kézi rendezése
+//    POST /payments/admin/cib/:trid/kezi-rendezes   — konfig NÉLKÜL is: könyvelés,
+//                                                     lejáratás, visszatérítés (PR-5)
 // =====================================================================
 const express = require('express');
 const db = require('../db');
@@ -73,7 +75,8 @@ router.get('/payments/cib/eredmeny', cibPublikusLimit, async (req, res) => {
 router.get('/jobs/:id/fee-payment', authRequired, async (req, res) => {
   if (!UUID_RE.test(req.params.id)) return res.status(404).json({ error: 'Fuvar nem található' });
   const { rows } = await db.query(
-    'SELECT id, shipper_id, status, paid_at FROM jobs WHERE id = $1',
+    `SELECT id, shipper_id, carrier_id, status, paid_at, connection_fee_huf, accepted_price_huf, suggested_price_huf
+       FROM jobs WHERE id = $1`,
     [req.params.id],
   );
   const job = rows[0];
@@ -118,6 +121,11 @@ router.get('/payments/admin/cib', authRequired, requireRole('admin'), async (req
   if (allapot) {
     if (allapot === 'needs_review') {
       where.push("ps.state = 'needs_review'");
+    } else if (allapot === 'ellenorzes') {
+      // 2026-10-03 (PR-5): a felület „Egyeztetésre vár" jelvénye ezt kéri — a
+      // kétes (close_unknown) és a felülvizsgálandó (needs_review) tételek.
+      // Eddig 400-at kapott, a jelvény soha nem jelent meg.
+      where.push("((ps.state = 'pending' AND ps.cib_state = 'close_unknown') OR ps.state = 'needs_review')");
     } else if (CIB_ALLAPOTOK.includes(allapot)) {
       params.push(allapot);
       where.push(`ps.cib_state = $${params.length}`);
@@ -209,13 +217,26 @@ router.post('/payments/admin/cib/:trid/rendezes', authRequired, requireRole('adm
   if (!TRID_RE.test(req.params.trid)) return res.status(404).json({ error: 'Nem található' });
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   const r = await cibFizetes.rendezes(req.params.trid, {
-    eredmeny: b.eredmeny, indoklas: b.indoklas, anum: b.anum,
+    eredmeny: b.eredmeny, indoklas: b.indoklas, anum: b.anum, rt: b.rt,
   }, req.user.sub);
   // Pénzügyi hatású admin-döntés (kontakt-felfedés + könyvelés, vagy a
   // kísérlet lezárása): a fuvarhoz kötve, a döntés irányával naplózzuk
   // (2026-09-29, 1. javítókör — a terv H) pontja). A szabad szöveges
   // indoklás NEM kerül a naplóba, az a cib_result-ban van.
   if (r.http === 200) await logAdminAccess(req, `cib_rendezes:${b.eredmeny}`, { type: 'job', id: r.jobId });
+  return res.status(r.http).json(r.body);
+});
+
+// 2026-10-03 (PR-5): KONFIG NÉLKÜL IS elérhető kézi műveletek — a
+// vészvisszaállás (a CIB_* sorok törlése) után a függő kísérleteket semmi
+// más nem zárná le. Banki hívás és MSGT32 egyikben sincs.
+router.post('/payments/admin/cib/:trid/kezi-rendezes', authRequired, requireRole('admin'), writeRateLimit, async (req, res) => {
+  if (!TRID_RE.test(req.params.trid)) return res.status(404).json({ error: 'Nem található' });
+  const b = req.body && typeof req.body === 'object' ? req.body : {};
+  const r = await cibFizetes.keziRendezes(req.params.trid, {
+    muvelet: b.muvelet, indoklas: b.indoklas, banki_hivatkozas: b.banki_hivatkozas,
+  }, req.user.sub);
+  if (r.http === 200) await logAdminAccess(req, `cib_kezi:${b.muvelet}`, { type: 'job', id: r.jobId });
   return res.status(r.http).json(r.body);
 });
 

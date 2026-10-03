@@ -102,6 +102,7 @@ const PII_CSATORNA_MANIFEST = {
   'GET /payments/admin/cib/:trid': 'admin',
   'POST /payments/admin/cib/:trid/ujraellenorzes': 'admin',
   'POST /payments/admin/cib/:trid/rendezes': 'admin',
+  'POST /payments/admin/cib/:trid/kezi-rendezes': 'admin',
 
   // ── Indokolt kivételek ──────────────────────────────────────────────
   'GET /carrier-routes/:id': {

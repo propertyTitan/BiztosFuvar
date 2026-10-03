@@ -226,6 +226,10 @@ describe('Zárás: összeomlás és átmeneti DB-hiba után sem kell ember, ha a
   it('a naplóban nincs bejövő válasz → marad a close_unknown (a helyreállítás nem talál ki eredményt)', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
+    // A kimenő MSGT32-sor megvan (a kérés kiment), csak a válasz nem — 2026-10-03
+    // (PR-5) óta a kimenő sor HIÁNYA „nem küldött"-et jelent (cib-pr5-egyeztetes).
+    await db.query(`INSERT INTO cib_messages (payment_id, direction, msgt, endpoint, raw, close_attempt)
+                    VALUES ($1, 'ki', 32, 'market', 'PID=TST0001&CRYPTO=1&DATA=teszt', 1)`, [trid]);
     await db.query(`UPDATE payment_sessions SET cib_state = 'closing', cib_close_attempts = 1,
                     cib_close_sent_at = NOW() - INTERVAL '10 minutes', cib_next_action_at = NOW() - INTERVAL '1 second',
                     cib_lease_owner = NULL, cib_lease_until = NULL WHERE payment_id = $1`, [trid]);
