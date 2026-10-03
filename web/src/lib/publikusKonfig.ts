@@ -37,10 +37,14 @@ export type TesztUzemSav = {
 export function tesztUzemSav(k: PublikusKonfig | null): TesztUzemSav | null {
   if (!k || k.teszt_uzem !== true) return null;
   if (k.kartyas_fizetes === 'teszt') {
+    // 2026-10-04 (a PR-5 web 2. javítóköre): a mai vegyes üzemben (CIB-teszt
+    // + stub) a felhasználók többsége szimulált díjfizetést lát, csak a
+    // CIB-tesztfiókok fizetnek a bank tesztkörnyezetében — a konfiguráció ezt
+    // fiókonként nem mondja meg, ezért a sáv mindkettőt említi.
     return {
       fajta: 'cib_teszt',
       cim: 'Teszt üzemmód.',
-      szoveg: 'Az oldal tesztelés alatt áll — valódi terhelés nincs: a kártyás fizetés a CIB Bank tesztkörnyezetében fut, ahol csak a bank tesztkártyái működnek.',
+      szoveg: 'Az oldal tesztelés alatt áll — valódi terhelés nincs: a díjfizetés szimulált, vagy a CIB Bank tesztkörnyezetében fut, ahol csak a bank tesztkártyái működnek.',
     };
   }
   if (k.kartyas_fizetes === null) {

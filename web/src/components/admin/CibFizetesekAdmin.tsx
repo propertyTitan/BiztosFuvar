@@ -29,6 +29,7 @@ import BankiTranzakcioAdatok from '@/components/BankiTranzakcioAdatok';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { useToast } from '@/components/ToastProvider';
 import { KERESKEDO } from '@/lib/kereskedo';
+import { visszateritett } from '@/lib/cibFizetes';
 
 const ALLAPOT_NEV: Record<string, string> = {
   feldolgozas: 'Feldolgozás alatt',
@@ -37,6 +38,7 @@ const ALLAPOT_NEV: Record<string, string> = {
   nem_terhelt: 'Nem terhelt',
   mar_fizetve: 'Már fizetve',
   ellenorzes: 'Egyeztetésre vár',
+  visszateritve: 'Visszatérítve',
 };
 
 const ALLAPOT_SZIN: Record<string, string> = {
@@ -46,7 +48,17 @@ const ALLAPOT_SZIN: Record<string, string> = {
   feldolgozas: 'rgba(37,99,235,0.14)',
   nem_terhelt: 'rgba(100,116,139,0.18)',
   mar_fizetve: 'rgba(100,116,139,0.18)',
+  visszateritve: 'rgba(100,116,139,0.18)',
 };
+
+/**
+ * A sor kijelzett állapota. 2026-10-04 (a PR-5 web 2. javítóköre): a
+ * backend a visszatérített kísérletet (a bank terhelt, RC=00) „nem_terhelt"-
+ * ként adja — az admin-listán ez „Nem terhelt" volt, ami az adminnak is hamis.
+ */
+function kijelzettAllapot(s: { allapot: string; rc?: string | null; ok?: string | null }): string {
+  return visszateritett(s) ? 'visszateritve' : s.allapot;
+}
 
 const OLDALMERET = 25;
 const ANUM_MINTA = /^[A-Za-z0-9]{1,6}$/;
@@ -278,7 +290,9 @@ export default function CibFizetesekAdmin() {
               <label htmlFor="cib-allapot" style={{ fontSize: 12, display: 'block' }}>Állapot</label>
               <select id="cib-allapot" className="input" value={allapot} onChange={(e) => setAllapot(e.target.value)}>
                 <option value="">Mind</option>
-                {Object.entries(ALLAPOT_NEV).map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+                {/* A „Visszatérítve" csak kijelzés (a backend „nem_terhelt"-ként szűri). */}
+                {Object.entries(ALLAPOT_NEV).filter(([k]) => k !== 'visszateritve')
+                  .map(([k, n]) => <option key={k} value={k}>{n}</option>)}
               </select>
             </div>
             <div style={{ flex: '0 1 150px' }}>
@@ -318,7 +332,7 @@ export default function CibFizetesekAdmin() {
                     <tr key={s.trid}>
                       <td style={{ padding: '8px 10px', fontVariantNumeric: 'tabular-nums' }}>{s.trid}</td>
                       <td style={{ padding: '8px 10px' }}>
-                        <Pill allapot={s.allapot} />
+                        <Pill allapot={kijelzettAllapot(s)} />
                         {s.cib_state && <div className="muted" style={{ fontSize: 11 }}>{s.cib_state}</div>}
                       </td>
                       <td style={{ padding: '8px 10px' }}>{s.amount_huf != null ? `${s.amount_huf} HUF` : '–'}</td>

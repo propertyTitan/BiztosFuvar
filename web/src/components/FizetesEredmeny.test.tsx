@@ -183,7 +183,11 @@ describe('eredményoldal állapotai', () => {
   });
 
   it('nem terhelt: megnyugtató szöveg', async () => {
-    vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, rc: '00', anum: null, allapot: 'nem_terhelt' } as any);
+    // 2026-10-04 (a PR-5 web 2. javítóköre): a fixtúra eddig RC=00-t vitt át
+    // az ALAP-ból — a valódi „nem terhelt" kimenetnek nincs 00-s banki
+    // eredménye (az RC=00 + „nem terhelt" a visszatérített kísérlet, ott a
+    // „Nem terheltük" hamis volna; őre: cib-pr5-fix2.test.tsx).
+    vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, rc: null, rt: null, anum: null, allapot: 'nem_terhelt' } as any);
     render(<EredmenyOldal />);
     await atfolyat();
     expect(screen.getByText(/Nem terheltük a kártyádat/)).toBeInTheDocument();

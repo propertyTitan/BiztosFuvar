@@ -278,7 +278,9 @@ export type CibRcCsoport = 'kartya' | 'szamla' | 'kapcsolat' | 'technikai';
 
 /** Az eredményoldal / a fizetési kártya állapot-szótára. */
 export type CibEredmenyAllapot =
-  | 'feldolgozas' | 'sikeres' | 'sikertelen' | 'nem_terhelt' | 'mar_fizetve' | 'ellenorzes';
+  | 'feldolgozas' | 'sikeres' | 'sikertelen' | 'nem_terhelt' | 'mar_fizetve' | 'ellenorzes'
+  /** 2026-10-04 (a C5 bővítése): a bank terhelt, a díjat visszatérítettük. */
+  | 'visszateritve';
 
 /** A bank által kötelezővé tett adatsor (TrID, RC, RT, AMO, ANUM) + csoport. */
 export type CibBankiAdatok = {
@@ -298,8 +300,13 @@ export type CibBankiAdatok = {
  */
 export type FizetesTiltasOka = 'masik_kiserlet_folyamatban' | 'probalkozasi_limit' | 'szunetel' | 'nem_fizetheto';
 
-/** A „nem terhelt" kimenet oka (C5): admin-egyeztetés vagy banki visszafordítás. */
-export type NemTerheltOk = 'admin_nem_lezarva' | 'bank_visszaforditotta';
+/**
+ * A „nem terhelt" kimenet oka (C5): admin-egyeztetés vagy banki visszafordítás.
+ * 2026-10-04 (a C5 bővítése): az admin-visszatérítés ('admin_visszaterites')
+ * NEM „nem terhelt" — a bank terhelt, a díjat visszautaltuk; a web
+ * (lib/cibFizetes.ts: visszateritett) ezt külön, igaz szöveggel mutatja.
+ */
+export type NemTerheltOk = 'admin_nem_lezarva' | 'bank_visszaforditotta' | 'admin_visszaterites';
 
 /** GET /jobs/:id/fee-payment — csak a feladó (és az admin) kapja. */
 export type FeePaymentAllapot = {

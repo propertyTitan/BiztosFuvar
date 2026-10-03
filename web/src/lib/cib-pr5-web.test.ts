@@ -219,10 +219,12 @@ describe('1. javítókör', () => {
     expect(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: null })).toEqual({ teszt_uzem: true, kartyas_fizetes: null });
   });
 
-  it('a szünetelés nem állítja, hogy nem történt terhelés (egy már elindított fizetést lezárunk)', () => {
+  it('a szünetelés nem állítja, hogy nem történt terhelés (egy már elindított fizetés lezárulhat)', () => {
     const u = fizetesTiltasUzenet(cib({ can_pay: false, pay_blocked_reason: 'szunetel' }) as any)!;
     expect(u.szoveg).not.toMatch(/nem történt terhelés/i);
-    expect(u.szoveg).toMatch(/lezárjuk/);
+    // (2. javítókör: lezárást sem ígér — hiányos konfignál a kör nem fut;
+    // őre: cib-pr5-fix2.test.ts.)
+    expect(u.szoveg).toMatch(/ne indíts újat/);
   });
 
   it('a sikertelen kísérlet magyarázata nem ígér feltétel nélkül új fizetést (az újrapróbát a felület külön kínálja)', () => {

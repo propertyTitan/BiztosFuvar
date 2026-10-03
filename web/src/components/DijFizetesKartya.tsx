@@ -54,11 +54,22 @@
 //   - a letiltott gomb mellett a hiányzó nyilatkozat neve (aria-describedby);
 //   - a vissza nem tért kísérletnél nem biztatunk vakon új fizetésre, és az
 //     állapotot lassan újraolvassuk.
+//
+//  2026-10-04 (a PR-5 web 2. javítóköre):
+//   - VISSZATÉRÍTÉS: a bank terhelt, a díjat visszautaltuk (admin) — a
+//     backend „nem_terhelt"-ként adja ki, a kártya eddig „Nem terheltük a
+//     kártyádat"-ot írt rá; most saját, igaz szöveg (lib: visszateritett);
+//   - ELHÚZÓDÓ LEZÁRÁS: a backend a lezárás alatti és a bank oldalán hagyott
+//     kísérletet ugyanúgy adja; ha a lezárás-doboz egy percnél tovább áll
+//     (vagy nem kártyás úton), már nem „pár másodpercet" ígér, hanem
+//     percekről beszél, és kézi frissítést kínál (lib: lezarasKesik);
+//   - a „nyitott" sáv tiltás mellett nem biztat új fizetésre;
+//   - a lezárás lekérdezése 30 perc után leáll, utána kézi frissítés.
 // =====================================================================
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Ban, CheckCircle2, Clock, Gift, Hourglass, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Clock, Gift, Hourglass, RefreshCw, RotateCcw, ShieldAlert } from 'lucide-react';
 import { api, type FeePaymentAllapot } from '@/api';
 import FeeConsentLabel from '@/components/FeeConsentLabel';
 import CibAdatkezelesiNyilatkozat from '@/components/CibAdatkezelesiNyilatkozat';
@@ -70,9 +81,10 @@ import { kulsoOldalraLep } from '@/lib/navigacio';
 import { CIB_FELIRATOK, CIB_IDO_TIPP } from '@/lib/cibFeliratok';
 import { BANKI_TOVABBI_INFO, ugyfelUzenet } from '@/lib/cibRcCsoport';
 import {
-  ALLAPOT_UJRAPROBA_MS, GYORS_SZAKASZ_MS, LASSU_LEKERDEZES_MS, atmenetiHiba,
-  biztonsagosAtiranyitasiCel, fizetesHibaUzenet, fizetesTiltasUzenet, kartyaAllapot,
-  nemTerheltMagyarazat, nyilatkozatHiany, percKiiras, type HibaUzenet,
+  ALLAPOT_UJRAPROBA_MS, GYORS_SZAKASZ_MS, LASSU_LEKERDEZES_MS, LEKERDEZES_PLAFON_MS, LEZARAS_KESES_MS, atmenetiHiba,
+  biztonsagosAtiranyitasiCel, fizetesHibaUzenet, fizetesTiltasUzenet, folyamatbanSzoveg, kartyaAllapot, lezarasKesik,
+  nemTerheltMagyarazat, nyilatkozatHiany, nyitottSavSzoveg, visszateritesMagyarazat, visszateritett,
+  type HibaUzenet,
 } from '@/lib/cibFizetes';
 
 type Props = {
@@ -93,13 +105,24 @@ const LEZARAS_FRISSITES_MS = 5_000;
 /**
  * A vissza nem tért (vagy egy másik kísérlet miatt tiltott) fizetést ennyi
  * ideig figyeljük lassú ütemben (2026-10-03, lelet 10): a bank a magára
- * hagyott kísérletet ~9,5–11 perc után TO-val zárja, a visszatért kísérletet
- * a háttér-lekérdezés percen belül lezárja.
+ * hagyott kísérletet ~9,5–11 perc után TO-val zárja, a lekérdező kör ezt
+ * ~11–13 perc után látja; a visszatért kísérletet a háttér-lekérdezés percen
+ * belül lezárja. 2026-10-04 (2. javítókör): 15 → 20 perc, hogy egy később
+ * megnyitott oldal is kivárja; utána kézi frissítés.
  */
-const NYITOTT_FIGYELES_MS = 15 * 60_000;
+const NYITOTT_FIGYELES_MS = 20 * 60_000;
 
 function linkLejartToastSzoveg() {
   return 'Ez a fizetési link már elhasználódott, indíts újat.';
+}
+
+/** Kézi újraolvasás, ha az automatikus figyelés már leállt (vagy lassú). */
+function AllapotFrissites({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="btn btn-secondary" style={{ marginTop: 10 }} onClick={onClick}>
+      <RefreshCw size={14} aria-hidden /> Állapot frissítése
+    </button>
+  );
 }
 
 export default function DijFizetesKartya({
@@ -229,11 +252,18 @@ export default function DijFizetesKartya({
   // SIKERNÉL a fuvart EGYSZER újratöltjük (megnyílik a kontakt, a kártya
   // eltűnik), és a lekérdezés leáll — ez nem múlhat a socket-eseményen. Ha a
   // lezárás más állapotba (sikertelen, ellenőrzés) fut ki, szintén frissítünk.
+  // 2026-10-04 (2. javítókör): egy perc után a doboz már nem „pár
+  // másodpercet" ígér (lezarasKesik), és a lekérdezés 30 perc után leáll
+  // (egy nyitva hagyott fül ne kérdezzen vég nélkül); utána kézi frissítés.
   const elozoAllapot = useRef(allapot);
   const sikerFrissitve = useRef(false);
+  const [lezarasMegallt, setLezarasMegallt] = useState(false);
+  const [lezarasEltelt, setLezarasEltelt] = useState(0);
   useEffect(() => {
     const elozo = elozoAllapot.current;
     elozoAllapot.current = allapot;
+    setLezarasMegallt(false);
+    setLezarasEltelt(0);
     if (allapot === 'sikeres') {
       if (!sikerFrissitve.current) { sikerFrissitve.current = true; onFrissites?.(); }
       return;
@@ -242,14 +272,18 @@ export default function DijFizetesKartya({
     if (allapot !== 'lezaras') return;
     const kezdet = Date.now();
     let ora: ReturnType<typeof setTimeout> | null = null;
+    const kesesOra = setTimeout(() => setLezarasEltelt(LEZARAS_KESES_MS), LEZARAS_KESES_MS);
     const utemez = () => {
-      const kov = Date.now() - kezdet < GYORS_SZAKASZ_MS ? LEZARAS_FRISSITES_MS : LASSU_LEKERDEZES_MS;
+      const eltelt = Date.now() - kezdet;
+      if (eltelt >= LEKERDEZES_PLAFON_MS) { setLezarasMegallt(true); return; }
+      const kov = eltelt < GYORS_SZAKASZ_MS ? LEZARAS_FRISSITES_MS : LASSU_LEKERDEZES_MS;
       ora = setTimeout(() => { allapotBetoltes(); utemez(); }, kov);
     };
     utemez();
-    return () => { if (ora) clearTimeout(ora); };
+    return () => { if (ora) clearTimeout(ora); clearTimeout(kesesOra); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allapot]);
+  const lezarasElhuzodik = lezarasMegallt || lezarasKesik(fp, lezarasEltelt);
 
   // A vissza nem tért kísérletet (és a másik kísérlet miatti tiltást) lassan
   // figyeljük (2026-10-03, lelet 10): eddig ebben az állapotban a kártya csak
@@ -387,13 +421,33 @@ export default function DijFizetesKartya({
             background: 'rgba(37,99,235,0.10)', border: '1px solid rgba(37,99,235,0.4)', color: 'var(--text)',
           }}
         >
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
-            <Hourglass size={18} aria-hidden /> <span>A fizetés lezárása folyamatban…</span>
-          </div>
-          <p style={{ margin: '6px 0 0', fontSize: 14 }}>
-            Egy fizetésed feldolgozása még tart. Ne indíts újat — pár másodperc múlva frissül az
-            oldal; ha a fizetés sikerült, itt megnyílik a szállító elérhetősége.
-          </p>
+          {/* 2026-10-04 (a PR-5 web 2. javítóköre): ha a lezárás elhúzódik
+              (vagy nem kártyás úton jön), a kísérlet a bank oldalán is
+              lehet — percekről beszélünk, nem másodpercekről. */}
+          {lezarasElhuzodik ? (
+            <>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
+                <Hourglass size={18} aria-hidden /> <span>Egy korábbi fizetésed még folyamatban van</span>
+              </div>
+              <p style={{ margin: '6px 0 0', fontSize: 14 }}>{folyamatbanSzoveg(oa?.started_at)}</p>
+              {oa?.trid && (
+                <p className="muted" style={{ margin: '6px 0 0', fontSize: 13 }}>
+                  {CIB_FELIRATOK.trid}: <strong>{oa.trid}</strong>
+                </p>
+              )}
+              <AllapotFrissites onClick={() => { allapotBetoltes(); }} />
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
+                <Hourglass size={18} aria-hidden /> <span>A fizetés lezárása folyamatban…</span>
+              </div>
+              <p style={{ margin: '6px 0 0', fontSize: 14 }}>
+                Egy fizetésed feldolgozása még tart. Ne indíts újat — pár másodperc múlva frissül az
+                oldal; ha a fizetés sikerült, itt megnyílik a szállító elérhetősége.
+              </p>
+            </>
+          )}
         </div>
       )}
 
@@ -448,20 +502,28 @@ export default function DijFizetesKartya({
               kísérletre ez a sáv eddig azt írta: „nyugodtan indíts újat" —
               az eredményoldal közben „A bank megerősíti a fizetést…"-et
               mutatott, és a második fizetés második zárolást tett a kártyára. */}
-          <p style={{ margin: 0 }}>
-            {`Egy korábbi fizetésed ${percKiiras(oa.started_at)} indult, és nem fejeződött be. Ha a bank oldalán befejezted a fizetést, ne indíts újat: pár percen belül itt és e-mailben is megjelenik az eredmény. Ha fizetés nélkül bezártad a bank oldalát, indíts újat — kétszer biztosan nem terhelünk.`}
-          </p>
+          {/* 2026-10-04 (2. javítókör): ha új fizetés most nem indítható
+              (szünet, korlát, nem fizethető — a tiltás-doboz mondja el), a
+              sáv nem biztat új fizetésre. */}
+          <p style={{ margin: 0 }}>{nyitottSavSzoveg(oa.started_at, !tiltas)}</p>
         </div>
       )}
 
       {allapot === 'elozo_sikertelen' && mutassElozoEredmenyt && lr && (() => {
-        const nemTerhelt = lr.allapot === 'nem_terhelt' || lr.allapot === 'mar_fizetve' || lr.allapot === 'not_closed';
+        // 2026-10-04 (a PR-5 web 2. javítóköre, BLOKKOLÓ): a visszatérített
+        // kísérletnél a bank TERHELT — a „nem terheltük" itt hamis volna.
+        const visszaterit = visszateritett(lr);
+        const nemTerhelt = !visszaterit
+          && (lr.allapot === 'nem_terhelt' || lr.allapot === 'mar_fizetve' || lr.allapot === 'not_closed');
         const u = ugyfelUzenet({ rc: lr.rc, rc_csoport: lr.rc_csoport });
         // C5 (2026-10-03, lelet 9): az admin-egyeztetés és a banki
         // visszafordítás saját, igaz okot kap.
         const nemTerheltSzoveg = lr.allapot === 'nem_terhelt'
           ? nemTerheltMagyarazat(lr.ok)
           : 'Nem terheltük a kártyádat; a zárolt összeget a bank feloldja (a kivonaton pár napig függő tételként látszhat).';
+        const cim = visszaterit
+          ? 'Az előző fizetésed díját visszatérítettük'
+          : nemTerhelt ? 'Az előző fizetési kísérletet nem véglegesítettük' : 'Az előző fizetési kísérlet nem sikerült';
         return (
           <div
             style={{
@@ -470,10 +532,12 @@ export default function DijFizetesKartya({
             }}
           >
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
-              <AlertTriangle size={18} aria-hidden />
-              <span>{nemTerhelt ? 'Az előző fizetési kísérletet nem véglegesítettük' : 'Az előző fizetési kísérlet nem sikerült'}</span>
+              {visszaterit ? <RotateCcw size={18} aria-hidden /> : <AlertTriangle size={18} aria-hidden />}
+              <span>{cim}</span>
             </div>
-            {nemTerhelt ? (
+            {visszaterit ? (
+              <p style={{ margin: '6px 0 0', fontSize: 14 }}>{visszateritesMagyarazat()}</p>
+            ) : nemTerhelt ? (
               <p style={{ margin: '6px 0 0', fontSize: 14 }}>{nemTerheltSzoveg}</p>
             ) : (
               <>
@@ -487,7 +551,7 @@ export default function DijFizetesKartya({
             <details style={{ marginTop: 8 }}>
               <summary style={{ cursor: 'pointer', fontSize: 13 }}>A banki tranzakció adatai</summary>
               <div style={{ marginTop: 8 }}>
-                <BankiTranzakcioAdatok adatok={lr} kimenet="nem_terhelt" />
+                <BankiTranzakcioAdatok adatok={lr} kimenet={visszaterit ? 'visszateritve' : 'nem_terhelt'} />
               </div>
             </details>
             {gombLathato && (

@@ -16,13 +16,21 @@
 //  A háttér szándékosan var(--warning-light) (a globals.css ismert
 //  pasztell-listájában szerepel), az .on-light osztállyal együtt így a
 //  szöveg dark mode-ban is sötét és olvasható marad.
+//
+//  2026-10-04 (a PR-5 web 2. javítóköre): a /fizetes/eredmeny oldalon a
+//  CIB-teszt sávot nem ismételjük — az oldal saját, a banki adatsor mellé
+//  tett CIB-teszt jelzése (CibTesztJelzes) ugyanezt mondja.
 // =====================================================================
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Construction } from 'lucide-react';
 import { publikusKonfig, tesztUzemSav, type TesztUzemSav } from '@/lib/publikusKonfig';
 
+const SAJAT_CIB_TESZT_JELZESU_OLDALAK = ['/fizetes/eredmeny'];
+
 export default function TestModeBanner() {
   const [sav, setSav] = useState<TesztUzemSav | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     let el = true;
@@ -31,6 +39,7 @@ export default function TestModeBanner() {
   }, []);
 
   if (!sav) return null;
+  if (sav.fajta === 'cib_teszt' && pathname && SAJAT_CIB_TESZT_JELZESU_OLDALAK.includes(pathname)) return null;
 
   return (
     <div

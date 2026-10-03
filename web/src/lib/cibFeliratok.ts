@@ -28,7 +28,7 @@ export type CibFeliratKulcs = keyof typeof CIB_FELIRATOK;
 export const CIB_FELIRAT_SORREND: readonly CibFeliratKulcs[] = ['trid', 'rc', 'rt', 'amo', 'anum'];
 
 /** A banki adatsor kimenete: ehhez igazodik az adatsor alatti mondat. */
-export type AmoKimenet = 'sikeres' | 'nem_terhelt' | 'ellenorzes';
+export type AmoKimenet = 'sikeres' | 'nem_terhelt' | 'ellenorzes' | 'visszateritve';
 
 /**
  * Az adatsor alatti mondat a kimenet szerint — sikernél nincs.
@@ -45,6 +45,11 @@ export function amoMegjegyzes(kimenet: AmoKimenet): string | null {
   }
   if (kimenet === 'ellenorzes') {
     return 'A fenti összeg (AMO) ennek a fizetési kísérletnek az összege; hogy terheltük-e, a bankkal való egyeztetés után derül ki.';
+  }
+  // 2026-10-04 (a PR-5 web 2. javítóköre): a bank terhelt, a díjat
+  // visszautaltuk — itt a „nem terheltük" hamis volna.
+  if (kimenet === 'visszateritve') {
+    return 'A fenti összeg (AMO) ennek a fizetési kísérletnek az összege — ezzel a kísérlettel a bank terhelte a kártyádat, a díjat visszatérítettük.';
   }
   return null;
 }

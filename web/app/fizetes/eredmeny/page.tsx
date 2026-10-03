@@ -38,11 +38,16 @@
 //  feliratának átírása a bank előírását sértette); újrapróba nélkül is
 //  megmondjuk, miért nincs (lelet 25c); a CIB tesztkörnyezete jelölve
 //  (lelet 28, C1).
+//
+//  2026-10-04 (a PR-5 web 2. javítóköre, BLOKKOLÓ): a visszatérített
+//  kísérlet (a bank terhelt, a díjat visszautaltuk) saját kimenetet kap —
+//  eddig „A fizetést nem véglegesítettük / Nem terheltük a kártyádat" állt
+//  rajta, a banki adatsor RC=00-ja mellett.
 // =====================================================================
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, CheckCircle2, CircleCheck, FlaskConical, Hourglass, RefreshCw, ShieldAlert, WifiOff, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleCheck, FlaskConical, Hourglass, RefreshCw, RotateCcw, ShieldAlert, WifiOff, XCircle } from 'lucide-react';
 import { api, type CibEredmeny } from '@/api';
 import { Loading } from '@/components/StateView';
 import BankiTranzakcioAdatok from '@/components/BankiTranzakcioAdatok';
@@ -54,7 +59,7 @@ import { BANKI_TOVABBI_INFO, ugyfelUzenet } from '@/lib/cibRcCsoport';
 import { publikusKonfig } from '@/lib/publikusKonfig';
 import {
   ELERHETETLEN_HIBASZAM, GYORS_SZAKASZ_MS, kovetkezoLekeresMs, lekerdezesFolytathato,
-  nemTerheltMagyarazat, varakozasHibaUtan, vegleges,
+  nemTerheltMagyarazat, varakozasHibaUtan, vegleges, visszateritesMagyarazat, visszateritett,
 } from '@/lib/cibFizetes';
 
 type Nezet =
@@ -375,18 +380,28 @@ function EredmenyTartalom() {
     );
   }
 
-  // sikertelen / nem_terhelt / mar_fizetve
-  const nemTerhelt = e.allapot === 'nem_terhelt';
+  // sikertelen / nem_terhelt / mar_fizetve / visszateritve
+  // A visszatérített kísérletnél a bank TERHELT (RC=00), a díjat
+  // visszautaltuk — se „nem véglegesítettük", se „nem terheltük" (2. javítókör).
+  const visszaterit = visszateritett(e);
+  const nemTerhelt = e.allapot === 'nem_terhelt' && !visszaterit;
   const marFizetve = e.allapot === 'mar_fizetve';
+  const semleges = marFizetve || nemTerhelt || visszaterit;
   const u = ugyfelUzenet({ rc: e.rc, rc_csoport: e.rc_csoport });
   const ujraProba = e.ujra_fizetheto && !!jobId && !marFizetve;
+  const cim = visszaterit
+    ? 'A díjat visszatérítettük'
+    : marFizetve ? 'A díjat már rendezted' : nemTerhelt ? 'A fizetést nem véglegesítettük' : 'A fizetés nem sikerült';
 
   return (
-    <div className="card" style={{ ...KARTYA, borderColor: marFizetve || nemTerhelt ? 'var(--border)' : 'var(--danger)' }}>
+    <div className="card" style={{ ...KARTYA, borderColor: semleges ? 'var(--border)' : 'var(--danger)' }}>
       <h1 style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 24 }}>
-        <XCircle size={24} color={marFizetve || nemTerhelt ? 'var(--muted)' : 'var(--danger)'} aria-hidden />
-        {marFizetve ? 'A díjat már rendezted' : nemTerhelt ? 'A fizetést nem véglegesítettük' : 'A fizetés nem sikerült'}
+        {visszaterit
+          ? <RotateCcw size={24} color="var(--muted)" aria-hidden />
+          : <XCircle size={24} color={semleges ? 'var(--muted)' : 'var(--danger)'} aria-hidden />}
+        {cim}
       </h1>
+      {visszaterit && <p>{visszateritesMagyarazat()}</p>}
       {marFizetve && (
         <p>
           Ezt a díjat már rendezted; ezt a próbálkozást nem véglegesítettük. Ezzel a kísérlettel nem
@@ -397,7 +412,7 @@ function EredmenyTartalom() {
       {/* C5 (lelet 9): az admin-egyeztetés és a banki visszafordítás
           saját, igaz okot kap — nem „a bank nem fogadta el". */}
       {nemTerhelt && <p>{nemTerheltMagyarazat(e.ok)}</p>}
-      {!marFizetve && !nemTerhelt && (
+      {!semleges && (
         <>
           <p style={{ fontWeight: 600 }}>{u.cim}</p>
           <ul style={{ paddingLeft: 20, fontSize: 14 }}>
@@ -406,7 +421,7 @@ function EredmenyTartalom() {
           <p className="muted" style={{ fontSize: 12 }}>{BANKI_TOVABBI_INFO}</p>
         </>
       )}
-      <BankiTranzakcioAdatok adatok={e} mentesTipp kimenet="nem_terhelt" />
+      <BankiTranzakcioAdatok adatok={e} mentesTipp kimenet={visszaterit ? 'visszateritve' : 'nem_terhelt'} />
 
       {ujraProba && (
         user ? (
