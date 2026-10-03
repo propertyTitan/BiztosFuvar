@@ -49,10 +49,12 @@ describe('CIB kötelező feliratok (szó szerint)', () => {
     );
     expect(CIB_SZOLGALTATO_FELIRAT).toBe('Kártyás fizetés szolgáltatója:');
     expect(ELFOGADOTT_KARTYAK_FELIRAT).toBe('Elfogadott kártyák');
-    // A helyi lezárási ablak a MSGT10-től 9 perc 30 mp (CIB_ZARAS_HATARIDO_MP):
-    // „kb. 10 perc" túlígéret volt (2026-10-01, a PR-4 1. javítóköre).
-    expect(CIB_IDO_TIPP).toMatch(/kb\. 9 perced/);
-    expect(CIB_IDO_TIPP).not.toMatch(/10 perc/);
+    // A helyi lezárási ablak a MSGT10-től 9 perc 30 mp (CIB_ZARAS_HATARIDO_MP),
+    // és a visszatérés után még egy banki lekérdezés + a lezárás is ebbe
+    // esik: „kb. 10 perc" (PR-4), majd „kb. 9 perc" is túlígéret volt
+    // (2026-10-03, CIB PR-5 — lelet 27).
+    expect(CIB_IDO_TIPP).toMatch(/kb\. 8 percen belül/);
+    expect(CIB_IDO_TIPP).not.toMatch(/10 perc|9 perc/);
     expect(CIB_TESZT_SAV_SZOVEG).toBe(
       'CIB BANKI TESZTKÖRNYEZET – valódi terhelés nincs, csak a bank tesztkártyái működnek',
     );

@@ -9,19 +9,27 @@
 //  engedélyszám): „–" — a sor ettől még látszik.
 // =====================================================================
 import type { CibBankiAdatok } from '@/api';
-import { CIB_FELIRAT_SORREND, CIB_FELIRATOK, bankiErtek, osszegKiiras } from '@/lib/cibFeliratok';
+import { CIB_FELIRAT_SORREND, CIB_FELIRATOK, amoFelirat, bankiErtek, osszegKiiras } from '@/lib/cibFeliratok';
 
 type Props = {
   adatok: CibBankiAdatok;
   /** A „mentsd el" tipp (az eredményoldalon kötelezően ajánlott). */
   mentesTipp?: boolean;
+  /**
+   * Sikeres (lezárt, terhelt) fizetés-e. Csak ekkor „A fizetett összeg
+   * (AMO)" a felirat; egyébként „A tranzakció összege (AMO)" — 2026-10-03
+   * (CIB PR-5): egy elutasított vagy le nem zárt fizetésnél a „fizetett"
+   * hamis. Az alapérték szándékosan a semleges felirat.
+   */
+  fizetett?: boolean;
 };
 
-export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false }: Props) {
+export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false, fizetett = false }: Props) {
   const ertek = (k: (typeof CIB_FELIRAT_SORREND)[number]): string => {
     if (k === 'amo') return osszegKiiras(adatok.amo);
     return bankiErtek(adatok[k] as string | null | undefined);
   };
+  const felirat = (k: (typeof CIB_FELIRAT_SORREND)[number]): string => (k === 'amo' ? amoFelirat(fizetett) : CIB_FELIRATOK[k]);
   return (
     <div data-testid="banki-tranzakcio-adatok">
       <dl
@@ -41,7 +49,7 @@ export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false }: Pr
               paddingBottom: 6, borderBottom: '1px solid var(--border)',
             }}
           >
-            <dt className="muted" style={{ margin: 0, flex: '1 1 220px', minWidth: 0 }}>{CIB_FELIRATOK[k]}</dt>
+            <dt className="muted" style={{ margin: 0, flex: '1 1 220px', minWidth: 0 }}>{felirat(k)}</dt>
             <dd
               style={{
                 margin: 0, fontWeight: 700, flex: '0 1 auto', minWidth: 0,

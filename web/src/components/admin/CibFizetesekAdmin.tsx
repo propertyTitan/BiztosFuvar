@@ -12,8 +12,9 @@
 //    tartalmaz, kártyaadatot nem);
 //  - „Újraellenőrzés": a következő banki lekérdezés előrehozása;
 //  - KÉTES LEZÁRÁS (close_unknown): a két döntés ConfirmDialog mögött — a
-//    „Lezárva" ANUM-ot (1–6 alfanumerikus) és indoklást, a „Nem lezárva"
-//    indoklást követel (10–2000 karakter), a bankkal egyeztetve.
+//    „Lezárva" ANUM-ot (1–6 alfanumerikus), a bank szöveges eredményét (RT,
+//    alapból „Tranzakció elfogadva" — 2026-10-03, C6) és indoklást, a „Nem
+//    lezárva" indoklást követel (10–2000 karakter), a bankkal egyeztetve.
 //
 //  Ha a végpont nem érhető el (a CIB-integráció nincs bekapcsolva, vagy a
 //  backend még nem tartalmazza), a blokk ezt csendes jelzéssel mondja — az
@@ -49,6 +50,9 @@ const ALLAPOT_SZIN: Record<string, string> = {
 
 const OLDALMERET = 25;
 const ANUM_MINTA = /^[A-Za-z0-9]{1,6}$/;
+/** A bank RC=00-hoz tartozó szöveges eredménye — az RT mező alapértéke (C6). */
+export const RT_ALAP_RC00 = 'Tranzakció elfogadva';
+const RT_MAX = 200;
 
 function ido(iso: string | null | undefined): string {
   if (!iso) return '–';
@@ -205,14 +209,21 @@ export default function CibFizetesekAdmin() {
       toast.error('Túl rövid indoklás', 'Az indoklás 10–2000 karakter legyen (a bankkal való egyeztetés lényege).');
       return;
     }
-    let body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string };
+    let body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string; rt?: string };
     if (dontes === 'lezarva') {
       const anum = (v.anum || '').trim();
       if (!ANUM_MINTA.test(anum)) {
         toast.error('Hibás engedélyszám', 'Az ANUM 1–6 betű vagy számjegy (a bank által adott engedélyszám).');
         return;
       }
-      body = { eredmeny: 'lezarva', anum, indoklas };
+      // C6 (2026-10-03, lelet 33): az RT is a bank kötelező adatsorának része
+      // — enélkül a díj-visszaigazolásban és az eredményoldalon „–" állt.
+      const rt = (v.rt || '').trim();
+      if (!rt || rt.length > RT_MAX) {
+        toast.error('Hiányzó banki szöveg', `Add meg a bank szöveges eredményét (RT, legfeljebb ${RT_MAX} karakter).`);
+        return;
+      }
+      body = { eredmeny: 'lezarva', anum, rt, indoklas };
     } else {
       body = { eredmeny: 'nem_lezarva', indoklas };
     }
@@ -363,7 +374,10 @@ export default function CibFizetesekAdmin() {
                 )}
               </p>
 
-              <BankiTranzakcioAdatok adatok={{ ...(reszlet.adat.result || {}), trid: reszlet.trid }} />
+              <BankiTranzakcioAdatok
+                adatok={{ ...(reszlet.adat.result || {}), trid: reszlet.trid }}
+                fizetett={reszlet.adat.session?.state === 'succeeded'}
+              />
 
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
                 {/* A .btn alapból nowrap — 390 px-en ez a hosszú felirat kilógna. */}
@@ -441,11 +455,13 @@ export default function CibFizetesekAdmin() {
         fields={dontes === 'lezarva'
           ? [
             { key: 'anum', label: 'ANUM (a bank engedélyszáma, 1–6 karakter)', type: 'text', required: true, placeholder: 'pl. AB1234' },
+            { key: 'rt', label: 'RT (a bank szöveges eredménye, a vásárló is látja)', type: 'text', required: true, placeholder: RT_ALAP_RC00 },
             { key: 'indoklas', label: 'Indoklás (legalább 10 karakter)', type: 'textarea', required: true, placeholder: 'pl. A CIB e-mailben megerősítette a lezárást (dátum, ügyintéző).' },
           ]
           : [
             { key: 'indoklas', label: 'Indoklás (legalább 10 karakter)', type: 'textarea', required: true, placeholder: 'pl. A CIB szerint a MSGT32 nem érkezett be, a tétel reverzálva.' },
           ]}
+        initialValues={dontes === 'lezarva' ? { rt: RT_ALAP_RC00 } : undefined}
         onConfirm={(v) => { rendez(v); }}
         onClose={() => setDontes(null)}
       />

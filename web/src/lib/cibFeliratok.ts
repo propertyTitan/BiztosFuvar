@@ -27,6 +27,20 @@ export type CibFeliratKulcs = keyof typeof CIB_FELIRATOK;
 /** A banki lista sorrendje — a megjelenítés is ezt követi. */
 export const CIB_FELIRAT_SORREND: readonly CibFeliratKulcs[] = ['trid', 'rc', 'rt', 'amo', 'anum'];
 
+/**
+ * Az AMO felirata NEM sikeres kimenetnél (sikertelen, nem terhelt, már
+ * fizetett, ellenőrzés alatt). 2026-10-03 (CIB PR-5, a valódi banknál
+ * talált hiba): a „fizetett összeg" egy el nem fogadott vagy le nem zárt
+ * fizetésnél hamis. Az AMO-kód és az érték marad (a bank kötelező adata);
+ * sikeres fizetésnél a banki felirat (CIB_FELIRATOK.amo) szó szerint áll.
+ */
+export const CIB_AMO_NEM_FIZETETT_FELIRAT = 'A tranzakció összege (AMO)';
+
+/** Az AMO felirata a kimenet szerint: csak sikeres fizetésnél „fizetett". */
+export function amoFelirat(fizetett: boolean): string {
+  return fizetett ? CIB_FELIRATOK.amo : CIB_AMO_NEM_FIZETETT_FELIRAT;
+}
+
 /** Az AMO mellé kiírt pénznem (a díj mindig forintban megy). */
 export const CIB_OSSZEG_PENZNEM = 'HUF';
 
@@ -82,9 +96,11 @@ export const CIB_ADATKEZELESI_LINK = {
  *  megszakító — ezt előre elmondjuk (failure mode 10). 2026-10-01 (a PR-4 1.
  *  javítóköre): a helyi lezárási ablak a MSGT10-től 9 perc 30 mp
  *  (CIB_ZARAS_HATARIDO_MP), és a lezárás (egy lekérdezés + a MSGT32) is ebbe
- *  esik — a „kb. 10 perc" túlígéret volt. */
+ *  esik — a „kb. 10 perc" túlígéret volt. 2026-10-03 (CIB PR-5, lelet 27): a
+ *  visszatérés után még egy banki lekérdezés és a lezárás is a 9:30-ba fér,
+ *  ezért a vásárlónak kb. 8 percet mondunk (a „kb. 9 perc" is túlígéret). */
 export const CIB_IDO_TIPP =
-  'A bank oldalán kb. 9 perced van befejezni; ne frissítsd és ne lépj vissza. Ha a bankod alkalmazásában hagyod jóvá, utána térj vissza ebbe a böngészőbe.';
+  'A fizetést a bank oldalán kb. 8 percen belül fejezd be; ne frissítsd és ne lépj vissza. Ha a bankod alkalmazásában hagyod jóvá, utána térj vissza ebbe a böngészőbe.';
 
 /** A CIB banki tesztkörnyezet sávjának szövege (TesztFizetesSav, 'cib_teszt'). */
 export const CIB_TESZT_SAV_SZOVEG =

@@ -107,10 +107,30 @@ describe('CIB admin blokk', () => {
     expect(m.toast.error).toHaveBeenCalled();
 
     fireEvent.change(within(dialog).getByLabelText(/ANUM/), { target: { value: 'AB1234' } });
+    // 2026-10-03 (CIB PR-5, C6 / lelet 33): az RT (a bank szöveges
+    // eredménye) is rögzül — alapból a bank RC=00-hoz tartozó szövege, az
+    // admin felülírhatja. Enélkül a kötelező adatsorban „–" állt.
+    expect(within(dialog).getByLabelText(/RT/)).toHaveValue('Tranzakció elfogadva');
     fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
     await waitFor(() => expect(api.adminCibRendezes).toHaveBeenCalledWith(TRID, {
-      eredmeny: 'lezarva', anum: 'AB1234', indoklas: 'A bank levélben megerősítette a lezárást.',
+      eredmeny: 'lezarva', anum: 'AB1234', rt: 'Tranzakció elfogadva', indoklas: 'A bank levélben megerősítette a lezárást.',
     }));
+  });
+
+  it('close_unknown — „Lezárva": az admin a bank RT-szövegét maga is beírhatja; üresen nem megy ki', async () => {
+    render(<CibFizetesekAdmin />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`Részletek.*${TRID}`) }));
+    const panel = await screen.findByTestId('cib-reszlet');
+    fireEvent.click(within(panel).getByRole('button', { name: /^Lezárva/ }));
+    const dialog = (await screen.findAllByRole('dialog')).at(-1)!;
+    fireEvent.change(within(dialog).getByLabelText(/ANUM/), { target: { value: 'AB1234' } });
+    fireEvent.change(within(dialog).getByLabelText(/Indoklás/), { target: { value: 'A bank levélben megerősítette a lezárást.' } });
+    fireEvent.change(within(dialog).getByLabelText(/RT/), { target: { value: '   ' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
+    expect(api.adminCibRendezes).not.toHaveBeenCalled();
+    fireEvent.change(within(dialog).getByLabelText(/RT/), { target: { value: 'Sikeres tranzakció' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
+    await waitFor(() => expect(api.adminCibRendezes).toHaveBeenCalledWith(TRID, expect.objectContaining({ rt: 'Sikeres tranzakció' })));
   });
 
   it('close_unknown — „Nem lezárva": indoklás kötelező (min. 10 karakter)', async () => {

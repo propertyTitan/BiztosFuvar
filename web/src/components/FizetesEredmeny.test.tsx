@@ -82,7 +82,8 @@ describe('eredményoldal állapotai', () => {
     vi.mocked(api.getCibEredmeny)
       .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 503 }))
       .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 503 }))
-      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 429 }))
+      // (A 429 2026-10-03 óta a szerver kérte ideig vár — lásd FizetesEredmeny-pr5.)
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 502 }))
       .mockResolvedValue({ ...ALAP, allapot: 'sikeres' } as any);
     render(<EredmenyOldal />);
     await atfolyat();

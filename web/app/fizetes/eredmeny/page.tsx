@@ -25,23 +25,34 @@
 //  IP-limitjének ezt el kell bírnia.
 //
 //  „Vissza a fuvarhoz" gomb MINDIG van: a böngésző Vissza gombja a bank
-//  oldalára vinne (amit a bank biztonsági okból elutasít). Kijelentkezve a
-//  fuvar-linkek a belépésen át (`?next=`) visznek a fuvarhoz.
+//  oldalára vinne (amit a bank biztonsági okból elutasít — a valódi banknál
+//  mérve: ERR_CACHE_MISS). Kijelentkezve a fuvar-linkek a belépésen át
+//  (`?next=`) visznek a fuvarhoz. 2026-10-03 (CIB PR-5): ahol nincs más
+//  teendő, ez az ELSŐDLEGES gomb, és mellette elmondjuk, miért ezt használja
+//  — a böngésző előzményeit szándékosan nem írjuk át.
+//
+//  2026-10-03 (CIB PR-5) továbbá: 429-re a szerver kérte ideig várunk
+//  (lelet 11); a „nem terhelt" kimenet oka saját szöveget kap (C5, lelet 9);
+//  az összeg felirata csak sikeres fizetésnél „fizetett"; újrapróba nélkül is
+//  megmondjuk, miért nincs (lelet 25c); a CIB tesztkörnyezete jelölve
+//  (lelet 28, C1).
 // =====================================================================
 import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { AlertTriangle, CheckCircle2, CircleCheck, Hourglass, RefreshCw, ShieldAlert, WifiOff, XCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleCheck, FlaskConical, Hourglass, RefreshCw, ShieldAlert, WifiOff, XCircle } from 'lucide-react';
 import { api, type CibEredmeny } from '@/api';
 import { Loading } from '@/components/StateView';
 import BankiTranzakcioAdatok from '@/components/BankiTranzakcioAdatok';
 import DijFizetesKartya from '@/components/DijFizetesKartya';
 import { useCurrentUser } from '@/lib/auth';
 import { getSocket } from '@/lib/socket';
-import { CIB_FELIRATOK } from '@/lib/cibFeliratok';
+import { CIB_FELIRATOK, CIB_TESZT_SAV_SZOVEG } from '@/lib/cibFeliratok';
 import { BANKI_TOVABBI_INFO, ugyfelUzenet } from '@/lib/cibRcCsoport';
+import { publikusKonfig } from '@/lib/publikusKonfig';
 import {
-  ELERHETETLEN_HIBASZAM, GYORS_SZAKASZ_MS, kovetkezoLekeresMs, lekerdezesFolytathato, vegleges,
+  ELERHETETLEN_HIBASZAM, GYORS_SZAKASZ_MS, kovetkezoLekeresMs, lekerdezesFolytathato,
+  nemTerheltMagyarazat, varakozasHibaUtan, vegleges,
 } from '@/lib/cibFizetes';
 
 type Nezet =
@@ -61,11 +72,49 @@ function fuvarUt(jobId: string | null | undefined, bejelentkezve: boolean): stri
   return bejelentkezve ? ut : `/bejelentkezes?next=${encodeURIComponent(ut)}`;
 }
 
-function VisszaGomb({ jobId, bejelentkezve }: { jobId: string | null | undefined; bejelentkezve: boolean }) {
+function VisszaGomb({ jobId, bejelentkezve, elsodleges = false }: {
+  jobId: string | null | undefined; bejelentkezve: boolean; elsodleges?: boolean;
+}) {
   return (
-    <Link href={fuvarUt(jobId, bejelentkezve)} className="btn btn-secondary" style={{ marginTop: 12 }}>
-      Vissza a fuvarhoz
-    </Link>
+    <>
+      <div>
+        <Link href={fuvarUt(jobId, bejelentkezve)} className={elsodleges ? 'btn' : 'btn btn-secondary'} style={{ marginTop: 12 }}>
+          Vissza a fuvarhoz
+        </Link>
+      </div>
+      <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+        A fuvarodhoz ezzel a gombbal térj vissza: a böngésző Vissza gombja a bank fizetőoldalára vinne,
+        amit a bank biztonsági okból már nem tölt be újra.
+      </p>
+    </>
+  );
+}
+
+/**
+ * A CIB banki tesztkörnyezetének jelölése (lelet 28, C1): a banki átvételi
+ * teszt ezen az oldalon nézi a kötelező adatsort — tesztkörnyezetben itt is
+ * látszódjon, hogy valódi terhelés nincs. Hibánál / élesben semmi (fail-closed).
+ */
+function CibTesztJelzes() {
+  const [teszt, setTeszt] = useState(false);
+  useEffect(() => {
+    let el = true;
+    publikusKonfig().then((k) => { if (el) setTeszt(k?.kartyas_fizetes === 'teszt'); });
+    return () => { el = false; };
+  }, []);
+  if (!teszt) return null;
+  return (
+    <div
+      role="status"
+      data-testid="eredmeny-teszt-jelzes"
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 10, marginTop: 16, padding: '12px 14px', borderRadius: 8,
+        background: 'rgba(37,99,235,0.12)', border: '2px solid rgba(37,99,235,0.55)', color: 'var(--text)', fontSize: 14,
+      }}
+    >
+      <FlaskConical size={18} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
+      <strong>{CIB_TESZT_SAV_SZOVEG}</strong>
+    </div>
   );
 }
 
@@ -130,6 +179,7 @@ function EredmenyTartalom() {
     if (!token || leallt.current) return;
     if (ora.current) { clearTimeout(ora.current); ora.current = null; }
     let tovabb = true;
+    let hiba: unknown = null;
     try {
       const r = await api.getCibEredmeny(token);
       if (leallt.current) return;
@@ -145,6 +195,7 @@ function EredmenyTartalom() {
         // Átmeneti hiba: tovább kérdezünk (a nézet marad), de számoljuk —
         // néhány próba után kiírjuk, hogy most nem érjük el.
         setHibaSzam((n) => n + 1);
+        hiba = err;
       }
     }
     if (!tovabb) { leallt.current = true; return; }
@@ -155,7 +206,10 @@ function EredmenyTartalom() {
       setMegallt(true);
       return;
     }
-    ora.current = setTimeout(() => { lekerdez(); }, kovetkezoLekeresMs(eltelt));
+    // 429-re a szerver kérte ideig várunk (lelet 11): közös NAT mögött a
+    // 3 mp-es ütem a banki visszatérés keretét is elfogyasztotta.
+    const alap = kovetkezoLekeresMs(eltelt);
+    ora.current = setTimeout(() => { lekerdez(); }, hiba ? varakozasHibaUtan(hiba, alap) : alap);
   }, [token]);
 
   /** A „Frissítés" gomb: a felső korlát után újraindítja a lekérdezést. */
@@ -274,7 +328,7 @@ function EredmenyTartalom() {
             {CIB_FELIRATOK.trid}: <strong>{e.trid}</strong>
           </p>
         )}
-        <VisszaGomb jobId={jobId} bejelentkezve={!!user} />
+        <VisszaGomb jobId={jobId} bejelentkezve={!!user} elsodleges />
         <KezdokepernyoTipp />
       </div>
     );
@@ -287,7 +341,7 @@ function EredmenyTartalom() {
           <CheckCircle2 size={24} color="var(--success)" aria-hidden /> Sikeres fizetés
         </h1>
         <p>A kapcsolatfelvételi díjat kifizetted, a szállító elérhetősége megnyílt.</p>
-        <BankiTranzakcioAdatok adatok={e} mentesTipp />
+        <BankiTranzakcioAdatok adatok={e} mentesTipp fizetett />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
           {jobId && (
             <Link href={fuvarUt(jobId, !!user)} className="btn">Szállító elérhetőségének megnyitása</Link>
@@ -314,7 +368,7 @@ function EredmenyTartalom() {
           Kérdésed van? Írj nekünk a TrID-vel: <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a>
           {' '}vagy hívj: <a href="tel:+36203979223">+36 20 397 9223</a>
         </p>
-        <VisszaGomb jobId={jobId} bejelentkezve={!!user} />
+        <VisszaGomb jobId={jobId} bejelentkezve={!!user} elsodleges />
       </div>
     );
   }
@@ -338,12 +392,9 @@ function EredmenyTartalom() {
           tételként látszhat).
         </p>
       )}
-      {nemTerhelt && (
-        <p>
-          Nem terheltük a kártyádat. A zárolt összeget a bank feloldja (a kivonaton pár napig függő
-          tételként látszhat).
-        </p>
-      )}
+      {/* C5 (lelet 9): az admin-egyeztetés és a banki visszafordítás
+          saját, igaz okot kap — nem „a bank nem fogadta el". */}
+      {nemTerhelt && <p>{nemTerheltMagyarazat(e.ok)}</p>}
       {!marFizetve && !nemTerhelt && (
         <>
           <p style={{ fontWeight: 600 }}>{u.cim}</p>
@@ -381,7 +432,16 @@ function EredmenyTartalom() {
           </Link>
         )
       )}
-      <div><VisszaGomb jobId={jobId} bejelentkezve={!!user} /></div>
+      {/* Lelet 25c: újrapróba nélkül is megmondjuk, miért nincs (a díjat
+          közben rendezte, egy másik fizetés fut, vagy a fuvar megváltozott). */}
+      {!ujraProba && !marFizetve && (
+        <p style={{ fontSize: 14, marginTop: 16 }}>
+          Ehhez a fuvarhoz most nem indítható új fizetés — például mert a díjat közben rendezted, egy
+          másik fizetésed még folyamatban van, vagy a fuvar állapota megváltozott. Az aktuális állapotot
+          a fuvar oldalán látod.
+        </p>
+      )}
+      <VisszaGomb jobId={jobId} bejelentkezve={!!user} elsodleges={!ujraProba} />
       <KezdokepernyoTipp />
     </div>
   );
@@ -390,6 +450,7 @@ function EredmenyTartalom() {
 export default function FizetesEredmenyOldal() {
   return (
     <div style={{ maxWidth: 640, margin: '0 auto' }}>
+      <CibTesztJelzes />
       <Suspense fallback={<Loading label="A fizetés eredményének betöltése…" />}>
         <EredmenyTartalom />
       </Suspense>

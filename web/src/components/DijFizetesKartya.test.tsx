@@ -72,8 +72,9 @@ describe('útválasztás: CIB átirányítás vs stub', () => {
     expect(screen.getByText('A Kereskedő/Tiszta Hód Kft. székhelyének országa és országkódja: Magyarország (HU)')).toBeInTheDocument();
     expect(screen.getByText('A kártyaadataidat kizárólag a CIB Bank oldalán adod meg, a GoFuvar nem látja őket.')).toBeInTheDocument();
     // 2026-10-01 (a PR-4 1. javítóköre): a helyi lezárási ablak a MSGT10-től
-    // 9 perc 30 mp, és a zárás is ebbe esik — „kb. 10 perc" túlígéret volt.
-    expect(screen.getByText(/kb\. 9 perced van/)).toBeInTheDocument();
+    // 9 perc 30 mp, és a zárás is ebbe esik — „kb. 10 perc", majd „kb. 9
+    // perc" is túlígéret volt (2026-10-03, CIB PR-5).
+    expect(screen.getByText(/kb\. 8 percen belül/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Bankkártyás fizetés' })).toHaveAttribute('href', '/bankkartyas-fizetes');
     // 2026-10-01 (a PR-4 1. javítóköre, WCAG 2.4.4): a kártyán két azonos
     // nevű „Adatkezelési tájékoztató" link van (az infó-blokké és a

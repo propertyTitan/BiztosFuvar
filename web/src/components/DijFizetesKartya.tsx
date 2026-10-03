@@ -41,11 +41,22 @@
 //  is kéri, ha vásárlói adatot nem küldünk. A gomb csak mindkettővel
 //  nyomható, és a /pay a `cib_adatkezelesi_hozzajarulas: true`-t is viszi
 //  (nélküle a backend 400 CIB_CONSENT_REQUIRED). Stub-módban nincs ilyen.
+//
+//  2026-10-03 (CIB PR-5, a web↔backend szerződés C2–C5):
+//   - KUPON (C4): ha beváltható ajánlói kupon fedezi a díjat
+//     (`kupon_elerheto`), a CIB felé semmi nem megy — a CIB-nyilatkozat és a
+//     banki infó-blokk nem jelenik meg, a gomb az ingyenes kapcsolatfelvételt
+//     kínálja, a /pay csak a 45/2014-es nyilatkozatot viszi;
+//   - TILTÁS (C3): `can_pay: false` mellett NINCS fizetés-gomb; a tiltás oka
+//     (`pay_blocked_reason`) a gomb helyén olvasható;
+//   - a letiltott gomb mellett a hiányzó nyilatkozat neve (aria-describedby);
+//   - a vissza nem tért kísérletnél nem biztatunk vakon új fizetésre, és az
+//     állapotot lassan újraolvassuk.
 // =====================================================================
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, CheckCircle2, Clock, Hourglass, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Clock, Gift, Hourglass, ShieldAlert } from 'lucide-react';
 import { api, type FeePaymentAllapot } from '@/api';
 import FeeConsentLabel from '@/components/FeeConsentLabel';
 import CibAdatkezelesiNyilatkozat from '@/components/CibAdatkezelesiNyilatkozat';
@@ -58,7 +69,8 @@ import { CIB_FELIRATOK, CIB_IDO_TIPP } from '@/lib/cibFeliratok';
 import { BANKI_TOVABBI_INFO, ugyfelUzenet } from '@/lib/cibRcCsoport';
 import {
   ALLAPOT_UJRAPROBA_MS, GYORS_SZAKASZ_MS, LASSU_LEKERDEZES_MS, atmenetiHiba,
-  biztonsagosAtiranyitasiCel, fizetesHibaUzenet, kartyaAllapot, percKiiras, type HibaUzenet,
+  biztonsagosAtiranyitasiCel, fizetesHibaUzenet, fizetesTiltasUzenet, kartyaAllapot,
+  nemTerheltMagyarazat, nyilatkozatHiany, percKiiras, type HibaUzenet,
 } from '@/lib/cibFizetes';
 
 type Props = {
@@ -76,6 +88,13 @@ type Inditas = 'nincs' | 'fut' | 'lassu' | 'atiranyitas';
 
 const LASSU_UZENET_MS = 8_000;
 const LEZARAS_FRISSITES_MS = 5_000;
+/**
+ * A vissza nem tért (vagy egy másik kísérlet miatt tiltott) fizetést ennyi
+ * ideig figyeljük lassú ütemben (2026-10-03, lelet 10): a bank a magára
+ * hagyott kísérletet ~9,5–11 perc után TO-val zárja, a visszatért kísérletet
+ * a háttér-lekérdezés percen belül lezárja.
+ */
+const NYITOTT_FIGYELES_MS = 15 * 60_000;
 
 function linkLejartToastSzoveg() {
   return 'Ez a fizetési link már elhasználódott, indíts újat.';
@@ -183,6 +202,14 @@ export default function DijFizetesKartya({
 
   const allapot = kartyaAllapot(fp);
   const cib = fp?.provider_kind === 'cib';
+  // C4: a kupon a bank nélkül rendezi a díjat — ilyenkor CIB-nyilatkozat
+  // sem kell (nincs mit továbbítani a banknak).
+  const kupon = fp?.kupon_elerheto === true;
+  const cibUt = cib && !kupon;
+  // C3: a fizetés tiltása (can_pay=false). Ha a kártya állapota maga
+  // magyaráz (lezárás / ellenőrzés / siker), a tiltást nem mondjuk el külön.
+  const allapotMagyaraz = allapot === 'lezaras' || allapot === 'ellenorzes' || allapot === 'sikeres';
+  const tiltas = allapotMagyaraz ? null : fizetesTiltasUzenet(fp);
 
   // A lezárás alatt 5 mp-enként (3 perc után 20 mp-enként) újraolvasunk.
   // SIKERNÉL a fuvart EGYSZER újratöltjük (megnyílik a kontakt, a kártya
@@ -210,13 +237,32 @@ export default function DijFizetesKartya({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allapot]);
 
+  // A vissza nem tért kísérletet (és a másik kísérlet miatti tiltást) lassan
+  // figyeljük (2026-10-03, lelet 10): eddig ebben az állapotban a kártya csak
+  // socket-eseményre frissült, és a sárga sáv akkor is új fizetésre
+  // biztatott, amikor a háttér már lezárta a kísérletet.
+  const lassanFigyel = allapot === 'nyitott'
+    || (!!tiltas && fp?.pay_blocked_reason === 'masik_kiserlet_folyamatban');
+  useEffect(() => {
+    if (!lassanFigyel) return;
+    const kezdet = Date.now();
+    let ora: ReturnType<typeof setTimeout> | null = null;
+    const utemez = () => {
+      if (Date.now() - kezdet >= NYITOTT_FIGYELES_MS) return;
+      ora = setTimeout(() => { allapotBetoltes(); utemez(); }, LASSU_LEKERDEZES_MS);
+    };
+    utemez();
+    return () => { if (ora) clearTimeout(ora); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lassanFigyel]);
+
   async function indit() {
-    if (!betoltve) return;
+    if (!betoltve || tiltas) return;
     if (!consent) {
       toast.error('Beleegyezés szükséges', 'A fizetéshez pipáld ki az azonnali teljesítésre vonatkozó nyilatkozatot.');
       return;
     }
-    if (cib && !cibHozzajarulas) {
+    if (cibUt && !cibHozzajarulas) {
       toast.error('Nyilatkozat szükséges', 'A bankkártyás fizetéshez pipáld ki a CIB Bank felé történő adattovábbításról szóló nyilatkozatot.');
       return;
     }
@@ -229,8 +275,8 @@ export default function DijFizetesKartya({
     let elnavigal = false;
     try {
       // CIB-úton a hozzájárulás is megy (a gomb nélküle nem nyomható); a
-      // stub-út kérése változatlan.
-      const r = cib ? await api.payJob(jobId, true, true) : await api.payJob(jobId, true);
+      // stub-út és a kupon (C4: a bankhoz semmi nem megy) kérése a régi.
+      const r = cibUt ? await api.payJob(jobId, true, true) : await api.payJob(jobId, true);
       if (r.paid_via_voucher) {
         toast.success('Ingyenes kapcsolatfelvétel!', 'Az ajánlói jutalmadat felhasználtuk — a kapcsolatfelvételi díj elmaradt, a kapcsolat megnyílt.');
         await onFrissites?.();
@@ -264,19 +310,27 @@ export default function DijFizetesKartya({
   }
 
   const fee = (feeHuf ?? 0).toLocaleString('hu-HU');
-  const gombLathato = allapot !== 'lezaras' && allapot !== 'ellenorzes' && allapot !== 'sikeres';
+  // can_pay=false mellett nincs gomb (lelet 25): a kattintás úgyis 409/503
+  // lenne, és a hibaüzenet csak utólag mondaná el, amit előre tudunk.
+  const gombLathato = !allapotMagyaraz && !tiltas;
   const foglalt = inditas !== 'nincs';
   const gombFelirat = !betoltve
     ? 'Betöltés…'
     : inditas === 'atiranyitas'
       ? 'Átirányítás a CIB Bankhoz…'
       : foglalt
-        ? (cib ? 'Kapcsolódás a CIB Bankhoz…' : 'Fizetés indítása…')
-        : (cib ? `Fizetés bankkártyával (${fee} Ft)` : `Díj fizetése (${fee} Ft)`);
-  // Minden szükséges nyilatkozat megvan: a 45/2014-es mindig, CIB-módban az
-  // adattovábbítási hozzájárulás is (2026-10-01).
-  const nyilatkozatokMegvannak = consent && (!cib || cibHozzajarulas);
+        ? (cibUt ? 'Kapcsolódás a CIB Bankhoz…' : 'Fizetés indítása…')
+        : kupon
+          ? 'Ingyenes kapcsolatfelvétel (ajánlói jutalom)'
+          : (cib ? `Fizetés bankkártyával (${fee} Ft)` : `Díj fizetése (${fee} Ft)`);
+  // Minden szükséges nyilatkozat megvan: a 45/2014-es mindig, CIB-úton az
+  // adattovábbítási hozzájárulás is (2026-10-01; kuponnál nem kell — C4).
+  const nyilatkozatokMegvannak = consent && (!cibUt || cibHozzajarulas);
   const gombTiltva = !betoltve || foglalt || !nyilatkozatokMegvannak;
+  // A letiltott gomb magyarázata (lelet 29): a disabled gombra kattintás nem
+  // fut le, ezért a hiányzó nyilatkozatot a gomb mellett mondjuk el.
+  const hianyId = useId();
+  const hiany = betoltve && !foglalt ? nyilatkozatHiany({ consent, cibHozzajarulas, cibUt }) : null;
 
   const oa = fp?.open_attempt || null;
   const lr = fp?.last_result || null;
@@ -345,7 +399,7 @@ export default function DijFizetesKartya({
             <details style={{ marginTop: 8 }}>
               <summary style={{ cursor: 'pointer', fontSize: 13 }}>A banki tranzakció adatai</summary>
               <div style={{ marginTop: 8 }}>
-                <BankiTranzakcioAdatok adatok={lr} />
+                <BankiTranzakcioAdatok adatok={lr} fizetett />
               </div>
             </details>
           )}
@@ -373,8 +427,12 @@ export default function DijFizetesKartya({
           }}
         >
           <Clock size={16} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
+          {/* 2026-10-03 (lelet 10): a visszatért, de még nem ellenőrzött
+              kísérletre ez a sáv eddig azt írta: „nyugodtan indíts újat" —
+              az eredményoldal közben „A bank megerősíti a fizetést…"-et
+              mutatott, és a második fizetés második zárolást tett a kártyára. */}
           <p style={{ margin: 0 }}>
-            {`Egy korábbi fizetésed ${percKiiras(oa.started_at)} indult, és nem fejeződött be. Ha a bank oldalát bezártad, nyugodtan indíts újat, kétszer biztosan nem terhelünk.`}
+            {`Egy korábbi fizetésed ${percKiiras(oa.started_at)} indult, és nem fejeződött be. Ha a bank oldalán befejezted a fizetést, ne indíts újat: pár percen belül itt és e-mailben is megjelenik az eredmény. Ha fizetés nélkül bezártad a bank oldalát, indíts újat — kétszer biztosan nem terhelünk.`}
           </p>
         </div>
       )}
@@ -382,6 +440,11 @@ export default function DijFizetesKartya({
       {allapot === 'elozo_sikertelen' && mutassElozoEredmenyt && lr && (() => {
         const nemTerhelt = lr.allapot === 'nem_terhelt' || lr.allapot === 'mar_fizetve' || lr.allapot === 'not_closed';
         const u = ugyfelUzenet({ rc: lr.rc, rc_csoport: lr.rc_csoport });
+        // C5 (2026-10-03, lelet 9): az admin-egyeztetés és a banki
+        // visszafordítás saját, igaz okot kap.
+        const nemTerheltSzoveg = lr.allapot === 'nem_terhelt'
+          ? nemTerheltMagyarazat(lr.ok)
+          : 'Nem terheltük a kártyádat; a zárolt összeget a bank feloldja (a kivonaton pár napig függő tételként látszhat).';
         return (
           <div
             style={{
@@ -394,9 +457,7 @@ export default function DijFizetesKartya({
               <span>{nemTerhelt ? 'Az előző fizetési kísérletet nem véglegesítettük' : 'Az előző fizetési kísérlet nem sikerült'}</span>
             </div>
             {nemTerhelt ? (
-              <p style={{ margin: '6px 0 0', fontSize: 14 }}>
-                Nem terheltük a kártyádat; a zárolt összeget a bank feloldja (a kivonaton pár napig függő tételként látszhat).
-              </p>
+              <p style={{ margin: '6px 0 0', fontSize: 14 }}>{nemTerheltSzoveg}</p>
             ) : (
               <>
                 <p style={{ margin: '6px 0 0', fontSize: 14, fontWeight: 600 }}>{u.cim}</p>
@@ -412,23 +473,61 @@ export default function DijFizetesKartya({
                 <BankiTranzakcioAdatok adatok={lr} />
               </div>
             </details>
-            <p style={{ margin: '8px 0 0', fontSize: 13 }}>Új fizetést azonnal indíthatsz — új tranzakcióként.</p>
+            {gombLathato && (
+              <p style={{ margin: '8px 0 0', fontSize: 13 }}>Új fizetést azonnal indíthatsz — új tranzakcióként.</p>
+            )}
           </div>
         );
       })()}
 
+      {tiltas && (
+        <div
+          role="status"
+          data-testid="dij-fizetes-tiltas"
+          style={{
+            marginTop: 12, padding: 14, borderRadius: 8,
+            background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.5)', color: 'var(--text)',
+          }}
+        >
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 700 }}>
+            <Ban size={18} aria-hidden /> <span>{tiltas.cim}</span>
+          </div>
+          <p style={{ margin: '6px 0 0', fontSize: 14 }}>{tiltas.szoveg}</p>
+          {fp?.pay_blocked_reason === 'nem_fizetheto' && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ marginTop: 10 }}
+              onClick={() => { allapotBetoltes(); onFrissites?.(); }}
+            >
+              Oldal frissítése
+            </button>
+          )}
+        </div>
+      )}
+
       {gombLathato && (
         <>
+          {kupon && (
+            <p style={{ display: 'flex', gap: 8, alignItems: 'flex-start', margin: '12px 0 0', fontSize: 14 }}>
+              <Gift size={16} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
+              <span>
+                Az ajánlói jutalmad fedezi a kapcsolatfelvételi díjat — bankkártyás fizetés és banki
+                adattovábbítás nem történik.
+              </span>
+            </p>
+          )}
           <FeeConsentLabel checked={consent} onChange={setConsent} zaroMondat={zaroMondat} />
-          {cib && <CibAdatkezelesiNyilatkozat checked={cibHozzajarulas} onChange={setCibHozzajarulas} />}
-          {cib && <CibFizetesInfo />}
-          {cib && (
+          {cibUt && <CibAdatkezelesiNyilatkozat checked={cibHozzajarulas} onChange={setCibHozzajarulas} />}
+          {cibUt && <CibFizetesInfo />}
+          {cibUt && (
             <p className="muted" style={{ fontSize: 12, margin: '10px 0 0', lineHeight: 1.5 }}>{CIB_IDO_TIPP}</p>
           )}
           <button
             type="button"
             onClick={indit}
             disabled={gombTiltva}
+            aria-describedby={hianyId}
             className="btn"
             style={{
               marginTop: 12,
@@ -440,9 +539,13 @@ export default function DijFizetesKartya({
           >
             {gombFelirat}
           </button>
+          {/* A hiányzó nyilatkozat neve — a tiltott gomb leírása (lelet 29). */}
+          <p id={hianyId} aria-live="polite" className="muted" style={{ fontSize: 13, margin: hiany ? '8px 0 0' : 0 }}>
+            {hiany}
+          </p>
           {inditas === 'lassu' && (
             <p role="status" className="muted" style={{ fontSize: 13, margin: '8px 0 0' }}>
-              {cib ? 'A bank lassan válaszol, ne zárd be az oldalt.' : 'A szerver lassan válaszol, ne zárd be az oldalt.'}
+              {cibUt ? 'A bank lassan válaszol, ne zárd be az oldalt.' : 'A szerver lassan válaszol, ne zárd be az oldalt.'}
             </p>
           )}
           <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>

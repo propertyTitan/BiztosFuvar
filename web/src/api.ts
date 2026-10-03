@@ -291,12 +291,27 @@ export type CibBankiAdatok = {
   rc_csoport?: CibRcCsoport | null;
 };
 
+/**
+ * Miért nem fizethető most a díj (CIB PR-5, C3 — 2026-10-03). A backend a
+ * `can_pay: false` mellé adja; ismeretlen értéket a web általános
+ * szöveggel kezel.
+ */
+export type FizetesTiltasOka = 'masik_kiserlet_folyamatban' | 'probalkozasi_limit' | 'szunetel' | 'nem_fizetheto';
+
+/** A „nem terhelt" kimenet oka (C5): admin-egyeztetés vagy banki visszafordítás. */
+export type NemTerheltOk = 'admin_nem_lezarva' | 'bank_visszaforditotta';
+
 /** GET /jobs/:id/fee-payment — csak a feladó (és az admin) kapja. */
 export type FeePaymentAllapot = {
   provider_kind: 'cib' | 'stub';
   can_pay: boolean;
+  /** C3: a nem végállapotú CIB-kísérlet akkor is jön, ha a fiók közben stub-útra került. */
   open_attempt: { trid: string; started_at: string; allapot: string } | null;
-  last_result: (CibBankiAdatok & { allapot: string }) | null;
+  last_result: (CibBankiAdatok & { allapot: string; ok?: NemTerheltOk | string | null }) | null;
+  /** C3: `can_pay: false` esetén az ok. */
+  pay_blocked_reason?: FizetesTiltasOka | string | null;
+  /** C4: beváltható ajánlói kupon fedezi a díjat — banki fizetés (és CIB-nyilatkozat) nem kell. */
+  kupon_elerheto?: boolean;
 };
 
 /** GET /payments/cib/eredmeny?e=<token> — publikus, token-kapus. */
@@ -305,6 +320,18 @@ export type CibEredmeny = CibBankiAdatok & {
   job_id: string | null;
   ujra_fizetheto: boolean;
   frissult?: string | boolean | null;
+  /** C5: a „nem_terhelt" kimenet oka. */
+  ok?: NemTerheltOk | string | null;
+};
+
+/**
+ * GET /config/public (CIB PR-5, C1) — publikus, hitelesítés nélküli. A
+ * `teszt_uzem` igaz, ha a stub teszt-fizetés bárkinek elérhető, vagy a CIB
+ * a bank tesztkörnyezetében fut; a `kartyas_fizetes` a CIB-környezet.
+ */
+export type PublikusKonfig = {
+  teszt_uzem: boolean;
+  kartyas_fizetes: 'teszt' | 'eles' | null;
 };
 
 /** POST /jobs/:id/pay válasza — CIB, stub, kupon és a régi gateway-ág. */
@@ -882,13 +909,40 @@ export const api = {
       { headers: { Accept: 'application/json' } },
     );
     if (!res.ok) {
-      const adat = await res.json().catch(() => ({} as { code?: string }));
+      const adat = await res.json().catch(() => ({} as { code?: string; retry_after_seconds?: unknown }));
       const hiba = new Error(res.status === 404
         ? 'Ez az eredmény-link lejárt vagy érvénytelen.'
-        : `Hiba történt (HTTP ${res.status}). Próbáld újra pár perc múlva.`);
-      (hiba as Error & { code?: string; status?: number }).code = (adat as { code?: string }).code;
-      (hiba as Error & { code?: string; status?: number }).status = res.status;
+        : `Hiba történt (HTTP ${res.status}). Próbáld újra pár perc múlva.`) as Error & {
+        code?: string; status?: number; retryAfterMs?: number;
+      };
+      hiba.code = (adat as { code?: string }).code;
+      hiba.status = res.status;
+      // 2026-10-03 (CIB PR-5, lelet 11): 429-nél a szerver kérte várakozás.
+      // A body mezője az elsődleges — a Retry-After fejlécet cross-origin a
+      // böngésző nem adja ki (nem „safelisted" válaszfejléc).
+      if (res.status === 429) {
+        const mp = Number((adat as { retry_after_seconds?: unknown }).retry_after_seconds
+          ?? res.headers?.get?.('Retry-After'));
+        if (Number.isFinite(mp) && mp > 0) hiba.retryAfterMs = mp * 1000;
+      }
       throw hiba;
+    }
+    return res.json();
+  },
+
+  /**
+   * A publikus konfiguráció (CIB PR-5, C1): a globális teszt-sáv ebből dönt.
+   * Szándékosan NEM a `request()`-en megy: publikus végpont, bearer nélkül,
+   * és a hibája nem érintheti a munkamenetet (a 401 nem léptet ki). Hibánál
+   * elutasít — a hívó ilyenkor semmit nem mutat (fail-closed).
+   */
+  getPublicConfig: async (): Promise<PublikusKonfig> => {
+    const res = await fetchWithTimeout(`${BASE_URL}/config/public`, {
+      headers: { Accept: 'application/json' },
+      timeoutMs: 8_000,
+    });
+    if (!res.ok) {
+      throw Object.assign(new Error(`Hiba történt (HTTP ${res.status}).`), { status: res.status });
     }
     return res.json();
   },
@@ -1055,7 +1109,8 @@ export const api = {
   adminCibUjraellenorzes: (trid: string) =>
     request<{ ok: true }>(`/payments/admin/cib/${encodeURIComponent(trid)}/ujraellenorzes`, { method: 'POST' }),
   /** Kétes (close_unknown) lezárás kézi rendezése a bankkal egyeztetve. */
-  adminCibRendezes: (trid: string, body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string }) =>
+  // C6 (2026-10-03): a „lezarva" döntés a bank szöveges eredményét (RT) is viszi.
+  adminCibRendezes: (trid: string, body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string; rt?: string }) =>
     request<{ ok: true; allapot: string }>(`/payments/admin/cib/${encodeURIComponent(trid)}/rendezes`, {
       method: 'POST', body: JSON.stringify(body),
     }),

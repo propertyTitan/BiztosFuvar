@@ -1,14 +1,43 @@
-// IDEIGLENES teszt-mód banner. Eltávolításhoz: töröld ezt a fájlt és a
-// <TestModeBanner /> hivatkozásokat (LandingPage.tsx, app/bejelentkezes/page.tsx).
+'use client';
+
+// =====================================================================
+//  Globális teszt-üzem sáv (az egész appra, a layoutban).
 //
-// A háttér szándékosan var(--warning-light) (a globals.css ismert pasztell-listájában
-// szerepel), az .on-light osztállyal együtt így a szöveg dark mode-ban is
-// sötét és olvasható marad.
+//  2026-10-03 (CIB PR-5, C1): a sáv eddig FELTÉTEL NÉLKÜL azt írta minden
+//  oldalon, hogy „valódi pénzmozgás nincs, a fizetés csak szimuláció" — a
+//  launch után is ott maradt volna, miközben a kártyás díjat valódi pénzzel
+//  fizetik. Mostantól a GET /config/public dönt (lib/publikusKonfig.ts):
+//   - stub teszt-fizetés → „szimuláció";
+//   - CIB tesztkörnyezet → a bank tesztkörnyezete, valódi terhelés nincs;
+//   - teszt-üzem ÉLES kártyás fizetés mellett → figyelmeztet, de a pénzről
+//     semmit nem állít;
+//   - hiba / ismeretlen válasz / éles üzem → NINCS sáv (fail-closed).
+//
+//  A háttér szándékosan var(--warning-light) (a globals.css ismert
+//  pasztell-listájában szerepel), az .on-light osztállyal együtt így a
+//  szöveg dark mode-ban is sötét és olvasható marad.
+// =====================================================================
+import { useEffect, useState } from 'react';
+import { Construction } from 'lucide-react';
+import { publikusKonfig, tesztUzemSav, type TesztUzemSav } from '@/lib/publikusKonfig';
+
 export default function TestModeBanner() {
+  const [sav, setSav] = useState<TesztUzemSav | null>(null);
+
+  useEffect(() => {
+    let el = true;
+    publikusKonfig().then((k) => { if (el) setSav(tesztUzemSav(k)); });
+    return () => { el = false; };
+  }, []);
+
+  if (!sav) return null;
+
   return (
     <div
       role="status"
       className="on-light"
+      data-testid="teszt-uzem-sav"
+      data-fajta={sav.fajta}
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -22,10 +51,9 @@ export default function TestModeBanner() {
         lineHeight: 1.4,
       }}
     >
-      <span style={{ fontSize: 20, flexShrink: 0 }} aria-hidden="true">🚧</span>
+      <Construction size={20} style={{ flexShrink: 0 }} aria-hidden />
       <span>
-        <strong>Teszt üzemmód.</strong> Az oldal jelenleg tesztelés alatt áll —
-        valódi pénzmozgás nincs, a fizetés csak szimuláció.
+        <strong>{sav.cim}</strong> {sav.szoveg}
       </span>
     </div>
   );

@@ -41,34 +41,115 @@ const SIKERES = new Set(['sikeres', 'succeeded']);
 const LEZARAS = new Set(['lezaras', 'authorized', 'closing', 'closed_ok']);
 const SIKERTELEN = new Set(['sikertelen', 'nem_terhelt', 'mar_fizetve', 'failed', 'expired', 'not_closed', 'abandoned', 'init_failed']);
 
+/**
+ * A „feldolgozas" a bankhoz ment, vissza nem tért kísérletet ÉS a lezárás
+ * alattit is jelentheti: a `can_pay` és a tiltás oka dönt. A lezárás-doboz
+ * csak akkor jön, ha a fizetést egy MÁSIK kísérlet tiltja (vagy a régi
+ * backend ok nélkül tiltja); a többi okot (korlát, szünet, nem fizethető) a
+ * kártya külön mondja el — azok mellett a nyitott kísérlet sávja marad.
+ * ⚠️ A can_pay=false egy másik fülben ÉPP INDULÓ kísérletet is jelenthet,
+ * ezért a lezárás-doboz szövege semleges (nem állít banki jóváhagyást).
+ */
+function feldolgozasAllapota(fp: FeePaymentAllapot): KartyaAllapot {
+  if (fp.can_pay !== false) return 'nyitott';
+  const ok = fp.pay_blocked_reason;
+  return !ok || ok === 'masik_kiserlet_folyamatban' ? 'lezaras' : 'nyitott';
+}
+
 export function kartyaAllapot(fp: FeePaymentAllapot | null | undefined): KartyaAllapot {
-  if (!fp || fp.provider_kind !== 'cib') return 'alap';
+  if (!fp) return 'alap';
+  // 2026-10-03 (CIB PR-5, C3 — lelet 24): a provider_kind NEM rejti el a
+  // függő kísérletet. Ha a fiók közben stub-útra került (allowlist-váltás),
+  // egy close_unknown kísérletre eddig stub-gomb és sárga sáv jött „Ne fizess
+  // újra" helyett; a backend a nem végállapotú CIB-kísérletet ilyenkor is
+  // jelenti, a kártya pedig ugyanúgy mutatja.
   const oa = fp.open_attempt;
-  if (oa) {
-    const a = String(oa.allapot || '');
-    if (ELLENORZES.has(a)) return 'ellenorzes';
-    if (SIKERES.has(a)) return 'sikeres';
-    if (LEZARAS.has(a)) return 'lezaras';
-    // A „feldolgozas" a bankhoz ment, vissza nem tért kísérletet ÉS a lezárás
-    // alattit is jelentheti: a `can_pay` dönt (a redirected nem blokkolja az
-    // új fizetést, a zárás igen — lásd a terv „Mit blokkol" táblázatát).
-    // ⚠️ A can_pay=false egy másik fülben ÉPP INDULÓ kísérletet is jelenthet,
-    // ezért a lezárás-doboz szövege semleges (nem állít banki jóváhagyást).
-    // Az open_attempt.allapot pontos értékkészletét a CIB-mag PR-rel kell
-    // egyeztetni (a szerződés csak az eredményoldal szótárát rögzíti).
-    if (a === 'feldolgozas') return fp.can_pay === false ? 'lezaras' : 'nyitott';
-    return 'nyitott';
-  }
   const lr = fp.last_result;
-  if (lr) {
-    const a = String(lr.allapot || '');
-    if (ELLENORZES.has(a)) return 'ellenorzes';
-    if (SIKERES.has(a)) return 'sikeres';
-    if (LEZARAS.has(a)) return 'lezaras';
-    if (a === 'feldolgozas') return fp.can_pay === false ? 'lezaras' : 'nyitott';
-    if (SIKERTELEN.has(a)) return 'elozo_sikertelen';
+  const aOa = oa ? String(oa.allapot || '') : null;
+  const aLr = lr ? String(lr.allapot || '') : null;
+  // Lelet 25a: az ellenőrzés MINDIG elsőbbséget kap — egy újabb, futó
+  // kísérlet nem takarhatja el a „Ne fizess újra" dobozt.
+  if ((aOa !== null && ELLENORZES.has(aOa)) || (aLr !== null && ELLENORZES.has(aLr))) return 'ellenorzes';
+  if (aOa !== null) {
+    if (SIKERES.has(aOa)) return 'sikeres';
+    if (LEZARAS.has(aOa)) return 'lezaras';
+    return feldolgozasAllapota(fp);
+  }
+  if (aLr !== null) {
+    if (SIKERES.has(aLr)) return 'sikeres';
+    if (LEZARAS.has(aLr)) return 'lezaras';
+    if (aLr === 'feldolgozas') return feldolgozasAllapota(fp);
+    if (SIKERTELEN.has(aLr)) return 'elozo_sikertelen';
   }
   return 'alap';
+}
+
+/**
+ * Miért nem fizethető most a díj (`can_pay: false`) — a kártya ezt mondja el
+ * a (rejtett) fizetés-gomb helyén. 2026-10-03 (CIB PR-5, C3 — lelet 25):
+ * eddig a gomb látszott, és csak a kattintás után derült ki a tiltás.
+ * `can_pay: true` (vagy ismeretlen állapot) esetén null.
+ */
+export function fizetesTiltasUzenet(fp: FeePaymentAllapot | null | undefined): Omit<HibaUzenet, 'teendo'> | null {
+  if (!fp || fp.can_pay !== false) return null;
+  switch (fp.pay_blocked_reason) {
+    case 'masik_kiserlet_folyamatban':
+      return {
+        cim: 'Egy korábbi fizetésed még folyamatban van',
+        szoveg: 'Egy korábbi fizetésed feldolgozása vagy egyeztetése még tart. Ne indíts újat — amint lezárul, itt és e-mailben is értesítünk, és kétszer biztosan nem terhelünk.',
+      };
+    case 'probalkozasi_limit':
+      return {
+        cim: 'Túl sok fizetési kísérlet',
+        szoveg: 'Túl sok fizetést indítottál ennél a fuvarnál, ezért az újabbat átmenetileg nem engedjük. Próbáld újra később (akár csak holnap); ha elakadtál, írj nekünk: info@gofuvar.hu.',
+      };
+    case 'szunetel':
+      return {
+        cim: 'A kártyás fizetés átmenetileg szünetel',
+        szoveg: 'Új kártyás fizetés most nem indítható; a már elindított fizetéseket lezárjuk. Nem történt terhelés — próbáld újra később.',
+      };
+    case 'nem_fizetheto':
+      return {
+        cim: 'A díj most nem fizethető',
+        szoveg: 'A fuvar állapota közben megváltozott, ezért a díj most nem fizethető. Frissítsd az oldalt, és nézd meg, kell-e még fizetned.',
+      };
+    default:
+      return {
+        cim: 'A fizetés most nem indítható',
+        szoveg: 'A díjfizetés most nem indítható. Próbáld újra pár perc múlva; ha ismétlődik, írj nekünk: info@gofuvar.hu.',
+      };
+  }
+}
+
+/**
+ * A „nem terhelt" kimenet magyarázata az ok szerint (C5). 2026-10-03 (CIB
+ * PR-5, lelet 9): az admin „nem lezárva" döntése után a felület eddig azt
+ * írta, „a bank nem fogadta el a fizetést" / „a fuvar közben megváltozott" —
+ * mindkettő hamis volt (a bank jóváhagyta, a fuvar fagyasztva állt).
+ */
+export function nemTerheltMagyarazat(ok: string | null | undefined): string {
+  if (ok === 'admin_nem_lezarva') {
+    return 'A bankkal egyeztettük: ezt a fizetést nem zártuk le, ezért a kártyádat nem terheltük. A zárolt összeget a bank feloldja (a kivonaton pár napig függő tételként látszhat).';
+  }
+  if (ok === 'bank_visszaforditotta') {
+    return 'A bank ezt a fizetést lezárás nélkül visszafordította, ezért a kártyádat nem terheltük. A zárolt összeget a bank feloldja (a kivonaton pár napig függő tételként látszhat).';
+  }
+  return 'Nem terheltük a kártyádat. A zárolt összeget a bank feloldja (a kivonaton pár napig függő tételként látszhat).';
+}
+
+/**
+ * Melyik nyilatkozat hiányzik a fizetés gombjához (lelet 29). A letiltott
+ * gombra kattintás nem fut le, ezért ezt a gomb mellett, a gombhoz kötve
+ * mondjuk el. null: minden megvan.
+ */
+export function nyilatkozatHiany(p: { consent: boolean; cibHozzajarulas: boolean; cibUt: boolean }): string | null {
+  const cibHianyzik = p.cibUt && !p.cibHozzajarulas;
+  if (!p.consent && cibHianyzik) {
+    return 'A fizetéshez pipáld ki mindkét nyilatkozatot: az azonnali teljesítésről és a CIB Bank felé történő adattovábbításról szólót.';
+  }
+  if (!p.consent) return 'A fizetéshez pipáld ki az azonnali teljesítésről szóló nyilatkozatot.';
+  if (cibHianyzik) return 'A fizetéshez pipáld ki a CIB Bank felé történő adattovábbításról szóló nyilatkozatot.';
+  return null;
 }
 
 export type HibaUzenet = {
@@ -109,10 +190,19 @@ const FIX: Record<string, HibaUzenet> = {
     szoveg: 'A díjfizetésed lezárása folyamatban van, ezért ez a művelet most nem végezhető el. Próbáld egy perc múlva.',
     teendo: 'allapot',
   },
+  // 2026-10-03 (CIB PR-5, lelet 30): a backendnek óránkénti ÉS napi korlátja
+  // van — az „legfeljebb egy órát" a napi korlátnál hamis ígéret volt.
   PAYMENT_RETRY_LIMIT: {
     cim: 'Túl sok fizetési kísérlet',
-    szoveg: 'Rövid időn belül túl sok fizetést indítottál. Várj egy kicsit (legfeljebb egy órát), majd próbáld újra. Ha elakadtál, írj nekünk: info@gofuvar.hu.',
+    szoveg: 'Túl sok fizetést indítottál ennél a fuvarnál. Próbáld újra később (akár csak holnap). Ha elakadtál, írj nekünk: info@gofuvar.hu.',
     teendo: null,
+  },
+  // 2026-10-03 (CIB PR-5, C2): az új kártyás fizetések szüneteltetése
+  // (CIB_UJ_FIZETES_TILTVA) — a már elindított kísérleteket a backend lezárja.
+  CIB_PAUSED: {
+    cim: 'A kártyás fizetés átmenetileg szünetel',
+    szoveg: 'A kártyás fizetés átmenetileg szünetel: új fizetés most nem indítható, nem történt terhelés. A már elindított fizetéseket lezárjuk. Próbáld újra később; ha sürgős, írj nekünk: info@gofuvar.hu.',
+    teendo: 'allapot',
   },
   CIB_INIT_FAILED: {
     cim: 'A bank nem érhető el',
@@ -174,12 +264,40 @@ const ALTALANOS: HibaUzenet = {
   teendo: 'fuvar',
 };
 
+// A kód NÉLKÜLI /pay-válaszok (2026-10-03, CIB PR-5): a fuvar-állapot kapui
+// (nem elfogadott / már fizetett: 409), a nem-feladó (403), a hiányzó fuvar
+// (404) és az általános írási fék (429) eddig a „próbáld újra pár perc múlva"
+// szöveget kapta — ami egy már rendezett díjnál félrevezető.
+const STATUSZ_SZERINT: Record<number, HibaUzenet> = {
+  409: {
+    cim: 'Megváltozott a fuvar állapota',
+    szoveg: 'A díj ennél a fuvarnál most nem fizethető (például már rendezted, vagy a fuvar állapota megváltozott). Frissítettük az oldalt.',
+    teendo: 'fuvar',
+  },
+  403: {
+    cim: 'Ezt a díjat nem te fizeted',
+    szoveg: 'A kapcsolatfelvételi díjat csak a fuvar feladója fizetheti ki. Nem történt terhelés.',
+    teendo: null,
+  },
+  404: {
+    cim: 'A fuvar nem található',
+    szoveg: 'Ezt a fuvart nem találjuk (lehet, hogy közben törölték). Nem történt terhelés.',
+    teendo: 'fuvar',
+  },
+  429: {
+    cim: 'Túl sok kérés',
+    szoveg: 'Rövid időn belül túl sok kérés érkezett. Várj egy percet, majd próbáld újra — nem történt terhelés.',
+    teendo: null,
+  },
+};
+
 /** Egy /pay-hiba → FIX szöveg. A szerver üzenete szándékosan SOHA nem jut át. */
 export function fizetesHibaUzenet(err: { code?: string; status?: number; message?: string } | null | undefined): HibaUzenet {
   const code = err?.code;
   if (code && FIX[code]) return FIX[code];
   if (err?.message === IDOTULLEPES_UZENET) return IDOTULLEPES;
   if (err?.message === HALOZATI_HIBA_UZENET) return HALOZAT;
+  if (!code && typeof err?.status === 'number' && STATUSZ_SZERINT[err.status]) return STATUSZ_SZERINT[err.status];
   return ALTALANOS;
 }
 
@@ -220,6 +338,23 @@ export function atmenetiHiba(err: unknown): boolean {
   const e = (err || {}) as { status?: number; message?: string };
   if (typeof e.status === 'number') return e.status === 429 || e.status >= 500;
   return e.message === IDOTULLEPES_UZENET || e.message === HALOZATI_HIBA_UZENET;
+}
+
+/** A 429 utáni várakozás felső korlátja (egy hibás fejléc se állítsa le a lekérdezést). */
+export const MAX_429_VARAKOZAS_MS = 120_000;
+
+/**
+ * A következő lekérdezésig várandó idő egy hiba után. 2026-10-03 (CIB PR-5,
+ * lelet 11): 429-re eddig is 3 mp-enként kérdeztünk tovább — közös NAT/CGNAT
+ * mögött ez fogyasztotta el a banki visszatérés keretét. 429-nél a szerver
+ * kérte ideig (`retryAfterMs`), ennek híján a lassú ütemig várunk; más hibánál
+ * az alapütem marad.
+ */
+export function varakozasHibaUtan(err: unknown, alapMs: number): number {
+  const e = (err || {}) as { status?: number; retryAfterMs?: number };
+  if (e.status !== 429) return alapMs;
+  const kert = typeof e.retryAfterMs === 'number' && Number.isFinite(e.retryAfterMs) ? e.retryAfterMs : LASSU_LEKERDEZES_MS;
+  return Math.min(Math.max(alapMs, kert), MAX_429_VARAKOZAS_MS);
 }
 
 /** Csak a „feldolgozas" nem végleges — minden más állapotnál a lekérdezés leáll. */

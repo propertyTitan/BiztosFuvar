@@ -115,6 +115,20 @@ const ALTALANOS: UgyfelUzenet = {
   ujraProbalhato: true,
 };
 
+// Banki eredménykód NÉLKÜLI sikertelen kísérlet (el nem indult, a fizetőoldal
+// elhagyva, lezárás nélkül lejárt). 2026-10-03 (CIB PR-5, lelet 9): eddig az
+// általános „A bank nem fogadta el a fizetést" jelent meg — banki elutasítás
+// nélkül is, akár egy banki jóváhagyás után. Le nem zárt kísérletet a bank
+// nem terhel (a zárolást feloldja), ezért ez az állítás igaz.
+const NINCS_BANKI_EREDMENY: UgyfelUzenet = {
+  cim: 'A fizetés nem fejeződött be.',
+  pontok: [
+    'A fizetést nem zártuk le, ezért a kártyádat nem terheltük. Ha a bank közben zárolt összeget, azt feloldja.',
+    'Új fizetést bármikor indíthatsz.',
+  ],
+  ujraProbalhato: true,
+};
+
 function normal(rc: string | null | undefined): string {
   return String(rc ?? '').trim().toUpperCase();
 }
@@ -142,5 +156,6 @@ export function ugyfelUzenet(p: { rc?: string | null; rc_csoport?: string | null
   if (k === 'X0') return HAROMDS;
   if (k === 'TO') return IDOTULLEPES;
   const cs = ervenyesCsoport(p.rc_csoport) ? p.rc_csoport : rcCsoportja(k);
-  return cs ? UZENETEK[cs] : ALTALANOS;
+  if (cs) return UZENETEK[cs];
+  return k ? ALTALANOS : NINCS_BANKI_EREDMENY;
 }
