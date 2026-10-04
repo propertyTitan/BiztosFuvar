@@ -77,8 +77,9 @@
 > kulcs-ujjlenyomat `5540ea8b5541`), `CIB_TESZT_FELHASZNALOK` = jovanybusz@ +
 > tisztahod@ — csak ők fizetnek kártyával (tesztkártyák: `4111…` siker,
 > `4999…` hiba), mindenki más a sárga stub-teszt-fizetést látja. A user
-> helyben végigpróbálta; ÉLESBEN (a két fiókkal) 2026-10-04-ig még NEM volt
-> kártyás kísérlet (az éles DB-ben 0 CIB-állapotú sor). **Hátra:** (1) banki átvételi teszt
+> helyben végigpróbálta, és 2026-10-04-én ÉLESBEN is (a két fiókkal, telefonon):
+> 1 kísérlet, RC=00 + ANUM, pontosan 1 MSGT32, 1 díjbizonylat, a fizetés a
+> MSGT10 után 34 mp alatt könyvelve, a fuvar végig kézbesítve. **Hátra:** (1) banki átvételi teszt
 > kérése az ecommerce@cib.hu-ra (webcím, PID, tesztfiók a listán, előkészített
 > elfogadott fuvarok, a folyamat leírása); (2) éles kulcs (jelszó SMS-ben) →
 > launch-lépések a 🚨 STUB-szakaszban. Ha a CIB-env hibás vagy hiányos, a
