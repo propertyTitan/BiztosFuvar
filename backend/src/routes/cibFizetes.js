@@ -235,6 +235,9 @@ router.get('/payments/admin/cib/:trid', authRequired, requireRole('admin'), asyn
   return res.json({
     session: { ...session, allapot: cibFizetes.lekepez(s) },
     result: s.cib_result || null,
+    // 2026-10-03: a MSGT32-re kapott hiteles MSGT31 RC=00 (a bank lezártnak
+    // mondta) — a „nem_lezarva" rendezés ehhez kifejezett megerősítést kér.
+    zaras_00_valasz: await cibFizetes.zaras00Valasz(s.payment_id),
     events,
     messages,
   });

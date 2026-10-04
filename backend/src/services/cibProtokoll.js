@@ -207,6 +207,12 @@ const budapestiNapFormazo = new Intl.DateTimeFormat('en-CA', {
   timeZone: BEVEZETES_IDOZONA, year: 'numeric', month: '2-digit', day: '2-digit',
 });
 
+/** Valódi naptári nap-e az ÉÉÉÉ-HH-NN alakú szöveg (oda-vissza egyezés, túlcsordulás nélkül)? */
+function valodiNap(d) {
+  const t = Date.parse(`${d}T00:00:00Z`);
+  return !Number.isNaN(t) && new Date(t).toISOString().slice(0, 10) === d;
+}
+
 /** A mai nap a budapesti naptár szerint (ÉÉÉÉ-HH-NN) — a CIB_BEVEZETES összevetéséhez. */
 function maiBudapestiNap(most = new Date()) {
   return budapestiNapFormazo.format(most);
@@ -487,8 +493,18 @@ function feloldas(env) {
   let bevezetes = CIB_BEVEZETES_ALAP;
   if (nemUres(env.CIB_BEVEZETES)) {
     const d = env.CIB_BEVEZETES.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`))) bevezetes = d;
-    else figyelmeztetesek.push(`CIB_BEVEZETES érvénytelen (ÉÉÉÉ-HH-NN kell) — az alapérték (${CIB_BEVEZETES_ALAP}) marad.`);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      figyelmeztetesek.push(`CIB_BEVEZETES érvénytelen (ÉÉÉÉ-HH-NN kell) — az alapérték (${CIB_BEVEZETES_ALAP}) marad.`);
+    } else if (valodiNap(d)) {
+      bevezetes = d;
+    } else {
+      // ⚠️ 2026-10-03: a nem létező nap (2026-09-31, 2027-02-29) eddig átment:
+      // a V8 a túlcsorduló napot továbbgörgeti, a Postgres `::date`-je viszont
+      // hibát dob — a kör minden tickje elhasalt (szívverés nélkül, 30 mp-es
+      // Sentry-zajjal). A szándékolt nap nem tudható: hibás konfig, hangosan;
+      // a DB-oldali összevetések az alapértéket kapják.
+      okok.push('bevezetes_ervenytelen');
+    }
   }
   // ⚠️ 2026-10-03 (PR-5/B): a lekérdező kör csak a `created_at >= bevezetes`
   // sorokhoz nyúl, a szívverést viszont a 0 soros kör is frissíti — egy

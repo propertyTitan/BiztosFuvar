@@ -563,8 +563,10 @@ const SIKERTELEN_LEVEL = {
   bank_visszaforditotta: {
     heading: 'ℹ️ A kártyádat nem terheltük',
     targy: 'A kártyádat nem terheltük',
-    torzs: 'a kártyás fizetést a bank <strong>nem véglegesítette</strong>, és a zárolást feloldotta — a '
-      + 'kártyádat <strong>nem terheltük</strong>. A kivonatodon a zárolás pár napig függő tételként látszhat.',
+    // 2026-10-03: semleges — az elutasított eredetű egyeztetésre is igaz.
+    torzs: 'a kártyás fizetést a bank <strong>nem terhelte</strong>, így a '
+      + 'kártyádat <strong>nem terheltük</strong>. Ha a bank zárolta az összeget, feloldja; a kivonatodon pár napig '
+      + 'függő tételként látszhat.',
   },
   // 2026-10-03 (CIB PR-5): a kétes (close_unknown) kísérlet közbenső értesítése.
   egyeztetes: {
@@ -702,9 +704,14 @@ const CIB_TRID_TEENDO = Object.freeze({
     + 'közben megváltozott (pl. admin-rendezés), így az eredmény nem rögzíthető. Ellenőrizd a tételt az adminban '
     + '(Fizetések → CIB) és a banknál: ha a díj nem könyvelődött, a banknál vissza kell téríteni. Ha közben „nem '
     + 'zárult le" rendezés történt, a feladó „nem terheltük" értesítést kapott — a visszatérítéssel együtt tájékoztasd.',
+  // 2026-10-03 (I2): a MSGT32-re kapott sikeres válasz nem rögzíthető.
+  zaras_iras_utkozes: 'A bank a zárási kérésünkre (MSGT32) 00-val válaszolt (<strong>terhelt</strong>), de a tétel '
+    + 'állapota közben megváltozott (pl. kézi lejáratás vagy rendezés), így a sikert nem rögzíthettük. Ellenőrizd a '
+    + 'tételt az adminban (Fizetések → CIB) és a banknál: ha a díj nem könyvelődött, a banknál vissza kell téríteni; '
+    + 'ha a feladó közben újra fizetett, a kettős terhelést is rendezni kell, és tájékoztasd a feladót.',
 });
 // Az okok, amelyeknél a bankkal kell egyeztetni (a levél tárgya „kézi egyeztetés").
-const CIB_KEZI_EGYEZTETES_OKOK = Object.freeze(['egyeztetes_nem_dontheto', 'egyeztetes_iras_utkozes']);
+const CIB_KEZI_EGYEZTETES_OKOK = Object.freeze(['egyeztetes_nem_dontheto', 'egyeztetes_iras_utkozes', 'zaras_iras_utkozes']);
 const CIB_KETES_TEENDO = 'A fuvar fagyasztva, a kontakt rejtve; MSGT32 újraküldés nincs. A rendszer az utolsó MSGT32 '
   + 'után CIB_EGYEZTETES_PERC (alapból 25) perccel csak-olvasó lekérdezéssel (MSGT33) automatikusan eldönti: TO → nem '
   + 'terhelt (a D05-tel kétes kísérletnél nem), két (legalább 15 perc különbségű) 00 ugyanazzal az ANUM-mal → lezárt. '
