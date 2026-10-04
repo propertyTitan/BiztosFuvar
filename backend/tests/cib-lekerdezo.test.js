@@ -394,6 +394,9 @@ describe('Lekérdező kör: köz, visszalépés, határidő, bevezetés, leáll�
     expect(bank.uzenetek.length).toBe(elotte);
     expect(await sor('4444000044440001')).toMatchObject({ cib_state: 'abandoned', state: 'closed' });
     expect(await sor('4444000044440002')).toMatchObject({ cib_state: 'redirected', state: 'pending', cib_lease_owner: null });
+    // A bevezetés előtti függő sor a közös teszt-DB-n más fájlok árva-
+    // ellenőrzését zavarná (2026-10-04) — a mérés után lezárjuk.
+    await db.query(`UPDATE payment_sessions SET state = 'closed', cib_state = 'abandoned' WHERE payment_id = '4444000044440002'`);
   });
 
   it('leállás után nincs új bérlet és nincs új MSGT32; a leállás megvárja a futó banki hívást', async () => {

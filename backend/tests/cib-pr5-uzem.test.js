@@ -305,6 +305,16 @@ describe('Szünet-kapcsoló: CIB_UJ_FIZETES_TILTVA', () => {
 
 // =====================================================================
 describe('Konfig nélkül maradt függő kísérletek', () => {
+  // 2026-10-04 (a PR-5 2. javítóköre): a közös teszt-DB-n más fájlok bevezetés
+  // (2026-01-01) előtti, nem végső sorai is ott lehetnek — a fájlok sorrendje a
+  // vitest gyorsítótárától függ (CI-ben a nagyobb fájl fut előbb). A „teljes
+  // konfignál csend" állítás csak ezek nélkül mérhető.
+  beforeEach(async () => {
+    await db.query(`UPDATE payment_sessions SET state = 'closed', cib_state = 'abandoned'
+                     WHERE provider = 'cib' AND cib_state IS NOT NULL AND state IN ('pending', 'needs_review')
+                       AND created_at < '2026-01-01'`);
+  });
+
   it('induláskor: hangos hiba + riasztó levél állapotonkénti darabszámmal; teljes konfignál csend', async () => {
     const a = await elfogadottFuvar();
     const ta = await bankOldalon(a.felado, a.job);
