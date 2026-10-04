@@ -190,7 +190,7 @@ describe('publikus konfiguráció és a teszt-üzem sávja (C1)', () => {
   });
 
   it('stub-üzem: szimuláció; CIB teszt: a bank tesztkörnyezete — mindkettő pontos szöveggel', () => {
-    const stub = tesztUzemSav(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: null }))!;
+    const stub = tesztUzemSav(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: null, szimulalt_fizetes: true }))!;
     expect(stub.fajta).toBe('stub');
     expect(stub.szoveg).toMatch(/szimuláció/);
     const cibTeszt = tesztUzemSav(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: 'teszt' }))!;
@@ -216,7 +216,9 @@ describe('1. javítókör', () => {
     // állítás („valódi pénzmozgás nincs") nem jelenhet meg.
     expect(ervenyesKonfig({ teszt_uzem: true })).toBeNull();
     expect(tesztUzemSav(ervenyesKonfig({ teszt_uzem: true }))).toBeNull();
-    expect(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: null })).toEqual({ teszt_uzem: true, kartyas_fizetes: null });
+    // 2026-10-04 (végső kör): a hiányzó szimulalt_fizetes sem „szimuláció".
+    expect(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: null }))
+      .toEqual({ teszt_uzem: true, kartyas_fizetes: null, szimulalt_fizetes: false });
   });
 
   it('a szünetelés nem állítja, hogy nem történt terhelés (egy már elindított fizetés lezárulhat)', () => {

@@ -112,7 +112,9 @@ export default function FuvarReszletek() {
     if (!job) return;
     try {
       await api.reopenJob(id, reason);
-      toast.success('Fuvar újranyitva', 'A korábbi ajánlatok újra elérhetők — díjmentesen választhatsz másik szállítót.');
+      toast.success('Fuvar újranyitva', job.paid_at
+        ? 'A korábbi ajánlatok újra elérhetők — díjmentesen választhatsz másik szállítót.'
+        : 'A korábbi ajánlatok újra elérhetők — választhatsz másik szállítót.');
       await loadAll();
     } catch (e: any) {
       toast.error('Szállító-csere sikertelen', e.message);
@@ -565,10 +567,22 @@ export default function FuvarReszletek() {
               >
                 <RefreshCw size={12} style={{ verticalAlign: -2 }} /> Másik szállítót választok
               </button>
+              {/* 2026-10-04 (CIB PR-5, végső kör): fizetetlen fuvaron eddig is
+                  „a befizetett díj érvényes marad" állt — a szöveg a paid_at-hez igazodik. */}
               <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
-                Ha a szállító nem elérhető vagy visszalépett: a korábbi ajánlatok újra
-                elérhetővé válnak, és díjmentesen választhatsz — a befizetett díj erre
-                a fuvarra érvényes marad.
+                {job.paid_at ? (
+                  <>
+                    Ha a szállító nem elérhető vagy visszalépett: a korábbi ajánlatok újra
+                    elérhetővé válnak, és díjmentesen választhatsz — a befizetett díj erre
+                    a fuvarra érvényes marad.
+                  </>
+                ) : (
+                  <>
+                    Ha a szállító nem elérhető vagy visszalépett: a korábbi ajánlatok újra
+                    elérhetővé válnak, és másik szállítót választhatsz. A kapcsolatfelvételi
+                    díjat az új szállító kiválasztása után fizeted.
+                  </>
+                )}
               </p>
             </div>
           )}
@@ -879,7 +893,9 @@ export default function FuvarReszletek() {
       <ConfirmDialog
         open={showReopenDialog}
         title="Másik szállítót választok"
-        message="A fuvar újra ajánlatokat fogad: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad — az új szállító kiválasztása díjmentes. A jelenlegi szállító értesítést kap."
+        message={job.paid_at
+          ? 'A fuvar újra ajánlatokat fogad: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A befizetett kapcsolatfelvételi díj erre a fuvarra érvényes marad — az új szállító kiválasztása díjmentes. A jelenlegi szállító értesítést kap.'
+          : 'A fuvar újra ajánlatokat fogad: a korábbi ajánlatok újra elérhetők, és újak is érkezhetnek. A kapcsolatfelvételi díjat még nem fizetted be — az új szállító kiválasztása után fizeted. A jelenlegi szállító értesítést kap.'}
         confirmLabel="Újranyitom"
         fields={[{ key: 'reason', label: 'Indok (opcionális)', type: 'textarea', placeholder: 'pl. A szállító nem veszi fel a telefont' }]}
         onConfirm={(v) => {

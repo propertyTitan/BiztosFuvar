@@ -39,10 +39,9 @@ import BankiTranzakcioAdatok from '@/components/BankiTranzakcioAdatok';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { useToast } from '@/components/ToastProvider';
 import { KERESKEDO } from '@/lib/kereskedo';
-import { visszateritett } from '@/lib/cibFizetes';
 import {
-  ALLAPOT_SZURO, RT_MAX, adminMuveletHiba, allapotValtozott, bankiHivatkozasHiba, indoklasHiba, keziMuveletek, rtHiba,
-  type KeziMuvelet,
+  ALLAPOT_SZURO, RT_MAX, adminMuveletHiba, allapotValtozott, bankiHivatkozasHiba, egyeztetesElso00, indoklasHiba,
+  keziMuveletek, listaAllapot, rtHiba, type KeziMuvelet,
 } from '@/lib/cibAdmin';
 
 const ALLAPOT_NEV: Record<string, string> = {
@@ -69,9 +68,10 @@ const ALLAPOT_SZIN: Record<string, string> = {
  * A sor kijelzett állapota. 2026-10-04 (a PR-5 web 2. javítóköre): a
  * backend a visszatérített kísérletet (a bank terhelt, RC=00) „nem_terhelt"-
  * ként adja — az admin-listán ez „Nem terhelt" volt, ami az adminnak is hamis.
+ * A végső körtől a backend közölt oka (ok) dönt (lib/cibAdmin.ts: listaAllapot).
  */
 function kijelzettAllapot(s: { allapot: string; rc?: string | null; ok?: string | null }): string {
-  return visszateritett(s) ? 'visszateritve' : s.allapot;
+  return listaAllapot(s);
 }
 
 const OLDALMERET = 25;
@@ -295,7 +295,7 @@ export default function CibFizetesekAdmin() {
       toast.error('Hibás indoklás', indHiba);
       return;
     }
-    let body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string; rt?: string };
+    let body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string; rt?: string; elso_00_ellenere?: true };
     if (dontes === 'lezarva') {
       const anum = (v.anum || '').trim();
       if (!ANUM_MINTA.test(anum)) {
@@ -312,6 +312,15 @@ export default function CibFizetesekAdmin() {
         return;
       }
       body = rt ? { eredmeny: 'lezarva', anum, rt, indoklas } : { eredmeny: 'lezarva', anum, indoklas };
+    } else if (elso00) {
+      // 2026-10-04 (végső kör): az egyeztetés már feljegyzett egy banki 00-t
+      // — a „Nem lezárva" csak a feljegyzett ANUM begépelésével, a backend
+      // kifejezett megerősítő zászlójával megy ki (kettős terhelés ellen).
+      if ((v.elso00_megerosites || '').trim() !== elso00.anum) {
+        toast.error('A megerősítés nem egyezik', `A rögzítéshez írd be a feljegyzett ANUM-ot (${elso00.anum}).`);
+        return;
+      }
+      body = { eredmeny: 'nem_lezarva', indoklas, elso_00_ellenere: true };
     } else {
       body = { eredmeny: 'nem_lezarva', indoklas };
     }
@@ -394,6 +403,8 @@ export default function CibFizetesekAdmin() {
   const kettes = reszlet?.adat.session?.cib_state === 'close_unknown'
     && (reszlet.adat.session?.state ?? 'pending') === 'pending';
   const keziLehetosegek = keziMuveletek(reszlet?.adat.session);
+  // Az egyeztetés feljegyzett első 00-ja (csak a kétes tételen számít).
+  const elso00 = kettes ? egyeztetesElso00(reszlet?.adat.result) : null;
 
   return (
     <section style={{ marginTop: 24 }}>
@@ -527,6 +538,22 @@ export default function CibFizetesekAdmin() {
 
               <BankiTranzakcioAdatok adatok={{ ...(reszlet.adat.result || {}), trid: reszlet.trid }} />
 
+              {elso00 && (
+                <div
+                  data-testid="cib-elso-00"
+                  role="note"
+                  style={{
+                    marginTop: 12, padding: '10px 12px', borderRadius: 8, fontSize: 13,
+                    background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.45)',
+                  }}
+                >
+                  <strong>A bank lezártnak mutatta:</strong> az automatikus egyeztetés {ido(elso00.at)}-kor banki
+                  {' '}00-t kapott, ANUM: <strong>{elso00.anum}</strong>{elso00.rt ? ` (${elso00.rt})` : ''}. A kártya terhelt
+                  lehet — a megerősítő lekérdezés még hátravan. „Nem lezárva" csak a bank írásos megerősítése után,
+                  a feljegyzett ANUM begépelésével rögzíthető.
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
                 {/* A .btn alapból nowrap — 390 px-en ez a hosszú felirat kilógna. */}
                 <button type="button" className="btn btn-secondary" onClick={masol} style={{ whiteSpace: 'normal', textAlign: 'left' }}>
@@ -614,7 +641,9 @@ export default function CibFizetesekAdmin() {
         title={dontes === 'lezarva' ? `Kétes lezárás rendezése — lezárva (${reszlet?.trid ?? ''})` : `Kétes lezárás rendezése — nem lezárva (${reszlet?.trid ?? ''})`}
         message={dontes === 'lezarva'
           ? 'Csak akkor rögzítsd, ha a bank írásban megerősítette, hogy a tranzakció lezárult. A díjat fizetettként könyveljük, a feladó megkapja a szállító elérhetőségét.'
-          : 'Csak akkor rögzítsd, ha a bank megerősítette, hogy a tranzakció NEM zárult le (nem terheltünk). A feladó „nem terheltünk" értesítést kap, és újra fizethet.'}
+          : `Csak akkor rögzítsd, ha a bank megerősítette, hogy a tranzakció NEM zárult le (nem terheltünk). A feladó „nem terheltünk" értesítést kap, és újra fizethet.${elso00
+            ? ` FIGYELEM: az automatikus egyeztetés erre a tranzakcióra banki 00-t kapott (ANUM: ${elso00.anum}) — ha a bank mégis lezárta, egy újabb fizetés kettős terhelés.`
+            : ''}`}
         confirmLabel="Rögzítés"
         danger={dontes === 'nem_lezarva'}
         fields={dontes === 'lezarva'
@@ -630,6 +659,15 @@ export default function CibFizetesekAdmin() {
           ]
           : [
             { key: 'indoklas', label: 'Indoklás (legalább 10 karakter)', type: 'textarea', required: true, placeholder: 'pl. A CIB szerint a MSGT32 nem érkezett be, a tétel reverzálva.' },
+            ...(elso00
+              ? [{
+                key: 'elso00_megerosites',
+                label: `Megerősítés: írd be a feljegyzett ANUM-ot (${elso00.anum})`,
+                type: 'text' as const,
+                required: true,
+                placeholder: elso00.anum,
+              }]
+              : []),
           ]}
         initialValues={dontes === 'lezarva' ? { rt: RT_ALAP_RC00 } : undefined}
         onConfirm={(v) => { rendez(v); }}

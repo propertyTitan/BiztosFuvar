@@ -338,6 +338,27 @@ describe('1. I8: a végállapot után elvesző feladói értesítést a söprés
     expect(feladoInapp(felado).filter((n) => n.type === 'payment_refunded')).toHaveLength(1);
   });
 
+  it('admin „visszaterites": az értesítés az eseménynapló ELŐTT megy — egy elbukó napló nem viszi el', async () => {
+    const admin = await createUser({ role: 'admin' });
+    const { felado, job } = await elfogadottFuvar();
+    const arva = await cibSor(job, felado, {
+      state: 'needs_review', cibState: 'closed_ok', eredmeny: { rc: '00', anum: 'A1B2C3', ok: 'konyvelesi_arva' }, kiserlet: 1,
+    });
+    const vissza = egyszerHibas(/INSERT INTO payment_events/);
+    try {
+      await request(app).post(`/payments/admin/cib/${arva}/kezi-rendezes`).set(...auth(admin))
+        .send({ muvelet: 'visszaterites', indoklas: 'A banknál visszatérítve, ügyszám a levelezésben.' });
+    } finally {
+      vissza();
+    }
+    await cf().varjHatterre();
+    const s = await sor(arva);
+    expect(s).toMatchObject({ state: 'closed', closed_reason: 'admin_visszaterites' });
+    expect(s.cib_notified_at, 'az eseménynapló hibája elvitte az értesítést').not.toBeNull();
+    expect(feladoLevelek(job.id, 'visszateritve')).toHaveLength(1);
+    expect(feladoInapp(felado).filter((n) => n.type === 'payment_refunded')).toHaveLength(1);
+  });
+
   it('az értesítés a végállapot-esemény ELŐTT megy: ha az esemény elakad (összeomlás), a feladó már értesült', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);

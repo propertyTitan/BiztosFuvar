@@ -9,6 +9,8 @@
 //  és csak ott kínál műveletet, ahol a backend engedi.
 // =====================================================================
 
+import { VISSZATERITES_OKOK, visszateritett } from './cibFizetes';
+
 export type KeziMuvelet = 'konyveles' | 'lejaratas' | 'visszaterites';
 
 /** A backend LEJARATHATO listája: a zárási határidő után lejáratható nem végső állapotok. */
@@ -87,6 +89,11 @@ const ADMIN_HIBAK: Record<string, AdminHiba> = {
     cim: 'Zárási kérés nem ment ki',
     szoveg: 'Ehhez a kísérlethez zárási kérés (MSGT32) nem ment ki — a bank nem terhelhetett, csak „Nem lezárva" rendezhető.',
   },
+  // 2026-10-04 (végső kör): az egyeztetés már feljegyzett egy ANUM-os 00-t.
+  CIB_BANK_00_RECORDED: {
+    cim: 'A bank 00-t adott erre a tranzakcióra',
+    szoveg: 'Az automatikus egyeztetés feljegyzett egy banki 00-t (ANUM-mal) — a kártya terhelt lehet. „Nem lezárva" csak a bank írásos megerősítése után, a feljegyzett ANUM begépelésével rögzíthető. Frissítettük a részleteket.',
+  },
   CIB_UNAVAILABLE: {
     cim: 'A CIB-konfiguráció nem teljes',
     szoveg: 'Banki lekérdezés most nem indítható. A kézi műveletek (könyvelés, lejáratás, visszatérítés) konfiguráció nélkül is elérhetők.',
@@ -117,7 +124,37 @@ export function adminMuveletHiba(err: unknown, alap: AdminHiba = ALTALANOS_HIBA)
 /** A hiba után a részleteket újra kell olvasni (a tétel állapota közben változott). */
 export function allapotValtozott(err: unknown): boolean {
   const e = (err || {}) as { code?: string };
-  return e.code === 'STATE_CHANGED';
+  return e.code === 'STATE_CHANGED' || e.code === 'CIB_BANK_00_RECORDED';
+}
+
+/** Az automatikus egyeztetés feljegyzett első 00-ja (a backend cib_result.egyeztetes_elso_00). */
+export type Elso00 = { anum: string; rt: string | null; at: string | null };
+
+/**
+ * A kétes kísérlet egyeztetésének feljegyzett első 00-ja (ANUM-mal), vagy
+ * null. 2026-10-04 (végső kör): ilyenkor a bank lezártnak mutatta a
+ * tranzakciót — a „Nem lezárva" csak kifejezett megerősítéssel mehet
+ * (a backend 409 CIB_BANK_00_RECORDED-del utasítja el a zászló nélkülit).
+ */
+export function egyeztetesElso00(result: unknown): Elso00 | null {
+  if (!result || typeof result !== 'object') return null;
+  const e = (result as Record<string, unknown>).egyeztetes_elso_00;
+  if (!e || typeof e !== 'object') return null;
+  const o = e as Record<string, unknown>;
+  if (typeof o.anum !== 'string' || !o.anum) return null;
+  return { anum: o.anum, rt: typeof o.rt === 'string' ? o.rt : null, at: typeof o.at === 'string' ? o.at : null };
+}
+
+/**
+ * Az admin-lista sorának kijelzett állapota. 2026-10-04 (végső kör): a
+ * „Visszatérítve" a backend közölt okából (ok) jön, nem az RC=00 +
+ * „nem_terhelt" párosból következtetve. Csak az ok mezőt még nem küldő
+ * (régebbi) backend sorára marad a korábbi következtetés.
+ */
+export function listaAllapot(s: { allapot: string; rc?: string | null; ok?: string | null }): string {
+  if (s.ok === undefined) return visszateritett(s) ? 'visszateritve' : s.allapot;
+  if (s.allapot === 'nem_terhelt' && !!s.ok && VISSZATERITES_OKOK.includes(s.ok)) return 'visszateritve';
+  return s.allapot;
 }
 
 /**

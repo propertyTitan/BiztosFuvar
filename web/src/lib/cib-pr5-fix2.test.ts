@@ -137,7 +137,7 @@ describe('apró szöveg-igazítások (nem blokkoló)', () => {
   });
 
   it('vegyes teszt-üzem (CIB-teszt + stub): a sáv a szimulált díjfizetést is említi, és nem állít valódi terhelést', () => {
-    const s = tesztUzemSav(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: 'teszt' }))!;
+    const s = tesztUzemSav(ervenyesKonfig({ teszt_uzem: true, kartyas_fizetes: 'teszt', szimulalt_fizetes: true }))!;
     expect(s.fajta).toBe('cib_teszt');
     expect(s.szoveg).toMatch(/szimulált/);
     expect(s.szoveg).toMatch(/CIB Bank tesztkörnyezet/);

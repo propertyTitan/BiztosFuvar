@@ -335,11 +335,14 @@ export type CibEredmeny = CibBankiAdatok & {
 /**
  * GET /config/public (CIB PR-5, C1) — publikus, hitelesítés nélküli. A
  * `teszt_uzem` igaz, ha a stub teszt-fizetés bárkinek elérhető, vagy a CIB
- * a bank tesztkörnyezetében fut; a `kartyas_fizetes` a CIB-környezet.
+ * a bank tesztkörnyezetében fut; a `kartyas_fizetes` a CIB-környezet (null,
+ * ha senki nem fizethet kártyával); a `szimulalt_fizetes` (2026-10-04) igaz,
+ * ha a szimulált (stub) díjfizetés ténylegesen végigvihető — hiánya: nem.
  */
 export type PublikusKonfig = {
   teszt_uzem: boolean;
   kartyas_fizetes: 'teszt' | 'eles' | null;
+  szimulalt_fizetes?: boolean;
 };
 
 /** POST /jobs/:id/pay válasza — CIB, stub, kupon és a régi gateway-ág. */
@@ -369,6 +372,8 @@ export type AdminCibSor = {
   anum: string | null;
   created_at: string;
   closed_at: string | null;
+  /** A közölt ok (C5; 2026-10-04 óta a listában is) — pl. 'admin_visszaterites'. */
+  ok?: string | null;
 };
 
 export type AdminCibUzenet = {
@@ -1118,7 +1123,11 @@ export const api = {
     request<{ ok: true; utemezve?: boolean; azonnal?: boolean; kovetkezo_at?: string | null; uzenet?: string }>(`/payments/admin/cib/${encodeURIComponent(trid)}/ujraellenorzes`, { method: 'POST' }),
   /** Kétes (close_unknown) lezárás kézi rendezése a bankkal egyeztetve. */
   // C6 (2026-10-03): a „lezarva" döntés a bank szöveges eredményét (RT) is viszi.
-  adminCibRendezes: (trid: string, body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string; rt?: string }) =>
+  // 2026-10-04: a feljegyzett egyeztetési 00 ellenére rögzített „nem_lezarva"
+  // kifejezett megerősítést (elso_00_ellenere) kér, különben 409 CIB_BANK_00_RECORDED.
+  adminCibRendezes: (trid: string, body: {
+    eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string; rt?: string; elso_00_ellenere?: true;
+  }) =>
     request<{ ok: true; allapot: string }>(`/payments/admin/cib/${encodeURIComponent(trid)}/rendezes`, {
       method: 'POST', body: JSON.stringify(body),
     }),

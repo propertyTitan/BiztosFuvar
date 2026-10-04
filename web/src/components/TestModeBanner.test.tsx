@@ -42,10 +42,21 @@ describe('TestModeBanner', () => {
   });
 
   it('stub-üzem → „szimuláció"', async () => {
-    getPublicConfig.mockResolvedValue({ teszt_uzem: true, kartyas_fizetes: null });
+    getPublicConfig.mockResolvedValue({ teszt_uzem: true, kartyas_fizetes: null, szimulalt_fizetes: true });
     await renderSav();
     const sav = await screen.findByTestId('teszt-uzem-sav');
     expect(sav.textContent).toMatch(/szimuláció/);
+  });
+
+  // 2026-10-04 (PR-5, végső kör): hibás CIB-konfig (503), éles „biztonságos
+  // mód" vagy zárt teszt-allowlist — se kártyás, se szimulált díjfizetés.
+  it('teszt-üzem elérhető szimuláció és kártyás út nélkül → „nem érhető el", nem „szimuláció"', async () => {
+    getPublicConfig.mockResolvedValue({ teszt_uzem: true, kartyas_fizetes: null, szimulalt_fizetes: false });
+    await renderSav();
+    const sav = await screen.findByTestId('teszt-uzem-sav');
+    expect(sav.textContent).not.toMatch(/szimuláció|szimulált/);
+    expect(sav.textContent).toMatch(/kártyás díjfizetés jelenleg nem érhető el/);
+    expect(sav.textContent).toMatch(/valódi terhelés nincs/);
   });
 
   it('CIB-teszt → a bank tesztkörnyezete', async () => {

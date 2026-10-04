@@ -23,12 +23,17 @@ export function ervenyesKonfig(x: unknown): PublikusKonfig | null {
   // Az ismeretlen környezet-név nem „teszt": éles kártyás fizetésnek vesszük,
   // vagyis semmilyen „nincs valódi pénz" állítás nem társul hozzá.
   const kartyas: PublikusKonfig['kartyas_fizetes'] = kf === 'teszt' ? 'teszt' : kf === null ? null : 'eles';
-  return { teszt_uzem: o.teszt_uzem, kartyas_fizetes: kartyas };
+  // 2026-10-04 (végső kör): a szimulált díjfizetés csak kifejezett `true`-ra
+  // „elérhető" — a hiány (régebbi backend) vagy más érték NEM szimuláció.
+  return { teszt_uzem: o.teszt_uzem, kartyas_fizetes: kartyas, szimulalt_fizetes: o.szimulalt_fizetes === true };
 }
 
 export type TesztUzemSav = {
-  /** 'stub': csak szimuláció; 'cib_teszt': a bank tesztkörnyezete; 'altalanos': éles kártyás mellett. */
-  fajta: 'stub' | 'cib_teszt' | 'altalanos';
+  /**
+   * 'stub': csak szimuláció; 'cib_teszt': a bank tesztkörnyezete;
+   * 'nem_elerheto': se kártyás, se szimulált díjfizetés; 'altalanos': éles kártyás mellett.
+   */
+  fajta: 'stub' | 'cib_teszt' | 'nem_elerheto' | 'altalanos';
   cim: string;
   szoveg: string;
 };
@@ -40,18 +45,32 @@ export function tesztUzemSav(k: PublikusKonfig | null): TesztUzemSav | null {
     // 2026-10-04 (a PR-5 web 2. javítóköre): a mai vegyes üzemben (CIB-teszt
     // + stub) a felhasználók többsége szimulált díjfizetést lát, csak a
     // CIB-tesztfiókok fizetnek a bank tesztkörnyezetében — a konfiguráció ezt
-    // fiókonként nem mondja meg, ezért a sáv mindkettőt említi.
+    // fiókonként nem mondja meg, ezért a sáv mindkettőt említi. Ha a
+    // szimuláció nem érhető el (végső kör), csak a bank tesztkörnyezetét.
     return {
       fajta: 'cib_teszt',
       cim: 'Teszt üzemmód.',
-      szoveg: 'Az oldal tesztelés alatt áll — valódi terhelés nincs: a díjfizetés szimulált, vagy a CIB Bank tesztkörnyezetében fut, ahol csak a bank tesztkártyái működnek.',
+      szoveg: k.szimulalt_fizetes === true
+        ? 'Az oldal tesztelés alatt áll — valódi terhelés nincs: a díjfizetés szimulált, vagy a CIB Bank tesztkörnyezetében fut, ahol csak a bank tesztkártyái működnek.'
+        : 'Az oldal tesztelés alatt áll — valódi terhelés nincs: a kártyás díjfizetés a CIB Bank tesztkörnyezetében fut, ahol csak a bank tesztkártyái működnek.',
     };
   }
   if (k.kartyas_fizetes === null) {
+    // 2026-10-04 (végső kör): „szimuláció" csak akkor, ha a szimulált
+    // díjfizetés tényleg végigvihető. A hibás CIB-konfig (503), az éles
+    // „biztonságos mód" vagy a zárt teszt-allowlist mellett nincs se kártyás,
+    // se szimulált díjfizetés — a „szimuláció" ott hamis volt.
+    if (k.szimulalt_fizetes === true) {
+      return {
+        fajta: 'stub',
+        cim: 'Teszt üzemmód.',
+        szoveg: 'Az oldal tesztelés alatt áll — valódi pénzmozgás nincs, a díjfizetés csak szimuláció.',
+      };
+    }
     return {
-      fajta: 'stub',
+      fajta: 'nem_elerheto',
       cim: 'Teszt üzemmód.',
-      szoveg: 'Az oldal tesztelés alatt áll — valódi pénzmozgás nincs, a díjfizetés csak szimuláció.',
+      szoveg: 'Az oldal tesztelés alatt áll — a kártyás díjfizetés jelenleg nem érhető el, valódi terhelés nincs.',
     };
   }
   // Éles kártyás fizetés mellett bent maradt teszt-üzem: jelezzük, de a

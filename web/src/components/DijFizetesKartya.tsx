@@ -125,6 +125,16 @@ function linkLejartToastSzoveg() {
   return 'Ez a fizetési link már nem használható. A díj aktuális állapotát itt látod; ha új fizetés indítható, innen indíthatod.';
 }
 
+/**
+ * 2026-10-04 (PR-5, végső kör): a szünet (CIB_UJ_FIZETES_TILTVA) alatt
+ * használt, még fel nem használt linkről a backend ?fizetes=szunetel-lel küld
+ * vissza — eddig „lejárt link"-et mondtunk, holott a link a szünet miatt nem
+ * nyitotta meg a bank oldalát. Terhelésről itt sem állítunk semmit.
+ */
+function szunetelToastSzoveg() {
+  return 'A kártyás fizetés átmenetileg szünetel, ezért a bank fizetőoldalát most nem nyitottuk meg. Próbáld újra később — a díj aktuális állapotát itt látod.';
+}
+
 /** Kézi újraolvasás, ha az automatikus figyelés már leállt (vagy lassú). */
 function AllapotFrissites({ onClick }: { onClick: () => void }) {
   return (
@@ -192,7 +202,7 @@ export default function DijFizetesKartya({
   const allapotBetoltesRef = useRef(allapotBetoltes);
   allapotBetoltesRef.current = allapotBetoltes;
 
-  // Betöltés + URL-paraméterek (?fizetes=ujra | link-lejart) + socket.
+  // Betöltés + URL-paraméterek (?fizetes=ujra | link-lejart | szunetel) + socket.
   useEffect(() => {
     eletben.current = true;
     allapotBetoltes();
@@ -200,8 +210,9 @@ export default function DijFizetesKartya({
     try {
       const url = new URL(window.location.href);
       const fizetes = url.searchParams.get('fizetes');
-      if (fizetes === 'ujra' || fizetes === 'link-lejart') {
+      if (fizetes === 'ujra' || fizetes === 'link-lejart' || fizetes === 'szunetel') {
         if (fizetes === 'link-lejart') toast.info('A fizetési link már nem érvényes', linkLejartToastSzoveg());
+        if (fizetes === 'szunetel') toast.info('A kártyás fizetés átmenetileg szünetel', szunetelToastSzoveg());
         gyokerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         // A paramétert levesszük, hogy egy újratöltés ne ismételje.
         url.searchParams.delete('fizetes');

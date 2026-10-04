@@ -3085,6 +3085,10 @@ async function keziRendezes(trid, { muvelet, indoklas, banki_hivatkozas: hivatko
     [trid, JSON.stringify(admin)],
   );
   if (!rowCount) return valtozott;
+  // 2026-10-04 (PR-5, végső kör, I8): előbb a feladó értesítése, aztán az
+  // esemény — mint a vegeSikertelen-ben. Egy elbukó eseménynapló eddig az
+  // értesítést is elvitte; a lezárt, értesítetlen sort most a söprés is pótolja.
+  await ertesitFeladot(trid, 'visszateritve').catch((err) => console.error('[cib] értesítés hiba:', err && err.message));
   // A pénzügyi nyom: külön esemény (a 087-es trigger az 'admin' típust nem
   // dolgozza fel, az állapotot a fenti UPDATE írja — mint a kupon-lezárás).
   await logPaymentEvent({
@@ -3097,7 +3101,6 @@ async function keziRendezes(trid, { muvelet, indoklas, banki_hivatkozas: hivatko
     summary: `Refunded: a könyvelési árva díját az admin a banknál visszatérítette — fuvar ${s.job_id || '?'}`,
     processed: true,
   });
-  await ertesitFeladot(trid, 'visszateritve').catch((err) => console.error('[cib] értesítés hiba:', err && err.message));
   return vege();
 }
 
