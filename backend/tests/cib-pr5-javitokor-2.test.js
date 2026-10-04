@@ -353,7 +353,9 @@ describe('Riasztó levél: minden okra saját teendő', () => {
     const okok = Object.keys(cf().RIASZTAS_TEENDO || {});
     expect(okok.length).toBeGreaterThan(0);
     for (const ok of okok) {
-      expect(SAJAT_TEENDOS, `új riasztási ok (${ok}) a levél teendő-szótárából hiányzik`).toContain(ok);
+      const { html } = emailSzolg.cibRiasztasTartalom({ trid: '1234567890123456', jobId: 'fuvar-1', ok });
+      expect(html, `új riasztási ok (${ok}): a levél teendő-szótárából hiányzik (az általános szöveget kapja)`)
+        .not.toMatch(/automatikusan eldönti/);
     }
   });
 });
