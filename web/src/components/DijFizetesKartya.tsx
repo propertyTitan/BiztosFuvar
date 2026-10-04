@@ -529,7 +529,9 @@ export default function DijFizetesKartya({
           {/* 2026-10-04 (2. javítókör): ha új fizetés most nem indítható
               (szünet, korlát, nem fizethető — a tiltás-doboz mondja el), a
               sáv nem biztat új fizetésre. */}
-          <p style={{ margin: 0 }}>{nyitottSavSzoveg(oa.started_at, !tiltas)}</p>
+          <p style={{ margin: 0 }}>
+            {nyitottSavSzoveg(oa.started_at, !tiltas, Date.now(), { szunetel: fp?.pay_blocked_reason === 'szunetel' })}
+          </p>
         </div>
       )}
 

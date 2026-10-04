@@ -81,6 +81,11 @@ const ADMIN_HIBAK: Record<string, AdminHiba> = {
     cim: 'A tételen épp dolgozik a rendszer',
     szoveg: 'A műveletet nem rögzítettük. Próbáld újra egy perc múlva.',
   },
+  // 2026-10-03: a `closing` tétel zárási kérése még úton lehet (I2).
+  CIB_CLOSE_IN_FLIGHT: {
+    cim: 'A zárási kérés még úton lehet',
+    szoveg: 'A tétel zárási kérése (MSGT32) a bérlet lejárta után is kimehet a bankhoz, ezért a zárási keret + 60 mp letelte előtt nem járatható le. Próbáld újra pár perc múlva.',
+  },
   CIB_DEADLINE_NOT_PASSED: {
     cim: 'A zárási határidő még nem járt le',
     szoveg: 'A bank még lezárhatja a tranzakciót (alapból a MSGT10 után 9 perc 30 mp-ig). A határidő után próbáld újra.',
@@ -92,7 +97,7 @@ const ADMIN_HIBAK: Record<string, AdminHiba> = {
   // 2026-10-04 (végső kör): az egyeztetés már feljegyzett egy ANUM-os 00-t.
   CIB_BANK_00_RECORDED: {
     cim: 'A bank 00-t adott erre a tranzakcióra',
-    szoveg: 'Az automatikus egyeztetés feljegyzett egy banki 00-t (ANUM-mal) — a kártya terhelt lehet. „Nem lezárva" csak a bank írásos megerősítése után, a feljegyzett ANUM begépelésével rögzíthető. Frissítettük a részleteket.',
+    szoveg: 'A bank erre a tranzakcióra 00-t adott (az automatikus egyeztetés feljegyzett ANUM-ja, vagy a zárási kérésünkre kapott válasz) — a kártya terhelt lehet. „Nem lezárva" csak a bank írásos megerősítése után, kifejezett megerősítéssel (a feljegyzett ANUM vagy a TrID begépelésével) rögzíthető. Frissítettük a részleteket.',
   },
   CIB_UNAVAILABLE: {
     cim: 'A CIB-konfiguráció nem teljes',
@@ -143,6 +148,26 @@ export function egyeztetesElso00(result: unknown): Elso00 | null {
   const o = e as Record<string, unknown>;
   if (typeof o.anum !== 'string' || !o.anum) return null;
   return { anum: o.anum, rt: typeof o.rt === 'string' ? o.rt : null, at: typeof o.at === 'string' ? o.at : null };
+}
+
+/** A MSGT32-re kapott hiteles MSGT31 RC=00 a banki naplóban (a backend zaras_00_valasz mezője). */
+export type Zaras00 = { at: string | null; kiserlet: number | null };
+
+/**
+ * A zárási kérésre kapott banki 00 bizonyítéka, vagy null. 2026-10-03: a
+ * bank lezártnak mondta a tranzakciót, de a választ nem fogadtuk el sikerként
+ * (pl. AMO-eltérés) — a „Nem lezárva" itt is csak kifejezett megerősítéssel
+ * mehet (a backend 409 CIB_BANK_00_RECORDED-del utasítja el a zászló nélkülit).
+ */
+export function zaras00Valasz(adat: unknown): Zaras00 | null {
+  if (!adat || typeof adat !== 'object') return null;
+  const z = (adat as Record<string, unknown>).zaras_00_valasz;
+  if (!z || typeof z !== 'object') return null;
+  const o = z as Record<string, unknown>;
+  return {
+    at: typeof o.at === 'string' ? o.at : null,
+    kiserlet: typeof o.kiserlet === 'number' && Number.isFinite(o.kiserlet) ? o.kiserlet : null,
+  };
 }
 
 /**

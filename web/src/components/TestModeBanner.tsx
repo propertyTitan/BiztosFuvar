@@ -39,7 +39,11 @@ export default function TestModeBanner() {
   }, []);
 
   if (!sav) return null;
-  if (sav.fajta === 'cib_teszt' && pathname && SAJAT_CIB_TESZT_JELZESU_OLDALAK.includes(pathname)) return null;
+  // 2026-10-03: az eredményoldal mindig egy valódi CIB-kísérletről szól (a
+  // stub-fizetésnek nincs eredményoldala) — a „csak szimuláció" sáv ott hamis
+  // volna, pl. a teszt-allowlist lezárása után egy korábbi banki kísérleten.
+  if ((sav.fajta === 'cib_teszt' || sav.fajta === 'stub')
+    && pathname && SAJAT_CIB_TESZT_JELZESU_OLDALAK.includes(pathname)) return null;
 
   return (
     <div

@@ -472,9 +472,12 @@ function EredmenyTartalom() {
           közben rendezte, egy másik fizetés fut, vagy a fuvar megváltozott). */}
       {!ujraProba && !marFizetve && (
         <p style={{ fontSize: 14, marginTop: 16 }}>
+          {/* 2026-10-03: a backend a szünetet és a próbálkozási korlátot is
+              figyelembe veszi (ujra_fizetheto) — az okok között ezek is. */}
           Ehhez a fuvarhoz most nem indítható új fizetés — például mert a díjat közben rendezted, egy
-          másik fizetésed még folyamatban van, vagy a fuvar állapota megváltozott. Az aktuális állapotot
-          a fuvar oldalán látod.
+          másik fizetésed még folyamatban van, a kártyás fizetés átmenetileg szünetel, túl sok fizetési
+          kísérlet volt ennél a fuvarnál, vagy a fuvar állapota megváltozott. Az aktuális állapotot a
+          fuvar oldalán látod.
         </p>
       )}
       <VisszaGomb jobId={jobId} bejelentkezve={!!user} elsodleges={!ujraProba} />

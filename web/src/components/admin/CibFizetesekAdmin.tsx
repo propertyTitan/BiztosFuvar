@@ -40,7 +40,7 @@ import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { useToast } from '@/components/ToastProvider';
 import { KERESKEDO } from '@/lib/kereskedo';
 import {
-  ALLAPOT_SZURO, RT_MAX, adminMuveletHiba, allapotValtozott, bankiHivatkozasHiba, egyeztetesElso00, indoklasHiba,
+  ALLAPOT_SZURO, RT_MAX, adminMuveletHiba, allapotValtozott, bankiHivatkozasHiba, egyeztetesElso00, indoklasHiba, zaras00Valasz,
   keziMuveletek, listaAllapot, rtHiba, type KeziMuvelet,
 } from '@/lib/cibAdmin';
 
@@ -321,6 +321,14 @@ export default function CibFizetesekAdmin() {
         return;
       }
       body = { eredmeny: 'nem_lezarva', indoklas, elso_00_ellenere: true };
+    } else if (zaras00) {
+      // 2026-10-03: a zárási kérésünkre (MSGT32) a bank 00-t adott — ANUM
+      // nem feltétlenül ismert, a megerősítés a TrID begépelése.
+      if ((v.zaras00_megerosites || '').trim() !== reszlet.trid) {
+        toast.error('A megerősítés nem egyezik', `A rögzítéshez írd be a tranzakció azonosítóját (TrID: ${reszlet.trid}).`);
+        return;
+      }
+      body = { eredmeny: 'nem_lezarva', indoklas, elso_00_ellenere: true };
     } else {
       body = { eredmeny: 'nem_lezarva', indoklas };
     }
@@ -405,6 +413,8 @@ export default function CibFizetesekAdmin() {
   const keziLehetosegek = keziMuveletek(reszlet?.adat.session);
   // Az egyeztetés feljegyzett első 00-ja (csak a kétes tételen számít).
   const elso00 = kettes ? egyeztetesElso00(reszlet?.adat.result) : null;
+  // A zárási kérésünkre kapott banki 00 (pl. AMO-eltérés miatt kétes) — szintén csak a kétesen.
+  const zaras00 = kettes && !elso00 ? zaras00Valasz(reszlet?.adat) : null;
 
   return (
     <section style={{ marginTop: 24 }}>
@@ -554,6 +564,22 @@ export default function CibFizetesekAdmin() {
                 </div>
               )}
 
+              {zaras00 && (
+                <div
+                  data-testid="cib-zaras-00"
+                  role="note"
+                  style={{
+                    marginTop: 12, padding: '10px 12px', borderRadius: 8, fontSize: 13,
+                    background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.45)',
+                  }}
+                >
+                  <strong>A bank lezártnak mondta:</strong> a zárási kérésünkre (MSGT32
+                  {zaras00.kiserlet ? `, ${zaras00.kiserlet}. kísérlet` : ''}) {ido(zaras00.at)}-kor 00-val válaszolt, de a
+                  választ nem fogadtuk el sikerként (pl. eltérő mező). A kártya terhelt lehet — „Nem lezárva" csak a bank
+                  írásos megerősítése után, a TrID begépelésével rögzíthető.
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
                 {/* A .btn alapból nowrap — 390 px-en ez a hosszú felirat kilógna. */}
                 <button type="button" className="btn btn-secondary" onClick={masol} style={{ whiteSpace: 'normal', textAlign: 'left' }}>
@@ -643,7 +669,9 @@ export default function CibFizetesekAdmin() {
           ? 'Csak akkor rögzítsd, ha a bank írásban megerősítette, hogy a tranzakció lezárult. A díjat fizetettként könyveljük, a feladó megkapja a szállító elérhetőségét.'
           : `Csak akkor rögzítsd, ha a bank megerősítette, hogy a tranzakció NEM zárult le (nem terheltünk). A feladó „nem terheltünk" értesítést kap, és újra fizethet.${elso00
             ? ` FIGYELEM: az automatikus egyeztetés erre a tranzakcióra banki 00-t kapott (ANUM: ${elso00.anum}) — ha a bank mégis lezárta, egy újabb fizetés kettős terhelés.`
-            : ''}`}
+            : zaras00
+              ? ' FIGYELEM: a bank a zárási kérésünkre (MSGT32) 00-val válaszolt — ha a bank mégis lezárta, egy újabb fizetés kettős terhelés.'
+              : ''}`}
         confirmLabel="Rögzítés"
         danger={dontes === 'nem_lezarva'}
         fields={dontes === 'lezarva'
@@ -667,7 +695,15 @@ export default function CibFizetesekAdmin() {
                 required: true,
                 placeholder: elso00.anum,
               }]
-              : []),
+              : zaras00
+                ? [{
+                  key: 'zaras00_megerosites',
+                  label: `Megerősítés: írd be a tranzakció azonosítóját (TrID: ${reszlet?.trid ?? ''})`,
+                  type: 'text' as const,
+                  required: true,
+                  placeholder: reszlet?.trid ?? '',
+                }]
+                : []),
           ]}
         initialValues={dontes === 'lezarva' ? { rt: RT_ALAP_RC00 } : undefined}
         onConfirm={(v) => { rendez(v); }}

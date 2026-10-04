@@ -391,6 +391,8 @@ export type AdminCibUzenet = {
 export type AdminCibReszlet = {
   session: Record<string, any> | null;
   result: (CibBankiAdatok & Record<string, any>) | null;
+  /** 2026-10-03: a MSGT32-re kapott hiteles MSGT31 RC=00 a banki naplóban (régebbi backendnél hiányzik). */
+  zaras_00_valasz?: { at: string | null; kiserlet: number | null } | null;
   events: Array<Record<string, any>>;
   messages: AdminCibUzenet[];
 };

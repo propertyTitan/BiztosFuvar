@@ -94,14 +94,18 @@ export function kartyaAllapot(fp: FeePaymentAllapot | null | undefined): KartyaA
   // Lelet 25a: az ellenőrzés MINDIG elsőbbséget kap — egy újabb, futó
   // kísérlet nem takarhatja el a „Ne fizess újra" dobozt.
   if ((aOa !== null && ELLENORZES.has(aOa)) || (aLr !== null && ELLENORZES.has(aLr))) return 'ellenorzes';
+  // 2026-10-03: szünet alatt (hibás CIB-konfignál a lekérdező kör sem fut)
+  // a függő kísérlet nem zárul le magától — a lezárás-doboz „pár másodperc"
+  // ígérete hamis volna; a kártya a szünetet és a nyitott sávot mutatja.
+  const szunet = fp.can_pay === false && fp.pay_blocked_reason === 'szunetel';
   if (aOa !== null) {
     if (SIKERES.has(aOa)) return 'sikeres';
-    if (LEZARAS.has(aOa)) return 'lezaras';
+    if (LEZARAS.has(aOa)) return szunet ? 'nyitott' : 'lezaras';
     return feldolgozasAllapota(fp);
   }
   if (aLr !== null) {
     if (SIKERES.has(aLr)) return 'sikeres';
-    if (LEZARAS.has(aLr)) return 'lezaras';
+    if (LEZARAS.has(aLr)) return szunet ? 'alap' : 'lezaras';
     if (aLr === 'feldolgozas') return feldolgozasAllapota(fp);
     if (SIKERTELEN.has(aLr)) return 'elozo_sikertelen';
   }
@@ -157,11 +161,14 @@ export function fizetesTiltasUzenet(fp: FeePaymentAllapot | null | undefined): O
  */
 export function nemTerheltMagyarazat(ok: string | null | undefined): string {
   if (ok === 'admin_nem_lezarva') {
-    return 'A bankkal egyeztettük: ezt a fizetést nem zártuk le, ezért a kártyádat nem terheltük. A zárolt összeget a bank feloldja (a kivonaton pár napig függő tételként látszhat).';
+    // 2026-10-03: a kártyán nem feltétlenül volt zárolás (a backend
+    // értesítésével egyezően feltételesen mondjuk).
+    return 'A bankkal egyeztettük: ezt a fizetést nem zártuk le, ezért a kártyádat nem terheltük. Ha a bank zárolta az összeget, feloldja (a kivonaton pár napig függő tételként látszhat).';
   }
   if (ok === 'bank_visszaforditotta') {
-    // Múlt időben, a backend értesítésével egyezően (a PR-5 web 2. javítóköre).
-    return 'A bank ezt a fizetést lezárás nélkül visszafordította, és a zárolást feloldotta — a kártyádat nem terheltük (a kivonaton pár napig még függő tételként látszhat).';
+    // 2026-10-03: semleges — a backend ezt az okot az elutasított eredetű
+    // egyeztetésre is adja, ahol jóváhagyás (és így visszafordítás) nem volt.
+    return 'Ezt a fizetést a bank nem terhelte, így a kártyádat nem terheltük. Ha a bank zárolt összeget, azt feloldja (a kivonaton pár napig még függő tételként látszhat).';
   }
   return 'Nem terheltük a kártyádat. A zárolt összeget a bank feloldja (a kivonaton pár napig függő tételként látszhat).';
 }
@@ -197,7 +204,17 @@ export function visszateritesMagyarazat(): string {
  * fizethető — a kártya ezt külön dobozban mondja el), a sáv nem biztat új
  * fizetésre.
  */
-export function nyitottSavSzoveg(startedAt: string | null | undefined, ujIndithato: boolean, most = Date.now()): string {
+export function nyitottSavSzoveg(
+  startedAt: string | null | undefined,
+  ujIndithato: boolean,
+  most = Date.now(),
+  { szunetel = false }: { szunetel?: boolean } = {},
+): string {
+  // 2026-10-03: szünet alatt (hibás CIB-konfignál a lekérdező kör sem fut)
+  // időt nem ígérünk — az eredményről akkor értesítünk, amikor lezárul.
+  if (szunetel) {
+    return `Egy korábbi fizetésed ${percKiiras(startedAt, most)} indult, és nem fejeződött be. Amíg le nem zárul, ne indíts újat — kétszer biztosan nem terhelünk; az eredményről itt és e-mailben is értesítünk.`;
+  }
   const alap = `Egy korábbi fizetésed ${percKiiras(startedAt, most)} indult, és nem fejeződött be. Ha a bank oldalán befejezted a fizetést, ne indíts újat: pár percen belül itt és e-mailben is megjelenik az eredmény.`;
   return ujIndithato
     ? `${alap} Ha fizetés nélkül bezártad a bank oldalát, indíts újat — kétszer biztosan nem terhelünk.`

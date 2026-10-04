@@ -311,7 +311,8 @@ describe('feladó — egyeztetés alatt (az automatikus egyeztetés megjelenik)'
     expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/Ne fizess újra/);
     await atfolyat(21_000);
     expect(api.getCibEredmeny).toHaveBeenCalledTimes(2);
-    expect(szoveg()).toMatch(/visszafordította/);
+    // 2026-10-03: a „bank_visszaforditotta" szövege semleges (a bank nem terhelte).
+    expect(szoveg()).toMatch(/a bank nem terhelte/);
   });
 
   it('a 30 perces plafon után az „ellenőrzés" nézet kézi frissítést ad', async () => {
@@ -349,7 +350,8 @@ describe('feladó — egyeztetés alatt (az automatikus egyeztetés megjelenik)'
     expect(screen.getByRole('button', { name: /Állapot frissítése/ })).toBeInTheDocument();
     await atfolyat(21_000);
     expect(vi.mocked(api.getFeePayment).mock.calls.length).toBeGreaterThanOrEqual(2);
-    expect(szoveg()).toMatch(/visszafordította/);
+    // 2026-10-03: a „bank_visszaforditotta" szövege semleges (a bank nem terhelte).
+    expect(szoveg()).toMatch(/a bank nem terhelte/);
     expect(screen.queryByText('Ne fizess újra')).toBeNull();
   });
 });

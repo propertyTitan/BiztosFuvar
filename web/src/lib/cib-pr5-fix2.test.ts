@@ -132,8 +132,11 @@ describe('apró szöveg-igazítások (nem blokkoló)', () => {
     expect(u.szoveg).toMatch(/nem indítható/);
   });
 
-  it('a banki visszafordítás múlt időben mondja a feloldást (a backend értesítésével egyezően)', () => {
-    expect(nemTerheltMagyarazat('bank_visszaforditotta')).toMatch(/feloldotta/);
+  // 2026-10-03 (utolsó csiszoló kör): a „feloldotta" múlt idő az elutasított
+  // eredetű egyeztetésre hamis volt (ott jóváhagyás sem volt) — semleges
+  // „a bank nem terhelte", a backend értesítésével egyezően.
+  it('a banki visszafordítás semleges szöveget kap (a backend értesítésével egyezően)', () => {
+    expect(nemTerheltMagyarazat('bank_visszaforditotta')).toMatch(/a bank nem terhelte/);
   });
 
   it('vegyes teszt-üzem (CIB-teszt + stub): a sáv a szimulált díjfizetést is említi, és nem állít valódi terhelést', () => {

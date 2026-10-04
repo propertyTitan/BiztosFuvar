@@ -108,13 +108,16 @@ describe('a „nem terhelt" kimenet oka (C5, lelet 9)', () => {
     expect(screen.getByRole('link', { name: /Belépés és újrapróba/ })).toBeInTheDocument();
   });
 
+  // 2026-10-03: a szöveg semleges („a bank nem terhelte") — ugyanez az ok jár
+  // az elutasított eredetű egyeztetésre is, ahol visszafordítás nem volt.
   it('a bank visszafordította: saját szöveg', async () => {
     vi.mocked(api.getCibEredmeny).mockResolvedValue({
       ...ALAP, rc: null, anum: null, allapot: 'nem_terhelt', ok: 'bank_visszaforditotta',
     } as any);
     render(<EredmenyOldal />);
     await atfolyat();
-    expect(screen.getByText(/visszafordította/)).toBeInTheDocument();
+    expect(screen.getByText(/a bank nem terhelte/)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/visszafordította/);
   });
 
   it('sikertelen RC nélkül: nem állítja, hogy a bank elutasította', async () => {
