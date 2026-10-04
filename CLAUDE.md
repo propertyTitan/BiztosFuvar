@@ -1,5 +1,51 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-10-04 — CIB PR-5: a kártyás díjfizetés „10/10" köre.** A user kérésére
+> (hibátlan fizetés) teljes átvizsgálás: 6 független szempont, minden találatot
+> egy reprodukáló és egy cáfoló ügynök ellenőrzött, plusz forgatókönyv-mátrix a
+> VALÓDI CIB teszt-bankkal a saját felületen át. **P0 nem volt**; 15 megerősített
+> P2 + ~15 P3, és egy launch-blokkoló: a globális „Teszt üzemmód — valódi
+> pénzmozgás nincs" sáv feltétel nélkül, élesítés után is látszott volna. Mind
+> javítva, 5 javító körben, mindegyik után 3 független review; a végén a valódi
+> teszt-bankkal újrafuttatva (9/9 forgatókönyv + DB-szintű invariáns-ellenőrzés
+> 14 kísérleten). **Új működés:** (1) **automatikus egyeztetés** a kétes
+> (`close_unknown`) kísérletre: a MSGT10 után `CIB_EGYEZTETES_PERC` (alap 20,
+> 20–120) perccel csak-olvasó MSGT33 — TO → „nem terhelt" (a fuvar újra
+> fizethető), két, ≥15 perc különbségű 00 azonos ANUM-mal → könyvelés, minden más
+> → riasztás + visszalépés; MSGT32-t az egyeztetés SOHA nem küld; ha a MSGT32
+> bizonyíthatóan ki sem ment (közös `zarasKiment` feltétel), nincs kétes állapot;
+> (2) a vásárló visszatérése **azonnali** MSGT33-at indít (eddig a TrID-enkénti
+> köz ~90 mp-ig visszatartotta — a 545 mp-nél jóváhagyott fizetés ezért nem zárult
+> le; most 546 mp-nél is lezárul); (3) **tartós riasztások** (összeomlás és
+> átmeneti DB-hiba után is pótlódnak, napi összesítő), rendszerszintű banki hiba
+> riasztása, tartós feladói értesítés (a végállapot ELŐTT); (4) **szünet-kapcsoló**
+> `CIB_UJ_FIZETES_TILTVA=true` (új kártyás fizetés 503 `CIB_PAUSED`, a futó
+> kísérleteket a kör befejezi); (5) **konfig nélküli admin-műveletek**
+> (`POST /payments/admin/cib/:trid/kezi-rendezes`: könyvelés / lejáratás /
+> visszatérítés) + a „nem_lezarva" rendezés kifejezett megerősítést kér, ha a
+> bank 00-t adott vagy D05-tel jelezte, hogy feldolgozta; (6) **szigorú konfig**:
+> a teszt-allowlist élesben fail-closed, a `CIB_BEVEZETES` valódi BUDAPESTI
+> naptári nap (jövőbeli vagy nem létező → hibás konfig, hangosan), éles módban
+> host-engedélylista (eki.cib.hu, a visszatérés az API hostján); (7) **új
+> publikus** `GET /config/public` → a teszt-sáv csak teszt-üzemben látszik, igaz
+> szöveggel; (8) kuponnál nem kell a CIB-adattovábbítási pipa; a web minden
+> kimenetre igaz szöveget ad (a „kb. 9 perc" helyett ~8 perc). **Új migráció:
+> 098** (a visszatérített könyvelési árva nem foglalja örökre a fuvar zárási
+> helyét) — a merge ELŐTT a prodon le kell futtatni. **MÉRVE a teszt-banknál**
+> (a korábbi „~7 perc" állítás TÉVES volt): a fizetőoldalon hagyott kísérletet a
+> bank ~9,5–11 perc múlva zárja TO-val; a le nem zárt jóváhagyásra a MSGT33 a
+> jóváhagyás után ~9–10,5 percig még 00-t ad, utána TO-t; a lezártra tartósan
+> 00-t. ⚠️ **NYITOTT, a banktól írásban megkérdezendő** (az átvételi teszt
+> levelében): adhat-e a MSGT33 00-t egy soha le nem zárt TrID-re 25–40 perccel a
+> jóváhagyás után? Az egyeztetés 00-ra könyvelése erre a mért viselkedésre épül
+> (ha téves, a kockázat fizetés nélküli kontakt-felfedés, a vásárlót nem
+> terheli). **Visszaállás / élesre váltás sorrendje MOSTANTÓL:** 098 →
+> `CIB_UJ_FIZETES_TILTVA=true` → megvárni, hogy 0 nem végső CIB-kísérlet legyen
+> (admin „Egyeztetésre vár" szűrő + SQL) → a `CIB_*` változtatás → a szünet
+> törlése (`backend/.env.example` „CIB ÉLESÍTÉSI / VÁLTÁSI SORREND"). Tudatosan
+> nyitva maradt (P3, pénzt nem érint): az árva-ellenőrzés minden újraindításkor
+> újra riaszt; a D04-visszalépés határidő-kivétele csak a visszatért vásárlóé.
+
 > **2026-10-01 — CIB KÁRTYÁS DÍJFIZETÉS (EKI / SAKI 1.50): ÉLESBEN, TESZT-MÓDBAN.**
 > A kapcsolatfelvételi díjat a CIB Bank kártyás elfogadása szedi (Barion és
 > QVIK történeti). Mergelve: #255 (`ekiCrypt.js` — a banki 3DES-titkosítás
@@ -24,18 +70,21 @@
 > adatkezelési tájékoztató „Bankkártyás fizetés (CIB Bank Zrt.)” szakasza);
 > kosár nélkül és az éles címen, jelölt teszt-módban tesztelhet. **Mérve a
 > teszt-banknál:** EXTRA01 nem kell; a MSGT31 minden válaszban hozza az AMO-t;
-> a fizetőoldalon hagyott kísérletet a bank ~7 perc múlva TO-val zárja;
+> a fizetőoldalon hagyott kísérletet a bank ~9,5–11 perc múlva TO-val zárja
+> (2026-10-04-i mérés; az eredeti „~7 perc" téves volt);
 > elfogadott kártyák: Visa, V Pay, Mastercard, Maestro (a bank oldala is ezt
 > mutatja). **Most:** a Railway-en `CIB_KORNYEZET=teszt` (ekit.cib.hu, TIH0001,
 > kulcs-ujjlenyomat `5540ea8b5541`), `CIB_TESZT_FELHASZNALOK` = jovanybusz@ +
 > tisztahod@ — csak ők fizetnek kártyával (tesztkártyák: `4111…` siker,
 > `4999…` hiba), mindenki más a sárga stub-teszt-fizetést látja. A user
-> helyben és élesben is végigpróbálta. **Hátra:** (1) banki átvételi teszt
+> helyben végigpróbálta; ÉLESBEN (a két fiókkal) 2026-10-04-ig még NEM volt
+> kártyás kísérlet (az éles DB-ben 0 CIB-állapotú sor). **Hátra:** (1) banki átvételi teszt
 > kérése az ecommerce@cib.hu-ra (webcím, PID, tesztfiók a listán, előkészített
 > elfogadott fuvarok, a folyamat leírása); (2) éles kulcs (jelszó SMS-ben) →
 > launch-lépések a 🚨 STUB-szakaszban. Ha a CIB-env hibás vagy hiányos, a
-> /pay 503-at ad (a stub sem nyílik): visszaállás = minden `CIB_` sor +
-> `PAYMENT_PROVIDER` törlése. ⚠️ CIB-módban az e-mailben és az eredményoldalon
+> /pay 503-at ad (a stub sem nyílik). ⚠️ Visszaállás: NEM azonnali törlés —
+> előbb `CIB_UJ_FIZETES_TILTVA=true`, és csak 0 nem végső kísérlet után a `CIB_`
+> sorok + `PAYMENT_PROVIDER` törlése (lásd a 2026-10-04-i bejegyzést). ⚠️ CIB-módban az e-mailben és az eredményoldalon
 > a bank által előírt öt adat (TrID, RC, RT, AMO, ANUM) fix feliratokkal; a
 > szöveg web↔backend szinkronőrrel (`cib-web-szinkron.test.js`).
 
@@ -3125,13 +3174,17 @@ Bíróság:          Hódmezővásárhelyi Járásbíróság / Szegedi Törvény
 > futnak — a tesztelő fiókjai szándékosan érintetlenek, hogy újra végig
 > tudjon menni a folyamaton.
 >
-> **UGYANEKKOR: A CIB ÉLESRE VÁLTÁSA (2026-10-01).** Egy lépésben a
-> Railway-en: `CIB_KORNYEZET=eles`; `CIB_MARKET_URL` / `CIB_CUSTOMER_URL` az
+> **UGYANEKKOR: A CIB ÉLESRE VÁLTÁSA (2026-10-01; sorrend 2026-10-04).**
+> ELŐBB `CIB_UJ_FIZETES_TILTVA=true`, és megvárni, hogy 0 nem végső
+> CIB-kísérlet legyen (az aznapi teszt-kísérleteket az éles kulccsal már nem
+> lehet lekérdezni). Utána egy lépésben a Railway-en: `CIB_KORNYEZET=eles`; `CIB_MARKET_URL` / `CIB_CUSTOMER_URL` az
 > éles hostra (eki.cib.hu, a bank e-mailben megerősíti); `CIB_KEY_B64` = az
 > ÉLES kulcs (a teszt-kulccsal azonos fájlnév!) és `CIB_KEY_UJJLENYOMAT` = az
 > éles kulcs ujjlenyomata (az első boot naplója kiírja); `CIB_TESZT_FELHASZNALOK`
-> TÖRLÉSE (élesben hatástalan, de figyelmeztet); `CIB_BEVEZETES` = aznap; és
-> UGYANAKKOR az `ALLOW_STUB_PAYMENTS` törlése. Ellenőrzés: a boot-napló
+> TÖRLÉSE (élesben hatástalan, de figyelmeztet); `CIB_BEVEZETES` = aznap
+> (budapesti naptári nap); és UGYANAKKOR az `ALLOW_STUB_PAYMENTS` törlése,
+> végül a `CIB_UJ_FIZETES_TILTVA` törlése. A globális teszt-sáv ekkor magától
+> eltűnik (`GET /config/public` → `teszt_uzem: false`). Ellenőrzés: a boot-napló
 > „EKI-konfiguráció teljes — környezet: eles”, majd az első valódi 500 Ft-os
 > fizetés a user saját kártyájával (kontakt, e-mail a banki adatsorral, számla,
 > admin TrID-keresés). Rend kedvéért ekkor törölhetők a Railway-ről a régi,
