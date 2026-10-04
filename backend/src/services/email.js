@@ -678,10 +678,11 @@ const CIB_TRID_TEENDO = Object.freeze({
     + 'gyanú). MSGT32 nem ment ki, terhelés nincs; a kísérlet a zárási határidő után magától lezárul, a feladót '
     + 'nem blokkolja. Ellenőrizd a CIB-konfigurációt.',
 });
-const CIB_KETES_TEENDO = 'A fuvar fagyasztva, a kontakt rejtve; MSGT32 újraküldés nincs. A rendszer a MSGT10 után '
-  + 'CIB_EGYEZTETES_PERC (alapból 20) perccel csak-olvasó lekérdezéssel (MSGT33) automatikusan eldönti: TO → nem '
-  + 'terhelt, 00 + ANUM → lezárt. Ha az sem dönt, egyeztess a bankkal, majd az adminban (Fizetések → CIB) rendezd: '
-  + '„lezárva" (ANUM-mal) vagy „nem zárult le".';
+const CIB_KETES_TEENDO = 'A fuvar fagyasztva, a kontakt rejtve; MSGT32 újraküldés nincs. A rendszer az utolsó MSGT32 '
+  + 'után CIB_EGYEZTETES_PERC (alapból 25) perccel csak-olvasó lekérdezéssel (MSGT33) automatikusan eldönti: TO → nem '
+  + 'terhelt, két (legalább 15 perc különbségű) 00 ugyanazzal az ANUM-mal → lezárt. Ha az sem dönt (más banki kód, '
+  + 'eltérő ANUM), egyeztess a bankkal, majd az adminban (Fizetések → CIB) rendezd: „lezárva" (ANUM-mal) vagy „nem '
+  + 'zárult le".';
 
 /**
  * A CIB-riasztó levél tárgya és HTML-je (2026-10-03, PR-5 — külön, hogy a

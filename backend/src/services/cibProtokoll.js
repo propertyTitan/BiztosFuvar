@@ -60,16 +60,24 @@ const HANGOLOK = Object.freeze([
   // a bank határidejét a beállítás sem érheti el.
   ['CIB_ZARAS_HATARIDO_MP', 'zarasHataridoMp', 570, 60, 590],
   // 2026-10-03 (PR-5): a kétes (close_unknown) kísérlet automatikus
-  // egyeztetése a MSGT10 után ennyi perccel indul — egy CSAK-OLVASÓ MSGT33
-  // (MSGT32 soha). Mérve a teszt-banknál: a le nem zárt jóváhagyásra a MSGT33
-  // a MSGT10 után ~11–13 percig még 00-t adhat, utána TO; a lezárt tétel
-  // végig 00-t ad az ANUM-jával. Ezért legalább 12 perc, alapból 20.
-  ['CIB_EGYEZTETES_PERC', 'egyeztetesPerc', 20, 12, 120],
+  // egyeztetése — egy CSAK-OLVASÓ MSGT33 (MSGT32 soha).
+  // ⚠️ 2026-10-04 (a PR-5 1. javítóköre, BLOKKOLÓ): a horgony az UTOLSÓ
+  // kimenő MSGT32 (nem a MSGT10), és a „lezárt"-hoz két, legalább 15 perc
+  // különbségű 00 kell ugyanazzal az ANUM-mal. A valódi teszt-banknál mérve
+  // a le nem zárt jóváhagyás a JÓVÁHAGYÁSHOZ képest ~9–10,5 perc múlva
+  // fordul TO-ra (egy ~9 perckor jóváhagyott kísérletre a MSGT10 után 13 perc
+  // 06 mp-kor még 00 jött) — a régi 12 perces minimum és a MSGT10-horgony
+  // mellett egy el sem jutott zárás 00-jára könyvelhettünk volna (fizetés
+  // nélküli kontakt). A jóváhagyás mindig megelőzi a MSGT32-t, így már az
+  // utolsó MSGT32 + 20 perc is kb. kétszerese a mért reverzál-időnek.
+  // Ezért legalább 20, alapból 25.
+  ['CIB_EGYEZTETES_PERC', 'egyeztetesPerc', 25, 20, 120],
 ]);
 // A hangolók együttese a zárási ablakba férjen: a jóváhagyás után egy tick,
 // egy köz, egy MSGT33 és egy MSGT32 a határidő előtt (30 mp tartalékkal).
 const ABLAK_TARTALEK_MS = 30000;
 const ABLAK_HANGOLOK = Object.freeze(['korTickMs', 'lekerdezesKozMs', 'httpIdokeretMs', 'zarasIdokeretMs']);
+// [env, kulcs, alapérték, (opcionális) a nem értelmezhető értéknél érvényes érték]
 const LOGIKAI = Object.freeze([
   // ⚠️ 2026-10-01: bekapcsolva a fuvar rövid hivatkozása is a bankhoz megy —
   // az adatkezelési tájékoztató 4/A. pontja ezt ma NEM sorolja a továbbított
@@ -84,7 +92,11 @@ const LOGIKAI = Object.freeze([
   // A visszaállás és a teszt→éles átállás receptje: előbb ez, és csak ha az
   // admin „ellenorzes" szűrője és az SQL-ellenőrzés is 0 nem végső kísérletet
   // mutat, jöhet a CIB_* törlése / a kulcs-, host- és környezetváltás.
-  ['CIB_UJ_FIZETES_TILTVA', 'ujFizetesTiltva', false],
+  // ⚠️ 2026-10-04 (a PR-5 1. javítóköre): FAIL-CLOSED. Egy elgépelt érték
+  // („yes", „on") eddig csak figyelmeztetett, és a szünet KI maradt — a
+  // visszaállás első lépése mellett tovább indultak új banki zárolások. Most
+  // a nem értelmezhető érték SZÜNET, hangos hibával (naplozCibKonfigot).
+  ['CIB_UJ_FIZETES_TILTVA', 'ujFizetesTiltva', false, true],
 ]);
 const EGYEB_ENV = Object.freeze([
   'CIB_KEY_UJJLENYOMAT', 'CIB_TESZT_FELHASZNALOK', 'CIB_RIASZTAS_EMAIL', 'CIB_TS_IDOZONA', 'CIB_BEVEZETES',
@@ -281,12 +293,17 @@ function ablakEllenorzes(h, figyelmeztetesek) {
   figyelmeztetesek.push(uzenet);
 }
 
-function logikai(env, nev, alap, figyelmeztetesek) {
+function logikai(env, nev, alap, figyelmeztetesek, { hibasErtek = alap, kritikus = null } = {}) {
   const nyers = env[nev];
   if (!nemUres(nyers)) return alap;
   const v = nyers.trim().toLowerCase();
   if (['true', '1', 'igen'].includes(v)) return true;
   if (['false', '0', 'nem'].includes(v)) return false;
+  if (hibasErtek !== alap && kritikus) {
+    // Az érték maga nem kerül a naplóba (bármi lehet), csak a döntés.
+    kritikus.push(`${nev} érvénytelen (true/false kell) — FAIL-CLOSED: ${hibasErtek} érvényes. Javítsd a Railway env-et.`);
+    return hibasErtek;
+  }
   figyelmeztetesek.push(`${nev} érvénytelen (true/false kell) — az alapérték (${alap}) marad.`);
   return alap;
 }
@@ -483,7 +500,13 @@ function feloldas(env) {
     bevezetes,
     riasztasEmail: nemUres(env.CIB_RIASZTAS_EMAIL) ? env.CIB_RIASZTAS_EMAIL.trim() : ALAP_RIASZTAS_EMAIL,
   };
-  for (const [nev, k, alap] of LOGIKAI) beall[k] = logikai(env, nev, alap, figyelmeztetesek);
+  const kritikus = [];
+  for (const [nev, k, alap, hibasErtek] of LOGIKAI) {
+    beall[k] = logikai(env, nev, alap, figyelmeztetesek, { hibasErtek: hibasErtek ?? alap, kritikus });
+  }
+  // A fail-closed döntések (2026-10-04) a konfigot nem teszik hibássá (a kör
+  // él, a meglévő kísérleteket lezárja), de induláskor hibaszintű jelzést kapnak.
+  beall.kritikusFigyelmeztetesek = kritikus;
   // A kulcs és a HMAC-titok NEM felsorolható: egy `console.log(beall)`, egy
   // JSON-naplósor vagy egy Sentry-kontextus így sem viszi ki őket.
   Object.defineProperty(beall, 'kulcs', { value: beall.allapot === 'teljes' ? kulcs : null, enumerable: false });
@@ -525,6 +548,11 @@ function naplozCibKonfigot({ env = process.env, konzol = console, sentry = null 
   // 'nincs': ma ez a normál üzem — a „provider: cib (stub/teszt mód)" sor
   // már elmondja; külön sor és riasztás nem kell.
   if (b.allapot === 'nincs') return b;
+  for (const f of b.kritikusFigyelmeztetesek || []) {
+    const uzenet = `[CIB] 🚨 ${f}`;
+    konzol.error(uzenet);
+    try { if (sentry) sentry.captureMessage(uzenet, 'error'); } catch { /* no-op */ }
+  }
   if (b.allapot === 'hibas') {
     const uzenet = `[CIB] 🚨 HIBÁS CIB EKI-KONFIGURÁCIÓ (${b.okok.join(', ')}) — a kártyás fizetés 503-at ad, `
       + 'a stub-fizetés NEM nyílik vissza, a kézi nyugtázás zárva. Javítsd a Railway env-et.';

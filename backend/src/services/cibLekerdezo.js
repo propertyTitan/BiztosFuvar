@@ -194,7 +194,13 @@ async function riasztasSopresKor(hibak) {
  * @returns {boolean} riasztott-e
  */
 function szivveresFigyelo(most = Date.now()) {
-  if (!require('./paymentProvider').usesCibEki()) return false;
+  if (!require('./paymentProvider').usesCibEki()) {
+    // 2026-10-04: a hibás (pl. még jövőbeli CIB_BEVEZETES) konfig mellett is
+    // ütemezett figyelő a „teljes"-sé válás pillanatától mér, nem az
+    // indulástól — különben az első tick előtt hamis riasztás menne.
+    korAllapot.indulas = most;
+    return false;
+  }
   if (cibFizetes.leallasFolyamatban()) return false;
   const utolso = cibFizetes.utolsoSzivveres();
   const kor = most - (utolso || korAllapot.indulas);

@@ -33,9 +33,10 @@
 //  folyamaton belüli párhuzamos hívás sem kerülheti meg.
 //
 //  2026-10-03 (PR-5): a kétes (close_unknown) kísérlet automatikus
-//  egyeztetése — a MSGT10 után CIB_EGYEZTETES_PERC perccel egy CSAK-OLVASÓ
-//  MSGT33 dönt (TO → nem terhelt; 00 + ANUM egy kiment MSGT32 után →
-//  könyvelés; minden más → visszalépés), MSGT32 SOHA. Tartós riasztások
+//  egyeztetése — az utolsó MSGT32 után CIB_EGYEZTETES_PERC perccel CSAK-OLVASÓ
+//  MSGT33 dönt (TO → nem terhelt; két, ≥15 perc különbségű 00 ugyanazzal az
+//  ANUM-mal egy kiment MSGT32 után → könyvelés; minden más → riasztás +
+//  visszalépés — 2026-10-04, 1. javítókör), MSGT32 SOHA. Tartós riasztások
 //  (előbb küld, aztán jelöl; a kör és a söprés pótolja), rendszerszintű
 //  banki hiba-riasztás, szünet-kapcsoló, konfig nélküli admin-műveletek.
 //
@@ -97,6 +98,10 @@ const SIKER_IRAS_KISERLET = 3; // a hiteles MSGT31 RC=00 rögzítése átmeneti 
 const VISSZATERES_MIN_KOZ_MS = 5000; // a visszatérés utáni soron kívüli MSGT33 kalapálás-féke
 const LEKERDEZES_TARTALEK_MS = 15000; // a visszatért vásárló utolsó MSGT33-ja: határidő − (HTTP-keret + ez)
 const ZARAS_GYORS_UJRAPROBA_MP = 5; // a határidő közelében a fel nem dolgozott zárás rövidebb újrapróbája
+const ALAP_EGYEZTETES_PERC = 25; // konfig nélkül — a cibProtokoll alapértéke
+// 2026-10-04 (a PR-5 1. javítóköre, BLOKKOLÓ): a „lezárt" egyeztetéshez két,
+// legalább ennyi perc különbségű 00 kell ugyanazzal az ANUM-mal.
+const EGYEZTETES_MEGEROSITES_PERC = 15;
 const EGYEZTETES_VISSZALEPES_ALAP_PERC = 15;
 const EGYEZTETES_VISSZALEPES_MAX_PERC = 360;
 const KONYVELES_RIASZTAS_KUSZOB = 3; // ennyi elbukott könyvelés (vagy a zárás óta 10 perc) → riasztás
@@ -718,9 +723,13 @@ const RIASZTAS_TEENDO = Object.freeze({
   konyvelesi_hiba: 'a bank lezárta (terhelt), de a könyvelés ismételten elbukik — a kör visszalépéssel újrapróbál; ha nem áll helyre, nézd a naplót, vagy az adminban „Könyvelés".',
   nt_ismetlodo: 'a bank a lekérdezésre ismételten nem találja a tranzakciót (saját hiba gyanú: PID, kulcs, összeg) — MSGT32 nem ment ki, terhelés nincs, a kísérlet a határidő után magától lezárul, a feladót nem blokkolja.',
   lekerdezes_mezo_elteres: 'a bank lekérdezésre adott válasza ismételten eltér a tárolt adatoktól (saját hiba gyanú) — MSGT32 nem ment ki, terhelés nincs, a kísérlet a határidő után magától lezárul, a feladót nem blokkolja.',
+  // 2026-10-04 (a PR-5 1. javítóköre)
+  egyeztetes_nem_dontheto: 'a kétes zárás csak-olvasó egyeztetése ellentmondó választ adott (TO-tól eltérő elutasító kód, mezőeltérés vagy eltérő ANUM) — a kártya TERHELT LEHET. A fuvar fagyasztva, újrafizetés nem indul; egyeztess a bankkal (TrID), és az adminban (Fizetések → CIB) rendezd.',
+  egyeztetes_iras_utkozes: 'az egyeztetés szerint a bank lezárta (TERHELT), de a tétel állapota közben megváltozott (pl. admin-rendezés), így az eredmény nem rögzíthető — ellenőrizd a tétel állapotát és a bankot; ha a díj nem könyvelődött, visszatérítés kell.',
 });
-const KETES_TEENDO = 'kétes zárás — a kontakt rejtve, a fuvar fagyasztva; MSGT32 újraküldés NINCS. A MSGT10 után '
-  + 'CIB_EGYEZTETES_PERC perccel csak-olvasó MSGT33 dönt automatikusan; ha az sem dönt, egyeztess a bankkal, és az '
+const KETES_TEENDO = 'kétes zárás — a kontakt rejtve, a fuvar fagyasztva; MSGT32 újraküldés NINCS. Az utolsó MSGT32 után '
+  + 'CIB_EGYEZTETES_PERC (alapból 25) perccel csak-olvasó MSGT33 dönt automatikusan (TO → nem terhelt; két, legalább '
+  + '15 perc különbségű 00 ugyanazzal az ANUM-mal → lezárt); ha az sem dönt, egyeztess a bankkal, és az '
   + 'adminban (Fizetések → CIB) rendezd.';
 
 /**
@@ -761,19 +770,32 @@ async function riaszt(trid, ok) {
   console.error(uzenet);
   sentry(uzenet, 'error');
   const b = p.cibBeallitasok();
+  // ⚠️ 2026-10-04 (a PR-5 1. javítóköre): a createNotification hibánál nem
+  // dob, hanem null-t ad — eddig a jelölés ilyenkor is megtörtént, és a
+  // söprés a tartós nyom nélküli riasztást soha nem pótolta. Most csak akkor
+  // jelölünk, ha legalább egy admin-értesítés tartósan létrejött (vagy nincs
+  // admin, akinek szólhatna); különben a foglalás a lejártáig (5 perc) áll, és
+  // utána a kör / a söprés újra riaszt.
+  let tartos = false;
   try {
     const { rows: adminok } = await db.query(`SELECT id FROM users WHERE role = 'admin' LIMIT 10`);
+    if (!adminok.length) tartos = true;
     for (const a of adminok) {
       // eslint-disable-next-line no-await-in-loop
-      await notifications.createNotification({
+      const n = await notifications.createNotification({
         user_id: a.id,
         type: 'cib_review',
         title: '🚨 Kártyás fizetés: teendő',
         body: `TrID: ${trid} — fuvar: ${jobId || '?'} (${ok}). ${teendo}`,
         link: '/admin#fizetesek',
-      }).catch(() => {});
+      }).catch(() => null);
+      if (n) tartos = true;
     }
   } catch { /* az admin-értesítés hiánya nem akaszthatja meg a riasztást */ }
+  if (!tartos) {
+    console.error(`[cib] ${p.maszkoltTrid(trid)} (${ok}): az admin-riasztás nem rögzült — a söprés újraküldi`);
+    return false;
+  }
   await db.query(
     `UPDATE payment_sessions
         SET cib_result = (COALESCE(cib_result, '{}'::jsonb) - 'riasztas_folyamatban')
@@ -1041,6 +1063,12 @@ async function inditasiVegallapot(trid, uj, varAllapot, ok, tobb = {}) {
  * adattovábbításról (2026-10-01): a route már a DB-írások ELŐTT ellenőrzi,
  * itt másodszor is — egy új hívó se indíthasson nélküle banki kísérletet.
  */
+/** Szünetel-e az új kártyás fizetés (CIB_UJ_FIZETES_TILTVA, fail-closed)? */
+function ujFizetesSzunetel() {
+  const b = p.cibBeallitasok();
+  return b.allapot === 'teljes' && !!b.ujFizetesTiltva;
+}
+
 async function inditCibDijFizetes({
   entityType = 'job', entityId, shipperId, adatkezelesiHozzajarulas,
 }) {
@@ -1554,8 +1582,51 @@ async function lepes(sor, berlo, forras, ctx) {
     case 'closing': return closingLepes(sor, berlo, b);
     case 'close_unknown': return closeUnknownLepes(sor, berlo, b, ctx || { maradekKeres: 1 });
     case 'closed_ok': return konyvel(sor.payment_id, berlo);
-    default: return vegallapotEsemeny(sor.payment_id, berlo);
+    default: return vegallapotPotlas(sor, berlo);
   }
+}
+
+/**
+ * A feladónak járó értesítés típusa egy sikertelen / nem terhelt végállapotú
+ * kísérletre — ugyanaz a döntés, mint az élő utakon (zar, rendezes,
+ * egyeztetés, lejáratás). `null`: nem jár értesítés (a bankig sem jutott).
+ */
+function ertesitesTipusa(s) {
+  const ok = s.cib_result && s.cib_result.ok;
+  switch (s.cib_state) {
+    case 'failed': return ok === 'admin_nem_lezarva' ? 'admin_nem_lezarva' : 'sikertelen';
+    case 'expired':
+      if (ok === 'bank_visszaforditotta') return 'bank_visszaforditotta';
+      return JOVAHAGYOTT_NEM_ZART.includes(ok) ? 'nem_zart' : 'sikertelen';
+    case 'not_closed':
+      if (ok === 'mar_fizetve' || ok === 'kupon') return 'mar_fizetve';
+      if (ok === 'masik_zaras') return 'masik_kiserlet';
+      if (ok === 'amo_elteres') return 'osszeg_elteres';
+      return 'nem_terhelt';
+    default: return null;
+  }
+}
+
+/**
+ * Végállapotú, de még függő sor (összeomlás a végállapot rögzítése és az
+ * esemény / értesítés között): az esemény ÉS — ha még nem ment — a feladó
+ * értesítése. ⚠️ 2026-10-04 (a PR-5 1. javítóköre, I8): eddig csak az
+ * esemény futott le újra, így a feladó, akinek „az eredményről értesítünk"-et
+ * ígértünk (kétes, egyeztetés), soha nem kapott értesítést. Az értesítés a
+ * cib_notified_at claimen át pontosan egyszer megy.
+ */
+async function vegallapotPotlas(sor, berlo) {
+  let hiba = null;
+  try {
+    await vegallapotEsemeny(sor.payment_id, berlo);
+  } catch (err) {
+    hiba = err;
+  }
+  const tipus = sor.cib_notified_at ? null : ertesitesTipusa(sor);
+  if (tipus) {
+    await ertesitFeladot(sor.payment_id, tipus).catch((err) => console.error('[cib] értesítés hiba:', err && err.message));
+  }
+  if (hiba) throw hiba;
 }
 
 async function kovetkezo(trid, berlo, kifejezes, parameterek = []) {
@@ -1636,9 +1707,18 @@ async function lekerdezesIras(trid, berlo, {
 
 /**
  * A kísérlet időpontjai a DB órájával (ms-ban): a mostani idő, a zárási
- * határidő és az automatikus egyeztetés ideje — mind a MSGT10 kimenő
- * naplósorától (ennek hiányában a létrehozástól) számítva, ahogy a
- * zarasiHataridoLejart is (2026-10-03, PR-5). Konfig nélkül az alapértékek.
+ * határidő (a MSGT10 kimenő naplósorától, ennek hiányában a létrehozástól,
+ * ahogy a zarasiHataridoLejart is — 2026-10-03, PR-5) és az automatikus
+ * egyeztetés ideje. Konfig nélkül az alapértékek.
+ *
+ * ⚠️ 2026-10-04 (a PR-5 1. javítóköre, BLOKKOLÓ): az egyeztetés horgonya az
+ * UTOLSÓ kimenő MSGT32 (ennek hiányában a zárás küldési ideje, majd a
+ * MSGT10). A bank a le nem zárt jóváhagyást a JÓVÁHAGYÁSHOZ képest ~9–10,5
+ * perccel fordítja vissza (mérve), addig a MSGT33 00-t ad az ANUM-mal — egy
+ * 9:20-kor jóváhagyott, 9:30-kor zárni próbált kísérletre a MSGT10 + 20 perc
+ * gyakorlatilag tartalék nélküli volt. A jóváhagyás mindig megelőzi a
+ * MSGT32-t, így az utolsó MSGT32-től mért idő a jóváhagyástól mért alsó
+ * becslés.
  */
 async function idopontok(trid, b) {
   const h = (b && b.hangolok) || {};
@@ -1647,16 +1727,25 @@ async function idopontok(trid, b) {
             EXTRACT(EPOCH FROM COALESCE(
               (SELECT MIN(m.created_at) FROM cib_messages m
                 WHERE m.payment_id = ps.payment_id AND m.direction = 'ki' AND m.msgt = 10),
-              ps.created_at)) * 1000 AS horgony
+              ps.created_at)) * 1000 AS horgony,
+            EXTRACT(EPOCH FROM COALESCE(
+              (SELECT MAX(m.created_at) FROM cib_messages m
+                WHERE m.payment_id = ps.payment_id AND m.direction = 'ki' AND m.msgt = 32),
+              ps.cib_close_sent_at)) * 1000 AS zaras_horgony,
+            EXTRACT(EPOCH FROM (ps.cib_result->'egyeztetes_elso_00'->>'at')::timestamptz) * 1000 AS elso00
        FROM payment_sessions ps WHERE ps.payment_id = $1`,
     [trid],
   );
   const most = rows[0] ? Number(rows[0].most) : Date.now();
   const horgony = rows[0] ? Number(rows[0].horgony) : 0;
+  const zarasHorgony = rows[0] && rows[0].zaras_horgony != null ? Number(rows[0].zaras_horgony) : horgony;
+  const elso00 = rows[0] && rows[0].elso00 != null ? Number(rows[0].elso00) : null;
   return {
     most,
     hatarido: horgony + (h.zarasHataridoMp || ALAP_ZARAS_HATARIDO_MP) * 1000,
-    egyeztetes: horgony + (h.egyeztetesPerc || 20) * 60000,
+    egyeztetes: Math.max(horgony, zarasHorgony) + (h.egyeztetesPerc || ALAP_EGYEZTETES_PERC) * 60000,
+    // Az egyeztetés első 00-ja után a megerősítő lekérdezés legkorábbi ideje.
+    megerositesTol: elso00 == null ? null : elso00 + EGYEZTETES_MEGEROSITES_PERC * 60000,
   };
 }
 
@@ -2004,7 +2093,7 @@ async function closingLepes(sor, berlo, b) {
     });
   }
   // (4) Kiment, de nincs bizonyíték → kétes; az automatikus egyeztetés
-  // (closeUnknownLepes) a MSGT10 után CIB_EGYEZTETES_PERC perccel dönt.
+  // (closeUnknownLepes) az utolsó MSGT32 után CIB_EGYEZTETES_PERC perccel dönt.
   const { rowCount } = await db.query(
     `UPDATE payment_sessions SET cib_state = 'close_unknown', cib_next_action_at = NOW(),
             cib_result = COALESCE(cib_result, '{}'::jsonb) || '{"ok":"zaras_valasz_nelkul"}'::jsonb
@@ -2019,17 +2108,30 @@ async function closingLepes(sor, berlo, b) {
  * A kétes (close_unknown) kísérlet AUTOMATIKUS EGYEZTETÉSE (2026-10-03, PR-5).
  * Eddig a sor parkolt (cib_next_action_at = NULL), és csak admin mozdította
  * — a bank szerint viszont a határidő utáni CSAK-OLVASÓ MSGT33 eldönti:
- * a le nem zárt jóváhagyásra (mérve a teszt-banknál ~11–13 perccel a MSGT10
- * után) TO jön, a lezárt tétel végig 00-t ad az ANUM-jával.
+ * a le nem zárt jóváhagyásra TO jön, a lezárt tétel végig 00-t ad az
+ * ANUM-jával.
  *   - MSGT32 egyszer sem ment ki (nincs kimenő naplósor): terhelés nem lehet;
  *     a határidő után banki hívás nélkül „nem terhelt";
- *   - a MSGT10 + CIB_EGYEZTETES_PERC előtt: csak riasztás + a feladó
- *     értesítése (egyszer-egyszer), banki hívás nincs;
- *   - utána MSGT33: TO / elutasítás → „nem terhelt" (a fuvar újra fizethető);
- *     00 + egyező AMO + ANUM → lezárt, könyvelés (a nem fizethető ügylet
- *     könyvelési árva + riasztás lesz, csendben soha); minden más → visszalépés
- *     (15 perc × 2^n, legfeljebb 6 óra), a riasztás nem ismétlődik, a napi
- *     emlékeztetőt a söprés küldi.
+ *   - az UTOLSÓ kimenő MSGT32 + CIB_EGYEZTETES_PERC előtt: csak riasztás + a
+ *     feladó értesítése (egyszer-egyszer), banki hívás nincs;
+ *   - utána MSGT33: TO → „nem terhelt" (a fuvar újra fizethető); 00 + egyező
+ *     AMO + ANUM → az ELSŐ csak feljegyzés, és legalább 15 perccel később egy
+ *     MEGERŐSÍTŐ 00 ugyanazzal az ANUM-mal → lezárt, könyvelés (a nem
+ *     fizethető ügylet könyvelési árva + riasztás lesz, csendben soha);
+ *     minden más → visszalépés (15 perc × 2^n, legfeljebb 6 óra).
+ *
+ * ⚠️ 2026-10-04 (a PR-5 1. javítóköre, BLOKKOLÓ):
+ *   (1) eddig BÁRMELY elutasító kód (02, 05, 96, R0…) „nem terhelt"-et
+ *       jelentett — egy FELDOLGOZOTT (terhelt) MSGT32 után, amelynek válasza
+ *       elveszett, egy technikai MSGT33-kód a fuvart újra fizethetővé tette,
+ *       és a feladó „nem terheltük" levelet kapott: KÉT terhelt TrID egy
+ *       díjra. A banki dokumentáció szerint a reverzál jele a TO; minden más
+ *       kód (elutasított eredetű zárás kivételével) nem dönt — riasztás +
+ *       visszalépés, a fuvar fagyva marad;
+ *   (2) eddig egyetlen 00 könyvelt — de a le nem zárt jóváhagyásra is 00 jön,
+ *       amíg a bank nem reverzál. Most az első 00 után legalább 15 perccel
+ *       egy megerősítő 00 kell ugyanazzal az ANUM-mal (a reverzál addigra
+ *       mérhetően lezajlik); eltérő ANUM → riasztás, ember dönt.
  * MSGT32 ITT SOHA nem megy ki.
  */
 async function closeUnknownLepes(sor, berlo, b, ctx) {
@@ -2043,6 +2145,11 @@ async function closeUnknownLepes(sor, berlo, b, ctx) {
   await ketesLett(trid, r.ok || 'close_unknown');
   if (h.most < h.egyeztetes) {
     return kovetkezo(trid, berlo, 'to_timestamp($3::double precision)', [h.egyeztetes / 1000]);
+  }
+  // A megerősítő lekérdezés legkorábban az első 00 + 15 perc (a DB órájával).
+  const elso = r.egyeztetes_elso_00 && typeof r.egyeztetes_elso_00 === 'object' ? r.egyeztetes_elso_00 : null;
+  if (elso && h.megerositesTol != null && h.most < h.megerositesTol) {
+    return kovetkezo(trid, berlo, 'to_timestamp($3::double precision)', [h.megerositesTol / 1000]);
   }
   if (visszalepesAktiv()) {
     return kovetkezo(trid, berlo, 'to_timestamp($3::double precision)', [allapot.visszalepes.eddig / 1000]);
@@ -2059,15 +2166,32 @@ async function closeUnknownLepes(sor, berlo, b, ctx) {
   megszakitoJelez(!!k.megszakito, !!v.mezok);
   lekerdezesRendszerJel(k, v);
   if (k.kimenet === 'bank_s') ctx.megszakitva = true;
-  if (k.kimenet === 'lejart' || k.kimenet === 'elutasitva') {
+  // TO: a banki dokumentáció szerinti reverzál-jel. Az elutasító kód CSAK
+  // elutasított eredetű zárásnál dönt (elutasított authorizációból terhelés
+  // nem lehet) — egy jóváhagyott, feldolgozott MSGT32 után egy technikai
+  // MSGT33-kód nem bizonyítja, hogy a kártyát nem terheltük.
+  if (k.kimenet === 'lejart' || (k.kimenet === 'elutasitva' && r.zaras_eredete === 'declined')) {
     const a = k.adatok;
     return egyeztetesNemTerhelt(trid, berlo, {
       rc: a.rc, rt: a.rt, anum: a.anum, amo: a.amo, cur: a.cur, forras: '33_egyeztetes',
     });
   }
-  if (k.kimenet === 'engedelyezve' && k.adatok.anum) return egyeztetesLezarva(trid, berlo, k.adatok);
+  if (k.kimenet === 'engedelyezve' && k.adatok.anum) {
+    if (!elso) return egyeztetesElso00(trid, berlo, k.adatok);
+    if (elso.anum === k.adatok.anum) return egyeztetesLezarva(trid, berlo, k.adatok);
+  }
   if (k.kimenet === 'visszalepes') visszalepesInditasa();
-  // Nem eldönthető (PR, NT, D-kód, hálózat, mezőeltérés, ANUM nélküli 00).
+  // Nem eldönthető (PR, NT, D-kód, hálózat, mezőeltérés, ANUM nélküli 00,
+  // nem-TO elutasító kód, eltérő ANUM). Ami ellentmond a kétes zárásnak (a
+  // bank válasza nem lehet „nem terhelt" és nem is megerősített „lezárt"),
+  // arról ember dönt: riasztás TrID-enként és okonként egyszer (a napi
+  // emlékeztetőt a söprés küldi); a fuvar fagyva, újrafizetés nincs.
+  const ellentmondo = k.kimenet === 'elutasitva' || k.kimenet === 'mezo_elteres'
+    || (k.kimenet === 'engedelyezve' && (!k.adatok.anum || (elso && elso.anum !== k.adatok.anum)));
+  if (ellentmondo) {
+    console.error(`[cib] ${p.maszkoltTrid(trid)}: az egyeztetés nem dönthető (${k.kimenet}${k.adatok && k.adatok.rc ? `:${k.adatok.rc}` : ''}) — ember dönt`);
+    await riaszt(trid, 'egyeztetes_nem_dontheto');
+  }
   const proba = Number(r.egyeztetes_proba || 0) + 1;
   const perc = Math.min(EGYEZTETES_VISSZALEPES_ALAP_PERC * 2 ** (proba - 1), EGYEZTETES_VISSZALEPES_MAX_PERC);
   const kimenet = `${k.kimenet}${(k.adatok && k.adatok.rc) || k.bankRc ? `:${(k.adatok && k.adatok.rc) || k.bankRc}` : ''}`;
@@ -2079,6 +2203,25 @@ async function closeUnknownLepes(sor, berlo, b, ctx) {
       WHERE payment_id = $1 AND cib_state = 'close_unknown' AND cib_lease_owner = $2`,
     [trid, berlo, perc, proba, kimenet],
   );
+  return null;
+}
+
+/**
+ * Egyeztetés: az ELSŐ 00 + ANUM — még NEM könyvelünk (2026-10-04, a PR-5 1.
+ * javítóköre): a le nem zárt jóváhagyásra is 00 jön, amíg a bank nem
+ * reverzál. Feljegyezzük, és legalább 15 perc múlva megerősítő lekérdezés jön.
+ */
+async function egyeztetesElso00(trid, berlo, a) {
+  await db.query(
+    `UPDATE payment_sessions SET cib_next_action_at = NOW() + make_interval(mins => $3::int),
+            cib_last_query_at = NOW(), cib_query_count = cib_query_count + 1,
+            cib_result = COALESCE(cib_result, '{}'::jsonb)
+              || jsonb_build_object('egyeztetes_elso_00', jsonb_build_object('anum', $4::text, 'rt', $5::text, 'at', NOW()))
+      WHERE payment_id = $1 AND cib_state = 'close_unknown' AND state = 'pending' AND cib_lease_owner = $2
+        AND NOT (COALESCE(cib_result, '{}'::jsonb) ? 'egyeztetes_elso_00')`,
+    [trid, berlo, EGYEZTETES_MEGEROSITES_PERC, a.anum, a.rt || null],
+  );
+  console.log(`[cib] ${p.maszkoltTrid(trid)}: az egyeztetés első 00-ja feljegyezve — megerősítés ${EGYEZTETES_MEGEROSITES_PERC} perc múlva`);
   return null;
 }
 
@@ -2115,7 +2258,17 @@ async function egyeztetesLezarva(trid, berlo, a) {
       rc: a.rc, rt: a.rt, anum: a.anum, amo: a.amo, cur: a.cur, forras: '33_egyeztetes', ok: 'egyeztetes_lezarva',
     })],
   );
-  if (!rowCount) return null;
+  if (!rowCount) {
+    // 2026-10-04: a bank TERHELT, de a sor közben kikerült a kétes
+    // állapotból (pl. egy versenyző admin-rendezés) — a banki bizonyíték nem
+    // veszhet el némán.
+    const uzenet = `[cib] 🚨 ${p.maszkoltTrid(trid)}: az egyeztetés szerint a bank lezárta (terhelt), `
+      + 'de a tétel állapota közben megváltozott — az eredmény nem rögzíthető, ember dönt';
+    console.error(uzenet);
+    sentry(uzenet, 'error');
+    await riaszt(trid, 'egyeztetes_iras_utkozes');
+    return null;
+  }
   console.log(`[cib] ✅ ${p.maszkoltTrid(trid)}: az egyeztetés szerint a bank lezárta (closed_ok), MSGT32 nélkül`);
   await konyvel(trid, berlo);
   return null;
@@ -2653,6 +2806,7 @@ async function rendezes(trid, {
               || CASE WHEN $4::boolean THEN jsonb_build_object('closed_at', NOW()) ELSE '{}'::jsonb END,
             cib_lease_until = NULL, cib_lease_owner = NULL
       WHERE payment_id = $1 AND cib_state = 'close_unknown' AND state = 'pending'
+        AND (cib_lease_until IS NULL OR cib_lease_until < NOW())
         AND (NOT $4::boolean
           OR (cib_close_attempts > COALESCE(NULLIF(cib_result->>'zaras_nem_kuldott', '')::int, 0)
               AND EXISTS (SELECT 1 FROM cib_messages m WHERE m.payment_id = payment_sessions.payment_id
@@ -2661,6 +2815,18 @@ async function rendezes(trid, {
     [trid, lezarva ? 'closed_ok' : 'failed', JSON.stringify(adat), lezarva],
   );
   if (!rendezett[0]) {
+    // ⚠️ 2026-10-04 (a PR-5 1. javítóköre): élő bérlet alatt (az automatikus
+    // egyeztetés épp kérdezi a bankot) nem rendezünk — eddig az admin
+    // „nem_lezarva" egy futó, 00-t (terhelést) hozó egyeztetés eredményét
+    // némán felülírta, és a feladót újrafizetésre hívtuk.
+    const { rowCount: berelt } = await db.query(
+      `SELECT 1 FROM payment_sessions WHERE payment_id = $1 AND cib_state = 'close_unknown' AND state = 'pending'
+          AND cib_lease_until IS NOT NULL AND cib_lease_until > NOW()`,
+      [trid],
+    );
+    if (berelt) {
+      return { http: 409, body: { error: 'A tételen épp dolgozik a rendszer (banki egyeztetés) — próbáld újra egy perc múlva.', code: 'CIB_ROW_BUSY' } };
+    }
     if (lezarva) {
       const { rowCount: zarasNelkul } = await db.query(
         `SELECT 1 FROM payment_sessions ps WHERE ps.payment_id = $1 AND ps.cib_state = 'close_unknown' AND ps.state = 'pending'
@@ -2882,22 +3048,34 @@ async function riasztasSopres() {
     [bevezetes, EMLEKEZTETO_ORA],
   );
   if (regiek.length) {
-    const reszletek = regiek.map((s) => `${s.payment_id} (${s.state === 'needs_review' ? 'needs_review' : s.cib_state})`).join(', ');
-    const uzenet = `[cib] ⏰ ${regiek.length} kártyás tétel több mint ${EMLEKEZTETO_ORA} órája rendezetlen: ${reszletek}`;
+    const allapotKod = (s) => (s.state === 'needs_review' ? 'needs_review' : s.cib_state);
+    const reszletek = regiek.map((s) => `${s.payment_id} (${allapotKod(s)})`).join(', ');
+    // ⚠️ 2026-10-04 (a PR-5 1. javítóköre): a naplóba és a Sentrybe csak a
+    // MASZKOLT TrID megy (a 16 jegyű szám kártyaszámnak látszhat — a Sentry
+    // kártyaszám-szűrője elnyelné, és a változó üzenet minden nap új issue-t
+    // nyitna); a teljes lista csak a levélbe kerül.
+    const maszkolt = regiek.map((s) => `${p.maszkoltTrid(s.payment_id)} (${allapotKod(s)})`).join(', ');
+    const uzenet = `[cib] ⏰ ${regiek.length} kártyás tétel több mint ${EMLEKEZTETO_ORA} órája rendezetlen: ${maszkolt}`;
     console.error(uzenet);
-    sentry(uzenet, 'warning');
+    sentry(`[cib] ⏰ kártyás tételek több mint ${EMLEKEZTETO_ORA} órája rendezetlenek`, 'warning');
+    let kiment = false;
     try {
-      await email.sendCibRiasztasEmail({
+      // A sendEmail a végleges kiesésnél null-t ad (és maga riaszt).
+      kiment = (await email.sendCibRiasztasEmail({
         to: b.riasztasEmail || 'info@gofuvar.hu', trid: null, jobId: null, ok: 'napi_emlekezteto', reszletek,
-      });
+      })) != null;
     } catch (err) {
       hibak.push(err);
     }
-    await db.query(
-      `UPDATE payment_sessions SET cib_result = COALESCE(cib_result, '{}'::jsonb) || jsonb_build_object('emlekezteto_at', NOW())
-        WHERE payment_id = ANY($1::text[])`,
-      [regiek.map((s) => s.payment_id)],
-    );
+    // A ki nem ment emlékeztető nem jelölődik: a következő söprés újra küldi
+    // (eddig a levél kiesése után 24 órára kimaradt).
+    if (kiment) {
+      await db.query(
+        `UPDATE payment_sessions SET cib_result = COALESCE(cib_result, '{}'::jsonb) || jsonb_build_object('emlekezteto_at', NOW())
+          WHERE payment_id = ANY($1::text[])`,
+        [regiek.map((s) => s.payment_id)],
+      );
+    }
   }
   if (hibak.length) throw hibak[0];
   return { ebresztve, riasztva, emlekeztetve: regiek.length };
@@ -2914,12 +3092,21 @@ async function riasztasSopres() {
  */
 async function arvaKiserletekEllenorzese() {
   const paymentProvider = require('./paymentProvider');
-  if (paymentProvider.usesCibEki()) return { osszes: 0, allapotok: {} };
+  // ⚠️ 2026-10-04 (a PR-5 1. javítóköre): élő konfignál is van árva — a kör
+  // és a riasztás-söprés csak a CIB_BEVEZETES utáni sorokhoz nyúl, így egy az
+  // élesítéskor (recept: CIB_BEVEZETES = aznap) bent maradt, korábbi nem
+  // végső kísérletet (kétes, könyveletlen, felülvizsgálandó) semmi nem látott,
+  // a fuvar pedig fagyva maradt. Ilyenkor csak a bevezetés előtti sorokat
+  // számoljuk.
+  const el = paymentProvider.usesCibEki();
+  const bevezetes = el ? (p.cibBeallitasok().bevezetes || p.CIB_BEVEZETES_ALAP) : null;
   const { rows } = await db.query(
     `SELECT CASE WHEN state = 'needs_review' THEN 'needs_review' ELSE cib_state END AS allapot, COUNT(*)::int AS n
        FROM payment_sessions
       WHERE provider = 'cib' AND cib_state IS NOT NULL AND state IN ('pending', 'needs_review')
+        AND ($1::date IS NULL OR created_at < $1::date)
       GROUP BY 1 ORDER BY 1`,
+    [bevezetes],
   );
   const allapotok = Object.fromEntries(rows.map((r) => [r.allapot, r.n]));
   const osszes = rows.reduce((o, r) => o + r.n, 0);
@@ -2927,9 +3114,13 @@ async function arvaKiserletekEllenorzese() {
   let konfig;
   try { konfig = p.cibKonfig(); } catch { konfig = '?'; }
   const reszletek = rows.map((r) => `${r.allapot}: ${r.n}`).join(', ');
-  const uzenet = `[CIB] 🚨 A CIB EKI nem működik (konfig: ${konfig}, provider: ${paymentProvider.name()}), de ${osszes} `
-    + `nem végső kártyás kísérlet maradt (${reszletek}) — ezeket semmi nem zárja le. Állítsd vissza a CIB-konfigot, `
-    + 'vagy rendezd őket az adminban (Fizetések → CIB: könyvelés / lejáratás / rendezés / visszatérítés).';
+  const uzenet = el
+    ? `[CIB] 🚨 ${osszes} nem végső kártyás kísérlet a CIB_BEVEZETES (${bevezetes}) ELŐTTRŐL (${reszletek}) — `
+      + 'a lekérdező kör ezekhez nem nyúl, semmi nem zárja le őket. Rendezd őket az adminban (Fizetések → CIB: '
+      + 'könyvelés / lejáratás / rendezés / visszatérítés), vagy állítsd korábbra a CIB_BEVEZETES-t.'
+    : `[CIB] 🚨 A CIB EKI nem működik (konfig: ${konfig}, provider: ${paymentProvider.name()}), de ${osszes} `
+      + `nem végső kártyás kísérlet maradt (${reszletek}) — ezeket semmi nem zárja le. Állítsd vissza a CIB-konfigot, `
+      + 'vagy rendezd őket az adminban (Fizetések → CIB: könyvelés / lejáratás / rendezés / visszatérítés).';
   console.error(uzenet);
   sentry(uzenet, 'error');
   const b = p.cibBeallitasok();
@@ -2998,6 +3189,7 @@ function __visszalepesVegeForTests() {
 module.exports = {
   // indítás + böngészős út
   inditCibDijFizetes,
+  ujFizetesSzunetel,
   hopFelhasznal,
   visszateres,
   szemetVisszateresek,

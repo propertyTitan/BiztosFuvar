@@ -22,7 +22,7 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
-const { createRateLimit, writeRateLimit } = require('../middleware/rateLimit');
+const { createRateLimit, writeRateLimit, navigaciosTullepesKezelo } = require('../middleware/rateLimit');
 const { logAdminAccess } = require('../utils/adminAudit');
 const { TRID_RE, cibKonfig } = require('../services/cibProtokoll');
 const cibFizetes = require('../services/cibFizetes');
@@ -44,6 +44,12 @@ const hibaOldalra = (kod) => (_req, res) => {
   banki(res);
   return res.status(303).setHeader('Location', cibFizetes.hibaOldalUrl(kod)).end();
 };
+// A globális (300/perc/IP) limiter ELŐTTÜK fut: túllépéskor ugyanez a 303
+// (2026-10-04, a PR-5 1. javítóköre) — az Express útvonalai kis- és
+// nagybetűre érzéketlenek, az illesztés is az.
+const utvonal = (req) => String(req.path || '').toLowerCase().replace(/\/+$/, '');
+navigaciosTullepesKezelo((req) => utvonal(req) === '/payments/cib/vissza', hibaOldalra('azonositas'));
+navigaciosTullepesKezelo((req) => utvonal(req).startsWith('/payments/cib/tovabb/'), hibaOldalra('link'));
 const cibTovabbLimit = createRateLimit({
   windowMs: 60_000,
   max: 30,

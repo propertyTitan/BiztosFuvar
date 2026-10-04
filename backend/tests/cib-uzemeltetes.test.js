@@ -555,6 +555,37 @@ describe('Ütemezés (index.js)', () => {
     }
   });
 
+  it('jövőbeli CIB_BEVEZETES induláskor („hibas"): a kör és a figyelő MÉGIS ütemezett — a dátum napján magától dolgozik', async () => {
+    // 2026-10-04 (a PR-5 1. javítóköre, BLOKKOLÓ): a konfig naponta újraold,
+    // így a jövőbeli dátum napján „teljes" lesz — de a kör eddig csak teljes
+    // BOOT-konfignál ütemeződött: az újraindításig a /pay 503 maradt, a függő
+    // tételek nem záródtak, és semmi nem riasztott.
+    const { cibKonfig } = require('../src/services/cibProtokoll');
+    const holnap = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+    const vissza = beallitEnv({ CIB_KOR_TICK_MS: '17000', CIB_BEVEZETES: holnap });
+    const k = kemkedo();
+    try {
+      expect(cibKonfig(), 'a teszt nem a „hibas" (jövőbeli dátum) konfigot állította elő').toBe('hibas');
+      const idozitesek = bootIdozitesek();
+      const tick = idozitesek.filter((i) => i.ms === 17000);
+      expect(tick, 'a „hibas" boot-konfig a kört az újraindításig kikapcsolta').toHaveLength(1);
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date(Date.now() + 2 * 86400000));
+      try {
+        expect(cibKonfig(), 'a dátum napján a konfig nem lett teljes').toBe('teljes');
+        await tick[0].fn();
+        await futtatCibIdozitok(idozitesek.filter((x) => x.ms === 60_000));
+      } finally {
+        vi.useRealTimers();
+      }
+      expect(k.hivas.kor, 'a tick callbackje nem a lekérdező kört futtatja').toBe(1);
+      expect(k.hivas.figyelo, 'nincs szívverés-figyelő').toBeGreaterThanOrEqual(1);
+    } finally {
+      k.vissza();
+      vissza();
+    }
+  });
+
   it('CIB-konfig nélkül (ma a Railway-en) a kör el sem indul', async () => {
     const { KOTELEZO_ENV, cibKonfig } = require('../src/services/cibProtokoll');
     const vissza = beallitEnv({

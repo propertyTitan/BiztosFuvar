@@ -612,23 +612,35 @@ if (process.env.DATABASE_URL) {
 
   // CIB EKI LEKÉRDEZŐ KÖR (2026-09-29, CIB PR-2/B): nincs banki webhook — a
   // jóváhagyott kártyás díjat a GoFuvarnak kell a banki ablakon belül
-  // lezárnia. CSAK teljes CIB-konfignál ütemezzük (ma, CIB-env nélkül el sem
-  // indul). A tick a memóriabeli szívverést is frissíti: a /pay csak friss
+  // lezárnia. CIB-env nélkül el sem indul (lásd a 2026-10-04-i pontosítást
+  // lent). A tick a memóriabeli szívverést is frissíti: a /pay csak friss
   // szívverés mellett indít új engedélyeztetést. Ha 3 percig nincs tick
   // (elakadt kör, összeomlási ciklus), riasztunk — a fizetés addig 503.
   // 2026-09-29 (PR-2/C): a szívverés-figyelő a cibLekerdezo-ban él (tesztelt:
   // az indulás óta SOHA le nem futó kört is jelzi, Sentry MELLETT levélben),
   // és ugyanazon a közös burkolón fut; ugyanez a kör pótolja 5 percenként az
   // elveszett díjfizetés utáni értesítéseket.
-  if (require('./services/paymentProvider').usesCibEki()) {
+  // ⚠️ 2026-10-04 (a PR-5 1. javítóköre, BLOKKOLÓ): nem csak teljes, hanem
+  // HIBÁS boot-konfignál is ütemezzük (a kör és a figyelő maga is
+  // usesCibEki-re vizsgál, addig üresjáratban fut). Egy jövőbeli
+  // CIB_BEVEZETES (elgépelés, vagy éjféli élesítés az UTC-napváltás előtt) a
+  // konfigot „hibas"-sá teszi, ami a dátum napján MAGÁTÓL „teljes" lesz (a
+  // konfig naponta újraold) — eddig a kör ilyenkor az újraindításig el sem
+  // indult: a /pay 503 maradt, a függő tételek nem záródtak, és semmi nem
+  // riasztott. A 'nincs' konfig (CIB-env nélkül) az env módosításáig — azaz
+  // újraindításig — nem változhat, ott a kör most sem indul.
+  const cibProvider = require('./services/paymentProvider');
+  const cibBootKonfig = require('./services/cibProtokoll').cibBeallitasok();
+  if (cibProvider.name() === 'cib' && cibBootKonfig.allapot !== 'nincs' && cibBootKonfig.hangolok) {
     const { runCibKor } = require('./services/cibLekerdezo');
-    const cibTickMs = require('./services/cibProtokoll').cibBeallitasok().hangolok.korTickMs;
+    const cibTickMs = cibBootKonfig.hangolok.korTickMs;
     const cibKor = utemezettKor('cib-lekerdezes', runCibKor);
     setTimeout(cibKor, 10 * 1000).unref();
     setInterval(cibKor, cibTickMs).unref();
     const cibSzivFigyelo = utemezettKor('cib-szivveres', async () => require('./services/cibLekerdezo').szivveresFigyelo());
     setInterval(cibSzivFigyelo, 60 * 1000).unref();
-    console.log(`[cib-lekerdezes] CIB lekérdező kör ütemezve (${Math.round(cibTickMs / 1000)} mp) + szívverés-figyelő`);
+    console.log(`[cib-lekerdezes] CIB lekérdező kör ütemezve (${Math.round(cibTickMs / 1000)} mp) + szívverés-figyelő`
+      + (cibBootKonfig.allapot === 'teljes' ? '' : ' — a konfig MOST hibás: üresjárat, amíg teljes nem lesz'));
   }
   // KONFIG NÉLKÜL MARADT KÁRTYÁS KÍSÉRLETEK (2026-10-03, CIB PR-5): ha a CIB
   // EKI nem él (a CIB_* sorok törlése, hibás konfig, provider-váltás), de

@@ -270,6 +270,37 @@ describe('Szünet-kapcsoló: CIB_UJ_FIZETES_TILTVA', () => {
     }
     expect(p.OLVASOTT_ENV).toContain('CIB_UJ_FIZETES_TILTVA');
   });
+
+  it('szünet alatt a CIB-nyilatkozat nélküli /pay is 503 CIB_PAUSED (nem „fogadd el a nyilatkozatot")', async () => {
+    const vissza = beallitEnv({ CIB_UJ_FIZETES_TILTVA: 'true' });
+    try {
+      const c = await elfogadottFuvar();
+      for (const body of [{ consent: true }, {}]) {
+        const r = await fizet(c.felado, c.job, body);
+        expect(r.status, `szünet alatt ${JSON.stringify(body)} → ${JSON.stringify(r.body)}`).toBe(503);
+        expect(r.body.code).toBe('CIB_PAUSED');
+      }
+      expect((await jobSor(c.job.id)).fee_consent_at, 'szünet alatt a nyilatkozat rögzült').toBeNull();
+    } finally {
+      vissza();
+    }
+  });
+
+  it('érvénytelen szünet-érték (pl. „yes") → SZÜNET (fail-closed) + hangos hiba', () => {
+    const env = bank.env({ CIB_BEVEZETES: '2026-01-01' });
+    for (const ertek of ['yes', 'on', 'tru']) {
+      const b = p.cibBeallitasok({ ...env, CIB_UJ_FIZETES_TILTVA: ertek });
+      expect(b.ujFizetesTiltva, `CIB_UJ_FIZETES_TILTVA=${ertek} mellett új banki zárolások indulnának`).toBe(true);
+    }
+    expect(p.cibBeallitasok({ ...env, CIB_UJ_FIZETES_TILTVA: 'false' }).ujFizetesTiltva).toBe(false);
+    expect(p.cibBeallitasok({ ...env, CIB_SIKERTELEN_LEZARAS: 'yes' }).sikertelenLezaras, 'más kapcsoló marad').toBe(true);
+    const hibak = [];
+    const sentry = { captureMessage: (m, szint) => hibak.push({ m, szint }) };
+    const konzol = { log() {}, warn() {}, error: (m) => hibak.push({ m, szint: 'konzol' }) };
+    p.naplozCibKonfigot({ env: { ...env, CIB_UJ_FIZETES_TILTVA: 'yes' }, konzol, sentry });
+    expect(hibak.some((h) => h.szint === 'error' && /CIB_UJ_FIZETES_TILTVA/.test(h.m)), 'nincs Sentry error').toBe(true);
+    expect(hibak.some((h) => h.szint === 'konzol' && /CIB_UJ_FIZETES_TILTVA/.test(h.m))).toBe(true);
+  });
 });
 
 // =====================================================================
@@ -300,6 +331,25 @@ describe('Konfig nélkül maradt függő kísérletek', () => {
     expect(r2.osszes).toBe(0);
     expect(LEVELEK.filter((x) => x.ok === 'arva_kiserletek')).toHaveLength(0);
     expect(ta).toBeTruthy();
+  });
+
+  it('élő konfig mellett a bevezetés (CIB_BEVEZETES) előtti nem végső kísérlet is riaszt — azt a kör nem látja', async () => {
+    const a = await elfogadottFuvar();
+    const ta = await bankOldalon(a.felado, a.job);
+    await db.query(`UPDATE payment_sessions SET cib_state = 'close_unknown', created_at = '2025-12-15T12:00:00Z'
+                    WHERE payment_id = $1`, [ta]);
+    const hiba = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const r = await cf().arvaKiserletekEllenorzese();
+      expect(r.osszes, 'a bevezetés előtti függő kísérlet láthatatlan').toBeGreaterThanOrEqual(1);
+      const l = LEVELEK.filter((x) => x.nev === 'sendCibRiasztasEmail' && x.ok === 'arva_kiserletek');
+      expect(l).toHaveLength(1);
+      expect(JSON.stringify(l[0])).toMatch(/close_unknown/);
+      expect(hiba.mock.calls.some((c) => /CIB_BEVEZETES/.test(String(c[0])))).toBe(true);
+    } finally {
+      hiba.mockRestore();
+      await db.query(`UPDATE payment_sessions SET state = 'closed', cib_state = 'expired' WHERE payment_id = $1`, [ta]);
+    }
   });
 
   it('konfig nélküli admin-műveletek: könyvelés, lejáratás (MSGT32 nélkül), kétesre állítás (kiment MSGT32), rendezés', async () => {
@@ -392,7 +442,7 @@ describe('Hangolók és a 9:30-as ablak', () => {
       .toBeLessThanOrEqual(h.zarasHataridoMp * 1000 - 30000);
     expect(szuk.figyelmeztetesek.join(' ')).toMatch(/ablak/);
     expect(p.cibBeallitasok({ ...env, CIB_ZARAS_HATARIDO_MP: '300' }).hangolok.zarasHataridoMp).toBe(300);
-    expect(p.cibBeallitasok({ ...env, CIB_EGYEZTETES_PERC: '5' }).hangolok.egyeztetesPerc).toBe(20);
+    expect(p.cibBeallitasok({ ...env, CIB_EGYEZTETES_PERC: '5' }).hangolok.egyeztetesPerc).toBe(25);
     expect(p.cibBeallitasok({ ...env, CIB_EGYEZTETES_PERC: '30' }).hangolok.egyeztetesPerc).toBe(30);
     expect(p.OLVASOTT_ENV).toContain('CIB_EGYEZTETES_PERC');
   });

@@ -32,7 +32,8 @@ const FAGYASZTO_ALLAPOTOK = Object.freeze(['authorized', 'closing', 'close_unkno
 const FAGYASZTVA_KOD = 'CIB_PAYMENT_FINISHING';
 const FAGYASZTVA_UZENET = 'A kártyás fizetésed épp lezárul — próbáld újra egy perc múlva.';
 // 2026-10-03 (PR-5/B): a kétes (close_unknown) zárás egyeztetése nem „egy
-// perc": az automatikus egyeztetés a MSGT10 után ~20 perccel indul, a kézi
+// perc": az automatikus egyeztetés az utolsó MSGT32 után ~25 perccel indul
+// (2026-10-04 óta a „lezárt"-hoz még egy, 15 perccel későbbi megerősítés), a kézi
 // rendezés legkésőbb 1 munkanap. Eddig ugyanaz a „próbáld újra egy perc
 // múlva" ment rá, napokig — és a szállítónak, az adminnak is „a kártyás
 // fizetésed"-et mondtuk, holott a feladó fizetéséről van szó.

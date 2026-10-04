@@ -960,6 +960,26 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   // ELŐTT ellenőrizzük (2026-10-01). A döntés tiszta konfig + felhasználó —
   // írás és banki hívás nincs benne.
   const ut = paymentProvider.fizetesiUt(req.user.sub);
+  // A kupon csak olvasva dönt (beváltás nélkül) — a szünet és a CIB-nyilatkozat
+  // kapuja is ezt nézi, MINDEN DB-írás előtt.
+  let kuponVan = null;
+  const kuponElerheto = async () => {
+    if (kuponVan === null) {
+      const dij = j.connection_fee_huf != null
+        ? Number(j.connection_fee_huf)
+        : calculateConnectionFee(j.accepted_price_huf || j.suggested_price_huf || 0);
+      kuponVan = await vanFelhasznalhatoKupon(req.user.sub, dij);
+    }
+    return kuponVan;
+  };
+  // 2026-10-04 (a PR-5 1. javítóköre, C2): a SZÜNET a nyilatkozat-kapuk ELŐTT
+  // dönt — eddig a CIB-nyilatkozat nélküli kérés szünet alatt 400-at kapott
+  // („fogadd el a nyilatkozatot"), majd elfogadva 503-at, és a 45/2014-es
+  // nyilatkozat közben rögzült. A kupon a szünetben is működik (C2).
+  if (ut === 'cib' && cibFizetes.ujFizetesSzunetel() && !(await kuponElerheto())) {
+    const k = cibFizetes.hibaValasz('CIB_PAUSED');
+    return res.status(k.http).json(k.body);
+  }
 
   // FOGYASZTÓVÉDELMI KAPU a fizetés INDÍTÁSAKOR: a feladó kifejezetten kéri
   // az azonnali teljesítést és tudomásul veszi az elállási jog elvesztését
@@ -981,10 +1001,7 @@ router.post('/:id/pay', authRequired, writeRateLimit, async (req, res) => {
   // közben elfogy, a CIB-indítás maga is visszadobja a nyilatkozat nélküli
   // kérést (inditCibDijFizetes) — banki kísérlet nélküle nem indul.
   if (ut === 'cib' && req.body?.cib_adatkezelesi_hozzajarulas !== true) {
-    const dij = j.connection_fee_huf != null
-      ? Number(j.connection_fee_huf)
-      : calculateConnectionFee(j.accepted_price_huf || j.suggested_price_huf || 0);
-    if (!(await vanFelhasznalhatoKupon(req.user.sub, dij))) {
+    if (!(await kuponElerheto())) {
       const k = cibFizetes.hibaValasz('CIB_CONSENT_REQUIRED');
       return res.status(k.http).json(k.body);
     }

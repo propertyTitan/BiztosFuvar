@@ -3,11 +3,13 @@
 //  (2026-10-03)
 //
 //  Amit ez a fájl őriz (mindegyik tétel a javítás nélkül piros):
-//   * a kétes (close_unknown) kísérlet nem kézi-only: a MSGT10 után
-//     CIB_EGYEZTETES_PERC (alap 20) perccel egy CSAK-OLVASÓ MSGT33 eldönti —
-//     TO → nem terhelt (a fuvar újra fizethető), 00 + ANUM egy KIMENT MSGT32
-//     után → könyvelés (MSGT32 soha), minden más → visszalépés, riasztás
-//     egyszer; MSGT32 nélküli kísérlet 00-ra sem könyvelődik;
+//   * a kétes (close_unknown) kísérlet nem kézi-only: az UTOLSÓ kimenő MSGT32
+//     után CIB_EGYEZTETES_PERC (alap 25, legalább 20) perccel egy CSAK-OLVASÓ
+//     MSGT33 eldönti — TO → nem terhelt (a fuvar újra fizethető), két, ≥15
+//     perc különbségű 00 ugyanazzal az ANUM-mal egy KIMENT MSGT32 után →
+//     könyvelés (MSGT32 soha), a TO-tól eltérő elutasító kód / eltérő ANUM →
+//     riasztás + visszalépés (2026-10-04, 1. javítókör); MSGT32 nélküli
+//     kísérlet 00-ra sem könyvelődik;
 //   * a feladó a kétes kísérletről is értesül („egyeztetjük, ne fizess újra");
 //   * összeomlás a zárási claim és a kimenő MSGT32-naplósor között: a hiányzó
 //     „ki" sor bizonyítja, hogy a MSGT32 el sem ment → nem kétes; az admin
@@ -124,6 +126,22 @@ async function msgt10Ota(trid, mp) {
   await db.query(`UPDATE cib_messages SET created_at = NOW() - make_interval(secs => $2::int)
                    WHERE payment_id = $1 AND direction = 'ki' AND msgt = 10`, [trid, mp]);
 }
+/**
+ * A kétes kísérlet idővonala: a MSGT10 `msgt10Mp`, a (kimenő) MSGT32
+ * `msgt32Mp` másodperce ment ki. 2026-10-04 (javítókör): az egyeztetés
+ * horgonya az UTOLSÓ kimenő MSGT32, nem a MSGT10.
+ */
+async function ketesOta(trid, msgt10Mp, msgt32Mp = msgt10Mp) {
+  await msgt10Ota(trid, msgt10Mp);
+  await db.query(`UPDATE cib_messages SET created_at = NOW() - make_interval(secs => $2::int)
+                   WHERE payment_id = $1 AND direction = 'ki' AND msgt = 32`, [trid, msgt32Mp]);
+}
+/** Az egyeztetés első (megerősítendő) 00-ja `mp` másodperce jött. */
+async function elso00Ota(trid, mp) {
+  await db.query(`UPDATE payment_sessions
+                     SET cib_result = jsonb_set(cib_result, '{egyeztetes_elso_00,at}', to_jsonb(NOW() - make_interval(secs => $2::int)))
+                   WHERE payment_id = $1 AND cib_result ? 'egyeztetes_elso_00'`, [trid, mp]);
+}
 async function kovetkezoMp(trid) {
   const { rows } = await db.query(
     'SELECT EXTRACT(EPOCH FROM (cib_next_action_at - NOW()))::float AS mp FROM payment_sessions WHERE payment_id = $1', [trid],
@@ -144,7 +162,7 @@ const dijAllapot = async (f, job) => (await request(app).get(`/jobs/${job.id}/fe
 
 // =====================================================================
 describe('Automatikus egyeztetés: a kétes kísérlet csak-olvasó MSGT33-mal dől el', () => {
-  it('a MSGT32 válasza elvész, a bank nem zárt: a feladó értesül; 20 perc után TO → nem terhelt, újra fizethető', async () => {
+  it('a MSGT32 válasza elvész, a bank nem zárt: a feladó értesül; az utolsó MSGT32 után 25 perccel TO → nem terhelt, újra fizethető', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
     bank.tridre(trid, 32, [{ lefagy: true, feldolgoz: false }]);
@@ -162,9 +180,15 @@ describe('Automatikus egyeztetés: a kétes kísérlet csak-olvasó MSGT33-mal d
     await esedekes(trid);
     await kor();
     expect(bankDb(trid, 33), 'az egyeztetési idő előtt kérdezett').toBe(elotte33);
+    // A horgony az UTOLSÓ kimenő MSGT32, nem a MSGT10: a MSGT10 után 29, a
+    // MSGT32 után 20 perccel még nem kérdezünk (a régi szabály már kérdezett).
+    await ketesOta(trid, 29 * 60, 20 * 60);
+    await esedekes(trid);
+    await kor();
+    expect(bankDb(trid, 33), 'az utolsó MSGT32 után 25 percen belül kérdezett').toBe(elotte33);
 
-    // 21 perccel a MSGT10 után a bank már visszafordította: TO.
-    await msgt10Ota(trid, 21 * 60);
+    // 26 perccel az utolsó MSGT32 után a bank már visszafordította: TO.
+    await ketesOta(trid, 35 * 60, 26 * 60);
     bank.tridre(trid, 33, [{ rc: 'TO' }]);
     await esedekes(trid);
     await kor();
@@ -189,16 +213,35 @@ describe('Automatikus egyeztetés: a kétes kísérlet csak-olvasó MSGT33-mal d
     expect(uj.status, JSON.stringify(uj.body)).toBe(200);
   });
 
-  it('a MSGT32 feldolgozva, a válasz elvész (a bank terhelt): 20 perc után MSGT33 00 + ANUM → könyvelve, MSGT32 nélkül', async () => {
+  it('a MSGT32 feldolgozva, a válasz elvész (a bank terhelt): két, ≥15 perc különbségű 00 + ugyanaz az ANUM → könyvelve, MSGT32 nélkül', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
     bank.tridre(trid, 32, [{ bont: true }]);
     await visszater(trid);
     expect((await sor(trid)).cib_state).toBe('close_unknown');
-    await msgt10Ota(trid, 21 * 60);
+    const elotte33 = bankDb(trid, 33);
+    await ketesOta(trid, 35 * 60, 26 * 60);
     await esedekes(trid);
     await kor();
     await cf().varjHatterre();
+    // Az első 00 csak feljegyzés: egy le nem zárt jóváhagyásra is 00 jön, amíg
+    // a bank nem reverzál — könyvelni csak a megerősítő 00 után szabad.
+    let elso = await sor(trid);
+    expect(elso, 'egyetlen egyeztető 00-ra könyvelt').toMatchObject({ cib_state: 'close_unknown', state: 'pending' });
+    expect(elso.cib_result.egyeztetes_elso_00).toMatchObject({ anum: bank.tranzakciok.get(trid).anum });
+    expect(await kovetkezoMp(trid), 'a megerősítő lekérdezés 15 percen belül esedékes').toBeGreaterThan(14 * 60);
+    expect((await jobSor(job.id)).paid_at).toBeNull();
+    // Esedékessé téve, de a 15 perc még nem telt le: újabb 00-ra sem könyvel.
+    await esedekes(trid);
+    await kor();
+    await cf().varjHatterre();
+    elso = await sor(trid);
+    expect(elso.state, 'a megerősítés a 15 perc előtt könyvelt').toBe('pending');
+    await elso00Ota(trid, 16 * 60);
+    await esedekes(trid);
+    await kor();
+    await cf().varjHatterre();
+    expect(bankDb(trid, 33)).toBeGreaterThanOrEqual(elotte33 + 2);
     const s = await sor(trid);
     expect(s, 'a bank által lezárt kétes kísérlet nem könyvelődött').toMatchObject({ cib_state: 'closed_ok', state: 'succeeded' });
     expect(s.cib_result).toMatchObject({ rc: '00', anum: bank.tranzakciok.get(trid).anum });
@@ -216,7 +259,7 @@ describe('Automatikus egyeztetés: a kétes kísérlet csak-olvasó MSGT33-mal d
     bank.tridre(trid, 32, [{ lefagy: true, feldolgoz: false }]);
     await visszater(trid);
     const elotte33 = bankDb(trid, 33);
-    await msgt10Ota(trid, 21 * 60);
+    await ketesOta(trid, 35 * 60, 26 * 60);
     bank.tridre(trid, 33, [{ rc: 'NT' }]);
     await esedekes(trid);
     await kor();
@@ -251,7 +294,10 @@ describe('Automatikus egyeztetés: a kétes kísérlet csak-olvasó MSGT33-mal d
     bank.tridre(trid, 32, [{ bont: true }]);
     await visszater(trid);
     await db.query(`UPDATE jobs SET status = 'cancelled' WHERE id = $1`, [job.id]);
-    await msgt10Ota(trid, 21 * 60);
+    await ketesOta(trid, 35 * 60, 26 * 60);
+    await esedekes(trid);
+    await kor();
+    await elso00Ota(trid, 16 * 60);
     await esedekes(trid);
     await kor();
     await cf().varjHatterre();
@@ -259,6 +305,117 @@ describe('Automatikus egyeztetés: a kétes kísérlet csak-olvasó MSGT33-mal d
     expect(s.state).toBe('needs_review');
     expect(riasztasok(trid).map((l) => l.ok)).toContain('konyvelesi_arva');
     expect(bankDb(trid, 32)).toBe(1);
+  });
+});
+
+// =====================================================================
+//  2026-10-04 (a PR-5 1. javítóköre, BLOKKOLÓ): az egyeztetés csak a banki
+//  dokumentáció szerinti reverzál-jelre (TO) dönt „nem terhelt"-et, és a
+//  „lezárt"-at két, időben távoli 00 erősíti meg.
+// =====================================================================
+describe('Egyeztetés: csak a TO „nem terhelt", a 00-t megerősítjük', () => {
+  it('terhelt kétes kísérlet: az egyeztető MSGT33 nem-TO elutasító kódja (02, 96) NEM „nem terhelt" — kétes marad, riaszt, nem fizethető újra', async () => {
+    const { felado, job } = await elfogadottFuvar();
+    const trid = await bankOldalon(felado, job);
+    // A bank a MSGT32-t FELDOLGOZTA (terhelt), a válasz elveszett.
+    bank.tridre(trid, 32, [{ bont: true }]);
+    await visszater(trid);
+    expect((await sor(trid)).cib_state).toBe('close_unknown');
+    for (const rc of ['02', '96']) {
+      await ketesOta(trid, 40 * 60, 30 * 60);
+      bank.tridre(trid, 33, [{ rc }]);
+      await esedekes(trid);
+      await kor();
+      await cf().varjHatterre();
+      const s = await sor(trid);
+      expect(s, `az egyeztető MSGT33 RC=${rc}-ja „nem terhelt"-ként zárta a terhelt kísérletet`)
+        .toMatchObject({ cib_state: 'close_unknown', state: 'pending' });
+      expect(await kovetkezoMp(trid), 'a nem eldönthető egyeztetés után nincs visszalépés').toBeGreaterThan(5 * 60);
+    }
+    expect(feladoLevelek(job.id, 'bank_visszaforditotta'), 'a feladó hamis „nem terheltük" levelet kapott').toHaveLength(0);
+    expect(riasztasok(trid).map((l) => l.ok), 'a nem eldönthető banki kódról nincs riasztás')
+      .toContain('egyeztetes_nem_dontheto');
+    const fp = await dijAllapot(felado, job);
+    expect(fp.can_pay, 'a terhelt kétes kísérlet mellett újra fizethető (kettős terhelés)').toBe(false);
+    expect((await fizet(felado, job)).status).not.toBe(200);
+    expect(bankDb(trid, 32)).toBe(1);
+    expect((await jobSor(job.id)).paid_at).toBeNull();
+  });
+
+  it('CIB_EGYEZTETES_PERC 20 perc alatt nem fogadható el (alap 25)', () => {
+    const p = require('../src/services/cibProtokoll');
+    const env = bank.env({ CIB_BEVEZETES: '2026-01-01' });
+    const h = (perc) => p.cibBeallitasok({ ...env, CIB_EGYEZTETES_PERC: perc }).hangolok.egyeztetesPerc;
+    expect(h('12'), 'a 12 perc a mért reverzál-időn belül van').toBe(25);
+    expect(h('19')).toBe(25);
+    expect(h('20')).toBe(20);
+    expect(h(undefined)).toBe(25);
+  });
+
+  it('a MSGT32 nem ért a bankhoz, a bank (még) 00-t ad: egyetlen 00 nem könyvel — a megerősítő lekérdezés TO → nem terhelt', async () => {
+    const { felado, job } = await elfogadottFuvar();
+    const trid = await bankOldalon(felado, job);
+    bank.tridre(trid, 32, [{ lefagy: true, feldolgoz: false }]);
+    await visszater(trid);
+    expect((await sor(trid)).cib_state).toBe('close_unknown');
+    // A régi szabály (MSGT10 + 20 perc) itt már kérdezett, és a 00-ra könyvelt.
+    await ketesOta(trid, 21 * 60, 20 * 60);
+    await esedekes(trid);
+    await kor();
+    await cf().varjHatterre();
+    expect((await jobSor(job.id)).paid_at, 'a le nem zárt (még nem reverzált) jóváhagyás 00-jára könyveltünk').toBeNull();
+    // 26 perccel az utolsó MSGT32 után: az első 00 csak feljegyzés.
+    await ketesOta(trid, 27 * 60, 26 * 60);
+    await esedekes(trid);
+    await kor();
+    await cf().varjHatterre();
+    let s = await sor(trid);
+    expect(s).toMatchObject({ cib_state: 'close_unknown', state: 'pending' });
+    expect(s.cib_result.egyeztetes_elso_00).toBeTruthy();
+    expect((await jobSor(job.id)).paid_at).toBeNull();
+    // A bank közben reverzált: a megerősítő lekérdezés TO.
+    await elso00Ota(trid, 16 * 60);
+    bank.tridre(trid, 33, [{ rc: 'TO' }]);
+    await esedekes(trid);
+    await kor();
+    await cf().varjHatterre();
+    s = await sor(trid);
+    expect(s).toMatchObject({ cib_state: 'expired', state: 'closed' });
+    expect(s.cib_result.ok).toBe('bank_visszaforditotta');
+    expect((await jobSor(job.id)).paid_at).toBeNull();
+    expect(bankDb(trid, 32)).toBe(1);
+  });
+
+  it('a megerősítő 00 más ANUM-mal jön: nem könyvel, riaszt (ember dönt)', async () => {
+    const { felado, job } = await elfogadottFuvar();
+    const trid = await bankOldalon(felado, job);
+    bank.tridre(trid, 32, [{ bont: true }]);
+    await visszater(trid);
+    await ketesOta(trid, 35 * 60, 26 * 60);
+    await esedekes(trid);
+    await kor();
+    bank.tranzakciok.get(trid).anum = '999999';
+    await elso00Ota(trid, 16 * 60);
+    await esedekes(trid);
+    await kor();
+    await cf().varjHatterre();
+    expect(await sor(trid)).toMatchObject({ cib_state: 'close_unknown', state: 'pending' });
+    expect((await jobSor(job.id)).paid_at).toBeNull();
+    expect(riasztasok(trid).map((l) => l.ok)).toContain('egyeztetes_nem_dontheto');
+  });
+
+  it('összeomlás a „nem terhelt" rögzítése és az értesítés között: a kör pótolja a feladó értesítését (I8)', async () => {
+    const { felado, job } = await elfogadottFuvar();
+    const trid = await bankOldalon(felado, job);
+    await db.query(`UPDATE payment_sessions SET cib_state = 'expired', cib_next_action_at = NOW() - INTERVAL '1 second',
+                    cib_result = COALESCE(cib_result, '{}'::jsonb) || jsonb_build_object('ok', 'bank_visszaforditotta')
+                    WHERE payment_id = $1`, [trid]);
+    await kor();
+    await cf().varjHatterre();
+    expect((await sor(trid)).state).toBe('closed');
+    expect(feladoLevelek(job.id, 'bank_visszaforditotta'), 'az összeomlás után a feladó soha nem kapott értesítést')
+      .toHaveLength(1);
+    expect(INAPP.filter((n) => n.user_id === felado.id && n.type === 'payment_not_charged')).toHaveLength(1);
   });
 });
 
@@ -422,12 +579,56 @@ describe('Riasztások: tartósak, a könyvelési hiba és az árva is riaszt, na
     await visszater(trid);
     await db.query(`UPDATE payment_sessions SET cib_result = cib_result || jsonb_build_object('riasztas_at', NOW() - INTERVAL '25 hours')
                     WHERE payment_id = $1`, [trid]);
-    await cf().riasztasSopres();
+    // 2026-10-04 (javítókör): a levél kiesése után az emlékeztető nem
+    // jelölődik — a következő söprés újra küldi (eddig 24 órára kimaradt).
+    const eredetiLevel = emailSzolg.sendCibRiasztasEmail;
+    emailSzolg.sendCibRiasztasEmail = async () => { throw new Error('Resend 503'); };
+    try {
+      await expect(cf().riasztasSopres()).rejects.toThrow(/Resend/);
+    } finally {
+      emailSzolg.sendCibRiasztasEmail = eredetiLevel;
+    }
+    expect((await sor(trid)).cib_result.emlekezteto_at, 'a ki nem ment emlékeztető jelölve').toBeUndefined();
+    const hiba = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await cf().riasztasSopres();
+      // A naplóba és a Sentrybe csak maszkolt TrID megy (a 16 jegyű szám
+      // kártyaszámnak látszhat); a teljes lista csak a levélben.
+      expect(hiba.mock.calls.some((c) => c.some((x) => String(x).includes(trid))), 'teljes TrID a naplóban').toBe(false);
+    } finally {
+      hiba.mockRestore();
+    }
     const e = rendszerRiasztasok('napi_emlekezteto');
     expect(e, 'a napokig rendezetlen kétes tételről nincs emlékeztető').toHaveLength(1);
     expect(JSON.stringify(e[0])).toContain(trid);
     await cf().riasztasSopres();
     expect(rendszerRiasztasok('napi_emlekezteto')).toHaveLength(1);
+  });
+
+  it('ha az admin in-app riasztás beszúrása elbukik, a riasztás nem jelölődik — a söprés újraküldi', async () => {
+    await createUser({ role: 'admin' });
+    const { felado, job } = await elfogadottFuvar();
+    const trid = await bankOldalon(felado, job);
+    await kimenoZarasNaplo(trid);
+    await db.query(`UPDATE payment_sessions SET cib_state = 'close_unknown', cib_close_attempts = 1, cib_next_action_at = NULL,
+                    cib_result = COALESCE(cib_result, '{}'::jsonb) || jsonb_build_object('ok', 'zaras_valasz_nelkul')
+                    WHERE payment_id = $1`, [trid]);
+    const eredeti = notifications.createNotification;
+    notifications.createNotification = async (n) => (n.type === 'cib_review' ? null : eredeti(n));
+    try {
+      await cf().riasztasSopres();
+    } finally {
+      notifications.createNotification = eredeti;
+    }
+    expect((await sor(trid)).cib_result.riasztva, 'a tartós nyom nélküli riasztás jelölve (a söprés soha nem pótolja)')
+      .toBeUndefined();
+    // A félbemaradt claim lejárta után a söprés újra riaszt — most tartósan.
+    await db.query(`UPDATE payment_sessions SET cib_result = cib_result
+                      || jsonb_build_object('riasztas_folyamatban', jsonb_build_object('ok', 'zaras_valasz_nelkul', 'at', NOW() - INTERVAL '10 minutes'))
+                    WHERE payment_id = $1`, [trid]);
+    await cf().riasztasSopres();
+    await cf().varjHatterre();
+    expect((await sor(trid)).cib_result.riasztva).toHaveProperty('zaras_valasz_nelkul');
   });
 
   it('a parkoló (next_action NULL), riasztás nélküli régi kétes sort a söprés felébreszti és riaszt', async () => {
@@ -567,6 +768,22 @@ describe('Admin-rendezés: igaz szöveg (C5), kitöltött RT (C6), „ellenorzes
     const fp = await dijAllapot(felado, job);
     expect(fp.last_result).toMatchObject({ allapot: 'nem_terhelt', ok: 'admin_nem_lezarva' });
     expect(fp.can_pay).toBe(true);
+  });
+
+  it('élő bérlet alatt (az egyeztetés épp fut) a rendezés 409 CIB_ROW_BUSY — a futó banki eredmény nem vész el némán', async () => {
+    const admin = await createUser({ role: 'admin' });
+    const { felado, job } = await elfogadottFuvar();
+    const trid = await bankOldalon(felado, job);
+    await kimenoZarasNaplo(trid);
+    await db.query(`UPDATE payment_sessions SET cib_state = 'close_unknown', cib_close_attempts = 1,
+                    cib_lease_owner = 'masik:1', cib_lease_until = NOW() + INTERVAL '1 minute' WHERE payment_id = $1`, [trid]);
+    for (const eredmenyKod of ['nem_lezarva', 'lezarva']) {
+      const r = await request(app).post(`/payments/admin/cib/${trid}/rendezes`).set(...auth(admin))
+        .send({ eredmeny: eredmenyKod, indoklas: 'A bank írásban megerősítette.', anum: 'AB1234' });
+      expect(r.status, `a futó egyeztetés közben „${eredmenyKod}" rendezhető`).toBe(409);
+      expect(r.body.code).toBe('CIB_ROW_BUSY');
+    }
+    expect(await sor(trid)).toMatchObject({ cib_state: 'close_unknown', state: 'pending', cib_lease_owner: 'masik:1' });
   });
 
   it('„lezarva": az RT kitöltött (a bank szokásos szövege, vagy amit az admin megad)', async () => {

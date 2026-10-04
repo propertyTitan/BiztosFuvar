@@ -218,6 +218,27 @@ describe('Külön rate-limit vödrök a publikus CIB-végpontokon', () => {
     expect(utolso.headers['content-type'] || '').not.toMatch(/json/);
     expect(utolso.headers.location).toMatch(/\/fizetes\/eredmeny\?hiba=azonositas$/);
   });
+
+  it('a GLOBÁLIS (300/perc/IP) korlát felett sem nyers JSON a böngésző-navigációs végpontokon: 303 a hibaoldalra', async () => {
+    // 2026-10-04 (javítókör): a végpontonkénti vödrök mellett a globális
+    // limiter ELŐTTÜK fut — közös NAT mögött az eredményoldal 240/perces
+    // kerete a globális keret nagy részét elviheti.
+    const IP = '203.0.113.77';
+    for (let i = 0; i < 300; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await request(app).get('/payments/cib/eredmeny?e=nem-ervenyes').set('X-Forwarded-For', IP);
+    }
+    const v = await request(app).get('/payments/cib/vissza?szemet=1').set('X-Forwarded-For', IP).redirects(0);
+    expect(v.status, 'a bankból visszatérő vásárló nyers 429 JSON-t kapott').toBe(303);
+    expect(v.headers['content-type'] || '').not.toMatch(/json/);
+    expect(v.headers.location).toMatch(/\/fizetes\/eredmeny\?hiba=/);
+    const t = await request(app).get(`/payments/cib/tovabb/${'a'.repeat(43)}`).set('X-Forwarded-For', IP).redirects(0);
+    expect(t.status).toBe(303);
+    expect(t.headers.location).toMatch(/\/fizetes\/eredmeny\?hiba=/);
+    // Minden más végpont a megszokott 429 JSON-t kapja.
+    const m = await request(app).get('/payments/cib/eredmeny?e=x').set('X-Forwarded-For', IP);
+    expect(m.status).toBe(429);
+  });
 });
 
 // =====================================================================
