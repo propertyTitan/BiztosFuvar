@@ -1848,6 +1848,19 @@ function zaras00ValaszSql(a) {
 }
 
 /**
+ * A bank a zárási kérésünket feldolgozta (a kártya terhelt lehet): hiteles
+ * MSGT31 RC=00 a MSGT32-re (zaras00ValaszSql), VAGY a bank D05-tel („a
+ * kéréstípus már ki lett szolgálva") jelezte, hogy egy korábbi MSGT32-t már
+ * feldolgozott. ⚠️ 2026-10-04 (PR-5, a csiszoló kör review-ja): a D05 eddig
+ * nem számított bizonyítéknak — egy admin „nem_lezarva" megerősítés nélkül
+ * újrafizethetővé tette a már terhelt díjat (kettős terhelés).
+ */
+function bankFeldolgoztaSql(a) {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(a)) throw new Error('Érvénytelen alias.');
+  return `(${zaras00ValaszSql(a)} OR (COALESCE(${a}.cib_result, '{}'::jsonb)->>'ok') = 'zaras_d05')`;
+}
+
+/**
  * Az első hiteles MSGT31 RC=00 a zárásra (zaras00ValaszSql), vagy null — az
  * admin-részletek és a „nem_lezarva" rendezés bizonyítéka.
  * @returns {Promise<{at:string, kiserlet:number}|null>}
@@ -1859,8 +1872,14 @@ async function zaras00Valasz(trid) {
       ORDER BY m.id LIMIT 1`,
     [trid],
   );
-  if (!rows[0]) return null;
-  return { at: new Date(rows[0].created_at).toISOString(), kiserlet: Number(rows[0].close_attempt) };
+  if (rows[0]) return { at: new Date(rows[0].created_at).toISOString(), kiserlet: Number(rows[0].close_attempt) };
+  // D05: a bank szerint egy korábbi zárást már feldolgozott — időpont és
+  // kísérletszám a banki naplóból nem köthető hozzá, a jelző a bizonyíték.
+  const { rowCount: d05 } = await db.query(
+    `SELECT 1 FROM payment_sessions WHERE payment_id = $1 AND (COALESCE(cib_result, '{}'::jsonb)->>'ok') = 'zaras_d05'`,
+    [trid],
+  );
+  return d05 ? { at: null, kiserlet: null, d05: true } : null;
 }
 
 /** Bizonyíthatóan kiment-e a kísérlet MSGT32-je (a közös feltétel szerint)? */
@@ -3000,7 +3019,7 @@ async function rendezes(trid, {
         AND (cib_lease_until IS NULL OR cib_lease_until < NOW())
         AND (NOT $4::boolean OR ${zarasKimentSql('payment_sessions')})
         AND ($4::boolean OR $5::boolean OR NOT (COALESCE(cib_result, '{}'::jsonb) ? 'egyeztetes_elso_00'
-                                                OR ${zaras00ValaszSql('payment_sessions')}))
+                                                OR ${bankFeldolgoztaSql('payment_sessions')}))
       RETURNING job_id`,
     [trid, lezarva ? 'closed_ok' : 'failed', JSON.stringify(adat), lezarva, elso00Ellenere === true],
   );
@@ -3060,9 +3079,12 @@ async function rendezes(trid, {
         return {
           http: 409,
           body: {
-            error: `A bank a zárási kérésünkre (MSGT32, ${z.kiserlet}. kísérlet) 00-val válaszolt — a választ nem fogadtuk el `
-              + 'sikerként (pl. eltérő mező), de a bank lezártnak mondta, a kártya terhelt lehet. „Nem lezárva" csak a bank '
-              + 'írásos megerősítése után, kifejezett megerősítéssel rögzíthető.',
+            error: (z.d05
+              ? 'A bank a zárási kérésünkre D05-tel válaszolt („a kéréstípus már ki lett szolgálva") — egy korábbi zárásunkat '
+                + 'már feldolgozta, a kártya terhelt lehet.'
+              : `A bank a zárási kérésünkre (MSGT32, ${z.kiserlet}. kísérlet) 00-val válaszolt — a választ nem fogadtuk el `
+                + 'sikerként (pl. eltérő mező), de a bank lezártnak mondta, a kártya terhelt lehet.')
+              + ' „Nem lezárva" csak a bank írásos megerősítése után, kifejezett megerősítéssel rögzíthető.',
             code: 'CIB_BANK_00_RECORDED',
             zaras_00: z,
           },

@@ -188,6 +188,53 @@ describe('Egyeztetés: D05 után a TO nem dönt', () => {
 });
 
 // =====================================================================
+// 2026-10-04 (PR-5, a csiszoló kör review-ja): a D05 („a kéréstípus már ki
+// lett szolgálva" — a bank egy korábbi zárásunkat feldolgozta) után az admin
+// „nem_lezarva" csak kifejezett megerősítéssel írható — eddig megerősítés
+// nélkül újrafizethetővé tette a már terhelt díjat (kettős terhelés).
+describe('Admin „nem_lezarva" D05 után', () => {
+  async function d05Ketes() {
+    const { felado, job } = await elfogadottFuvar();
+    const trid = await bankOldalon(felado, job);
+    s05DeFeldolgozta(trid);
+    await visszater(trid);
+    bank.horog(null);
+    await esedekes(trid);
+    await kor();
+    await cf().varjHatterre();
+    const s = await sor(trid);
+    expect(s).toMatchObject({ cib_state: 'close_unknown', state: 'pending' });
+    expect(s.cib_result.ok).toBe('zaras_d05');
+    return { felado, job, trid };
+  }
+
+  it('megerősítés nélkül 409 CIB_BANK_00_RECORDED (d05), a díj nem fizethető újra; az admin-részlet mutatja', async () => {
+    const admin = await createUser({ role: 'admin' });
+    const { felado, job, trid } = await d05Ketes();
+    const d = await request(app).get(`/payments/admin/cib/${trid}`).set('Authorization', `Bearer ${admin.token}`);
+    expect(d.status).toBe(200);
+    expect(d.body.zaras_00_valasz).toMatchObject({ d05: true });
+    const r = await request(app).post(`/payments/admin/cib/${trid}/rendezes`).set('Authorization', `Bearer ${admin.token}`)
+      .send({ eredmeny: 'nem_lezarva', indoklas: 'A bank szerint nem zárult le.' });
+    expect(r.status, `D05 után megerősítés nélkül rendezhető: ${JSON.stringify(r.body)}`).toBe(409);
+    expect(r.body.code).toBe('CIB_BANK_00_RECORDED');
+    expect(r.body.zaras_00).toMatchObject({ d05: true });
+    expect((await sor(trid)).cib_state).toBe('close_unknown');
+    expect((await dijAllapot(felado, job)).can_pay).toBe(false);
+  });
+
+  it('kifejezett megerősítéssel rögzíthető', async () => {
+    const admin = await createUser({ role: 'admin' });
+    const { trid } = await d05Ketes();
+    const r = await request(app).post(`/payments/admin/cib/${trid}/rendezes`).set('Authorization', `Bearer ${admin.token}`)
+      .send({ eredmeny: 'nem_lezarva', indoklas: 'A bank írásban: a D05 ellenére nem terhelt.', elso_00_ellenere: true });
+    expect(r.status, JSON.stringify(r.body)).toBe(200);
+    await cf().varjHatterre();
+    expect((await sor(trid)).cib_result).toMatchObject({ ok: 'admin_nem_lezarva', admin_elso_00_ellenere: true });
+  });
+});
+
+// =====================================================================
 describe('Egyeztetés: a párhuzamosan már rögzített eredmény nem riaszt', () => {
   async function megerositesElott() {
     const { felado, job } = await elfogadottFuvar();

@@ -573,10 +573,20 @@ export default function CibFizetesekAdmin() {
                     background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.45)',
                   }}
                 >
-                  <strong>A bank lezártnak mondta:</strong> a zárási kérésünkre (MSGT32
-                  {zaras00.kiserlet ? `, ${zaras00.kiserlet}. kísérlet` : ''}) {ido(zaras00.at)}-kor 00-val válaszolt, de a
-                  választ nem fogadtuk el sikerként (pl. eltérő mező). A kártya terhelt lehet — „Nem lezárva" csak a bank
-                  írásos megerősítése után, a TrID begépelésével rögzíthető.
+                  {zaras00.d05 ? (
+                    <>
+                      <strong>A bank feldolgozottnak mondta:</strong> a zárási kérésünkre D05-tel válaszolt („a kéréstípus
+                      már ki lett szolgálva"), vagyis egy korábbi zárásunkat már feldolgozta.
+                    </>
+                  ) : (
+                    <>
+                      <strong>A bank lezártnak mondta:</strong> a zárási kérésünkre (MSGT32
+                      {zaras00.kiserlet ? `, ${zaras00.kiserlet}. kísérlet` : ''}) {ido(zaras00.at)}-kor 00-val válaszolt, de a
+                      választ nem fogadtuk el sikerként (pl. eltérő mező).
+                    </>
+                  )}
+                  {' '}A kártya terhelt lehet — „Nem lezárva" csak a bank írásos megerősítése után, a TrID begépelésével
+                  rögzíthető.
                 </div>
               )}
 

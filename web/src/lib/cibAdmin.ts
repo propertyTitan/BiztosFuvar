@@ -151,7 +151,7 @@ export function egyeztetesElso00(result: unknown): Elso00 | null {
 }
 
 /** A MSGT32-re kapott hiteles MSGT31 RC=00 a banki naplóban (a backend zaras_00_valasz mezője). */
-export type Zaras00 = { at: string | null; kiserlet: number | null };
+export type Zaras00 = { at: string | null; kiserlet: number | null; d05: boolean };
 
 /**
  * A zárási kérésre kapott banki 00 bizonyítéka, vagy null. 2026-10-03: a
@@ -167,6 +167,8 @@ export function zaras00Valasz(adat: unknown): Zaras00 | null {
   return {
     at: typeof o.at === 'string' ? o.at : null,
     kiserlet: typeof o.kiserlet === 'number' && Number.isFinite(o.kiserlet) ? o.kiserlet : null,
+    // 2026-10-04: D05 — a bank egy korábbi zárásunkat már feldolgozta.
+    d05: o.d05 === true,
   };
 }
 
