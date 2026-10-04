@@ -267,13 +267,32 @@ describe('(a) S05/S04 a MSGT32-re: bizonyítottan fel nem dolgozott zárás', ()
 
 // =====================================================================
 describe('(b) Zárási határidő: a MSGT10-től számított 9 perc 30 mp, DB-órával', () => {
+  // 2026-10-03 (PR-5): 9:10-kor a 30 mp-es várakozás már nem fér a
+  // határidőbe, de egy 5 mp-es újrapróba igen — eddig itt azonnal kézi ügy
+  // (close_unknown) lett. 9:27-kor már az 5 mp sem fér: akkor kétes.
   it.each([
     ['D03', { nyers: 'RC=D03', http: 500 }],
     ['S05', { nyers: 'RC=S05', http: 200 }],
-  ])('fel nem dolgozott zárás (%s) 9:10-kor: az újrapróba a határidőn túl esne → close_unknown (zaras_hatarido), újraküldés nélkül', async (_n, lepes) => {
+  ])('fel nem dolgozott zárás (%s) 9:10-kor: rövid (5 mp-es) újrapróba még a határidőn belül', async (_n, lepes) => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
     await msgt10Ota(trid, 550);
+    bank.tridre(trid, 32, [lepes]);
+    await visszater(trid);
+    const s = await sor(trid);
+    expect(s).toMatchObject({ cib_state: 'authorized', state: 'pending', cib_close_attempts: 1 });
+    expect(await kovetkezoMp(trid)).toBeLessThanOrEqual(6);
+    expect(bankDb(trid, 32)).toBe(1);
+    expect(riasztasok(trid)).toHaveLength(0);
+  });
+
+  it.each([
+    ['D03', { nyers: 'RC=D03', http: 500 }],
+    ['S05', { nyers: 'RC=S05', http: 200 }],
+  ])('fel nem dolgozott zárás (%s) 9:27-kor: az újrapróba a határidőn túl esne → close_unknown (zaras_hatarido), újraküldés nélkül', async (_n, lepes) => {
+    const { felado, job } = await elfogadottFuvar();
+    const trid = await bankOldalon(felado, job);
+    await msgt10Ota(trid, 567);
     bank.tridre(trid, 32, [lepes]);
     await visszater(trid);
     const s = await sor(trid);
@@ -281,7 +300,8 @@ describe('(b) Zárási határidő: a MSGT10-től számított 9 perc 30 mp, DB-ó
       cib_state: 'close_unknown', state: 'pending', cib_close_attempts: 1,
     });
     expect(s.cib_result.ok).toBe('zaras_hatarido');
-    expect(s.cib_next_action_at).toBeNull();
+    // A kétes sor a kör teendő-listáján marad (az automatikus egyeztetéshez).
+    expect(s.cib_next_action_at).not.toBeNull();
     expect(bankDb(trid, 32)).toBe(1);
     expect(riasztasok(trid)).toHaveLength(1);
   });
@@ -386,9 +406,10 @@ describe('(d) Adattovábbítási hozzájárulás a CIB-úton', () => {
     ['1', { consent: true, cib_adatkezelesi_hozzajarulas: 1 }],
     ['null', { consent: true, cib_adatkezelesi_hozzajarulas: null }],
   ])('a nyilatkozat %s → 400 CIB_CONSENT_REQUIRED; nincs DB-írás, nincs banki üzenet', async (_n, body) => {
+    // 2026-10-03 (PR-5, C4): kupon NÉLKÜL — a kuponos rendezéshez a CIB-
+    // nyilatkozat nem kell (a CIB felé semmi nem megy), azt a
+    // cib-pr5-uzem őrzi.
     const { felado, job } = await elfogadottFuvar();
-    await db.query(`INSERT INTO fee_vouchers (user_id, reason, valid_from, valid_until)
-                    VALUES ($1, 'referral', CURRENT_DATE, CURRENT_DATE + 30)`, [felado.id]);
     const elotte = bank.uzenetek.length;
     const r = await fizet(felado, job, body);
     expect(r.status, JSON.stringify(r.body)).toBe(400);
@@ -399,8 +420,6 @@ describe('(d) Adattovábbítási hozzájárulás a CIB-úton', () => {
     const j = await jobSor(job.id);
     expect(j.fee_consent_at, 'a 45/2014-es nyilatkozat a CIB-hozzájárulás nélkül is rögzült').toBeNull();
     expect(j.paid_at).toBeNull();
-    // A kupon sem váltódott be (az is DB-írás lett volna).
-    expect((await db.query('SELECT used_at FROM fee_vouchers WHERE user_id = $1', [felado.id])).rows[0].used_at).toBeNull();
   });
 
   it('a 45/2014-es nyilatkozat hiánya továbbra is CONSENT_REQUIRED (előbb az)', async () => {

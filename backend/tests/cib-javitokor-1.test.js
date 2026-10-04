@@ -226,6 +226,10 @@ describe('Zárás: összeomlás és átmeneti DB-hiba után sem kell ember, ha a
   it('a naplóban nincs bejövő válasz → marad a close_unknown (a helyreállítás nem talál ki eredményt)', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
+    // A kimenő MSGT32-sor megvan (a kérés kiment), csak a válasz nem — 2026-10-03
+    // (PR-5) óta a kimenő sor HIÁNYA „nem küldött"-et jelent (cib-pr5-egyeztetes).
+    await db.query(`INSERT INTO cib_messages (payment_id, direction, msgt, endpoint, raw, close_attempt)
+                    VALUES ($1, 'ki', 32, 'market', 'PID=TST0001&CRYPTO=1&DATA=teszt', 1)`, [trid]);
     await db.query(`UPDATE payment_sessions SET cib_state = 'closing', cib_close_attempts = 1,
                     cib_close_sent_at = NOW() - INTERVAL '10 minutes', cib_next_action_at = NOW() - INTERVAL '1 second',
                     cib_lease_owner = NULL, cib_lease_until = NULL WHERE payment_id = $1`, [trid]);
@@ -431,7 +435,9 @@ describe('Admin: rendezés és újraellenőrzés', () => {
 
 // =====================================================================
 describe('Publikus visszatérés: a szemétforgalom nem tölti a naplót és a Sentryt', () => {
-  it('azonosíthatatlan MSGT21: rövid napló-részlet, a Sentry-jelzés percenként legfeljebb egy', async () => {
+  // 2026-10-03 (PR-5/B): az azonosíthatatlan kérés MÁR NEM ír tartós sort
+  // (eddig rövid napló-részletet írt, de kérésenként egyet — tárhely-felfújás).
+  it('azonosíthatatlan MSGT21: nincs DB-naplósor, a Sentry-jelzés percenként legfeljebb egy', async () => {
     const sentry = require('@sentry/node');
     const eredetiCapture = sentry.captureMessage;
     const jelzesek = [];
@@ -446,8 +452,7 @@ describe('Publikus visszatérés: a szemétforgalom nem tölti a naplót és a S
       }
       const { rows } = await db.query('SELECT char_length(raw) AS h FROM cib_messages WHERE id > $1 AND direction = $2',
         [elotte, 'bongeszo_be']);
-      expect(rows).toHaveLength(3);
-      for (const x of rows) expect(Number(x.h), 'a hitelesítés nélküli végpont 4000 karaktert írt a naplóba').toBeLessThanOrEqual(300);
+      expect(rows, 'a hitelesítés nélküli végpont szemét-kérése tartós naplósort írt').toHaveLength(0);
       expect(jelzesek.filter((m) => /visszatérés/.test(m)), 'minden szemét-kérés Sentry-jelzést küldött').toHaveLength(1);
     } finally {
       vissza();

@@ -7,6 +7,7 @@
 // - A history fiókonként localStorage-ben marad meg (lib/aiHistory.ts),
 //   amíg a user nem törli vagy ki nem jelentkezik
 import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { AI_MESSAGE_MAX_LENGTH, aiErrorText, useAiHistory, type AiMessage } from '@/lib/aiHistory';
@@ -19,8 +20,16 @@ const SUGGESTIONS = [
   'Hogyan működik a lemondás?',
 ];
 
+/**
+ * Ahol a lebegő gomb nem jelenik meg. 2026-10-03 (CIB PR-5): mobilon (390 px)
+ * a kártyás fizetés eredményoldalán eltakarta a kártya utolsó bekezdését (a
+ * banki adatsor és a „Vissza a fuvarhoz" környékét).
+ */
+const REJTETT_UTAK = ['/fizetes/eredmeny'];
+
 export default function AiChatWidget() {
   const user = useCurrentUser();
+  const ut = usePathname();
   const [open, setOpen] = useState(false);
   // Fiókhoz kötött előzmény (audit P1 R1-7, 2026-09-28): a régi globális
   // kulcsot többé nem „migráljuk" — az egy korábbi fiók beszélgetése volt.
@@ -96,6 +105,7 @@ export default function AiChatWidget() {
   }
 
   if (!user) return null; // csak bejelentkezett usernek mutatjuk
+  if (ut && REJTETT_UTAK.some((r) => ut === r || ut.startsWith(`${r}/`))) return null;
   // Amíg a süti-banner takarja az alsó sávot, ne mutassunk lebegő gombot —
   // különben a banner alatt egy nem-kattintható "szellem" gomb látszana.
   if (consentPending) return null;

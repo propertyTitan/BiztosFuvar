@@ -174,7 +174,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <InstallPromptBanner />
           <main className="site-main">
             {/* Teszt-mód jelzés egy helyen, az egész appra — korábban a
-                LandingPage és a bejelentkezés is külön renderelte (duplikáció). */}
+                LandingPage és a bejelentkezés is külön renderelte (duplikáció).
+                2026-10-03 (CIB PR-5): csak a GET /config/public teszt_uzem
+                jelzésére jelenik meg (hibánál semmi) — lásd a komponenst. */}
             <TestModeBanner />
             {children}
           </main>

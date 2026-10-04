@@ -98,10 +98,39 @@ describe('getCibEredmeny — belépés nélkül is', () => {
     expect(window.localStorage.getItem('gofuvar_token')).toBe('tok-1');
   });
 
+  // 2026-10-03 (CIB PR-5, lelet 11): a 429 a szerver kérte várakozást is
+  // továbbadja (a body `retry_after_seconds`-ja; a Retry-After fejléc
+  // cross-origin nem olvasható) — az eredményoldal ehhez lassít.
+  it('429: a várakozási idő (ms) eljut a hívóhoz', async () => {
+    global.fetch = vi.fn().mockResolvedValue(valasz(429, { error: 'Túl sok kérés.', retry_after_seconds: 42 }));
+    await expect(api.getCibEredmeny('x')).rejects.toMatchObject({ status: 429, retryAfterMs: 42_000 });
+  });
+
   it('401-re sem léptet ki (a végpont publikus, a munkamenethez nincs köze)', async () => {
     window.localStorage.setItem('gofuvar_token', 'tok-1');
     global.fetch = vi.fn().mockResolvedValue(valasz(401, {}));
     await expect(api.getCibEredmeny('x')).rejects.toBeTruthy();
+    expect(window.localStorage.getItem('gofuvar_token')).toBe('tok-1');
+  });
+});
+
+// 2026-10-03 (CIB PR-5, C1): a globális teszt-sáv a publikus konfigurációból
+// dönt. Publikus végpont — bearer nélkül, és a hibája nem érinti a munkamenetet.
+describe('getPublicConfig', () => {
+  it('bearer nélkül kéri a /config/public-ot, és a választ adja', async () => {
+    window.localStorage.setItem('gofuvar_token', 'tok-1');
+    const f = vi.fn().mockResolvedValue(valasz(200, { teszt_uzem: true, kartyas_fizetes: 'teszt' }));
+    global.fetch = f;
+    await expect(api.getPublicConfig()).resolves.toEqual({ teszt_uzem: true, kartyas_fizetes: 'teszt' });
+    const [url, init] = f.mock.calls[0];
+    expect(String(url)).toMatch(/\/config\/public$/);
+    expect(((init?.headers || {}) as Record<string, string>).Authorization).toBeUndefined();
+  });
+
+  it('hibára elutasít (a hívó ilyenkor nem mutat sávot), és nem léptet ki', async () => {
+    window.localStorage.setItem('gofuvar_token', 'tok-1');
+    global.fetch = vi.fn().mockResolvedValue(valasz(401, {}));
+    await expect(api.getPublicConfig()).rejects.toMatchObject({ status: 401 });
     expect(window.localStorage.getItem('gofuvar_token')).toBe('tok-1');
   });
 });

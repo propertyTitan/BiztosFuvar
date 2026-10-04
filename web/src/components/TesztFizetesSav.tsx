@@ -26,17 +26,23 @@
 //                    működnek) — a kijelölt tesztfiókoknak;
 //   - null        → éles üzem, nincs sáv.
 //  Régi backendnél (csak `payment_test_mode` boolean) a mai sárga sáv marad.
+//
+//  FIÓKHOZ KÖTÖTT GYORSÍTÓTÁR (2026-10-03, CIB PR-5 — lelet 28): a fajta
+//  felhasználónként más (a CIB-teszt az allowlistes fiókoké), a modul-szintű
+//  gyorsítótár viszont fiókváltáskor (SPA, újratöltés nélkül) az ELŐZŐ fiók
+//  sávját mutatta. A kulcs mostantól a bejelentkezett fiók azonosítója.
 // =====================================================================
 import { useEffect, useState } from 'react';
 import { AlertTriangle, FlaskConical } from 'lucide-react';
 import { api } from '@/api';
+import { useCurrentUser } from '@/lib/auth';
 import { CIB_TESZT_SAV_SZOVEG } from '@/lib/cibFeliratok';
 
 export type TesztFizetesFajta = 'stub' | 'cib_teszt' | null;
 
-/** Modul-szintű gyorsítótár: oldalanként egyszer kérdezzük le. */
-let gyorsitotar: TesztFizetesFajta | undefined;
-let folyamatban: Promise<TesztFizetesFajta> | null = null;
+/** Fiókonkénti gyorsítótár: fiókonként és oldalbetöltésenként egyszer kérdezzük le. */
+const gyorsitotar = new Map<string, TesztFizetesFajta>();
+const folyamatban = new Map<string, Promise<TesztFizetesFajta>>();
 
 function fajtaProfilbol(m: any): TesztFizetesFajta {
   const k = m?.payment_test_kind;
@@ -46,33 +52,43 @@ function fajtaProfilbol(m: any): TesztFizetesFajta {
   return m?.payment_test_mode ? 'stub' : null;
 }
 
-async function tesztFajta(): Promise<TesztFizetesFajta> {
-  if (gyorsitotar !== undefined) return gyorsitotar;
-  if (!folyamatban) {
-    folyamatban = api.getMyProfile()
+async function tesztFajta(fiok: string): Promise<TesztFizetesFajta> {
+  if (gyorsitotar.has(fiok)) return gyorsitotar.get(fiok) ?? null;
+  let igeret = folyamatban.get(fiok);
+  if (!igeret) {
+    igeret = api.getMyProfile()
       .then((m: any) => {
-        gyorsitotar = fajtaProfilbol(m);
-        return gyorsitotar;
+        const fajta = fajtaProfilbol(m);
+        gyorsitotar.set(fiok, fajta);
+        folyamatban.delete(fiok);
+        return fajta;
       })
       // Hiba esetén NEM mutatunk sávot: a figyelmeztetés hiánya kevésbé
       // zavaró, mint egy téves riasztás minden hálózati hibánál.
       .catch(() => {
-        folyamatban = null;
+        folyamatban.delete(fiok);
         return null;
       });
+    folyamatban.set(fiok, igeret);
   }
-  return folyamatban;
+  return igeret;
 }
 
 export default function TesztFizetesSav() {
-  const [fajta, setFajta] = useState<TesztFizetesFajta>(null);
+  const user = useCurrentUser();
+  const fiok = user?.id ?? null;
+  // A fajta azzal a fiókkal együtt tárolva, amelyikhez lekértük: egy
+  // fiókváltás utáni renderben sem látszhat a másik fiók sávja.
+  const [eredmeny, setEredmeny] = useState<{ fiok: string; fajta: TesztFizetesFajta } | null>(null);
 
   useEffect(() => {
+    if (!fiok) return;
     let el = true;
-    tesztFajta().then((v) => { if (el) setFajta(v); });
+    tesztFajta(fiok).then((v) => { if (el) setEredmeny({ fiok, fajta: v }); });
     return () => { el = false; };
-  }, []);
+  }, [fiok]);
 
+  const fajta = eredmeny && eredmeny.fiok === fiok ? eredmeny.fajta : null;
   if (!fajta) return null;
 
   if (fajta === 'cib_teszt') {

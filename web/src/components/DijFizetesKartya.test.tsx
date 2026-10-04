@@ -72,8 +72,9 @@ describe('útválasztás: CIB átirányítás vs stub', () => {
     expect(screen.getByText('A Kereskedő/Tiszta Hód Kft. székhelyének országa és országkódja: Magyarország (HU)')).toBeInTheDocument();
     expect(screen.getByText('A kártyaadataidat kizárólag a CIB Bank oldalán adod meg, a GoFuvar nem látja őket.')).toBeInTheDocument();
     // 2026-10-01 (a PR-4 1. javítóköre): a helyi lezárási ablak a MSGT10-től
-    // 9 perc 30 mp, és a zárás is ebbe esik — „kb. 10 perc" túlígéret volt.
-    expect(screen.getByText(/kb\. 9 perced van/)).toBeInTheDocument();
+    // 9 perc 30 mp, és a zárás is ebbe esik — „kb. 10 perc", majd „kb. 9
+    // perc" is túlígéret volt (2026-10-03, CIB PR-5).
+    expect(screen.getByText(/kb\. 8 percen belül/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Bankkártyás fizetés' })).toHaveAttribute('href', '/bankkartyas-fizetes');
     // 2026-10-01 (a PR-4 1. javítóköre, WCAG 2.4.4): a kártyán két azonos
     // nevű „Adatkezelési tájékoztató" link van (az infó-blokké és a
@@ -92,7 +93,9 @@ describe('útválasztás: CIB átirányítás vs stub', () => {
     // CIB-úton a payJob az adattovábbítási nyilatkozatot is viszi.
     expect(api.payJob).toHaveBeenCalledWith('job-1', true, true);
     // Az átirányítás alatt a gomb nem nyomható újra (dupla kattintás ellen).
-    expect(screen.getByRole('button', { name: /Átirányítás a CIB Bankhoz/ })).toBeDisabled();
+    // findByRole: a felirat a navigáció UTÁNI renderben frissül (React
+    // kötegel) — a lassabb CI-gépen a szinkron getByRole túl korán nézte.
+    expect(await screen.findByRole('button', { name: /Átirányítás a CIB Bankhoz/ })).toBeDisabled();
   });
 
   it.each([
@@ -476,12 +479,14 @@ describe('URL-paraméterek', () => {
     expect(window.location.search).not.toMatch(/fizetes=/);
   });
 
-  it('?fizetes=link-lejart → toast: a link elhasználódott', async () => {
+  it('?fizetes=link-lejart → toast: a link már nem használható', async () => {
+    // 2026-10-04 (W2): a backend a szünet és a másik kísérlet miatt nem
+    // használható linkről is ide küld — „indíts újat" nem ígérhető (cib-pr5-w2).
     window.history.replaceState({}, '', '/dashboard/fuvar/job-1?fizetes=link-lejart');
     vi.mocked(api.getFeePayment).mockResolvedValue(CIB as any);
     kartya();
     await waitFor(() => expect(m.toast.info).toHaveBeenCalledWith(
-      expect.any(String), 'Ez a fizetési link már elhasználódott, indíts újat.',
+      expect.any(String), expect.stringMatching(/már nem használható/),
     ));
   });
 });

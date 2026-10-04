@@ -50,10 +50,12 @@ describe('CIB admin blokk', () => {
     expect(await screen.findByText(TRID)).toBeInTheDocument();
     expect(screen.getByText('Kártyás fizetések (CIB)')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/TrID, ANUM vagy fuvar/), { target: { value: 'AB1234' } });
-    fireEvent.change(screen.getByLabelText(/Állapot/), { target: { value: 'sikertelen' } });
+    // 2026-10-04 (W2): a szűrő a backend szótárát küldi (nyers CIB-állapot,
+    // needs_review, ellenorzes) — a felület „sikertelen" szava 400-at kapott.
+    fireEvent.change(screen.getByLabelText(/Állapot/), { target: { value: 'failed' } });
     fireEvent.click(screen.getByRole('button', { name: /Keresés/ }));
     await waitFor(() => expect(api.adminCibKereses).toHaveBeenLastCalledWith(
-      expect.objectContaining({ q: 'AB1234', allapot: 'sikertelen' }),
+      expect.objectContaining({ q: 'AB1234', allapot: 'failed' }),
     ));
   });
 
@@ -69,6 +71,9 @@ describe('CIB admin blokk', () => {
     const panel = await screen.findByTestId('cib-reszlet');
     expect(within(panel).getByText('MSGT32')).toBeInTheDocument();
     expect(within(panel).getByText('idotullepes')).toBeInTheDocument();
+    // A banki adatsor felirata egy nem lezárt kísérletnél is SZÓ SZERINT a
+    // banki (2026-10-03, a PR-5 web 1. javítóköre).
+    expect(within(panel).getByText('A fizetett összeg (AMO)')).toBeInTheDocument();
 
     fireEvent.click(within(panel).getByRole('button', { name: /Titkosított napló másolása a banknak/ }));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalled());
@@ -77,12 +82,16 @@ describe('CIB admin blokk', () => {
     expect(masolt).toContain('DATA=AAAA');
     expect(masolt).toContain('DATA=BBBB');
     // A Fejlesztői útmutató (Support) szerinti levél: címzett, a tárgyban a
-    // boltazonosító (PID — a titkosított üzenet nyílt részéből), és a kért
-    // adatok helye (a probléma leírása, a kereskedői szerver IP-címe).
+    // boltazonosító (PID — a titkosított üzenet nyílt részéből), a TrID, a PID
+    // és az idő. 2026-10-03 (PR-5/B): a kimenő IP-t NEM kérjük kitölteni (a
+    // felhőszolgáltatónál változik — egy utólag beírt cím téves lehet).
     expect(masolt).toContain('ecommerce@cib.hu');
     expect(masolt).toMatch(/^Tárgy: Tranzakció kivizsgálás kérés ABC0001$/m);
     expect(masolt).toMatch(/A problémás tranzakció azonosítója \(TrID\): 1234567812345678/);
-    expect(masolt).toMatch(/A kereskedői szerver IP-címe:/);
+    expect(masolt).toMatch(/^Boltazonosító \(PID\): ABC0001$/m);
+    expect(masolt).toMatch(/A tranzakció indítása \(MSGT10/);
+    expect(masolt).toMatch(/kimenő IP-címe: .*változó cím/);
+    expect(masolt).not.toMatch(/IP-címe: \[kitöltendő\]/);
     expect(masolt).toMatch(/A probléma leírása:/);
 
     fireEvent.click(within(panel).getByRole('button', { name: /Újraellenőrzés/ }));
@@ -107,10 +116,32 @@ describe('CIB admin blokk', () => {
     expect(m.toast.error).toHaveBeenCalled();
 
     fireEvent.change(within(dialog).getByLabelText(/ANUM/), { target: { value: 'AB1234' } });
+    // 2026-10-03 (CIB PR-5, C6 / lelet 33): az RT (a bank szöveges
+    // eredménye) is rögzül — alapból a bank RC=00-hoz tartozó szövege, az
+    // admin felülírhatja. Enélkül a kötelező adatsorban „–" állt.
+    expect(within(dialog).getByLabelText(/RT/)).toHaveValue('Tranzakció elfogadva');
     fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
     await waitFor(() => expect(api.adminCibRendezes).toHaveBeenCalledWith(TRID, {
-      eredmeny: 'lezarva', anum: 'AB1234', indoklas: 'A bank levélben megerősítette a lezárást.',
+      eredmeny: 'lezarva', anum: 'AB1234', rt: 'Tranzakció elfogadva', indoklas: 'A bank levélben megerősítette a lezárást.',
     }));
+  });
+
+  it('close_unknown — „Lezárva": az admin a bank RT-szövegét maga is beírhatja; vezérlőkarakterrel nem megy ki', async () => {
+    // 2026-10-04 (W2): az RT a backendben opcionális (üresen „Tranzakció
+    // elfogadva") — az üres mező már nem tiltja a rögzítést (cib-pr5-w2.test).
+    render(<CibFizetesekAdmin />);
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(`Részletek.*${TRID}`) }));
+    const panel = await screen.findByTestId('cib-reszlet');
+    fireEvent.click(within(panel).getByRole('button', { name: /^Lezárva/ }));
+    const dialog = (await screen.findAllByRole('dialog')).at(-1)!;
+    fireEvent.change(within(dialog).getByLabelText(/ANUM/), { target: { value: 'AB1234' } });
+    fireEvent.change(within(dialog).getByLabelText(/Indoklás/), { target: { value: 'A bank levélben megerősítette a lezárást.' } });
+    fireEvent.change(within(dialog).getByLabelText(/RT/), { target: { value: 'Sikeres\ttranzakció' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
+    expect(api.adminCibRendezes).not.toHaveBeenCalled();
+    fireEvent.change(within(dialog).getByLabelText(/RT/), { target: { value: 'Sikeres tranzakció' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Rögzítés/ }));
+    await waitFor(() => expect(api.adminCibRendezes).toHaveBeenCalledWith(TRID, expect.objectContaining({ rt: 'Sikeres tranzakció' })));
   });
 
   it('close_unknown — „Nem lezárva": indoklás kötelező (min. 10 karakter)', async () => {

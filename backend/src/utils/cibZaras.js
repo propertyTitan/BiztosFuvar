@@ -31,6 +31,28 @@ const FAGYASZTO_ALLAPOTOK = Object.freeze(['authorized', 'closing', 'close_unkno
 
 const FAGYASZTVA_KOD = 'CIB_PAYMENT_FINISHING';
 const FAGYASZTVA_UZENET = 'A kártyás fizetésed épp lezárul — próbáld újra egy perc múlva.';
+// 2026-10-03 (PR-5/B): a kétes (close_unknown) zárás egyeztetése nem „egy
+// perc": az automatikus egyeztetés az utolsó MSGT32 után ~25 perccel indul
+// (2026-10-04 óta a „lezárt"-hoz még egy, 15 perccel későbbi megerősítés), a kézi
+// rendezés legkésőbb 1 munkanap. Eddig ugyanaz a „próbáld újra egy perc
+// múlva" ment rá, napokig — és a szállítónak, az adminnak is „a kártyás
+// fizetésed"-et mondtuk, holott a feladó fizetéséről van szó.
+const EGYEZTETES_KOD = 'CIB_PAYMENT_REVIEW';
+const FAGYASZTVA_SZOVEG = Object.freeze({
+  zarul: Object.freeze({
+    felado: FAGYASZTVA_UZENET,
+    szallito: 'A feladó kártyás díjfizetése épp lezárul — próbáld újra egy perc múlva.',
+    admin: 'A fuvar kártyás díjfizetése épp lezárul (a banki zárás fut) — próbáld újra egy perc múlva.',
+  }),
+  egyeztetes: Object.freeze({
+    felado: 'A kártyás fizetésed eredményét a bankkal egyeztetjük — addig a fuvar nem módosítható. Ne fizess újra: '
+      + 'legkésőbb 1 munkanapon belül rendezzük, az eredményről e-mailben értesítünk.',
+    szallito: 'A feladó kártyás díjfizetésének eredményét a bankkal egyeztetjük — addig a fuvar nem módosítható '
+      + '(legkésőbb 1 munkanap). Ha segítség kell, írj az info@gofuvar.hu címre.',
+    admin: 'A fuvar kártyás díjfizetése egyeztetésre vár (kétes zárás vagy felülvizsgálat) — előbb az Admin → '
+      + 'Kártyás fizetések blokkban rendezd.',
+  }),
+});
 
 /**
  * Van-e a fuvarnak éppen lezáruló CIB-kísérlete? A fuvarsor zárolása UTÁN,
@@ -51,9 +73,20 @@ async function cibZarasFolyamatban(client, jobId) {
   return rows[0] || null;
 }
 
-/** A fagyasztott ügylet egységes 409-es válasza (banki szöveg nélkül). */
-function fagyasztvaValasz() {
-  return { error: FAGYASZTVA_UZENET, code: FAGYASZTVA_KOD };
+/**
+ * A fagyasztott ügylet 409-es válasza (banki szöveg nélkül) — a hívó
+ * szerepéhez és a kísérlet állapotához igazítva (2026-10-03, PR-5/B).
+ * @param {{cib_state?:string, state?:string}|null} [fagy] — a cibZarasFolyamatban
+ *   eredménye (vagy egy session-sor)
+ * @param {'felado'|'szallito'|'admin'} [szerep]
+ */
+function fagyasztvaValasz(fagy = null, szerep = 'felado') {
+  const egyeztetes = !!fagy && (fagy.cib_state === 'close_unknown' || fagy.state === 'needs_review');
+  const ki = ['felado', 'szallito', 'admin'].includes(szerep) ? szerep : 'felado';
+  return {
+    error: FAGYASZTVA_SZOVEG[egyeztetes ? 'egyeztetes' : 'zarul'][ki],
+    code: egyeztetes ? EGYEZTETES_KOD : FAGYASZTVA_KOD,
+  };
 }
 
 /**
@@ -75,6 +108,7 @@ module.exports = {
   FAGYASZTO_ALLAPOTOK,
   FAGYASZTVA_KOD,
   FAGYASZTVA_UZENET,
+  EGYEZTETES_KOD,
   cibZarasFolyamatban,
   fagyasztvaValasz,
   nincsFuggoCibKiserlet,

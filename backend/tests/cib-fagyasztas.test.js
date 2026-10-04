@@ -124,10 +124,13 @@ describe('Fagyasztás: minden ügyletmódosító út 409 CIB_PAYMENT_FINISHING',
       ['szállítói lemondás', request(app).post(`/jobs/${job.id}/cancel`).set(...auth(szallito)).send({})],
       ['szállítócsere', request(app).post(`/jobs/${job.id}/reopen`).set(...auth(felado)).send({})],
     ];
+    // 2026-10-03 (PR-5/B): a kétes (close_unknown) kísérlet egyeztetés —
+    // saját kód és szöveg (nem „próbáld újra egy perc múlva").
+    const vartKod = allapot === 'close_unknown' ? 'CIB_PAYMENT_REVIEW' : 'CIB_PAYMENT_FINISHING';
     for (const [nev, keres] of probak) {
       const r = await keres;
       expect(r.status, `${nev}: ${JSON.stringify(r.body)}`).toBe(409);
-      expect(r.body.code, nev).toBe('CIB_PAYMENT_FINISHING');
+      expect(r.body.code, nev).toBe(vartKod);
     }
     // Kupon: a /pay kuponága is fagyasztott (a díj a banknál épp lezárul).
     await db.query(`INSERT INTO fee_vouchers (user_id, reason, valid_from, valid_until)
@@ -140,7 +143,7 @@ describe('Fagyasztás: minden ügyletmódosító út 409 CIB_PAYMENT_FINISHING',
     const admin = await createUser({ role: 'admin' });
     const a = await request(app).patch(`/admin/jobs/${job.id}`).set(...auth(admin)).send({ status: 'cancelled' });
     expect(a.status).toBe(409);
-    expect(a.body.code).toBe('CIB_PAYMENT_FINISHING');
+    expect(a.body.code).toBe(vartKod);
     const kezi = await request(app).post(`/jobs/${job.id}/confirm-payment`).set(...auth(felado)).send({});
     expect(kezi.status).toBe(409);
 

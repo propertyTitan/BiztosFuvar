@@ -277,9 +277,13 @@ describe('I3: pontosan egy MSGT32 — párhuzamos források, két fül, index', 
       .rejects.toMatchObject({ code: '23505' });
   });
 
-  it('a zárás közben elhalt folyamat (lejárt bérlet, régi closing) → close_unknown, MSGT32 NÉLKÜL', async () => {
+  it('a zárás közben elhalt folyamat (lejárt bérlet, régi closing, kiment MSGT32) → close_unknown, MSGT32 NÉLKÜL', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
+    // A kimenő MSGT32-sor megvan: a kérés kiment, a válasz nem jött vissza.
+    // (A kimenő sor hiányát a cib-pr5-egyeztetes őrzi: az „nem küldött".)
+    await db.query(`INSERT INTO cib_messages (payment_id, direction, msgt, endpoint, raw, close_attempt)
+                    VALUES ($1, 'ki', 32, 'market', 'PID=TST0001&CRYPTO=1&DATA=teszt', 1)`, [trid]);
     await db.query(`UPDATE payment_sessions SET cib_state = 'closing', cib_close_attempts = 1,
                     cib_close_sent_at = NOW() - INTERVAL '10 minutes', cib_next_action_at = NOW() - INTERVAL '1 second',
                     cib_lease_owner = 'halott:1', cib_lease_until = NOW() - INTERVAL '1 minute' WHERE payment_id = $1`, [trid]);
@@ -288,7 +292,9 @@ describe('I3: pontosan egy MSGT32 — párhuzamos források, két fül, index', 
     const s = await sor(trid);
     expect(s).toMatchObject({ cib_state: 'close_unknown', state: 'pending' });
     expect(s.cib_result.ok).toBe('zaras_valasz_nelkul');
-    expect(s.cib_next_action_at).toBeNull();
+    // 2026-10-03 (PR-5): a kétes sor nem parkol — a kör teendő-listáján marad
+    // (az automatikus egyeztetés a MSGT10 után CIB_EGYEZTETES_PERC perccel dönt).
+    expect(s.cib_next_action_at).not.toBeNull();
   });
 });
 
@@ -388,6 +394,9 @@ describe('Lekérdező kör: köz, visszalépés, határidő, bevezetés, leáll�
     expect(bank.uzenetek.length).toBe(elotte);
     expect(await sor('4444000044440001')).toMatchObject({ cib_state: 'abandoned', state: 'closed' });
     expect(await sor('4444000044440002')).toMatchObject({ cib_state: 'redirected', state: 'pending', cib_lease_owner: null });
+    // A bevezetés előtti függő sor a közös teszt-DB-n más fájlok árva-
+    // ellenőrzését zavarná (2026-10-04) — a mérés után lezárjuk.
+    await db.query(`UPDATE payment_sessions SET state = 'closed', cib_state = 'abandoned' WHERE payment_id = '4444000044440002'`);
   });
 
   it('leállás után nincs új bérlet és nincs új MSGT32; a leállás megvárja a futó banki hívást', async () => {
@@ -506,7 +515,8 @@ describe('Admin: keresés, részletek, újraellenőrzés, rendezés', () => {
     expect((await request(app).get('/payments/admin/cib/123').set(...auth(admin))).status).toBe(404);
     const ujra = await request(app).post(`/payments/admin/cib/${trid}/ujraellenorzes`).set(...auth(admin)).send({});
     expect(ujra.status).toBe(200);
-    expect(ujra.body).toEqual({ ok: true });
+    // 2026-10-03 (PR-5/B): a válasz megmondja, mi történik (uzenet, kovetkezo_at).
+    expect(ujra.body).toMatchObject({ ok: true, utemezve: true });
     await cf().varjHatterre();
   });
 
@@ -517,6 +527,9 @@ describe('Admin: keresés, részletek, újraellenőrzés, rendezés', () => {
     const nemKetes = await request(app).post(`/payments/admin/cib/${ta}/rendezes`).set(...auth(admin))
       .send({ eredmeny: 'lezarva', indoklas: 'A bank írásban megerősítette.', anum: '123456' });
     expect(nemKetes.status).toBe(409);
+    // A kimenő MSGT32-sor megvan (2026-10-03, PR-5: a „lezarva" ezt is kéri).
+    await db.query(`INSERT INTO cib_messages (payment_id, direction, msgt, endpoint, raw, close_attempt)
+                    VALUES ($1, 'ki', 32, 'market', 'PID=TST0001&CRYPTO=1&DATA=teszt', 1)`, [ta]);
     await db.query(`UPDATE payment_sessions SET cib_state = 'close_unknown', cib_close_attempts = 1 WHERE payment_id = $1`, [ta]);
     for (const rossz of [{ eredmeny: 'lezarva', indoklas: 'rövid', anum: '123456' },
       { eredmeny: 'lezarva', indoklas: 'A bank írásban megerősítette.' },
@@ -540,9 +553,11 @@ describe('Admin: keresés, részletek, újraellenőrzés, rendezés', () => {
     const nem = await request(app).post(`/payments/admin/cib/${tb}/rendezes`).set(...auth(admin))
       .send({ eredmeny: 'nem_lezarva', indoklas: 'A bank szerint a tranzakció reverzálva.' });
     expect(nem.status).toBe(200);
-    expect(nem.body.allapot).toBe('sikertelen');
+    // 2026-10-03 (PR-5, C5): „nem_terhelt" + saját, igaz szövegű levél (a
+    // „fuvar megváltozott" indok itt hamis volt) — cib-pr5-egyeztetes.
+    expect(nem.body.allapot).toBe('nem_terhelt');
     expect(await sor(tb)).toMatchObject({ cib_state: 'failed', state: 'closed' });
-    expect(LEVELEK.filter((l) => l.nev === 'sendFeePaymentFailedEmail' && l.tipus === 'nem_terhelt' && l.jobId === b.job.id)).toHaveLength(1);
+    expect(LEVELEK.filter((l) => l.nev === 'sendFeePaymentFailedEmail' && l.tipus === 'admin_nem_lezarva' && l.jobId === b.job.id)).toHaveLength(1);
     expect(INAPP.filter((n) => n.type === 'payment_failed' && n.user_id === b.felado.id)).toHaveLength(0);
   });
 });
@@ -562,7 +577,10 @@ describe('A lekérdezés és a zárás további hibaágai', () => {
     expect(l.map((x) => [x.tipus, x.rcCsoport])).toEqual([['sikertelen', 'kapcsolat']]);
   });
 
-  it('a DB-vel nem egyező MSGT31 (AMO) nem siker: harmadszorra close_unknown + riasztás, MSGT32 nélkül', async () => {
+  // 2026-10-03 (PR-5): MSGT32 nélkül az anomália NEM kétes (nem blokkol, nem
+  // kering 23505-tel) — a határidőig vár, utána nem terheltként zárul
+  // (cib-pr5-egyeztetes őrzi a teljes életutat).
+  it('a DB-vel nem egyező MSGT31 (AMO) nem siker: harmadszorra anomália + riasztás, MSGT32 és blokk nélkül', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
     bank.dont(trid, 'fizet');
@@ -574,14 +592,14 @@ describe('A lekérdezés és a zárás további hibaágai', () => {
       await kor();
     }
     const s = await sor(trid);
-    expect(s).toMatchObject({ cib_state: 'close_unknown', state: 'pending' });
-    expect(s.cib_result).toMatchObject({ ok: 'zaras_mezo_elteres', mezo_elteres_szam: 3 });
+    expect(s).toMatchObject({ cib_state: 'redirected', state: 'pending' });
+    expect(s.cib_result).toMatchObject({ anomalia: 'lekerdezes_mezo_elteres', mezo_elteres_szam: 3 });
     expect(bankDb(trid, 32)).toBe(0);
     expect((await jobSor(job.id)).paid_at).toBeNull();
     expect(LEVELEK.filter((l) => l.nev === 'sendCibRiasztasEmail' && l.trid === trid)).toHaveLength(1);
   });
 
-  it('háromszori NT (a bank nem ismeri a TRID-et) → close_unknown (saját hiba gyanú)', async () => {
+  it('háromszori NT (a bank nem ismeri a TRID-et) → anomália (saját hiba gyanú), nem kétes', async () => {
     const { felado, job } = await elfogadottFuvar();
     const trid = await bankOldalon(felado, job);
     bank.tridre(trid, 33, [{ rc: 'NT' }, { rc: 'NT' }, { rc: 'NT' }]);
@@ -591,8 +609,8 @@ describe('A lekérdezés és a zárás további hibaágai', () => {
       await kor();
     }
     const s = await sor(trid);
-    expect(s).toMatchObject({ cib_state: 'close_unknown' });
-    expect(s.cib_result).toMatchObject({ ok: 'nt_ismetlodo', nt_szam: 3 });
+    expect(s.cib_state).not.toBe('close_unknown');
+    expect(s.cib_result).toMatchObject({ anomalia: 'nt_ismetlodo', nt_szam: 3 });
   });
 
   it('titkosítatlan S-hiba a MSGT33-ra → a tick megszakad, a többi esedékes sor a következő tickre marad', async () => {

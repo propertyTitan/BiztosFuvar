@@ -23,7 +23,7 @@ import AiChatPage from '../../app/ai-chat/page';
 const ai = vi.hoisted(() => ({ chat: vi.fn() }));
 vi.mock('@/api', () => ({ api: { aiChat: ai.chat } }));
 vi.mock('@/lib/socket', () => ({ disconnectSocket: vi.fn(), refreshSocketAuth: vi.fn() }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }), usePathname: () => '/' }));
 
 const A: CurrentUser = { id: 'fiok-a', email: 'a@teszt.hu', role: 'shipper' };
 const B: CurrentUser = { id: 'fiok-b', email: 'b@teszt.hu', role: 'shipper' };

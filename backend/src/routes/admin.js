@@ -376,9 +376,10 @@ router.patch('/admin/jobs/:id', ...adminOnly, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Fuvar nem található' });
     }
-    if (await cibZarasFolyamatban(client, req.params.id)) {
+    const fagy = await cibZarasFolyamatban(client, req.params.id);
+    if (fagy) {
       await client.query('ROLLBACK');
-      return res.status(409).json(fagyasztvaValasz());
+      return res.status(409).json(fagyasztvaValasz(fagy, 'admin'));
     }
     await client.query('COMMIT');
     res.json(rows[0]);

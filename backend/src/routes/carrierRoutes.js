@@ -18,7 +18,9 @@ const { PACKAGE_SIZES, classifyPackage } = require('../constants');
 const paymentProvider = require('../services/paymentProvider');
 const { calculateConnectionFee } = require('../services/connectionFee');
 const { konyvelDijFizetes } = require('../services/feePayment');
-const { startOrReuseFeePayment, startOrReuseFeePaymentInTransaction } = require('../services/feePaymentSession');
+const {
+  startOrReuseFeePayment, startOrReuseFeePaymentInTransaction, foglalasKartyavalNemFizetheto,
+} = require('../services/feePaymentSession');
 const realtime = require('../realtime');
 const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
@@ -989,11 +991,18 @@ router.post(
           [b.carrier_id, b.shipper_id, b.id],
         );
         const info = partyRows[0] || {};
+        // 2026-10-03 (PR-5/B): a kártyás (CIB) úton a foglalás díja nem
+        // fizethető (a foglalási CIB-ág nincs bekötve) — a „Fizesd meg" itt
+        // lehetetlen felhívás lenne.
+        const kartyasNemFizetheto = foglalasKartyavalNemFizetheto(b.shipper_id);
+        const fizetesiMondat = kartyasNemFizetheto
+          ? 'A járat-foglalások kapcsolatfelvételi díját kártyával egyelőre nem lehet kifizetni, ezért a szállító elérhetőségét még nem tudjuk megmutatni — ha segítség kell, írj az info@gofuvar.hu címre.'
+          : 'Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás, ahogy megegyeztek).';
         await createNotification({
           user_id: b.shipper_id,
           type: 'booking_confirmed',
           title: '✅ A szállító megerősítette a foglalásod!',
-          body: `${info.carrier_name || 'A szállító'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. Fizesd meg a kapcsolatfelvételi díjat — a fuvardíjat közvetlenül a szállítónak fizeted (készpénz vagy átutalás, ahogy megegyeztek).`,
+          body: `${info.carrier_name || 'A szállító'} elfogadta a foglalásodat ${b.price_huf.toLocaleString('hu-HU')} Ft-ért. ${fizetesiMondat}`,
           link: `/dashboard/foglalasaim`,
         });
         if (info.shipper_email) {
@@ -1005,6 +1014,7 @@ router.post(
               bookingId: b.id,
               carrierName: info.carrier_name,
               priceHuf: b.price_huf,
+              kartyasFizetesElerheto: !kartyasNemFizetheto,
             }).catch((e) => console.warn('[email] booking_confirmed hiba:', e.message));
           });
         }

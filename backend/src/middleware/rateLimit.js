@@ -35,6 +35,10 @@ if (cleanup.unref) cleanup.unref();
  * @param {'ip'|'user'|'ip+user'} [opts.keyBy='ip'] – melyik kulcs alapján korlátozunk
  * @param {string} [opts.message] – a 429-es válaszban levő hibaüzenet
  * @param {string} [opts.name] – log / header prefix (debug célokra)
+ * @param {(req, res, retryAfterSec: number) => void} [opts.onLimit] – a
+ *   túllépés saját kezelése (2026-10-03, CIB PR-5/B): a böngésző-navigációs
+ *   végpontok (a bankból visszatérő vásárló) nyers JSON helyett egy HTML
+ *   hibaoldalra irányítanak. Alapból a megszokott 429 JSON.
  */
 function createRateLimit({
   windowMs,
@@ -42,6 +46,7 @@ function createRateLimit({
   keyBy = 'ip',
   message = 'Túl sok kérés. Kérlek várj egy percet.',
   name = 'rl',
+  onLimit = null,
 }) {
   return function rateLimitMiddleware(req, res, next) {
     // Kulcs összeállítása.
@@ -78,6 +83,7 @@ function createRateLimit({
 
     if (entry.count > max) {
       res.setHeader('Retry-After', String(retryAfterSec));
+      if (typeof onLimit === 'function') return onLimit(req, res, retryAfterSec);
       return res.status(429).json({
         error: message,
         retry_after_seconds: retryAfterSec,
@@ -142,12 +148,28 @@ const aiChatDailyRateLimit = createRateLimit({
 // az override-ot a playwright.config.ts webServer-env-je állítja be.
 // ÉLESBEN EZT SOHA NE ÁLLÍTSD BE — a Railway env-ben nincs és ne is legyen.
 const e2eGlobalisMax = Number(process.env.E2E_GLOBAL_RATE_LIMIT_MAX);
+// Böngésző-navigációs útvonalak saját túllépés-kezelője a GLOBÁLIS limiteren
+// (2026-10-04, CIB PR-5 1. javítóköre): a bankból visszatérő vásárló (és a
+// banki átirányító link) a 300/perc/IP felett se kapjon nyers 429 JSON-t —
+// közös NAT / mobil-CGNAT mögött a nyitott eredményoldalak lekérdezése
+// elviheti a globális keretet. A kezelőt a route-modul regisztrálja (így ez a
+// modul nem függ a fizetési modultól); minden más út a megszokott 429-et kapja.
+const navigaciosTullepesek = [];
+function navigaciosTullepesKezelo(illeszt, kezelo) {
+  navigaciosTullepesek.push({ illeszt, kezelo });
+}
+const GLOBAL_UZENET = 'Túl sok kérés érkezett erről az IP-ről.';
 const globalRateLimit = createRateLimit({
   windowMs: 60_000,
   max: Number.isFinite(e2eGlobalisMax) && e2eGlobalisMax > 0 ? e2eGlobalisMax : 300,
   keyBy: 'ip',
   name: 'global',
-  message: 'Túl sok kérés érkezett erről az IP-ről.',
+  message: GLOBAL_UZENET,
+  onLimit: (req, res, retryAfterSec) => {
+    const k = req.method === 'GET' && navigaciosTullepesek.find((x) => x.illeszt(req));
+    if (k) return k.kezelo(req, res, retryAfterSec);
+    return res.status(429).json({ error: GLOBAL_UZENET, retry_after_seconds: retryAfterSec });
+  },
 });
 
 /**
@@ -171,4 +193,5 @@ module.exports = {
   aiChatRateLimit,
   aiChatDailyRateLimit,
   globalRateLimit,
+  navigaciosTullepesKezelo,
 };

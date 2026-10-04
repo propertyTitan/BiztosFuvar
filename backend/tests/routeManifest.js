@@ -38,6 +38,7 @@ const ROUTE_MANIFEST = {
   'POST /payments/cib/callback': { access: 'public', why: 'CIB-konfignál (teljes/hibás) 410 CIB_NO_CALLBACK banki hívás és könyvelés nélkül (a CIB EKI-nek nincs webhookja); CIB-env nélkül a régi stub-callback, ahol a státuszt a providertől olvassuk vissza' },
   'GET /payments/cib/tovabb/:token': { access: 'public', why: 'egyszer használatos átirányító link a bank fizetőoldalára: a 32 bájtos véletlen token (csak a hash-e tárolt) a belépő; felhasznált/lejárt/ismeretlen tokenre 303, adatot nem ad; IP-limit' },
   'GET /payments/cib/vissza': { access: 'public', why: 'a bank visszatérési URL-je (a böngésző hozza): a banki kulccsal titkosított MSGT21-et fejtjük vissza, hamis/idegen/ismeretlen üzenetre 303 a hibaoldalra feldolgozás nélkül; teljes CIB-konfig nélkül 404; IP-limit' },
+  'GET /config/public': { access: 'public', why: 'a web teszt-üzem sávjához: csak három üzemi jelző (teszt_uzem, kartyas_fizetes, szimulalt_fizetes) — titok, kulcs-ujjlenyomat, PID, host nem; IP-limit, no-store (2026-10-03, CIB PR-5)' },
   'GET /payments/cib/eredmeny': { access: 'public', why: 'a fizetés eredménye belépés nélkül (PWA → Safari, beépített böngészők): HMAC-aláírt, 24 órás token a belépő; csak a banki adatsort adja, név/cím nélkül; rossz tokenre 404; IP-limit' },
   'POST /payments/qvik/callback': { access: 'public', why: 'PSP szerver-szerver webhook (QVIK, dormant); a státuszt a PSP-től olvassuk vissza' },
 
@@ -75,6 +76,7 @@ const ROUTE_MANIFEST = {
   'GET /payments/admin/cib/:trid': { access: 'admin' },
   'POST /payments/admin/cib/:trid/ujraellenorzes': { access: 'admin' },
   'POST /payments/admin/cib/:trid/rendezes': { access: 'admin' },
+  'POST /payments/admin/cib/:trid/kezi-rendezes': { access: 'admin' },
   'POST /auth/admin/grant-monthly-vouchers': { access: 'admin' },
 
   // ── Bejelentkezés kell ──────────────────────────────────────────────

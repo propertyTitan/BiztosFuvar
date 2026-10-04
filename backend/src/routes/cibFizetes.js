@@ -16,11 +16,13 @@
 //    GET  /payments/admin/cib/:trid                 — részletek + titkosított banki napló
 //    POST /payments/admin/cib/:trid/ujraellenorzes  — a következő lekérdezés esedékessé
 //    POST /payments/admin/cib/:trid/rendezes        — kétes kísérlet kézi rendezése
+//    POST /payments/admin/cib/:trid/kezi-rendezes   — konfig NÉLKÜL is: könyvelés,
+//                                                     lejáratás, visszatérítés (PR-5)
 // =====================================================================
 const express = require('express');
 const db = require('../db');
 const { authRequired, requireRole } = require('../middleware/auth');
-const { createRateLimit, writeRateLimit } = require('../middleware/rateLimit');
+const { createRateLimit, writeRateLimit, navigaciosTullepesKezelo } = require('../middleware/rateLimit');
 const { logAdminAccess } = require('../utils/adminAudit');
 const { TRID_RE, cibKonfig } = require('../services/cibProtokoll');
 const cibFizetes = require('../services/cibFizetes');
@@ -30,11 +32,45 @@ const router = express.Router();
 // A böngészős végpontok IP-alapú fékje (a globális 300/perc mellett): a
 // hop és a visszatérés banki lekérdezést indíthat — a köz és a bérlet véd
 // a bank felé, ez a DB felé.
-const cibPublikusLimit = createRateLimit({
+// ⚠️ 2026-10-03 (PR-5/B): VÉGPONTONKÉNT KÜLÖN VÖDÖR. Eddig a három végpont
+// egyetlen 60/perc/IP keretet osztott: közös NAT / mobil-CGNAT mögött néhány
+// nyitott, 3 mp-enként kérdező eredményoldal elfogyasztotta, és a 3DS után a
+// bankból VISSZATÉRŐ vásárló nyers 429 JSON-t kapott (nincs eredmény-token,
+// nincs kötelező banki adatsor), az új fizetés átirányító linkje pedig
+// lejárt. A két böngésző-navigációs végpont túllépéskor sem ad JSON-t: 303 a
+// web hibaoldalára (a lekérdező kör a kísérletet úgyis lezárja, és e-mail is
+// megy).
+const hibaOldalra = (kod) => (_req, res) => {
+  banki(res);
+  return res.status(303).setHeader('Location', cibFizetes.hibaOldalUrl(kod)).end();
+};
+// A globális (300/perc/IP) limiter ELŐTTÜK fut: túllépéskor ugyanez a 303
+// (2026-10-04, a PR-5 1. javítóköre) — az Express útvonalai kis- és
+// nagybetűre érzéketlenek, az illesztés is az.
+const utvonal = (req) => String(req.path || '').toLowerCase().replace(/\/+$/, '');
+navigaciosTullepesKezelo((req) => utvonal(req) === '/payments/cib/vissza', hibaOldalra('azonositas'));
+navigaciosTullepesKezelo((req) => utvonal(req).startsWith('/payments/cib/tovabb/'), hibaOldalra('link'));
+const cibTovabbLimit = createRateLimit({
   windowMs: 60_000,
-  max: 60,
+  max: 30,
   keyBy: 'ip',
-  name: 'cib-publikus',
+  name: 'cib-tovabb',
+  onLimit: hibaOldalra('link'),
+});
+const cibVisszaLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 120,
+  keyBy: 'ip',
+  name: 'cib-vissza',
+  onLimit: hibaOldalra('azonositas'),
+});
+// Az eredményoldal fülenként ~20 kérés/perc: 240/perc egy NAT mögötti
+// tucatnyi egyidejű fület is kiszolgál (a banki lekérdezést a TrID-köz fékezi).
+const cibEredmenyLimit = createRateLimit({
+  windowMs: 60_000,
+  max: 240,
+  keyBy: 'ip',
+  name: 'cib-eredmeny',
   message: 'Túl sok kérés. Kérlek várj egy percet.',
 });
 
@@ -46,14 +82,14 @@ function banki(res) {
   res.setHeader('Referrer-Policy', 'no-referrer');
 }
 
-router.get('/payments/cib/tovabb/:token', cibPublikusLimit, async (req, res) => {
+router.get('/payments/cib/tovabb/:token', cibTovabbLimit, async (req, res) => {
   banki(res);
   const r = await cibFizetes.hopFelhasznal(req.params.token);
   res.status(r.status).setHeader('Location', r.location);
   return res.end();
 });
 
-router.get('/payments/cib/vissza', cibPublikusLimit, async (req, res) => {
+router.get('/payments/cib/vissza', cibVisszaLimit, async (req, res) => {
   banki(res);
   // A req.query-t SZÁNDÉKOSAN nem használjuk: a query-parser a '+'-t
   // szóközzé alakítaná, és a DATA sérülne. A nyers originalUrl a döntő.
@@ -63,7 +99,7 @@ router.get('/payments/cib/vissza', cibPublikusLimit, async (req, res) => {
   return res.end();
 });
 
-router.get('/payments/cib/eredmeny', cibPublikusLimit, async (req, res) => {
+router.get('/payments/cib/eredmeny', cibEredmenyLimit, async (req, res) => {
   const token = typeof req.query.e === 'string' ? req.query.e : '';
   const r = await cibFizetes.eredmenyAllapot(token);
   if (!r) return res.status(404).json({ error: 'Az eredmény nem található vagy a link lejárt.' });
@@ -73,7 +109,8 @@ router.get('/payments/cib/eredmeny', cibPublikusLimit, async (req, res) => {
 router.get('/jobs/:id/fee-payment', authRequired, async (req, res) => {
   if (!UUID_RE.test(req.params.id)) return res.status(404).json({ error: 'Fuvar nem található' });
   const { rows } = await db.query(
-    'SELECT id, shipper_id, status, paid_at FROM jobs WHERE id = $1',
+    `SELECT id, shipper_id, carrier_id, status, paid_at, connection_fee_huf, accepted_price_huf, suggested_price_huf
+       FROM jobs WHERE id = $1`,
     [req.params.id],
   );
   const job = rows[0];
@@ -118,6 +155,13 @@ router.get('/payments/admin/cib', authRequired, requireRole('admin'), async (req
   if (allapot) {
     if (allapot === 'needs_review') {
       where.push("ps.state = 'needs_review'");
+    } else if (cibFizetes.UI_ALLAPOTOK.includes(allapot)) {
+      // 2026-10-03 (PR-5/B): a felület szótára — pontosan a lista pillje
+      // szerinti tételek (a lekepez SQL-tükre). A webes admin az „ellenorzes"
+      // szót küldi (szűrő + „Egyeztetésre vár" jelvény); a többi szűrője a
+      // nyers CIB-állapot (web lib/cibAdmin.ts ALLAPOT_SZURO, 2026-10-04).
+      params.push(allapot);
+      where.push(`${cibFizetes.lekepezSql('ps')} = $${params.length}`);
     } else if (CIB_ALLAPOTOK.includes(allapot)) {
       params.push(allapot);
       where.push(`ps.cib_state = $${params.length}`);
@@ -160,6 +204,9 @@ router.get('/payments/admin/cib', authRequired, requireRole('admin'), async (req
       anum: (s.cib_result && s.cib_result.anum) || null,
       created_at: s.created_at,
       closed_at: (s.cib_result && s.cib_result.closed_at) || null,
+      // 2026-10-03 (PR-5): a közölt ok (C5) a listában is — a felület ebből
+      // ismeri fel a „Visszatérítve" tételt, nem az RC=00-ból következtetve.
+      ok: cibFizetes.kozoltOk(s),
     })),
     total,
   });
@@ -188,6 +235,9 @@ router.get('/payments/admin/cib/:trid', authRequired, requireRole('admin'), asyn
   return res.json({
     session: { ...session, allapot: cibFizetes.lekepez(s) },
     result: s.cib_result || null,
+    // 2026-10-03: a MSGT32-re kapott hiteles MSGT31 RC=00 (a bank lezártnak
+    // mondta) — a „nem_lezarva" rendezés ehhez kifejezett megerősítést kér.
+    zaras_00_valasz: await cibFizetes.zaras00Valasz(s.payment_id),
     events,
     messages,
   });
@@ -201,21 +251,34 @@ router.post('/payments/admin/cib/:trid/ujraellenorzes', authRequired, requireRol
   // Az admin-írás napló (app-szintű middleware) a TrID-et nem tudja célként
   // rögzíteni (a target_id UUID) — a fuvarhoz kötött, kifejezett sor
   // (2026-09-29, 1. javítókör) teszi visszakereshetővé, ki mozdította.
-  await logAdminAccess(req, 'cib_ujraellenorzes', { type: 'job', id: r.jobId });
-  return res.json({ ok: true });
+  if (r.http === 200) await logAdminAccess(req, 'cib_ujraellenorzes', { type: 'job', id: r.jobId });
+  return res.status(r.http).json(r.body);
 });
 
 router.post('/payments/admin/cib/:trid/rendezes', authRequired, requireRole('admin'), writeRateLimit, async (req, res) => {
   if (!TRID_RE.test(req.params.trid)) return res.status(404).json({ error: 'Nem található' });
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   const r = await cibFizetes.rendezes(req.params.trid, {
-    eredmeny: b.eredmeny, indoklas: b.indoklas, anum: b.anum,
+    eredmeny: b.eredmeny, indoklas: b.indoklas, anum: b.anum, rt: b.rt, elso_00_ellenere: b.elso_00_ellenere,
   }, req.user.sub);
   // Pénzügyi hatású admin-döntés (kontakt-felfedés + könyvelés, vagy a
   // kísérlet lezárása): a fuvarhoz kötve, a döntés irányával naplózzuk
   // (2026-09-29, 1. javítókör — a terv H) pontja). A szabad szöveges
   // indoklás NEM kerül a naplóba, az a cib_result-ban van.
   if (r.http === 200) await logAdminAccess(req, `cib_rendezes:${b.eredmeny}`, { type: 'job', id: r.jobId });
+  return res.status(r.http).json(r.body);
+});
+
+// 2026-10-03 (PR-5): KONFIG NÉLKÜL IS elérhető kézi műveletek — a
+// vészvisszaállás (a CIB_* sorok törlése) után a függő kísérleteket semmi
+// más nem zárná le. Banki hívás és MSGT32 egyikben sincs.
+router.post('/payments/admin/cib/:trid/kezi-rendezes', authRequired, requireRole('admin'), writeRateLimit, async (req, res) => {
+  if (!TRID_RE.test(req.params.trid)) return res.status(404).json({ error: 'Nem található' });
+  const b = req.body && typeof req.body === 'object' ? req.body : {};
+  const r = await cibFizetes.keziRendezes(req.params.trid, {
+    muvelet: b.muvelet, indoklas: b.indoklas, banki_hivatkozas: b.banki_hivatkozas,
+  }, req.user.sub);
+  if (r.http === 200) await logAdminAccess(req, `cib_kezi:${b.muvelet}`, { type: 'job', id: r.jobId });
   return res.status(r.http).json(r.body);
 });
 

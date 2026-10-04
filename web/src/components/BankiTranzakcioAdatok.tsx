@@ -9,19 +9,29 @@
 //  engedélyszám): „–" — a sor ettől még látszik.
 // =====================================================================
 import type { CibBankiAdatok } from '@/api';
-import { CIB_FELIRAT_SORREND, CIB_FELIRATOK, bankiErtek, osszegKiiras } from '@/lib/cibFeliratok';
+import {
+  CIB_FELIRAT_SORREND, CIB_FELIRATOK, amoMegjegyzes, bankiErtek, osszegKiiras, type AmoKimenet,
+} from '@/lib/cibFeliratok';
 
 type Props = {
   adatok: CibBankiAdatok;
   /** A „mentsd el" tipp (az eredményoldalon kötelezően ajánlott). */
   mentesTipp?: boolean;
+  /**
+   * A kísérlet kimenete. A FELIRATOK ettől függetlenül szó szerint a bankiak
+   * (az AMO-é sikertelen fizetésnél is „A fizetett összeg (AMO)" — 2026-10-03,
+   * a PR-5 web 1. javítóköre); nem sikeres kimenetnél egy KÜLÖN mondat mondja
+   * el, mi történt a kártyával. Megadása nélkül nincs ilyen mondat (admin).
+   */
+  kimenet?: AmoKimenet;
 };
 
-export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false }: Props) {
+export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false, kimenet }: Props) {
   const ertek = (k: (typeof CIB_FELIRAT_SORREND)[number]): string => {
     if (k === 'amo') return osszegKiiras(adatok.amo);
     return bankiErtek(adatok[k] as string | null | undefined);
   };
+  const megjegyzes = kimenet ? amoMegjegyzes(kimenet) : null;
   return (
     <div data-testid="banki-tranzakcio-adatok">
       <dl
@@ -53,6 +63,9 @@ export default function BankiTranzakcioAdatok({ adatok, mentesTipp = false }: Pr
           </div>
         ))}
       </dl>
+      {megjegyzes && (
+        <p data-testid="amo-megjegyzes" style={{ fontSize: 13, margin: '8px 0 0' }}>{megjegyzes}</p>
+      )}
       {mentesTipp && (
         <p className="muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
           Érdemes elmentened ezeket az adatokat (képernyőkép vagy jegyzet) — a bankod

@@ -42,6 +42,22 @@ describe('CIB: web-tükör = backend', () => {
     expect(web.CIB_OSSZEG_PENZNEM).toBe(CIB_FELIRATOK.penznem);
   });
 
+  // 2026-10-04 (a PR-5 integrációja, C6): az admin „Lezárva" rendezésénél a
+  // web az RT-mezőt a bank RC=00-hoz tartozó szövegével tölti elő, üresen a
+  // backend ugyanezt írja be. Ha a kettő elcsúszik, ugyanaz a döntés kétféle
+  // RT-t adna a vásárlónak (eredményoldal, e-mail).
+  it('a „Lezárva" rendezés alapértelmezett RT-je azonos a weben és a backendben', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const olvas = (rel) => fs.readFileSync(path.join(__dirname, rel), 'utf8');
+    const backend = /const ADMIN_ALAP_RT = '([^']+)';/.exec(olvas('../src/services/cibFizetes.js'));
+    const web = /export const RT_ALAP_RC00 = '([^']+)';/.exec(olvas('../../web/src/components/admin/CibFizetesekAdmin.tsx'));
+    expect(backend, 'az ADMIN_ALAP_RT nem található a backendben').toBeTruthy();
+    expect(web, 'az RT_ALAP_RC00 nem található a webes admin-komponensben').toBeTruthy();
+    expect(web[1], 'ELCSÚSZOTT AZ ALAPÉRTELMEZETT RT').toBe(backend[1]);
+    expect(backend[1]).toBe('Tranzakció elfogadva');
+  });
+
   it('minden ismert banki RC ugyanabba a csoportba esik a weben és a backendben', async () => {
     const web = await import('../../web/src/lib/cibRcCsoport.ts');
     const kodok = new Set(Object.values(web.RC_CSOPORT_KODOK).flat());
