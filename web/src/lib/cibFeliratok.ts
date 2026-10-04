@@ -27,6 +27,33 @@ export type CibFeliratKulcs = keyof typeof CIB_FELIRATOK;
 /** A banki lista sorrendje — a megjelenítés is ezt követi. */
 export const CIB_FELIRAT_SORREND: readonly CibFeliratKulcs[] = ['trid', 'rc', 'rt', 'amo', 'anum'];
 
+/** A banki adatsor kimenete: ehhez igazodik az adatsor alatti mondat. */
+export type AmoKimenet = 'sikeres' | 'nem_terhelt' | 'ellenorzes' | 'visszateritve';
+
+/**
+ * Az adatsor alatti mondat a kimenet szerint — sikernél nincs.
+ *
+ * 2026-10-03 (CIB PR-5): egy elutasított vagy le nem zárt fizetésnél „A
+ * fizetett összeg (AMO)" félrevezető. A FELIRAT ettől még SZÓ SZERINT a banki
+ * marad (a bank előírása, és a sikertelen-fizetés e-mailje is ezt írja); a
+ * kimenetet ez a KÜLÖN mondat mondja el. Az ellenőrzés alatti kísérletről
+ * nem állítjuk, hogy nem terheltünk — azt csak az egyeztetés dönti el.
+ */
+export function amoMegjegyzes(kimenet: AmoKimenet): string | null {
+  if (kimenet === 'nem_terhelt') {
+    return 'A fenti összeg (AMO) ennek a fizetési kísérletnek az összege — ezzel a kísérlettel nem terheltük a kártyádat.';
+  }
+  if (kimenet === 'ellenorzes') {
+    return 'A fenti összeg (AMO) ennek a fizetési kísérletnek az összege; hogy terheltük-e, a bankkal való egyeztetés után derül ki.';
+  }
+  // 2026-10-04 (a PR-5 web 2. javítóköre): a bank terhelt, a díjat
+  // visszautaltuk — itt a „nem terheltük" hamis volna.
+  if (kimenet === 'visszateritve') {
+    return 'A fenti összeg (AMO) ennek a fizetési kísérletnek az összege — ezzel a kísérlettel a bank terhelte a kártyádat, a díjat visszatérítettük.';
+  }
+  return null;
+}
+
 /** Az AMO mellé kiírt pénznem (a díj mindig forintban megy). */
 export const CIB_OSSZEG_PENZNEM = 'HUF';
 
@@ -82,9 +109,11 @@ export const CIB_ADATKEZELESI_LINK = {
  *  megszakító — ezt előre elmondjuk (failure mode 10). 2026-10-01 (a PR-4 1.
  *  javítóköre): a helyi lezárási ablak a MSGT10-től 9 perc 30 mp
  *  (CIB_ZARAS_HATARIDO_MP), és a lezárás (egy lekérdezés + a MSGT32) is ebbe
- *  esik — a „kb. 10 perc" túlígéret volt. */
+ *  esik — a „kb. 10 perc" túlígéret volt. 2026-10-03 (CIB PR-5, lelet 27): a
+ *  visszatérés után még egy banki lekérdezés és a lezárás is a 9:30-ba fér,
+ *  ezért a vásárlónak kb. 8 percet mondunk (a „kb. 9 perc" is túlígéret). */
 export const CIB_IDO_TIPP =
-  'A bank oldalán kb. 9 perced van befejezni; ne frissítsd és ne lépj vissza. Ha a bankod alkalmazásában hagyod jóvá, utána térj vissza ebbe a böngészőbe.';
+  'A fizetést a bank oldalán kb. 8 percen belül fejezd be; ne frissítsd és ne lépj vissza. Ha a bankod alkalmazásában hagyod jóvá, utána térj vissza ebbe a böngészőbe.';
 
 /** A CIB banki tesztkörnyezet sávjának szövege (TesztFizetesSav, 'cib_teszt'). */
 export const CIB_TESZT_SAV_SZOVEG =

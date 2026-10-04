@@ -82,7 +82,8 @@ describe('eredményoldal állapotai', () => {
     vi.mocked(api.getCibEredmeny)
       .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 503 }))
       .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 503 }))
-      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 429 }))
+      // (A 429 2026-10-03 óta a szerver kérte ideig vár — lásd FizetesEredmeny-pr5.)
+      .mockRejectedValueOnce(Object.assign(new Error('x'), { status: 502 }))
       .mockResolvedValue({ ...ALAP, allapot: 'sikeres' } as any);
     render(<EredmenyOldal />);
     await atfolyat();
@@ -182,7 +183,11 @@ describe('eredményoldal állapotai', () => {
   });
 
   it('nem terhelt: megnyugtató szöveg', async () => {
-    vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, rc: '00', anum: null, allapot: 'nem_terhelt' } as any);
+    // 2026-10-04 (a PR-5 web 2. javítóköre): a fixtúra eddig RC=00-t vitt át
+    // az ALAP-ból — a valódi „nem terhelt" kimenetnek nincs 00-s banki
+    // eredménye (az RC=00 + „nem terhelt" a visszatérített kísérlet, ott a
+    // „Nem terheltük" hamis volna; őre: cib-pr5-fix2.test.tsx).
+    vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, rc: null, rt: null, anum: null, allapot: 'nem_terhelt' } as any);
     render(<EredmenyOldal />);
     await atfolyat();
     expect(screen.getByText(/Nem terheltük a kártyádat/)).toBeInTheDocument();
@@ -195,14 +200,17 @@ describe('eredményoldal állapotai', () => {
     expect(screen.getByText(/Ezt a díjat már rendezted; ezt a próbálkozást nem véglegesítettük/)).toBeInTheDocument();
   });
 
-  it('ellenőrzés: „Ne fizess újra" TrID-del, és leáll', async () => {
+  it('ellenőrzés: „Ne fizess újra" TrID-del, és csak lassan (20 mp) kérdez tovább', async () => {
+    // 2026-10-04 (W2): a backend a kétes kísérletet magától is lezárja
+    // (csak-olvasó MSGT33) — az oldal ezért nem áll le, de nem is 3 mp-enként
+    // kérdez (lib: lekerdezesUtem; az automatikus döntés: cib-pr5-w2.test).
     vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, rc: null, anum: null, allapot: 'ellenorzes' } as any);
     render(<EredmenyOldal />);
     await atfolyat();
     expect(screen.getByText(/Ne fizess újra/)).toBeInTheDocument();
     expect(screen.getAllByText('1234567812345678').length).toBeGreaterThan(0);
     await atfolyat(30_000);
-    expect(api.getCibEredmeny).toHaveBeenCalledTimes(1);
+    expect(api.getCibEredmeny).toHaveBeenCalledTimes(2);
   });
 
   it('lejárt / rossz token (404): magyarázat, a lekérdezés leáll', async () => {

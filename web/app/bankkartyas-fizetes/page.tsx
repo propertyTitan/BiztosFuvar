@@ -129,8 +129,10 @@ export default function BankkartyasFizetesOldal() {
       <h2 style={{ marginTop: 32 }}>A fizetés lépései</h2>
       <ol>
         <li>
-          A fuvarod oldalán, az ajánlat elfogadása után elfogadod a díjfizetési nyilatkozatot, majd a
-          „Fizetés bankkártyával” gombra kattintasz.
+          A fuvarod oldalán, az ajánlat elfogadása után mindkét nyilatkozatot kipipálod: a díjfizetési
+          nyilatkozatot (kéred az azonnali teljesítést) és a CIB Bank felé történő adattovábbításról szóló
+          nyilatkozatot (lásd az <Link href="/adatkezeles#cib-kartyas-fizetes">Adatkezelési tájékoztató</Link>{' '}
+          bankkártyás fizetésről szóló részét), majd a „Fizetés bankkártyával” gombra kattintasz.
         </li>
         <li>Ezután átkerülsz a CIB Bank fizetőoldalára, ahol a fizetés megkezdéséhez meg kell adnod a kártyaadataidat.</li>
         <li>A kártyaadatok megadása után a Fizetés gombra kattintva indíthatod el a tranzakciót.</li>

@@ -109,9 +109,27 @@ const IDOTULLEPES: UgyfelUzenet = {
   ujraProbalhato: true,
 };
 
+// 2026-10-03 (a PR-5 web 1. javítóköre): az „Új fizetést bármikor
+// indíthatsz" ígéret kikerült a pontokból — ha a díj épp nem fizethető (egy
+// másik kísérlet fut, a díj közben rendeződött), ugyanazon a képernyőn
+// ellentmondott a „most nem indítható" magyarázatnak. Az újrapróbát a
+// felület maga kínálja, ahol valóban lehet.
 const ALTALANOS: UgyfelUzenet = {
   cim: 'A bank nem fogadta el a fizetést.',
-  pontok: ['Új fizetést bármikor indíthatsz — egy sikertelen kísérlet után nem terheljük a kártyádat.'],
+  pontok: ['Egy sikertelen kísérlet után nem terheljük a kártyádat.'],
+  ujraProbalhato: true,
+};
+
+// Banki eredménykód NÉLKÜLI sikertelen kísérlet (el nem indult, a fizetőoldal
+// elhagyva, lezárás nélkül lejárt). 2026-10-03 (CIB PR-5, lelet 9): eddig az
+// általános „A bank nem fogadta el a fizetést" jelent meg — banki elutasítás
+// nélkül is, akár egy banki jóváhagyás után. Le nem zárt kísérletet a bank
+// nem terhel (a zárolást feloldja), ezért ez az állítás igaz.
+const NINCS_BANKI_EREDMENY: UgyfelUzenet = {
+  cim: 'A fizetés nem fejeződött be.',
+  pontok: [
+    'A fizetést nem zártuk le, ezért a kártyádat nem terheltük. Ha a bank közben zárolt összeget, azt feloldja.',
+  ],
   ujraProbalhato: true,
 };
 
@@ -142,5 +160,6 @@ export function ugyfelUzenet(p: { rc?: string | null; rc_csoport?: string | null
   if (k === 'X0') return HAROMDS;
   if (k === 'TO') return IDOTULLEPES;
   const cs = ervenyesCsoport(p.rc_csoport) ? p.rc_csoport : rcCsoportja(k);
-  return cs ? UZENETEK[cs] : ALTALANOS;
+  if (cs) return UZENETEK[cs];
+  return k ? ALTALANOS : NINCS_BANKI_EREDMENY;
 }

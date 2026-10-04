@@ -130,6 +130,16 @@ describe('/bankkartyas-fizetes — a CIB vásárlói tájékoztatója GoFuvarra 
     expect(screen.getByRole('heading', { level: 2, name: /Kapcsolat/ })).toBeInTheDocument();
   });
 
+  // 2026-10-03 (CIB PR-5, lelet 31): a lépések egyetlen nyilatkozatot
+  // említettek, a felület CIB-módban kettőt kér (a bank írásos válasza).
+  it('a fizetés lépései mindkét kötelező nyilatkozatot megnevezik', () => {
+    render(<BankkartyasFizetesOldal />);
+    const lepes = screen.getByText(/Fizetés bankkártyával/, { selector: 'li' });
+    expect(lepes.textContent).toMatch(/azonnali teljesítés/);
+    expect(lepes.textContent).toMatch(/CIB Bank[^.]*adattovábbítás/);
+    expect(lepes.textContent).toMatch(/mindkét/);
+  });
+
   it('címsor-hierarchia: a csoportok h3-ak, a kérdések alattuk h4-ek', () => {
     render(<BankkartyasFizetesOldal />);
     expect(screen.getByRole('heading', { level: 3, name: /Kártyaelfogadás/i })).toBeInTheDocument();

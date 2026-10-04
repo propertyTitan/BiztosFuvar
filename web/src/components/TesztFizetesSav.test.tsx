@@ -14,7 +14,34 @@ async function renderSav() {
   return render(<TesztFizetesSav />);
 }
 
-beforeEach(() => { getMyProfile.mockReset(); });
+function belep(id: string) {
+  localStorage.setItem('gofuvar_user', JSON.stringify({ id, email: `${id}@teszt.hu`, role: 'shipper' }));
+  localStorage.setItem('gofuvar_token', `token-${id}`);
+}
+
+beforeEach(() => {
+  getMyProfile.mockReset();
+  localStorage.clear();
+  belep('fiok-a');
+});
+
+// 2026-10-03 (CIB PR-5, lelet 28): a modul-szintű gyorsítótár fiókváltáskor
+// (SPA, teljes újratöltés nélkül) az ELŐZŐ fiók sávját mutatta — az
+// allowlistes CIB-tesztfiók után belépő stub-fiók is a kék sávot látta.
+describe('TesztFizetesSav — fiókhoz kötött gyorsítótár', () => {
+  it('fiókváltás után a másik fiók saját sávja jön, nem az előzőé', async () => {
+    getMyProfile.mockResolvedValueOnce({ payment_test_kind: 'cib_teszt' }).mockResolvedValueOnce({ payment_test_kind: 'stub' });
+    vi.resetModules();
+    const { default: TesztFizetesSav } = await import('./TesztFizetesSav');
+    const elso = render(<TesztFizetesSav />);
+    expect(await screen.findByTestId('teszt-fizetes-sav')).toHaveAttribute('data-fajta', 'cib_teszt');
+    elso.unmount();
+    belep('fiok-b');
+    render(<TesztFizetesSav />);
+    await waitFor(() => expect(screen.getByTestId('teszt-fizetes-sav')).toHaveAttribute('data-fajta', 'stub'));
+    expect(getMyProfile).toHaveBeenCalledTimes(2);
+  });
+});
 
 describe('TesztFizetesSav', () => {
   it("payment_test_kind='cib_teszt' → kék banki tesztkörnyezet-sáv, pontos szöveggel", async () => {
