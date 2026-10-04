@@ -101,6 +101,19 @@ const OLVASOTT_ENV = Object.freeze([
 ]);
 
 const TESZT_HOST = 'ekit.cib.hu';
+// 2026-10-03 (PR-5/B): az ÉLES banki végpont pontos engedélylistája. Eddig
+// élesben csak a tiltólista élt (nem ekit.cib.hu, nem loopback) — egy
+// elgépelt vagy hasonmás host (eki-cib.hu.example.net), a ponttal végződő
+// teszt-host (ekit.cib.hu.) vagy egy porttal megadott cím „teljes" volt, és a
+// vásárló kártyaadata egy idegen fizetőoldalra mehetett volna. Az éles hostot
+// a bank e-mailben erősíti meg; ha mást ad meg, ez a lista kódmódosítással
+// (review-val) bővül — szándékosan nem env-ből, hogy egy elgépelés ne
+// nyithasson utat.
+const CIB_ELES_HOSTOK = Object.freeze(['eki.cib.hu']);
+// A bank TESZT-kulcsának ismert ujjlenyomata (a kulcs SHA-256-jának eleje;
+// nem titok — a boot-napló is kiírja). Éles környezetben ezzel a kulccsal a
+// fizetés csak az első banki hibánál derülne ki, ezért ott hibás konfig.
+const ISMERT_TESZT_UJJLENYOMATOK = Object.freeze(['5540ea8b5541']);
 const RETURN_UT = '/payments/cib/vissza';
 const HMAC_MIN_BAJT = 32;
 // A lekérdező kör csak az ennél újabb kísérletekhez nyúl (a projektszabály:
@@ -140,7 +153,9 @@ function bankUrlHibak(ertek, okNev, kornyezet, eles) {
     return [okNev];
   }
   if (kornyezet === 'eles') {
-    if (u.protocol !== 'https:' || u.hostname === TESZT_HOST || LOOPBACK.has(u.hostname)) {
+    // Pontos egyezés (a WHATWG URL a záró pontot megtartja, a portot külön
+    // adja — egyik sem fér át): engedélylista, nem tiltólista.
+    if (u.protocol !== 'https:' || u.port || !CIB_ELES_HOSTOK.includes(u.hostname)) {
       return ['kornyezet_host_elteres'];
     }
   } else if (kornyezet === 'teszt') {
@@ -168,6 +183,33 @@ function returnUrlHibas(ertek, kornyezet, eles) {
   if (u.pathname !== RETURN_UT) return true;
   if ((eles || kornyezet === 'eles') && u.protocol !== 'https:') return true;
   return false;
+}
+
+/** A mai nap UTC-ben (ÉÉÉÉ-HH-NN) — a CIB_BEVEZETES összevetéséhez. */
+function maiUtcNap() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** A bank teszt-kulcsának ismert ujjlenyomata-e (az első 12 hexa jegy)? */
+function ismertTesztKulcs(ujjlenyomat) {
+  if (typeof ujjlenyomat !== 'string' || ujjlenyomat.length < 12) return false;
+  return ISMERT_TESZT_UJJLENYOMATOK.includes(ujjlenyomat.trim().toLowerCase().slice(0, 12));
+}
+
+/**
+ * Éles környezetben a visszatérési URL az API hostján él (2026-10-03, PR-5/B):
+ * a web domainjének aldomainje (api.gofuvar.hu ↔ www.gofuvar.hu), de SOHA nem
+ * maga a web host vagy annak apexe. A web hostján a hop-link és a visszatérés
+ * a webre menne (minden fizetés 404), egy idegen hoston a bank válasza és a
+ * vásárló böngészője harmadik félhez kerülne. Port nélkül (443).
+ */
+function returnHostHibas(returnUrl, webBase) {
+  const r = urlElemez(returnUrl);
+  const w = urlElemez(webBase);
+  if (!r || !w) return true;
+  const apex = w.hostname.replace(/^www\./, '');
+  return r.port !== '' || r.hostname === w.hostname || r.hostname === apex
+    || !r.hostname.endsWith(`.${apex}`);
 }
 
 function webBaseUrl(env, eles, okok) {
@@ -247,26 +289,47 @@ function logikai(env, nev, alap, figyelmeztetesek) {
   return alap;
 }
 
-function tesztFelhasznalok(env, kornyezet, figyelmeztetesek) {
-  if (!nemUres(env.CIB_TESZT_FELHASZNALOK)) return [];
+/**
+ * A teszt-allowlist feloldása. ⚠️ 2026-10-03 (PR-5/B): FAIL-CLOSED. Eddig az
+ * üres vagy csupa érvénytelen lista (e-mail a UUID helyett, idézőjel, törölt
+ * változó) „mindenki"-t jelentett: éles futásban MINDEN felhasználó a bank
+ * teszt-környezetébe került, ahol a nyilvános tesztkártya sikeres MSGT32-t
+ * ad — fizetett állapot és kontakt valódi pénz nélkül, amint az
+ * ALLOW_STUB_PAYMENTS már nincs, de a környezet még teszt. Most:
+ *   - beállított, de egyetlen érvényes UUID-t sem adó lista → senki;
+ *   - éles futásban (NODE_ENV=production) az üres / hiányzó lista is → senki;
+ *   - nem éles futásban (helyi fejlesztés, hamis bank) a hiányzó lista
+ *     marad „mindenki" (a tesztek és a helyi próba így futnak).
+ * A „senki" a konfigot NEM teszi hibássá: a kör él, a már elindult
+ * kísérleteket lezárja; az új fizetés a stub-úton megy (élesben
+ * ALLOW_STUB_PAYMENTS nélkül a kézi nyugtázás is zárva).
+ * @returns {{lista:string[], zart:boolean}}
+ */
+function tesztFelhasznalok(env, kornyezet, eles, figyelmeztetesek) {
+  const beallitva = nemUres(env.CIB_TESZT_FELHASZNALOK);
   if (kornyezet !== 'teszt') {
-    // Élesben SOHA nem oszthat két útra: egy bent felejtett allowlist mellett
-    // a listán kívüliek stubot kapnának — azaz fizetés nélkül nyugtázhatnának.
-    figyelmeztetesek.push('CIB_TESZT_FELHASZNALOK be van állítva, de a környezet nem „teszt" — '
-      + 'FIGYELMEN KÍVÜL marad (élesben mindenki a valódi CIB-utat kapja). Töröld az env-ből.');
-    return [];
+    if (beallitva) {
+      // Élesben SOHA nem oszthat két útra: egy bent felejtett allowlist mellett
+      // a listán kívüliek stubot kapnának — azaz fizetés nélkül nyugtázhatnának.
+      figyelmeztetesek.push('CIB_TESZT_FELHASZNALOK be van állítva, de a környezet nem „teszt" — '
+        + 'FIGYELMEN KÍVÜL marad (élesben mindenki a valódi CIB-utat kapja). Töröld az env-ből.');
+    }
+    return { lista: [], zart: false };
   }
   const lista = [];
   let rossz = 0;
-  for (const resz of env.CIB_TESZT_FELHASZNALOK.split(',')) {
-    const id = resz.trim().toLowerCase();
-    if (!id) continue;
-    if (UUID_RE.test(id)) { if (!lista.includes(id)) lista.push(id); } else rossz += 1;
+  if (beallitva) {
+    for (const resz of env.CIB_TESZT_FELHASZNALOK.split(',')) {
+      const id = resz.trim().toLowerCase();
+      if (!id) continue;
+      if (UUID_RE.test(id)) { if (!lista.includes(id)) lista.push(id); } else rossz += 1;
+    }
   }
   if (rossz) {
     figyelmeztetesek.push(`CIB_TESZT_FELHASZNALOK: ${rossz} érvénytelen (nem UUID) bejegyzés kihagyva.`);
   }
-  return lista;
+  const zart = lista.length === 0 && (beallitva || eles);
+  return { lista, zart };
 }
 
 /** Az összes CIB-hez tartozó env egy (hash-elt) lenyomata — a gyorsítótár kulcsa. */
@@ -275,6 +338,9 @@ function envLenyomat(env) {
     ...LOGIKAI.map((l) => l[0]), 'NODE_ENV', 'WEB_BASE_URL'];
   const h = crypto.createHash('sha256');
   for (const n of nevek) h.update(`${n}\u0000${env[n] == null ? '\u0001' : String(env[n])}\u0000`);
+  // A CIB_BEVEZETES a mai naphoz mért (2026-10-03, PR-5/B): a gyorsítótár
+  // naponta újraold, így egy ma még jövőbeli dátum a napján magától érvényes.
+  h.update(`nap\u0000${maiUtcNap()}`);
   return h.digest('hex');
 }
 
@@ -352,6 +418,10 @@ function feloldas(env) {
           const vart = env.CIB_KEY_UJJLENYOMAT.trim().toLowerCase();
           if (!/^[0-9a-f]{12,64}$/.test(vart)) okok.push('kulcs_ujjlenyomat_ervenytelen');
           else if (!teljes.startsWith(vart)) okok.push('kulcs_ujjlenyomat_elteres');
+          if (kornyezet === 'eles' && ismertTesztKulcs(vart)) okok.push('teszt_kulcs_elesben');
+        }
+        if (kornyezet === 'eles' && ismertTesztKulcs(ujjlenyomat) && !okok.includes('teszt_kulcs_elesben')) {
+          okok.push('teszt_kulcs_elesben');
         }
       } catch {
         // Az ok kódja elég — a kulcsfájl hibaüzenete sem kerül a naplóba.
@@ -379,8 +449,19 @@ function feloldas(env) {
     if (/^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`))) bevezetes = d;
     else figyelmeztetesek.push(`CIB_BEVEZETES érvénytelen (ÉÉÉÉ-HH-NN kell) — az alapérték (${CIB_BEVEZETES_ALAP}) marad.`);
   }
+  // ⚠️ 2026-10-03 (PR-5/B): a lekérdező kör csak a `created_at >= bevezetes`
+  // sorokhoz nyúl, a szívverést viszont a 0 soros kör is frissíti — egy
+  // jövőbeli (elgépelt) dátum mellett a /pay tovább engedélyeztetett pénzt,
+  // amit SEMMI nem zárt le (néma kikapcsolás). A DB a dátumot UTC-éjfélként
+  // veti össze (Neon: GMT), ezért a mai UTC-naphoz mérünk. Hibás konfig:
+  // 503 és hangos boot-hiba, nem csendes leállás.
+  if (bevezetes > maiUtcNap()) okok.push('bevezetes_jovobeli');
 
   const web = webBaseUrl(env, eles, okok);
+  if (kornyezet === 'eles' && returnUrl && apiOrigin && returnHostHibas(returnUrl, web)) {
+    okok.push('return_url_nem_api_host');
+  }
+  const allowlist = tesztFelhasznalok(env, kornyezet, eles, figyelmeztetesek);
   const beall = {
     allapot: okok.length ? 'hibas' : 'teljes',
     okok,
@@ -393,7 +474,8 @@ function feloldas(env) {
     returnUrl,
     apiOrigin,
     webBaseUrl: web,
-    tesztFelhasznalok: tesztFelhasznalok(env, kornyezet, figyelmeztetesek),
+    tesztFelhasznalok: allowlist.lista,
+    tesztAllowlistZart: allowlist.zart,
     hangolok: hangolok(env, figyelmeztetesek),
     tsIdozona,
     bevezetes,
@@ -452,6 +534,15 @@ function naplozCibKonfigot({ env = process.env, konzol = console, sentry = null 
   konzol.log(`[CIB] EKI-konfiguráció teljes — környezet: ${b.kornyezet}, PID: ${b.pid}, `
     + `kulcs-ujjlenyomat: ${b.ujjlenyomat}, bank: ${bankHost}, visszatérés: ${b.apiOrigin}`
     + `${b.tesztFelhasznalok.length ? `, teszt-allowlist: ${b.tesztFelhasznalok.length} fiók` : ''}`);
+  if (b.tesztAllowlistZart) {
+    // 2026-10-03 (PR-5/B): a fail-closed allowlist hangos — enélkül a teszt-
+    // fiókok is némán a stub-utat kapnák, és senki nem tudná, miért.
+    const uzenet = '[CIB] 🚨 CIB_TESZT_FELHASZNALOK üres vagy egyetlen érvényes user-id-t (UUID) sem tartalmaz — '
+      + 'teszt-környezetben ilyenkor SENKI nem kapja a kártyás utat (mindenki a stub-fizetést látja). '
+      + 'Add meg a teszt-fiókok user-id-jét (nem e-mail-címét) vesszővel elválasztva.';
+    konzol.error(uzenet);
+    try { if (sentry) sentry.captureMessage(uzenet, 'error'); } catch { /* no-op */ }
+  }
   if (b.ujFizetesTiltva) {
     // 2026-10-03 (PR-5): a szünet szándékos üzemállapot, de ne felejtődjön bent.
     konzol.warn('[CIB] ⏸️ SZÜNET (CIB_UJ_FIZETES_TILTVA=true): új kártyás fizetés nem indul (503 CIB_PAUSED); '
@@ -822,6 +913,8 @@ module.exports = {
   ELAVULT_ENV,
   OLVASOTT_ENV,
   CIB_BEVEZETES_ALAP,
+  CIB_ELES_HOSTOK,
+  ismertTesztKulcs,
   RETURN_UT,
   // mezők
   ujTrid,

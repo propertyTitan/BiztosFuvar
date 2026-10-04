@@ -77,12 +77,16 @@ describe('CIB admin blokk', () => {
     expect(masolt).toContain('DATA=AAAA');
     expect(masolt).toContain('DATA=BBBB');
     // A Fejlesztői útmutató (Support) szerinti levél: címzett, a tárgyban a
-    // boltazonosító (PID — a titkosított üzenet nyílt részéből), és a kért
-    // adatok helye (a probléma leírása, a kereskedői szerver IP-címe).
+    // boltazonosító (PID — a titkosított üzenet nyílt részéből), a TrID, a PID
+    // és az idő. 2026-10-03 (PR-5/B): a kimenő IP-t NEM kérjük kitölteni (a
+    // felhőszolgáltatónál változik — egy utólag beírt cím téves lehet).
     expect(masolt).toContain('ecommerce@cib.hu');
     expect(masolt).toMatch(/^Tárgy: Tranzakció kivizsgálás kérés ABC0001$/m);
     expect(masolt).toMatch(/A problémás tranzakció azonosítója \(TrID\): 1234567812345678/);
-    expect(masolt).toMatch(/A kereskedői szerver IP-címe:/);
+    expect(masolt).toMatch(/^Boltazonosító \(PID\): ABC0001$/m);
+    expect(masolt).toMatch(/A tranzakció indítása \(MSGT10/);
+    expect(masolt).toMatch(/kimenő IP-címe: .*változó cím/);
+    expect(masolt).not.toMatch(/IP-címe: \[kitöltendő\]/);
     expect(masolt).toMatch(/A probléma leírása:/);
 
     fireEvent.click(within(panel).getByRole('button', { name: /Újraellenőrzés/ }));

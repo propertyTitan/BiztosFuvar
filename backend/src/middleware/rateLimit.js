@@ -35,6 +35,10 @@ if (cleanup.unref) cleanup.unref();
  * @param {'ip'|'user'|'ip+user'} [opts.keyBy='ip'] – melyik kulcs alapján korlátozunk
  * @param {string} [opts.message] – a 429-es válaszban levő hibaüzenet
  * @param {string} [opts.name] – log / header prefix (debug célokra)
+ * @param {(req, res, retryAfterSec: number) => void} [opts.onLimit] – a
+ *   túllépés saját kezelése (2026-10-03, CIB PR-5/B): a böngésző-navigációs
+ *   végpontok (a bankból visszatérő vásárló) nyers JSON helyett egy HTML
+ *   hibaoldalra irányítanak. Alapból a megszokott 429 JSON.
  */
 function createRateLimit({
   windowMs,
@@ -42,6 +46,7 @@ function createRateLimit({
   keyBy = 'ip',
   message = 'Túl sok kérés. Kérlek várj egy percet.',
   name = 'rl',
+  onLimit = null,
 }) {
   return function rateLimitMiddleware(req, res, next) {
     // Kulcs összeállítása.
@@ -78,6 +83,7 @@ function createRateLimit({
 
     if (entry.count > max) {
       res.setHeader('Retry-After', String(retryAfterSec));
+      if (typeof onLimit === 'function') return onLimit(req, res, retryAfterSec);
       return res.status(429).json({
         error: message,
         retry_after_seconds: retryAfterSec,

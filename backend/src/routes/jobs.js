@@ -1183,9 +1183,10 @@ router.patch('/:id', authRequired, writeRateLimit, async (req, res) => {
         RETURNING *`,
       params,
     );
-    if (upd.rowCount > 0 && await cibZarasFolyamatban(client, j.id)) {
+    const fagyPatch = upd.rowCount > 0 ? await cibZarasFolyamatban(client, j.id) : null;
+    if (fagyPatch) {
       await client.query('ROLLBACK');
-      return res.status(409).json(fagyasztvaValasz());
+      return res.status(409).json(fagyasztvaValasz(fagyPatch, 'felado'));
     }
     await client.query('COMMIT');
   } catch (err) {
@@ -1260,11 +1261,12 @@ router.post('/:id/confirm-payment', authRequired, writeRateLimit, async (req, re
       error: 'A fizetést a fizetésszolgáltató igazolja vissza automatikusan — kérjük, a fizetési oldalon fejezd be a fizetést.',
     });
   }
-  const { rowCount: cibFuggo } = await db.query(
-    `SELECT 1 FROM payment_sessions WHERE job_id = $1 AND cib_state IS NOT NULL AND state IN ('pending', 'needs_review')`,
+  const { rows: cibFuggo } = await db.query(
+    `SELECT cib_state, state FROM payment_sessions WHERE job_id = $1 AND cib_state IS NOT NULL AND state IN ('pending', 'needs_review')
+      ORDER BY (state = 'needs_review' OR cib_state = 'close_unknown') DESC LIMIT 1`,
     [j.id],
   );
-  if (cibFuggo > 0) return res.status(409).json(fagyasztvaValasz());
+  if (cibFuggo[0]) return res.status(409).json(fagyasztvaValasz(cibFuggo[0], 'felado'));
 
   if (!j.fee_consent_at) {
     return res.status(400).json({
@@ -1360,9 +1362,10 @@ async function reopenJobForNewDriver(j, { failedCarrierId, reason }) {
     // a fuvarsort; az őr ÚJ utasításként fut, így látja a közben commitolt
     // `closing` sort. Szállítócsere alatt a bank nem zárhat le egy régi
     // megállapodást — fagyasztott ügyletnél minden visszagördül.
-    if (await cibZarasFolyamatban(client, j.id)) {
+    const fagy = await cibZarasFolyamatban(client, j.id);
+    if (fagy) {
       await client.query('ROLLBACK');
-      return CIB_FAGYASZTVA;
+      return { [CIB_FAGYASZTVA]: fagy };
     }
     if (failedCarrierId) {
       await client.query(
@@ -1458,7 +1461,9 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
   // === SZÁLLÍTÓ-LEMONDÁS elfogadott fuvaron → díjmentes újranyitás ===
   if (iAmCarrier && j.status === 'accepted') {
     const ujranyitva = await reopenJobForNewDriver(j, { failedCarrierId: j.carrier_id, reason });
-    if (ujranyitva === CIB_FAGYASZTVA) return res.status(409).json(fagyasztvaValasz());
+    if (ujranyitva && ujranyitva[CIB_FAGYASZTVA]) {
+      return res.status(409).json(fagyasztvaValasz(ujranyitva[CIB_FAGYASZTVA], 'szallito'));
+    }
     if (!ujranyitva) {
       return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
     }
@@ -1508,9 +1513,10 @@ router.post('/:id/cancel', authRequired, writeRateLimit, async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
     }
-    if (await cibZarasFolyamatban(client, j.id)) {
+    const fagyLemond = await cibZarasFolyamatban(client, j.id);
+    if (fagyLemond) {
       await client.query('ROLLBACK');
-      return res.status(409).json(fagyasztvaValasz());
+      return res.status(409).json(fagyasztvaValasz(fagyLemond, iAmShipper ? 'felado' : 'szallito'));
     }
 
     // Ha a díj-fizetés még függőben volt ('held' = elindított, de be nem
@@ -1652,7 +1658,9 @@ router.post('/:id/reopen', authRequired, writeRateLimit, async (req, res) => {
 
   const failedCarrierId = j.carrier_id;
   const ujranyitva = await reopenJobForNewDriver(j, { failedCarrierId, reason });
-  if (ujranyitva === CIB_FAGYASZTVA) return res.status(409).json(fagyasztvaValasz());
+  if (ujranyitva && ujranyitva[CIB_FAGYASZTVA]) {
+    return res.status(409).json(fagyasztvaValasz(ujranyitva[CIB_FAGYASZTVA], 'felado'));
+  }
   if (!ujranyitva) {
     return res.status(409).json({ error: 'Az állapot időközben megváltozott — frissítsd az oldalt.', code: 'STATE_CHANGED' });
   }
@@ -1762,9 +1770,10 @@ router.post('/:id/instant-accept', authRequired, requireDriverKYC, writeRateLimi
     // CIB FAGYASZTÁSI ŐR (2026-09-29, CIB PR-2/B): a fenti UPDATE már tartja
     // a fuvarsort; ÚJ utasításként nézzük, nem zárul-e épp egy korábbi
     // (újranyitás előtti) kártyás kísérlet — alatta új szállító nem jöhet.
-    if (await cibZarasFolyamatban(client, job.id)) {
+    const fagyInstant = await cibZarasFolyamatban(client, job.id);
+    if (fagyInstant) {
       await client.query('ROLLBACK');
-      return res.status(409).json(fagyasztvaValasz());
+      return res.status(409).json(fagyasztvaValasz(fagyInstant, 'szallito'));
     }
 
     // ⚠️ DÍJMENTES ÚJRAVÁLASZTÁS az azonnali ágon is (2026-09-13, teljes

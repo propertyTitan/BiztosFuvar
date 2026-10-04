@@ -532,6 +532,16 @@ const SIKERTELEN_LEVEL = {
       + 'kártyádat <strong>nem terheltük</strong>; a zárolt összeget a bank magától feloldja (a kivonatodon pár '
       + 'napig függő tételként látszhat). A díj állapotát a fuvar oldalán látod.',
   },
+  // 2026-10-03 (CIB PR-5/B): a bank által jóváhagyott összeg eltért a díjtól —
+  // a „fuvar megváltozott" indok itt hamis volt.
+  osszeg_elteres: {
+    heading: 'ℹ️ A kártyádat nem terheltük',
+    targy: 'A kártyádat nem terheltük',
+    torzs: 'a kártyás fizetést <strong>nem zártuk le</strong>, mert a bank által jóváhagyott összeg eltért a '
+      + 'díjtól — a kártyádat <strong>nem terheltük</strong>. A zárolt összeget a bank magától feloldja; a '
+      + 'kivonatodon pár napig függő tételként látszhat. A díj állapotát a fuvar oldalán látod; ha elakadtál, '
+      + 'írj az info@gofuvar.hu címre.',
+  },
   mar_fizetve: {
     heading: 'ℹ️ A díj már rendezve volt — nem terheltünk kétszer',
     targy: 'A díj már rendezve volt — nem terheltünk kétszer',
@@ -767,13 +777,20 @@ async function sendBookingReceivedEmail({ to, carrierName, routeTitle, routeId, 
 /**
  * A szállító megerősítette a foglalást → feladó tud fizetni.
  */
-async function sendBookingConfirmedEmail({ to, shipperName, routeTitle, bookingId, carrierName, priceHuf }) {
+async function sendBookingConfirmedEmail({
+  to, shipperName, routeTitle, bookingId, carrierName, priceHuf, kartyasFizetesElerheto = true,
+}) {
   const heading = '✅ A szállító megerősítette a foglalásod!';
+  // 2026-10-03 (CIB PR-5/B): a kártyás (CIB) úton a foglalás díja még nem
+  // fizethető — a „Fizetés most" gomb ott lehetetlen felhívás lenne.
+  const fizetes = kartyasFizetesElerheto
+    ? '<p>Most tudod megfizetni a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig közvetlenül neki fizeted (készpénz vagy átutalás, ahogy megegyeztek). A foglalásod a "Foglalásaim" menüpontban érhető el.</p>'
+    : '<p>A járat-foglalások kapcsolatfelvételi díját kártyával egyelőre nem lehet kifizetni, ezért a szállító elérhetőségét még nem tudjuk megmutatni. Ha segítség kell, írj az <a href="mailto:info@gofuvar.hu">info@gofuvar.hu</a> címre. A foglalásod a "Foglalásaim" menüpontban érhető el.</p>';
   const bodyHtml = `
     <p>Szia ${escapeHtml(shipperName) || 'GoFuvar felhasználó'}!</p>
     <p><strong>${escapeHtml(carrierName) || 'A szállító'}</strong> elfogadta a foglalásodat a(z) <strong>"${escapeHtml(routeTitle)}"</strong> járaton.</p>
     <p style="font-size:24px;font-weight:800;color:#16a34a;margin:20px 0">${formatHuf(priceHuf)} Ft</p>
-    <p>Most tudod megfizetni a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig közvetlenül neki fizeted (készpénz vagy átutalás, ahogy megegyeztek). A foglalásod a "Foglalásaim" menüpontban érhető el.</p>
+    ${fizetes}
   `;
   return sendEmail({
     to,
@@ -781,7 +798,7 @@ async function sendBookingConfirmedEmail({ to, shipperName, routeTitle, bookingI
     html: wrapHtml({
       heading,
       bodyHtml,
-      ctaText: 'Fizetés most',
+      ctaText: kartyasFizetesElerheto ? 'Fizetés most' : 'Foglalásaim',
       ctaHref: `${getWebBase()}/dashboard/foglalasaim`,
     }),
   });

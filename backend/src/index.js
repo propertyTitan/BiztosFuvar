@@ -402,6 +402,9 @@ process.on('uncaughtException', (err) => {
     // Sentry error: a kártyás fizetés 503, a stub NEM nyílik vissza.
     if (providerName === 'cib') {
       require('./services/cibProtokoll').naplozCibKonfigot({ sentry: Sentry });
+      // 2026-10-03 (PR-5/B): bekapcsolt járat-ág + élő CIB → a foglalások
+      // díja kártyával nem fizethető; ezt a visszakapcsoláskor látni kell.
+      require('./services/feePaymentSession').jaratKartyasEllenorzes({ sentry: Sentry });
     }
     if (paymentProvider.stubEngedelyezve()) {
       // ⚠️⚠️⚠️ TESZT-ÜZEM: a stub-fizetés ÉLESBEN IS engedélyezve van.

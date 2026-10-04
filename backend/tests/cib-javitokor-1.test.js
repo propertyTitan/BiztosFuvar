@@ -435,7 +435,9 @@ describe('Admin: rendezés és újraellenőrzés', () => {
 
 // =====================================================================
 describe('Publikus visszatérés: a szemétforgalom nem tölti a naplót és a Sentryt', () => {
-  it('azonosíthatatlan MSGT21: rövid napló-részlet, a Sentry-jelzés percenként legfeljebb egy', async () => {
+  // 2026-10-03 (PR-5/B): az azonosíthatatlan kérés MÁR NEM ír tartós sort
+  // (eddig rövid napló-részletet írt, de kérésenként egyet — tárhely-felfújás).
+  it('azonosíthatatlan MSGT21: nincs DB-naplósor, a Sentry-jelzés percenként legfeljebb egy', async () => {
     const sentry = require('@sentry/node');
     const eredetiCapture = sentry.captureMessage;
     const jelzesek = [];
@@ -450,8 +452,7 @@ describe('Publikus visszatérés: a szemétforgalom nem tölti a naplót és a S
       }
       const { rows } = await db.query('SELECT char_length(raw) AS h FROM cib_messages WHERE id > $1 AND direction = $2',
         [elotte, 'bongeszo_be']);
-      expect(rows).toHaveLength(3);
-      for (const x of rows) expect(Number(x.h), 'a hitelesítés nélküli végpont 4000 karaktert írt a naplóba').toBeLessThanOrEqual(300);
+      expect(rows, 'a hitelesítés nélküli végpont szemét-kérése tartós naplósort írt').toHaveLength(0);
       expect(jelzesek.filter((m) => /visszatérés/.test(m)), 'minden szemét-kérés Sentry-jelzést küldött').toHaveLength(1);
     } finally {
       vissza();

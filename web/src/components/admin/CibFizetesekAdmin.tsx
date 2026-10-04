@@ -87,18 +87,27 @@ function boltazonosito(r: AdminCibReszlet): string {
 /**
  * A banknak küldhető kivizsgálási levél (a Fejlesztői útmutató „Support"
  * pontja szerint): címzett, a tárgyban a boltazonosító, a tranzakció
- * azonosítója, a probléma leírásának és a kereskedői szerver IP-címének
- * helye (ezeket az admin tölti ki), és a küldött/fogadott titkosított
- * üzenetek időpecséttel.
+ * azonosítója és ideje, a probléma leírásának helye (ezt az admin tölti ki),
+ * és a küldött/fogadott titkosított üzenetek időpecséttel.
+ *
+ * 2026-10-03 (CIB PR-5/B): a „kereskedői szerver IP-címe" mezőt nem kérjük
+ * kitölteni — a kimenő IP a felhőszolgáltatónál (Railway) változik, egy
+ * utólag beírt pillanatnyi cím téves is lehet. A bank a tranzakciót a TrID,
+ * a PID és az időpecsétek alapján azonosítja (IP-regisztráció nem kell).
  */
 export function bankiNaploSzoveg(trid: string, r: AdminCibReszlet): string {
+  const pid = boltazonosito(r);
+  const kezdete = r.session?.created_at ?? r.messages[0]?.created_at ?? null;
   const sorok = [
     `Címzett: ${CIB_KIVIZSGALAS_EMAIL}`,
-    `Tárgy: Tranzakció kivizsgálás kérés ${boltazonosito(r)}`,
+    `Tárgy: Tranzakció kivizsgálás kérés ${pid}`,
     '',
     `A problémás tranzakció azonosítója (TrID): ${trid}`,
+    `Boltazonosító (PID): ${pid}`,
+    `A tranzakció indítása (MSGT10, a kereskedő órája szerint): ${kezdete ?? '[ld. az üzenetnaplót]'}`,
     'A probléma leírása: [kitöltendő]',
-    'A kereskedői szerver IP-címe: [kitöltendő]',
+    'A kereskedői szerver kimenő IP-címe: felhőszolgáltatónál futó, változó cím (nem rögzített) — '
+      + 'a tranzakció a TrID, a PID és az alábbi időpecsétek alapján azonosítható.',
     'Képernyőkép: [ha van, csatold]',
     `Kereskedő: ${KERESKEDO.teljesNev} (${KERESKEDO.rovidNev}), adószám: ${KERESKEDO.adoszam}`,
     r.session?.job_id ? `Belső hivatkozás (fuvar): ${r.session.job_id}` : null,

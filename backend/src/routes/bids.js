@@ -369,12 +369,14 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
 //           { ok:false, status, error, code? } — ekkor a hívó ROLLBACK-el.
 //           (2026-09-29, CIB PR-1: belső `detail` nincs — a fizetésindítás
 //           hibaszövege csak a szerver-naplóba kerül.)
-async function finalizeAcceptedBid(client, bid, agreedPrice) {
+async function finalizeAcceptedBid(client, bid, agreedPrice, szerep = 'felado') {
   // CIB FAGYASZTÁSI ŐR (2026-09-29, CIB PR-2/B): a hívó a fuvarsort már
   // zárolta — ha a fuvar egy korábbi kártyás kísérlete épp lezárul a
   // banknál, új megállapodás (szállító/díjsáv) nem jöhet létre alatta.
-  if (await cibZarasFolyamatban(client, bid.job_id)) {
-    return { ok: false, status: 409, ...fagyasztvaValasz() };
+  // A 409 szövege a hívó szerepéhez igazodik (2026-10-03, PR-5/B).
+  const fagy = await cibZarasFolyamatban(client, bid.job_id);
+  if (fagy) {
+    return { ok: false, status: 409, ...fagyasztvaValasz(fagy, szerep) };
   }
   // Régi EUR-ajánlat sem értelmezhető át forintnak. Új HUF-ajánlat kell.
   if ((bid.currency || 'HUF') !== 'HUF' || (bid.job_currency || 'HUF') !== 'HUF') {
@@ -597,9 +599,10 @@ router.post('/bids/:id/withdraw', authRequired, writeRateLimit, async (req, res)
   try {
     await client.query('BEGIN');
     await client.query('SELECT id FROM jobs WHERE id = $1 FOR UPDATE', [bid.job_id]);
-    if (await cibZarasFolyamatban(client, bid.job_id)) {
+    const fagy = await cibZarasFolyamatban(client, bid.job_id);
+    if (fagy) {
       await client.query('ROLLBACK');
-      return res.status(409).json(fagyasztvaValasz());
+      return res.status(409).json(fagyasztvaValasz(fagy, 'szallito'));
     }
     upd = await client.query(
       `UPDATE bids SET status = 'withdrawn', counter_amount_huf = NULL, counter_by = NULL, counter_at = NULL
@@ -781,7 +784,7 @@ router.post('/bids/:id/accept-counter', authRequired, writeRateLimit, async (req
       return res.status(409).json(OFFER_CHANGED);
     }
 
-    const fin = await finalizeAcceptedBid(client, bid, agreedPrice);
+    const fin = await finalizeAcceptedBid(client, bid, agreedPrice, 'szallito');
     if (!fin.ok) {
       await client.query('ROLLBACK');
       return res.status(fin.status).json({ error: fin.error, ...(fin.code ? { code: fin.code } : {}) });

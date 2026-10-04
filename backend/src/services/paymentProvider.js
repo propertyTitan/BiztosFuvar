@@ -135,7 +135,12 @@ function fizetesiUt(userId) {
   if (name() !== 'cib') return 'hibas'; // a QVIK valódi útja nincs bekötve
   const b = cibProtokoll.cibBeallitasok();
   if (b.allapot !== 'teljes') return 'hibas';
-  if (b.kornyezet === 'eles' || b.tesztFelhasznalok.length === 0) return 'cib';
+  if (b.kornyezet === 'eles') return 'cib';
+  // 2026-10-03 (PR-5/B): a beállított, de érvénytelen — vagy éles futásban
+  // üres — teszt-allowlist FAIL-CLOSED: senki nem kapja a banki (tesztkártyás)
+  // utat (cibProtokoll.tesztFelhasznalok).
+  if (b.tesztAllowlistZart) return 'stub';
+  if (b.tesztFelhasznalok.length === 0) return 'cib';
   const id = typeof userId === 'string' ? userId.trim().toLowerCase() : '';
   return id && b.tesztFelhasznalok.includes(id) ? 'cib' : 'stub';
 }

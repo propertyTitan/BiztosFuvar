@@ -512,7 +512,8 @@ describe('Admin: keresés, részletek, újraellenőrzés, rendezés', () => {
     expect((await request(app).get('/payments/admin/cib/123').set(...auth(admin))).status).toBe(404);
     const ujra = await request(app).post(`/payments/admin/cib/${trid}/ujraellenorzes`).set(...auth(admin)).send({});
     expect(ujra.status).toBe(200);
-    expect(ujra.body).toEqual({ ok: true });
+    // 2026-10-03 (PR-5/B): a válasz megmondja, mi történik (uzenet, kovetkezo_at).
+    expect(ujra.body).toMatchObject({ ok: true, utemezve: true });
     await cf().varjHatterre();
   });
 

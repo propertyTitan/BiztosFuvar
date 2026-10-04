@@ -194,10 +194,11 @@ describe('cibKonfig: nincs / teljes / hibás', () => {
   });
 
   it('a kapcsolók és a bevezetés-dátum: érvényes érték átmegy, a hibás figyelmeztet és alapértéken marad', () => {
+    // 2026-10-03 (PR-5/B): múltbeli dátum — a jövőbeli „hibas" (cib-pr5-b2-konfig).
     const jo = p.cibBeallitasok(teljesEnv({
-      CIB_EXTRA01: 'TRUE', CIB_SIKERTELEN_LEZARAS: '0', CIB_BEVEZETES: '2026-10-05', CIB_KOR_MAX_KERES: '25',
+      CIB_EXTRA01: 'TRUE', CIB_SIKERTELEN_LEZARAS: '0', CIB_BEVEZETES: '2026-09-30', CIB_KOR_MAX_KERES: '25',
     }));
-    expect(jo).toMatchObject({ allapot: 'teljes', extra01: true, sikertelenLezaras: false, bevezetes: '2026-10-05' });
+    expect(jo).toMatchObject({ allapot: 'teljes', extra01: true, sikertelenLezaras: false, bevezetes: '2026-09-30' });
     expect(jo.hangolok.korMaxKeres).toBe(25);
     const rossz = p.cibBeallitasok(teljesEnv({ CIB_EXTRA01: 'talán', CIB_BEVEZETES: 'holnap' }));
     expect(rossz).toMatchObject({ allapot: 'teljes', extra01: false, bevezetes: p.CIB_BEVEZETES_ALAP });

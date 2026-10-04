@@ -25,6 +25,53 @@ function cibNemElerheto() {
   } };
 }
 
+// 2026-10-03 (PR-5/B): a JÁRAT-foglalás díjának kártyás (CIB) ága nincs bekötve
+// (cibFizetes: „5. fázis"). Eddig ez is a CIB_UNAVAILABLE 503-at kapta —
+// „átmenetileg nem elérhető, próbáld újra később" —, holott a hiány TARTÓS:
+// a feladó újra és újra próbálkozott volna egy kifizethetetlen díjjal.
+const FOGLALAS_KARTYA_KOD = 'BOOKING_CARD_NOT_AVAILABLE';
+function foglalasKartyaNemElerheto() {
+  return { http: 409, body: {
+    error: 'A járat-foglalások kapcsolatfelvételi díját kártyával egyelőre nem lehet kifizetni. '
+      + 'Nem történt terhelés. Ha segítség kell, írj az info@gofuvar.hu címre.',
+    code: FOGLALAS_KARTYA_KOD,
+  } };
+}
+
+/**
+ * Kártyával fizethető-e EZ a foglalás díja? A CIB-úton (cib) nem — a stub-
+ * és a hibás konfigú úton a megszokott szöveg megy (az utóbbi valóban
+ * átmeneti). A foglalás-megerősítés értesítése ehhez igazodik.
+ * @param {string} shipperId
+ */
+function foglalasKartyavalNemFizetheto(shipperId) {
+  try {
+    return paymentProvider.fizetesiUt(shipperId) === 'cib';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Induláskori ellenőrzés (index.js): a bekapcsolt JÁRAT-ág mellett élő CIB
+ * EKI-n a foglalások díja nem fizethető — ezt a visszakapcsoláskor látni kell
+ * (a CLAUDE.md VISSZAKAPCSOLÁS-receptje erről nem szól). Hangos hiba +
+ * Sentry error; a működést nem állítja meg.
+ * @returns {boolean} szólt-e
+ */
+function jaratKartyasEllenorzes({ konzol = console, sentry = null } = {}) {
+  const { jaratEnabled } = require('../utils/jaratKapcsolo');
+  let cib = false;
+  try { cib = paymentProvider.usesCibEki(); } catch { cib = false; }
+  if (!jaratEnabled() || !cib) return false;
+  const uzenet = '[CIB] 🚨 JARAT_ENABLED=true, de a járat-foglalások kapcsolatfelvételi díja a kártyás (CIB) úton '
+    + 'NEM fizethető (a foglalási CIB-ág nincs bekötve) — a feladók 409 BOOKING_CARD_NOT_AVAILABLE-t kapnak, és a '
+    + 'szállító elérhetősége nem nyílik meg. Kapcsold ki a járat-ágat (JARAT_ENABLED), amíg a foglalási ág nem kész.';
+  konzol.error(uzenet);
+  try { if (sentry) sentry.captureMessage(uzenet, 'error'); } catch { /* no-op */ }
+  return true;
+}
+
 // A hívó kezeli a tranzakciót, így az elfogadás és a fizetés hivatkozása együtt mentődik.
 //
 // `atAcceptance` (2026-09-29, CIB PR-2/B): az elfogadás (ajánlat, ellenajánlat,
@@ -69,7 +116,7 @@ async function startOrReuseFeePaymentInTransaction(client, {
   if (ut !== 'stub') {
     // A fuvar /pay-je a CIB-ágat külön hívja (services/cibFizetes.js); ide
     // nem elfogadásként CIB-úton csak a még be nem kötött járat-ág juthat.
-    if (!atAcceptance) return cibNemElerheto();
+    if (!atAcceptance) return !isJob && ut === 'cib' ? foglalasKartyaNemElerheto() : cibNemElerheto();
     await client.query(isJob
       ? 'UPDATE jobs SET connection_fee_huf = $1 WHERE id = $2 AND connection_fee_huf IS NULL'
       : 'UPDATE route_bookings SET connection_fee_huf = COALESCE(connection_fee_huf, $1) WHERE id = $2',
@@ -168,4 +215,10 @@ async function startOrReuseFeePayment(options) {
   }
 }
 
-module.exports = { startOrReuseFeePayment, startOrReuseFeePaymentInTransaction };
+module.exports = {
+  startOrReuseFeePayment,
+  startOrReuseFeePaymentInTransaction,
+  foglalasKartyavalNemFizetheto,
+  jaratKartyasEllenorzes,
+  FOGLALAS_KARTYA_KOD,
+};

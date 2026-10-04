@@ -732,13 +732,14 @@ describe('CIB kártyás díjfizetés: minden út lefut (hamis bankkal)', () => {
         request(app).get(`/payments/admin/cib?q=${pay.body.trid}`).set(auth(V.admin.token)));
       await sikeres('GET /payments/admin/cib/:trid',
         request(app).get(`/payments/admin/cib/${pay.body.trid}`).set(auth(V.admin.token)));
-      await sikeres('POST /payments/admin/cib/:trid/ujraellenorzes',
-        request(app).post(`/payments/admin/cib/${pay.body.trid}/ujraellenorzes`).set(auth(V.admin.token)).send({}));
-
       // Egy kétes (close_unknown) kísérlet kézi rendezése.
       const job2 = await createJob({ shipperId: V.felado.id, carrierId: V.szallito.id, status: 'accepted' });
       const pay2 = await sikeres('POST /jobs/:id/pay (CIB, 2.)',
         request(app).post(`/jobs/${job2.id}/pay`).set(auth(V.felado.token)).send({ consent: true, cib_adatkezelesi_hozzajarulas: true }));
+      // 2026-10-03 (PR-5/B): az újraellenőrzés csak FÜGGŐ kísérletre siker
+      // (végállapotúra 409 CIB_NO_AUTOMATIC_STEP) — a még függő második TrID-re.
+      await sikeres('POST /payments/admin/cib/:trid/ujraellenorzes',
+        request(app).post(`/payments/admin/cib/${pay2.body.trid}/ujraellenorzes`).set(auth(V.admin.token)).send({}));
       await db.query(`UPDATE payment_sessions SET cib_state = 'close_unknown', cib_close_attempts = 1,
                       cib_redirected_at = NOW() WHERE payment_id = $1`, [pay2.body.trid]);
       await sikeres('POST /payments/admin/cib/:trid/rendezes',
