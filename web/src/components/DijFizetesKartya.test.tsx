@@ -93,7 +93,9 @@ describe('útválasztás: CIB átirányítás vs stub', () => {
     // CIB-úton a payJob az adattovábbítási nyilatkozatot is viszi.
     expect(api.payJob).toHaveBeenCalledWith('job-1', true, true);
     // Az átirányítás alatt a gomb nem nyomható újra (dupla kattintás ellen).
-    expect(screen.getByRole('button', { name: /Átirányítás a CIB Bankhoz/ })).toBeDisabled();
+    // findByRole: a felirat a navigáció UTÁNI renderben frissül (React
+    // kötegel) — a lassabb CI-gépen a szinkron getByRole túl korán nézte.
+    expect(await screen.findByRole('button', { name: /Átirányítás a CIB Bankhoz/ })).toBeDisabled();
   });
 
   it.each([

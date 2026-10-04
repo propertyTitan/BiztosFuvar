@@ -1857,7 +1857,10 @@ function zaras00ValaszSql(a) {
  */
 function bankFeldolgoztaSql(a) {
   if (!/^[a-z_][a-z0-9_]*$/i.test(a)) throw new Error('Érvénytelen alias.');
-  return `(${zaras00ValaszSql(a)} OR (COALESCE(${a}.cib_result, '{}'::jsonb)->>'ok') = 'zaras_d05')`;
+  // COALESCE(…, '') — a hiányzó „ok" NULL-ja különben a teljes feltételt
+  // NULL-lá (nem igazzá, nem hamissá) tenné, és a rendezés WHERE-je minden
+  // bizonyíték nélküli sort is elutasítana.
+  return `(${zaras00ValaszSql(a)} OR COALESCE(${a}.cib_result->>'ok', '') = 'zaras_d05')`;
 }
 
 /**
