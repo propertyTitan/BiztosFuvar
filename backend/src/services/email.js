@@ -653,6 +653,18 @@ const CIB_RENDSZER_RIASZTAS = Object.freeze({
       + 'de maradt nem végső kártyás kísérlet — ezeket a lekérdező kör nem zárja le. Állítsd vissza a CIB-konfigot, '
       + 'vagy rendezd a tételeket az adminban (Fizetések → CIB: könyvelés, lejáratás, rendezés, visszatérítés).',
   },
+  // 2026-10-03 (CIB PR-5): ÉLŐ konfig mellett a CIB_BEVEZETES előtti nem
+  // végső kísérletek — eddig ugyanaz az „a CIB EKI nem működik, állítsd
+  // vissza" szöveg ment, ami az élesítés napján (recept: CIB_BEVEZETES =
+  // aznap) a teljes visszaállásra késztethette az ügyeletest.
+  arva_bevezetes_elott: {
+    targy: 'a CIB_BEVEZETES előtti függő kártyás kísérletek',
+    szoveg: 'CIB_BEVEZETES előtti függő kísérlet — rendezd az adminban vagy állítsd korábbra a CIB_BEVEZETES-t. '
+      + 'A CIB EKI-konfiguráció teljes, a kártyás fizetés fut; a lekérdező kör viszont csak a CIB_BEVEZETES napja '
+      + 'óta indult kísérletekhez nyúl, így az ennél régebbi, nem végső kísérleteket (kétes, könyveletlen, '
+      + 'felülvizsgálandó) semmi nem zárja le. Rendezd őket az adminban (Fizetések → CIB: könyvelés, lejáratás, '
+      + 'rendezés, visszatérítés), vagy állítsd korábbra a CIB_BEVEZETES dátumát.',
+  },
   napi_emlekezteto: {
     targy: 'rendezetlen kártyás tételek (napi emlékeztető)',
     szoveg: 'Az alábbi kártyás tételek több mint 24 órája rendezetlenek (kétes zárás, könyvelési árva vagy tartós '

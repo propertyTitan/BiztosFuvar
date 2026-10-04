@@ -197,9 +197,31 @@ function returnUrlHibas(ertek, kornyezet, eles) {
   return false;
 }
 
-/** A mai nap UTC-ben (ÉÉÉÉ-HH-NN) — a CIB_BEVEZETES összevetéséhez. */
-function maiUtcNap() {
-  return new Date().toISOString().slice(0, 10);
+// A CIB_BEVEZETES naptári napja (2026-10-03, CIB PR-5): a launch-recept
+// („CIB_BEVEZETES = aznap") budapesti naptári napot ír. Eddig a mai UTC-naphoz
+// mértünk, és a DB is UTC-éjféltől számolt (Neon: GMT) — egy 00:00–02:00
+// (budapesti idő) közötti élesítésnél a konfig „hibás" lett (minden kártyás
+// /pay 503), és az addig indult kísérleteket a kör nem látta volna.
+const BEVEZETES_IDOZONA = 'Europe/Budapest';
+const budapestiNapFormazo = new Intl.DateTimeFormat('en-CA', {
+  timeZone: BEVEZETES_IDOZONA, year: 'numeric', month: '2-digit', day: '2-digit',
+});
+
+/** A mai nap a budapesti naptár szerint (ÉÉÉÉ-HH-NN) — a CIB_BEVEZETES összevetéséhez. */
+function maiBudapestiNap(most = new Date()) {
+  return budapestiNapFormazo.format(most);
+}
+
+/**
+ * A bevezetés napjának KEZDETE (budapesti éjfél) SQL-kifejezésként. Minden
+ * DB-oldali bevezetés-küszöb ezt használja, a munkamenet időzónájától
+ * függetlenül (a nyers `$n::date` a munkamenet zónájában — a Neonon GMT —
+ * lenne éjfél).
+ * @param {string} param — a paraméter-hivatkozás, pl. '$2'
+ */
+function bevezetesKezdetSql(param) {
+  if (!/^\$[1-9][0-9]?$/.test(param)) throw new Error('Érvénytelen SQL-paraméter.');
+  return `((${param})::date::timestamp AT TIME ZONE '${BEVEZETES_IDOZONA}')`;
 }
 
 /** A bank teszt-kulcsának ismert ujjlenyomata-e (az első 12 hexa jegy)? */
@@ -359,7 +381,7 @@ function envLenyomat(env) {
   for (const n of nevek) h.update(`${n}\u0000${env[n] == null ? '\u0001' : String(env[n])}\u0000`);
   // A CIB_BEVEZETES a mai naphoz mért (2026-10-03, PR-5/B): a gyorsítótár
   // naponta újraold, így egy ma még jövőbeli dátum a napján magától érvényes.
-  h.update(`nap\u0000${maiUtcNap()}`);
+  h.update(`nap\u0000${maiBudapestiNap()}`);
   return h.digest('hex');
 }
 
@@ -471,10 +493,10 @@ function feloldas(env) {
   // ⚠️ 2026-10-03 (PR-5/B): a lekérdező kör csak a `created_at >= bevezetes`
   // sorokhoz nyúl, a szívverést viszont a 0 soros kör is frissíti — egy
   // jövőbeli (elgépelt) dátum mellett a /pay tovább engedélyeztetett pénzt,
-  // amit SEMMI nem zárt le (néma kikapcsolás). A DB a dátumot UTC-éjfélként
-  // veti össze (Neon: GMT), ezért a mai UTC-naphoz mérünk. Hibás konfig:
-  // 503 és hangos boot-hiba, nem csendes leállás.
-  if (bevezetes > maiUtcNap()) okok.push('bevezetes_jovobeli');
+  // amit SEMMI nem zárt le (néma kikapcsolás). Hibás konfig: 503 és hangos
+  // boot-hiba, nem csendes leállás. A „ma" a budapesti naptári nap, és a DB is
+  // a budapesti éjféltől számol (bevezetesKezdetSql).
+  if (bevezetes > maiBudapestiNap()) okok.push('bevezetes_jovobeli');
 
   const web = webBaseUrl(env, eles, okok);
   if (kornyezet === 'eles' && returnUrl && apiOrigin && returnHostHibas(returnUrl, web)) {
@@ -574,9 +596,13 @@ function naplozCibKonfigot({ env = process.env, konzol = console, sentry = null 
     try { if (sentry) sentry.captureMessage(uzenet, 'error'); } catch { /* no-op */ }
   }
   if (b.ujFizetesTiltva) {
-    // 2026-10-03 (PR-5): a szünet szándékos üzemállapot, de ne felejtődjön bent.
-    konzol.warn('[CIB] ⏸️ SZÜNET (CIB_UJ_FIZETES_TILTVA=true): új kártyás fizetés nem indul (503 CIB_PAUSED); '
-      + 'a meglévő kísérleteket a kör befejezi. Ha a szünet véget ért, töröld a változót.');
+    // 2026-10-03 (PR-5): a szünet szándékos üzemállapot, de ne felejtődjön
+    // bent — egy elfelejtett szünet csendben leállítja a kártyás bevételt,
+    // ezért a konzol-sor mellett Sentry-figyelmeztetést is kap.
+    const uzenet = '[CIB] ⏸️ SZÜNET (CIB_UJ_FIZETES_TILTVA=true): új kártyás fizetés nem indul (503 CIB_PAUSED); '
+      + 'a meglévő kísérleteket a kör befejezi. Ha a szünet véget ért, töröld a változót.';
+    konzol.warn(uzenet);
+    try { if (sentry) sentry.captureMessage(uzenet, 'warning'); } catch { /* no-op */ }
   }
   leuritesEllenorzes(env, b, konzol, sentry);
   return b;
@@ -943,6 +969,8 @@ module.exports = {
   ELAVULT_ENV,
   OLVASOTT_ENV,
   CIB_BEVEZETES_ALAP,
+  maiBudapestiNap,
+  bevezetesKezdetSql,
   CIB_ELES_HOSTOK,
   ismertTesztKulcs,
   RETURN_UT,

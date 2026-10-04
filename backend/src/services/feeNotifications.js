@@ -33,6 +33,8 @@ const { createNotification } = require('./notifications');
 // destrukturálva: így a teszt-üzemi hiba-injektálás és a jövőbeli CIB-ág
 // ugyanazt a csatornát látja.
 const email = require('./email');
+// A bevezetés-küszöb a budapesti éjféltől (2026-10-03, CIB PR-5).
+const { bevezetesKezdetSql } = require('./cibProtokoll');
 
 function riaszt(uzenet, err) {
   console.error(uzenet, err?.message || err);
@@ -221,7 +223,7 @@ async function runDijErtesitesHelyreallitas({ since } = {}) {
       `SELECT payment_id FROM fee_payment_receipts
         WHERE notifications_sent_at IS NULL
           AND paid_at < NOW() - make_interval(mins => $2::int)
-          AND paid_at >= $1::date
+          AND paid_at >= ${bevezetesKezdetSql('$1')}
           AND NOT (payment_id = ANY($4::text[]))
         ORDER BY paid_at, payment_id
         LIMIT $3`,

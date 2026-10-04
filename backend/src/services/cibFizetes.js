@@ -641,13 +641,21 @@ async function ertesitFeladot(trid, tipus) {
   const cim = s.title || 'fuvar';
   const e = ERTESITES[tipus];
   if (!nemZavarjuk) {
-    await notifications.createNotification({
+    // ⚠️ 2026-10-03 (PR-5, I8): a createNotification hibánál nem dob, hanem
+    // null-t ad — eddig a jelölés ilyenkor is megtörtént, és a feladó a
+    // levélen kívül semmit nem látott. Tartós in-app sor nélkül nem jelölünk:
+    // a riasztás-söprés (ertesitesPotlas) később újrapróbálja.
+    const n = await notifications.createNotification({
       user_id: s.shipper_id,
       type: e.type,
       title: e.title,
       body: e.body(cim),
       link: `/dashboard/fuvar/${s.job_id}`,
-    }).catch(() => {});
+    }).catch(() => null);
+    if (!n) {
+      console.error(`[cib] ${p.maszkoltTrid(trid)}: a feladó értesítése nem rögzült — a söprés pótolja`);
+      return;
+    }
   }
   const { rowCount: jelolve } = await db.query(
     'UPDATE payment_sessions SET cib_notified_at = NOW() WHERE payment_id = $1 AND cib_notified_at IS NULL', [trid],
@@ -1226,6 +1234,9 @@ async function hopFelhasznal(token) {
     if (regi[0].lejart) ok = 'hop_lejart';
     else if (b.ujFizetesTiltva) ok = 'szunet';
     await inditasiVegallapot(regi[0].payment_id, 'abandoned', 'ready', ok);
+    // 2026-10-03 (PR-5): a szünet alatt használt, még fel nem használt link
+    // nem „lejárt" — a felület a szünet szövegét mutatja.
+    if (ok === 'szunet') return { status: 303, location: `${web}/dashboard/fuvar/${regi[0].job_id}?fizetes=szunetel` };
   }
   return { status: 303, location: `${web}/dashboard/fuvar/${regi[0].job_id}?fizetes=link-lejart` };
 }
@@ -1600,6 +1611,9 @@ async function lepes(sor, berlo, forras, ctx) {
  */
 function ertesitesTipusa(s) {
   const ok = s.cib_result && s.cib_result.ok;
+  // A visszatérített könyvelési árva (admin „visszaterites"): a cib_state
+  // IGAZAN closed_ok marad, a munkamenet lezárt (2026-10-03, PR-5, I8).
+  if (s.state === 'closed' && ok === 'admin_visszaterites') return 'visszateritve';
   switch (s.cib_state) {
     case 'failed': return ok === 'admin_nem_lezarva' ? 'admin_nem_lezarva' : 'sikertelen';
     case 'expired':
@@ -1623,17 +1637,13 @@ function ertesitesTipusa(s) {
  * cib_notified_at claimen át pontosan egyszer megy.
  */
 async function vegallapotPotlas(sor, berlo) {
-  let hiba = null;
-  try {
-    await vegallapotEsemeny(sor.payment_id, berlo);
-  } catch (err) {
-    hiba = err;
-  }
+  // 2026-10-03 (PR-5, I8): előbb az értesítés, aztán az esemény (lásd
+  // vegeSikertelen) — az esemény után a sor lezárt, a kör nem veszi fel.
   const tipus = sor.cib_notified_at ? null : ertesitesTipusa(sor);
   if (tipus) {
     await ertesitFeladot(sor.payment_id, tipus).catch((err) => console.error('[cib] értesítés hiba:', err && err.message));
   }
-  if (hiba) throw hiba;
+  await vegallapotEsemeny(sor.payment_id, berlo);
 }
 
 async function kovetkezo(trid, berlo, kifejezes, parameterek = []) {
@@ -1770,6 +1780,31 @@ async function kimenoZarasVan(trid, kiserlet = null) {
     [trid, kiserlet],
   );
   return rowCount > 0;
+}
+
+/**
+ * „A MSGT32 bizonyíthatóan kiment" — EGY közös feltétel (2026-10-03, PR-5):
+ * a zárási claimek száma meghaladja a bizonyítottan ki sem ment kísérletekét
+ * (cib_result.zaras_nem_kuldott — kapcsolódás előtti hiba vagy kimenő
+ * naplóhiba), ÉS van kimenő MSGT32-naplósor (a kliens a kérést csak a
+ * write-ahead sor után küldi). Az automatikus egyeztetés, a kézi lejáratás és
+ * a rendezés ezt használja: eddig a kettő csak a naplósort nézte, így egy
+ * bizonyítottan ki nem ment zárás „kimentnek" számított (az admin lejáratása
+ * kétessé tette, az egyeztetés pedig 00-ra könyvelhetett volna).
+ * @param {string} a — a payment_sessions alias vagy táblanév (csak azonosító)
+ */
+function zarasKimentSql(a) {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(a)) throw new Error('Érvénytelen alias.');
+  return `(${a}.cib_close_attempts > COALESCE(NULLIF(${a}.cib_result->>'zaras_nem_kuldott', '')::int, 0)
+    AND EXISTS (SELECT 1 FROM cib_messages m WHERE m.payment_id = ${a}.payment_id AND m.direction = 'ki' AND m.msgt = 32))`;
+}
+
+/** Bizonyíthatóan kiment-e a kísérlet MSGT32-je (a közös feltétel szerint)? */
+async function zarasKiment(trid) {
+  const { rows } = await db.query(
+    `SELECT ${zarasKimentSql('ps')} AS kiment FROM payment_sessions ps WHERE ps.payment_id = $1`, [trid],
+  );
+  return !!(rows[0] && rows[0].kiment);
 }
 
 /** Rendszerszintű banki hiba-jelzés egy MSGT33-kimenetből (2026-10-03, PR-5). */
@@ -1997,10 +2032,21 @@ async function friss(trid) {
   return rows[0];
 }
 
-/** Sikertelen végállapot után: esemény + (egyszer) a feladó értesítése. */
+/**
+ * Sikertelen / nem terhelt végállapot után: (egyszer) a feladó értesítése,
+ * AZTÁN a végállapot-esemény.
+ *
+ * ⚠️ 2026-10-03 (PR-5, I8, BLOKKOLÓ): eddig fordítva — az esemény (a 087-es
+ * trigger) a sort lezárta (state='closed'), és ha az értesítés ezután egy
+ * átmeneti DB-hiba miatt elbukott, vagy a folyamat a kettő között halt el, a
+ * feladó SOHA nem kapott értesítést: a kör csak függő sort vesz fel. A
+ * terminális cib_state ekkor már tartós, az értesítés nem függ a `state`-től.
+ * A biztonsági háló a riasztás-söprés (ertesitesPotlas): a lezárt,
+ * értesítetlen sorokat pontosan egyszer pótolja.
+ */
 async function vegeSikertelen(trid, berlo, tipus) {
-  await vegallapotEsemeny(trid, berlo).catch((err) => console.error('[cib] végállapot-esemény hiba:', err && err.message));
   await ertesitFeladot(trid, tipus).catch((err) => console.error('[cib] értesítés hiba:', err && err.message));
+  await vegallapotEsemeny(trid, berlo).catch((err) => console.error('[cib] végállapot-esemény hiba:', err && err.message));
 }
 
 /**
@@ -2145,7 +2191,9 @@ async function closeUnknownLepes(sor, berlo, b, ctx) {
   const trid = sor.payment_id;
   const r = sor.cib_result || {};
   const h = await idopontok(trid, b);
-  if (!(await kimenoZarasVan(trid))) {
+  // A közös „bizonyíthatóan kiment" feltétel (zarasKiment): egy ki sem ment
+  // zárásra a bank nem terhelhetett — se lekérdezés, se 00-ra könyvelés.
+  if (!(await zarasKiment(trid))) {
     if (h.most >= h.hatarido) return egyeztetesNemTerhelt(trid, berlo, { egyeztetes_forras: 'zaras_nem_ment_ki' });
     return kovetkezo(trid, berlo, 'to_timestamp($3::double precision)', [(h.hatarido + 5000) / 1000]);
   }
@@ -2792,7 +2840,7 @@ async function ujraellenorzes(trid) {
  * @returns {Promise<{http:number, body:object, jobId?:string|null}>}
  */
 async function rendezes(trid, {
-  eredmeny, indoklas, anum, rt,
+  eredmeny, indoklas, anum, rt, elso_00_ellenere: elso00Ellenere,
 }, adminId) {
   if (!['lezarva', 'nem_lezarva'].includes(eredmeny)) {
     return { http: 400, body: { error: 'Az eredmény „lezarva" vagy „nem_lezarva" lehet.', code: 'INVALID_VALUE' } };
@@ -2821,11 +2869,20 @@ async function rendezes(trid, {
       ok: 'admin_lezarva',
     }
     : {
-      forras: 'admin', admin_id: adminId, admin_indoklas: indoklas.trim(), ok: 'admin_nem_lezarva',
+      forras: 'admin',
+      admin_id: adminId,
+      admin_indoklas: indoklas.trim(),
+      ok: 'admin_nem_lezarva',
+      ...(elso00Ellenere === true ? { admin_elso_00_ellenere: true } : {}),
     };
-  // ⚠️ 2026-10-03 (PR-5): a „lezarva" a KIMENŐ MSGT32-naplósort is
-  // megköveteli — a számláló a küldés ELŐTT nő, egy a claim és a napló között
-  // elhalt folyamat után az el sem küldött zárás is „kimentnek" látszott.
+  // ⚠️ 2026-10-03 (PR-5): a „lezarva" a közös „bizonyíthatóan kiment"
+  // feltételt követeli meg (zarasKimentSql) — a számláló a küldés ELŐTT nő,
+  // egy a claim és a napló között elhalt folyamat után az el sem küldött
+  // zárás is „kimentnek" látszott.
+  // ⚠️ 2026-10-03 (PR-5): a „nem_lezarva" NEM írható, ha az automatikus
+  // egyeztetés már feljegyzett egy ANUM-os 00-t (egyeztetes_elso_00: a bank
+  // lezártnak mutatta) — kivéve kifejezett megerősítéssel. Egy admin-tévedés
+  // eddig újrafizethetővé tette a fuvart: kettős terhelés.
   const { rows: rendezett } = await db.query(
     `UPDATE payment_sessions
         SET cib_state = $2, cib_next_action_at = NOW() + INTERVAL '30 seconds',
@@ -2834,12 +2891,10 @@ async function rendezes(trid, {
             cib_lease_until = NULL, cib_lease_owner = NULL
       WHERE payment_id = $1 AND cib_state = 'close_unknown' AND state = 'pending'
         AND (cib_lease_until IS NULL OR cib_lease_until < NOW())
-        AND (NOT $4::boolean
-          OR (cib_close_attempts > COALESCE(NULLIF(cib_result->>'zaras_nem_kuldott', '')::int, 0)
-              AND EXISTS (SELECT 1 FROM cib_messages m WHERE m.payment_id = payment_sessions.payment_id
-                           AND m.direction = 'ki' AND m.msgt = 32)))
+        AND (NOT $4::boolean OR ${zarasKimentSql('payment_sessions')})
+        AND ($4::boolean OR $5::boolean OR NOT (COALESCE(cib_result, '{}'::jsonb) ? 'egyeztetes_elso_00'))
       RETURNING job_id`,
-    [trid, lezarva ? 'closed_ok' : 'failed', JSON.stringify(adat), lezarva],
+    [trid, lezarva ? 'closed_ok' : 'failed', JSON.stringify(adat), lezarva, elso00Ellenere === true],
   );
   if (!rendezett[0]) {
     // ⚠️ 2026-10-04 (a PR-5 1. javítóköre): élő bérlet alatt (az automatikus
@@ -2857,9 +2912,7 @@ async function rendezes(trid, {
     if (lezarva) {
       const { rowCount: zarasNelkul } = await db.query(
         `SELECT 1 FROM payment_sessions ps WHERE ps.payment_id = $1 AND ps.cib_state = 'close_unknown' AND ps.state = 'pending'
-            AND (ps.cib_close_attempts <= COALESCE(NULLIF(ps.cib_result->>'zaras_nem_kuldott', '')::int, 0)
-              OR NOT EXISTS (SELECT 1 FROM cib_messages m WHERE m.payment_id = ps.payment_id
-                              AND m.direction = 'ki' AND m.msgt = 32))`,
+            AND NOT ${zarasKimentSql('ps')}`,
         [trid],
       );
       if (zarasNelkul) {
@@ -2868,6 +2921,26 @@ async function rendezes(trid, {
           body: {
             error: 'Ehhez a kísérlethez zárási kérés (MSGT32) nem ment ki — a bank nem terhelhetett, csak „nem_lezarva" rendezhető.',
             code: 'CIB_CLOSE_NOT_SENT',
+          },
+        };
+      }
+    } else {
+      const { rows: elso } = await db.query(
+        `SELECT cib_result->'egyeztetes_elso_00' AS elso FROM payment_sessions
+          WHERE payment_id = $1 AND cib_state = 'close_unknown' AND state = 'pending'
+            AND COALESCE(cib_result, '{}'::jsonb) ? 'egyeztetes_elso_00'`,
+        [trid],
+      );
+      if (elso[0]) {
+        const e = elso[0].elso && typeof elso[0].elso === 'object' ? elso[0].elso : {};
+        return {
+          http: 409,
+          body: {
+            error: `Az automatikus egyeztetés ehhez a kísérlethez már feljegyzett egy banki 00-t (ANUM: ${e.anum || '?'}) — `
+              + 'a bank lezártnak mutatta, a kártya terhelt lehet. „Nem lezárva" csak a bank írásos megerősítése után, '
+              + 'kifejezett megerősítéssel rögzíthető.',
+            code: 'CIB_BANK_00_RECORDED',
+            elso_00: { anum: typeof e.anum === 'string' ? e.anum : null, at: typeof e.at === 'string' ? e.at : null },
           },
         };
       }
@@ -2964,7 +3037,9 @@ async function keziRendezes(trid, { muvelet, indoklas, banki_hivatkozas: hivatko
     if (!(await zarasiHataridoLejart(db, trid, bh))) {
       return keziHiba(409, 'A zárási határidő (a MSGT10 után 9 perc 30 mp) még nem járt le — a bank még lezárhatja.', 'CIB_DEADLINE_NOT_PASSED');
     }
-    if (await kimenoZarasVan(trid)) {
+    // A közös „bizonyíthatóan kiment" feltétel (2026-10-03, PR-5): egy ki sem
+    // ment zárás után lejárt / „nem zárt", nem kétes (fagyasztás nélkül).
+    if (await zarasKiment(trid)) {
       // Kiment MSGT32: kétes — a rendezés (a bankkal egyeztetve) dönt.
       try {
         const { rowCount } = await db.query(
@@ -3026,17 +3101,100 @@ async function keziRendezes(trid, { muvelet, indoklas, banki_hivatkozas: hivatko
   return vege();
 }
 
-/** A rendezetlen (emberi teendős) CIB-tételek SQL-feltétele. */
-const RENDEZETLEN_SQL = `((state = 'pending' AND cib_state = 'close_unknown') OR state = 'needs_review'
-   OR (state = 'pending' AND cib_state = 'closed_ok'
-       AND (COALESCE((cib_result->>'konyveles_hiba')::int, 0) >= ${KONYVELES_RIASZTAS_KUSZOB}
-            OR (cib_result->>'closed_at')::timestamptz < NOW() - make_interval(mins => ${KONYVELES_RIASZTAS_PERC}))))`;
+/**
+ * A rendezetlen (emberi teendős) CIB-tételek SQL-feltétele.
+ * @param {string} a — a payment_sessions alias (csak azonosító)
+ */
+function rendezetlenSql(a) {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(a)) throw new Error('Érvénytelen alias.');
+  return `((${a}.state = 'pending' AND ${a}.cib_state = 'close_unknown') OR ${a}.state = 'needs_review'
+   OR (${a}.state = 'pending' AND ${a}.cib_state = 'closed_ok'
+       AND (COALESCE((${a}.cib_result->>'konyveles_hiba')::int, 0) >= ${KONYVELES_RIASZTAS_KUSZOB}
+            OR (${a}.cib_result->>'closed_at')::timestamptz < NOW() - make_interval(mins => ${KONYVELES_RIASZTAS_PERC}))))`;
+}
 
 function rendezetlenOk(s) {
   const r = s.cib_result || {};
   if (s.state === 'needs_review') return 'konyvelesi_arva';
   if (s.cib_state === 'closed_ok') return 'konyvelesi_hiba';
   return r.ok || 'close_unknown';
+}
+
+/**
+ * A rendezetlenOk SQL-tükre (az alias `ps`), és a riaszt „erre az okra már
+ * riasztottunk / épp riasztunk" feltételének tagadása (a laterális `o`
+ * oszlopával) — a söprés így SQL-ben szűri ki a már riasztott tételeket
+ * (2026-10-03, PR-5): eddig a 100 legrégebbi rendezetlen tételt kérdezte le, a
+ * már riasztottakra a riaszt no-op volt, így 100-nál több régi tétel mellett
+ * az újakat soha nem érte el.
+ */
+const RENDEZETLEN_OK_SQL = `(CASE WHEN ps.state = 'needs_review' THEN 'konyvelesi_arva'
+  WHEN ps.cib_state = 'closed_ok' THEN 'konyvelesi_hiba'
+  ELSE COALESCE(NULLIF(ps.cib_result->>'ok', ''), 'close_unknown') END)`;
+const MEG_NEM_RIASZTOTT_SQL = `(NOT (COALESCE(ps.cib_result->'riasztva', '{}'::jsonb) ? o.riasztasi_ok)
+  AND NOT (NOT (COALESCE(ps.cib_result, '{}'::jsonb) ? 'riasztva') AND COALESCE(ps.cib_result, '{}'::jsonb) ? 'riasztas_at'
+           AND ps.cib_result->>'ok' IS NOT DISTINCT FROM o.riasztasi_ok)
+  AND NOT (COALESCE(ps.cib_result->'riasztas_folyamatban', 'null'::jsonb) @> jsonb_build_object('ok', o.riasztasi_ok)
+           AND (ps.cib_result->'riasztas_folyamatban'->>'at')::timestamptz > NOW() - make_interval(secs => ${RIASZTAS_CLAIM_MP})))`;
+
+// Az értesítés-pótlás (2026-10-03, PR-5, I8) hangolói.
+const ERTESITES_POTLAS_TURELEM_MP = 60; // a frissen lezárt sor élő értesítése még futhat
+const ERTESITES_POTLAS_UJRAPROBA_PERC = 10; // egy elbukott pótlás legkorábbi újrapróbája
+const ERTESITES_POTLAS_KOTEG = 50;
+
+/**
+ * A végállapot UTÁN elveszett feladói értesítések pótlása (2026-10-03, PR-5,
+ * I8, BLOKKOLÓ): a lezárt (state='closed'), a bankig eljutott
+ * (cib_redirected_at), még értesítetlen kísérlet, amelyre értesítés jár
+ * (ertesitesTipusa). Eddig ezt semmi nem pótolta: a kör csak függő sort vesz
+ * fel, a riasztás-söprés a lezártakat nem nézte. A pontosan egyszeri levelet
+ * az ertesitFeladot cib_notified_at-claimje adja; a próbálkozás a küldés
+ * ELŐTT jelölődik (ertesites_potlas_at), egy tartósan elbukó sor így legfeljebb
+ * 10 percenként próbálkozik, és nem éhezteti ki a többit. A frissen lezárt
+ * sorhoz (türelmi idő) nem nyúl: annak élő értesítése még futhat.
+ * @returns {Promise<number>} hány értesítés ment ki most
+ */
+async function ertesitesPotlas(bevezetes, hibak) {
+  const { rows } = await db.query(
+    `UPDATE payment_sessions u
+        SET cib_result = COALESCE(u.cib_result, '{}'::jsonb) || jsonb_build_object('ertesites_potlas_at', NOW())
+      WHERE u.payment_id IN (
+        SELECT ps.payment_id FROM payment_sessions ps
+         WHERE ps.provider = 'cib' AND ps.cib_state IS NOT NULL AND ps.state = 'closed'
+           AND ps.cib_notified_at IS NULL AND ps.cib_redirected_at IS NOT NULL
+           AND ps.created_at >= ${p.bevezetesKezdetSql('$1')}
+           AND (ps.cib_state IN ('failed', 'expired', 'not_closed')
+                OR (ps.cib_state = 'closed_ok' AND ps.cib_result->>'ok' = 'admin_visszaterites'))
+           AND COALESCE(ps.settled_at, ps.created_at) < NOW() - make_interval(secs => $2::int)
+           AND (NOT (COALESCE(ps.cib_result, '{}'::jsonb) ? 'ertesites_potlas_at')
+                OR (ps.cib_result->>'ertesites_potlas_at')::timestamptz < NOW() - make_interval(mins => $3::int))
+           AND EXISTS (SELECT 1 FROM jobs j JOIN users usr ON usr.id = j.shipper_id WHERE j.id = ps.job_id)
+         ORDER BY (ps.cib_result->>'ertesites_potlas_at')::timestamptz NULLS FIRST, ps.created_at DESC
+         LIMIT $4
+         FOR UPDATE SKIP LOCKED)
+      RETURNING u.payment_id, u.state, u.cib_state, u.cib_result`,
+    [bevezetes, ERTESITES_POTLAS_TURELEM_MP, ERTESITES_POTLAS_UJRAPROBA_PERC, ERTESITES_POTLAS_KOTEG],
+  );
+  let ertesitve = 0;
+  for (const s of rows) {
+    const tipus = ertesitesTipusa(s);
+    if (!tipus) continue;
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await ertesitFeladot(s.payment_id, tipus);
+      // eslint-disable-next-line no-await-in-loop
+      const { rowCount } = await db.query(
+        'SELECT 1 FROM payment_sessions WHERE payment_id = $1 AND cib_notified_at IS NOT NULL', [s.payment_id],
+      );
+      if (rowCount) {
+        ertesitve += 1;
+        console.warn(`[cib] ${p.maszkoltTrid(s.payment_id)}: az elveszett feladói értesítés (${tipus}) pótolva`);
+      }
+    } catch (err) {
+      hibak.push(err);
+    }
+  }
+  return ertesitve;
 }
 
 /**
@@ -3047,8 +3205,10 @@ function rendezetlenOk(s) {
  *   2. a riasztás nélküli rendezetlen tételek (kétes, könyvelési árva,
  *      tartós könyvelési hiba) riasztást kapnak;
  *   3. napi összesítő emlékeztető a 24 óránál régebben riasztott, még
- *      rendezetlen tételekről — egy levél, tételenként naponta legfeljebb egyszer.
- * Csak a bevezetés (CIB_BEVEZETES) utáni sorokhoz nyúl.
+ *      rendezetlen tételekről — egy levél, tételenként naponta legfeljebb egyszer;
+ *   4. (2026-10-03, I8) a végállapot után elveszett feladói értesítések
+ *      pótlása (ertesitesPotlas), pontosan egyszer.
+ * Csak a bevezetés (CIB_BEVEZETES, budapesti éjfél) utáni sorokhoz nyúl.
  */
 async function riasztasSopres() {
   const b = p.cibBeallitasok();
@@ -3057,13 +3217,18 @@ async function riasztasSopres() {
   const { rowCount: ebresztve } = await db.query(
     `UPDATE payment_sessions SET cib_next_action_at = NOW()
       WHERE provider = 'cib' AND state = 'pending' AND cib_state = 'close_unknown'
-        AND cib_next_action_at IS NULL AND created_at >= $1::date`,
+        AND cib_next_action_at IS NULL AND created_at >= ${p.bevezetesKezdetSql('$1')}`,
     [bevezetes],
   );
+  // A még nem riasztott tételek — SQL-ben szűrve, a legújabbakkal kezdve.
   const { rows } = await db.query(
-    `SELECT payment_id, state, cib_state, cib_result FROM payment_sessions
-      WHERE provider = 'cib' AND cib_state IS NOT NULL AND created_at >= $1::date AND ${RENDEZETLEN_SQL}
-      ORDER BY created_at LIMIT 100`,
+    `SELECT ps.payment_id, ps.state, ps.cib_state, ps.cib_result
+       FROM payment_sessions ps
+       CROSS JOIN LATERAL (SELECT ${RENDEZETLEN_OK_SQL} AS riasztasi_ok) o
+      WHERE ps.provider = 'cib' AND ps.cib_state IS NOT NULL AND ps.created_at >= ${p.bevezetesKezdetSql('$1')}
+        AND ${rendezetlenSql('ps')}
+        AND ${MEG_NEM_RIASZTOTT_SQL}
+      ORDER BY ps.created_at DESC LIMIT 100`,
     [bevezetes],
   );
   let riasztva = 0;
@@ -3087,14 +3252,15 @@ async function riasztasSopres() {
     `UPDATE payment_sessions
         SET cib_result = COALESCE(cib_result, '{}'::jsonb) || jsonb_build_object('emlekezteto_probalkozas_at', NOW())
       WHERE payment_id IN (
-        SELECT payment_id FROM payment_sessions
-         WHERE provider = 'cib' AND cib_state IS NOT NULL AND created_at >= $1::date AND ${RENDEZETLEN_SQL}
-           AND cib_result ? 'riasztas_at'
-           AND COALESCE((cib_result->>'emlekezteto_at')::timestamptz, (cib_result->>'riasztas_at')::timestamptz)
+        SELECT ps.payment_id FROM payment_sessions ps
+         WHERE ps.provider = 'cib' AND ps.cib_state IS NOT NULL AND ps.created_at >= ${p.bevezetesKezdetSql('$1')}
+           AND ${rendezetlenSql('ps')}
+           AND ps.cib_result ? 'riasztas_at'
+           AND COALESCE((ps.cib_result->>'emlekezteto_at')::timestamptz, (ps.cib_result->>'riasztas_at')::timestamptz)
                < NOW() - make_interval(hours => $2::int)
-           AND (NOT (cib_result ? 'emlekezteto_probalkozas_at')
-                OR (cib_result->>'emlekezteto_probalkozas_at')::timestamptz < NOW() - make_interval(mins => $3::int))
-         ORDER BY created_at LIMIT 50
+           AND (NOT (ps.cib_result ? 'emlekezteto_probalkozas_at')
+                OR (ps.cib_result->>'emlekezteto_probalkozas_at')::timestamptz < NOW() - make_interval(mins => $3::int))
+         ORDER BY ps.created_at LIMIT 50
          FOR UPDATE SKIP LOCKED)
       RETURNING payment_id, job_id, state, cib_state, created_at`,
     [bevezetes, EMLEKEZTETO_ORA, EMLEKEZTETO_UJRAPROBA_PERC],
@@ -3131,8 +3297,16 @@ async function riasztasSopres() {
       );
     }
   }
+  let ertesitve = 0;
+  try {
+    ertesitve = await ertesitesPotlas(bevezetes, hibak);
+  } catch (err) {
+    hibak.push(err);
+  }
   if (hibak.length) throw hibak[0];
-  return { ebresztve, riasztva, emlekeztetve: regiek.length };
+  return {
+    ebresztve, riasztva, emlekeztetve: regiek.length, ertesitve,
+  };
 }
 
 /**
@@ -3158,7 +3332,7 @@ async function arvaKiserletekEllenorzese() {
     `SELECT CASE WHEN state = 'needs_review' THEN 'needs_review' ELSE cib_state END AS allapot, COUNT(*)::int AS n
        FROM payment_sessions
       WHERE provider = 'cib' AND cib_state IS NOT NULL AND state IN ('pending', 'needs_review')
-        AND ($1::date IS NULL OR created_at < $1::date)
+        AND ($1::date IS NULL OR created_at < ${p.bevezetesKezdetSql('$1')})
       GROUP BY 1 ORDER BY 1`,
     [bevezetes],
   );
@@ -3179,8 +3353,15 @@ async function arvaKiserletekEllenorzese() {
   sentry(uzenet, 'error');
   const b = p.cibBeallitasok();
   try {
+    // 2026-10-03 (PR-5): élő konfignál saját ok és igaz szöveg — eddig
+    // ugyanaz a „a CIB EKI nem működik, állítsd vissza" levél ment, ami az
+    // élesítés napján az ügyeletest a teljes visszaállásra késztethette.
     await email.sendCibRiasztasEmail({
-      to: b.riasztasEmail || 'info@gofuvar.hu', trid: null, jobId: null, ok: 'arva_kiserletek', reszletek,
+      to: b.riasztasEmail || 'info@gofuvar.hu',
+      trid: null,
+      jobId: null,
+      ok: el ? 'arva_bevezetes_elott' : 'arva_kiserletek',
+      reszletek,
     });
   } catch (err) {
     console.error('[CIB] riasztó levél hiba:', err && err.message);
@@ -3269,6 +3450,8 @@ module.exports = {
   lekepezSql,
   UI_ALLAPOTOK,
   adatsor,
+  kozoltOk,
+  zarasKiment,
   // állapot
   szivveres,
   szivveresFriss,

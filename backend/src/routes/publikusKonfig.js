@@ -1,7 +1,8 @@
 // =====================================================================
 //  GET /config/public — publikus üzemi konfig a webnek (2026-10-03, CIB
 //  PR-5, szerződés: C1). Hitelesítés nélkül, IP-limittel, no-store (a
-//  globális API-fejléc adja). Csak két mező: { teszt_uzem, kartyas_fizetes }.
+//  globális API-fejléc adja). Csak három mező: { teszt_uzem, kartyas_fizetes,
+//  szimulalt_fizetes }.
 // =====================================================================
 const express = require('express');
 const { createRateLimit } = require('../middleware/rateLimit');

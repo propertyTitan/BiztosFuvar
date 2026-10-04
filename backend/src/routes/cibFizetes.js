@@ -204,6 +204,9 @@ router.get('/payments/admin/cib', authRequired, requireRole('admin'), async (req
       anum: (s.cib_result && s.cib_result.anum) || null,
       created_at: s.created_at,
       closed_at: (s.cib_result && s.cib_result.closed_at) || null,
+      // 2026-10-03 (PR-5): a közölt ok (C5) a listában is — a felület ebből
+      // ismeri fel a „Visszatérítve" tételt, nem az RC=00-ból következtetve.
+      ok: cibFizetes.kozoltOk(s),
     })),
     total,
   });
@@ -253,7 +256,7 @@ router.post('/payments/admin/cib/:trid/rendezes', authRequired, requireRole('adm
   if (!TRID_RE.test(req.params.trid)) return res.status(404).json({ error: 'Nem található' });
   const b = req.body && typeof req.body === 'object' ? req.body : {};
   const r = await cibFizetes.rendezes(req.params.trid, {
-    eredmeny: b.eredmeny, indoklas: b.indoklas, anum: b.anum, rt: b.rt,
+    eredmeny: b.eredmeny, indoklas: b.indoklas, anum: b.anum, rt: b.rt, elso_00_ellenere: b.elso_00_ellenere,
   }, req.user.sub);
   // Pénzügyi hatású admin-döntés (kontakt-felfedés + könyvelés, vagy a
   // kísérlet lezárása): a fuvarhoz kötve, a döntés irányával naplózzuk

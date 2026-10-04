@@ -121,7 +121,7 @@ async function runCibKor() {
       WHERE payment_id IN (
         SELECT payment_id FROM payment_sessions
          WHERE provider = 'cib' AND state = 'pending' AND cib_state IS NOT NULL
-           AND created_at >= $2::date
+           AND created_at >= ${p.bevezetesKezdetSql('$2')}
            AND cib_next_action_at <= NOW()
            AND (cib_lease_until IS NULL OR cib_lease_until < NOW())
          ORDER BY CASE cib_state WHEN 'authorized' THEN 0 WHEN 'closed_ok' THEN 1 WHEN 'closing' THEN 2 ELSE 3 END,

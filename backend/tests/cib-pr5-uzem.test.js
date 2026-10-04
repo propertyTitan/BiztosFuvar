@@ -254,7 +254,9 @@ describe('Szünet-kapcsoló: CIB_UJ_FIZETES_TILTVA', () => {
 
       const hop = await request(app).get(`/payments/cib/tovabb/${hopToken(kesz)}`).redirects(0);
       expect(hop.status, 'szünet alatt a hop a bankhoz vitt').toBe(303);
-      expect(hop.headers.location).toMatch(/fizetes=link-lejart/);
+      // 2026-10-03 (végső kör): a szünet alatti, még fel nem használt link
+      // a szünet szövegére visz, nem „lejárt link"-re.
+      expect(hop.headers.location).toMatch(/fizetes=szunetel/);
 
       await visszater(ta);
       expect(await sor(ta)).toMatchObject({ cib_state: 'closed_ok', state: 'succeeded' });
@@ -352,7 +354,8 @@ describe('Konfig nélkül maradt függő kísérletek', () => {
     try {
       const r = await cf().arvaKiserletekEllenorzese();
       expect(r.osszes, 'a bevezetés előtti függő kísérlet láthatatlan').toBeGreaterThanOrEqual(1);
-      const l = LEVELEK.filter((x) => x.nev === 'sendCibRiasztasEmail' && x.ok === 'arva_kiserletek');
+      // 2026-10-03 (végső kör): élő konfignál saját ok (nem „a CIB EKI nem működik").
+      const l = LEVELEK.filter((x) => x.nev === 'sendCibRiasztasEmail' && x.ok === 'arva_bevezetes_elott');
       expect(l).toHaveLength(1);
       expect(JSON.stringify(l[0])).toMatch(/close_unknown/);
       expect(hiba.mock.calls.some((c) => /CIB_BEVEZETES/.test(String(c[0])))).toBe(true);
@@ -474,7 +477,7 @@ describe('C1: GET /config/public', () => {
   it('teszt-módban teszt_uzem igaz, kartyas_fizetes „teszt"; nincs hitelesítés, no-store', async () => {
     const r = await request(app).get('/config/public');
     expect(r.status).toBe(200);
-    expect(r.body).toEqual({ teszt_uzem: true, kartyas_fizetes: 'teszt' });
+    expect(r.body).toEqual({ teszt_uzem: true, kartyas_fizetes: 'teszt', szimulalt_fizetes: false });
     expect(r.headers['cache-control']).toMatch(/no-store/);
   });
 
@@ -482,20 +485,20 @@ describe('C1: GET /config/public', () => {
     const nincs = beallitEnv(KOTELEZO_URES);
     try {
       const r = await request(app).get('/config/public');
-      expect(r.body).toEqual({ teszt_uzem: true, kartyas_fizetes: null });
+      expect(r.body).toEqual({ teszt_uzem: true, kartyas_fizetes: null, szimulalt_fizetes: true });
     } finally {
       nincs();
     }
     const { publikusKonfig } = require('../src/services/publikusKonfig');
     expect(publikusKonfig({
       ut: 'cib', beall: { allapot: 'teljes', kornyezet: 'eles' }, cibEki: true, stubElerheto: false,
-    })).toEqual({ teszt_uzem: false, kartyas_fizetes: 'eles' });
+    })).toEqual({ teszt_uzem: false, kartyas_fizetes: 'eles', szimulalt_fizetes: false });
     expect(publikusKonfig({
-      ut: 'stub', beall: { allapot: 'nincs' }, cibEki: false, stubElerheto: true,
-    })).toEqual({ teszt_uzem: true, kartyas_fizetes: null });
+      ut: 'stub', beall: { allapot: 'nincs' }, cibEki: false, stubElerheto: true, szimulalt: true,
+    })).toEqual({ teszt_uzem: true, kartyas_fizetes: null, szimulalt_fizetes: true });
     expect(publikusKonfig({
       ut: 'hibas', beall: { allapot: 'hibas', kornyezet: 'eles' }, cibEki: false, stubElerheto: false,
-    })).toEqual({ teszt_uzem: false, kartyas_fizetes: null });
+    })).toEqual({ teszt_uzem: false, kartyas_fizetes: null, szimulalt_fizetes: false });
   });
 });
 
