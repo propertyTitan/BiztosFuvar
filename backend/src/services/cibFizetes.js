@@ -450,9 +450,22 @@ function adatsor(s) {
     cur: s.currency || 'HUF',
     anum: typeof r.anum === 'string' && r.anum ? r.anum : null,
     rc_csoport: rc && rc !== '00' ? rcCsoport(rc) : null,
-    // C5: csak a közölt „nem terhelt" okok mennek ki, a belső kódok nem.
-    ok: NEM_TERHELT_OKOK.includes(r.ok) ? r.ok : null,
+    // C5: csak a közölt okok mennek ki, a belső kódok nem.
+    ok: kozoltOk(s),
   };
+}
+
+/**
+ * A felületnek közölt ok (C5). 2026-10-03 (PR-5/B): a visszatérített
+ * könyvelési árva is kifejezett okot kap — a felület szótára ezt
+ * „nem_terhelt"-re képezi, holott a bank TERHELT és mi visszatérítettünk;
+ * az ok nélkül a felület csak az RC=00-ból következtethetne erre.
+ */
+function kozoltOk(s) {
+  const ok = s && s.cib_result && s.cib_result.ok;
+  if (NEM_TERHELT_OKOK.includes(ok)) return ok;
+  if (s.state === 'closed' && ok === 'admin_visszaterites') return ok;
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

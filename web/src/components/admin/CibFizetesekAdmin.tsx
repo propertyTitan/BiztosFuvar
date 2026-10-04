@@ -197,8 +197,12 @@ export default function CibFizetesekAdmin() {
     if (!reszlet) return;
     setMuvelet(true);
     try {
-      await api.adminCibUjraellenorzes(reszlet.trid);
-      toast.success('Újraellenőrzés ütemezve', 'A következő banki lekérdezés a lehető leghamarabb lefut.');
+      // 2026-10-03 (CIB PR-5/B): a backend mondja meg, mi történik (azonnal
+      // fut, vagy legkorábban mikor) — a kétes tételen a következő lépés egy
+      // késleltetett, csak-olvasó egyeztetés, nem „a lehető leghamarabb".
+      const v = await api.adminCibUjraellenorzes(reszlet.trid);
+      toast.success(v?.azonnal ? 'Újraellenőrzés elindítva' : 'Újraellenőrzés ütemezve',
+        v?.uzenet || 'A következő banki lekérdezés a lehető leghamarabb lefut.');
       await nyit(reszlet.trid);
     } catch {
       toast.error('Az újraellenőrzés nem indult el', 'Próbáld újra pár perc múlva.');

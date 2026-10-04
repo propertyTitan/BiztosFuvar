@@ -439,6 +439,21 @@ describe('A visszatérített könyvelési árva nem foglalja örökre a fuvar z�
     try { await cibSor(job, felado, { cibState: 'closed_ok' }); } catch (err) { kod = err.code; }
     expect(kod).toBe('23505');
   });
+
+  it('a visszatérített árva kimenete kifejezett: ok = admin_visszaterites (nem csupasz „nem terhelt"), és új fizetést nem blokkol', async () => {
+    const admin = await createUser({ role: 'admin' });
+    const { felado, job } = await elfogadottFuvar();
+    const arva = await cibSor(job, felado, { state: 'needs_review', cibState: 'closed_ok', eredmeny: { rc: '00', anum: 'A1B2C3' } });
+    expect((await request(app).post(`/payments/admin/cib/${arva}/kezi-rendezes`).set(...auth(admin))
+      .send({ muvelet: 'visszaterites', indoklas: 'A banknál visszatérítve, ügyszám a levelezésben.' })).status).toBe(200);
+    const fp = await request(app).get(`/jobs/${job.id}/fee-payment`).set(...auth(felado));
+    expect(fp.status, JSON.stringify(fp.body)).toBe(200);
+    // A bank TERHELT, majd visszatérítettünk: a felület ezt csak a kifejezett
+    // okból tudja megkülönböztetni a „nem terheltük" kimenettől.
+    expect(fp.body.last_result).toMatchObject({ trid: arva, ok: 'admin_visszaterites', rc: '00' });
+    expect(fp.body.pay_blocked_reason).toBeNull();
+    expect(fp.body.can_pay).toBe(true);
+  });
 });
 
 // =====================================================================

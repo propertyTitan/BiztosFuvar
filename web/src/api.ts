@@ -1053,7 +1053,7 @@ export const api = {
     request<AdminCibReszlet>(`/payments/admin/cib/${encodeURIComponent(trid)}`),
   /** A következő banki lekérdezés előrehozása (a D04-köz tiszteletben tartásával). */
   adminCibUjraellenorzes: (trid: string) =>
-    request<{ ok: true }>(`/payments/admin/cib/${encodeURIComponent(trid)}/ujraellenorzes`, { method: 'POST' }),
+    request<{ ok: true; utemezve?: boolean; azonnal?: boolean; kovetkezo_at?: string | null; uzenet?: string }>(`/payments/admin/cib/${encodeURIComponent(trid)}/ujraellenorzes`, { method: 'POST' }),
   /** Kétes (close_unknown) lezárás kézi rendezése a bankkal egyeztetve. */
   adminCibRendezes: (trid: string, body: { eredmeny: 'lezarva' | 'nem_lezarva'; indoklas: string; anum?: string }) =>
     request<{ ok: true; allapot: string }>(`/payments/admin/cib/${encodeURIComponent(trid)}/rendezes`, {

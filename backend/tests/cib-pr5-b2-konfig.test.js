@@ -171,6 +171,16 @@ describe('Éles konfig: pontos host-engedélylista, a visszatérés az API hostj
     });
   }
 
+  it('apex web-host mellett a www-host sem lehet a visszatérés helye; az api-aldomain igen', () => {
+    const www = p.cibBeallitasok(elesEnv({
+      WEB_BASE_URL: 'https://gofuvar.hu', CIB_RETURN_URL: 'https://www.gofuvar.hu/payments/cib/vissza',
+    }));
+    expect(www.allapot).toBe('hibas');
+    expect(www.okok).toContain('return_url_nem_api_host');
+    const api = p.cibBeallitasok(elesEnv({ WEB_BASE_URL: 'https://gofuvar.hu' }));
+    expect(api.allapot, JSON.stringify(api.okok)).toBe('teljes');
+  });
+
   it('az ismert teszt-kulcs (ujjlenyomat) éles környezetben hibás', () => {
     expect(p.ismertTesztKulcs('5540ea8b5541')).toBe(true);
     expect(p.ismertTesztKulcs('5540ea8b5541ffee')).toBe(true);

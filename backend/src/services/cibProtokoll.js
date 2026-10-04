@@ -208,7 +208,9 @@ function returnHostHibas(returnUrl, webBase) {
   const w = urlElemez(webBase);
   if (!r || !w) return true;
   const apex = w.hostname.replace(/^www\./, '');
-  return r.port !== '' || r.hostname === w.hostname || r.hostname === apex
+  // Az apex web-host mellett (WEB_BASE_URL = https://gofuvar.hu) a www-host
+  // is a web — nem lehet a visszatérés helye.
+  return r.port !== '' || r.hostname === w.hostname || r.hostname === apex || r.hostname === `www.${apex}`
     || !r.hostname.endsWith(`.${apex}`);
 }
 
