@@ -61,6 +61,8 @@ const korAllapot = {
   utolsoSzivRiasztas: 0,
   kovHelyreallitas: Date.now() + HELYREALLITAS_KOZ_MS,
   kovSopres: Date.now() + HELYREALLITAS_KOZ_MS,
+  // Volt-e olyan tick, amikor a CIB EKI nem élt (hibás / hiányos konfig)?
+  nemTeljesVolt: false,
 };
 
 function sentry(uzenet) {
@@ -93,7 +95,23 @@ async function ertesitesHelyreallitas(b, hibak) {
  */
 async function runCibKor() {
   const paymentProvider = require('./paymentProvider');
-  if (!paymentProvider.usesCibEki()) return 0;
+  if (!paymentProvider.usesCibEki()) {
+    korAllapot.nemTeljesVolt = true;
+    return 0;
+  }
+  if (korAllapot.nemTeljesVolt) {
+    // 2026-10-04 (a PR-5 2. javítóköre): a bootkor hibás konfig (pl. a mai
+    // napnál későbbi CIB_BEVEZETES) a dátum napján magától teljes lesz — eddig
+    // erről semmi nem szólt (az „EKI-konfiguráció teljes" sor és a járat-ág
+    // ellenőrzése csak induláskor fut). Egyszer, az átváltáskor pótoljuk.
+    korAllapot.nemTeljesVolt = false;
+    try {
+      console.log('[cib-lekerdezes] a CIB EKI-konfiguráció most teljes lett — a lekérdező kör dolgozik');
+      const sentryObj = process.env.SENTRY_DSN ? require('@sentry/node') : null;
+      p.naplozCibKonfigot({ sentry: sentryObj });
+      require('./feePaymentSession').jaratKartyasEllenorzes({ sentry: sentryObj });
+    } catch { /* a naplózás nem akaszthatja meg a kört */ }
+  }
   if (cibFizetes.leallasFolyamatban()) return 0;
   const b = p.cibBeallitasok();
   const berlo = cibFizetes.ujBerlo();

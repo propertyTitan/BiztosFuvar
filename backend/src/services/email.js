@@ -677,12 +677,27 @@ const CIB_TRID_TEENDO = Object.freeze({
   lekerdezes_mezo_elteres: 'A bank lekérdezésre adott válasza ismételten eltér a tárolt adatoktól (saját hiba '
     + 'gyanú). MSGT32 nem ment ki, terhelés nincs; a kísérlet a zárási határidő után magától lezárul, a feladót '
     + 'nem blokkolja. Ellenőrizd a CIB-konfigurációt.',
+  // 2026-10-04 (a PR-5 2. javítóköre): eddig ez a két ok a levélben az
+  // általános „a rendszer automatikusan eldönti" szöveget kapta — épp ott,
+  // ahol a rendszer már NEM dönt (a teendő-szótár a cibFizetes
+  // RIASZTAS_TEENDO-jával szinkronban, őr: cib-pr5-javitokor-2.test.js).
+  egyeztetes_nem_dontheto: 'A kétes zárás csak-olvasó egyeztetése (MSGT33) ellentmondó választ adott (TO-tól eltérő '
+    + 'elutasító kód, mezőeltérés, eltérő ANUM, vagy TO egy D05-tel — „már kiszolgálva" — kétes kísérletre): a kártya '
+    + '<strong>terhelt lehet</strong>. A fuvar fagyasztva, a kontakt rejtve, újrafizetés nem indul, és a rendszer '
+    + 'magától NEM dönt. Egyeztess a bankkal (TrID), majd az adminban (Fizetések → CIB) rendezd: „lezárva" '
+    + '(ANUM-mal) vagy „nem zárult le".',
+  egyeztetes_iras_utkozes: 'Az egyeztetés szerint a bank lezárta (<strong>terhelt</strong>), de a tétel állapota '
+    + 'közben megváltozott (pl. admin-rendezés), így az eredmény nem rögzíthető. Ellenőrizd a tételt az adminban '
+    + '(Fizetések → CIB) és a banknál: ha a díj nem könyvelődött, a banknál vissza kell téríteni. Ha közben „nem '
+    + 'zárult le" rendezés történt, a feladó „nem terheltük" értesítést kapott — a visszatérítéssel együtt tájékoztasd.',
 });
+// Az okok, amelyeknél a bankkal kell egyeztetni (a levél tárgya „kézi egyeztetés").
+const CIB_KEZI_EGYEZTETES_OKOK = Object.freeze(['egyeztetes_nem_dontheto', 'egyeztetes_iras_utkozes']);
 const CIB_KETES_TEENDO = 'A fuvar fagyasztva, a kontakt rejtve; MSGT32 újraküldés nincs. A rendszer az utolsó MSGT32 '
   + 'után CIB_EGYEZTETES_PERC (alapból 25) perccel csak-olvasó lekérdezéssel (MSGT33) automatikusan eldönti: TO → nem '
-  + 'terhelt, két (legalább 15 perc különbségű) 00 ugyanazzal az ANUM-mal → lezárt. Ha az sem dönt (más banki kód, '
-  + 'eltérő ANUM), egyeztess a bankkal, majd az adminban (Fizetések → CIB) rendezd: „lezárva" (ANUM-mal) vagy „nem '
-  + 'zárult le".';
+  + 'terhelt (a D05-tel kétes kísérletnél nem), két (legalább 15 perc különbségű) 00 ugyanazzal az ANUM-mal → lezárt. '
+  + 'Ha az sem dönt (más banki kód, eltérő ANUM), egyeztess a bankkal, majd az adminban (Fizetések → CIB) rendezd: '
+  + '„lezárva" (ANUM-mal) vagy „nem zárult le".';
 
 /**
  * A CIB-riasztó levél tárgya és HTML-je (2026-10-03, PR-5 — külön, hogy a
@@ -715,8 +730,8 @@ function cibRiasztasTartalom({
     };
   }
   const maszk = `…${String(trid).slice(-4)}`;
-  const ketes = !CIB_TRID_TEENDO[ok];
-  const teendo = ketes ? CIB_KETES_TEENDO : CIB_TRID_TEENDO[ok];
+  const ketes = !CIB_TRID_TEENDO[ok] || CIB_KEZI_EGYEZTETES_OKOK.includes(ok);
+  const teendo = CIB_TRID_TEENDO[ok] || CIB_KETES_TEENDO;
   const bodyHtml = `
     <p>Egy kártyás díjfizetés <strong>${ketes ? 'kézi egyeztetést' : 'teendőt'}</strong> igényel (${escapeHtml(ok || '?')}).</p>
     <table style="border-collapse:collapse;font-size:13px">

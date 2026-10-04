@@ -589,6 +589,11 @@ describe('Riasztások: tartósak, a könyvelési hiba és az árva is riaszt, na
       emailSzolg.sendCibRiasztasEmail = eredetiLevel;
     }
     expect((await sor(trid)).cib_result.emlekezteto_at, 'a ki nem ment emlékeztető jelölve').toBeUndefined();
+    // 2026-10-04 (2. javítókör): az újrapróba legkorábban 60 perc múlva jön
+    // (levélkiesés alatt ne percenként) — a próbálkozást visszadátumozzuk.
+    await db.query(`UPDATE payment_sessions SET cib_result = cib_result
+                      || jsonb_build_object('emlekezteto_probalkozas_at', NOW() - INTERVAL '61 minutes')
+                    WHERE payment_id = $1`, [trid]);
     const hiba = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       await cf().riasztasSopres();
