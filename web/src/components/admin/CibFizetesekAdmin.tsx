@@ -200,7 +200,19 @@ export default function CibFizetesekAdmin() {
       // 2026-10-03 (CIB PR-5/B): a backend mondja meg, mi történik (azonnal
       // fut, vagy legkorábban mikor) — a kétes tételen a következő lépés egy
       // késleltetett, csak-olvasó egyeztetés, nem „a lehető leghamarabb".
-      const v = await api.adminCibUjraellenorzes(reszlet.trid);
+      const v = await api.adminCibUjraellenorzes(reszlet.trid).catch((e: unknown) => {
+        // 409 CIB_NO_AUTOMATIC_STEP: felülvizsgálandó vagy végállapotú tétel —
+        // nincs újrafuttatható lépés, a „próbáld újra" itt félrevezetne.
+        if ((e as { code?: string } | null)?.code === 'CIB_NO_AUTOMATIC_STEP') return null;
+        throw e;
+      });
+      if (!v) {
+        toast.info('Nincs automatikus banki lépés',
+          'Ennél a tételnél a rendszer magától nem kérdez újra a banktól. A felülvizsgálandó tételt a bankkal '
+          + 'egyeztetve a kézi rendezés zárja le; a végállapotú tételnél nincs teendő.');
+        await nyit(reszlet.trid);
+        return;
+      }
       toast.success(v?.azonnal ? 'Újraellenőrzés elindítva' : 'Újraellenőrzés ütemezve',
         v?.uzenet || 'A következő banki lekérdezés a lehető leghamarabb lefut.');
       await nyit(reszlet.trid);

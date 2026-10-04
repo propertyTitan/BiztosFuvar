@@ -66,6 +66,20 @@ describe('CIB admin — Újraellenőrzés visszajelzése', () => {
     await waitFor(() => expect(m.toast.success).toHaveBeenCalledWith('Újraellenőrzés elindítva', uzenet));
   });
 
+  it('409 CIB_NO_AUTOMATIC_STEP (felülvizsgálandó / végállapotú tétel): nem „próbáld újra", hanem a teendő', async () => {
+    vi.mocked(api.adminCibUjraellenorzes).mockRejectedValue(
+      Object.assign(new Error('szerver-szöveg'), { code: 'CIB_NO_AUTOMATIC_STEP', status: 409 }),
+    );
+    await kattint();
+    await waitFor(() => expect(m.toast.info).toHaveBeenCalled());
+    const [cim, szoveg] = m.toast.info.mock.calls[0];
+    expect(cim).toBe('Nincs automatikus banki lépés');
+    expect(szoveg).toMatch(/kézi rendezés/i);
+    expect(`${cim} ${szoveg}`).not.toMatch(/próbáld újra/i);
+    expect(m.toast.error).not.toHaveBeenCalled();
+    expect(m.toast.success).not.toHaveBeenCalled();
+  });
+
   it('régi (üzenet nélküli) válasz: a megszokott szöveg marad', async () => {
     vi.mocked(api.adminCibUjraellenorzes).mockResolvedValue({ ok: true });
     await kattint();
