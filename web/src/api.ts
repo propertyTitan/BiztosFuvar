@@ -301,11 +301,11 @@ export type CibBankiAdatok = {
 export type FizetesTiltasOka = 'masik_kiserlet_folyamatban' | 'probalkozasi_limit' | 'szunetel' | 'nem_fizetheto';
 
 /**
- * A „nem terhelt" kimenet oka (C5): admin-egyeztetés vagy banki visszafordítás
- * — a backend (adatsor) csak ezt a kettőt adja ki, minden másra null.
- * ⚠️ Az admin-visszatérítést a backend ok NÉLKÜL, „nem_terhelt" + RC=00
- * kimenetként adja; a web (lib/cibFizetes.ts: visszateritett) az RC-ből
- * ismeri fel, és külön, igaz szöveggel mutatja (a bank terhelt).
+ * A „nem terhelt" kimenet oka (C5): admin-egyeztetés vagy banki visszafordítás.
+ * ⚠️ A visszatérített könyvelési árvát a backend „nem_terhelt" kimenettel,
+ * 'admin_visszaterites' okkal (és RC=00-val) adja; a web
+ * (lib/cibFizetes.ts: visszateritett) ebből ismeri fel, és külön, igaz
+ * szöveggel mutatja (a bank terhelt). Más okot a backend nem ad ki (null).
  */
 export type NemTerheltOk = 'admin_nem_lezarva' | 'bank_visszaforditotta';
 

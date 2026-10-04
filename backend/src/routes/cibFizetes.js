@@ -156,9 +156,10 @@ router.get('/payments/admin/cib', authRequired, requireRole('admin'), async (req
     if (allapot === 'needs_review') {
       where.push("ps.state = 'needs_review'");
     } else if (cibFizetes.UI_ALLAPOTOK.includes(allapot)) {
-      // 2026-10-03 (PR-5/B): a felület szótára (CibFizetesekAdmin ALLAPOT_NEV
-      // — a szűrő és az „Egyeztetésre vár" jelvény ezt küldi): pontosan a
-      // lista pillje szerinti tételek (a lekepez SQL-tükre).
+      // 2026-10-03 (PR-5/B): a felület szótára — pontosan a lista pillje
+      // szerinti tételek (a lekepez SQL-tükre). A webes admin az „ellenorzes"
+      // szót küldi (szűrő + „Egyeztetésre vár" jelvény); a többi szűrője a
+      // nyers CIB-állapot (web lib/cibAdmin.ts ALLAPOT_SZURO, 2026-10-04).
       params.push(allapot);
       where.push(`${cibFizetes.lekepezSql('ps')} = $${params.length}`);
     } else if (CIB_ALLAPOTOK.includes(allapot)) {

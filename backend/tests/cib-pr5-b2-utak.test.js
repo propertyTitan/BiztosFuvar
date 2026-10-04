@@ -9,8 +9,9 @@
 //   * külön rate-limit vödrök: az eredményoldal lekérdezése nem éheztetheti
 //     ki a /vissza-t és a /tovabb-ot; a /vissza túlterhelésnél sem ad nyers
 //     JSON-t a böngészőnek (303 egy HTML hibaoldalra);
-//   * az admin-szűrő a felület szótárát (CibFizetesekAdmin ALLAPOT_NEV) érti,
-//     és pontosan azt adja, amit a lista pillje mutat (SQL = lekepez);
+//   * az admin-szűrő a webes szűrő értékeit (lib/cibAdmin.ts ALLAPOT_SZURO)
+//     és a felület szótárát is érti, és pontosan azt adja, amit a lista
+//     pillje mutat (SQL = lekepez); minden kimenetnek van webes felirata;
 //   * JÁRAT-foglalás CIB-úton: őszinte, nem „átmeneti" szöveg, és a
 //     megerősítés nem szólít fel lehetetlen fizetésre;
 //   * a fagyasztási 409 szerep- és állapotfüggő (szállító / admin / kétes);
@@ -242,20 +243,64 @@ describe('Külön rate-limit vödrök a publikus CIB-végpontokon', () => {
 });
 
 // =====================================================================
-describe('Admin-szűrő: a felület szótára, és pontosan az, amit a pill mutat', () => {
-  function webAllapotKulcsok() {
-    const forras = fs.readFileSync(
-      path.join(__dirname, '../../web/src/components/admin/CibFizetesekAdmin.tsx'), 'utf8',
-    );
-    const blokk = /const ALLAPOT_NEV[^=]*=\s*\{([\s\S]*?)\};/.exec(forras);
+// 2026-10-04 (a PR-5 integrációja): a webes admin a szűrőt a saját listájából
+// küldi (lib/cibAdmin.ts ALLAPOT_SZURO: 'ellenorzes', 'needs_review' és a
+// nyers CIB-állapotok), az ALLAPOT_NEV már csak a pill felirata — benne a
+// csak-webes, az RC-ből / az okból származtatott „visszateritve". Eddig ez az
+// őr az ALLAPOT_NEV kulcsait küldte szűrőként, ami az összefésülés után a
+// „visszateritve"-re 400-at kapott (a web ezt nem is küldi).
+describe('Admin-szűrő: a webes szűrő és a felület szótára, és pontosan az, amit a pill mutat', () => {
+  const webForras = (rel) => fs.readFileSync(path.join(__dirname, '../../web/src', rel), 'utf8');
+  function webPillKulcsok() {
+    const blokk = /const ALLAPOT_NEV[^=]*=\s*\{([\s\S]*?)\};/.exec(webForras('components/admin/CibFizetesekAdmin.tsx'));
     expect(blokk, 'az ALLAPOT_NEV nem található a webes admin-komponensben').toBeTruthy();
     return [...blokk[1].matchAll(/^\s*([a-z_]+)\s*:/gm)].map((m) => m[1]);
   }
+  function webSzuroErtekek() {
+    const blokk = /export const ALLAPOT_SZURO[^=]*=\s*\[([\s\S]*?)\];/.exec(webForras('lib/cibAdmin.ts'));
+    expect(blokk, 'az ALLAPOT_SZURO nem található a webes lib/cibAdmin.ts-ben').toBeTruthy();
+    return [...blokk[1].matchAll(/ertek:\s*'([a-z_]+)'/g)].map((m) => m[1]);
+  }
+  // A web saját, származtatott pillje (lib/cibFizetes.ts: visszateritett) —
+  // szűrőként nem megy ki, a backend lekepez-e nem adja.
+  const CSAK_WEBES_PILL = ['visszateritve'];
 
-  it('a webes ALLAPOT_NEV minden kulcsa 200, és csak a megfelelő pillű tételeket adja', async () => {
+  it('a webes szűrő minden értéke 200, és csak az annak megfelelő tételeket adja', async () => {
     const admin = await createUser({ role: 'admin' });
-    const kulcsok = webAllapotKulcsok();
+    const ertekek = webSzuroErtekek();
+    expect(ertekek).toEqual(expect.arrayContaining(['ellenorzes', 'needs_review', 'close_unknown', 'closed_ok']));
+    const tetelek = {};
+    const keszit = async (kulcs, allapotok) => {
+      const { felado, job } = await elfogadottFuvar();
+      tetelek[kulcs] = await cibSor(job, felado, allapotok);
+    };
+    await keszit('ellenorzes', { cibState: 'close_unknown' });
+    await keszit('needs_review', { state: 'needs_review', cibState: 'closed_ok' });
+    await keszit('close_unknown', { cibState: 'close_unknown' });
+    await keszit('closed_ok', { state: 'succeeded', cibState: 'closed_ok' });
+    await keszit('redirected', { cibState: 'redirected' });
+    for (const v of ertekek) {
+      // eslint-disable-next-line no-await-in-loop
+      const r = await request(app).get(`/payments/admin/cib?allapot=${v}&limit=200`).set(...auth(admin));
+      expect(r.status, `a webes szűrő „${v}" értéke: ${JSON.stringify(r.body)}`).toBe(200);
+      for (const t of r.body.items) {
+        if (cf().UI_ALLAPOTOK.includes(v)) expect(t.allapot, `${v} szűrő más pillű tételt adott`).toBe(v);
+        else if (v === 'needs_review') expect(t.allapot, 'a felülvizsgálandó tétel pillje').toBe('ellenorzes');
+        else expect(t.cib_state, `${v} szűrő más CIB-állapotú tételt adott`).toBe(v);
+      }
+      if (tetelek[v]) expect(r.body.items.map((t) => t.trid), v).toContain(tetelek[v]);
+    }
+  });
+
+  it('a felület szótárának minden kulcsa 200, csak a megfelelő pillű tételeket adja, és mindnek van webes felirata', async () => {
+    const admin = await createUser({ role: 'admin' });
+    const kulcsok = cf().UI_ALLAPOTOK;
     expect(kulcsok).toEqual(expect.arrayContaining(['feldolgozas', 'sikeres', 'sikertelen', 'nem_terhelt', 'mar_fizetve', 'ellenorzes']));
+    // A backend minden kimenetének van webes pillje (nyers kód nem látszik),
+    // és a webnek nincs ismeretlen pillje.
+    const pill = webPillKulcsok();
+    for (const k of kulcsok) expect(pill, `a(z) „${k}" állapotnak nincs webes felirata`).toContain(k);
+    for (const k of pill) expect([...kulcsok, ...CSAK_WEBES_PILL], `ismeretlen webes pill: ${k}`).toContain(k);
     const tetelek = {};
     const keszit = async (kulcs, allapotok) => {
       const { felado, job } = await elfogadottFuvar();

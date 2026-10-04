@@ -422,7 +422,7 @@ const sqlLista = (lista) => lista.map((x) => `'${x}'`).join(', ');
 
 /**
  * A lekepez SQL-tükre (2026-10-03, PR-5/B): az admin-lista szűrője a felület
- * szótárával dolgozik (CibFizetesekAdmin ALLAPOT_NEV), és PONTOSAN azokat a
+ * szótárát (UI_ALLAPOTOK) is érti, és PONTOSAN azokat a
  * tételeket adja, amelyeknek a pillje az adott szót mutatja. Eddig a felület
  * a saját szavát küldte, a backend csak a nyers cib_state-et értette: minden
  * szűrő 400 volt, az „Egyeztetésre vár" jelvény soha nem jelent meg. A két

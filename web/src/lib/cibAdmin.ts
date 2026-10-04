@@ -121,10 +121,12 @@ export function allapotValtozott(err: unknown): boolean {
 }
 
 /**
- * A lista állapot-szűrője — a backend szótára (GET /payments/admin/cib):
- * a „ellenorzes" (kétes + felülvizsgálandó), a „needs_review" és a nyers
- * CIB-állapotok. ⚠️ 2026-10-04: eddig a felület szótára ment („sikeres",
- * „sikertelen", „nem_terhelt"…), amit a backend 400-zal utasított el.
+ * A lista állapot-szűrője (GET /payments/admin/cib): az „ellenorzes"
+ * (kétes + felülvizsgálandó), a „needs_review" és a nyers CIB-állapotok.
+ * ⚠️ 2026-10-04: a régi backend a felület szótárát („sikeres", „nem_terhelt"…)
+ * 400-zal utasította el. A PR-5/B backend már azt is érti, de a „nem_terhelt"
+ * szűrő a visszatérített tételeket is adná (itt a pill „Visszatérítve") —
+ * ezért marad a nyers szótár. A backend őre (cib-pr5-b2-utak) ezt a listát méri.
  */
 export const ALLAPOT_SZURO: ReadonlyArray<{ ertek: string; nev: string }> = [
   { ertek: 'ellenorzes', nev: 'Egyeztetésre vár (kétes + felülvizsgálandó)' },

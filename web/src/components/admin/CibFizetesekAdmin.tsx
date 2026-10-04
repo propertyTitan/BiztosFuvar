@@ -23,8 +23,8 @@
 //    árva) — csak abban az állapotban kínálva, ahol a backend engedi
 //    (lib/cibAdmin.ts: keziMuveletek), ConfirmDialog mögött, indoklással és
 //    opcionális banki hivatkozással. Bankot egyik sem hív, MSGT32 nem megy ki.
-//  - A lista állapot-szűrője a backend szótárát küldi (lib/cibAdmin.ts:
-//    ALLAPOT_SZURO) — eddig a felület szótára ment, és 400-ra futott.
+//  - A lista állapot-szűrője a nyers szótárat küldi (lib/cibAdmin.ts:
+//    ALLAPOT_SZURO; minden értékét a backend őre, a cib-pr5-b2-utak méri).
 //
 //  Ha a végpont nem érhető el (a CIB-integráció nincs bekapcsolva, vagy a
 //  backend még nem tartalmazza), a blokk ezt csendes jelzéssel mondja — az
@@ -427,8 +427,8 @@ export default function CibFizetesekAdmin() {
               <label htmlFor="cib-allapot" style={{ fontSize: 12, display: 'block' }}>Állapot</label>
               <select id="cib-allapot" className="input" value={allapot} onChange={(e) => setAllapot(e.target.value)}>
                 <option value="">Mind</option>
-                {/* A backend szótára (W2): a felület kijelzett állapotai
-                    („Sikeres", „Nem terhelt"…) szűrőként 400-at kapnának. */}
+                {/* A nyers szótár (W2, lib/cibAdmin.ts) — a „Nem terhelt"
+                    szűrő a „Visszatérítve" pillű tételeket is adná. */}
                 {ALLAPOT_SZURO.map((o) => <option key={o.ertek} value={o.ertek}>{o.nev}</option>)}
               </select>
             </div>
