@@ -36,23 +36,8 @@ import DisputeButton from '@/components/DisputeButton';
 import CarrierTripPanel from '@/components/CarrierTripPanel';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
+import StatusPill from '@/components/StatusPill';
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: 'Várakozik',
-  bidding: 'Elérhető',
-  accepted: 'Elfogadva',
-  in_progress: 'Folyamatban',
-  delivered: 'Lerakva',
-  completed: 'Lezárva',
-  disputed: 'Vitatott',
-  cancelled: 'Lemondva',
-};
-
-const STATUS_PILL: Record<string, string> = {
-  pending: 'pill-bidding', bidding: 'pill-bidding', accepted: 'pill-accepted',
-  in_progress: 'pill-progress', delivered: 'pill-delivered', completed: 'pill-delivered',
-  disputed: 'pill-accepted', cancelled: 'pill-cancelled',
-};
 
 export default function SoforFuvarReszletek() {
   const { id } = useParams<{ id: string }>();
@@ -344,7 +329,13 @@ export default function SoforFuvarReszletek() {
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-          <span className={`pill ${STATUS_PILL[job.status] || 'pill-progress'}`}>{STATUS_LABEL[job.status] || job.status}</span>
+          {/* UX A11 (2026-10-08): a közös állapot-jelvény (lib/statusz) — a
+              feladói oldallal és a Fuvarjaimmal azonos feliratok és színek.
+              A kijelölt szállító fizetetlen fuvarán a fő jelvényt a lenti
+              „Fizetésre vár” jelvény helyettesíti (ne mondja kétszer). */}
+          {!(iAmTheCarrier && job.status === 'accepted' && !job.paid_at) && (
+            <StatusPill job={job} nezet={iAmTheCarrier ? 'szallito' : 'felado'} />
+          )}
           {/* Fizetés állapot — csak accepted+ státuszoknál érdekes.
               A szállító ebből látja, hogy a feladó már kifizette-e vagy sem. */}
           {iAmTheCarrier && ['accepted', 'in_progress', 'delivered'].includes(job.status) && (

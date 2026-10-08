@@ -10,25 +10,7 @@ import { api, Job } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { Truck, MapPin, Flag, ArrowRight } from 'lucide-react';
 import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
-
-const STATUS_LABEL: Record<string, string> = {
-  pending: 'Várakozik',
-  bidding: 'Elérhető',
-  accepted: 'Elfogadva',
-  in_progress: 'Folyamatban',
-  delivered: 'Lerakva',
-  completed: 'Lezárva',
-  disputed: 'Vitatott',
-  cancelled: 'Lemondva',
-};
-
-const STATUS_PILL: Record<string, string> = {
-  accepted: 'pill-accepted',
-  in_progress: 'pill-progress',
-  delivered: 'pill-delivered',
-  completed: 'pill-delivered',
-  cancelled: 'pill-cancelled',
-};
+import StatusPill from '@/components/StatusPill';
 
 // KÖVETKEZŐ LÉPÉS (2026-09-11, teljes audit B2): a vállalt fuvarok listája
 // minden aktív fuvarnál megmondja, mi jön, és a sorrend is a tennivaló
@@ -77,9 +59,8 @@ export default function SoforSajatFuvarok() {
             )}
           </div>
           <div style={{ textAlign: 'right' }}>
-            <span className={`pill ${STATUS_PILL[j.status] || 'pill-bidding'}`}>
-              {STATUS_LABEL[j.status] || j.status}
-            </span>
+            {/* UX A11: közös állapot-jelvény, szállítói nézet (lib/statusz). */}
+            <StatusPill job={j} nezet="szallito" />
             <div className="price" style={{ marginTop: 6 }}>
               {(j.accepted_price_huf || j.suggested_price_huf || 0).toLocaleString('hu-HU')} Ft
             </div>

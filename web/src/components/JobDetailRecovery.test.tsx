@@ -107,7 +107,7 @@ it('P1-09: vitás szállítói oldalon elérhető a fotó/PIN, kézbesítés ut�
   fireEvent.click(screen.getByRole('button', { name: /Kézbesítés igazolása/ }));
   await waitFor(() => expect(api.uploadJobPhoto).toHaveBeenCalledWith('job', expect.any(File), 'dropoff', { deliveryCode: '111222' }));
   await waitFor(() => expect(screen.queryByRole('button', { name: /Kézbesítés igazolása/ })).toBeNull());
-  expect(screen.getByText('Vitatott')).toBeInTheDocument();
+  expect(screen.getByText('Vita folyamatban')).toBeInTheDocument();
   expect(screen.getByText('Fuvar chat')).toBeInTheDocument();
   expect(mocks.toast.success).toHaveBeenCalledWith('Csomag kézbesítve', expect.stringContaining('vita továbbra is nyitva'));
 });
