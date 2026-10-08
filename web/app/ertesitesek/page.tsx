@@ -165,7 +165,7 @@ export default function ErtesitesekOldal() {
         const olvasatlan = !n.read_at;
         const content = (
           <div
-            className="card"
+            className="card card-interactive"
             data-olvasatlan={olvasatlan ? 'igen' : undefined}
             onClick={() => markRead(n)}
             style={{

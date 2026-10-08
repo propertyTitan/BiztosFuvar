@@ -251,6 +251,26 @@ h1 { font-size: 32px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.5px;
 h2 { font-size: 24px; font-weight: 700; margin: 24px 0 8px; letter-spacing: -0.3px; }
 h3 { font-size: 18px; font-weight: 700; margin: 16px 0 4px; }
 p { margin: 0 0 8px; }
+/* UX A30: kiegyensúlyozott címsor-tördelés (nincs árva „Hozasd / el.") és
+   árva szó nélküli bekezdés. A régebbi böngésző egyszerűen figyelmen kívül
+   hagyja — progresszív javítás. */
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+/* UX A29/A30: a mezőcsoportok (rádió-kérdés, időablak) fieldset/legend
+   keretet kapnak — a felolvasó így a kérdést is felolvassa. Vizuálisan
+   keret és behúzás nélkül, ahogy eddig. */
+fieldset.mezo-csoport { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+fieldset.mezo-csoport > legend { padding: 0; margin-bottom: 4px; }
+
+/* UX A29: „Ugrás a tartalomra" — csak billentyűzet-fókuszra látszik. */
+.ugro-link {
+  position: absolute; left: 8px; top: -48px; z-index: 10001;
+  background: var(--surface); color: var(--primary-text);
+  border: 2px solid var(--primary); border-radius: var(--radius-sm);
+  padding: 8px 14px; font-weight: 700; text-decoration: none;
+}
+.ugro-link:focus, .ugro-link:focus-visible { top: 8px; }
 a { color: var(--primary-text); }
 
 /* ── Utility: force dark text on pastel/light backgrounds ── */
@@ -509,7 +529,12 @@ a { color: var(--primary-text); }
      rublikából. Öröklődő property → a kártya teljes szövegére hat. */
   overflow-wrap: anywhere;
 }
-.card:hover {
+/* UX A30: a kártya első címsora nem kap felső margót — eddig ahol a kártya
+   h2-vel kezdődött, 44 px üres tér volt felül, a szomszéd kártyán 20. */
+.card > :is(h2, h3):first-child { margin-top: 0; }
+/* UX A30: a hover-visszajelzés CSAK a kattintható kártyáké — a statikus
+   kártya árnyéka „kattints rám”-ot ígért. */
+a.card:hover, button.card:hover, .card-interactive:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--border-hover);
 }

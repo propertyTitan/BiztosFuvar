@@ -56,7 +56,7 @@ function UtbaEsoPage() {
 
       <Link
         href={`/sofor/utvonal/${routeId}`}
-        className="btn ghost"
+        className="btn btn-ghost"
         style={{ textDecoration: 'none', marginBottom: 16, display: 'inline-block' }}
       >
         ← Vissza az útvonalhoz

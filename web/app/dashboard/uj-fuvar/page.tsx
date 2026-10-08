@@ -709,30 +709,35 @@ export default function UjFuvar() {
         <div style={{ marginTop: 12 }}>
           {/* Felvételi időablak (2026-09-11, B3): a backend eddig is fogadta,
               az űrlapon nem volt — a szállító nem tudta, mikor mehet. */}
-          <div style={{ marginBottom: 12 }}>
-            <label htmlFor="pickup-window-start" style={{ fontSize: 13, fontWeight: 600 }}>
+          {/* UX A30 + A29: két címkézett mező („Legkorábban" / „Legkésőbb")
+              egy fieldsetben — mobilon egymás alatt, árva „–" nélkül. */}
+          <fieldset className="mezo-csoport" style={{ marginBottom: 12 }}>
+            <legend style={{ fontSize: 13, fontWeight: 600 }}>
               Felvételi időablak <span className="muted" style={{ fontWeight: 400 }}>(opcionális — mikor lehet jönni a csomagért)</span>
-            </label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
-              <input
-                id="pickup-window-start"
-                type="datetime-local"
-                className="input"
-                value={form.pickup_window_start}
-                onChange={(e) => set('pickup_window_start', e.target.value)}
-                style={{ flex: '1 1 200px' }}
-                aria-label="Felvételi időablak kezdete"
-              />
-              <span className="muted">–</span>
-              <input
-                id="pickup-window-end"
-                type="datetime-local"
-                className="input"
-                value={form.pickup_window_end}
-                onChange={(e) => set('pickup_window_end', e.target.value)}
-                style={{ flex: '1 1 200px' }}
-                aria-label="Felvételi időablak vége"
-              />
+            </legend>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, marginTop: 4 }}>
+              <div>
+                <label htmlFor="pickup-window-start" style={{ fontSize: 12 }}>Legkorábban</label>
+                <input
+                  id="pickup-window-start"
+                  type="datetime-local"
+                  className="input"
+                  value={form.pickup_window_start}
+                  onChange={(e) => set('pickup_window_start', e.target.value)}
+                  aria-label="Felvételi időablak kezdete — legkorábban"
+                />
+              </div>
+              <div>
+                <label htmlFor="pickup-window-end" style={{ fontSize: 12 }}>Legkésőbb</label>
+                <input
+                  id="pickup-window-end"
+                  type="datetime-local"
+                  className="input"
+                  value={form.pickup_window_end}
+                  onChange={(e) => set('pickup_window_end', e.target.value)}
+                  aria-label="Felvételi időablak vége — legkésőbb"
+                />
+              </div>
             </div>
             {idoablakHiba(form.pickup_window_start, form.pickup_window_end) && (
               <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 13, margin: '4px 0 0' }}>
@@ -740,8 +745,8 @@ export default function UjFuvar() {
               </p>
             )}
             <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>Tágabb időablakra több szállítónak esik útba a fuvar.</p>
-          </div>
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+          </fieldset>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={form.pickup_needs_carrying}
@@ -779,7 +784,7 @@ export default function UjFuvar() {
                   </select>
                 </div>
                 {form.pickup_floor !== '0' && (
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', fontSize: 14 }}>
                     <input
                       type="checkbox"
                       checked={form.pickup_has_elevator}
@@ -847,7 +852,7 @@ export default function UjFuvar() {
 
         {/* Lerakodási bepakolás */}
         <div style={{ marginTop: 12 }}>
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={form.dropoff_needs_carrying}
@@ -885,7 +890,7 @@ export default function UjFuvar() {
                   </select>
                 </div>
                 {form.dropoff_floor !== '0' && (
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', fontSize: 14 }}>
                     <input
                       type="checkbox"
                       checked={form.dropoff_has_elevator}
@@ -1197,7 +1202,7 @@ export default function UjFuvar() {
 
         {/* --- Számlakérés --- */}
         <div style={{ marginTop: 16 }}>
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
             <input type="checkbox" checked={form.invoice_requested}
               onChange={(e) => set('invoice_requested', e.target.checked)}
               style={{ width: 20, height: 20, flexShrink: 0 }} />
@@ -1210,7 +1215,7 @@ export default function UjFuvar() {
 
         {/* --- Címzett adatai --- */}
         <h2 style={{ marginTop: 24 }}>Átvétel</h2>
-        <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={form.other_recipient}

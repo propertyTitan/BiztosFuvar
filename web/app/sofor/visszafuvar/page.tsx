@@ -70,7 +70,7 @@ export default function VisszafuvarPage() {
               ami a visszaútadhoz illeszkedik (±30 km). Nézd meg pár óra múlva.
             </li>
           </ul>
-          <Link className="btn ghost" href="/sofor/sajat-fuvarok">
+          <Link className="btn btn-ghost" href="/sofor/sajat-fuvarok">
             Aktív fuvaraim megtekintése
           </Link>
         </div>
