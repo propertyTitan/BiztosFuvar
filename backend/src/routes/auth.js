@@ -895,8 +895,10 @@ router.get('/users/:id/profile', authRequired, requireVerifiedEmail, async (req,
       // személyes adat, és a publikus profilt bárki lekérheti kontaktus/
       // ügylet nélkül (adat-minimalizálás, 2026-08-09 audit). A jármű TÍPUSA
       // (vehicle_type) marad — az a döntéshez hasznos, nem azonosít.
+      // A trust_score is kimarad (UX A03, 2026-10-08): belső pontszám, a
+      // tájékoztató szerint csak az admin látja.
       `SELECT id, full_name, avatar_url, bio, vehicle_type,
-              rating_avg, rating_count, trust_score, is_verified_carrier, created_at,
+              rating_avg, rating_count, is_verified_carrier, created_at,
               account_type, company_name, company_verification_status
          FROM users WHERE id = $1`,
       [uid],

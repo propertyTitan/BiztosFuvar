@@ -339,7 +339,10 @@ router.get('/jobs/:jobId/bids', authRequired, async (req, res) => {
             (b.status = 'pending' AND b.job_terms_revision <> j.terms_revision) AS needs_reconfirmation,
             u.full_name AS carrier_name, u.avatar_url AS carrier_avatar,
             u.rating_avg, u.rating_count,
-            u.trust_score, u.is_verified_carrier,
+            -- A trust_score SZÁNDÉKOSAN nincs itt (UX A03, 2026-10-08): az
+            -- adatkezelési tájékoztató szerint belső pontszám, csak az admin
+            -- látja — egy másik felhasználónak az API-ban sem jár.
+            u.is_verified_carrier,
             u.vehicle_type AS carrier_vehicle,
             u.account_type AS carrier_account_type,
             u.company_name AS carrier_company_name,
