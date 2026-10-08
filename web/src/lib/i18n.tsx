@@ -18,11 +18,13 @@ import en from '@/locales/en.json';
 
 const LOCALES: Record<string, Record<string, any>> = { hu, en };
 export const SUPPORTED_LOCALES = [
-  { code: 'hu', label: 'Magyar', flag: '🇭🇺' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
+  // Zászló-emoji NINCS (CLAUDE.md 7.: UI-ikonként emoji tilos — az emoji-őr
+  // a regionális jelzőpárt is fogja). A nyelvválasztó jelenleg rejtett.
+  { code: 'hu', label: 'Magyar' },
+  { code: 'en', label: 'English' },
   // Később bővíthető:
-  // { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  // { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  // { code: 'de', label: 'Deutsch' },
+  // { code: 'fr', label: 'Français' },
 ];
 
 const STORAGE_KEY = 'gofuvar_locale';

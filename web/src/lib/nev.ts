@@ -16,7 +16,11 @@
 // =====================================================================
 
 const TITULUS = /^(dr|ifj|id|özv|prof|ing)\.?$/i;
-const HAZASSAGI = /né$/i;
+// A „-né" házassági névrész — de vannak „né"-re végződő UTÓNEVEK is
+// (René): azok nem házassági nevek (fix2-review: „Kovács René" eddig a
+// teljes nevet adta „René" helyett).
+const NE_VEGU_UTONEVEK = new Set(['rené']);
+const hazassagi = (tag: string) => /né$/i.test(tag) && !NE_VEGU_UTONEVEK.has(tag.toLowerCase());
 
 /** A megszólításhoz használt név (üres, ha nincs név). */
 export function megszolitasNev(teljesNev: string | null | undefined): string {
@@ -25,10 +29,10 @@ export function megszolitasNev(teljesNev: string | null | undefined): string {
   if (tagok.length === 1) return tagok[0];
   let i = 0;
   // „Kovácsné Nagy Anna": a házassági névrész(ek) után jön a születési név.
-  while (i < tagok.length - 2 && HAZASSAGI.test(tagok[i])) i += 1;
+  while (i < tagok.length - 2 && hazassagi(tagok[i])) i += 1;
   const utonev = tagok[i + 1];
   // „Kovács Jánosné": nincs külön utónév — a teljes nevet használjuk.
-  if (!utonev || HAZASSAGI.test(utonev)) return tagok.join(' ');
+  if (!utonev || hazassagi(utonev)) return tagok.join(' ');
   return utonev;
 }
 

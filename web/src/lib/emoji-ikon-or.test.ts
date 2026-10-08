@@ -28,7 +28,9 @@ const WEB = path.resolve(__dirname, '..', '..');
  * VS16-tal (U+FE0F) emoji-megjelenítésű nyíl („↩️”) már ikon, az is piros
  * (fix1-review: a „↩️ Visszaszállítás” így átcsúszott volna).
  */
-const EMOJI = /(?![©®™←-⇿](?!\uFE0F))[\p{Extended_Pictographic}✓✗✕★☆]/u;
+// fix2-review: a zászló (regionális jelzőpár, 🇭🇺) és a keycap (1️⃣ —
+// U+20E3) NEM Extended_Pictographic, ezért eddig átcsúszott volna.
+const EMOJI = /(?![©®™←-⇿](?!\uFE0F))[\p{Extended_Pictographic}\p{Regional_Indicator}\u20E3✓✗✕★☆]/u;
 
 /** Fájl → indok. A próza (jogi dokumentum) emojija nem UI-ikon. */
 const KIVETELEK: Record<string, string> = {
@@ -74,9 +76,13 @@ describe('emoji-őr (UX A10)', () => {
       const e = <span>Feladói nézet →</span>;
       const f = <p>© 2026 Tiszta Hód Kft.</p>;
       const g = <span>↩️ Visszaszállítás</span>;
+      const h = { flag: '🇭🇺' };
+      const i = <li>1️⃣ Első lépés</li>;
     `;
     const talalt = szovegek(regi).filter((t) => EMOJI.test(t.szoveg)).map((t) => t.szoveg.trim());
-    expect(talalt).toEqual(['🚚 Fuvarjaim', '📍', '✏️ Szerkesztés', ' ✓ Kimásolva'.trim(), '↩️ Visszaszállítás']);
+    expect(talalt).toEqual([
+      '🚚 Fuvarjaim', '📍', '✏️ Szerkesztés', ' ✓ Kimásolva'.trim(), '↩️ Visszaszállítás', '🇭🇺', '1️⃣ Első lépés',
+    ]);
   });
 
   it('a web forrásában nincs emoji UI-szövegben (a kivételek indokkal)', () => {

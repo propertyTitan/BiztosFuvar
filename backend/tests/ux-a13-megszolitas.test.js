@@ -25,6 +25,9 @@ const KORPUSZ = [
   ['Fehér Gábor', 'Gábor'],
   ['Anna', 'Anna'],
   ['Kovács Jánosné', 'Kovács Jánosné'],
+  // „né"-re végződő utónév nem házassági névrész (fix2-review).
+  ['Kovács René', 'René'],
+  ['Kovácsné Szabó René', 'René'],
   ['', ''],
   [null, ''],
   [undefined, ''],
