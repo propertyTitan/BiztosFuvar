@@ -28,6 +28,7 @@ import {
 import { subscribeFeed } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
 import GreenBadge from '@/components/GreenBadge';
+import SegmentedControl from '@/components/SegmentedControl';
 import { useTranslation, formatPrice } from '@/lib/i18n';
 import {
   type Filters, EMPTY_FILTERS, AZONNALI_ELERHETO, aktivSzurokSzama, figyeloLink,
@@ -218,14 +219,6 @@ export default function SoforFuvarokLista() {
     setFilterType('');
     load(here?.lat, here?.lng, { ...EMPTY_FILTERS });
   }
-  const valtoGomb = (aktiv: boolean): React.CSSProperties => ({
-    display: 'inline-flex', alignItems: 'center', gap: 6,
-    padding: '8px 12px', minHeight: 40, borderRadius: 999, border: 'none',
-    background: aktiv ? 'var(--surface)' : 'transparent',
-    fontWeight: aktiv ? 700 : 500, cursor: 'pointer', fontSize: 13, color: 'var(--text)',
-    boxShadow: aktiv ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-  });
-
   return (
     <div>
       <div>
@@ -251,21 +244,17 @@ export default function SoforFuvarokLista() {
         >
           <SlidersHorizontal size={16} aria-hidden /> {szuroDb > 0 ? `Szűrők (${szuroDb})` : 'Szűrők'}
         </button>
-        <div
-          role="group"
-          aria-label="Nézet"
-          style={{
-            display: 'inline-flex', background: 'var(--bg)', borderRadius: 999, padding: 3,
-            border: '1px solid var(--border)',
-          }}
-        >
-          <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')} style={valtoGomb(view === 'list')}>
-            <ListIcon size={15} aria-hidden /> Lista
-          </button>
-          <button type="button" aria-pressed={view === 'map'} onClick={() => setView('map')} style={valtoGomb(view === 'map')}>
-            <MapIcon size={15} aria-hidden /> Térkép
-          </button>
-        </div>
+        {/* UX A29: rádiócsoport — a kiválasztott nézet hallható, nyilakkal váltható. */}
+        <SegmentedControl
+          ariaLabel="Nézet"
+          valtozat="pirula"
+          ertek={view}
+          onValtozas={setView}
+          opciok={[
+            { ertek: 'list', felirat: 'Lista', ikon: <ListIcon size={15} aria-hidden /> },
+            { ertek: 'map', felirat: 'Térkép', ikon: <MapIcon size={15} aria-hidden /> },
+          ]}
+        />
         <button
           type="button"
           className="btn btn-secondary"

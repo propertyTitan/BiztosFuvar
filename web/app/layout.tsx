@@ -161,6 +161,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             böngésződben, majd töltsd újra az oldalt.
           </div>
         </noscript>
+        {/* UX A29 (WCAG 2.4.1): az első fókuszálható elem — billentyűzettel
+            átugorható a fejléc navigációja. */}
+        <a href="#tartalom" className="ugro-link">Ugrás a tartalomra</a>
         <AuthSessionBoundary>
         <I18nProvider>
         <ToastProvider>
@@ -171,7 +174,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CoverageModal />
           <SiteHeader />
           <EmailVerifyGate />
-          <main className="site-main">
+          <main id="tartalom" tabIndex={-1} className="site-main">
             {/* Teszt-mód jelzés egy helyen, az egész appra — korábban a
                 LandingPage és a bejelentkezés is külön renderelte (duplikáció).
                 2026-10-03 (CIB PR-5): csak a GET /config/public teszt_uzem

@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
-import { MapPin, Flag, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone, Lock, ShieldCheck } from 'lucide-react';
+import { MapPin, Flag, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone, Lock, ShieldCheck, Undo2 } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
 import { optionalPhoneError } from '@/lib/formValidation';
@@ -762,7 +762,9 @@ export default function SoforFuvarReszletek() {
               placeholder="pl. Van rakodómunkás is"
             />
 
-            {/* Sikertelen kézbesítés — visszaszállítási nyilatkozat (kötelező) */}
+            {/* Sikertelen kézbesítés — visszaszállítási nyilatkozat (kötelező).
+                UX A29: fieldset/legend — a rádiók kérdése (jogi-üzleti
+                vállalás!) felolvasáskor is elhangzik. */}
             <div
               style={{
                 marginTop: 16,
@@ -772,11 +774,16 @@ export default function SoforFuvarReszletek() {
                 border: '1px solid rgba(59,130,246,0.35)',
               }}
             >
-              <strong style={{ fontSize: 14 }}>↩️ Sikertelen kézbesítés esetén</strong>
-              <p style={{ fontSize: 13, margin: '6px 0 12px', lineHeight: 1.5, color: 'var(--muted)' }}>
-                Ha a címzett <strong>nem veszi át</strong> a csomagot, vállalod-e, hogy
-                <strong> 5 munkanapon belül visszajuttatod a feladóhoz?</strong>
-              </p>
+              <fieldset className="mezo-csoport">
+              <legend style={{ width: '100%', fontSize: 14 }}>
+                <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Undo2 size={16} aria-hidden /> Sikertelen kézbesítés esetén
+                </strong>
+                <span style={{ display: 'block', fontSize: 13, margin: '6px 0 12px', lineHeight: 1.5, color: 'var(--muted)', fontWeight: 400 }}>
+                  Ha a címzett <strong>nem veszi át</strong> a csomagot, vállalod-e, hogy
+                  <strong> 5 munkanapon belül visszajuttatod a feladóhoz?</strong>
+                </span>
+              </legend>
               {([
                 { v: 'included', label: 'Igen, benne van az ajánlatomban' },
                 { v: 'extra_fee', label: 'Igen, külön díj ellenében' },
@@ -801,10 +808,12 @@ export default function SoforFuvarReszletek() {
                   {opt.label}
                 </label>
               ))}
+              </fieldset>
               {returnPolicy === 'extra_fee' && (
                 <div style={{ marginTop: 8 }}>
-                  <label>Visszaszállítás külön díja (Ft)</label>
+                  <label htmlFor="visszaszallitasi-dij">Visszaszállítás külön díja (Ft)</label>
                   <input
+                    id="visszaszallitasi-dij"
                     className="input"
                     type="number"
                     min={1}

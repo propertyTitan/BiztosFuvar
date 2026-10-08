@@ -146,7 +146,11 @@ describe('a szállítói landingről érkező regisztráló (Q3)', () => {
 
   it('?fiok=ceg: a „Cégként" fül van kiválasztva', () => {
     nyit('mode=register&fiok=ceg');
-    expect(screen.getByRole('button', { name: 'Cégként' })).toHaveAttribute('aria-pressed', 'true');
+    // UX A29: rádiócsoport — a „Fiók típusa" a csoport neve, a kiválasztott hallható.
+    expect(screen.getByRole('radiogroup', { name: 'Fiók típusa' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Cégként' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Magánszemélyként' })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('tab', { name: 'Regisztráció' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText(/Cégnév/)).toBeInTheDocument();
   });
 });

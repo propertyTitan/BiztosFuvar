@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
 import { szia } from '@/lib/nev';
+import SegmentedControl from '@/components/SegmentedControl';
 
 type Mode = 'driver' | 'shipper';
 
@@ -91,39 +92,17 @@ export default function HomeHub() {
 
   return (
     <div>
-      {/* ===== Mód-váltó ===== */}
-      <div style={{
-        display: 'flex', justifyContent: 'center', marginBottom: 24, gap: 4,
-        background: 'var(--surface)', borderRadius: 12, padding: 4,
-        border: '1px solid var(--border)', maxWidth: 320, margin: '0 auto 24px',
-      }}>
-        <button
-          type="button"
-          onClick={() => switchMode('driver')}
-          style={{
-            flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-            fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
-            background: mode === 'driver' ? 'var(--primary)' : 'transparent',
-            color: mode === 'driver' ? '#fff' : 'var(--muted)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          <Truck size={15} /> Szállító
-        </button>
-        <button
-          type="button"
-          onClick={() => switchMode('shipper')}
-          style={{
-            flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-            fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
-            background: mode === 'shipper' ? 'var(--primary)' : 'transparent',
-            color: mode === 'shipper' ? '#fff' : 'var(--muted)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          <Package size={15} /> Feladó
-        </button>
-      </div>
+      {/* ===== Mód-váltó ===== (UX A29: rádiócsoport, a kiválasztott mód hallható) */}
+      <SegmentedControl
+        ariaLabel="Mód"
+        ertek={mode}
+        onValtozas={switchMode}
+        opciok={[
+          { ertek: 'driver', felirat: 'Szállító', ikon: <Truck size={15} aria-hidden /> },
+          { ertek: 'shipper', felirat: 'Feladó', ikon: <Package size={15} aria-hidden /> },
+        ]}
+        style={{ maxWidth: 320, margin: '0 auto 24px' }}
+      />
 
       {/* ===== SZÁLLÍTÓ MÓD ===== */}
       {mode === 'driver' && (

@@ -111,8 +111,8 @@ export const OLDALAK: Oldal[] = [
     url: () => '/bejelentkezes',
     szereplo: 'anon',
     allapot: async (page) => {
-      await page.getByRole('button', { name: /^Regisztráció$/ }).first().click();
-      const ceg = page.getByRole('button', { name: /Cégként/ });
+      await page.getByRole('tab', { name: /^Regisztráció$/ }).click();
+      const ceg = page.getByRole('radio', { name: /Cégként/ });
       await ceg.waitFor({ state: 'visible', timeout: 15_000 });
       await ceg.click();
       await page.getByLabel(/Cégnév/).waitFor({ timeout: 10_000 });

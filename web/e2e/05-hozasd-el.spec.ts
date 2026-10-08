@@ -97,7 +97,7 @@ test('vendég előnézete belépésen át megmarad, régi piszkozatot csak vála
   await expect(page.getByLabel('A szállítandó tárgy')).toHaveValue('BILLY polc');
   await page.getByRole('button', { name: /Folytatom a feladást/ }).click();
   await page.waitForURL(/bejelentkezes/);
-  await page.getByRole('button', { name: 'Belépés', exact: true }).first().click();
+  await page.getByRole('tab', { name: 'Belépés', exact: true }).click();
   await page.getByLabel('E-mail-cím', { exact: true }).fill(user.email);
   await page.getByLabel('Jelszó', { exact: true }).fill('Jelszo123!');
   await page.locator('form button[type="submit"]').click();

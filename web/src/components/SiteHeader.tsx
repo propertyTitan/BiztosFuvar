@@ -229,12 +229,16 @@ export default function SiteHeader() {
                 textDecoration: 'none',
               }}
               title={t('nav.notifications')}
+              // UX A29: a felolvasó eddig „4, hivatkozás"-t mondott — most a
+              // név a teljes jelentés, a szám-jelvény pedig aria-hidden.
+              aria-label={unread > 0 ? `Értesítések, ${unread} olvasatlan` : 'Értesítések'}
             >
               {/* currentColor: light módban a --text-secondary-t, darkban a
                   .site-header * fehérjét örökli */}
-              <Bell size={20} style={{ display: 'block', color: 'var(--text-secondary)' }} />
+              <Bell size={20} aria-hidden style={{ display: 'block', color: 'var(--text-secondary)' }} />
               {unread > 0 && (
                 <span
+                  aria-hidden
                   style={{
                     position: 'absolute',
                     top: 2,

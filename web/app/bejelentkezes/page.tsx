@@ -23,6 +23,7 @@ import { CircleAlert, Eye, EyeOff, Gift } from 'lucide-react';
 import { api } from '@/api';
 import { HozasdElLoginHint } from '@/components/HozasdElContinuation';
 import FieldError from '@/components/FieldError';
+import SegmentedControl from '@/components/SegmentedControl';
 import { setCurrentUser, homeForRole, initStoredModeFromProfile, Role } from '@/lib/auth';
 import {
   requiredEmailError, newPasswordError, loginPasswordError, registrationNameError,
@@ -292,8 +293,11 @@ function BejelentkezesContent() {
           Az e-mail-címedet sikeresen megerősítettük. Bejelentkezhetsz!
         </div>
       )}
-      {/* ── Tab-váltó ── */}
+      {/* ── Tab-váltó ── (UX A29: valódi fülsor — role=tab + aria-selected,
+          a /fuvarjaim mintájára; az aria-pressed „be/ki" kapcsolót jelentett) */}
       <div
+        role="tablist"
+        aria-label="Belépés vagy regisztráció"
         style={{
           display: 'flex',
           gap: 4,
@@ -306,8 +310,10 @@ function BejelentkezesContent() {
       >
         <button
           type="button"
+          role="tab"
+          aria-selected={mode === 'login'}
+          aria-controls="auth-urlap"
           onClick={() => switchMode('login')}
-          aria-pressed={mode === 'login'}
           style={{
             flex: 1,
             padding: '10px 0',
@@ -325,8 +331,10 @@ function BejelentkezesContent() {
         </button>
         <button
           type="button"
+          role="tab"
+          aria-selected={mode === 'register'}
+          aria-controls="auth-urlap"
           onClick={() => switchMode('register')}
-          aria-pressed={mode === 'register'}
           style={{
             flex: 1,
             padding: '10px 0',
@@ -355,7 +363,7 @@ function BejelentkezesContent() {
 
       {searchParams.get('next') === '/dashboard/uj-fuvar' && <HozasdElLoginHint />}
 
-      <form ref={formRef} noValidate onSubmit={onSubmit} className="card">
+      <form id="auth-urlap" ref={formRef} noValidate onSubmit={onSubmit} className="card">
         {register && refCode && refStatus === 'valid' && (
           <div style={{
             background: 'var(--success-light)', border: '1px solid var(--success)',
@@ -448,61 +456,20 @@ function BejelentkezesContent() {
             {/* Szállítóként a telefon kötelező, ezért nem rejtjük el */}
             {telefonKotelezo && telefonMezo}
 
-            {/* Magánszemély / Cég toggle */}
-            <label id="fiok-tipusa-cimke" style={{ marginTop: 14 }}>Fiók típusa</label>
-            <div
-              role="group"
-              aria-labelledby="fiok-tipusa-cimke"
-              style={{
-                display: 'flex',
-                gap: 4,
-                background: 'var(--surface)',
-                borderRadius: 10,
-                padding: 3,
-                border: '1px solid var(--border)',
-                marginTop: 4,
-                marginBottom: 8,
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => setAccountType('individual')}
-                aria-pressed={accountType === 'individual'}
-                style={{
-                  flex: 1,
-                  padding: '8px 0',
-                  borderRadius: 8,
-                  border: 'none',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  background: accountType === 'individual' ? 'var(--primary)' : 'transparent',
-                  color: accountType === 'individual' ? '#fff' : 'var(--muted)',
-                }}
-              >
-                Magánszemélyként
-              </button>
-              <button
-                type="button"
-                onClick={() => setAccountType('company')}
-                aria-pressed={accountType === 'company'}
-                style={{
-                  flex: 1,
-                  padding: '8px 0',
-                  borderRadius: 8,
-                  border: 'none',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  cursor: 'pointer',
-                  transition: 'all 0.15s',
-                  background: accountType === 'company' ? 'var(--primary)' : 'transparent',
-                  color: accountType === 'company' ? '#fff' : 'var(--muted)',
-                }}
-              >
-                Cégként
-              </button>
-            </div>
+            {/* Magánszemély / Cég — rádiócsoport (UX A29): a „Fiók típusa"
+                címke a csoport neve, a kiválasztott elem hallható. */}
+            <div id="fiok-tipusa-cimke" className="mezo-cimke" style={{ marginTop: 14 }}>Fiók típusa</div>
+            <SegmentedControl
+              cimkeId="fiok-tipusa-cimke"
+              ertek={accountType}
+              onValtozas={setAccountType}
+              opciok={[
+                { ertek: 'individual', felirat: 'Magánszemélyként' },
+                { ertek: 'company', felirat: 'Cégként' },
+              ]}
+              style={{ borderRadius: 10, padding: 3, marginTop: 4, marginBottom: 8 }}
+              gombStilus={{ padding: '8px 0', borderRadius: 8, fontSize: 13 }}
+            />
 
             {accountType === 'company' && (
               <div style={{

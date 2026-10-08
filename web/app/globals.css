@@ -271,6 +271,8 @@ fieldset.mezo-csoport > legend { padding: 0; margin-bottom: 4px; }
   padding: 8px 14px; font-weight: 700; text-decoration: none;
 }
 .ugro-link:focus, .ugro-link:focus-visible { top: 8px; }
+/* A céltároló programozott fókuszt kap (tabIndex=-1) — keret nélkül. */
+main#tartalom:focus, main#tartalom:focus-visible { outline: none; }
 a { color: var(--primary-text); }
 
 /* ── Utility: force dark text on pastel/light backgrounds ── */
@@ -698,7 +700,7 @@ textarea[aria-invalid='true'] {
     font-size: 16px !important;
   }
 }
-label {
+label, .mezo-cimke {
   display: block;
   margin-top: 14px;
   font-size: 13px;
