@@ -110,8 +110,8 @@ export default function AszfPage() {
         <strong>Rangsorolás (az (EU) 2019/1150 rendelet 5. cikke szerint):</strong> a Feladó a
         fuvarjára érkezett ajánlatokat a fuvardíj szerint növekvő sorrendben látja. A Sofőrök
         számára elérhető fuvarok listája alapesetben a feladás ideje szerint rendez (a legfrissebb
-        elöl; az esetleges azonnali fuvarok előrébb kerülnek); ha a Sofőr megosztja a helyzetét és
-        körzetre szűr, a felvételi ponttól mért távolság szerint. Fizetett kiemelés nincs; a
+        elöl; az esetleges azonnali fuvarok előrébb kerülnek); ha a Sofőr megosztja a helyzetét, a
+        körzetébe eső fuvarokat a felvételi ponttól mért távolság szerint. Fizetett kiemelés nincs; a
         sorrendet sem ellenérték, sem értékelés vagy belső pontszám nem befolyásolja.
       </p>
 
