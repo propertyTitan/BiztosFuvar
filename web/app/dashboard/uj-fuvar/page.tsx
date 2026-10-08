@@ -25,6 +25,7 @@ import { clearHozasdEl, HOZASD_EL_PREFILL, postingHozasdElKind, readHozasdEl, sa
 import HozasdElPostingGuide from '@/components/HozasdElPostingGuide';
 import { idoablakHiba } from '@/lib/idoablak';
 import ListingPhotoUpload from '@/components/ListingPhotoUpload';
+import { jelolElsoSiker } from '@/components/InstallPromptBanner';
 import {
   MAX_DIM_CM, MAX_WEIGHT_KG,
   intFieldError, moneyFieldError, weightFieldError,
@@ -484,6 +485,8 @@ export default function UjFuvar() {
 
       setCreatedJob({ id: job.id, photos: [...photos] });
       if (PISZKOZAT_KULCS) torolPiszkozat(PISZKOZAT_KULCS);
+      // UX A23: az első érdemi siker — a telepítő sáv ettől kezdve jöhet.
+      jelolElsoSiker();
     } catch (err: any) {
       setError(err.message);
       toast.error('Hiba a fuvar feladáskor', err.message);

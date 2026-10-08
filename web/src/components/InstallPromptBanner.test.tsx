@@ -8,6 +8,8 @@
 // =====================================================================
 import { act, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import InstallPromptBanner, {
   DISMISS_DURATION_DAYS, jelolElsoSiker, telepitoSavIdozitesOk, telepitoSavOldalonEngedett,
 } from './InstallPromptBanner';
@@ -103,5 +105,18 @@ describe('a sáv a valódi komponensben', () => {
     localStorage.setItem('gofuvar_install_visits', '5');
     await rendereles();
     expect(sav()).toBeNull();
+  });
+});
+
+describe('az „első érdemi siker” jelzése be van kötve (A23)', () => {
+  // Enélkül a sáv csak a második munkamenettől jönne: a jelolElsoSiker()
+  // egyetlen hívó nélkül halott kód lenne.
+  it.each([
+    ['a sikeres fuvarfeladás után', 'app/dashboard/uj-fuvar/page.tsx'],
+    ['az elküldött ajánlat után', 'app/sofor/fuvar/[id]/page.tsx'],
+  ])('%s hívódik', (_mikor, fajl) => {
+    const forras = fs.readFileSync(path.join(process.cwd(), fajl), 'utf8');
+    expect(forras).toMatch(/import \{ jelolElsoSiker \} from '@\/components\/InstallPromptBanner'/);
+    expect(forras).toMatch(/\n\s+jelolElsoSiker\(\);/);
   });
 });

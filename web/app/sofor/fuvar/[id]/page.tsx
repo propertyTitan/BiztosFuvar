@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
-import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone, Lock, ShieldCheck } from 'lucide-react';
+import { MapPin, Flag, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone, Lock, ShieldCheck } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
 import { optionalPhoneError } from '@/lib/formValidation';
@@ -30,6 +30,7 @@ import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import GreenBadge from '@/components/GreenBadge';
 import ChatBox from '@/components/ChatBox';
+import { jelolElsoSiker } from '@/components/InstallPromptBanner';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
 import CarrierTripPanel from '@/components/CarrierTripPanel';
@@ -157,7 +158,7 @@ export default function SoforFuvarReszletek() {
   // kérés, 2026-08-15): piros keret + a mező alatt konkrét magyarázat.
   // Eddig csak egy eltűnő toast volt, ami nem mondta meg, MELYIK mező rossz.
   const [probaltMenteni, setProbaltMenteni] = useState(false);
-  const dijHiba = moneyFieldError(parseNumericInput(bidAmount), { label: 'Ajánlott fuvardíj' });
+  const dijHiba = moneyFieldError(parseNumericInput(bidAmount), { label: 'Az ajánlatod összege' });
   const etaHiba = bidEta.trim() === ''
     ? null
     : intFieldError(parseNumericInput(bidEta), { label: 'Érkezés a felvételre', min: 1, max: 10080 });
@@ -216,6 +217,8 @@ export default function SoforFuvarReszletek() {
         return_fee_huf: returnFeeNum,
       });
       toast.success('Ajánlat elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
+      // UX A23: az első érdemi siker — a telepítő sáv ettől kezdve jöhet.
+      jelolElsoSiker();
       setBidAmount('');
       setBidEta('');
       setBidMessage('');
@@ -703,7 +706,7 @@ export default function SoforFuvarReszletek() {
           <form noValidate onSubmit={submitBid}>
             <div className="grid-2">
               <div>
-                <label htmlFor="ajanlat-dij">Ajánlott fuvardíj (Ft)</label>
+                <label htmlFor="ajanlat-dij">Az ajánlatod (Ft)</label>
                 {/* `sanitizeNumericInput`: a mínuszjel BE SEM ÍRHATÓ. */}
                 <input
                   id="ajanlat-dij"
@@ -957,7 +960,7 @@ export default function SoforFuvarReszletek() {
       {/* Chat */}
       {['accepted', 'in_progress', 'delivered', 'completed', 'disputed'].includes(job.status) && job.carrier_id && (
         <div style={{ marginTop: 16 }}>
-          <ChatBox entityKey="job_id" entityId={id} />
+          <ChatBox entityKey="job_id" entityId={id} partner="felado" dijFizetve={Boolean(job.paid_at)} />
         </div>
       )}
 
@@ -966,13 +969,14 @@ export default function SoforFuvarReszletek() {
       {(['delivered', 'completed'].includes(job.status)
         || (job.status === 'disputed' && (job as any).delivered_at)) && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Star size={20} color="var(--warning)" fill="var(--warning)" /> Értékeld a feladót
-          </h2>
-          <p className="muted" style={{ marginBottom: 12 }}>
-            Hogyan ment a kommunikáció? Megvolt a csomag? Kattints a csillagokra.
-          </p>
-          <ReviewBox entityKey="job_id" entityId={id} onDone={() => load()} />
+          <ReviewBox
+            entityKey="job_id"
+            entityId={id}
+            onDone={() => load()}
+            cim="Értékeld a feladót"
+            kerdes="Hogy ment az egyeztetés és az átadás? Pontos volt a csomagleírás?"
+            vitaNyitott={job.status === 'disputed'}
+          />
         </div>
       )}
 
