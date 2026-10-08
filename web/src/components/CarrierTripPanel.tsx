@@ -30,8 +30,21 @@ import { useToast } from './ToastProvider';
  * A backend üzenete („Érvénytelen átvételi kód (még N próbálkozás)”) alapján
  * megmondjuk, mi a teendő, és hány próbálkozás maradt.
  */
-export function kezbesitesiHiba(uzenet: string): { cim: string; szoveg: string; kodGond: boolean } {
+export function kezbesitesiHiba(
+  uzenet: string,
+  gepi?: { code?: string; remainingAttempts?: number },
+): { cim: string; szoveg: string; kodGond: boolean } {
   const u = String(uzenet || '');
+  // A backend gépi mezői az elsődlegesek (Q14); a szöveg-illesztés a régi
+  // (vagy mezők nélküli) válaszok tartaléka.
+  if (gepi?.code === 'INVALID_DELIVERY_CODE' && Number.isInteger(gepi.remainingAttempts) && (gepi.remainingAttempts as number) > 0) {
+    return {
+      cim: 'Hibás átvételi kód',
+      szoveg: `Kérd el újra az átvevőtől. Még ${gepi.remainingAttempts} próbálkozásod van.`,
+      kodGond: true,
+    };
+  }
+  if (gepi?.code === 'CODE_LOCKED') return { cim: 'A kód-ellenőrzés zárolva', szoveg: u, kodGond: true };
   const maradt = /még\s+(\d+)\s+próbálkozás/i.exec(u);
   if (maradt) {
     return {
@@ -199,7 +212,7 @@ export default function CarrierTripPanel({
       // eltűnt — a szállító a kapuban állva nem tudta, rossz kódot írt-e,
       // vagy a hálózat halt el. A hiba mostantól TARTÓSAN a kód-mező alatt
       // marad, és a mező fókuszt kap az azonnali javításhoz.
-      const h = kezbesitesiHiba(e.message);
+      const h = kezbesitesiHiba(e.message, { code: e.code, remainingAttempts: e.remainingAttempts });
       setKodHiba(h.kodGond ? h.szoveg : e.message);
       kodInputRef.current?.focus();
       toast.error(h.cim, h.szoveg);

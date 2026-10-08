@@ -185,15 +185,22 @@ describe('Foglalás-fotó: kézbesíteni csak felvett foglaláson lehet', () => 
     // végigpróbálható, és a kód a kézbesítés EGYETLEN bizonyítéka. A
     // fuvar-ágon a lockout mérve volt; itt csak az első hibás próba.
     const uzenetek = [];
+    const gepi = [];
     for (let i = 0; i < 5; i += 1) {
       const res = await bookingFoto({
         bookingId: booking.id, token: szallito.token, kind: 'dropoff', deliveryCode: '000000',
       });
       expect(res.status, `a(z) ${i + 1}. hibás próbálkozás nem 403-at adott`).toBe(403);
       uzenetek.push((res.body.error.match(/még (\d+) próbálkozás/) || [])[1]);
+      gepi.push([res.body.code, res.body.remaining_attempts]);
     }
     expect(uzenetek, 'a hátralévő próbálkozások száma nem csökken lépésenként')
       .toEqual(['4', '3', '2', '1', undefined]);
+    // UX Q14: a foglalás-ágon is gépi mezők.
+    expect(gepi, 'a foglalás hibás-kód válasza nem hordozza a gépi mezőket').toEqual([
+      ['INVALID_DELIVERY_CODE', 4], ['INVALID_DELIVERY_CODE', 3], ['INVALID_DELIVERY_CODE', 2],
+      ['INVALID_DELIVERY_CODE', 1], ['CODE_LOCKED', 0],
+    ]);
 
     const zarolt = await bookingSor(booking.id);
     expect(zarolt.delivery_code_attempts, 'a foglalás-ágon nem gyűlnek a hibás próbák').toBe(5);

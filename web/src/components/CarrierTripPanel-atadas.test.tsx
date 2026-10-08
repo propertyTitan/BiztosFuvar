@@ -30,6 +30,15 @@ describe('kezbesitesiHiba', () => {
     expect(kezbesitesiHiba('Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.').cim)
       .toBe('A kód-ellenőrzés zárolva');
   });
+  it('a backend gépi mezői elsőbbséget kapnak a szöveggel szemben (Q14)', () => {
+    expect(kezbesitesiHiba('Hiba', { code: 'INVALID_DELIVERY_CODE', remainingAttempts: 2 })).toEqual({
+      cim: 'Hibás átvételi kód',
+      szoveg: 'Kérd el újra az átvevőtől. Még 2 próbálkozásod van.',
+      kodGond: true,
+    });
+    expect(kezbesitesiHiba('Túl sok hibás próba.', { code: 'CODE_LOCKED' }))
+      .toMatchObject({ cim: 'A kód-ellenőrzés zárolva', kodGond: true });
+  });
   it('más hibánál semleges cím, soha nem „Sikertelen kézbesítés”', () => {
     const h = kezbesitesiHiba('A fotó feltöltése lejárt. Töltsd fel újra.');
     expect(h.cim).toBe('Nem sikerült igazolni a kézbesítést');

@@ -301,15 +301,22 @@ describe('Átvételi kód: kötelező, próbálgatás-védett, naplózott', () =
     });
 
     const maradek = [];
+    const gepi = [];
     for (let i = 0; i < 5; i += 1) {
       const res = await jobFoto({
         jobId: job.id, token: szallito.token, kind: 'dropoff', deliveryCode: '000000',
       });
       expect(res.status, `a(z) ${i + 1}. hibás próbálkozás nem 403-at adott`).toBe(403);
       maradek.push((res.body.error.match(/még (\d+) próbálkozás/) || [])[1]);
+      gepi.push([res.body.code, res.body.remaining_attempts]);
     }
     expect(maradek, 'a hátralévő próbálkozások száma nem csökken lépésenként')
       .toEqual(['4', '3', '2', '1', undefined]);
+    // UX Q14: a web a gépi mezőkből dolgozik, nem a magyar szövegből.
+    expect(gepi, 'a hibás kód válasza nem hordozza a gépi mezőket').toEqual([
+      ['INVALID_DELIVERY_CODE', 4], ['INVALID_DELIVERY_CODE', 3], ['INVALID_DELIVERY_CODE', 2],
+      ['INVALID_DELIVERY_CODE', 1], ['CODE_LOCKED', 0],
+    ]);
 
     const sor = await jobSor(job.id);
     expect(sor.delivery_code_attempts, 'a hibás próbálkozások nem gyűlnek').toBe(5);
@@ -320,6 +327,7 @@ describe('Átvételi kód: kötelező, próbálgatás-védett, naplózott', () =
       jobId: job.id, token: szallito.token, kind: 'dropoff', deliveryCode: '111222',
     });
     expect(jokoddal.status, 'zárolás alatt a HELYES kód is átengedi a lezárást').toBe(429);
+    expect(jokoddal.body.code, 'a zárolás 429-e nem jelöli gépileg a zárolást').toBe('CODE_LOCKED');
     expect((await jobSor(job.id)).status, 'a zárolt fuvar mégis lezárult').toBe('in_progress');
     expect((await jobFotok(job.id)).length, 'a hibás kódpróbák fotósorokat hagytak a galériában').toBe(0);
   });

@@ -517,6 +517,23 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
   return data;
 }
 
+/**
+ * A fotó-feltöltés (felvétel/kézbesítés) hibája. UX Q14 (2026-10-08): a
+ * szöveg mellett a backend gépi mezőit is továbbadja (`code`,
+ * `remainingAttempts`), hogy a kézbesítési hibaüzenet ne a magyar szövegből
+ * olvassa ki, hány próbálkozás maradt.
+ */
+export async function fotoFeltoltesHiba(res: Response): Promise<Error & { code?: string; status?: number; remainingAttempts?: number }> {
+  const err = await res.json().catch(() => ({} as Record<string, unknown>));
+  const hiba = new Error(
+    (typeof err.error === 'string' && err.error) || 'Fotó feltöltés sikertelen',
+  ) as Error & { code?: string; status?: number; remainingAttempts?: number };
+  if (typeof err.code === 'string') hiba.code = err.code;
+  hiba.status = res.status;
+  if (Number.isInteger(err.remaining_attempts)) hiba.remainingAttempts = err.remaining_attempts as number;
+  return hiba;
+}
+
 export const api = {
   login: (email: string, password: string) =>
     request<{ token: string; user: { id: string; role: string; email: string; full_name: string } }>(
@@ -707,10 +724,7 @@ export const api = {
       body: form,
       timeoutMs: 60_000,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: undefined }));
-      throw new Error(err.error || 'Fotó feltöltés sikertelen');
-    }
+    if (!res.ok) throw await fotoFeltoltesHiba(res);
     return res.json();
   },
 
@@ -733,10 +747,7 @@ export const api = {
       body: form,
       timeoutMs: 60_000,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: undefined }));
-      throw new Error(err.error || 'Fotó feltöltés sikertelen');
-    }
+    if (!res.ok) throw await fotoFeltoltesHiba(res);
     return res.json();
   },
 

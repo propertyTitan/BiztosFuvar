@@ -155,6 +155,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     if (job.delivery_code_locked_until && new Date(job.delivery_code_locked_until) > new Date()) {
       return res.status(429).json({
         error: 'Túl sok hibás kódpróbálkozás — a kód-ellenőrzés átmenetileg zárolva. Próbáld újra később, vagy hívd az ügyfélszolgálatot.',
+        code: 'CODE_LOCKED',
       });
     }
     const codeInput = String(delivery_code).trim();
@@ -184,10 +185,14 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       }
       const attempts = attemptRows[0]?.delivery_code_attempts || 0;
       const remaining = Math.max(0, MAX_CODE_ATTEMPTS - attempts);
+      // UX Q14 (2026-10-08): gépi mezők is — a web ne a magyar szövegből
+      // olvassa ki, hány próbálkozás maradt.
       return res.status(403).json({
         error: remaining > 0
           ? `Érvénytelen átvételi kód (még ${remaining} próbálkozás)`
           : 'Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.',
+        code: remaining > 0 ? 'INVALID_DELIVERY_CODE' : 'CODE_LOCKED',
+        remaining_attempts: remaining,
       });
     }
   }
@@ -440,6 +445,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     if (booking.delivery_code_locked_until && new Date(booking.delivery_code_locked_until) > new Date()) {
       return res.status(429).json({
         error: 'Túl sok hibás kódpróbálkozás — a kód-ellenőrzés átmenetileg zárolva. Próbáld újra később, vagy hívd az ügyfélszolgálatot.',
+        code: 'CODE_LOCKED',
       });
     }
     if (!codesMatch(String(delivery_code).trim(), booking.delivery_code)) {
@@ -455,10 +461,14 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
       );
       const attempts = attemptRows[0]?.delivery_code_attempts || 0;
       const remaining = Math.max(0, MAX_CODE_ATTEMPTS - attempts);
+      // UX Q14 (2026-10-08): gépi mezők is — a web ne a magyar szövegből
+      // olvassa ki, hány próbálkozás maradt.
       return res.status(403).json({
         error: remaining > 0
           ? `Érvénytelen átvételi kód (még ${remaining} próbálkozás)`
           : 'Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.',
+        code: remaining > 0 ? 'INVALID_DELIVERY_CODE' : 'CODE_LOCKED',
+        remaining_attempts: remaining,
       });
     }
   }
