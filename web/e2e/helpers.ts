@@ -193,7 +193,7 @@ export async function selectAddress(page: Page, input: Locator, query: string) {
   // házszámot feloldó Geocoder-mentőág végzett volna. A teszt ilyenkor
   // megerősítetlen címmel ment tovább, a Küldés gomb nem indított kérést,
   // és 30 mp múlva timeoutolt — látszólag „Google Places flake"-ként.
-  const megerositettek = page.getByText(/^Cím megerősítve$/);
+  const megerositettek = page.getByText(/^\s*Cím megerősítve\s*$/);
   const elotte = await megerositettek.count();
 
   for (let attempt = 0; attempt < 3; attempt += 1) {

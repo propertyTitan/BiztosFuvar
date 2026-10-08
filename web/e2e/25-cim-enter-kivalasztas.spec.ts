@@ -30,7 +30,7 @@ for (const kor of [1, 2, 3]) {
 
     // A kiválasztásnak DETERMINISZTIKUSAN meg kell történnie:
     await expect(
-      page.getByText(/^Cím megerősítve$/).first(),
+      page.getByText(/^\s*Cím megerősítve\s*$/).first(),
       'Az Enter nem választotta ki a javaslatot — a cím megerősítetlen maradt, '
       + 'a felhasználó a beküldésnél kap hibaesőt („az Enter rossz").',
     ).toBeVisible({ timeout: 10_000 });
