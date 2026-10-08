@@ -30,6 +30,7 @@ import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
+import KapcsolatKartya from '@/components/KapcsolatKartya';
 import JobQuestions from '@/components/JobQuestions';
 import MapCollapse, { utvonalGombFelirat } from '@/components/MapCollapse';
 import DeliveryPin from '@/components/DeliveryPin';
@@ -184,6 +185,15 @@ export default function FuvarReszletek() {
 
   useEffect(() => { loadAll(); }, [id]);
 
+  // UX Q06: a fizetés eredményoldaláról „#elerhetoseg"-gel érkezünk — a
+  // kártya csak az adatok betöltése után létezik, ezért akkor görgetünk oda.
+  const elerhetosegLathato = Boolean(job?.paid_at && job?.contact);
+  useEffect(() => {
+    if (!elerhetosegLathato || typeof window === 'undefined') return;
+    if (window.location.hash !== '#elerhetoseg') return;
+    document.getElementById('elerhetoseg')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [elerhetosegLathato]);
+
   // Real-time: ha érkezik új fotó vagy státuszváltás, frissítünk
   useEffect(() => {
     const unsub = subscribeJob(id, {
@@ -291,6 +301,30 @@ export default function FuvarReszletek() {
         </div>
         <StatusPill job={job} />
       </div>
+
+      {/* UX Q06: a díj után az ELSŐ dolog az elérhetőség — ezért fizettél.
+          Egy koppintással hívható, a chatre ugrik; eddig ~1600 px mélyen,
+          tagolatlanul, hívógomb nélkül állt a díjkártya alján. */}
+      {job.paid_at && job.contact && job.status !== 'cancelled' && (
+        <KapcsolatKartya
+          id="elerhetoseg"
+          cimke="A szállító elérhetősége"
+          bevezeto={job.status === 'accepted'
+            ? 'Díj rendezve. Hívd fel a szállítót, és egyeztessétek a felvétel idejét.'
+            : job.status === 'in_progress'
+              ? 'A csomag úton van — ha kérdésed van, hívd fel a szállítót.'
+              : 'Ha kérdésed van a fuvarról, itt éred el a szállítót.'}
+          nev={job.contact.name || 'Szállító'}
+          telefon={job.contact.phone}
+          email={job.contact.email}
+          uzenetCel={job.carrier_id ? 'uzenetek' : undefined}
+        >
+          <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
+            Ne feledd: a fuvardíjat ({ft(job.accepted_price_huf ?? 0)} Ft) közvetlenül a szállítónak
+            fizeted — készpénzben vagy átutalással, ahogy megegyeztek.
+          </p>
+        </KapcsolatKartya>
+      )}
 
       {/* Útvonal-térkép — mobilon összecsukva (B2, GF-020). A feladói nézetben
           alacsonyabb térkép (A17): a lap legnagyobb eleme ne a térkép legyen.
@@ -679,36 +713,11 @@ export default function FuvarReszletek() {
               />
             ) : null}
 
-            {/* KONTAKT — ezt vetted meg a díjjal */}
+            {/* A KONTAKT a lap tetején, a KapcsolatKartya-ban (UX Q06). */}
             {job.paid_at && job.contact && (
-              <div
-                style={{
-                  marginTop: 12,
-                  padding: 14,
-                  background: 'var(--success-light)',
-                  borderRadius: 10,
-                  border: '1px solid #86efac',
-                }}
-              >
-                <div style={{ fontSize: 12, color: '#166534', fontWeight: 700, marginBottom: 6 }}>
-                  📞 A SZÁLLÍTÓ ELÉRHETŐSÉGE
-                </div>
-                <div style={{ fontWeight: 700 }}>{job.contact.name || 'Szállító'}</div>
-                {job.contact.phone && (
-                  <div style={{ marginTop: 4 }}>
-                    <a href={`tel:${job.contact.phone}`} style={{ fontWeight: 700, fontSize: 18 }}>
-                      {job.contact.phone}
-                    </a>
-                  </div>
-                )}
-                {job.contact.email && (
-                  <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{job.contact.email}</div>
-                )}
-                <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-                  Ne feledd: a fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
-                  közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek.
-                </div>
-              </div>
+              <p style={{ margin: '10px 0 0', fontSize: 13 }}>
+                <a href="#elerhetoseg">A szállító elérhetősége a lap tetején</a>
+              </p>
             )}
           </>
         )}
@@ -880,7 +889,7 @@ export default function FuvarReszletek() {
       {/* Chat — az elfogadott licittől kezdve a feladó és a szállító
           üzenhetnek egymásnak, telefonszám-csere nélkül. */}
       {['accepted', 'in_progress', 'delivered', 'completed', 'disputed'].includes(job.status) && job.carrier_id && (
-        <div style={{ marginTop: 16 }}>
+        <div id="uzenetek" style={{ marginTop: 16, scrollMarginTop: 80 }}>
           <ChatBox entityKey="job_id" entityId={id} partner="szallito" dijFizetve={Boolean(job.paid_at)} />
         </div>
       )}

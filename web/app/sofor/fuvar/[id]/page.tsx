@@ -30,6 +30,9 @@ import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import GreenBadge from '@/components/GreenBadge';
 import ChatBox from '@/components/ChatBox';
+import KapcsolatKartya from '@/components/KapcsolatKartya';
+import { telefonFormaz, telefonHref } from '@/lib/telefon';
+import SzallitoiNavigacio from '@/components/SzallitoiNavigacio';
 import { jelolElsoSiker } from '@/components/InstallPromptBanner';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
@@ -328,8 +331,8 @@ export default function SoforFuvarReszletek() {
             <div style={{ marginTop: 6, fontSize: 13 }}>
               <strong>Címzett:</strong> {(job as any).recipient_name}
               {(job as any).recipient_phone && (
-                <> · <a href={`tel:${(job as any).recipient_phone}`} style={{ fontWeight: 700 }}>
-                  <Phone size={12} style={{ verticalAlign: -1 }} /> {(job as any).recipient_phone}
+                <> · <a href={telefonHref((job as any).recipient_phone)} style={{ fontWeight: 700 }}>
+                  <Phone size={12} aria-hidden style={{ verticalAlign: -1 }} /> {telefonFormaz((job as any).recipient_phone)}
                 </a></>
               )}
             </div>
@@ -376,36 +379,46 @@ export default function SoforFuvarReszletek() {
         </div>
       </div>
 
-      {/* A FELADÓ ELÉRHETŐSÉGE — a kapcsolatfelvételi díj megfizetése után */}
-      {job.paid_at && job.contact && (
-        <div
-          className="card"
-          style={{
-            marginTop: 16,
-            background: 'var(--success-light)',
-            border: '1px solid #86efac',
-          }}
-        >
-          <div style={{ fontSize: 12, color: '#166534', fontWeight: 700, marginBottom: 6 }}>
-            📞 A FELADÓ ELÉRHETŐSÉGE
-          </div>
-          <div style={{ fontWeight: 700 }}>{job.contact.name || 'Feladó'}</div>
-          {job.contact.phone && (
-            <div style={{ marginTop: 4 }}>
-              <a href={`tel:${job.contact.phone}`} style={{ fontWeight: 700, fontSize: 18 }}>
-                {job.contact.phone}
-              </a>
-            </div>
-          )}
-          {job.contact.email && (
-            <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{job.contact.email}</div>
-          )}
-          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            A fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
-            <strong> közvetlenül a feladótól</strong> kapod — készpénzben vagy átutalással, ahogy megegyeztek; a GoFuvar nem von le belőle semmit.
-          </div>
-        </div>
-      )}
+      {/* A FELADÓ ELÉRHETŐSÉGE — a kapcsolatfelvételi díj megfizetése után.
+          UX Q06: egy koppintással hívható, és a szállító innen navigál a
+          felvételhez (úton: a lerakodáshoz) — a díj előtt ez nem jelenik meg. */}
+      {job.paid_at && job.contact && (() => {
+        const fizikai = job.status === 'disputed' ? job.status_before_dispute : job.status;
+        const navCel = !iAmTheCarrier ? null
+          : fizikai === 'accepted' ? 'felvetel' as const
+          : fizikai === 'in_progress' ? 'lerakodas' as const
+          : null;
+        return (
+          <KapcsolatKartya
+            id="elerhetoseg"
+            cimke="A feladó elérhetősége"
+            bevezeto={navCel === 'felvetel'
+              ? 'Díj rendezve. Hívd fel a feladót, és egyeztessétek a felvétel idejét.'
+              : navCel === 'lerakodas'
+                ? 'Úton vagy — a lerakodási címhez innen navigálhatsz.'
+                : 'Ha kérdésed van a fuvarról, itt éred el a feladót.'}
+            nev={job.contact.name || 'Feladó'}
+            telefon={job.contact.phone}
+            email={job.contact.email}
+            hivasFelirat="Feladó hívása"
+            uzenetCel={job.carrier_id ? 'uzenetek' : undefined}
+          >
+            {navCel && (
+              <SzallitoiNavigacio
+                cel={navCel}
+                cim={navCel === 'felvetel' ? job.pickup_address : job.dropoff_address}
+                lat={navCel === 'felvetel' ? job.pickup_lat : job.dropoff_lat}
+                lng={navCel === 'felvetel' ? job.pickup_lng : job.dropoff_lng}
+                cimzettTelefon={(job as any).recipient_phone}
+              />
+            )}
+            <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
+              A fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
+              <strong> közvetlenül a feladótól</strong> kapod — készpénzben vagy átutalással, ahogy megegyeztek; a GoFuvar nem von le belőle semmit.
+            </p>
+          </KapcsolatKartya>
+        );
+      })()}
 
       {/* Térkép — mobilon összecsukva (B2, GF-020) */}
       <MapCollapse gombFelirat={utvonalGombFelirat(job.distance_km)}>
@@ -978,7 +991,7 @@ export default function SoforFuvarReszletek() {
 
       {/* Chat */}
       {['accepted', 'in_progress', 'delivered', 'completed', 'disputed'].includes(job.status) && job.carrier_id && (
-        <div style={{ marginTop: 16 }}>
+        <div id="uzenetek" style={{ marginTop: 16, scrollMarginTop: 80 }}>
           <ChatBox entityKey="job_id" entityId={id} partner="felado" dijFizetve={Boolean(job.paid_at)} />
         </div>
       )}

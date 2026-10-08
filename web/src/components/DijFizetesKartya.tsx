@@ -505,7 +505,7 @@ export default function DijFizetesKartya({
               Oldal frissítése
             </button>
           ) : (
-            <Link href={`/dashboard/fuvar/${jobId}`} className="btn" style={{ marginTop: 10 }}>
+            <Link href={`/dashboard/fuvar/${jobId}#elerhetoseg`} className="btn" style={{ marginTop: 10 }}>
               Szállító elérhetőségének megnyitása
             </Link>
           )}

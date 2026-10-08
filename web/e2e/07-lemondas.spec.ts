@@ -66,7 +66,7 @@ test('szállító-visszalépés: díjmentes újraválasztás a korábbi ajánlat
 
   // A tartalék szállító elfogadása — új fizetés NEM kell, a kontakt azonnal jön
   await page.getByRole('button', { name: /^Elfogadom/ }).first().click();
-  await expect(page.getByText(/A SZÁLLÍTÓ ELÉRHETŐSÉGE/).first()).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('heading', { name: /^A szállító elérhetősége$/i })).toBeVisible({ timeout: 20_000 });
 
   const row = await getJobRow(job.id);
   expect(row.status).toBe('accepted');

@@ -59,7 +59,7 @@ test('licit → elfogadás → fizetés → felvétel → kézbesítés kóddal'
 
   // ---- 4/b. A díj után a kontakt felfedve mindkét félnek ----
   await shipperPage.goto(`/dashboard/fuvar/${job.id}`);
-  await expect(shipperPage.getByText(/A SZÁLLÍTÓ ELÉRHETŐSÉGE/).first()).toBeVisible({ timeout: 20_000 });
+  await expect(shipperPage.getByRole('heading', { name: /^A szállító elérhetősége$/i })).toBeVisible({ timeout: 20_000 });
 
   // ---- 5. A szállító elindítja a fuvart (pickup fotó) ----
   await carrierPage.goto(`/sofor/fuvar/${job.id}`);
