@@ -22,6 +22,7 @@ const { maybeGrantReferralReward } = require('../services/referral');
 const { markTaxDataRequestedIfNeeded } = require('../services/dac7');
 const { commitPhoto, codesMatch } = require('../services/photoEvidence');
 const { jaratIrasKapu } = require('../utils/jaratKapcsolo');
+const { fuvarRef, nagyKezdo } = require('../utils/ertesitesSzoveg');
 
 const router = express.Router();
 // Járat-kapcsoló (2026-09-28, audit P1): a foglalás-fotó (`POST
@@ -219,7 +220,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       user_id: job.shipper_id,
       type: 'job_picked_up',
       title: '📦 A szállító felvette a csomagod',
-      body: `A(z) "${job.title || 'fuvar'}" csomagját a szállító átvette és fotóval igazolta — a fuvar úton van. A kézbesítésről is értesítünk.`,
+      body: `${nagyKezdo(fuvarRef(job.title))} fuvar csomagját a szállító átvette és fotóval igazolta — a fuvar úton van. A kézbesítésről is értesítünk.`,
       link: `/dashboard/fuvar/${jobId}`,
     }).catch((e) => console.warn('[notifications] job_picked_up hiba:', e.message));
 
@@ -251,7 +252,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       user_id: job.shipper_id,
       type: 'job_delivered',
       title: '📦 A csomagot kézbesítették — a vita nyitva marad',
-      body: `A(z) "${job.title || 'fuvar'}" csomagját a szállító a kóddal átadta. A vita ettől nem zárul le: az ügyfélszolgálat a fotók és az előzmények alapján dönt, és értesítést kapsz.`,
+      body: `${nagyKezdo(fuvarRef(job.title))} fuvar csomagját a szállító a kóddal átadta. A vita ettől nem zárul le: az ügyfélszolgálat a fotók és az előzmények alapján dönt, és értesítést kapsz.`,
       link: `/dashboard/fuvar/${jobId}`,
     }).catch(() => {});
     realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, disputed: true });
@@ -284,7 +285,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           user_id: info.shipper_id,
           type: 'job_delivered',
           title: '📦 A csomagod megérkezett!',
-          body: `${info.carrier_name || 'A szállító'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
+          body: `${info.carrier_name || 'A szállító'} lerakta a csomagodat ${fuvarRef(info.title)} fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
           link: `/dashboard/fuvar/${jobId}`,
         });
 
@@ -509,7 +510,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
       user_id: booking.shipper_id,
       type: 'booking_delivered',
       title: '📦 A csomagod megérkezett!',
-      body: `A(z) "${booking.route_title || 'foglalás'}" csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
+      body: `${booking.route_title ? `${nagyKezdo(fuvarRef(booking.route_title))} járatra foglalt` : 'A foglalt'} csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
       link: '/dashboard/foglalasaim',
     }).catch(() => {});
     setImmediate(async () => {

@@ -13,6 +13,7 @@ const { detectContactLeak } = require('../utils/contactGuard');
 const { utcaSzintHely, kozelitoHely } = require('./jobs');
 const { nemSzovegValasz } = require('../utils/text');
 const { cibZarasFolyamatban, fagyasztvaValasz } = require('../utils/cibZaras');
+const { fuvarRef, nagyKezdo } = require('../utils/ertesitesSzoveg');
 
 const router = express.Router();
 
@@ -118,8 +119,13 @@ router.get('/bids/mine', authRequired, async (req, res) => {
       pickup_lat, pickup_lng, dropoff_lat, dropoff_lng,
     };
     const enVagyok = r.job_carrier_id === req.user.sub;
-    if (enVagyok && job_paid_at) return ki;
-    if (NYITOTT.includes(r.job_status) || enVagyok) return hely(ki, pontok, utcaSzintHely);
+    // A KIJELÖLT szállító a saját fuvarja díj-állapotát látja (2026-10-08,
+    // UX-átvizsgálás A12): eddig a fizetetlen fuvarnál is „Tiéd a fuvar" állt,
+    // pedig a feladó díjfizetésére vár. Csak a tény (igaz/hamis) megy ki, az
+    // időbélyeg nem — és a vesztes ajánlattevő ezt sem kapja.
+    if (enVagyok && job_paid_at) return { ...ki, job_fee_paid: true };
+    if (enVagyok) return { ...hely(ki, pontok, utcaSzintHely), job_fee_paid: false };
+    if (NYITOTT.includes(r.job_status)) return hely(ki, pontok, utcaSzintHely);
     return hely(ki, pontok, kozelitoHely);
   }));
 });
@@ -297,7 +303,7 @@ router.post('/jobs/:jobId/bids', authRequired, requireVerifiedEmail, requireDriv
         user_id: info.shipper_id,
         type: 'bid_received',
         title: 'Új ajánlat érkezett 🎯',
-        body: `${info.carrier_name} ${numAmount.toLocaleString('hu-HU')} Ft ajánlatot tett a(z) "${info.title}" fuvaradra.`,
+        body: `${info.carrier_name} ${numAmount.toLocaleString('hu-HU')} Ft ajánlatot tett ${fuvarRef(info.title)} fuvaradra.`,
         link: `/dashboard/fuvar/${jobId}`,
       });
       // Email is, fire-and-forget (ne blokkolja a választ)
@@ -460,10 +466,10 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy, feeAlreadyPaid = f
       type: 'bid_accepted',
       title: '🎉 Megállapodás!',
       body: feeAlreadyPaid
-        ? `${acceptedBy === 'carrier' ? 'Elfogadtad a feladó ellenajánlatát — a(z)' : 'A(z)'} "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). A kapcsolatfelvételi díj már rendezve — a feladó elérhetőségét a fuvar oldalán látod, indulhatsz.`
+        ? `${acceptedBy === 'carrier' ? `Elfogadtad a feladó ellenajánlatát — ${fuvarRef(info.title)}` : nagyKezdo(fuvarRef(info.title))} fuvar a tiéd ${priceTxt} Ft-ért, közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). A kapcsolatfelvételi díj már rendezve — a feladó elérhetőségét a fuvar oldalán látod, indulhatsz.`
         : acceptedBy === 'carrier'
-          ? `Elfogadtad a feladó ellenajánlatát — a(z) "${info.title || 'fuvar'}" fuvar a tiéd ${priceTxt} Ft-ért, közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). A feladó most fizeti a kapcsolatfelvételi díjat, utána megkapjátok egymás elérhetőségét és indulhatsz.`
-          : `A(z) "${info.title || 'fuvar'}" fuvarra tett ajánlatodat elfogadták ${priceTxt} Ft-ért — a teljes összeget közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
+          ? `Elfogadtad a feladó ellenajánlatát — ${fuvarRef(info.title)} fuvar a tiéd ${priceTxt} Ft-ért, közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). A feladó most fizeti a kapcsolatfelvételi díjat, utána megkapjátok egymás elérhetőségét és indulhatsz.`
+          : `${nagyKezdo(fuvarRef(info.title))} fuvarra tett ajánlatodat elfogadták ${priceTxt} Ft-ért — a teljes összeget közvetlenül a feladótól kapod (készpénz vagy átutalás, ahogy megegyeztek). Amint a feladó fizeti a kapcsolatfelvételi díjat, megkapjátok egymás elérhetőségét.`,
       link: `/sofor/fuvar/${bid.job_id}`,
     });
     if (info.carrier_email) {
@@ -489,7 +495,7 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy, feeAlreadyPaid = f
         user_id: info.shipper_id || bid.shipper_id,
         type: 'deal_closed',
         title: '✅ Megegyeztetek — a díj már rendezve',
-        body: `${acceptedBy === 'carrier' ? 'A szállító elfogadta az ellenajánlatodat' : `Elfogadtad ${info.carrier_name || 'a szállító'} ajánlatát`} a(z) "${info.title || 'fuvar'}" fuvarra ${priceTxt} Ft-ért. A kapcsolatfelvételi díjat már korábban megfizetted, újra nem kell — a szállító elérhetőségét a fuvar oldalán látod. A fuvardíjat közvetlenül neki fizeted (készpénz vagy átutalás, ahogy megegyeztek).`,
+        body: `${acceptedBy === 'carrier' ? 'A szállító elfogadta az ellenajánlatodat' : `Elfogadtad ${info.carrier_name || 'a szállító'} ajánlatát`} ${fuvarRef(info.title)} fuvarra ${priceTxt} Ft-ért. A kapcsolatfelvételi díjat már korábban megfizetted, újra nem kell — a szállító elérhetőségét a fuvar oldalán látod. A fuvardíjat közvetlenül neki fizeted (készpénz vagy átutalás, ahogy megegyeztek).`,
         link: `/dashboard/fuvar/${bid.job_id}`,
       });
     } else if (acceptedBy === 'carrier') {
@@ -497,7 +503,7 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy, feeAlreadyPaid = f
         user_id: info.shipper_id || bid.shipper_id,
         type: 'counter_accepted',
         title: '✅ Elfogadták az ellenajánlatodat',
-        body: `A szállító elfogadta a(z) "${info.title || 'fuvar'}" fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd meg a kapcsolatfelvételi díjat a folytatáshoz — a fuvardíjat közvetlenül a szállítónak fizeted majd (készpénz vagy átutalás, ahogy megegyeztek).`,
+        body: `A szállító elfogadta ${fuvarRef(info.title)} fuvarra tett ${priceTxt} Ft-os ellenajánlatodat. Fizesd meg a kapcsolatfelvételi díjat a folytatáshoz — a fuvardíjat közvetlenül a szállítónak fizeted majd (készpénz vagy átutalás, ahogy megegyeztek).`,
         link: `/dashboard/fuvar/${bid.job_id}`,
       });
       if (info.shipper_email) {
@@ -534,8 +540,8 @@ async function notifyDealClosed(bid, agreedPrice, acceptedBy, feeAlreadyPaid = f
         user_id: info.shipper_id || bid.shipper_id,
         type: 'payment_due',
         title: '✅ Megegyeztetek — most a kapcsolatfelvételi díj jön',
-        body: `Elfogadtad ${info.carrier_name || 'a szállító'} ajánlatát a(z) `
-          + `"${info.title || 'fuvar'}" fuvarra ${priceTxt} Ft-ért. A folytatáshoz `
+        body: `Elfogadtad ${info.carrier_name || 'a szállító'} ajánlatát `
+          + `${fuvarRef(info.title)} fuvarra ${priceTxt} Ft-ért. A folytatáshoz `
           + 'fizesd meg a kapcsolatfelvételi díjat — utána megkapjátok egymás '
           + 'elérhetőségét. A fuvardíjat közvetlenül a szállítónak fizeted — '
           + 'készpénzben vagy átutalással, ahogy megegyeztek.',
@@ -623,7 +629,7 @@ router.post('/bids/:id/withdraw', authRequired, writeRateLimit, async (req, res)
     user_id: bid.shipper_id,
     type: 'bid_withdrawn',
     title: 'Egy ajánlatot visszavontak',
-    body: `Egy szállító visszavonta a(z) "${bid.title || 'fuvar'}" fuvarra tett ajánlatát. A többi ajánlat továbbra is érvényes.`,
+    body: `Egy szállító visszavonta ${fuvarRef(bid.title)} fuvarra tett ajánlatát. A többi ajánlat továbbra is érvényes.`,
     link: `/dashboard/fuvar/${bid.job_id}`,
   }).catch(() => {});
   realtime.emitToJob(bid.job_id, 'bids:withdrawn', { bid_id: bid.id, job_id: bid.job_id });
@@ -878,7 +884,7 @@ router.post('/bids/:id/counter', authRequired, writeRateLimit, async (req, res) 
     user_id: otherUserId,
     type: 'counter_offer',
     title: '🔁 Ellenajánlat érkezett',
-    body: `Ellenajánlat a(z) "${bid.title || 'fuvar'}" fuvarra: ${amt.toLocaleString('hu-HU')} Ft.`,
+    body: `Ellenajánlat ${fuvarRef(bid.title)} fuvarra: ${amt.toLocaleString('hu-HU')} Ft.`,
     link,
   });
   realtime.emitToJob(bid.job_id, 'bid:countered', { bid_id: bid.id, counter_amount_huf: amt, counter_by: role });

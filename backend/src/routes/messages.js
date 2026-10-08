@@ -12,6 +12,7 @@ const { detectContactLeak } = require('../utils/contactGuard');
 const realtime = require('../realtime');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { createNotification } = require('../services/notifications');
+const { rovidit } = require('../utils/ertesitesSzoveg');
 
 const router = express.Router();
 
@@ -142,7 +143,7 @@ router.post('/messages', authRequired, writeRateLimit, async (req, res) => {
         user_id: access.otherUserId,
         type: 'chat_message',
         title: `💬 Új üzenet – ${senderName}`,
-        body: bodyCheck.value.slice(0, 100),
+        body: rovidit(bodyCheck.value, 100),
         link: notifLink,
       });
     } catch {}

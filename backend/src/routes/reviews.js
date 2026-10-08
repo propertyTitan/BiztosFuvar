@@ -8,6 +8,7 @@ const { createNotification } = require('../services/notifications');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { detectContactLeak } = require('../utils/contactGuard');
 const { nemSzovegValasz } = require('../utils/text');
+const { fuvarRef, idezet, rovidit } = require('../utils/ertesitesSzoveg');
 
 const router = express.Router();
 
@@ -158,7 +159,7 @@ router.post('/reviews', authRequired, writeRateLimit, async (req, res) => {
         user_id: revieweeId,
         type: 'review_received',
         title: `${starEmoji} Új értékelés!`,
-        body: `${reviewerRows[0]?.full_name || 'Valaki'} ${stars} csillagot adott neked${entityTitle ? ` a(z) "${entityTitle}" fuvarért` : ''}.${comment ? ` „${comment.slice(0, 80)}"` : ''}`,
+        body: `${reviewerRows[0]?.full_name || 'Valaki'} ${stars} csillagot adott neked${entityTitle ? ` ${fuvarRef(entityTitle)} fuvarért` : ''}.${comment ? ` ${idezet(rovidit(comment, 80))}` : ''}`,
         link: `/ertesitesek`,
       });
     } catch (e) {

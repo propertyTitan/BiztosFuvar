@@ -194,7 +194,10 @@ function detectContactLeak(raw) {
 
   // Email cím
   if (containsEmail(text)) {
-    return 'E-mail cím nem írható le. A platform-on belüli chat-funkciót használd.';
+    // 2026-10-08 (UX-átvizsgálás A20): a régi „platform-on belüli
+    // chat-funkciót használd" torz volt, és a díj ELŐTT (ahol ez a szűrő
+    // fut) a chat sem visz kontaktot — a telefonszám-ág szövegét követjük.
+    return 'E-mail cím nem írható le. A kapcsolatfelvételi díj megfizetése után automatikusan megkapjátok egymás elérhetőségét.';
   }
 
   // Link / domain / külső üzenetküldő / @handle (2026-09-13, teljes audit D1).
