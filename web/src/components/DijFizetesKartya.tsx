@@ -71,7 +71,7 @@
 import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, Ban, CheckCircle2, Clock, Gift, Hourglass, RefreshCw, RotateCcw, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Ban, CheckCircle2, Clock, CreditCard, Gift, Hourglass, RefreshCw, RotateCcw, ShieldAlert } from 'lucide-react';
 import { api, type FeePaymentAllapot } from '@/api';
 import FeeConsentLabel from '@/components/FeeConsentLabel';
 import CibAdatkezelesiNyilatkozat from '@/components/CibAdatkezelesiNyilatkozat';
@@ -638,6 +638,13 @@ export default function DijFizetesKartya({
             className="btn"
             style={{
               marginTop: 12,
+              // 2026-10-08 (UX-átvizsgálás Q8): a fizetés a kártya FŐ gombja —
+              // teljes szélesség, nagyobb méret; eddig ugyanakkora volt, mint a
+              // „Másik szállítót választok" és a „Fuvar lemondása".
+              width: '100%',
+              minHeight: 48,
+              fontSize: 16,
+              padding: '12px 20px',
               // A .btn alapból nowrap — 390 px-en a kupon-felirat kilógna.
               whiteSpace: 'normal',
               background: nyilatkozatokMegvannak && betoltve ? 'var(--success-strong)' : 'var(--muted)',
@@ -646,6 +653,7 @@ export default function DijFizetesKartya({
               opacity: gombTiltva ? 0.7 : 1,
             }}
           >
+            {kupon ? <Gift size={18} aria-hidden /> : <CreditCard size={18} aria-hidden />}
             {gombFelirat}
           </button>
           {/* A hiányzó nyilatkozat neve — a tiltott gomb leírása (lelet 29). */}
@@ -659,8 +667,8 @@ export default function DijFizetesKartya({
           )}
           <p className="muted" style={{ fontSize: 12, marginTop: 8, lineHeight: 1.5 }}>
             A díj ellenében azonnal megkapod a szállító telefonszámát, és
-            elindul a fuvar-folyamat (SMS a címzettnek, átvételi kód,
-            fotó-bizonyíték). A fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek.
+            indulhat a fuvar (fotós felvétel, átvételi kód, fotó-bizonyíték
+            a lerakodáskor). A fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek.
           </p>
         </>
       )}

@@ -1,6 +1,6 @@
 'use client';
 
-import { kapcsolatfelvetelDijHuf, DIJ_SZABALY_SZOVEG, ft } from '@/lib/connectionFee';
+import { kapcsolatfelvetelDijHuf, DIJ_SAVOK, DIJ_SZABALY_SZOVEG, ft } from '@/lib/connectionFee';
 
 // =====================================================================
 //  Új fuvar feladása – feladói űrlap.
@@ -396,7 +396,16 @@ export default function UjFuvar() {
         (!form.dropoff_confirmed
           ? 'A lerakodás helyét válaszd ki a legördülő listából, házszámmal együtt.'
           : null);
-      toast.error('Hiányzó vagy hibás mező', firstProblem || 'Nézd át a pirossal jelölt mezőket.');
+      // 2026-10-08 (Q13): üres beküldésnél eddig csak az ELSŐ hiány szólt
+      // („Kérjük, töltsd ki: Megnevezés."), holott 7 mező hiányzott.
+      const hibakSzama = Object.values(errors).filter((e) => e !== null).length
+        + (form.pickup_confirmed ? 0 : 1) + (form.dropoff_confirmed ? 0 : 1);
+      toast.error(
+        'Hiányzó vagy hibás mező',
+        hibakSzama > 1
+          ? `${hibakSzama} mezőt kell még kitölteni vagy javítani — az elsőhöz ugrottunk.`
+          : (firstProblem || 'Nézd át a pirossal jelölt mezőket.'),
+      );
       // GF-013 (Manus, 2026-08-30): az ELSŐ hibás mező fókuszt kap és a
       // képernyőre görgetjük — hosszú mobil-űrlapon a toast önmagában nem
       // mondja meg, HOL a hiba.
@@ -677,7 +686,7 @@ export default function UjFuvar() {
         />
         {form.pickup_confirmed && form.pickup_lat != null && (
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            ✓ Koordináta: {form.pickup_lat.toFixed(5)}, {form.pickup_lng!.toFixed(5)}
+            ✓ Cím megerősítve
           </p>
         )}
         {pickupImprecise && (
@@ -736,7 +745,7 @@ export default function UjFuvar() {
               style={{ width: 18, height: 18 }}
             />
             <span style={{ fontSize: 14 }}>
-              A szállítónak be kell pakolnia a csomagot a felvételi helyen?
+              Emeletről kell lehozni, vagy kézzel cipelni a felvételnél?
             </span>
           </label>
           {form.pickup_needs_carrying && (
@@ -816,7 +825,7 @@ export default function UjFuvar() {
         />
         {form.dropoff_confirmed && form.dropoff_lat != null && (
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            ✓ Koordináta: {form.dropoff_lat.toFixed(5)}, {form.dropoff_lng!.toFixed(5)}
+            ✓ Cím megerősítve
           </p>
         )}
         {dropoffImprecise && (
@@ -841,7 +850,7 @@ export default function UjFuvar() {
               style={{ width: 18, height: 18 }}
             />
             <span style={{ fontSize: 14 }}>
-              A szállítónak fel kell vinnie a csomagot a lerakodási helyen?
+              Emeletre kell felvinni, vagy kézzel cipelni a lerakodásnál?
             </span>
           </label>
           {form.dropoff_needs_carrying && (
@@ -904,7 +913,9 @@ export default function UjFuvar() {
           Ha bizonytalan vagy, kérd el ezeket az eladótól.
           Több darabnál a darabszámot és az egyes méreteket a részletes leírásba is írd be.
         </p>}
-        <div className="grid-2">
+        {/* 2026-10-08 (Q13): a .grid-2 640 px alatt egy oszlopra vált — a négy
+            rövid szám-mező mobilon is elfér két oszlopban. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
           <div>
             <label htmlFor="uj-hossz">Hosszúság (cm) <span style={REQ}>*</span></label>
             <input
@@ -989,7 +1000,7 @@ export default function UjFuvar() {
         </div>
         {volumeM3 != null && (
           <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            Számolt térfogat: <strong>{volumeM3} m³</strong>
+            Számolt térfogat: <strong>{volumeM3.toLocaleString('hu-HU', { maximumFractionDigits: 2 })} m³</strong>
           </p>
         )}
 
@@ -1169,10 +1180,14 @@ export default function UjFuvar() {
           style={show('declared') ? redBorder : undefined}
         />
         <FieldError id="hiba-declared">{show('declared') || (negativJelzes.declared_value_huf ? NEGATIV_UZENET : null)}</FieldError>
+        {/* 2026-10-08 (UX-átvizsgálás A3): a régi „Vitás esetben ez az összeg
+            az irányadó" burkolt kártérítési szabályt ígért — az ÁSZF 5.2 szerint
+            a platform nem szab kárplafont, a felek a Ptk. szerint rendezik. */}
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-          Opcionális, de ajánlott. A szállító ez alapján méri fel a felelősségét:
-          egy 500.000 Ft-os tárgy szállítása más hozzáállást igényel, mint egy
-          5.000 Ft-osé. Vitás esetben ez az összeg az irányadó.
+          Opcionális, tájékoztató adat a szállítónak: segít felmérni, mekkora
+          óvatosságot igényel a fuvar — egy 500 000 Ft-os tárgy szállítása más
+          hozzáállást kíván, mint egy 5 000 Ft-osé. Kár esetén a felek a Ptk. szerint
+          rendezik egymás közt (ÁSZF 5.2).
         </p>
 
         {/* --- Számlakérés --- */}
@@ -1286,11 +1301,14 @@ export default function UjFuvar() {
 
         {error && <p style={{ color: 'var(--danger-text)', marginTop: 16 }}>{error}</p>}
 
+        <p className="muted" style={{ fontSize: 12, margin: '24px 0 8px', textAlign: 'center' }}>
+          A feladás ingyenes · díj csak elfogadáskor: {ft(DIJ_SAVOK[0].dijHuf)} / {ft(DIJ_SAVOK[1].dijHuf)} Ft
+        </p>
         <button
           className="btn"
           type="submit"
           disabled={submitting}
-          style={{ marginTop: 24 }}
+          style={{ width: '100%', minHeight: 48, fontSize: 16 }}
         >
           {submitting
             ? 'Feladás...'

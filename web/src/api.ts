@@ -134,6 +134,12 @@ export type Job = {
     | 'cancelled';
   /** Vita alatt külön követett fizikai szállítási állapot. */
   status_before_dispute?: string | null;
+  /** A kézbesítés (lerakodás) időpontja. */
+  delivered_at?: string | null;
+  /** A lemondás időpontja (a feleknek). */
+  cancelled_at?: string | null;
+  /** Melyik kóddal zárult: 'recipient' | 'sender' (címzett nélkül) | 'sender_emergency'. */
+  closed_by_code_type?: string | null;
   /** 6 számjegyű átvételi kód — a backend csak a feladónak adja vissza. */
   delivery_code?: string | null;
   /** A kapcsolatfelvételi díj sikeres fizetésének időbélyegzője (`accepted` után). */
@@ -255,8 +261,12 @@ export type Bid = {
   // Sikertelen kézbesítés esetén történő visszaszállítás nyilatkozata
   return_policy?: 'included' | 'extra_fee' | 'no' | null;
   return_fee_huf?: number | null;
+  /** Az ajánlattétel ideje — az érkezési idő (eta_minutes) ehhez viszonyít. */
+  created_at?: string;
   // A backend a licit mellé adja a szállító adatait is (bids.js JOIN)
   carrier_name?: string | null;
+  /** A szállító járműve (szabad szöveg a profilból). */
+  carrier_vehicle?: string | null;
   rating_avg?: number | null;
   rating_count?: number | null;
   // Céges szállító adatai
@@ -626,6 +636,8 @@ export const api = {
       suggested_price_huf: number | null;
       accepted_price_huf: number | null;
       job_carrier_id: string | null;
+      /** Csak a KIJELÖLT szállítónak: ki van-e fizetve a díj (2026-10-08, A12). */
+      job_fee_paid?: boolean;
     }>>('/bids/mine'),
 
   listBids: (jobId: string) => request<Bid[]>(`/jobs/${jobId}/bids`),

@@ -10,17 +10,11 @@ import { api, Job, CarrierRoute } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 import { FileText, Hourglass, Route as RouteIcon, MapPin, Flag, Calendar } from 'lucide-react';
+import StatusPill from '@/components/StatusPill';
 
-const JOB_STATUS_LABEL: Record<string, string> = {
-  pending: 'Várakozik',
-  bidding: 'Ajánlatokat vár',
-  accepted: 'Elfogadva',
-  in_progress: 'Folyamatban',
-  delivered: 'Lerakva',
-  completed: 'Lezárva',
-  disputed: 'Vitatott',
-  cancelled: 'Lemondva',
-};
+// A fuvar-állapot felirata és színe a közös lib/statusz.ts-ből jön
+// (2026-10-08, UX-átvizsgálás A12): eddig itt minden aktív fuvar kék
+// „pill-bidding" volt — a vitatott és a díjfizetésre váró is.
 
 const ROUTE_STATUS_LABEL: Record<string, string> = {
   draft: 'Piszkozat',
@@ -189,7 +183,7 @@ export default function SajatHirdeteseim() {
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span className="pill pill-bidding">{JOB_STATUS_LABEL[j.status] || j.status}</span>
+              <StatusPill job={j} />
               <div className="price" style={{ marginTop: 6 }}>
                 {(j.accepted_price_huf || j.suggested_price_huf || 0).toLocaleString('hu-HU')} Ft
               </div>
@@ -222,9 +216,7 @@ export default function SajatHirdeteseim() {
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {j.title}
               </span>
-              <span className="pill pill-delivered" style={{ flexShrink: 0 }}>
-                {JOB_STATUS_LABEL[j.status] || j.status}
-              </span>
+              <StatusPill job={j} style={{ flexShrink: 0 }} />
             </Link>
           ))}
         </>
@@ -248,9 +240,7 @@ export default function SajatHirdeteseim() {
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {j.title}
               </span>
-              <span className="pill pill-cancelled" style={{ flexShrink: 0 }}>
-                {JOB_STATUS_LABEL[j.status] || j.status}
-              </span>
+              <StatusPill job={j} style={{ flexShrink: 0 }} />
             </Link>
           ))}
         </>

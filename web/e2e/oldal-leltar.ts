@@ -232,7 +232,7 @@ export const OLDALAK: Oldal[] = [
     url: () => '/dashboard/uj-fuvar',
     szereplo: 'felado',
     allapot: async (page) => {
-      const pipa = page.getByLabel(/be kell pakolnia a csomagot a felvételi helyen/i);
+      const pipa = page.getByLabel(/kézzel cipelni a felvételnél/i);
       await pipa.waitFor({ state: 'visible', timeout: 15_000 });
       await pipa.check();
       await page.getByLabel(/Hányadik emelet/i).first().waitFor({ timeout: 10_000 });

@@ -7,6 +7,7 @@ import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api';
 import Link from 'next/link';
 import { Job } from '@/api';
 import { subscribeJob } from '@/lib/socket';
+import { illesztesPontokra } from '@/lib/terkepIllesztes';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 const containerStyle = { width: '100%', height: '380px', borderRadius: '12px' };
@@ -38,17 +39,19 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
     return () => { unsubs.forEach((u) => u()); };
   }, [liveJobs]);
 
-  // Auto-fit minden markerre
+  // Auto-fit minden markerre (2026-10-08, A17: az onLoad is illeszt — az
+  // effect első futásakor a térkép-példány még nem létezett).
+  const pontok = useMemo(() => [
+    ...jobs.flatMap((j) => [
+      { lat: j.pickup_lat, lng: j.pickup_lng },
+      { lat: j.dropoff_lat, lng: j.dropoff_lng },
+    ]),
+    ...Object.values(driverPositions),
+  ], [jobs, driverPositions]);
   useEffect(() => {
-    if (!mapRef.current || !isLoaded || jobs.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
-    jobs.forEach((j) => {
-      bounds.extend({ lat: j.pickup_lat, lng: j.pickup_lng });
-      bounds.extend({ lat: j.dropoff_lat, lng: j.dropoff_lng });
-    });
-    Object.values(driverPositions).forEach((p) => bounds.extend(p));
-    mapRef.current.fitBounds(bounds, 64);
-  }, [isLoaded, jobs, driverPositions]);
+    if (!isLoaded) return;
+    illesztesPontokra(mapRef.current, pontok);
+  }, [isLoaded, pontok]);
 
   if (!apiKey) {
     return (
@@ -89,7 +92,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
       mapContainerStyle={containerStyle}
       center={HUNGARY_CENTER}
       zoom={7}
-      onLoad={(m) => { mapRef.current = m; }}
+      onLoad={(m) => { mapRef.current = m; illesztesPontokra(m, pontok); }}
       options={{ streetViewControl: false, mapTypeControl: false, fullscreenControl: false }}
     >
       {jobs.map((j) => (
