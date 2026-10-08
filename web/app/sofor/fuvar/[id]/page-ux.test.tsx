@@ -47,6 +47,27 @@ describe('szállítói fuvaroldal — díj előtt', () => {
     expect(await screen.findByText(/házszám a kapcsolatfelvételi díj után jelenik meg/)).toBeInTheDocument();
   });
 
+  it('elkelt fuvar vesztes ajánlattevőjének NEM ígéri a házszámot (ő a díj után sem kapja meg)', async () => {
+    vi.mocked(api.getJob).mockResolvedValue({ ...alap, status: 'accepted', carrier_id: 'masik-szallito' } as any);
+    await act(async () => { render(<CarrierPage />); });
+    await screen.findByRole('heading', { name: 'Kanapé' });
+    expect(screen.queryByText(/házszám a kapcsolatfelvételi díj után jelenik meg/)).toBeNull();
+  });
+
+  it('a kijelölt, még fizetetlen szállítónak jelzi, hogy a házszám a díj után jön', async () => {
+    vi.mocked(api.getJob).mockResolvedValue({ ...alap, status: 'accepted', carrier_id: 'carrier' } as any);
+    await act(async () => { render(<CarrierPage />); });
+    expect(await screen.findByText(/házszám a kapcsolatfelvételi díj után jelenik meg/)).toBeInTheDocument();
+  });
+
+  it('az ajánlat-mező helyőrzője a fuvar javasolt ára, nem egy fix szám (Q05)', async () => {
+    vi.mocked(api.getMyProfile).mockResolvedValue({ identity_kyc_status: 'verified' });
+    vi.mocked(api.getJob).mockResolvedValue({ ...alap, suggested_price_huf: 45000 } as any);
+    await act(async () => { render(<CarrierPage />); });
+    const mezo = await screen.findByLabelText('Az ajánlatod (Ft)');
+    expect(mezo.getAttribute('placeholder')).toMatch(/^pl\. 45\s000$/);
+  });
+
   it('azonosítás nélkül az űrlap tetején előre szól, és gombbal megnyitja a KYC-ablakot', async () => {
     vi.mocked(api.getJob).mockResolvedValue(alap as any);
     const esemenyek: any[] = [];

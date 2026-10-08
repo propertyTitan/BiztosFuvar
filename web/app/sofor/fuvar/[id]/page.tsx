@@ -320,8 +320,12 @@ export default function SoforFuvarReszletek() {
             <Flag size={13} style={{ verticalAlign: -2 }} /> {job.dropoff_address}
           </p>
           {/* UX-review A27 (2026-10-08): a díj előtt utca-szintű a cím — ezt
-              meg is mondjuk, különben az irányítószámot házszámnak nézték. */}
-          {!job.paid_at && !iAmTheShipper && (
+              meg is mondjuk, különben az irányítószámot házszámnak nézték.
+              Csak annak, aki a díj után tényleg látni fogja: nyitott fuvaron
+              (bárki lehet a kiválasztott) vagy a kijelölt szállítónak. A már
+              elkelt fuvar vesztes ajánlattevője a házszámot soha nem kapja meg. */}
+          {!job.paid_at && !iAmTheShipper
+            && (iAmTheCarrier || ['bidding', 'pending'].includes(job.status)) && (
             <p className="muted" style={{ margin: '2px 0 0', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
               <Lock size={12} aria-hidden /> A házszám a kapcsolatfelvételi díj után jelenik meg.
             </p>
@@ -730,7 +734,11 @@ export default function SoforFuvarReszletek() {
                   min={1}
                   value={bidAmount}
                   onChange={(e) => setBidAmount(sanitizeNumericInput(e.target.value))}
-                  placeholder="pl. 58000"
+                  // Q05: a helyőrző a fuvar javasolt ára (ha van) — egy fix
+                  // „58000” a pianínónál és a dobozoknál is ugyanazt sugallta.
+                  placeholder={job.suggested_price_huf
+                    ? `pl. ${job.suggested_price_huf.toLocaleString('hu-HU')}`
+                    : 'Összeg forintban'}
                   title="Ennyiért vállalod a fuvart. Az összeget közvetlenül a feladótól kapod, levonás nélkül."
                   required
                   aria-invalid={Boolean(mutat(dijHiba))}

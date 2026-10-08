@@ -149,7 +149,7 @@ it('a szállító megerősítési űrlapja megőrzi a feltételeket, és külön
     needs_reconfirmation: true }] as any);
   render(<CarrierPage />);
   fireEvent.click(await screen.findByRole('button', { name: 'Korábbi ajánlat betöltése' }));
-  expect(screen.getByPlaceholderText('pl. 58000')).toHaveValue(20000);
+  expect(screen.getByLabelText('Az ajánlatod (Ft)')).toHaveValue(20000);
   expect(screen.getByPlaceholderText('pl. Van rakodómunkás is')).toHaveValue('Rakodás benne van');
   vi.mocked(api.getJob).mockResolvedValue({ ...job, status: 'bidding', terms_revision: 3 } as any);
   await act(async () => { mocks.handlers.onUpdated(); });
@@ -158,5 +158,5 @@ it('a szállító megerősítési űrlapja megőrzi a feltételeket, és külön
   expect(send).toBeDisabled();
   fireEvent.click(screen.getByRole('button', { name: 'Átnéztem a frissített fuvaradatokat' }));
   expect(send).toBeEnabled();
-  expect(screen.getByPlaceholderText('pl. 58000')).toHaveValue(20000);
+  expect(screen.getByLabelText('Az ajánlatod (Ft)')).toHaveValue(20000);
 });
