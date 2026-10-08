@@ -236,8 +236,14 @@ export default function FuvarReszletek() {
     setAcceptingBidId(bid.id);
     try {
       await api.acceptBid(bid);
-      toast.success('Ajánlat elfogadva', 'Fizesd meg a kapcsolatfelvételi díjat — utána megkapod a szállító elérhetőségét, a fuvardíjat pedig közvetlenül neki fizeted (készpénzben vagy átutalással, ahogy megegyeztek).');
+      // UX A14: rövid — a teendő a díjkártyán áll, a toast ne takarja el.
+      toast.success('Ajánlat elfogadva', 'Következő lépés: a kapcsolatfelvételi díj a díjkártyán.');
       await loadAll();
+      // A díjkártya a lap tetején jelenik meg, az elfogadás gombja lent van —
+      // odagörgetünk, hogy a következő lépés ne maradjon a nézeten kívül.
+      setTimeout(() => {
+        document.getElementById('dij-fizetes')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+      }, 50);
     } catch (err: any) {
       toast.error('Hiba az ajánlat elfogadásakor', err.message);
       if (['OFFER_CHANGED', 'JOB_TERMS_CHANGED'].includes(err.code)) await loadAll();

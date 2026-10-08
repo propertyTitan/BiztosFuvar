@@ -24,6 +24,7 @@ import { mentPiszkozat, olvasPiszkozat, torolPiszkozat, piszkozatKulcs, UJ_FUVAR
 import { clearHozasdEl, HOZASD_EL_PREFILL, postingHozasdElKind, readHozasdEl, safeProductImage, saveHozasdEl, type HozasdElDraft, type HozasdElKind } from '@/lib/hozasdEl';
 import HozasdElPostingGuide from '@/components/HozasdElPostingGuide';
 import { idoablakHiba } from '@/lib/idoablak';
+import { elsoHibasMezoId, hibaOsszegzes } from '@/lib/urlapHibak';
 import ListingPhotoUpload from '@/components/ListingPhotoUpload';
 import { jelolElsoSiker } from '@/components/InstallPromptBanner';
 import {
@@ -388,45 +389,16 @@ export default function UjFuvar() {
     if (submitLock.current || createdJob) return;
     setTried(true);
     if (!canSubmit) {
-      // A konkrét okot mondjuk meg, ne csak azt, hogy „valami hiányzik".
-      const firstProblem =
-        Object.values(errors).find((e) => e !== null) ||
-        (!form.pickup_confirmed
-          ? 'A felvétel helyét válaszd ki a legördülő listából, házszámmal együtt.'
-          : null) ||
-        (!form.dropoff_confirmed
-          ? 'A lerakodás helyét válaszd ki a legördülő listából, házszámmal együtt.'
-          : null);
-      // 2026-10-08 (Q13): üres beküldésnél eddig csak az ELSŐ hiány szólt
-      // („Kérjük, töltsd ki: Megnevezés."), holott 7 mező hiányzott.
-      const hibakSzama = Object.values(errors).filter((e) => e !== null).length
-        + (form.pickup_confirmed ? 0 : 1) + (form.dropoff_confirmed ? 0 : 1);
-      toast.error(
-        'Hiányzó vagy hibás mező',
-        hibakSzama > 1
-          ? `${hibakSzama} mezőt kell még kitölteni vagy javítani — az elsőhöz ugrottunk.`
-          : (firstProblem || 'Nézd át a pirossal jelölt mezőket.'),
-      );
       // GF-013 (Manus, 2026-08-30): az ELSŐ hibás mező fókuszt kap és a
-      // képernyőre görgetjük — hosszú mobil-űrlapon a toast önmagában nem
-      // mondja meg, HOL a hiba.
-      const mezoId: Record<string, string> = {
-        title: 'uj-cim',
-        length: 'uj-hossz',
-        width: 'uj-szelesseg',
-        height: 'uj-magassag',
-        weight: 'uj-suly',
-        price: 'uj-ar',
-        recipientName: 'uj-cimzett-nev',
-        recipientPhone: 'uj-cimzett-tel',
-        recipientEmail: 'uj-cimzett-email',
-      };
-      const elsoHibasKulcs = (Object.keys(errors) as Array<keyof typeof errors>)
-        .find((k) => errors[k] !== null);
-      const cel = elsoHibasKulcs ? document.getElementById(mezoId[elsoHibasKulcs] || '') : null;
-      if (cel) {
-        cel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        (cel as HTMLElement).focus({ preventScroll: true });
+      // képernyőre görgetjük. UX A14 (2026-10-08): toast NINCS — a fókusz,
+      // a mező alatti üzenet és a gomb fölötti összegzés (hibaOsszegzes)
+      // elég; a toast pont a hibás mezőt takarta. A sorrend az űrlap sorrendje
+      // (a címek is: azoknak nincs `errors` kulcsa, eddig kimaradtak).
+      const cel = elsoHibasMezoId(errors, form.pickup_confirmed, form.dropoff_confirmed);
+      const elem = cel ? document.getElementById(cel) : null;
+      if (elem) {
+        elem.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        elem.focus({ preventScroll: true });
       }
       return;
     }
@@ -436,8 +408,9 @@ export default function UjFuvar() {
     try {
       const ablakHiba = idoablakHiba(form.pickup_window_start, form.pickup_window_end);
       if (ablakHiba) {
+        // UX A14: a hiba a mező alatt és a gomb fölött látszik — toast nélkül.
         setError(ablakHiba);
-        toast.error('Felvételi időablak', ablakHiba);
+        document.getElementById('pickup-window-start')?.focus();
         return;
       }
       // 1) Létrehozzuk a fuvart – ekkor kapunk jobId-t
@@ -805,7 +778,7 @@ export default function UjFuvar() {
         </div>
 
         {/* --- Lerakodás --- */}
-        <h2 style={{ marginTop: 24 }}>Lerakodás helye <span style={REQ}>*</span></h2>
+        <h2 id="fuvar-lerakodas" tabIndex={-1} style={{ marginTop: 24, scrollMarginTop: 90 }}>Lerakodás helye <span style={REQ}>*</span></h2>
         <div>
         <AddressAutocomplete
           invalid={missing(form.dropoff_confirmed ? 'ok' : '')}
@@ -1310,6 +1283,14 @@ export default function UjFuvar() {
         )}
 
         {error && <p style={{ color: 'var(--danger-text)', marginTop: 16 }}>{error}</p>}
+
+        {/* UX A14: a gomb fölötti összegzés (toast helyett) — élőben frissül,
+            és eltűnik, amint minden mező rendben. */}
+        {tried && !canSubmit && (
+          <p role="alert" className="field-error" style={{ marginTop: 16 }}>
+            {hibaOsszegzes(errors, form.pickup_confirmed, form.dropoff_confirmed)}
+          </p>
+        )}
 
         <p className="muted" style={{ fontSize: 12, margin: '24px 0 8px', textAlign: 'center' }}>
           A feladás ingyenes · díj csak elfogadáskor: {ft(DIJ_SAVOK[0].dijHuf)} / {ft(DIJ_SAVOK[1].dijHuf)} Ft

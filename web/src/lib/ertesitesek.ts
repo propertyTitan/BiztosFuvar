@@ -42,3 +42,18 @@ export function cimEmojiNelkul(cim: string | null | undefined): string {
   const s = String(cim ?? '').replace(KEZDO_EMOJI, '').replace(ZARO_EMOJI, '').trim();
   return s || String(cim ?? '').trim();
 }
+
+/**
+ * Az értesítés a MOST nyitott oldalra szól-e (UX A14)? Akkor nem kell
+ * toast: a fuvaroldal élőben frissül, a toast csak a következő lépést
+ * (a díjkártyát) takarná. A query és a horgony nem számít; a záró
+ * perjel sem.
+ */
+export function ertesitesErreAzOldalraSzol(
+  link: string | null | undefined,
+  pathname: string | null | undefined,
+): boolean {
+  if (!link || !pathname || !link.startsWith('/')) return false;
+  const tisztit = (s: string) => s.split(/[?#]/)[0].replace(/\/+$/, '') || '/';
+  return tisztit(link) === tisztit(pathname);
+}

@@ -21,6 +21,7 @@ import { useCurrentUser, clearCurrentUser, frissitCurrentUser, readStoredMode } 
 import { photoUrl } from '@/api';
 import { api } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
+import { cimEmojiNelkul, ertesitesErreAzOldalraSzol } from '@/lib/ertesitesek';
 import { useToast } from '@/components/ToastProvider';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTranslation } from '@/lib/i18n';
@@ -65,10 +66,15 @@ export default function SiteHeader() {
     const socket = getSocket();
     const onNew = (n: any) => {
       setUnread((c) => c + 1);
+      // UX A14: a NYITOTT oldalra szóló értesítés (pl. a saját elfogadásod
+      // utáni „Megegyeztetek" a fuvaroldalon) nem ugrik fel toastként — az
+      // oldal maga frissül és jelez; a harmadik egymásra rakott toast
+      // kiszorította a díjkártyát. A csengő számlálója ettől még nő.
+      if (ertesitesErreAzOldalraSzol(n?.link, window.location.pathname)) return;
       const kind: 'success' | 'error' | 'info' =
         n?.type === 'booking_paid' || n?.type === 'booking_confirmed' ? 'success'
         : n?.type === 'booking_rejected' ? 'error' : 'info';
-      toast[kind](n?.title || 'Új értesítés', n?.body || undefined);
+      toast[kind](cimEmojiNelkul(n?.title) || 'Új értesítés', n?.body || undefined);
     };
     socket.on('notification:new', onNew);
     // Az értesítések oldal olvasottra állításakor a badge azonnal frissül

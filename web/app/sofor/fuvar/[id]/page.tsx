@@ -157,6 +157,14 @@ export default function SoforFuvarReszletek() {
   // a profil-kitérő az űrlap tartalmát (üzenet, nyilatkozat) elvitte volna.
   const [telefonHiany, setTelefonHiany] = useState(false);
   const [telefon, setTelefon] = useState('');
+  // UX A14: a kliensoldali hibák a MEZŐ ALATT szólnak (és az első hibás mező
+  // fókuszt kap) — a toast eddig pont a hibás mezőt takarta, kétszer.
+  const visszaHiba = !returnPolicy ? 'Válaszd ki, vállalod-e a visszaszállítást, ha a címzett nem veszi át.' : null;
+  const visszaDijHiba = returnPolicy === 'extra_fee' && !(parseInt(returnFee, 10) > 0)
+    ? 'Add meg a visszaszállítás külön díját (Ft).' : null;
+  const telefonHiba = telefonHiany
+    ? (telefon.trim() ? optionalPhoneError(telefon) : 'Add meg a telefonszámod — szállítóként kötelező.')
+    : null;
 
   async function submitBid(e: React.FormEvent) {
     e.preventDefault();
@@ -166,26 +174,20 @@ export default function SoforFuvarReszletek() {
     }
     setProbaltMenteni(true);
     const amount = parseInt(bidAmount, 10);
-    if (dijHiba || etaHiba) {
-      toast.error('Nézd át az űrlapot', 'A hibás mezők pirosan keretezve, alattuk a magyarázat.');
+    const elsoHibas = [
+      dijHiba && 'ajanlat-dij',
+      etaHiba && 'ajanlat-eta',
+      visszaHiba && 'visszaszallitas-included',
+      visszaDijHiba && 'visszaszallitasi-dij',
+      telefonHiba && 'ajanlat-telefon',
+    ].find(Boolean);
+    if (elsoHibas || !returnPolicy) {
+      const cel = elsoHibas ? document.getElementById(elsoHibas) : null;
+      cel?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      cel?.focus({ preventScroll: true });
       return;
     }
-    if (!returnPolicy) {
-      toast.error('Hiányzó nyilatkozat', 'Nyilatkozz a sikertelen kézbesítés esetén történő visszaszállításról.');
-      return;
-    }
-    let returnFeeNum: number | undefined;
-    if (returnPolicy === 'extra_fee') {
-      returnFeeNum = parseInt(returnFee, 10);
-      if (!returnFeeNum || returnFeeNum <= 0) {
-        toast.error('Hiányzó visszaszállítási díj', 'Add meg a visszaszállítás külön díját (Ft).');
-        return;
-      }
-    }
-    if (telefonHiany) {
-      const hiba = telefon.trim() ? optionalPhoneError(telefon) : 'Add meg a telefonszámod — szállítóként kötelező.';
-      if (hiba) { toast.error('Telefonszám szükséges', hiba); return; }
-    }
+    const returnFeeNum = returnPolicy === 'extra_fee' ? parseInt(returnFee, 10) : undefined;
     setSubmitting(true);
     // GF-003 UX (Manus 3. futás): lassú szervernél (cold start, 15+ mp) a
     // generikus „Küldés…" azt sugallta, elakadt — 8 mp után jelezzük, hogy
@@ -207,6 +209,7 @@ export default function SoforFuvarReszletek() {
       toast.success('Ajánlat elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
       // UX A23: az első érdemi siker — a telepítő sáv ettől kezdve jöhet.
       jelolElsoSiker();
+      setProbaltMenteni(false);
       setBidAmount('');
       setBidEta('');
       setBidMessage('');
@@ -228,6 +231,7 @@ export default function SoforFuvarReszletek() {
           );
           if (enyem) {
             toast.success('Az ajánlatod beérkezett', 'A szerver lassan válaszolt, de az ajánlat rögzült — nem kell újraküldeni.');
+            setProbaltMenteni(false);
             setBidAmount(''); setBidEta(''); setBidMessage(''); setReturnPolicy(''); setReturnFee('');
             await load();
             return;
@@ -712,9 +716,11 @@ export default function SoforFuvarReszletek() {
                   placeholder="pl. 58000"
                   title="Ennyiért vállalod a fuvart. Az összeget közvetlenül a feladótól kapod, levonás nélkül."
                   required
+                  aria-invalid={Boolean(mutat(dijHiba))}
+                  aria-describedby={mutat(dijHiba) ? 'ajanlat-dij-hiba' : undefined}
                   style={mutat(dijHiba) ? redBorder : undefined}
                 />
-                <FieldError>{mutat(dijHiba)}</FieldError>
+                <FieldError id="ajanlat-dij-hiba">{mutat(dijHiba)}</FieldError>
               </div>
               <div>
                 <label htmlFor="ajanlat-eta">Érkezés a felvételre (perc)</label>
@@ -727,9 +733,11 @@ export default function SoforFuvarReszletek() {
                   onChange={(e) => setBidEta(sanitizeNumericInput(e.target.value))}
                   placeholder="opcionális"
                   title="Hány perc múlva tudsz a felvételi címen lenni? Üresen hagyható."
+                  aria-invalid={Boolean(mutat(etaHiba))}
+                  aria-describedby={mutat(etaHiba) ? 'ajanlat-eta-hiba' : undefined}
                   style={mutat(etaHiba) ? redBorder : undefined}
                 />
-                <FieldError>{mutat(etaHiba)}</FieldError>
+                <FieldError id="ajanlat-eta-hiba">{mutat(etaHiba)}</FieldError>
               </div>
             </div>
             {/* Élő kifizetés-előnézet — kápé, levonás nélkül */}
@@ -799,15 +807,18 @@ export default function SoforFuvarReszletek() {
                   }}
                 >
                   <input
+                    id={`visszaszallitas-${opt.v}`}
                     type="radio"
                     name="return_policy"
                     checked={returnPolicy === opt.v}
                     onChange={() => setReturnPolicy(opt.v)}
+                    aria-describedby={mutat(visszaHiba) ? 'visszaszallitas-hiba' : undefined}
                     style={{ width: 16, height: 16, flexShrink: 0 }}
                   />
                   {opt.label}
                 </label>
               ))}
+              <FieldError id="visszaszallitas-hiba">{mutat(visszaHiba)}</FieldError>
               </fieldset>
               {returnPolicy === 'extra_fee' && (
                 <div style={{ marginTop: 8 }}>
@@ -821,7 +832,10 @@ export default function SoforFuvarReszletek() {
                     onChange={(e) => setReturnFee(sanitizeNumericInput(e.target.value))}
                     placeholder="pl. 3000"
                     title="Ennyiért viszed vissza a csomagot, ha a címzett nem veszi át."
+                    aria-invalid={Boolean(mutat(visszaDijHiba))}
+                    aria-describedby={mutat(visszaDijHiba) ? 'visszaszallitasi-dij-hiba' : undefined}
                   />
+                  <FieldError id="visszaszallitasi-dij-hiba">{mutat(visszaDijHiba)}</FieldError>
                 </div>
               )}
             </div>
@@ -839,8 +853,10 @@ export default function SoforFuvarReszletek() {
                   placeholder="+36 30 123 4567"
                   value={telefon}
                   onChange={(e) => setTelefon(e.target.value)}
-                  aria-invalid={!!(telefon.trim() && optionalPhoneError(telefon))}
+                  aria-invalid={Boolean(mutat(telefonHiba)) || !!(telefon.trim() && optionalPhoneError(telefon))}
+                  aria-describedby={mutat(telefonHiba) ? 'ajanlat-telefon-hiba' : undefined}
                 />
+                <FieldError id="ajanlat-telefon-hiba">{mutat(telefonHiba)}</FieldError>
                 <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>
                   A feladó a kapcsolatfelvételi díj után ezen ér el. Mentjük a profilodba, és az ajánlat ezzel együtt megy el.
                 </p>

@@ -36,7 +36,7 @@ for (const kor of [1, 2, 3]) {
     ).toBeVisible({ timeout: 10_000 });
 
     // …és közben NEM történhetett korai submit:
-    await expect(page.getByText(/Hiányzó vagy hibás mező/)).toHaveCount(0);
+    await expect(page.getByText(/Hiányzó vagy hibás mező|mezőt kell kitölteni vagy javítani/)).toHaveCount(0);
     await expect(page.getByText(/Kérjük, töltsd ki/)).toHaveCount(0);
   });
 }

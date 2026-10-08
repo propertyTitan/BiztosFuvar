@@ -36,7 +36,7 @@ for (const mode of ['error', 'stalled'] as const) {
       await page.keyboard.press('ArrowDown');
       await page.keyboard.press('Enter');
       await expect(page.getByText(/✓ Cím megerősítve/).first()).toBeVisible();
-      await expect(page.getByText(/Hiányzó vagy hibás mező/)).toHaveCount(0);
+      await expect(page.getByText(/Hiányzó vagy hibás mező|mezőt kell kitölteni vagy javítani/)).toHaveCount(0);
     } finally { release(); }
   });
 }
