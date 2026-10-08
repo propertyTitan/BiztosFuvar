@@ -16,10 +16,19 @@
 //  Ezért egy forrás, több fogyasztó: aki új űrlapot ír, innen veszi.
 // =====================================================================
 
+import { CircleAlert } from 'lucide-react';
+
 /** Csillag a kötelező mezők címkéjében. */
 export const REQ = { color: 'var(--danger-text)', fontWeight: 700 } as const;
 
-/** Piros keret a hibás mezőre. Használat: `style={hiba ? redBorder : undefined}` */
+/**
+ * Piros keret a hibás mezőre. Használat: `style={hiba ? redBorder : undefined}`.
+ *
+ * ⚠️ 2026-10-08 (UX-kör A8): az egységes hibaállapot az `aria-invalid="true"`
+ * attribútum — a globals.css abból rajzol piros keretet és halvány hátteret,
+ * sötét témában is. Új űrlapon azt használd; ez a stílus a meglévő
+ * fogyasztóknak marad (sötétben a globals.css ezt is helyreállítja).
+ */
 export const redBorder = {
   border: '2px solid var(--danger)',
   boxShadow: '0 0 0 3px rgba(239,68,68,0.15)',
@@ -30,13 +39,16 @@ export const redBorder = {
  *
  * `role="alert"`: a képernyőolvasó felolvassa, amikor megjelenik. Enélkül a
  * vak felhasználó csak annyit érzékelne, hogy az űrlap „nem csinál semmit".
+ * A megjelenés a `.field-error` osztályban él (globals.css): 12 px, ikon +
+ * szöveg — a szín nem az egyetlen jelzés (WCAG 1.4.1).
  */
 export default function FieldError({ children, id }: { children: string | null; id?: string }) {
   if (!children) return null;
   return (
     // Az `id` az input `aria-describedby`-jának célpontja (GF-013): a
     // felolvasó így a MEZŐHÖZ kötve mondja el a hibát, nem csak bemondja.
-    <p id={id} role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, margin: '4px 0 0' }}>
+    <p id={id} role="alert" className="field-error">
+      <CircleAlert size={14} aria-hidden />
       {children}
     </p>
   );
