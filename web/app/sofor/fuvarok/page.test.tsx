@@ -1,5 +1,7 @@
 import { act, render, screen, fireEvent } from '@testing-library/react';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import Page from './page';
 import { api, type Job } from '@/api';
 import { mentPiszkozat } from '@/lib/urlapPiszkozat';
@@ -122,6 +124,22 @@ it('egy eszközsor: nincs „Új hirdetés feladása”, „Frissítés” és t
   fireEvent.click(screen.getByRole('button', { name: 'Szűrők' }));
   expect(screen.queryByLabelText('Típus')).toBeNull();
   expect(screen.getByText(/legfrissebb elöl/)).toBeInTheDocument();
+});
+
+it('keskeny képernyőn a „Helyem” csak ikon, de a gomb neve megmarad (fix2-review, Q13)', async () => {
+  render(<Page />);
+  await tick();
+  const gomb = screen.getByRole('button', { name: 'Helyem' });
+  const felirat = gomb.querySelector('.eszkozsor-felirat');
+  expect(felirat?.textContent).toBe('Helyem');
+  // A CSS vizuálisan rejti (nem display:none — az a nevet is elvenné), és
+  // csak keskeny képernyőn: 390 px-en a gomb eddig a második sorba tört.
+  const css = fs.readFileSync(path.resolve(__dirname, '..', '..', 'globals.css'), 'utf8');
+  const blokk = /@media \(max-width: (\d+)px\) \{\s*\.eszkozsor-felirat \{([^}]*)\}/.exec(css);
+  expect(blokk, 'nincs keskeny-képernyős szabály az .eszkozsor-felirat-ra').toBeTruthy();
+  expect(Number(blokk![1])).toBeGreaterThanOrEqual(390);
+  expect(blokk![2]).toMatch(/clip: rect\(0 0 0 0\)/);
+  expect(blokk![2]).not.toMatch(/display:\s*none/);
 });
 
 it('új fuvar a háttérben: „1 új fuvar – mutasd” pirula, a lista nem ugrik el', async () => {

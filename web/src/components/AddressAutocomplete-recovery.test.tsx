@@ -86,3 +86,21 @@ it('az invalid prop az egységes hibaállapotot adja: aria-invalid a címmezőn 
   rerender(<AddressAutocomplete label="Felvétel" value="" onChange={() => {}} />);
   expect(screen.getByLabelText('Felvétel')).not.toHaveAttribute('aria-invalid');
 });
+
+// fix2-review: a hibás címmező ugyanazt a piros keretet kapja, mint az űrlap
+// többi hibás mezője (FieldError.redBorder), és a hibaüzenetre mutat.
+it('hibás állapotban 2 px-es piros keret és aria-describedby a mező alatti üzenetre', () => {
+  loader.isLoaded = true;
+  render(<>
+    <AddressAutocomplete label="Felvétel" value="" onChange={() => {}} invalid hibaId="hiba-felvetel" />
+    <AddressAutocomplete label="Lerakodás" value="" onChange={() => {}} />
+  </>);
+  const hibas = screen.getByLabelText('Felvétel');
+  expect(hibas).toHaveAttribute('aria-invalid', 'true');
+  expect(hibas).toHaveAttribute('aria-describedby', 'hiba-felvetel');
+  expect(hibas.style.border).toBe('2px solid var(--danger)');
+  const jo = screen.getByLabelText('Lerakodás');
+  expect(jo).not.toHaveAttribute('aria-invalid');
+  expect(jo).not.toHaveAttribute('aria-describedby');
+  expect(jo.style.border).toBe('');
+});

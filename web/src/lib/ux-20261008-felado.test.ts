@@ -12,7 +12,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fuvarStatusz, lezarasInfo } from './statusz';
 import { felvetelIdopont, relativIdo, rovidDatumIdo, teljesDatumIdo } from './idopont';
 import { cimEmojiNelkul, ertesitesIkon } from './ertesitesek';
-import { illesztesPontokra, ILLESZTES_MAX_ZOOM, ILLESZTES_MARGO_PX } from './terkepIllesztes';
+import { illesztesPontokra, ILLESZTES_MAX_ZOOM, ILLESZTES_MARGO_PX, ILLESZTES_PADDING } from './terkepIllesztes';
 import { ujrafeladasPiszkozat } from './ujrafeladas';
 import type { Job } from '@/api';
 
@@ -150,8 +150,12 @@ describe('A17 — térkép-illesztés', () => {
     expect(map.fitBounds).toHaveBeenCalledTimes(1);
     // Alap-margó legfeljebb 24 px: 48 px mellett a 100–200 km-es észak–déli
     // útvonal csak 6-os nagyítással fért be a feladói térképre (fix1-review).
-    expect(map.fitBounds.mock.calls[0][1]).toBe(ILLESZTES_MARGO_PX);
+    expect(map.fitBounds.mock.calls[0][1]).toEqual(ILLESZTES_PADDING);
     expect(ILLESZTES_MARGO_PX).toBeLessThanOrEqual(24);
+    expect(ILLESZTES_PADDING.top + ILLESZTES_PADDING.bottom).toBeLessThanOrEqual(48);
+    // A jobb alsó kamera-vezérlő (10 + 40 px) alá ne kerüljön a 16 px-es
+    // jelölő (fix2-review: a Bp–Győr fuvaron Budapest a gomb alatt volt).
+    expect(ILLESZTES_PADDING.right).toBeGreaterThanOrEqual(10 + 40 + 16);
     idle.forEach((f) => f());
     expect(zoom).toBe(ILLESZTES_MAX_ZOOM);
   });

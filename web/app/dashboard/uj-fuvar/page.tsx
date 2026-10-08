@@ -24,7 +24,7 @@ import { mentPiszkozat, olvasPiszkozat, torolPiszkozat, piszkozatKulcs, UJ_FUVAR
 import { clearHozasdEl, HOZASD_EL_PREFILL, postingHozasdElKind, readHozasdEl, safeProductImage, saveHozasdEl, type HozasdElDraft, type HozasdElKind } from '@/lib/hozasdEl';
 import HozasdElPostingGuide from '@/components/HozasdElPostingGuide';
 import { idoablakHiba } from '@/lib/idoablak';
-import { elsoHibasMezoId, hibaOsszegzes } from '@/lib/urlapHibak';
+import { CIM_HIBA, elsoHibasMezoId, hibaOsszegzes } from '@/lib/urlapHibak';
 import ListingPhotoUpload from '@/components/ListingPhotoUpload';
 import { jelolElsoSiker } from '@/components/InstallPromptBanner';
 import { Check, TriangleAlert, Zap, Lightbulb } from 'lucide-react';
@@ -641,6 +641,7 @@ export default function UjFuvar() {
         <div>
         <AddressAutocomplete
           invalid={missing(form.pickup_confirmed ? 'ok' : '')}
+          hibaId="hiba-pickup"
           label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
           placeholder="pl. Budapest, Váci út 1."
           value={form.pickup_address}
@@ -671,13 +672,20 @@ export default function UjFuvar() {
             <Check size={13} aria-hidden style={{ verticalAlign: -2 }} /> Cím megerősítve
           </p>
         )}
+        {/* A három üzenet egymást kizárja, ezért ugyanaz az id: a mező
+            aria-describedby-ja mindig a látható magyarázatra mutat. */}
         {pickupImprecise && (
-          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
+          <p id="hiba-pickup" role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
             {pickupImprecise}
           </p>
         )}
+        {/* Üres cím a feladás-próba után (fix2-review): eddig csak a gomb
+            fölötti összegzés mondta meg, mi a baj — a mező alatt semmi. */}
+        {tried && !form.pickup_confirmed && !form.pickup_address.trim() && !pickupImprecise && (
+          <FieldError id="hiba-pickup">{CIM_HIBA.pickup}</FieldError>
+        )}
         {!form.pickup_confirmed && form.pickup_address && !pickupImprecise && (
-          <p style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
+          <p id="hiba-pickup" style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
             <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
           </p>
         )}
@@ -787,6 +795,7 @@ export default function UjFuvar() {
         <div>
         <AddressAutocomplete
           invalid={missing(form.dropoff_confirmed ? 'ok' : '')}
+          hibaId="hiba-dropoff"
           label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
           placeholder="pl. Szeged, Kossuth Lajos sugárút 1."
           value={form.dropoff_address}
@@ -816,13 +825,20 @@ export default function UjFuvar() {
             <Check size={13} aria-hidden style={{ verticalAlign: -2 }} /> Cím megerősítve
           </p>
         )}
+        {/* A három üzenet egymást kizárja, ezért ugyanaz az id: a mező
+            aria-describedby-ja mindig a látható magyarázatra mutat. */}
         {dropoffImprecise && (
-          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
+          <p id="hiba-dropoff" role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
             {dropoffImprecise}
           </p>
         )}
+        {/* Üres cím a feladás-próba után (fix2-review): eddig csak a gomb
+            fölötti összegzés mondta meg, mi a baj — a mező alatt semmi. */}
+        {tried && !form.dropoff_confirmed && !form.dropoff_address.trim() && !dropoffImprecise && (
+          <FieldError id="hiba-dropoff">{CIM_HIBA.dropoff}</FieldError>
+        )}
         {!form.dropoff_confirmed && form.dropoff_address && !dropoffImprecise && (
-          <p style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
+          <p id="hiba-dropoff" style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
             <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
           </p>
         )}

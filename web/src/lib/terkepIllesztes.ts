@@ -18,6 +18,19 @@
 export const ILLESZTES_MARGO_PX = 24;
 export const ILLESZTES_MAX_ZOOM = 14;
 
+// Aszimmetrikus alap-margó (fix2-review): a térkép jobb alsó sarkában a
+// Google kamera-vezérlője (40 px-es gomb, 10 px-re a széltől) ül. 24 px-es
+// jobb margónál egy kelet–nyugati útvonal keleti végpontja (pl. Budapest a
+// Bp–Győr fuvaron) pont alá került, és a gomb félig eltakarta. Jobbra
+// 72 px: a 16 px sugarú jelölő széle is a gomb bal széle előtt marad. A
+// függőleges margó marad 24 px (a 280 px magas feladói térkép miatt).
+export const ILLESZTES_PADDING = {
+  top: ILLESZTES_MARGO_PX,
+  bottom: ILLESZTES_MARGO_PX,
+  left: ILLESZTES_MARGO_PX,
+  right: 72,
+} as const;
+
 type Pont = { lat: number; lng: number };
 
 /** Érvényes, véges koordináták (a 0,0 is az — csak a NaN/null nem). */
@@ -35,7 +48,10 @@ export function ervenyesPontok(pontok: Array<Partial<Pont> | null | undefined>):
 export function illesztesPontokra(
   map: google.maps.Map | null | undefined,
   pontok: Array<Partial<Pont> | null | undefined>,
-  { margo = ILLESZTES_MARGO_PX, maxZoom = ILLESZTES_MAX_ZOOM }: { margo?: number; maxZoom?: number } = {},
+  {
+    margo = ILLESZTES_PADDING,
+    maxZoom = ILLESZTES_MAX_ZOOM,
+  }: { margo?: number | google.maps.Padding; maxZoom?: number } = {},
 ): boolean {
   const jo = ervenyesPontok(pontok);
   if (!map || jo.length === 0 || typeof google === 'undefined' || !google.maps) return false;

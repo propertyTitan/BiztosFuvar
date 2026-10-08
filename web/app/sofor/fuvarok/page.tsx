@@ -267,7 +267,11 @@ export default function SoforFuvarokLista() {
           title="Közeli fuvarok elöl — a helyzetedet csak a távolság kiszámításához használjuk, nem tároljuk."
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px', minHeight: 40 }}
         >
-          <LocateFixed size={16} aria-hidden /> {helyAllapot === 'keres' ? 'Keresés…' : 'Helyem'}
+          {/* Keskeny képernyőn (≤420 px) csak az ikon látszik, a felirat a
+              képernyőolvasónak megmarad — 390 px-en a gomb különben a
+              második sorba tört (fix2-review, Q13). */}
+          <LocateFixed size={16} aria-hidden />
+          <span className="eszkozsor-felirat">{helyAllapot === 'keres' ? 'Keresés…' : 'Helyem'}</span>
         </button>
       </div>
 

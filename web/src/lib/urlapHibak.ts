@@ -26,11 +26,21 @@ export const UJ_FUVAR_MEZO_SORREND: ReadonlyArray<readonly [string, string]> = [
   ['recipientEmail', 'uj-cimzett-email'],
 ];
 
+/**
+ * A címmezők hibaüzenete — EGY forrás: a fókusz-sorrend, az összegzés és a
+ * mező alatti FieldError is ezt használja (fix2-review: az üres címmező alatt
+ * eddig nem állt szöveg, csak a gomb fölötti összegzés mondta meg, mi a baj).
+ */
+export const CIM_HIBA = {
+  pickup: 'A felvétel helyét válaszd ki a legördülő listából, házszámmal együtt.',
+  dropoff: 'A lerakodás helyét válaszd ki a legördülő listából, házszámmal együtt.',
+} as const;
+
 function osszesHiba(hibak: Hibak, felvetelOk: boolean, lerakodasOk: boolean): Hibak {
   return {
     ...hibak,
-    pickup: felvetelOk ? null : 'A felvétel helyét válaszd ki a legördülő listából, házszámmal együtt.',
-    dropoff: lerakodasOk ? null : 'A lerakodás helyét válaszd ki a legördülő listából, házszámmal együtt.',
+    pickup: felvetelOk ? null : CIM_HIBA.pickup,
+    dropoff: lerakodasOk ? null : CIM_HIBA.dropoff,
   };
 }
 

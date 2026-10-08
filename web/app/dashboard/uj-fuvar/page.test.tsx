@@ -5,6 +5,7 @@ import { api } from '@/api';
 import { mentPiszkozat, piszkozatKulcs, UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
 import { StrictMode } from 'react';
 import { emptyHozasdElDraft, HOZASD_EL_PREFILL, readHozasdEl, saveHozasdEl } from '@/lib/hozasdEl';
+import { CIM_HIBA } from '@/lib/urlapHibak';
 
 const mocks = vi.hoisted(() => ({
   user: { id: 'sender-1' }, router: { push: vi.fn() },
@@ -136,4 +137,14 @@ it('félbehagyott (nem újrafeladott) piszkozatnál marad a „Piszkozat vissza�
   mentPiszkozat(k, { form: { title: 'Dobozok' } });
   render(<Page />);
   await waitFor(() => expect(mocks.toast.info).toHaveBeenCalledWith('Piszkozat visszaállítva', expect.anything()));
+});
+
+it('üres címekkel a feladás-próba után a címmezők alatt is ott a teendő (fix2-review)', () => {
+  render(<Page />);
+  expect(screen.queryByText(CIM_HIBA.pickup)).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: /Fuvar feladása/ }));
+  // Eddig csak a gomb fölötti összegzés szólt; a mező alatt semmi nem állt.
+  expect(screen.getByText(CIM_HIBA.pickup)).toHaveAttribute('id', 'hiba-pickup');
+  expect(screen.getByText(CIM_HIBA.dropoff)).toHaveAttribute('id', 'hiba-dropoff');
+  expect(screen.getByText(CIM_HIBA.pickup)).toHaveAttribute('role', 'alert');
 });
