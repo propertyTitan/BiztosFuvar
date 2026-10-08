@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { Loading } from '@/components/StateView';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
+import { useOldalCim } from '@/lib/oldalCim';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -19,6 +20,8 @@ export default function PublikusProfil() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [profile, setProfile] = useState<any>(null);
+  // UX A24: a fül címe a megnézett ember neve („Szabó Péter profilja”).
+  useOldalCim(profile?.full_name ? `${profile.full_name} profilja` : null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

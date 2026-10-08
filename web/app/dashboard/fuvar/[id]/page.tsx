@@ -17,7 +17,8 @@ import {
 } from 'lucide-react';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import StatusPill from '@/components/StatusPill';
-import { lezarasInfo } from '@/lib/statusz';
+import { fuvarStatusz, lezarasInfo } from '@/lib/statusz';
+import { useOldalCim } from '@/lib/oldalCim';
 import { felvetelIdopont, rovidDatumIdo } from '@/lib/idopont';
 import { ujrafeladasPiszkozat } from '@/lib/ujrafeladas';
 import { mentPiszkozat, olvasPiszkozat, piszkozatKulcs, UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
@@ -98,6 +99,8 @@ export default function FuvarReszletek() {
   const toast = useToast();
   const user = useCurrentUser();
   const [job, setJob] = useState<Job | null>(null);
+  // UX A24: a fül címe a betöltött fuvar neve és állapota.
+  useOldalCim(job ? `${job.title} — ${fuvarStatusz(job, 'felado').felirat}` : null);
   const [bids, setBids] = useState<Bid[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);

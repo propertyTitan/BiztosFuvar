@@ -37,6 +37,7 @@ import CarrierTripPanel from '@/components/CarrierTripPanel';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
 import StatusPill from '@/components/StatusPill';
+import { useOldalCim } from '@/lib/oldalCim';
 
 
 export default function SoforFuvarReszletek() {
@@ -46,6 +47,8 @@ export default function SoforFuvarReszletek() {
   const toast = useToast();
 
   const [job, setJob] = useState<Job | null>(null);
+  // UX A24: a fül címe a betöltött fuvar neve.
+  useOldalCim(job?.title);
   const [bids, setBids] = useState<Bid[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
