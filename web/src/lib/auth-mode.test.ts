@@ -138,3 +138,24 @@ describe('Mód-inicializálás szerver-adatból (GF-006 regresszió, 2026-08-30)
     ).toBe('shipper');
   });
 });
+
+describe('A szállítói landingről érkező regisztráló szállító módban kezd (UX-kör Q3)', () => {
+  it('a kért mód (szerep=szallito) új fióknál érvényesül', async () => {
+    const { initStoredModeFromProfile } = await import('./auth');
+    setCurrentUser(userA, 'token-a');
+    initStoredModeFromProfile({ role: 'shipper', driver_terms_accepted_at: null }, 'driver');
+    expect(
+      readStoredMode(),
+      'A „Regisztrálj szállítóként" gombbal érkező új fiók feladó módban nyílt — '
+      + 'a toborzott szállító a „Mit szeretnél szállíttatni ma?" képernyőt látta.',
+    ).toBe('driver');
+  });
+
+  it('a kért mód sem írja felül a felhasználó saját, mentett választását', async () => {
+    const { initStoredModeFromProfile } = await import('./auth');
+    setCurrentUser(userA, 'token-a');
+    writeStoredMode('shipper');
+    initStoredModeFromProfile({ role: 'shipper', driver_terms_accepted_at: null }, 'driver');
+    expect(readStoredMode()).toBe('shipper');
+  });
+});

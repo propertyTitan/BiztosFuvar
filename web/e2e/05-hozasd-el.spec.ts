@@ -30,7 +30,7 @@ test('vendég bútorfeladása regisztráció és új fülben megnyitott email-me
   await page.getByPlaceholder('Legalább 8 karakter').fill('Jelszo123!');
   await page.locator('form button[type="submit"]').click();
   await page.waitForURL(/dashboard\/uj-fuvar/);
-  await expect(page.getByRole('heading', { name: 'Erősítsd meg az email címed' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Erősítsd meg az e-mail-címed' })).toBeVisible();
   // Külső levélküldés helyett ismert legacy token kizárólag a helyi DB-ben.
   // A megerősítést a valódi céloldal és backend végzi, nem DB-flag átírás.
   const token = randomBytes(32).toString('hex');
@@ -39,15 +39,15 @@ test('vendég bútorfeladása regisztráció és új fülben megnyitott email-me
   await emailPage.goto(`/email-megerositese?token=${token}`);
   await emailPage.waitForURL(/bejelentkezes.*email_verified=1/);
   await expect(emailPage.getByRole('status').filter({ hasText: 'Az e-mail-címedet sikeresen megerősítettük.' })).toHaveText('Az e-mail-címedet sikeresen megerősítettük. Bejelentkezhetsz!');
-  await expect(emailPage.getByRole('heading', { name: 'Erősítsd meg az email címed' })).toHaveCount(0);
+  await expect(emailPage.getByRole('heading', { name: 'Erősítsd meg az e-mail-címed' })).toHaveCount(0);
   await expect(emailPage.getByRole('complementary', { name: 'A megkezdett fuvarfeladás' })).toContainText('Marketplace kanapé');
-  await emailPage.getByLabel('Email', { exact: true }).fill(email);
+  await emailPage.getByLabel('E-mail-cím', { exact: true }).fill(email);
   await emailPage.getByLabel('Jelszó', { exact: true }).fill('Jelszo123!');
   await emailPage.locator('form button[type="submit"]').click();
   await emailPage.waitForURL(/dashboard\/uj-fuvar/);
   await expect(emailPage.getByPlaceholder(/Költöztetés Budapest/)).toHaveValue('Marketplace kanapé');
   await expect(emailPage.getByLabel('Pontos cím utcával és házszámmal (válassz a legördülő listából)').first()).toHaveValue('Budapest, Váci út 1.');
-  await expect(emailPage.getByRole('heading', { name: 'Erősítsd meg az email címed' })).toHaveCount(0);
+  await expect(emailPage.getByRole('heading', { name: 'Erősítsd meg az e-mail-címed' })).toHaveCount(0);
   expect((await dbQuery('SELECT email_verified FROM users WHERE email = $1', [email])).rows[0].email_verified).toBe(true);
   // Gépelés még nem megerősített térképes cím: a meglévő kapu marad.
   const confirmed = await emailPage.evaluate(() => {
@@ -98,7 +98,7 @@ test('vendég előnézete belépésen át megmarad, régi piszkozatot csak vála
   await page.getByRole('button', { name: /Folytatom a feladást/ }).click();
   await page.waitForURL(/bejelentkezes/);
   await page.getByRole('button', { name: 'Belépés', exact: true }).first().click();
-  await page.getByLabel('Email', { exact: true }).fill(user.email);
+  await page.getByLabel('E-mail-cím', { exact: true }).fill(user.email);
   await page.getByLabel('Jelszó', { exact: true }).fill('Jelszo123!');
   await page.locator('form button[type="submit"]').click();
   await page.waitForURL(/dashboard\/uj-fuvar/);

@@ -15,7 +15,7 @@ async function realLogin(page: Page, user: E2EUser) {
   await page.goto('/bejelentkezes');
   const consent = page.getByRole('button', { name: 'Rendben, értem' });
   if (await consent.isVisible()) await consent.click();
-  await page.getByLabel('Email').fill(user.email);
+  await page.getByLabel('E-mail-cím', { exact: true }).fill(user.email);
   await page.getByLabel('Jelszó', { exact: true }).fill('Jelszo123!');
   await page.getByRole('button', { name: 'Belépés →', exact: true }).click();
   await expect(page).toHaveURL(/localhost:3100\/$/);

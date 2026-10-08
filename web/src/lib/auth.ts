@@ -119,9 +119,19 @@ export function writeStoredMode(mode: AppMode) {
  * nézett ki, mintha a másik fiók módja szivárgott volna át. A tényleges
  * szállítói működés jele a driver_terms (a users.role a web-flow-ban NEM
  * szegmentál — CLAUDE.md szabály). A MENTETT preferencia mindig erősebb.
+ *
+ * `kertMod` (UX-kör Q3, 2026-10-08): a szállítói landingről érkező új
+ * regisztráló (`?szerep=szallito`) eddig feladó módban nyitott, a „Mit
+ * szeretnél szállíttatni ma?" képernyővel — a toborzott szállító első élménye
+ * az volt, hogy rossz helyen van. A kért mód csak akkor érvényes, ha még
+ * nincs mentett preferencia (a user saját választását nem írjuk felül).
  */
-export function initStoredModeFromProfile(u: { role?: string; driver_terms_accepted_at?: string | null }) {
+export function initStoredModeFromProfile(
+  u: { role?: string; driver_terms_accepted_at?: string | null },
+  kertMod?: AppMode,
+) {
   if (readStoredMode()) return;
+  if (kertMod) { writeStoredMode(kertMod); return; }
   if (u.role === 'carrier' || u.driver_terms_accepted_at) writeStoredMode('driver');
 }
 

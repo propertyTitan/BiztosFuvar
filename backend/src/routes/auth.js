@@ -208,8 +208,20 @@ router.post('/register', registerRateLimit, async (req, res) => {
   // Email kanonikus formában (kisbetű + trim), hogy a login kis/nagybetűtől
   // függetlenül megtalálja — a telefon-billentyűzet gyakran nagybetűsít.
   const normEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
-  if (!email || !password || !full_name) {
-    return res.status(400).json({ error: 'Hiányzó mezők' });
+  // UX-kör A10 (2026-10-08): a válasz MEGNEVEZI a hiányzó mezőket (eddig csak
+  // „Hiányzó mezők" jött, a felhasználó találgathatott). A `fields` a kliens
+  // mezőszintű jelzéséhez kell.
+  const hianyzo = [
+    ['email', 'e-mail-cím', email],
+    ['password', 'jelszó', password],
+    ['full_name', 'teljes név', full_name],
+  ].filter(([, , v]) => !v);
+  if (hianyzo.length) {
+    return res.status(400).json({
+      error: `Hiányzó mezők: ${hianyzo.map(([, nev]) => nev).join(', ')}.`,
+      code: 'MISSING_FIELDS',
+      fields: hianyzo.map(([kulcs]) => kulcs),
+    });
   }
 
   // Mező-validációk (BUG-011): csupa-szóköz név/jelszó, formátumtalan
@@ -330,7 +342,13 @@ router.post('/register', registerRateLimit, async (req, res) => {
 
     res.status(201).json({ user, token: signToken(user) });
   } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Foglalt email' });
+    if (err.code === '23505') {
+      // A korábbi „Foglalt email" nem mondta meg, mit tegyen a felhasználó.
+      return res.status(409).json({
+        error: 'Ez az e-mail-cím már foglalt — ha a tiéd, lépj be, vagy kérj új jelszót.',
+        code: 'EMAIL_TAKEN',
+      });
+    }
     console.error(err);
     res.status(500).json({ error: 'Szerverhiba' });
   }
