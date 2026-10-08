@@ -42,6 +42,12 @@ type Props = {
   requireArea?: boolean;
   /** requirePrecise mellett: a kiválasztott találat túl pontatlan volt. */
   onImprecise?: (message: string) => void;
+  /**
+   * A mező hibás (pl. hiányzó/megerősítetlen cím). UX A07 (2026-10-08): az
+   * egységes hibaállapot az `aria-invalid` — a globals.css abból rajzol
+   * keretet és hátteret, sötét témában is, és a felolvasó is hallja.
+   */
+  invalid?: boolean;
 };
 
 /** Egy address_component típusának megléte. */
@@ -129,6 +135,7 @@ function AddressField({
   requirePrecise,
   requireArea,
   onImprecise,
+  invalid,
 }: Props) {
   const apiKey = getGoogleMapsApiKey();
   const { isLoaded, loadError } = useJsApiLoader({
@@ -331,6 +338,7 @@ function AddressField({
           onChange={(e) => onTextChange?.(e.target.value)}
           placeholder="Google Maps kulcs hiányzik – kézi beírás"
           required={required}
+          aria-invalid={invalid || undefined}
         />
       </div>
     );
@@ -395,6 +403,7 @@ function AddressField({
           }}
           placeholder={placeholder || 'Kezdd el beírni a címet…'}
           required={required}
+          aria-invalid={invalid || undefined}
           autoComplete="off"
         />
       </Autocomplete>

@@ -612,7 +612,7 @@ export default function FuvarReszletek() {
                       </Link>
                       <div style={{ fontSize: 12, marginTop: 2 }}>
                         {(valasztott.rating_count ?? 0) > 0 ? (
-                          <span style={{ color: 'var(--warning)', fontWeight: 600 }}>
+                          <span style={{ color: 'var(--warning-text)', fontWeight: 600 }}>
                             <Star size={12} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} />{' '}
                             {Number(valasztott.rating_avg).toFixed(1)} <span className="muted">({valasztott.rating_count})</span>
                           </span>
@@ -984,7 +984,7 @@ export default function FuvarReszletek() {
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       {(b.rating_count ?? 0) > 0 && (b.rating_avg ?? 0) > 0 ? (
-                        <span style={{ fontSize: 12, color: 'var(--warning)', fontWeight: 600 }}>
+                        <span style={{ fontSize: 12, color: 'var(--warning-text)', fontWeight: 600 }}>
                           <Star size={12} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {Number(b.rating_avg).toFixed(1)}
                           <span className="muted"> ({b.rating_count})</span>
                         </span>

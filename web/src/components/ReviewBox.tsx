@@ -120,7 +120,7 @@ export default function ReviewBox({ entityKey, entityId, onDone, cim, kerdes, vi
                   <span
                     aria-label={`${r.stars || r.rating} csillag az 5-ből`}
                     role="img"
-                    style={{ fontSize: 14, color: 'var(--warning)', whiteSpace: 'nowrap', letterSpacing: 1 }}
+                    style={{ fontSize: 14, color: 'var(--warning-text)', whiteSpace: 'nowrap', letterSpacing: 1 }}
                   >
                     {csillagok(r.stars || r.rating, 5)}
                   </span>

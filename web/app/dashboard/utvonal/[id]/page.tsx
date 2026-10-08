@@ -299,7 +299,7 @@ function FeladoUtvonalReszletek() {
           <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12 }}>{pickupImprecise}</p>
         )}
         {!pickupConfirmed && pickupAddr && !pickupImprecise && (
-          <p style={{ color: 'var(--warning)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
+          <p style={{ color: 'var(--warning-text)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
         )}
 
         <h3 style={{ marginTop: 24 }}>Lerakodás helye</h3>
@@ -326,7 +326,7 @@ function FeladoUtvonalReszletek() {
           <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12 }}>{dropoffImprecise}</p>
         )}
         {!dropoffConfirmed && dropoffAddr && !dropoffImprecise && (
-          <p style={{ color: 'var(--warning)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
+          <p style={{ color: 'var(--warning-text)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
         )}
 
         <label htmlFor="foglalas-megjegyzes">Megjegyzés a szállítónak (opcionális)</label>

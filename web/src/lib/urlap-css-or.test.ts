@@ -83,6 +83,29 @@ describe('A8: a mezőhatár és a fókusz 3:1 felett (WCAG 1.4.11)', () => {
   });
 });
 
+describe('A8: borostyán SZÖVEG csak a --warning-text tokennel', () => {
+  // A --warning (#f59e0b) fehéren 2,15:1 — szövegszínként olvashatatlan.
+  // Ikon (lucide `color=` attribútum) és háttér maradhat --warning; inline
+  // `color: 'var(--warning)'` stílus viszont szöveget színez.
+  it('nincs inline `color: var(--warning)` szöveg a .tsx-ekben', () => {
+    const talalatok: string[] = [];
+    const bejar = (dir: string) => {
+      for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+        if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) { bejar(p); continue; }
+        if (!p.endsWith('.tsx') || p.includes('.test.')) continue;
+        fs.readFileSync(p, 'utf8').split('\n').forEach((sor, i) => {
+          if (/color:\s*['"]var\(--warning\)['"]/.test(sor)) talalatok.push(`${path.relative(WEB, p)}:${i + 1}`);
+        });
+      }
+    };
+    bejar(path.join(WEB, 'src'));
+    bejar(path.join(WEB, 'app'));
+    expect(talalatok, `szöveg a --warning színnel (használd a --warning-text-et): ${talalatok.join(', ')}`).toEqual([]);
+  });
+});
+
 describe('A7: iOS-en a mezők nem nagyítanak (16 px mobilon)', () => {
   const mobil = (() => {
     const i = CSS.indexOf('/* iOS ZOOM');

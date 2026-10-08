@@ -660,8 +660,9 @@ export default function UjFuvar() {
 
         {/* --- Felvétel --- */}
         <h2 id="fuvar-felvetel" tabIndex={-1} style={{ marginTop: 24, scrollMarginTop: 90 }}>Felvétel helye <span style={REQ}>*</span></h2>
-        <div style={missing(form.pickup_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
+        <div>
         <AddressAutocomplete
+          invalid={missing(form.pickup_confirmed ? 'ok' : '')}
           label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
           placeholder="pl. Budapest, Váci út 1."
           value={form.pickup_address}
@@ -698,8 +699,8 @@ export default function UjFuvar() {
           </p>
         )}
         {!form.pickup_confirmed && form.pickup_address && !pickupImprecise && (
-          <p style={{ color: 'var(--warning)', fontSize: 12, marginTop: 6 }}>
-            ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
+          <p style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
+            ⚠ Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
           </p>
         )}
         </div>
@@ -800,8 +801,9 @@ export default function UjFuvar() {
 
         {/* --- Lerakodás --- */}
         <h2 style={{ marginTop: 24 }}>Lerakodás helye <span style={REQ}>*</span></h2>
-        <div style={missing(form.dropoff_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
+        <div>
         <AddressAutocomplete
+          invalid={missing(form.dropoff_confirmed ? 'ok' : '')}
           label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
           placeholder="pl. Szeged, Kossuth Lajos sugárút 1."
           value={form.dropoff_address}
@@ -837,8 +839,8 @@ export default function UjFuvar() {
           </p>
         )}
         {!form.dropoff_confirmed && form.dropoff_address && !dropoffImprecise && (
-          <p style={{ color: 'var(--warning)', fontSize: 12, marginTop: 6 }}>
-            ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
+          <p style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
+            ⚠ Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
           </p>
         )}
         </div>

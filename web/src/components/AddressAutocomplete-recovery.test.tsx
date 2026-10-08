@@ -78,3 +78,11 @@ it('Enter után a Google párhuzamos kiválasztása nem írhatja felül a házsz
     expect(text).toHaveBeenCalledTimes(1);
   } finally { list.remove(); }
 });
+
+it('az invalid prop az egységes hibaállapotot adja: aria-invalid a címmezőn (A07)', () => {
+  loader.isLoaded = true;
+  const { rerender } = render(<AddressAutocomplete label="Felvétel" value="" onChange={() => {}} invalid />);
+  expect(screen.getByLabelText('Felvétel')).toHaveAttribute('aria-invalid', 'true');
+  rerender(<AddressAutocomplete label="Felvétel" value="" onChange={() => {}} />);
+  expect(screen.getByLabelText('Felvétel')).not.toHaveAttribute('aria-invalid');
+});

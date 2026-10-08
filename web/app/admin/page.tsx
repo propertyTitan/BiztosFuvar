@@ -616,7 +616,7 @@ export default function AdminPanel() {
                       </span>
                     </div>
                     {doc.rejection_reason && (
-                      <div style={{ fontSize: 12, marginTop: 6, color: 'var(--warning)' }}>
+                      <div style={{ fontSize: 12, marginTop: 6, color: 'var(--warning-text)' }}>
                         AI/korábbi megjegyzés: {doc.rejection_reason}
                       </div>
                     )}
@@ -906,7 +906,7 @@ export default function AdminPanel() {
                   <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
                     {new Date(j.created_at).toLocaleString('hu-HU')} · {j.id}
                     {j.paid_at && <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> · DÍJ FIZETVE</span>}
-                    {j.photo_retention_hold && <span style={{ color: 'var(--warning)', fontWeight: 700 }}> · ZÁROLT (5 év)</span>}
+                    {j.photo_retention_hold && <span style={{ color: 'var(--warning-text)', fontWeight: 700 }}> · ZÁROLT (5 év)</span>}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -994,7 +994,7 @@ export default function AdminPanel() {
                   <div className="muted" style={{ fontSize: 12 }}>
                     Feladó: {b.shipper_name || b.shipper_id} · {b.status}
                     {b.paid_at && <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> · FIZETVE</span>}
-                    {b.photo_retention_hold && <span style={{ color: 'var(--warning)', fontWeight: 700 }}> · ZÁROLT</span>}
+                    {b.photo_retention_hold && <span style={{ color: 'var(--warning-text)', fontWeight: 700 }}> · ZÁROLT</span>}
                   </div>
                 </div>
                 <div className="row" style={{ gap: 6 }}>
@@ -1151,7 +1151,7 @@ export default function AdminPanel() {
             <div className="muted" style={{ fontSize: 12 }}>
               {dmThread.user.email}
               {dmThread.user.admin_channel_closed_at && (
-                <span style={{ color: 'var(--warning)', fontWeight: 700, marginLeft: 8 }}>· Csatorna lezárva</span>
+                <span style={{ color: 'var(--warning-text)', fontWeight: 700, marginLeft: 8 }}>· Csatorna lezárva</span>
               )}
             </div>
 
