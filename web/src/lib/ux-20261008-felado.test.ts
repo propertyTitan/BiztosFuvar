@@ -184,6 +184,8 @@ describe('A21 — „Újra feladom" piszkozat', () => {
     });
     expect(d.raw).toMatchObject({ weight_kg: '55', length_cm: '160', declared_value_huf: '50000' });
     expect(d.form).not.toHaveProperty('pickup_window_start');
+    // Az új-fuvar űrlap ebből tudja, hogy nem félbehagyott feladásról van szó.
+    expect(d.ujrafeladas).toBe(true);
   });
 
   it('koordináta nélkül a cím nem megerősített; címzett nélkül nincs „más veszi át"', () => {

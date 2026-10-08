@@ -138,6 +138,8 @@ type SavedDraft = {
   form: Partial<FormState>; raw?: Partial<Record<NumKey, string>>;
   sourceStore?: string | null; sourceImage?: string | null;
   hozasdElKind?: HozasdElKind | null;
+  /** „Újra feladom” (lib/ujrafeladas): egy lemondott fuvar másolata. */
+  ujrafeladas?: boolean;
 };
 function productForm(draft: HozasdElDraft): FormState {
   return { ...initialForm, title: draft.title,
@@ -254,6 +256,8 @@ export default function UjFuvar() {
       saveHozasdEl(HOZASD_EL_PREFILL, incoming, me.id);
       if (hasSavedDraft) setIncomingProduct(incoming);
       else importProduct(incoming, PISZKOZAT_KULCS);
+    } else if (hasSavedDraft && d?.ujrafeladas) {
+      toast.info('A lemondott fuvar adatait betöltöttük', 'Nézd át, és módosítsd, amit kell (például az árat vagy az időpontot), majd add fel újra.');
     } else if (hasSavedDraft) {
       toast.info('Piszkozat visszaállítva', 'A félbehagyott feladásod adatait betöltöttük — ha nem kell, írd felül a mezőket.');
     }

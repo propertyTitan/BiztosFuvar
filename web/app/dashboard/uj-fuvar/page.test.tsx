@@ -121,3 +121,19 @@ it('fotóhiba és újrapróbálás után is egyetlen fuvar jön létre, a piszko
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 550)); });
   expect(localStorage.getItem(key)).toBeNull();
 });
+
+it('„Újra feladom” után a toast a lemondott fuvar adatairól szól, nem félbehagyott feladásról', async () => {
+  const k = piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, mocks.user.id);
+  mentPiszkozat(k, { form: { title: 'Kanapé Pécsre' }, ujrafeladas: true });
+  render(<Page />);
+  await waitFor(() => expect(mocks.toast.info).toHaveBeenCalled());
+  expect(mocks.toast.info).toHaveBeenCalledWith('A lemondott fuvar adatait betöltöttük', expect.stringMatching(/add fel újra/));
+  expect(mocks.toast.info).not.toHaveBeenCalledWith('Piszkozat visszaállítva', expect.anything());
+});
+
+it('félbehagyott (nem újrafeladott) piszkozatnál marad a „Piszkozat visszaállítva”', async () => {
+  const k = piszkozatKulcs(UJ_FUVAR_PISZKOZAT_ELOTAG, mocks.user.id);
+  mentPiszkozat(k, { form: { title: 'Dobozok' } });
+  render(<Page />);
+  await waitFor(() => expect(mocks.toast.info).toHaveBeenCalledWith('Piszkozat visszaállítva', expect.anything()));
+});

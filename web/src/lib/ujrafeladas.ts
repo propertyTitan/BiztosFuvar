@@ -22,6 +22,13 @@ export type UjrafeladasPiszkozat = {
   sourceStore: null;
   sourceImage: null;
   hozasdElKind: null;
+  /**
+   * Jelző az új-fuvar űrlapnak: a piszkozat egy LEMONDOTT fuvar másolata,
+   * nem félbehagyott feladás — a betöltéskor ennek megfelelő üzenet jár
+   * („Piszkozat visszaállítva — a félbehagyott feladásod” félrevezető volt).
+   * Az első szerkesztéskor az automatikus mentés elhagyja.
+   */
+  ujrafeladas: true;
 };
 
 function szam(v: unknown): number | '' {
@@ -89,5 +96,6 @@ export function ujrafeladasPiszkozat(job: Job): UjrafeladasPiszkozat {
     sourceStore: null,
     sourceImage: null,
     hozasdElKind: null,
+    ujrafeladas: true,
   };
 }

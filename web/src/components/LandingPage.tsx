@@ -222,11 +222,11 @@ export default function LandingPage() {
           display: 'flex', gap: 'clamp(12px, 3vw, 28px)', justifyContent: 'center',
           flexWrap: 'wrap', marginTop: 24, color: 'var(--muted)', fontSize: 13, fontWeight: 500,
         }}>
-          <span style={checkSor}><Check size={16} color="var(--success)" /> Ingyenes regisztráció</span>
-          <span style={checkSor}><Check size={16} color="var(--success)" /> Nincs havidíj</span>
+          <span style={checkSor}><Check size={16} color="var(--success)" style={{ flexShrink: 0 }} aria-hidden /> Ingyenes regisztráció</span>
+          <span style={checkSor}><Check size={16} color="var(--success)" style={{ flexShrink: 0 }} aria-hidden /> Nincs havidíj</span>
           {/* GF-024 (2026-08-30): a díj az ajánlat ELFOGADÁSAKOR esedékes, nem
               a fuvar sikere után. UX-kör Q1: az összeg már itt látszik. */}
-          <span style={checkSor}><Check size={16} color="var(--success)" /> {HERO_DIJ}</span>
+          <span style={checkSor}><Check size={16} color="var(--success)" style={{ flexShrink: 0 }} aria-hidden /> {HERO_DIJ}</span>
         </div>
 
         {/* A termék maga: telefon-mockup, amin épp ajánlatok érkeznek —

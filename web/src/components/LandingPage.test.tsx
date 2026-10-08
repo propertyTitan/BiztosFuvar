@@ -36,6 +36,15 @@ describe('a főoldal hero-ja', () => {
     expect(oldalSzoveg(container)).toContain('A fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek.');
   });
 
+  it('a bizalom-csík pipái mobilon, kétsoros szövegnél sem zsugorodnak össze', () => {
+    const { container } = render(<LandingPage />);
+    const sor = Array.from(container.querySelectorAll('span'))
+      .find((s) => normal(s.textContent).startsWith('500 Ft díj — csak ha szállítót választasz'));
+    const pipa = sor?.querySelector('svg') as SVGElement | null;
+    expect(pipa).toBeTruthy();
+    expect(pipa!.style.flexShrink).toBe('0');
+  });
+
   it('a feladói CTA a regisztráció után az új fuvar űrlapjára visz (Q2)', () => {
     render(<LandingPage />);
     const cta = screen.getAllByRole('link', { name: /Adj fel egy fuvart/ })[0];
