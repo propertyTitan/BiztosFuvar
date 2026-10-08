@@ -34,3 +34,12 @@ it('a profiloldal tényleges avatarkérése időkerettel indul, és frissíti a 
   expect((init.body as FormData).get('file')).toBe(file);
   expect(mocks.toast.success).toHaveBeenCalledWith('Profilkép mentve!');
 });
+
+it('a saját telefonszám tagolva látszik, mint a kontakt-kártyákon (+36 30 555 1234)', async () => {
+  global.fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => (
+    { id: 'profile-user', full_name: 'Teszt Feladó', phone: '+36305551234', created_at: '2026-09-01T12:00:00Z' }
+  ) } as Response));
+  render(<Page />);
+  expect(await screen.findByText('+36 30 555 1234')).toBeInTheDocument();
+  expect(screen.queryByText('+36305551234')).toBeNull();
+});

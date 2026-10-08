@@ -165,7 +165,9 @@ export default function HomeHub() {
                 <div className="muted" style={{ fontSize: 13 }}>
                   Jogszabályi kötelezettség (DAC7)
                   {taxData.deadline && !taxData.blocked
-                    ? ` — határidő: ${new Date(taxData.deadline).toLocaleDateString('hu-HU')}`
+                    // Hosszú alak, mint a profil adókártyáján (UX A18): a
+                    // „2026. 12. 07.” rövid alak két helyen kétféle volt.
+                    ? ` — határidő: ${new Date(taxData.deadline).toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' })}`
                     : ''} · Kattints a megadáshoz
                 </div>
               </div>

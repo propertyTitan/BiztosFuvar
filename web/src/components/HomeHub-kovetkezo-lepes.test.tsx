@@ -5,6 +5,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import HomeHub from './HomeHub';
+import { api } from '@/api';
 
 const dashboard = vi.hoisted(() => ({ value: null as any }));
 vi.mock('@/api', () => ({
@@ -71,5 +72,19 @@ describe('HomeHub — Aktív fuvarjaid kártya', () => {
     render(<HomeHub />);
     await waitFor(() => expect(screen.getByText('Kanapé')).toBeInTheDocument());
     expect(screen.getByText(/Budapest/).textContent).not.toMatch(/1132/);
+  });
+});
+
+describe('HomeHub — DAC7-sáv', () => {
+  it('a határidő hosszú magyar alakban áll, ahogy a profil adókártyáján („2026. december 7.”)', async () => {
+    dashboard.value = dash(fuvar({}));
+    vi.mocked(api.getMyProfile).mockResolvedValueOnce({
+      identity_kyc_status: 'verified',
+      tax_data: { needed: true, blocked: false, deadline: '2026-12-07T12:00:00Z' },
+    } as any);
+    render(<HomeHub />);
+    const sav = await screen.findByText(/Jogszabályi kötelezettség \(DAC7\)/);
+    expect(sav.textContent).toContain('határidő: 2026. december 7.');
+    expect(sav.textContent).not.toMatch(/2026\. 12\. 07\./);
   });
 });

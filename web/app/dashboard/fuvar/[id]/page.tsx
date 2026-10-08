@@ -23,6 +23,7 @@ import { felvetelIdopont, rovidDatumIdo } from '@/lib/idopont';
 import { ujrafeladasPiszkozat } from '@/lib/ujrafeladas';
 import { mentPiszkozat, olvasPiszkozat, piszkozatKulcs, UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
 import TesztFizetesSav from '@/components/TesztFizetesSav';
+import { mertek } from '@/lib/mertek';
 import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
 import DijFizetesKartya from '@/components/DijFizetesKartya';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
@@ -330,7 +331,7 @@ export default function FuvarReszletek() {
           alacsonyabb térkép (A17): a lap legnagyobb eleme ne a térkép legyen.
           A gomb nem ígér élő követést (UX A05: az a mobil-fázisban jön). */}
       <MapCollapse gombFelirat={utvonalGombFelirat(job.distance_km)}>
-        <LiveTrackingMap job={job} magassag="280px" />
+        <LiveTrackingMap job={job} magassag="320px" />
       </MapCollapse>
 
       {/* Átvételi kód a feladónak.
@@ -531,19 +532,19 @@ export default function FuvarReszletek() {
             {job.volume_m3 != null && (
               <div>
                 <div className="muted" style={{ fontSize: 12 }}>Térfogat</div>
-                <strong>{Number(job.volume_m3).toLocaleString('hu-HU', { maximumFractionDigits: 2 })} m³</strong>
+                <strong>{mertek(job.volume_m3, 'm³', 2)}</strong>
               </div>
             )}
             {job.weight_kg != null && (
               <div>
                 <div className="muted" style={{ fontSize: 12 }}>Súly</div>
-                <strong>{job.weight_kg} kg</strong>
+                <strong>{mertek(job.weight_kg, 'kg')}</strong>
               </div>
             )}
             {job.distance_km != null && (
               <div>
                 <div className="muted" style={{ fontSize: 12 }}>Távolság</div>
-                <strong>{job.distance_km} km</strong>
+                <strong>{mertek(job.distance_km, 'km')}</strong>
               </div>
             )}
           </div>

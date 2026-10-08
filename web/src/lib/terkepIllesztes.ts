@@ -10,7 +10,12 @@
 //  szomszédos utca épület-szintig nagyítana).
 // =====================================================================
 
-export const ILLESZTES_MARGO_PX = 48;
+// A margó 24 px (fix1-review): 48 px mellett a 280 px magas feladói
+// térképen 184 px maradt a pontoknak, így egy 100–200 km-es, észak–déli
+// útvonal (Bp–Pécs ≈ 1,4 szélességi fok ≈ 190 px 7-es nagyításon) csak
+// 6-os nagyítással fért be — fél Közép-Európa látszott. A jelölők 14 px
+// sugarú körök (+2 px keret), a 24 px margó elég, hogy ne vágódjanak le.
+export const ILLESZTES_MARGO_PX = 24;
 export const ILLESZTES_MAX_ZOOM = 14;
 
 type Pont = { lat: number; lng: number };

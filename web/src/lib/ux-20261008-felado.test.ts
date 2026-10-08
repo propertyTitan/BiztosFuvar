@@ -12,7 +12,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fuvarStatusz, lezarasInfo } from './statusz';
 import { felvetelIdopont, relativIdo, rovidDatumIdo, teljesDatumIdo } from './idopont';
 import { cimEmojiNelkul, ertesitesIkon } from './ertesitesek';
-import { illesztesPontokra, ILLESZTES_MAX_ZOOM } from './terkepIllesztes';
+import { illesztesPontokra, ILLESZTES_MAX_ZOOM, ILLESZTES_MARGO_PX } from './terkepIllesztes';
 import { ujrafeladasPiszkozat } from './ujrafeladas';
 import type { Job } from '@/api';
 
@@ -145,6 +145,10 @@ describe('A17 — térkép-illesztés', () => {
     };
     expect(illesztesPontokra(map as any, [{ lat: 47.5, lng: 19.04 }, { lat: 47.51, lng: 19.05 }])).toBe(true);
     expect(map.fitBounds).toHaveBeenCalledTimes(1);
+    // Alap-margó legfeljebb 24 px: 48 px mellett a 100–200 km-es észak–déli
+    // útvonal csak 6-os nagyítással fért be a feladói térképre (fix1-review).
+    expect(map.fitBounds.mock.calls[0][1]).toBe(ILLESZTES_MARGO_PX);
+    expect(ILLESZTES_MARGO_PX).toBeLessThanOrEqual(24);
     idle.forEach((f) => f());
     expect(zoom).toBe(ILLESZTES_MAX_ZOOM);
   });

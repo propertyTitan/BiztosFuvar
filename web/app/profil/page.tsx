@@ -14,6 +14,7 @@ import { Loading, ErrorState } from '@/components/StateView';
 import ReferralCard from '@/components/ReferralCard';
 import TaxDataCard from '@/components/TaxDataCard';
 import FieldError, { redBorder } from '@/components/FieldError';
+import { telefonFormaz } from '@/lib/telefon';
 import { nameError, optionalPhoneError, plateError, bioError } from '@/lib/formValidation';
 import {
   Camera, Star, Truck, ShieldCheck, Trash2, Download, Save, CircleCheck, Hourglass, XCircle, FileUp,
@@ -306,7 +307,8 @@ export default function ProfilOldal() {
               </div>
               <div>
                 <div className="muted" style={{ fontSize: 12 }}>Telefon</div>
-                <strong>{profile.phone || '—'}</strong>
+                {/* Tagolva, mint a kontakt-kártyákon (lib/telefon, UX Q06). */}
+                <strong>{telefonFormaz(profile.phone) || '—'}</strong>
               </div>
               <div style={{ gridColumn: '1 / -1' }}>
                 <div className="muted" style={{ fontSize: 12 }}>Bemutatkozás</div>

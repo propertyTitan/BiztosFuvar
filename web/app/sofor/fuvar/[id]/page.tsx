@@ -21,6 +21,7 @@ import { useCurrentUser } from '@/lib/auth';
 import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
 import { optionalPhoneError } from '@/lib/formValidation';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
+import { mertek } from '@/lib/mertek';
 import MapCollapse, { utvonalGombFelirat } from '@/components/MapCollapse';
 import { idoablakSzoveg } from '@/lib/idoablak';
 import FieldError, { redBorder } from '@/components/FieldError';
@@ -510,19 +511,19 @@ export default function SoforFuvarReszletek() {
           {job.volume_m3 != null && (
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Térfogat</div>
-              <strong>{job.volume_m3} m³</strong>
+              <strong>{mertek(job.volume_m3, 'm³', 2)}</strong>
             </div>
           )}
           {job.weight_kg != null && (
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Súly</div>
-              <strong>{job.weight_kg} kg</strong>
+              <strong>{mertek(job.weight_kg, 'kg')}</strong>
             </div>
           )}
           {job.distance_km != null && (
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Távolság</div>
-              <strong>{job.distance_km} km</strong>
+              <strong>{mertek(job.distance_km, 'km')}</strong>
             </div>
           )}
         </div>

@@ -35,6 +35,7 @@ import { useTranslation, formatPrice } from '@/lib/i18n';
 import {
   type Filters, EMPTY_FILTERS, AZONNALI_ELERHETO, aktivSzurokSzama, figyeloLink,
 } from './fuvarSzurok';
+import { mertek } from '@/lib/mertek';
 
 type ListedJob = Job & { distance_to_pickup_km?: number };
 type ViewMode = 'list' | 'map';
@@ -556,11 +557,11 @@ export default function SoforFuvarokLista() {
                   {!isMine && <HazszamLakat />}
                 </p>
                 <div className="row" style={{ marginTop: 6, gap: 16, fontSize: 13 }}>
-                  {j.distance_km != null && <span className="muted">{j.distance_km} km össztáv</span>}
+                  {j.distance_km != null && <span className="muted">{mertek(j.distance_km, 'km')} össztáv</span>}
                   {j.distance_to_pickup_km != null && (
-                    <span className="muted">{j.distance_to_pickup_km} km tőled</span>
+                    <span className="muted">{mertek(j.distance_to_pickup_km, 'km')} tőled</span>
                   )}
-                  {j.weight_kg != null && <span className="muted">{j.weight_kg} kg</span>}
+                  {j.weight_kg != null && <span className="muted">{mertek(j.weight_kg, 'kg')}</span>}
                   {j.length_cm && j.width_cm && j.height_cm && (
                     <span className="muted">
                       {j.length_cm}×{j.width_cm}×{j.height_cm} cm
