@@ -77,6 +77,9 @@ describe('A8: a mezőhatár és a fókusz 3:1 felett (WCAG 1.4.11)', () => {
     expect(CSS).toMatch(/input:not\(\[type='checkbox'\]\):not\(\[type='radio'\]\)\[aria-invalid='true'\]/);
     expect(CSS).toMatch(/\[data-theme='dark'\] :is\(input, select, textarea, \.input\)\[aria-invalid='true'\]/);
     expect(blokk('.field-error {')).toMatch(/color:\s*var\(--danger-text\)/);
+    // Sötétben a `[data-theme='dark'] body *` (0,1,1) fehérre írná — külön,
+    // erősebb szabály kell (eddig az inline szín védte).
+    expect(blokk("[data-theme='dark'] .field-error,")).toMatch(/color:\s*var\(--danger-text\)/);
   });
 });
 

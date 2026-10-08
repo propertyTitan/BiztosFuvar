@@ -647,6 +647,10 @@ textarea[aria-invalid='true'] {
   margin: 4px 0 0;
 }
 .field-error svg { flex-shrink: 0; margin-top: 1px; }
+/* Sötétben a `[data-theme='dark'] body *` (0,1,1) szabály fehérre írná a
+   hibaüzenetet és az ikonját — eddig az inline szín védte, most osztály. */
+[data-theme='dark'] .field-error,
+[data-theme='dark'] .field-error * { color: var(--danger-text); }
 /* iOS ZOOM (UX-kör A7, 2026-10-08): az iOS Safari minden 16 px-nél kisebb
    betűs mezőre fókuszáláskor ránagyít, és a felhasználónak vissza kell
    kicsinyítenie — a fuvarfeladás ~20 mezőjén, a regisztráción, a chaten.
