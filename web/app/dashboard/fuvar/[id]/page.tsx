@@ -1045,7 +1045,7 @@ export default function FuvarReszletek() {
                       return (
                         <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
                           {f.elmult
-                            ? `A vállalt felvételi időpont (${f.abszolut}) elmúlt — elfogadás előtt kérdezd meg a szállítót.`
+                            ? `A vállalt felvételi időpont (${f.abszolut}) elmúlt — ha ezt az ajánlatot választod, az új időpontot az elfogadás után az Üzenetekben egyeztessétek.`
                             : `Várható felvétel: ${f.abszolut}${f.relativ ? ` (${f.relativ})` : ''}`}
                         </div>
                       );
