@@ -983,6 +983,8 @@ export const api = {
     request<{
       code: string | null; link: string | null;
       totalReferred: number; completedReferred: number; availableVouchers: number;
+      /** A legkorábban lejáró kupon napja ('YYYY-MM-DD'), kupon nélkül null. */
+      voucherValidUntil?: string | null;
     }>('/auth/referral'),
 
   /** Licites fuvar díj-fizetés nyugtázása — csak STUB módban él. */

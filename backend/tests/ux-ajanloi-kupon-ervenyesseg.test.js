@@ -16,7 +16,8 @@ import fs from 'fs';
 import path from 'path';
 
 const require = createRequire(import.meta.url);
-const { db, createUser } = require('./helpers');
+const request = require('supertest');
+const { db, app, createUser } = require('./helpers');
 const referral = require('../src/services/referral');
 
 describe('ajánlói kupon — web ↔ backend szinkron', () => {
@@ -52,5 +53,25 @@ describe('legkozelebbiKuponLejarat', () => {
     );
     const { rows } = await db.query("SELECT to_char(CURRENT_DATE + 10, 'YYYY-MM-DD') AS v");
     expect(await referral.legkozelebbiKuponLejarat(u.id)).toBe(rows[0].v);
+  });
+});
+
+describe('GET /auth/referral — a ReferralCard „Érvényes: …-ig” sorának forrása', () => {
+  it('a legkorábban lejáró kupon napját adja voucherValidUntil-ként; kupon nélkül null', async () => {
+    const u = await createUser({ role: 'shipper' });
+    const ures = await request(app).get('/auth/referral').set('Authorization', `Bearer ${u.token}`);
+    expect(ures.status).toBe(200);
+    expect(ures.body.voucherValidUntil).toBeNull();
+
+    await db.query(
+      `INSERT INTO fee_vouchers (user_id, reason, valid_until) VALUES
+         ($1, 'referral', CURRENT_DATE + 30),
+         ($1, 'referral', CURRENT_DATE + 5)`,
+      [u.id],
+    );
+    const res = await request(app).get('/auth/referral').set('Authorization', `Bearer ${u.token}`);
+    const { rows } = await db.query("SELECT to_char(CURRENT_DATE + 5, 'YYYY-MM-DD') AS v");
+    expect(res.body.availableVouchers).toBe(2);
+    expect(res.body.voucherValidUntil).toBe(rows[0].v);
   });
 });

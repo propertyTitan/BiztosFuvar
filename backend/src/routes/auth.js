@@ -9,7 +9,7 @@ const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit, writeRateLimit, createRateLimit } = require('../middleware/rateLimit');
 const navTaxpayer = require('../services/navTaxpayer');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
-const { getOrCreateReferralCode, resolveReferrerId } = require('../services/referral');
+const { getOrCreateReferralCode, resolveReferrerId, legkozelebbiKuponLejarat } = require('../services/referral');
 const { savePrivateFile, getSignedPrivateUrl } = require('../services/storage');
 const {
   sendEmailVerificationEmail,
@@ -1073,7 +1073,7 @@ router.get('/referral-check', loginRateLimit, async (req, res) => {
 router.get('/referral', authRequired, async (req, res) => {
   const uid = req.user.sub;
   const code = await getOrCreateReferralCode(uid);
-  const [{ rows: referredRows }, { rows: voucherRows }] = await Promise.all([
+  const [{ rows: referredRows }, { rows: voucherRows }, voucherValidUntil] = await Promise.all([
     // Sikeres ajánlások: akiket behoztam ÉS már teljesítettek (jutalmaztak).
     db.query(
       `SELECT
@@ -1089,6 +1089,9 @@ router.get('/referral', authRequired, async (req, res) => {
           AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE`,
       [uid],
     ),
+    // A legkorábban lejáró kupon napja — a ReferralCard „Érvényes: …-ig”
+    // sorához (UX Q18): ugyanazok a feltételek, mint a számlálónál.
+    legkozelebbiKuponLejarat(uid),
   ]);
   const base = process.env.WEB_BASE_URL || 'https://gofuvar.hu';
   res.json({
@@ -1097,6 +1100,7 @@ router.get('/referral', authRequired, async (req, res) => {
     totalReferred: referredRows[0]?.total_referred || 0,
     completedReferred: referredRows[0]?.completed_referred || 0,
     availableVouchers: voucherRows[0]?.c || 0,
+    voucherValidUntil,
   });
 });
 
