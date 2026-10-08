@@ -14,8 +14,9 @@ import { useTranslation, formatPrice } from '@/lib/i18n';
 import {
   FileText, Route as RouteIcon, ShoppingBag, Target, BarChart3, Tag,
   Truck, RefreshCw, Plus, ClipboardList, Package, Bell, User as UserIcon,
-  BadgeCheck, Star, Ticket, MapPin, Flag, Camera, Receipt,
+  BadgeCheck, Star, Ticket, MapPin, Flag, Camera, Receipt, Hourglass,
 } from 'lucide-react';
+import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
 
 type Mode = 'driver' | 'shipper';
 
@@ -218,8 +219,10 @@ export default function HomeHub() {
                       onClick={() => {
                         localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
                         setShowKycWelcome(false);
+                        // forras: a KYC-ablak sikerképernyője ebből tudja, hogy
+                        // nincs félbehagyott ajánlat, amihez vissza kellene vinni.
                         window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
-                          detail: { code: 'IDENTITY_KYC_REQUIRED' },
+                          detail: { code: 'IDENTITY_KYC_REQUIRED', forras: 'fooldal' },
                         }));
                       }}
                       style={{
@@ -261,32 +264,39 @@ export default function HomeHub() {
                 }} />
                 Aktív fuvarjaid
               </h2>
-              {d.activeJobs.map((j: any) => (
+              {d.activeJobs.map((j: any) => {
+                // KÖZÖS „következő lépés” logika a Vállalt fuvarok füllel
+                // (UX-review A5, 2026-10-08): a díj előtt NINCS cselekvésre
+                // hívó gomb — eddig minden elfogadott fuvaron „INDÍTÁS →” állt,
+                // a fizetetlenen is, ahol a csomag még nem vehető át.
+                const lepes = kovetkezoLepes(j);
+                const telepules = (cim?: string) => (cim || '').split(',')[0].replace(/^\d{4,6}\s+/, '');
+                return (
                 <Link
                   key={j.id}
                   href={`/sofor/fuvar/${j.id}`}
                   className="card"
                   style={{
                     display: 'block', textDecoration: 'none', color: 'inherit',
-                    borderLeft: `4px solid ${j.status === 'in_progress' ? 'var(--success)' : 'var(--warning)'}`,
+                    borderLeft: `4px solid ${j.status === 'in_progress' ? 'var(--success)' : lepes.kod === 'dijfizetes' ? 'var(--warning)' : 'var(--primary)'}`,
                     marginBottom: 12,
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 16 }}>{j.title}</div>
                       <div className="muted" style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                         <MapPin size={13} style={{ flexShrink: 0 }} />
-                        {j.pickup_address?.split(',')[0]}
+                        {telepules(j.pickup_address)}
                         <span aria-hidden>→</span>
                         <Flag size={13} style={{ flexShrink: 0 }} />
-                        {j.dropoff_address?.split(',')[0]}
+                        {telepules(j.dropoff_address)}
                       </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
                         Feladó: {j.shipper_name} · {j.distance_km} km
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <span className={`pill ${j.status === 'in_progress' ? 'pill-progress' : 'pill-accepted'}`}
                         style={{ fontSize: 13, padding: '6px 14px' }}>
                         {j.status === 'in_progress' ? 'Úton' : 'Elfogadva'}
@@ -294,28 +304,33 @@ export default function HomeHub() {
                       <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
                         {formatPrice(j.accepted_price_huf)}
                       </div>
-                      {j.status === 'accepted' && (
+                      {lepes.gomb && (
                         <div style={{
-                          marginTop: 8, background: 'var(--success-strong)', color: '#fff',
+                          marginTop: 8, background: 'var(--primary)', color: '#fff',
                           padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
                           display: 'inline-flex', alignItems: 'center', gap: 6,
                         }}>
-                          <Camera size={14} /> INDÍTÁS →
+                          <Camera size={14} aria-hidden /> {lepes.gomb}
                         </div>
                       )}
-                      {j.status === 'in_progress' && (
-                        <div style={{
-                          marginTop: 8, background: 'var(--danger-strong)', color: '#fff',
-                          padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
-                          display: 'inline-flex', alignItems: 'center', gap: 6,
-                        }}>
-                          <Camera size={14} /> LEZÁRÁS →
+                      {lepes.jelveny && (
+                        <div
+                          title={lepes.szoveg}
+                          style={{
+                            marginTop: 8, background: 'rgba(245,158,11,0.16)', color: 'var(--text)',
+                            border: '1px solid var(--warning)',
+                            padding: '4px 12px', borderRadius: 999, fontWeight: 700, fontSize: 12,
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                          }}
+                        >
+                          <Hourglass size={13} aria-hidden /> {lepes.jelveny}
                         </div>
                       )}
                     </div>
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           ) : (
             // Nincs aktív fuvar → közeli munkák CTA
@@ -375,7 +390,7 @@ export default function HomeHub() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
             {[
               { href: '/sofor/fuvarok', icon: <Target size={18} />, label: 'Fuvarok' },
-              { href: '/sofor/dashboard', icon: <BarChart3 size={18} />, label: 'Dashboard' },
+              { href: '/sofor/dashboard', icon: <BarChart3 size={18} />, label: 'Statisztikám' },
               { href: '/fuvarjaim?tab=licitjeim', icon: <Tag size={18} />, label: 'Ajánlataim' },
               { href: '/fuvarjaim?tab=vallalt', icon: <Truck size={18} />, label: t('nav.myJobs') },
               { href: '/sofor/visszafuvar', icon: <RefreshCw size={18} />, label: 'Visszafuvar' },

@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { api, Job } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { Truck, MapPin, Flag, ArrowRight } from 'lucide-react';
+import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -30,16 +31,9 @@ const STATUS_PILL: Record<string, string> = {
 };
 
 // KÖVETKEZŐ LÉPÉS (2026-09-11, teljes audit B2): a vállalt fuvarok listája
-// eddig csak státusz-címkét mutatott — a szállító nem látta, MI a teendője.
-// A munkalista most minden aktív fuvarnál megmondja, mi jön, és a sorrend
-// is a tennivaló szerint alakul (úton lévő elöl, fizetésre váró hátul).
-function kovetkezoLepes(j: Job): { szoveg: string; sulyos: boolean; sorrend: number } {
-  if (j.status === 'in_progress') return { szoveg: 'Kézbesítés: fotó + a címzett 6 jegyű átvételi kódja', sulyos: true, sorrend: 0 };
-  if (j.status === 'disputed') return { szoveg: 'Vita alatt — az ügyfélszolgálat dönt, addig várj', sulyos: false, sorrend: 1 };
-  if (j.status === 'accepted' && j.paid_at) return { szoveg: 'Felvétel: egyeztess a feladóval, majd fotó a csomagról a felvételkor', sulyos: true, sorrend: 2 };
-  if (j.status === 'accepted') return { szoveg: 'A feladó díjfizetésére várunk — utána látod az elérhetőségét', sulyos: false, sorrend: 3 };
-  return { szoveg: '', sulyos: false, sorrend: 9 };
-}
+// minden aktív fuvarnál megmondja, mi jön, és a sorrend is a tennivaló
+// szerint alakul (úton lévő elöl, fizetésre váró hátul). A logika 2026-10-08
+// óta KÖZÖS a főoldallal (lib/kovetkezoLepes) — a kettő nem csúszhat szét.
 
 export default function SoforSajatFuvarok() {
   const [jobs, setJobs] = useState<Job[]>([]);
