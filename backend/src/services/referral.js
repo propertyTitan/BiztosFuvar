@@ -36,7 +36,10 @@ const { createNotification } = require('./notifications');
 // legmagasabb díjsávnyi bevételről mondunk le, ajánlásonként egyszer, a havi
 // plafon (REFERRAL_MONTHLY_CAP) alatt.
 const REFERRAL_VOUCHER_MAX_FEE_HUF = null;
-// Meddig érvényes a kapott kupon.
+// Meddig érvényes a kapott kupon. ⚠️ A felület is kiírja (UX-review Q19,
+// 2026-10-08: a némán lejáró jutalom megszegett ígéretnek tűnt) — a web
+// ReferralCard AJANLOI_KUPON_ERVENYES_NAP konstansa ezzel szinkronban
+// (őr: tests/ux-ajanloi-kupon-ervenyesseg.test.js).
 const REFERRAL_VOUCHER_VALID_DAYS = 60;
 // Egy ajánló legfeljebb ennyi jutalmat szerezhet naptári hónaponként.
 const REFERRAL_MONTHLY_CAP = 5;
@@ -190,7 +193,7 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
       user_id: referrerId,
       type: 'referral_reward',
       title: '🎉 Ingyenes kapcsolatfelvételt kaptál!',
-      body: 'Akit meghívtál, teljesítette az első fuvarját — a következő feladásodnál a kapcsolatfelvételi díj elmarad, akármekkora is a fuvar. Egy feladásra érvényes; a "Fizetés" lépésnél automatikusan beváltjuk.',
+      body: `Akit meghívtál, teljesítette az első fuvarját — ha ${REFERRAL_VOUCHER_VALID_DAYS} napon belül adsz fel fuvart, annál a kapcsolatfelvételi díj elmarad, akármekkora is a fuvar. Egy feladásra érvényes; a "Fizetés" lépésnél automatikusan beváltjuk.`,
       link: '/dashboard',
     }).catch(() => {});
   } catch (err) {
@@ -203,6 +206,25 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
   }
 }
 
+/**
+ * A legkorábban lejáró, még felhasználható ingyenes kapcsolatfelvétel
+ * (kupon) érvényességi napja — a felület „Érvényes: <dátum>-ig” sorához.
+ * Ugyanazok a feltételek, mint a beváltásnál és a számlálónál
+ * (felhasználatlan, már érvényes, még nem járt le).
+ *
+ * @returns {Promise<string|null>} 'YYYY-MM-DD' vagy null, ha nincs kupon
+ */
+async function legkozelebbiKuponLejarat(userId) {
+  const { rows } = await db.query(
+    `SELECT to_char(MIN(valid_until), 'YYYY-MM-DD') AS lejarat
+       FROM fee_vouchers
+      WHERE user_id = $1 AND used_at IS NULL
+        AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE`,
+    [userId],
+  );
+  return rows[0]?.lejarat || null;
+}
+
 module.exports = {
   REFERRAL_VOUCHER_MAX_FEE_HUF,
   REFERRAL_VOUCHER_VALID_DAYS,
@@ -211,4 +233,5 @@ module.exports = {
   getOrCreateReferralCode,
   resolveReferrerId,
   maybeGrantReferralReward,
+  legkozelebbiKuponLejarat,
 };
