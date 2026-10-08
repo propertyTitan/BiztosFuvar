@@ -240,7 +240,7 @@ export default function CarrierTripPanel({
           frissül. A fuvardíjat közvetlenül a feladótól kapod — készpénzben vagy átutalással, ahogy megegyeztetek.
         </p>
         <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 0 }}>
-          A pontos címet és a feladó telefonszámát a díj után látod.
+          A pontos címet és a feladó elérhetőségét a díj után látod.
         </p>
         {/* A lejáratás valós szabálya (services/paymentReminders.js): két
             emlékeztető után a fizetetlen megállapodás lezárul, mindkét fél

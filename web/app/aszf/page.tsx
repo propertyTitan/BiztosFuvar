@@ -55,8 +55,10 @@ export default function AszfPage() {
             pontból kikerült a „Trust Score” — az 5.1. pontban ismételt, indokolatlan visszalépés
             esetén a fiók felfüggeszthető, a 10. pontban az értékelési rendszer manipulálása tilos,
             a 11.4. pontban a felfüggesztési okok között a „tartósan alacsony Trust Score” helyett
-            „tartósan rossz értékelések” áll; a 7. pontban a fotók magyar megnevezést kaptak
-            (felvételi és lerakodási fotó); a 4.1. pontban a díjak ezres tagolása egységes lett.
+            „tartósan rossz értékelések” áll; az 5.3. pontban a fotók magyar megnevezést kaptak
+            (felvételi és lerakodási fotó); az 5.2. és a 7. pontban a GPS-napló csak akkor
+            bizonyíték, ha rendelkezésre áll (élő helymegosztás jelenleg nincs); a 4.1. pontban a
+            díjak ezres tagolása egységes lett.
           </li>
           <li>
             <strong>2026. szeptember 10.:</strong> 4.2. pont — pontosítás: a fuvardíj a Felek
@@ -287,7 +289,7 @@ export default function AszfPage() {
         hatályos jogszabályok alapján rendezi.</strong> A kártérítési igény jogalapját, mértékét és módját
         a Felek között a vonatkozó jog határozza meg; a Szolgáltató <strong>nem szab meg felső kárhatárt</strong>,
         és nem korlátozza a Feleket a jogszabályból eredő igényeik érvényesítésében. A Szolgáltató a
-        rendezést kizárólag technikai eszközökkel segíti (felvételi és kézbesítési fotó, GPS-napló, in-app
+        rendezést kizárólag technikai eszközökkel segíti (felvételi és kézbesítési fotó, GPS-napló, ha rendelkezésre áll, in-app
         kommunikáció, a vita-funkció), de <strong>kártérítést nem fizet</strong>, és a Felek közötti jogvitában
         érdemben, jogerős hatállyal nem dönt. A Felek a vitájukat a hatályos jog szerint, szükség esetén
         bírósági úton érvényesíthetik (lásd 8. pont).
@@ -456,7 +458,7 @@ export default function AszfPage() {
         (&quot;Problémám van ezzel a fuvarral&quot;) keresztül rendezhetik.
       </p>
       <p>
-        A Szolgáltató Admin-csapata a vitát a beadott bizonyítékok (fotók, GPS-log, in-app
+        A Szolgáltató Admin-csapata a vitát a beadott bizonyítékok (fotók, GPS-napló, ha rendelkezésre áll, in-app
         kommunikáció, átvételi kód státusza) alapján <strong>14 munkanapon belül</strong> bírálja
         el, és írásban közli az álláspontját a Felekkel. Mivel a Szolgáltató a fuvardíjat nem
         kezeli (4.2. pont), a döntés pénzmozgással nem jár: a döntés a Platformon belüli

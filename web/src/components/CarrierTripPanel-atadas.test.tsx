@@ -105,11 +105,13 @@ describe('CarrierTripPanel — kézbesítés', () => {
 });
 
 describe('CarrierTripPanel — díjfizetésre vár', () => {
-  it('megmondja, mi lesz, ha a feladó nem fizet, és hogy a cím/telefon a díj után jár', () => {
+  it('megmondja, mi lesz, ha a feladó nem fizet, és hogy a cím/elérhetőség a díj után jár', () => {
     render(<CarrierTripPanel jobId="j1" status="accepted" paid={false} onDone={vi.fn()} />);
     expect(screen.getByText(/kétszer emlékeztetjük/)).toBeInTheDocument();
     expect(screen.getByText(/automatikusan lezárul/)).toBeInTheDocument();
-    expect(screen.getByText(/pontos címet és a feladó telefonszámát a díj után látod/)).toBeInTheDocument();
+    expect(screen.getByText(/pontos címet és a feladó elérhetőségét a díj után látod/)).toBeInTheDocument();
+    // A feladónak a telefonszám nem kötelező — telefonszámot nem ígérhetünk.
+    expect(screen.queryByText(/feladó telefonszámát/)).toBeNull();
   });
 
   it('foglalásnál nincs lejárati ígéret (ott nincs ilyen kör)', () => {

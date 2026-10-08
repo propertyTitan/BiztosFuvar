@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import AszfPage from '../../app/aszf/page';
 import AdatkezelesPage from '../../app/adatkezeles/page';
+import { UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
 
 const normal = (s: string | null | undefined) => (s || '').replace(/\s+/g, ' ').trim();
 
@@ -30,6 +31,16 @@ function fejezet(container: HTMLElement, id: string): string {
   const reszek = [normal(cim!.textContent)];
   let el = cim!.nextElementSibling;
   while (el && el.tagName !== 'H2') { reszek.push(normal(el.textContent)); el = el.nextElementSibling; }
+  return reszek.join(' ');
+}
+
+/** Egy alpont szövege: a „5.3."-mal kezdődő h3-tól a következő h2/h3-ig. */
+function alpont(container: HTMLElement, szam: string): string {
+  const cim = [...container.querySelectorAll('h3')].find((h) => normal(h.textContent).startsWith(szam));
+  expect(cim, `nincs ${szam} alpont`).toBeTruthy();
+  const reszek = [normal(cim!.textContent)];
+  let el = cim!.nextElementSibling;
+  while (el && el.tagName !== 'H2' && el.tagName !== 'H3') { reszek.push(normal(el.textContent)); el = el.nextElementSibling; }
   return reszek.join(' ');
 }
 
@@ -64,6 +75,31 @@ describe('ÁSZF — a Trust Score és a rangsor a kód szerint (A4)', () => {
     // A változásnapló minden érintett pontot megnevez (fix1-review).
     expect(t).toContain('az 5.1., a 7., a 10. és a 11.4. pontból kikerült a „Trust Score”');
     expect(t).toContain('„tartósan rossz értékelések”');
+  });
+
+  it('a változásnapló a valódi alpontot nevezi meg (fix2-review): a fotó-átnevezés az 5.3.-ban van', () => {
+    const { container } = render(<AszfPage />);
+    const t = normal(container.textContent);
+    expect(t).toContain('az 5.3. pontban a fotók magyar megnevezést kaptak');
+    expect(t).not.toContain('a 7. pontban a fotók magyar megnevezést kaptak');
+    expect(alpont(container, '5.3.')).toContain('felvételi és lerakodási fotókat');
+    expect(fejezet(container, 'pont-7')).not.toMatch(/felvételi és lerakodási/);
+  });
+
+  it('a GPS-napló csak „ha rendelkezésre áll” — élő helymegosztás a weben nincs (fix2-review)', () => {
+    const { container } = render(<AszfPage />);
+    const ot = fejezet(container, 'pont-5');
+    const het = fejezet(container, 'pont-7');
+    expect(het).not.toMatch(/GPS-log/);
+    let talalat = 0;
+    for (const szoveg of [ot, het]) {
+      for (const m of szoveg.matchAll(/GPS-napló/g)) {
+        talalat += 1;
+        expect(szoveg.slice(m.index!, m.index! + 40)).toContain('ha rendelkezésre áll');
+      }
+    }
+    expect(talalat).toBeGreaterThan(0);
+    expect(normal(container.textContent)).toContain('az 5.2. és a 7. pontban a GPS-napló csak akkor bizonyíték, ha rendelkezésre áll');
   });
 
   it('a díjsávok egységes ezres tagolással (nem „1.000 Ft")', () => {
@@ -125,5 +161,17 @@ describe('olvashatóság (A26)', () => {
     for (const kulcs of ['gofuvar_install_dismissed_at', 'gofuvar_install_visits', 'gofuvar_install_eligible', 'gofuvar_install_session']) {
       expect(t).toContain(kulcs);
     }
+  });
+
+  it('a fuvarfeladás piszkozata és a szállítói szűrők is a táblázatban vannak (fix2-review)', () => {
+    // A kulcsneveket a kódból vesszük — egy átnevezés itt is pirosat ad.
+    const { container } = render(<AdatkezelesPage />);
+    const tabla = normal(container.querySelector('.jogi-tablazat')!.textContent);
+    expect(tabla).toContain(`${UJ_FUVAR_PISZKOZAT_ELOTAG}:<azonosító>`);
+    expect(tabla).toContain('a címzett neve, telefonszáma és e-mail-címe');
+    expect(tabla).toContain('legfeljebb 7 napig');
+    const fuvarlista = fs.readFileSync(path.resolve(__dirname, '..', '..', 'app', 'sofor', 'fuvarok', 'page.tsx'), 'utf8');
+    const szurok = fuvarlista.match(/SZUROK_KULCS = '([a-z_]+)'/)![1];
+    expect(tabla).toContain(szurok);
   });
 });
