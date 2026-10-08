@@ -38,6 +38,9 @@ export default function NotFound() {
     // Felhasználóhoz kötött mód (GF-006) — a helper a bejelentkezett user
     // kulcsát olvassa; kijelentkezett látogatónál a feladó-nézet a default.
     setCurrentMode(readStoredMode() ?? 'shipper');
+    // Saját cím (UX-kör A25, 2026-10-08): eddig a 404 a főoldal címét
+    // örökölte. Kliens-komponens, ezért nem `metadata`-export.
+    document.title = 'Az oldal nem található | GoFuvar';
   }, []);
 
   const intended = guessModeFromPath(path);

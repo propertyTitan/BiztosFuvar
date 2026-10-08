@@ -6,7 +6,9 @@ import type { ReactNode } from 'react';
 export const metadata: Metadata = {
   // Privát/hitelesített felület (2026-09-11, C2): a robots.txt Allow-ra váltása után se indexelődjön.
   robots: { index: false, follow: false },
-  title: 'Üzenetek a GoFuvartól',
+  // A „| GoFuvar" utótag a template-ből jön — a címben ne legyen kétszer
+  // „GoFuvar" (UX-kör A25, oldalcim-or.test.ts).
+  title: 'Üzenetek a csapattól',
   description: 'A GoFuvar csapatának üzenetei és közleményei.',
 };
 
