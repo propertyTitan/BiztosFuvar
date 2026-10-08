@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
-import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone } from 'lucide-react';
+import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone, Lock, ShieldCheck } from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
 import { optionalPhoneError } from '@/lib/formValidation';
@@ -78,6 +78,10 @@ export default function SoforFuvarReszletek() {
   const [submitting, setSubmitting] = useState(false);
   const [acceptingCounter, setAcceptingCounter] = useState(false);
   const [counterOpen, setCounterOpen] = useState(false);
+  // Azonosítási állapot (UX-review A29, 2026-10-08): a szállító eddig csak az
+  // ajánlat ELKÜLDÉSEKOR (403) tudta meg, hogy személyazonosítás kell — a
+  // kitöltött űrlap után. Most az űrlap tetején előre szólunk.
+  const [kycAllapot, setKycAllapot] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -100,6 +104,23 @@ export default function SoforFuvarReszletek() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!me) return;
+    let el = false;
+    // A sáv csak segítség: bármilyen hiba esetén (a hívás maga is a láncon
+    // belül van) egyszerűen nem jelenik meg, az oldal működése nem függ tőle.
+    const olvas = (fresh = false) => {
+      Promise.resolve()
+        .then(() => api.getMyProfile(fresh ? { fresh: true } : undefined))
+        .then((p: any) => { if (!el) setKycAllapot(p?.identity_kyc_status || 'none'); })
+        .catch(() => {});
+    };
+    olvas();
+    const frissit = () => olvas(true);
+    window.addEventListener('gofuvar:kyc-updated', frissit);
+    return () => { el = true; window.removeEventListener('gofuvar:kyc-updated', frissit); };
+  }, [me?.id]);
 
   // `job:paid` realtime event — ha a feladó kifizette a fuvart, a szállító
   // azonnal lássa a FIZETVE címkét, ne kelljen manuálisan refreshelni.
@@ -296,6 +317,13 @@ export default function SoforFuvarReszletek() {
             {' → '}
             <Flag size={13} style={{ verticalAlign: -2 }} /> {job.dropoff_address}
           </p>
+          {/* UX-review A27 (2026-10-08): a díj előtt utca-szintű a cím — ezt
+              meg is mondjuk, különben az irányítószámot házszámnak nézték. */}
+          {!job.paid_at && !iAmTheShipper && (
+            <p className="muted" style={{ margin: '2px 0 0', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Lock size={12} aria-hidden /> A házszám a kapcsolatfelvételi díj után jelenik meg.
+            </p>
+          )}
           {idoablakSzoveg(job.pickup_window_start, job.pickup_window_end) && (
             <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
               🕒 Felvételi időablak: <strong>{idoablakSzoveg(job.pickup_window_start, job.pickup_window_end)}</strong>
@@ -583,6 +611,31 @@ export default function SoforFuvarReszletek() {
                 setReturnPolicy(myBid.return_policy || '');
                 setReturnFee(myBid.return_fee_huf ? String(myBid.return_fee_huf) : '');
               }}>Korábbi ajánlat betöltése</button>
+            </div>
+          )}
+          {kycAllapot && kycAllapot !== 'verified' && (
+            <div
+              className="callout callout-info"
+              role="status"
+              style={{ marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}
+            >
+              <span style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14 }}>
+                <ShieldCheck size={18} aria-hidden style={{ flexShrink: 0, marginTop: 1 }} />
+                {kycAllapot === 'pending'
+                  ? 'Az azonosításod ellenőrzés alatt van — amint elfogadjuk, tehetsz ajánlatot.'
+                  : 'Az ajánlathoz egyszeri azonosítás kell – kb. 2 perc.'}
+              </span>
+              {kycAllapot !== 'pending' && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
+                    detail: { code: 'IDENTITY_KYC_REQUIRED' },
+                  }))}
+                >
+                  Azonosítás most
+                </button>
+              )}
             </div>
           )}
           {lezarultAjanlat && (
@@ -892,7 +945,13 @@ export default function SoforFuvarReszletek() {
           kézbesítés-fotó + 6 jegyű kód → delivered. */}
       {iAmTheCarrier && (['accepted', 'in_progress'].includes(job.status)
         || (job.status === 'disputed' && ['accepted', 'in_progress'].includes(job.status_before_dispute || ''))) && (
-        <CarrierTripPanel jobId={id} status={job.status} statusBeforeDispute={job.status_before_dispute} paid={!!job.paid_at} onDone={load} />
+        <CarrierTripPanel
+          jobId={id} status={job.status} statusBeforeDispute={job.status_before_dispute} paid={!!job.paid_at} onDone={load}
+          feladoTelefon={job.paid_at ? job.contact?.phone : null}
+          cimzettTelefon={job.paid_at ? (job as any).recipient_phone : null}
+          vallalas={kartyaAjanlat?.status === 'accepted' ? kartyaAjanlat : null}
+          problemaHref="#problema-bejelentese"
+        />
       )}
 
       {/* Chat */}
@@ -918,7 +977,9 @@ export default function SoforFuvarReszletek() {
       )}
 
       {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
-      <DisputeButton jobId={id} status={job.status} paid={!!job.paid_at} />
+      <div id="problema-bejelentese" style={{ scrollMarginTop: 80 }}>
+        <DisputeButton jobId={id} status={job.status} paid={!!job.paid_at} />
+      </div>
 
       {/* Publikus Q&A — szállítóként itt kérdezhetek a feladótól */}
       <JobQuestions

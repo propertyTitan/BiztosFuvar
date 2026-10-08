@@ -96,17 +96,17 @@ describe('CarrierTripPanel — kézbesítés (in_progress)', () => {
 });
 
 describe('CarrierTripPanel — fizetetlen fuvar', () => {
-  it('accepted + fizetetlen: "Fizetésre vár", nincs feltöltő űrlap', () => {
+  it('accepted + fizetetlen: díjfizetésre vár, nincs feltöltő űrlap', () => {
     render(<CarrierTripPanel jobId="j1" status="accepted" paid={false} onDone={vi.fn()} />);
 
-    expect(screen.getByText(/Fizetésre vár/)).toBeInTheDocument();
+    expect(screen.getByText(/díjfizetésére várunk/)).toBeInTheDocument();
     expect(screen.queryByText(/Felvétel igazolása/)).not.toBeInTheDocument();
   });
 
   it('in_progress + fizetetlen: a kézbesítés sem elérhető', () => {
     render(<CarrierTripPanel jobId="j1" status="in_progress" paid={false} onDone={vi.fn()} />);
 
-    expect(screen.getByText(/Fizetésre vár/)).toBeInTheDocument();
+    expect(screen.getByText(/díjfizetésére várunk/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Kézbesítés igazolása/ })).not.toBeInTheDocument();
   });
 });
