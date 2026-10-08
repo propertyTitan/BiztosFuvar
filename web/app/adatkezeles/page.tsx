@@ -1,9 +1,27 @@
 import type { Metadata } from 'next';
+import JogiTartalomjegyzek, { VisszaATetejere, type JogiFejezet } from '../aszf/JogiTartalomjegyzek';
 
+// A „| GoFuvar" utótagot a root layout title.template-je adja — itt NEM
+// írhatjuk ki (UX-kör A25: eddig „… | GoFuvar | GoFuvar" lett a cím).
 export const metadata: Metadata = {
-  title: 'Adatkezelési Tájékoztató (GDPR) | GoFuvar',
+  title: 'Adatkezelési Tájékoztató (GDPR)',
   description: 'A GoFuvar platform adatkezelési tájékoztatója.',
 };
+
+const FEJEZETEK: JogiFejezet[] = [
+  { id: 'adatkezelo', cim: '1. Az Adatkezelő' },
+  { id: 'kezelt-adatok', cim: '2. A kezelt adatok köre és célja' },
+  { id: 'jogalap', cim: '3. Az adatkezelés jogalapja' },
+  { id: 'adatfeldolgozok', cim: '4. Adatfeldolgozók és Adattovábbítás' },
+  { id: 'cib-kartyas-fizetes', cim: '4/A. Bankkártyás fizetés (CIB Bank Zrt.)' },
+  { id: 'megorzesi-idok', cim: '5. Adatbiztonság és Konkrét Megőrzési Idők' },
+  { id: 'automatizalt-dontes', cim: '6. Automatizált Döntéshozatal és Profilalkotás' },
+  { id: 'sutik', cim: '7. Sütik (Cookies) és Böngészői Tárolók' },
+  { id: 'cimzett', cim: '7/A. Ha csomagot vársz (Címzett) — külön tájékoztatás' },
+  { id: 'erintettek-jogai', cim: '8. Az Érintettek Jogai és Eljárási Rend' },
+  { id: 'incidens', cim: '9. Adatvédelmi Incidens-eljárás' },
+];
+const H2 = { marginTop: 32, scrollMarginTop: 80 } as const;
 
 export default function AdatkezelesPage() {
   return (
@@ -16,12 +34,14 @@ export default function AdatkezelesPage() {
         fontSize: 16,
       }}
     >
-      <h1 style={{ marginBottom: 4 }}>Adatkezelési Tájékoztató (GDPR)</h1>
+      <h1 id="dokumentum-teteje" style={{ marginBottom: 4, scrollMarginTop: 80 }}>Adatkezelési Tájékoztató (GDPR)</h1>
       <p className="muted" style={{ margin: 0 }}>
-        <strong>Hatályos:</strong> 2026. október 1-től
+        <strong>Hatályos:</strong> 2026. október 8-tól
       </p>
 
-      <h2 style={{ marginTop: 32 }}>1. Az Adatkezelő</h2>
+      <JogiTartalomjegyzek fejezetek={FEJEZETEK} />
+
+      <h2 id="adatkezelo" style={H2}>1. Az Adatkezelő</h2>
       <ul>
         <li><strong>Név:</strong> Tiszta Hód Korlátolt Felelősségű Társaság (Tiszta Hód Kft.)</li>
         <li><strong>Székhely:</strong> 6800 Hódmezővásárhely, Szántó Kovács János utca 144.</li>
@@ -36,7 +56,7 @@ export default function AdatkezelesPage() {
         adatvédelmi ügyek kapcsolattartója a fenti e-mail címen érhető el.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>2. A kezelt adatok köre és célja</h2>
+      <h2 id="kezelt-adatok" style={H2}>2. A kezelt adatok köre és célja</h2>
       <ul>
         <li>
           <strong>Azonosító adatok:</strong> Név, e-mail, telefonszám.
@@ -83,7 +103,7 @@ export default function AdatkezelesPage() {
         </li>
         <li>
           <strong>Rendszer és Fuvarspecifikus adatok:</strong> Címek, GPS koordináták (élő követés),
-          csomag fotók, in-app chat üzenetek, profil értékelések (Trust Score), IP címek,
+          csomag fotók, in-app chat üzenetek, profil értékelések és belső megbízhatósági pontszám, IP címek,
           eszközazonosítók és Push tokenek (működtetés és biztonság).
         </li>
         <li>
@@ -141,7 +161,7 @@ export default function AdatkezelesPage() {
         </li>
       </ul>
 
-      <h2 style={{ marginTop: 32 }}>3. Az adatkezelés jogalapja</h2>
+      <h2 id="jogalap" style={H2}>3. Az adatkezelés jogalapja</h2>
       <p>
         <strong>Létfontosságú érdek</strong> — vészjelzés (SOS) esetén a helyadatod és az
         üzeneted továbbítása a segítségnyújtáshoz [GDPR 6. cikk (1) d)]; ilyenkor nem
@@ -171,7 +191,7 @@ export default function AdatkezelesPage() {
         adatokat fokozott biztonsággal és a 5. szakaszban rögzített megőrzési idők szerint kezeli.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>4. Adatfeldolgozók és Adattovábbítás</h2>
+      <h2 id="adatfeldolgozok" style={H2}>4. Adatfeldolgozók és Adattovábbítás</h2>
       <p>
         A platform fő piaca Magyarország; európai (EU + EGT) viszonylatú nemzetközi fuvarokat is
         kiszolgálunk. Az adatfeldolgozók EU-n belül helyezkednek el; a 4.2. pontban felsorolt
@@ -279,7 +299,7 @@ export default function AdatkezelesPage() {
         </li>
       </ul>
 
-      <h2 style={{ marginTop: 32 }}>5. Adatbiztonság és Konkrét Megőrzési Idők</h2>
+      <h2 id="megorzesi-idok" style={H2}>5. Adatbiztonság és Konkrét Megőrzési Idők</h2>
       <ul>
         <li>
           <strong>Számlázási adatok:</strong> A kiállítástól számított 8 évig
@@ -307,7 +327,7 @@ export default function AdatkezelesPage() {
           (kizárólag vitarendezés céljából), utána automatikusan törlésre kerülnek. Kivétel: ha a
           fuvarral kapcsolatban vitarendezési eljárás indult vagy megőrzési zárolás van érvényben —
           ilyenkor kizárólag az érintett fuvar üzenetei legfeljebb 5 évig kerülnek megőrzésre.
-          Az Értékelések (Trust Score) a profil részeként a fiók élettartamáig megmaradnak.
+          Az értékelések és a belső megbízhatósági pontszám a profil részeként a fiók élettartamáig megmaradnak.
         </li>
         <li>
           <strong>A GoFuvar csapatával váltott üzenetek</strong> (a Platform üzemeltetője által
@@ -425,7 +445,7 @@ export default function AdatkezelesPage() {
         <li>Adatbázis automatikus napi mentései 7 napig megőrzésre kerülnek (Neon)</li>
       </ul>
 
-      <h2 style={{ marginTop: 32 }}>6. Automatizált Döntéshozatal és Profilalkotás</h2>
+      <h2 id="automatizalt-dontes" style={H2}>6. Automatizált Döntéshozatal és Profilalkotás</h2>
       <p>
         A GDPR 22. cikke szerinti tájékoztatásra a platform a következő automatizált adatkezelési
         műveleteket alkalmazza:
@@ -452,12 +472,12 @@ export default function AdatkezelesPage() {
           (ÁSZF 3.1.), a végső döntés ellen emberi felülvizsgálatot kérhetsz (lásd 8.4. pont).
         </li>
         <li>
-          <strong>Trust Score:</strong> a Sofőr platformon belüli megbízhatósági pontszámát egy
-          algoritmus számítja teljesített fuvarok, értékelések, viták és lemondások alapján.
-          A Trust Score <strong>tájékoztató jellegű</strong>: a profilodon és az ajánlataid
-          mellett jelenik meg, hogy a másik fél könnyebben dönthessen. <strong>Nem befolyásolja
-          a fuvarok kiajánlásának sorrendjét, és önmagában nem eredményez fiók-felfüggesztést</strong>
-          — ilyen döntést csak emberi adminisztrátor hozhat, konkrét szabályszegés miatt.
+          <strong>Belső megbízhatósági pontszám („Trust Score”):</strong> a Sofőr teljesített
+          fuvarjaiból, értékeléseiből és a profilja kitöltöttségéből egy algoritmus belső,
+          tájékoztató pontszámot számol. <strong>Jelenleg nem jelenik meg a felületen</strong> (csak az
+          adminisztrátorok látják), <strong>nem befolyásolja az ajánlatok és a fuvarok sorrendjét,
+          és önmagában nem eredményez fiók-felfüggesztést</strong> — ilyen döntést csak emberi
+          adminisztrátor hozhat, konkrét szabályszegés miatt.
         </li>
         <li>
           <strong>Coverage-zóna szűrés:</strong> a platform földrajzi alapon korlátozhatja a
@@ -477,13 +497,18 @@ export default function AdatkezelesPage() {
         Az ilyen kéréseket az Adatkezelő 30 napon belül érdemben elbírálja.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>7. Sütik (Cookies) és Böngészői Tárolók</h2>
+      <h2 id="sutik" style={H2}>7. Sütik (Cookies) és Böngészői Tárolók</h2>
       <p>
         A Platform a működéséhez technikailag szükséges, valamint a felhasználói élményt biztosító
         adatokat a böngésző localStorage-jében és session-ben tárolja. A jelenlegi állapotban
         <strong> marketing- és analytics-célú süti NEM kerül elhelyezésre.</strong>
       </p>
-      <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16, fontSize: 13 }}>
+      {/* Görgethető régió (UX-kör A26): mobilon a táblázat ~504 px széles, és a
+          globális overflow-x: clip miatt az „Élettartam" oszlop egyszerűen
+          eltűnt — épp a megőrzési idő nem volt olvasható. A tabIndex a
+          billentyűzetes görgetéshez kell (axe: scrollable-region-focusable). */}
+      <div className="jogi-tablazat" role="region" aria-label="A böngészőben tárolt adatok táblázata" tabIndex={0}>
+      <table style={{ width: '100%', minWidth: 480, borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ background: 'var(--surface)', textAlign: 'left' }}>
             <th style={{ padding: 8, borderBottom: '1px solid var(--border)' }}>Tároló</th>
@@ -501,10 +526,11 @@ export default function AdatkezelesPage() {
           <tr><td style={{ padding: 8 }}>gofuvar_kyc_welcome_&lt;azonosító&gt;</td><td style={{ padding: 8 }}>Egyszer megjelenő üdvözlő ablak</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_hozasd_el, gofuvar_prefill (munkamenet)</td><td style={{ padding: 8 }}>„Hozasd el” termék- és címadatok megőrzése belépésen át, a fuvarpiszkozatba történő átadásig</td><td style={{ padding: 8 }}>a böngészőfül bezárásáig vagy kijelentkezésig; az utolsó mentéstől 24 óráig visszaállítható</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_ai_history:&lt;azonosító&gt;</td><td style={{ padding: 8 }}>Az AI-asszisztenssel folytatott beszélgetés előzménye (fiókonként külön) — <strong>kizárólag a te böngésződben</strong> tárolva</td><td style={{ padding: 8 }}>kijelentkezésig vagy a beszélgetés törléséig</td></tr>
-          <tr><td style={{ padding: 8 }}>gofuvar_install_dismissed_at</td><td style={{ padding: 8 }}>A telepítési ajánlat elrejtése</td><td style={{ padding: 8 }}>visszavonásig</td></tr>
+          <tr><td style={{ padding: 8 }}>gofuvar_install_dismissed_at, gofuvar_install_visits, gofuvar_install_eligible, gofuvar_install_session (munkamenet)</td><td style={{ padding: 8 }}>A telepítési ajánlat időzítése és elrejtése (a látogatások száma, az első sikeres feladás vagy ajánlat ténye) — <strong>kizárólag a te böngésződben</strong></td><td style={{ padding: 8 }}>visszavonásig; a munkamenet-jelző a böngészőfül bezárásáig</td></tr>
           <tr><td style={{ padding: 8 }}>gofuvar_cookie_consent</td><td style={{ padding: 8 }}>A süti-bannerre adott válasz rögzítése</td><td style={{ padding: 8 }}>1 év</td></tr>
         </tbody>
       </table>
+      </div>
       <p>
         A működéshez szükséges sütikhez <strong>nem kérünk külön hozzájárulást</strong>, mivel azok
         nélkül a szolgáltatás nem nyújtható (pl. bejelentkezés). A Felhasználó a böngészőjében
@@ -519,7 +545,7 @@ export default function AdatkezelesPage() {
           neki külön tájékoztatás jár, méghozzá az adat megszerzésétől számított
           ésszerű időn belül — a gyakorlatban az első üzenetünkkel. Ez a szakasz
           az, amire a címzetti e-mail és a nyomon-követő oldal hivatkozik. */}
-      <h2 id="cimzett" style={{ marginTop: 32 }}>
+      <h2 id="cimzett" style={H2}>
         7/A. Ha csomagot vársz (Címzett) — külön tájékoztatás
       </h2>
       <p>
@@ -622,7 +648,7 @@ export default function AdatkezelesPage() {
         </a>.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>9. Adatvédelmi Incidens-eljárás</h2>
+      <h2 id="incidens" style={H2}>9. Adatvédelmi Incidens-eljárás</h2>
       <p>
         Adatvédelmi incidensnek minősül a személyes adatok jogellenes nyilvánosságra hozatala,
         elvesztése, jogosulatlan hozzáférése (pl. kibertámadás, jelszó-szivárgás, tévesen megosztott
@@ -648,7 +674,8 @@ export default function AdatkezelesPage() {
         gyanús eseményt észlel.
       </p>
 
-      <hr style={{ margin: '48px 0 24px', opacity: 0.3 }} />
+      <VisszaATetejere />
+      <hr style={{ margin: '24px 0 24px', opacity: 0.3 }} />
       <p className="muted" style={{ fontSize: 13 }}>
         Kapcsolódó dokumentum: <a href="/aszf">Általános Szerződési Feltételek (ÁSZF)</a>
       </p>

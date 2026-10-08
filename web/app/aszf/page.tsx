@@ -1,9 +1,30 @@
 import type { Metadata } from 'next';
+import JogiTartalomjegyzek, { VisszaATetejere, type JogiFejezet } from './JogiTartalomjegyzek';
 
+// A „| GoFuvar" utótagot a root layout title.template-je adja — itt NEM
+// írhatjuk ki (UX-kör A25: eddig „… | GoFuvar | GoFuvar" lett a cím).
 export const metadata: Metadata = {
-  title: 'Általános Szerződési Feltételek (ÁSZF) | GoFuvar',
+  title: 'Általános Szerződési Feltételek (ÁSZF)',
   description: 'A GoFuvar platform általános szerződési feltételei.',
 };
+
+const FEJEZETEK: JogiFejezet[] = [
+  { id: 'pont-1', cim: '1. A Szolgáltató adatai és Elérhetőségei' },
+  { id: 'pont-2', cim: '2. A Szolgáltatás jellege és Közvetítői státusz' },
+  { id: 'pont-3', cim: '3. Regisztráció és Progresszív KYC' },
+  { id: 'pont-4', cim: '4. Pénzügyi Feltételek és Számlázás' },
+  { id: 'pont-5', cim: '5. Lemondás, Kártérítési Felelősség és DAC7' },
+  { id: 'pont-6', cim: '6. Fogyasztói Jogok: Elállás és Panaszkezelés' },
+  { id: 'pont-7', cim: '7. Vita-rendezés a Platformon belül' },
+  { id: 'pont-8', cim: '8. Joghatóság, Irányadó Jog és Bíróság' },
+  { id: 'pont-9', cim: '9. Felhasználói Tartalom' },
+  { id: 'pont-10', cim: '10. Tiltott Magatartás és a Platform Megkerülésének Tilalma' },
+  { id: 'pont-11', cim: '11. Fiók Felfüggesztése és Megszüntetése' },
+  { id: 'pont-12', cim: '12. A Felhasználó Kártalanítási Kötelezettsége' },
+  { id: 'pont-13', cim: '13. Az ÁSZF Módosítása' },
+  { id: 'pont-14', cim: '14. Vegyes Rendelkezések' },
+];
+const H2 = { marginTop: 32, scrollMarginTop: 80 } as const;
 
 export default function AszfPage() {
   return (
@@ -16,13 +37,39 @@ export default function AszfPage() {
         fontSize: 16,
       }}
     >
-      <h1 style={{ marginBottom: 4 }}>Általános Szerződési Feltételek (ÁSZF)</h1>
+      <h1 id="dokumentum-teteje" style={{ marginBottom: 4, scrollMarginTop: 80 }}>Általános Szerződési Feltételek (ÁSZF)</h1>
       <p className="muted" style={{ margin: 0 }}>
         <strong>Platform:</strong> GoFuvar (gofuvar.hu)<br />
-        <strong>Hatályos:</strong> 2026. augusztus 18-tól (első változat: 2026. július 3.)
+        <strong>Hatályos:</strong> 2026. október 8-tól (első változat: 2026. július 3.)
       </p>
 
-      <h2 style={{ marginTop: 32 }}>1. A Szolgáltató adatai és Elérhetőségei</h2>
+      {/* A 13. pont a módosításokról szóló tájékoztatást ígéri — a hatálydátum
+          mindig az utolsó TARTALMI módosítás napja, a lista pedig megmondja,
+          mi változott (UX-kör A26, 2026-10-08). */}
+      <div className="callout" style={{ marginTop: 20, fontSize: 14, lineHeight: 1.6 }}>
+        <p style={{ margin: '0 0 6px' }}><strong>Változások</strong></p>
+        <ul style={{ margin: 0, paddingLeft: 20 }}>
+          <li>
+            <strong>2026. október 8.:</strong> a 2. pont kiegészült a rangsorolás leírásával (milyen
+            sorrendben jelennek meg az ajánlatok és a fuvarok); az 5.1., a 7. és a 11.4. pontból
+            kikerült a „Trust Score” csökkentésére és következményeire vonatkozó szöveg — ismételt,
+            indokolatlan visszalépés esetén a fiók felfüggeszthető; a 4.1. pontban a díjak
+            ezres tagolása egységes lett.
+          </li>
+          <li>
+            <strong>2026. szeptember 10.:</strong> 4.2. pont — pontosítás: a fuvardíj a Felek
+            megállapodása szerint készpénzben vagy átutalással is rendezhető.
+          </li>
+          <li>
+            <strong>2026. augusztus 18.:</strong> élőfej (a Platform a gofuvar.hu weboldal), 4.1. pont
+            (a címzetti SMS a felvételkor megy), 5. pont (a DAC7-hivatkozás pontosítása).
+          </li>
+        </ul>
+      </div>
+
+      <JogiTartalomjegyzek fejezetek={FEJEZETEK} />
+
+      <h2 id="pont-1" style={H2}>1. A Szolgáltató adatai és Elérhetőségei</h2>
       <p>
         Az e-Kereskedelemről szóló 2001. évi CVIII. törvény alapján a szolgáltató adatai:
       </p>
@@ -37,7 +84,7 @@ export default function AszfPage() {
         <li><strong>Telefonszám:</strong> +36 20 397 9223</li>
       </ul>
 
-      <h2 style={{ marginTop: 32 }}>2. A Szolgáltatás jellege és Közvetítői státusz</h2>
+      <h2 id="pont-2" style={H2}>2. A Szolgáltatás jellege és Közvetítői státusz</h2>
       <p>
         A Szolgáltató egy kétoldalú informatikai közvetítő platformot (<strong>Piacteret</strong>) üzemeltet.
         A Szolgáltató <strong>NEM</strong> végez fuvarozási vagy postai tevékenységet, <strong>NEM</strong> köt fuvarozási
@@ -59,8 +106,16 @@ export default function AszfPage() {
         közvetítése. Az európai (EU + EGT) viszonylatú nemzetközi fuvarokat a platform szintén támogatja,
         a Felhasználók és a Sofőrök kapacitásának függvényében.
       </p>
+      <p>
+        <strong>Rangsorolás (az (EU) 2019/1150 rendelet 5. cikke szerint):</strong> a Feladó a
+        fuvarjára érkezett ajánlatokat a fuvardíj szerint növekvő sorrendben látja. A Sofőrök
+        számára elérhető fuvarok listája alapesetben a feladás ideje szerint rendez (a legfrissebb
+        elöl; az esetleges azonnali fuvarok előrébb kerülnek); ha a Sofőr megosztja a helyzetét és
+        körzetre szűr, a felvételi ponttól mért távolság szerint. Fizetett kiemelés nincs; a
+        sorrendet sem ellenérték, sem értékelés vagy belső pontszám nem befolyásolja.
+      </p>
 
-      <h2 style={{ marginTop: 32 }}>3. Regisztráció és Progresszív KYC</h2>
+      <h2 id="pont-3" style={H2}>3. Regisztráció és Progresszív KYC</h2>
       <p>
         <strong>3.1.</strong> A regisztráció kizárólag 18. életévüket betöltött, cselekvőképes természetes
         személyek és jogi személyek számára engedélyezett.
@@ -137,7 +192,7 @@ export default function AszfPage() {
         hogy nyilatkozat-szerinti hiányosság észlelésekor a fiókot azonnal felfüggessze.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>4. Pénzügyi Feltételek és Számlázás</h2>
+      <h2 id="pont-4" style={H2}>4. Pénzügyi Feltételek és Számlázás</h2>
       <p>
         <strong>4.1. Kapcsolatfelvételi (közvetítési) díj:</strong> A Szolgáltató egyetlen díja a
         kapcsolatfelvételi díj, amelyet a <strong>Feladó</strong> fizet meg bankkártyával (a CIB Bank Zrt.
@@ -152,8 +207,8 @@ export default function AszfPage() {
         A díj a megállapodott fuvardíjhoz igazodó sávos, <strong>bevezető árazású</strong> díj:
       </p>
       <ul>
-        <li>50.000 Ft fuvardíjig: <strong>500 Ft</strong></li>
-        <li>50.000 Ft fuvardíj felett: <strong>1.000 Ft</strong></li>
+        <li>50&nbsp;000&nbsp;Ft fuvardíjig: <strong>500&nbsp;Ft</strong></li>
+        <li>50&nbsp;000&nbsp;Ft fuvardíj felett: <strong>1&nbsp;000&nbsp;Ft</strong></li>
       </ul>
       <p>
         A feltüntetett díjak bruttó (ÁFA-t tartalmazó) összegek. A „bevezető ár" megjelölés arra utal,
@@ -185,7 +240,7 @@ export default function AszfPage() {
         állít ki számlát a <strong>Feladó részére</strong>.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>5. Lemondás, Kártérítési Felelősség és DAC7</h2>
+      <h2 id="pont-5" style={H2}>5. Lemondás, Kártérítési Felelősség és DAC7</h2>
       <p>
         <strong>5.1. Lemondás:</strong> A fuvar lemondásáért a Szolgáltató <strong>külön lemondási
         díjat nem számít fel</strong>.
@@ -200,8 +255,8 @@ export default function AszfPage() {
         <li>
           <strong>Sofőri lemondás:</strong> A fuvar díjmentesen újranyílik: a Feladó a korábban
           beérkezett ajánlatok közül új díjfizetés nélkül választhat másik Sofőrt ugyanarra a
-          fuvarra (4.1. pont). A visszalépő Sofőr platformon belüli &quot;Trust Score&quot; értéke csökken;
-          ismételt indokolatlan lemondás esetén a Szolgáltató a Sofőri fiókot felfüggesztheti.
+          fuvarra (4.1. pont). Ismételt, indokolatlan visszalépés esetén a Szolgáltató a Sofőri
+          fiókot felfüggesztheti (11. pont).
         </li>
         <li>
           A fuvardíjjal a Szolgáltató nem rendelkezik (4.2. pont), így lemondás esetén a Szolgáltató
@@ -309,7 +364,7 @@ export default function AszfPage() {
         számát és összegét.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>6. Fogyasztói Jogok: Elállás és Panaszkezelés</h2>
+      <h2 id="pont-6" style={H2}>6. Fogyasztói Jogok: Elállás és Panaszkezelés</h2>
       <p>
         <strong>6.1. 14 napos elállási jog (B2C):</strong> A fogyasztó és a vállalkozás közötti
         szerződések részletes szabályairól szóló 45/2014. (II. 26.) Korm. rendelet alapján a
@@ -390,7 +445,7 @@ export default function AszfPage() {
         közlése a Sofőrrel a teljesítés igazolásának alapfeltétele.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>7. Vita-rendezés a Platformon belül</h2>
+      <h2 id="pont-7" style={H2}>7. Vita-rendezés a Platformon belül</h2>
       <p>
         A Felhasználók a köztük felmerülő vitákat elsősorban a Platformon belüli vita-funkción
         (&quot;Problémám van ezzel a fuvarral&quot;) keresztül rendezhetik.
@@ -400,7 +455,7 @@ export default function AszfPage() {
         kommunikáció, átvételi kód státusza) alapján <strong>14 munkanapon belül</strong> bírálja
         el, és írásban közli az álláspontját a Felekkel. Mivel a Szolgáltató a fuvardíjat nem
         kezeli (4.2. pont), a döntés pénzmozgással nem jár: a döntés a Platformon belüli
-        következményekre (pl. Trust Score, fiók-felfüggesztés, az eset dokumentálása), illetve a
+        következményekre (pl. fiók-felfüggesztés, az eset dokumentálása), illetve a
         Felek közötti rendezés elősegítésére terjed ki. A Szolgáltató méltányosságból, saját
         döntése alapján a kapcsolatfelvételi díjat jóváírhatja vagy visszatérítheti — erre
         azonban a Felhasználónak alanyi joga nincs.
@@ -409,7 +464,7 @@ export default function AszfPage() {
         Az Admin-álláspont a Feleket a bírósági igényérvényesítésben nem korlátozza (8. pont).
       </p>
 
-      <h2 style={{ marginTop: 32 }}>8. Joghatóság, Irányadó Jog és Bíróság</h2>
+      <h2 id="pont-8" style={H2}>8. Joghatóság, Irányadó Jog és Bíróság</h2>
       <p>
         Jelen ÁSZF-re és a Felhasználók közötti szerződésekre <strong>a magyar jog</strong> az
         irányadó. A Szolgáltató és a Felhasználó közötti vitás kérdésekben a Felek elsődlegesen
@@ -435,7 +490,7 @@ export default function AszfPage() {
         maradnak.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>9. Felhasználói Tartalom</h2>
+      <h2 id="pont-9" style={H2}>9. Felhasználói Tartalom</h2>
       <p>
         A Felhasználó által feltöltött vagy közzétett tartalom (fuvar-leírás, fotók, üzenetek,
         értékelések, profil-adatok; továbbiakban: <strong>Felhasználói Tartalom</strong>) a feltöltő
@@ -459,11 +514,11 @@ export default function AszfPage() {
         sértő értékelést eltávolítani.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>10. Tiltott Magatartás és a Platform Megkerülésének Tilalma</h2>
+      <h2 id="pont-10" style={H2}>10. Tiltott Magatartás és a Platform Megkerülésének Tilalma</h2>
       <p>A Platformon tilos különösen:</p>
       <ul>
         <li>hamis adatokkal vagy több párhuzamos fiók létrehozása, illetve más nevében jogosulatlan eljárás;</li>
-        <li>az értékelési / Trust Score rendszer manipulálása (pl. valótlan értékelések);</li>
+        <li>az értékelési rendszer manipulálása (pl. valótlan értékelések);</li>
         <li>automatizált adatgyűjtés (scraping), a Platform biztonsági intézkedéseinek megkerülése, kártékony kód elhelyezése;</li>
         <li>más Felhasználók zaklatása, fenyegetése, megtévesztése.</li>
       </ul>
@@ -476,7 +531,7 @@ export default function AszfPage() {
         díjat érvényesíteni.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>11. Fiók Felfüggesztése és Megszüntetése</h2>
+      <h2 id="pont-11" style={H2}>11. Fiók Felfüggesztése és Megszüntetése</h2>
       <p>
         <strong>11.1.</strong> A Felhasználó a fiókját bármikor, indoklás nélkül megszüntetheti
         (a folyamatban lévő fuvarok lezárását követően). A személyes adatok kezelésére a megszüntetést
@@ -499,8 +554,8 @@ export default function AszfPage() {
         hogy bármely fiókot saját mérlegelése alapján — indokolással vagy a nélkül — felfüggesszen vagy
         megszüntessen</strong>. A Szolgáltató ezt a jogát rendeltetésszerűen, a jóhiszeműség és tisztesség
         követelménye szerint gyakorolja, és alapesetben kizárólag visszaélés gyanúja esetén alkalmazza —
-        így különösen <strong>feltűnően gyakori vagy indokolatlan fuvarlemondás</strong>, tartósan alacsony
-        Trust Score, csalás vagy a Felhasználók megtévesztésének gyanúja esetén.
+        így különösen <strong>feltűnően gyakori vagy indokolatlan fuvarlemondás</strong>, tartósan
+        rossz értékelések, csalás vagy a Felhasználók megtévesztésének gyanúja esetén.
       </p>
       <p>
         Ahol jogszabály kötelező előzetes értesítési időt vagy indokolási kötelezettséget ír elő —
@@ -511,7 +566,7 @@ export default function AszfPage() {
         Felet sem a megszüntetés előtt keletkezett kötelezettségei alól.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>12. A Felhasználó Kártalanítási Kötelezettsége</h2>
+      <h2 id="pont-12" style={H2}>12. A Felhasználó Kártalanítási Kötelezettsége</h2>
       <p>
         A Felhasználó köteles a Szolgáltatót (valamint tisztségviselőit, munkavállalóit és
         közreműködőit) <strong>mentesíteni és kártalanítani</strong> minden olyan, harmadik fél által
@@ -529,7 +584,7 @@ export default function AszfPage() {
         és nem terjed ki olyan kárra, amelyet a Szolgáltató saját felróható magatartása okozott.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>13. Az ÁSZF Módosítása</h2>
+      <h2 id="pont-13" style={H2}>13. Az ÁSZF Módosítása</h2>
       <p>
         A Szolgáltató fenntartja a jogot az ÁSZF egyoldalú módosítására. A lényeges módosításokról
         a Felhasználókat a hatálybalépés előtt legalább 15 nappal e-mailben, vagy a platformon belüli
@@ -542,7 +597,7 @@ export default function AszfPage() {
         pillanatától alkalmazandó.
       </p>
 
-      <h2 style={{ marginTop: 32 }}>14. Vegyes Rendelkezések</h2>
+      <h2 id="pont-14" style={H2}>14. Vegyes Rendelkezések</h2>
       <p>
         <strong>14.1. Részleges érvénytelenség:</strong> ha a jelen ÁSZF bármely rendelkezése
         érvénytelennek vagy végrehajthatatlannak bizonyul, az a többi rendelkezés érvényességét nem
@@ -566,7 +621,8 @@ export default function AszfPage() {
         késedelmesen érvényesíti, az nem minősül az adott jogról való lemondásnak.
       </p>
 
-      <hr style={{ margin: '48px 0 24px', opacity: 0.3 }} />
+      <VisszaATetejere />
+      <hr style={{ margin: '24px 0 24px', opacity: 0.3 }} />
       <p className="muted" style={{ fontSize: 13 }}>
         Kapcsolódó dokumentum: <a href="/adatkezeles">Adatkezelési Tájékoztató (GDPR)</a>
       </p>

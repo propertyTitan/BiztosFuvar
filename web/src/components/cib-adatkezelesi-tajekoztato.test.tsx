@@ -58,9 +58,9 @@ describe('Adatkezelési tájékoztató — a bankkártyás fizetés (CIB) szakas
     expect(teljes).not.toContain('1027 Budapest');
   });
 
-  it('a hatályosság dátuma 2026. október 1.', () => {
+  it('a hatályosság dátuma 2026. október 8. (UX-kör A4: a Trust Score-szöveg a kódhoz igazítva)', () => {
     render(<AdatkezelesPage />);
-    expect(normal(screen.getByText(/Hatályos:/).closest('p')?.textContent)).toBe('Hatályos: 2026. október 1-től');
+    expect(normal(screen.getByText(/Hatályos:/).closest('p')?.textContent)).toBe('Hatályos: 2026. október 8-tól');
   });
 
   // 2026-10-01 (a PR-4 1. javítóköre): a 4/A. szakasz hozzájárulásra épít —
