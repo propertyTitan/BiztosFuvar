@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { Cookie } from 'lucide-react';
 
 const STORAGE_KEY = 'gofuvar_cookie_consent';
 
@@ -91,7 +92,7 @@ export default function CookieConsentBanner() {
               Egy látszat-választás rosszabb, mint a nyílt tájékoztatás. */}
           {kompakt ? (
             <>
-              🍪 Csak a <strong>működéshez szükséges</strong> sütiket használjuk —
+              <Cookie size={14} aria-hidden style={{ verticalAlign: -2 }} /> Csak a <strong>működéshez szükséges</strong> sütiket használjuk —
               marketing/analitika nincs, hozzájárulás nem kell.{' '}
               <Link href="/adatkezeles" style={{ color: 'var(--primary-text)' }}>
                 Részletek
@@ -99,7 +100,7 @@ export default function CookieConsentBanner() {
             </>
           ) : (
             <>
-              🍪 A GoFuvar <strong>kizárólag a működéshez szükséges</strong> sütiket és
+              <Cookie size={14} aria-hidden style={{ verticalAlign: -2 }} /> A GoFuvar <strong>kizárólag a működéshez szükséges</strong> sütiket és
               böngészői tárolókat használ (bejelentkezés, nézet- és téma-választás).
               Marketing- vagy analitikai sütit nem helyezünk el, és nem követünk
               harmadik feleken keresztül — ezekhez nem is kérünk hozzájárulást.

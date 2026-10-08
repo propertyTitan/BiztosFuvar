@@ -186,7 +186,7 @@
   },
   "sos": {
     "button": "Autómentés kérek!",
-    "alertTitle": "🚨 Autómentés",
+    "alertTitle": "Autómentés",
     "alertNearby": "{{distance}} km-re tőled!",
     "urgent": "Sürgős"
   },

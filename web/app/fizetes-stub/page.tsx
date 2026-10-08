@@ -21,6 +21,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useToast } from '@/components/ToastProvider';
 import TesztFizetesSav from '@/components/TesztFizetesSav';
+import { CreditCard, MapPin, Flag, Info, TriangleAlert, Hourglass, CircleCheck } from 'lucide-react';
 import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 
 type LoadedData = {
@@ -148,7 +149,7 @@ function FizetesStubContent() {
             fontSize: 24,
           }}
         >
-          💳
+          <CreditCard size={22} aria-hidden />
         </div>
         <div>
           <div style={{ fontSize: 18, fontWeight: 800 }}>Bankkártyás fizetés</div>
@@ -182,8 +183,8 @@ function FizetesStubContent() {
 
             <div style={{ marginBottom: 16 }}>
               <div className="muted" style={{ fontSize: 12 }}>CÍMEK</div>
-              <div>📍 {data.pickup}</div>
-              <div>🏁 {data.dropoff}</div>
+              <div><MapPin size={13} aria-hidden style={{ verticalAlign: -2 }} /> {data.pickup}</div>
+              <div><Flag size={13} aria-hidden style={{ verticalAlign: -2 }} /> {data.dropoff}</div>
             </div>
 
             <div
@@ -240,7 +241,7 @@ function FizetesStubContent() {
                 lineHeight: 1.5,
               }}
             >
-              ℹ️ A fizetés indításakor nyilatkoztál: kérted a szolgáltatás
+              <Info size={13} aria-hidden style={{ verticalAlign: -2 }} /> A fizetés indításakor nyilatkoztál: kérted a szolgáltatás
               (kapcsolatfelvételi adatok átadása) azonnali teljesítését, és
               tudomásul vetted, hogy a teljesítés után elállási jogod elvész
               (45/2014. Korm. r. 29. § (1) a)). A díj nem visszatérítendő.
@@ -256,7 +257,7 @@ function FizetesStubContent() {
                 marginBottom: 16,
               }}
             >
-              ⚠️ Ez egy <strong>teszt fizetőoldal</strong>: valódi terhelés nem
+              <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Ez egy <strong>teszt fizetőoldal</strong>: valódi terhelés nem
               történik. A bankkártyás fizetés a szolgáltatói szerződés
               élesítése után indul — addig a gomb csak a folyamatot mutatja be.
             </div>
@@ -288,7 +289,7 @@ function FizetesStubContent() {
 
         {data && step === 'processing' && (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⏳</div>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center' }}><Hourglass size={48} aria-hidden /></div>
             <div style={{ fontWeight: 700 }}>Fizetés feldolgozása…</div>
             <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               (a fizetési szolgáltató kapcsolata szimulálva)
@@ -298,7 +299,7 @@ function FizetesStubContent() {
 
         {data && step === 'done' && (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'center', color: 'var(--success-text)' }}><CircleCheck size={64} aria-hidden /></div>
             <div style={{ fontWeight: 700, fontSize: 18 }}>Sikeres fizetés!</div>
             <div className="muted" style={{ fontSize: 14, marginTop: 8 }}>
               {data.feeHuf.toLocaleString('hu-HU')} Ft kapcsolatfelvételi díj

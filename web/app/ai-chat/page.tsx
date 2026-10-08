@@ -10,6 +10,7 @@ import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { AI_MESSAGE_MAX_LENGTH, aiErrorText, useAiHistory, type AiMessage } from '@/lib/aiHistory';
 import AiMessageContent from '@/components/AiMessageContent';
+import { Lightbulb } from 'lucide-react';
 
 const SUGGESTIONS = [
   'Hogyan adok fel új fuvart?',
@@ -98,7 +99,7 @@ export default function AiChatPage() {
           marginBottom: 16,
         }}
       >
-        <h1 style={{ margin: 0 }}>GoFuvar Segéd 🤖</h1>
+        <h1 style={{ margin: 0 }}>GoFuvar Segéd</h1>
         {messages.length > 0 && (
           <button type="button" className="btn btn-secondary" onClick={clearHistory}>
             Beszélgetés törlése
@@ -141,7 +142,7 @@ export default function AiChatPage() {
                     fontSize: 14,
                   }}
                 >
-                  💡 {s}
+                  <Lightbulb size={14} aria-hidden style={{ verticalAlign: -2 }} /> {s}
                 </button>
               ))}
             </>

@@ -15,6 +15,9 @@ import ReferralCard from '@/components/ReferralCard';
 import TaxDataCard from '@/components/TaxDataCard';
 import FieldError, { redBorder } from '@/components/FieldError';
 import { nameError, optionalPhoneError, plateError, bioError } from '@/lib/formValidation';
+import {
+  Camera, Star, Truck, ShieldCheck, Trash2, Download, Save, CircleCheck, Hourglass, XCircle, FileUp,
+} from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -262,7 +265,7 @@ export default function ProfilOldal() {
               boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
             }}
           >
-            📷
+            <Camera size={14} aria-hidden />
           </div>
         </label>
         <div>
@@ -279,7 +282,7 @@ export default function ProfilOldal() {
                   fontWeight: 700,
                 }}
               >
-                ⭐ {Number(profile.rating_avg).toFixed(1)} ({profile.rating_count} értékelés)
+                <Star size={13} aria-hidden style={{ verticalAlign: -2 }} /> {Number(profile.rating_avg).toFixed(1)} ({profile.rating_count} értékelés)
               </span>
             ) : (
               <span className="muted" style={{ fontSize: 13 }}>Még nincs értékelés</span>
@@ -313,7 +316,7 @@ export default function ProfilOldal() {
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
-            <h2 style={{ marginTop: 0 }}>🚛 Jármű (opcionális)</h2>
+            <h2 style={{ marginTop: 0 }}><Truck size={18} aria-hidden style={{ verticalAlign: -3 }} /> Jármű (opcionális)</h2>
             <p className="muted" style={{ marginTop: 0 }}>
               Ha szállítóként is tevékenykedsz, add meg a járműved adatait.
               Nem kötelező — bármikor hozzáadhatod később.
@@ -332,7 +335,7 @@ export default function ProfilOldal() {
 
           {/* KYC státusz kártya */}
           <div className="card" style={{ marginTop: 16 }}>
-            <h2 style={{ marginTop: 0 }}>🛡️ Azonosítás (KYC)</h2>
+            <h2 style={{ marginTop: 0 }}><ShieldCheck size={18} aria-hidden style={{ verticalAlign: -3 }} /> Azonosítás (KYC)</h2>
             <p className="muted" style={{ margin: '0 0 12px', fontSize: 13 }}>
               Fuvar-feladáshoz nem kell okmány — a személyazonosítás a
               szállító-módhoz (fuvarvállaláshoz) szükséges.
@@ -382,7 +385,7 @@ export default function ProfilOldal() {
               cursor: 'pointer',
             }}
           >
-            🗑️ Fiók végleges törlése
+            <Trash2 size={14} aria-hidden style={{ verticalAlign: -2 }} /> Fiók végleges törlése
           </button>
 
           {/* Adathordozhatóság (GDPR 20. cikk) — a végpont régóta megvolt,
@@ -403,7 +406,7 @@ export default function ProfilOldal() {
               cursor: 'pointer',
             }}
           >
-            ⬇️ Adataim letöltése (JSON)
+            <Download size={14} aria-hidden style={{ verticalAlign: -2 }} /> Adataim letöltése (JSON)
           </button>
         </>
       ) : (
@@ -451,7 +454,7 @@ export default function ProfilOldal() {
           </div>
 
           <div className="card" style={{ marginTop: 16 }}>
-            <h2 style={{ marginTop: 0 }}>🚛 Jármű (opcionális)</h2>
+            <h2 style={{ marginTop: 0 }}><Truck size={18} aria-hidden style={{ verticalAlign: -3 }} /> Jármű (opcionális)</h2>
             <div className="grid-2">
               <div>
                 <label htmlFor="profil-jarmu-tipusa">Jármű típusa</label>
@@ -484,7 +487,7 @@ export default function ProfilOldal() {
               onClick={save}
               disabled={saving}
             >
-              {saving ? 'Mentés…' : '💾 Mentés'}
+              {saving ? 'Mentés…' : <><Save size={14} aria-hidden style={{ verticalAlign: -2 }} /> Mentés</>}
             </button>
             <button
               className="btn btn-secondary"
@@ -500,7 +503,7 @@ export default function ProfilOldal() {
       {/* Fióktörlés-megerősítő dialógus (a korábbi dupla window.confirm kiváltása) */}
       <ConfirmDialog
         open={showDeleteDialog}
-        title="🗑️ Fiók végleges törlése"
+        title="Fiók végleges törlése"
         message={
           <>
             Ez a művelet <strong>visszavonhatatlan</strong> — minden adatod, fuvarod és értékelésed
@@ -555,10 +558,10 @@ function KycStatusRow({ label, status, docType }: { label: string; status?: stri
     >
       <span style={{ fontSize: 14, fontWeight: 600 }}>{label}</span>
       {isVerified && (
-        <span style={{ color: 'var(--success-text)', fontWeight: 700, fontSize: 13 }}>✅ Elfogadva</span>
+        <span style={{ color: 'var(--success-text)', fontWeight: 700, fontSize: 13 }}><CircleCheck size={13} aria-hidden style={{ verticalAlign: -2 }} /> Elfogadva</span>
       )}
       {isPending && (
-        <span style={{ color: '#D97706', fontWeight: 700, fontSize: 13 }}>⏳ Ellenőrzés alatt</span>
+        <span style={{ color: 'var(--warning-text)', fontWeight: 700, fontSize: 13 }}><Hourglass size={13} aria-hidden style={{ verticalAlign: -2 }} /> Ellenőrzés alatt</span>
       )}
       {isRejected && (
         <button
@@ -579,7 +582,7 @@ function KycStatusRow({ label, status, docType }: { label: string; status?: stri
             cursor: 'pointer',
           }}
         >
-          ❌ Elutasítva — Újra feltöltöm
+          <XCircle size={13} aria-hidden style={{ verticalAlign: -2 }} /> Elutasítva — Újra feltöltöm
         </button>
       )}
       {isNone && (
@@ -601,7 +604,7 @@ function KycStatusRow({ label, status, docType }: { label: string; status?: stri
             cursor: 'pointer',
           }}
         >
-          📄 Feltöltöm most
+          <FileUp size={13} aria-hidden style={{ verticalAlign: -2 }} /> Feltöltöm most
         </button>
       )}
     </div>

@@ -4,7 +4,7 @@
 // A szállító beállít egy felvételi környéket (+ opcionális célt) sugárral, és
 // új illeszkedő fuvarnál email + in-app értesítést kap (SMS nincs).
 import { useEffect, useState } from 'react';
-import { Bell, Plus, Trash2, MapPin, Flag } from 'lucide-react';
+import { Bell, Plus, Trash2, MapPin, Flag, Lightbulb } from 'lucide-react';
 import { api, CarrierAlert } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
@@ -260,7 +260,7 @@ export default function ErtesitokOldal() {
           <FieldError>{mutat(toHiba)}</FieldError>
 
           <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-            💡 Elég a település neve (pl. <strong>Eger</strong>) — házszám nem kell.
+            <Lightbulb size={13} aria-hidden style={{ verticalAlign: -2 }} /> Elég a település neve (pl. <strong>Eger</strong>) — házszám nem kell.
             Egy egész ország vagy megye viszont túl tág: minden fuvarra riasztást kapnál.
           </p>
 

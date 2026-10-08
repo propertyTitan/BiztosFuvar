@@ -12,6 +12,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/api';
 import { useToast } from './ToastProvider';
+import { CircleHelp, CircleCheck, TriangleAlert } from 'lucide-react';
 
 type Question = {
   id: string;
@@ -140,7 +141,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <h2 style={{ marginTop: 0 }}>❓ Kérdések és válaszok</h2>
+      <h2 style={{ marginTop: 0 }}><CircleHelp size={18} aria-hidden style={{ verticalAlign: -3 }} /> Kérdések és válaszok</h2>
       <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
         A feltett kérdésekre adott válaszok publikusak — mindenki látja, így nem kell
         ugyanazt 15-ször kérdezni.
@@ -170,7 +171,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
           />
           {warning && (
             <p style={{ color: 'var(--danger-text)', fontSize: 13, margin: '6px 0 0' }}>
-              ⚠️ {warning}
+              <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> {warning}
             </p>
           )}
           <div
@@ -203,7 +204,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
             <div key={q.id} style={{ marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
               {/* Kérdés */}
               <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 4 }}>
-                <span style={{ fontWeight: 700, fontSize: 14 }}>❓ {q.asker_name}</span>
+                <span style={{ fontWeight: 700, fontSize: 14 }}><CircleHelp size={14} aria-hidden style={{ verticalAlign: -2 }} /> {q.asker_name}</span>
                 <span className="muted" style={{ fontSize: 12 }}>
                   {new Date(q.created_at).toLocaleDateString('hu-HU')}
                 </span>
@@ -215,7 +216,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
                 <div style={{ background: 'var(--surface)', padding: 10, borderRadius: 8, marginTop: 8 }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap', marginBottom: 4 }}>
                     <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--success-text)' }}>
-                      ✅ {q.answerer_name || 'Feladó'} válaszolt
+                      <CircleCheck size={13} aria-hidden style={{ verticalAlign: -2 }} /> {q.answerer_name || 'Feladó'} válaszolt
                     </span>
                     <span className="muted" style={{ fontSize: 12 }}>
                       {q.answered_at && new Date(q.answered_at).toLocaleDateString('hu-HU')}
@@ -249,7 +250,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
                       />
                       {answerWarnings[q.id] && (
                         <p style={{ color: 'var(--danger-text)', fontSize: 12, margin: '4px 0 0' }}>
-                          ⚠️ {answerWarnings[q.id]}
+                          <TriangleAlert size={12} aria-hidden style={{ verticalAlign: -2 }} /> {answerWarnings[q.id]}
                         </p>
                       )}
                       <button

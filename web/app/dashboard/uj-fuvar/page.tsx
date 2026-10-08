@@ -27,6 +27,7 @@ import { idoablakHiba } from '@/lib/idoablak';
 import { elsoHibasMezoId, hibaOsszegzes } from '@/lib/urlapHibak';
 import ListingPhotoUpload from '@/components/ListingPhotoUpload';
 import { jelolElsoSiker } from '@/components/InstallPromptBanner';
+import { Check, TriangleAlert, Zap, Lightbulb } from 'lucide-react';
 import {
   MAX_DIM_CM, MAX_WEIGHT_KG,
   intFieldError, moneyFieldError, weightFieldError,
@@ -663,7 +664,7 @@ export default function UjFuvar() {
         />
         {form.pickup_confirmed && form.pickup_lat != null && (
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            ✓ Cím megerősítve
+            <Check size={13} aria-hidden style={{ verticalAlign: -2 }} /> Cím megerősítve
           </p>
         )}
         {pickupImprecise && (
@@ -673,7 +674,7 @@ export default function UjFuvar() {
         )}
         {!form.pickup_confirmed && form.pickup_address && !pickupImprecise && (
           <p style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
-            ⚠ Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
+            <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
           </p>
         )}
         </div>
@@ -769,8 +770,8 @@ export default function UjFuvar() {
                 )}
               </div>
               {form.pickup_floor !== '0' && !form.pickup_has_elevator && (
-                <p style={{ fontSize: 12, color: '#FB8C00', marginTop: 8, marginBottom: 0 }}>
-                  ⚠ Lépcsőn kell cipelni — a szállítónak lényeges információ!
+                <p style={{ fontSize: 12, color: 'var(--warning-text)', marginTop: 8, marginBottom: 0 }}>
+                  <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Lépcsőn kell cipelni — a szállítónak lényeges információ!
                 </p>
               )}
             </div>
@@ -808,7 +809,7 @@ export default function UjFuvar() {
         />
         {form.dropoff_confirmed && form.dropoff_lat != null && (
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            ✓ Cím megerősítve
+            <Check size={13} aria-hidden style={{ verticalAlign: -2 }} /> Cím megerősítve
           </p>
         )}
         {dropoffImprecise && (
@@ -818,7 +819,7 @@ export default function UjFuvar() {
         )}
         {!form.dropoff_confirmed && form.dropoff_address && !dropoffImprecise && (
           <p style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
-            ⚠ Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
+            <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
           </p>
         )}
         </div>
@@ -875,8 +876,8 @@ export default function UjFuvar() {
                 )}
               </div>
               {form.dropoff_floor !== '0' && !form.dropoff_has_elevator && (
-                <p style={{ fontSize: 12, color: '#FB8C00', marginTop: 8, marginBottom: 0 }}>
-                  ⚠ Lépcsőn kell cipelni — a szállítónak lényeges információ!
+                <p style={{ fontSize: 12, color: 'var(--warning-text)', marginTop: 8, marginBottom: 0 }}>
+                  <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Lépcsőn kell cipelni — a szállítónak lényeges információ!
                 </p>
               )}
             </div>
@@ -1015,7 +1016,7 @@ export default function UjFuvar() {
               onChange={(e) => set('is_instant', e.target.checked)}
               style={{ width: 20, height: 20, flexShrink: 0 }}
             />
-            <strong style={{ fontSize: 16 }}>⚡ Azonnali fuvar (nincs ajánlattétel)</strong>
+            <strong style={{ fontSize: 16 }}><Zap size={16} aria-hidden style={{ verticalAlign: -2 }} /> Azonnali fuvar (nincs ajánlattétel)</strong>
           </div>
           <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
             Fix áron adod fel, és az első szállító, aki elvállalja, elviszi.
@@ -1094,7 +1095,7 @@ export default function UjFuvar() {
         {estimate && (
           <div className="callout callout-info" style={{ marginTop: 10, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 18 }}>💡</span>
+              <Lightbulb size={18} aria-hidden style={{ flexShrink: 0 }} />
               <span style={{ fontSize: 14 }}>
                 Ajánlott ársáv: <strong>{estimate.low.toLocaleString('hu-HU')} – {estimate.high.toLocaleString('hu-HU')} Ft</strong>
               </span>
@@ -1119,7 +1120,7 @@ export default function UjFuvar() {
         {underpriced && (
           <div className="callout callout-warning" style={{ marginTop: 8, padding: '10px 14px' }}>
             <span style={{ fontSize: 14 }}>
-              ⚠️ Ez alacsonynak tűnik a javasolt sávhoz képest — könnyen lehet, hogy kevés vagy egy ajánlat sem érkezik rá.
+              <TriangleAlert size={14} aria-hidden style={{ verticalAlign: -2 }} /> Ez alacsonynak tűnik a javasolt sávhoz képest — könnyen lehet, hogy kevés vagy egy ajánlat sem érkezik rá.
             </span>
           </div>
         )}

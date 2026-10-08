@@ -184,7 +184,7 @@ export async function placeBid(carrier: E2EUser, jobId: string, amountHuf: numbe
  *  formázott cím megjelenése igazolja (irányítószám/ország a gépelt
  *  szövegben nincs) — csak ekkor kapott koordinátát az űrlap. */
 export async function selectAddress(page: Page, input: Locator, query: string) {
-  // A siker jele a „✓ Cím megerősítve" sor: az CSAK akkor jelenik meg, ha az
+  // A siker jele a „Cím megerősítve" sor (lucide pipa-ikonnal): az CSAK akkor jelenik meg, ha az
   // űrlap ténylegesen megerősítettnek tekinti a címet.
   //
   // ⚠️ Korábban a mező SZÖVEGÉRE vártunk egy laza regexszel
@@ -193,7 +193,7 @@ export async function selectAddress(page: Page, input: Locator, query: string) {
   // házszámot feloldó Geocoder-mentőág végzett volna. A teszt ilyenkor
   // megerősítetlen címmel ment tovább, a Küldés gomb nem indított kérést,
   // és 30 mp múlva timeoutolt — látszólag „Google Places flake"-ként.
-  const megerositettek = page.getByText(/✓ Cím megerősítve/);
+  const megerositettek = page.getByText(/^Cím megerősítve$/);
   const elotte = await megerositettek.count();
 
   for (let attempt = 0; attempt < 3; attempt += 1) {

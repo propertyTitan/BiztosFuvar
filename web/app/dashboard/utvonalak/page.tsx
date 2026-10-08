@@ -13,7 +13,8 @@ import Link from 'next/link';
 import { api, CarrierRoute } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { Route as RouteIcon } from 'lucide-react';
+import { Route as RouteIcon, List as ListIcon, Map as MapIcon, MapPin, CalendarDays, Truck } from 'lucide-react';
+import TerkepJelmagyarazat, { TERKEP_SZINEK } from '@/components/TerkepJelmagyarazat';
 import RouteBrowseMap from '@/components/RouteBrowseMap';
 
 type ViewMode = 'list' | 'map';
@@ -116,7 +117,7 @@ function FeladoiUtvonalBongeszo() {
               boxShadow: view === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             }}
           >
-            📋 Lista
+            <ListIcon size={14} aria-hidden style={{ verticalAlign: -2 }} /> Lista
           </button>
           <button
             type="button"
@@ -133,7 +134,7 @@ function FeladoiUtvonalBongeszo() {
               boxShadow: view === 'map' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             }}
           >
-            🗺️ Térkép
+            <MapIcon size={14} aria-hidden style={{ verticalAlign: -2 }} /> Térkép
           </button>
         </div>
       </div>
@@ -222,9 +223,11 @@ function FeladoiUtvonalBongeszo() {
       {!loading && !error && routes.length > 0 && view === 'map' && (
         <div style={{ marginTop: 16 }}>
           <RouteBrowseMap routes={routes} currentUserId={me?.id || null} />
-          <p className="muted" style={{ fontSize: 12, marginTop: 8, textAlign: 'center' }}>
-            🟢 Indulás · 🔴 Cél · 🟡 Saját poszt · Kattints bármelyik markerre a részletekhez.
-          </p>
+          <TerkepJelmagyarazat elemek={[
+            { szin: TERKEP_SZINEK.indulas, felirat: 'Indulás' },
+            { szin: TERKEP_SZINEK.cel, felirat: 'Cél' },
+            { szin: TERKEP_SZINEK.sajat, felirat: 'Saját poszt' },
+          ]} />
         </div>
       )}
 
@@ -267,18 +270,18 @@ function FeladoiUtvonalBongeszo() {
               )}
             </div>
             <p className="muted" style={{ margin: '4px 0' }}>
-              📍 <strong>{first}</strong>
+              <MapPin size={13} aria-hidden style={{ verticalAlign: -2 }} /> <strong>{first}</strong>
               {stops.length > 0 && (
                 <> → {stops.map((w) => w.name).join(' → ')}</>
               )}
               {' → '}<strong>{last}</strong>
             </p>
             <p className="muted" style={{ margin: '4px 0' }}>
-              🗓 {new Date(r.departure_at).toLocaleString('hu-HU')}
+              <CalendarDays size={13} aria-hidden style={{ verticalAlign: -2 }} /> {new Date(r.departure_at).toLocaleString('hu-HU')}
             </p>
             {r.vehicle_description && (
               <p className="muted" style={{ margin: '4px 0', fontSize: 13 }}>
-                🚛 {r.vehicle_description}
+                <Truck size={13} aria-hidden style={{ verticalAlign: -2 }} /> {r.vehicle_description}
               </p>
             )}
             <div className="row" style={{ gap: 8, marginTop: 8 }}>

@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api, Job } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { Truck, MapPin, Flag, ArrowRight } from 'lucide-react';
+import { Truck, MapPin, Flag, ArrowRight, CircleCheck } from 'lucide-react';
 import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
 import StatusPill from '@/components/StatusPill';
 
@@ -107,7 +107,7 @@ export default function SoforSajatFuvarok() {
 
       {done.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>✓ Teljesített fuvarok ({done.length})</h2>
+          <h2 style={{ marginTop: 24 }}><CircleCheck size={18} aria-hidden style={{ verticalAlign: -3 }} /> Teljesített fuvarok ({done.length})</h2>
           {done.map((j) => (
             <JobCard key={j.id} j={j} />
           ))}

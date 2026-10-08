@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { api, Job, CarrierRoute } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { JARAT_ENGEDELYEZVE } from '@/lib/features';
-import { FileText, Hourglass, Route as RouteIcon, MapPin, Flag, Calendar } from 'lucide-react';
+import { FileText, Hourglass, Route as RouteIcon, MapPin, Flag, Calendar, CircleCheck } from 'lucide-react';
 import StatusPill from '@/components/StatusPill';
 
 // A fuvar-állapot felirata és színe a közös lib/statusz.ts-ből jön
@@ -201,7 +201,7 @@ export default function SajatHirdeteseim() {
       )}
       {teljesitett.length > 0 && (
         <>
-          <h3 style={{ marginTop: 16, fontSize: 16 }}>✓ Teljesített ({teljesitett.length})</h3>
+          <h3 style={{ marginTop: 16, fontSize: 16 }}><CircleCheck size={16} aria-hidden style={{ verticalAlign: -3 }} /> Teljesített ({teljesitett.length})</h3>
           {teljesitett.map((j) => (
             <Link
               key={j.id}

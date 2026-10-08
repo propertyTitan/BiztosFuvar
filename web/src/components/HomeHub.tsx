@@ -14,11 +14,12 @@ import { useTranslation, formatPrice } from '@/lib/i18n';
 import {
   FileText, Route as RouteIcon, ShoppingBag, Target, BarChart3, Tag,
   Truck, RefreshCw, Plus, ClipboardList, Package, Bell, User as UserIcon,
-  BadgeCheck, Star, Ticket, MapPin, Flag, Camera, Receipt, Hourglass,
+  BadgeCheck, Star, Ticket, MapPin, Flag, Camera, Receipt, Hourglass, ShieldCheck,
 } from 'lucide-react';
 import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
 import { szia } from '@/lib/nev';
 import SegmentedControl from '@/components/SegmentedControl';
+import StatusPill from '@/components/StatusPill';
 
 type Mode = 'driver' | 'shipper';
 
@@ -183,7 +184,7 @@ export default function HomeHub() {
               }}
             >
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 36, flexShrink: 0 }}>🛡️</span>
+                <ShieldCheck size={32} aria-hidden style={{ flexShrink: 0, color: 'var(--primary-text)' }} />
                 <div>
                   <strong style={{ fontSize: 16 }}>A fuvarvállaláshoz azonosítás szükséges</strong>
                   <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
@@ -277,10 +278,11 @@ export default function HomeHub() {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <span className={`pill ${j.status === 'in_progress' ? 'pill-progress' : 'pill-accepted'}`}
-                        style={{ fontSize: 13, padding: '6px 14px' }}>
-                        {j.status === 'in_progress' ? 'Úton' : 'Elfogadva'}
-                      </span>
+                      {/* UX A11/A10: a közös állapot-jelvény (lib/statusz) — a
+                          fuvaroldallal és a Vállalt fuvarokkal azonos felirat.
+                          Fizetetlen fuvaron a lenti „Díjfizetésre vár” jelvény
+                          mondja (ne kétszer). */}
+                      {!lepes.jelveny && <StatusPill job={j} nezet="szallito" />}
                       <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
                         {formatPrice(j.accepted_price_huf)}
                       </div>
@@ -319,7 +321,7 @@ export default function HomeHub() {
               border: '2px dashed var(--border)',
               background: 'var(--bg)',
             }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
+              <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center', color: 'var(--primary-text)' }}><Target size={40} aria-hidden /></div>
               <h2 style={{ margin: '0 0 8px' }}>
                 {(d?.nearbyJobsCount || 0) > 0
                   ? `${d.nearbyJobsCount} fuvar vár a közeledben!`

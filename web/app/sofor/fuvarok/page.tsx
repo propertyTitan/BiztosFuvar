@@ -24,7 +24,9 @@ import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 import { mentPiszkozat, olvasPiszkozat } from '@/lib/urlapPiszkozat';
 import {
   PackageSearch, SlidersHorizontal, List as ListIcon, Map as MapIcon, LocateFixed, MapPin, Flag, Lock, Bell, ArrowUp,
+  Zap, ShoppingBag, Package,
 } from 'lucide-react';
+import TerkepJelmagyarazat, { TERKEP_SZINEK } from '@/components/TerkepJelmagyarazat';
 import { subscribeFeed } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
 import GreenBadge from '@/components/GreenBadge';
@@ -326,7 +328,7 @@ export default function SoforFuvarokLista() {
                 >
                   <option value="">Mind</option>
                   <option value="false">Ajánlatkérős</option>
-                  <option value="true">⚡ Azonnali</option>
+                  <option value="true">Azonnali</option>
                 </select>
               </div>
               )}
@@ -429,9 +431,11 @@ export default function SoforFuvarokLista() {
       {!loading && !error && jobs.length > 0 && view === 'map' && (
         <div style={{ marginTop: 16 }}>
           <JobBrowseMap jobs={jobs} currentUserId={me?.id || null} />
-          <p className="muted" style={{ fontSize: 12, marginTop: 8, textAlign: 'center' }}>
-            🟢 Felvétel · 🔴 Lerakodás · 🟡 Saját poszt · Kattints bármelyik markerre a részletekhez.
-          </p>
+          <TerkepJelmagyarazat elemek={[
+            { szin: TERKEP_SZINEK.indulas, felirat: 'Felvétel' },
+            { szin: TERKEP_SZINEK.cel, felirat: 'Lerakodás' },
+            { szin: TERKEP_SZINEK.sajat, felirat: 'Saját poszt' },
+          ]} />
         </div>
       )}
 
@@ -487,7 +491,7 @@ export default function SoforFuvarokLista() {
                       }}
                       title="Azonnali fuvar: első elfogadó viszi, nincs ajánlattétel."
                     >
-                      ⚡ AZONNALI
+                      <Zap size={12} aria-hidden style={{ verticalAlign: -2 }} /> AZONNALI
                     </span>
                   )}
                   {isMine && (
@@ -522,7 +526,7 @@ export default function SoforFuvarokLista() {
                       style={{ background: '#e0e7ff', color: '#3730a3', fontWeight: 800, fontSize: 11 }}
                       title={`Bolti átvétel: ${(j as any).source_store} — tiszta, csomagolt áru, ismert átvételi pont.`}
                     >
-                      🛍️ {(j as any).source_store}
+                      <ShoppingBag size={12} aria-hidden style={{ verticalAlign: -2 }} /> {(j as any).source_store}
                     </span>
                   )}
                 </div>
@@ -585,8 +589,8 @@ export default function SoforFuvarokLista() {
                 )}
                 {/* Bepakolás infó */}
                 {((j as any).pickup_needs_carrying || (j as any).dropoff_needs_carrying) && (
-                  <p style={{ fontSize: 12, marginTop: 6, color: '#FB8C00', fontWeight: 600 }}>
-                    📦 Cipelés:
+                  <p style={{ fontSize: 12, marginTop: 6, color: 'var(--warning-text)', fontWeight: 600 }}>
+                    <Package size={12} aria-hidden style={{ verticalAlign: -2 }} /> Cipelés:
                     {(j as any).pickup_needs_carrying && ` Felvétel ${(j as any).pickup_floor === 0 ? 'földszint' : `${(j as any).pickup_floor}. em.`}${(j as any).pickup_floor > 0 && !(j as any).pickup_has_elevator ? ' (nincs lift!)' : ''}`}
                     {(j as any).pickup_needs_carrying && (j as any).dropoff_needs_carrying && ' ·'}
                     {(j as any).dropoff_needs_carrying && ` Lerakás ${(j as any).dropoff_floor === 0 ? 'földszint' : `${(j as any).dropoff_floor}. em.`}${(j as any).dropoff_floor > 0 && !(j as any).dropoff_has_elevator ? ' (nincs lift!)' : ''}`}
@@ -617,7 +621,7 @@ export default function SoforFuvarokLista() {
                       fontSize: 13,
                     }}
                   >
-                    {acceptingInstantId === j.id ? 'Elvállalás…' : '⚡ Elvállalom!'}
+                    {acceptingInstantId === j.id ? 'Elvállalás…' : <><Zap size={14} aria-hidden style={{ verticalAlign: -2 }} /> Elvállalom!</>}
                   </button>
                 )}
               </div>

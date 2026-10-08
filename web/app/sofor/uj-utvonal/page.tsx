@@ -15,6 +15,7 @@ import { api, Waypoint } from '@/api';
 import { PACKAGE_SIZES, PackageSizeId } from '@/lib/packageSizes';
 import CityTagsInput from '@/components/CityTagsInput';
 import { useToast } from '@/components/ToastProvider';
+import { Route as RouteIcon } from 'lucide-react';
 
 type SizeRow = {
   enabled: boolean;
@@ -279,7 +280,7 @@ function UjUtvonalContent() {
               onChange={(e) => setIsRideAlong(e.target.checked)}
               style={{ width: 20, height: 20, flexShrink: 0 }}
             />
-            <strong style={{ fontSize: 16 }}>🚗 Útba esik mód — amúgy is megyek erre</strong>
+            <strong style={{ fontSize: 16 }}><RouteIcon size={16} aria-hidden style={{ verticalAlign: -2 }} /> Útba esik mód — amúgy is megyek erre</strong>
           </label>
           <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
             Ha bejelölöd, a rendszer automatikusan kiajánlja neked az útvonaladba

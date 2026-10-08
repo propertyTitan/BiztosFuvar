@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Gift } from 'lucide-react';
+import { Gift, Check } from 'lucide-react';
 import { api } from '@/api';
 
 // Az ajánlói kupon érvényessége napokban — a backend
@@ -77,7 +77,7 @@ export default function ReferralCard() {
           style={{ flex: '0 0 auto', width: 140, fontSize: 20, fontWeight: 800, letterSpacing: 2, textAlign: 'center' }}
         />
         <button type="button" className="btn" onClick={() => copy('code', info.code!)} style={{ whiteSpace: 'nowrap' }}>
-          {copied === 'code' ? '✓ Kimásolva' : 'Kód másolása'}
+          {copied === 'code' ? <><Check size={14} aria-hidden style={{ verticalAlign: -2 }} /> Kimásolva</> : 'Kód másolása'}
         </button>
       </div>
 
@@ -92,7 +92,7 @@ export default function ReferralCard() {
           style={{ flex: 1, minWidth: 220, fontSize: 13 }}
         />
         <button type="button" className="btn" onClick={() => copy('link', info.link!)} style={{ whiteSpace: 'nowrap' }}>
-          {copied === 'link' ? '✓ Kimásolva' : 'Link másolása'}
+          {copied === 'link' ? <><Check size={14} aria-hidden style={{ verticalAlign: -2 }} /> Kimásolva</> : 'Link másolása'}
         </button>
       </div>
 

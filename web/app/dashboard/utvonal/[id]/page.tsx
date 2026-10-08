@@ -17,6 +17,7 @@ import { api, CarrierRoute } from '@/api';
 import { PACKAGE_SIZES, classifyPackage } from '@/lib/packageSizes';
 import { useCurrentUser } from '@/lib/auth';
 import AddressAutocomplete from '@/components/AddressAutocomplete';
+import { CalendarDays, Megaphone, Truck, TriangleAlert } from 'lucide-react';
 
 function FeladoUtvonalReszletek() {
   const { id } = useParams<{ id: string }>();
@@ -124,7 +125,7 @@ function FeladoUtvonalReszletek() {
       </button>
 
       <h1>{route.title}</h1>
-      <p className="muted">🗓 {new Date(route.departure_at).toLocaleString('hu-HU')}</p>
+      <p className="muted"><CalendarDays size={14} aria-hidden style={{ verticalAlign: -2 }} /> {new Date(route.departure_at).toLocaleString('hu-HU')}</p>
 
       {/* Saját poszt figyelmeztetés: a saját járatodon nem foglalhatsz
           helyet, de megnézheted/szerkesztheted. */}
@@ -133,7 +134,7 @@ function FeladoUtvonalReszletek() {
           className="card on-light"
           style={{ background: '#fefce8', borderColor: '#facc15', marginTop: 16, color: 'var(--text)' }}
         >
-          <h2 style={{ marginTop: 0, color: 'var(--text)' }}>📣 Ez a te saját járatod</h2>
+          <h2 style={{ marginTop: 0, color: 'var(--text)' }}><Megaphone size={18} aria-hidden style={{ verticalAlign: -3 }} /> Ez a te saját járatod</h2>
           <p style={{ marginBottom: 8, color: '#334155' }}>
             A saját hirdetésedre nem foglalhatsz helyet. A foglalások
             kezeléséhez és szerkesztéshez nyisd meg a szállítói nézetet.
@@ -168,7 +169,7 @@ function FeladoUtvonalReszletek() {
           ))}
         </div>
         {route.vehicle_description && (
-          <p className="muted" style={{ marginTop: 12 }}>🚛 {route.vehicle_description}</p>
+          <p className="muted" style={{ marginTop: 12 }}><Truck size={14} aria-hidden style={{ verticalAlign: -2 }} /> {route.vehicle_description}</p>
         )}
         {route.description && (
           <p style={{ marginTop: 8, color: 'var(--text)', fontSize: 16, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
@@ -299,7 +300,7 @@ function FeladoUtvonalReszletek() {
           <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12 }}>{pickupImprecise}</p>
         )}
         {!pickupConfirmed && pickupAddr && !pickupImprecise && (
-          <p style={{ color: 'var(--warning-text)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
+          <p style={{ color: 'var(--warning-text)', fontSize: 12 }}><TriangleAlert size={12} aria-hidden style={{ verticalAlign: -2 }} /> Válassz a legördülőből.</p>
         )}
 
         <h3 style={{ marginTop: 24 }}>Lerakodás helye</h3>
@@ -326,7 +327,7 @@ function FeladoUtvonalReszletek() {
           <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12 }}>{dropoffImprecise}</p>
         )}
         {!dropoffConfirmed && dropoffAddr && !dropoffImprecise && (
-          <p style={{ color: 'var(--warning-text)', fontSize: 12 }}>⚠ Válassz a legördülőből.</p>
+          <p style={{ color: 'var(--warning-text)', fontSize: 12 }}><TriangleAlert size={12} aria-hidden style={{ verticalAlign: -2 }} /> Válassz a legördülőből.</p>
         )}
 
         <label htmlFor="foglalas-megjegyzes">Megjegyzés a szállítónak (opcionális)</label>

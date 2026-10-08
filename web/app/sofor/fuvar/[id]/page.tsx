@@ -13,7 +13,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
-import { MapPin, Flag, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone, Lock, ShieldCheck, Undo2 } from 'lucide-react';
+import {
+  MapPin, Flag, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone, Lock, ShieldCheck, Undo2,
+  Clock, ShoppingBag, Check, TriangleAlert, Megaphone,
+} from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
 import { optionalPhoneError } from '@/lib/formValidation';
@@ -324,7 +327,7 @@ export default function SoforFuvarReszletek() {
           )}
           {idoablakSzoveg(job.pickup_window_start, job.pickup_window_end) && (
             <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
-              🕒 Felvételi időablak: <strong>{idoablakSzoveg(job.pickup_window_start, job.pickup_window_end)}</strong>
+              <Clock size={13} aria-hidden style={{ verticalAlign: -2 }} /> Felvételi időablak: <strong>{idoablakSzoveg(job.pickup_window_start, job.pickup_window_end)}</strong>
             </p>
           )}
           {(job as any).recipient_name && (
@@ -467,7 +470,7 @@ export default function SoforFuvarReszletek() {
       {job.source_image_url && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 style={{ marginTop: 0 }}>
-            🛍️ A termék{job.source_store ? ` (${job.source_store})` : ''}
+            <ShoppingBag size={18} aria-hidden style={{ verticalAlign: -3 }} /> A termék{job.source_store ? ` (${job.source_store})` : ''}
           </h2>
           <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
             A feladó hirdetés-linkjének előnézeti képe — tájékoztató jellegű.
@@ -562,8 +565,8 @@ export default function SoforFuvarReszletek() {
               {(job as any).pickup_floor == null ? 'emelet nincs megadva' : (job as any).pickup_floor === 0 ? 'Földszint' : `${(job as any).pickup_floor}. emelet`}
               {(job as any).pickup_floor > 0 && (
                 (job as any).pickup_has_elevator
-                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van ✓)</span>
-                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van <Check size={13} aria-hidden style={{ verticalAlign: -2 }} />)</span>
+                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} />)</span>
               )}
             </div>
           )}
@@ -574,8 +577,8 @@ export default function SoforFuvarReszletek() {
               {(job as any).dropoff_floor == null ? 'emelet nincs megadva' : (job as any).dropoff_floor === 0 ? 'Földszint' : `${(job as any).dropoff_floor}. emelet`}
               {(job as any).dropoff_floor > 0 && (
                 (job as any).dropoff_has_elevator
-                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van ✓)</span>
-                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van <Check size={13} aria-hidden style={{ verticalAlign: -2 }} />)</span>
+                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} />)</span>
               )}
             </div>
           )}
@@ -585,7 +588,7 @@ export default function SoforFuvarReszletek() {
       {/* Csomag deklarált értéke — ha megadta a feladó */}
       {(job as any).declared_value_huf && (
         <div className="card" style={{ marginTop: 12, fontSize: 14 }}>
-          💰 <strong>Csomag deklarált értéke:</strong> {(job as any).declared_value_huf.toLocaleString('hu-HU')} Ft
+          <Banknote size={14} aria-hidden style={{ verticalAlign: -2 }} /> <strong>Csomag deklarált értéke:</strong> {(job as any).declared_value_huf.toLocaleString('hu-HU')} Ft
         </div>
       )}
 
@@ -601,7 +604,7 @@ export default function SoforFuvarReszletek() {
             borderColor: '#facc15',
           }}
         >
-          <h2 style={{ marginTop: 0 }}>📣 Ez a te saját hirdetésed</h2>
+          <h2 style={{ marginTop: 0 }}><Megaphone size={18} aria-hidden style={{ verticalAlign: -3 }} /> Ez a te saját hirdetésed</h2>
           <p style={{ marginBottom: 8 }}>
             A saját fuvaradra nem tehetsz ajánlatot. Az ajánlatok kezeléséhez nyisd meg a feladói nézetet.
           </p>
@@ -679,7 +682,7 @@ export default function SoforFuvarReszletek() {
                 border: '1px solid rgba(251,191,36,0.5)',
               }}
             >
-              <strong style={{ fontSize: 14 }}>💰 Fontos az ajánlattétel előtt!</strong>
+              <strong style={{ fontSize: 14 }}><Banknote size={14} aria-hidden style={{ verticalAlign: -2 }} /> Fontos az ajánlattétel előtt!</strong>
               <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>
                 Az általad megadott összeg <strong>100%-ban a tiéd</strong>, és{' '}
                 <strong>közvetlenül a feladótól</strong> kapod (készpénzben vagy átutalással, ahogy megegyeztek) — a GoFuvar semmit
@@ -910,7 +913,7 @@ export default function SoforFuvarReszletek() {
           })()}
           <span className={`pill pill-${kartyaAjanlat.status === 'accepted' ? 'delivered' : 'bidding'}`}>
             {kartyaAjanlat.status === 'pending' && (kartyaAjanlat.needs_reconfirmation ? 'Megerősítésedre vár' : 'Várakozik elfogadásra')}
-            {kartyaAjanlat.status === 'accepted' && 'Elfogadva 🎉'}
+            {kartyaAjanlat.status === 'accepted' && 'Elfogadva'}
             {kartyaAjanlat.status === 'rejected' && 'Elutasítva'}
             {kartyaAjanlat.status === 'withdrawn' && 'Visszavonva'}
           </span>
@@ -921,7 +924,7 @@ export default function SoforFuvarReszletek() {
           )}
           {kartyaAjanlat.return_policy && (
             <p style={{ marginTop: 8, fontSize: 13 }}>
-              ↩️ Sikertelen kézbesítés esetén:{' '}
+              <Undo2 size={13} aria-hidden style={{ verticalAlign: -2 }} /> Sikertelen kézbesítés esetén:{' '}
               <strong>
                 {kartyaAjanlat.return_policy === 'included' && 'visszaszállítás benne van az ajánlatban'}
                 {kartyaAjanlat.return_policy === 'extra_fee' && `visszaszállítás külön díjért (${(kartyaAjanlat.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}

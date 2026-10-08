@@ -54,6 +54,8 @@ describe('HomeHub — Aktív fuvarjaid kártya', () => {
     dashboard.value = dash(fuvar({ paid_at: '2026-10-01T10:00:00Z' }));
     render(<HomeHub />);
     await waitFor(() => expect(screen.getByText(/Felvétel →/)).toBeInTheDocument());
+    // UX A10/A11: a közös állapot-jelvény (szállítói nézet).
+    expect(screen.getByText('Indulhat a fuvar')).toBeInTheDocument();
     expect(screen.queryByText('Díjfizetésre vár')).toBeNull();
   });
 

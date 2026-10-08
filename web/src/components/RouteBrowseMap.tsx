@@ -13,6 +13,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, InfoWindow, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import Link from 'next/link';
 import { CarrierRoute } from '@/api';
+import { TriangleAlert, MapPin, CalendarDays } from 'lucide-react';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 const containerStyle = { width: '100%', height: '560px', borderRadius: '12px' };
@@ -52,7 +53,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
   if (!apiKey) {
     return (
       <div className="card" style={{ background: 'var(--warning-light)' }}>
-        <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
+        <strong><TriangleAlert size={16} aria-hidden style={{ verticalAlign: -3 }} /> Google Maps API kulcs hiányzik.</strong>
       </div>
     );
   }
@@ -110,7 +111,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
               icon={{
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 10,
-                fillColor: isMine ? '#facc15' : 'var(--success)',
+                fillColor: isMine ? '#facc15' : '#16a34a' /* Google Maps API: CSS-var NEM megy, csak literál hex! */,
                 fillOpacity: 1,
                 strokeColor: '#fff',
                 strokeWeight: 2,
@@ -124,7 +125,7 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
               icon={{
                 path: google.maps.SymbolPath.CIRCLE,
                 scale: 7,
-                fillColor: 'var(--danger)',
+                fillColor: '#dc2626',
                 fillOpacity: 0.85,
                 strokeColor: '#fff',
                 strokeWeight: 1.5,
@@ -162,10 +163,10 @@ export default function RouteBrowseMap({ routes, currentUserId }: Props) {
               )}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0' }}>
-              📍 {activeRoute.waypoints.map((w) => w.name).join(' → ')}
+              <MapPin size={12} aria-hidden style={{ verticalAlign: -2 }} /> {activeRoute.waypoints.map((w) => w.name).join(' → ')}
             </div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '2px 0' }}>
-              🗓 {new Date(activeRoute.departure_at).toLocaleString('hu-HU')}
+              <CalendarDays size={12} aria-hidden style={{ verticalAlign: -2 }} /> {new Date(activeRoute.departure_at).toLocaleString('hu-HU')}
             </div>
             <div
               style={{

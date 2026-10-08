@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useCurrentUser, writeStoredMode } from '@/lib/auth';
 import { optionalPhoneError } from '@/lib/formValidation';
+import { Phone, ShieldCheck } from 'lucide-react';
 
 /**
  * Szállítói egyszeri nyilatkozat-kapu. A szállító-mód első használatakor a
@@ -92,7 +93,11 @@ export default function DriverTermsGate() {
       aria-labelledby="driver-terms-cim"
     >
       <div className="card" style={{ maxWidth: 500, marginBottom: 0 }}>
-        <h2 id="driver-terms-cim" style={{ marginTop: 0 }}>{csakTelefon ? '📞 Telefonszám szükséges' : '🚦 Mielőtt fuvarozol'}</h2>
+        <h2 id="driver-terms-cim" style={{ marginTop: 0 }}>
+          {csakTelefon
+            ? <><Phone size={18} aria-hidden style={{ verticalAlign: -3 }} /> Telefonszám szükséges</>
+            : <><ShieldCheck size={18} aria-hidden style={{ verticalAlign: -3 }} /> Mielőtt fuvarozol</>}
+        </h2>
         <p style={{ color: 'var(--text)', lineHeight: 1.6 }}>
           {csakTelefon
             ? 'Szállítóként kötelező a telefonszám: a feladó a kapcsolatfelvételi díj után ezen ér el. Add meg, és folytathatod.'

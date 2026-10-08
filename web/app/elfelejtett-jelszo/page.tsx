@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/api';
+import { MailCheck, TriangleAlert } from 'lucide-react';
 
 export default function ElfelejtettJelszo() {
   const [email, setEmail] = useState('');
@@ -49,7 +50,7 @@ export default function ElfelejtettJelszo() {
             color: '#14532d',
           }}
         >
-          <p style={{ margin: 0, fontWeight: 600 }}>📧 Ellenőrizd a postaládád!</p>
+          <p style={{ margin: 0, fontWeight: 600 }}><MailCheck size={16} aria-hidden style={{ verticalAlign: -3 }} /> Ellenőrizd a postaládád!</p>
           <p style={{ marginTop: 8, marginBottom: 0, fontSize: 14 }}>{message}</p>
           <p style={{ marginTop: 16, marginBottom: 0, fontSize: 13 }}>
             <Link href="/bejelentkezes" style={{ color: 'var(--primary-text)' }}>
@@ -77,7 +78,7 @@ export default function ElfelejtettJelszo() {
           />
 
           {error && (
-            <p style={{ color: 'var(--danger-text)', marginTop: 12, fontSize: 14 }}>⚠️ {error}</p>
+            <p style={{ color: 'var(--danger-text)', marginTop: 12, fontSize: 14 }}><TriangleAlert size={14} aria-hidden style={{ verticalAlign: -2 }} /> {error}</p>
           )}
 
           <button

@@ -1,8 +1,12 @@
 // Globális loading — guruló teherautó animáció.
 //
-// A GoFuvar "ujjlenyomata": egy kis 🚛 balról jobbra gurul egy halvány
-// útvonal mentén, pont alatta. Egyedi, felismerhető, mosolyt csal.
+// A GoFuvar "ujjlenyomata": egy kis teherautó balról jobbra gurul egy
+// halvány útvonal mentén, pont alatta. Egyedi, felismerhető, mosolyt csal.
 // Minden route-váltáskor ezt látja a user a régi oldal helyett.
+// UX A10 (2026-10-08): lucide ikon az emoji helyett — a téma színét követi,
+// és minden platformon ugyanígy néz ki.
+import { Truck, Wind } from 'lucide-react';
+
 export default function RootLoading() {
   return (
     <div
@@ -57,12 +61,13 @@ export default function RootLoading() {
             position: 'absolute',
             bottom: 12,
             left: 0,
-            fontSize: 36,
+            color: 'var(--primary)',
+            lineHeight: 0,
             animation: 'gofuvar-truck 2.5s ease-in-out infinite',
             filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.15))',
           }}
         >
-          🚛
+          <Truck size={36} strokeWidth={1.75} />
         </div>
         {/* Kis porfelhő a teherautó mögött */}
         <div
@@ -70,12 +75,13 @@ export default function RootLoading() {
             position: 'absolute',
             bottom: 14,
             left: 0,
-            fontSize: 14,
+            color: 'var(--muted)',
+            lineHeight: 0,
             opacity: 0.4,
             animation: 'gofuvar-dust 2.5s ease-in-out infinite',
           }}
         >
-          💨
+          <Wind size={14} />
         </div>
       </div>
 
@@ -92,16 +98,14 @@ export default function RootLoading() {
       </p>
 
       <style>{`
-        /* ⚠️ A 🚛 emoji NATÍVAN BALRA NÉZ (Apple/Google/Noto fontokban).
-           Az eredeti animáció fordítva tükrözött — a teherautó MINDKÉT
-           irányban farolva ment (tesztelői észrevétel, 2026-08-20).
-           Ezért: jobbra menet scaleX(-1) (megfordítjuk, hogy jobbra
-           nézzen), balra menet natív (tükrözés nélkül). */
+        /* FIGYELEM: a lucide Truck NATÍVAN JOBBRA NÉZ (a régi teherautó-emoji balra
+           nézett — 2026-08-20: farolva ment). Ezért: jobbra menet natív,
+           balra menet scaleX(-1), hogy mindig előre nézzen. */
         @keyframes gofuvar-truck {
-          0%   { transform: translateX(-10px) scaleX(-1); }
-          50%  { transform: translateX(230px) scaleX(-1); }
-          51%  { transform: translateX(230px); }
-          100% { transform: translateX(-10px); }
+          0%   { transform: translateX(-10px); }
+          50%  { transform: translateX(230px); }
+          51%  { transform: translateX(230px) scaleX(-1); }
+          100% { transform: translateX(-10px) scaleX(-1); }
         }
         @keyframes gofuvar-dust {
           0%   { transform: translateX(-20px); opacity: 0; }

@@ -13,7 +13,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
 import {
   MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, CheckCircle2, AlertTriangle, KeyRound,
-  Camera, XCircle, ShieldCheck, Undo2, Truck, Scale, Copy,
+  Camera, XCircle, ShieldCheck, Undo2, Truck, Scale, Copy, Pencil,
 } from 'lucide-react';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import StatusPill from '@/components/StatusPill';
@@ -728,7 +728,7 @@ export default function FuvarReszletek() {
         {['bidding', 'pending'].includes(job.status) && (
           <div style={{ marginTop: 16 }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowEditDialog(true)} style={{ fontSize: 12 }}>
-              ✏️ Hirdetés szerkesztése
+              <Pencil size={12} aria-hidden style={{ verticalAlign: -2 }} /> Hirdetés szerkesztése
             </button>
             <p className="muted" style={{ fontSize: 11, marginTop: 6 }}>
               Cím, leírás és ajánlott ár — a függő ajánlattevők értesítést kapnak a változásról.
@@ -1134,7 +1134,7 @@ export default function FuvarReszletek() {
       {/* Hirdetés szerkesztése (B3) */}
       <ConfirmDialog
         open={showEditDialog}
-        title="✏️ Hirdetés szerkesztése"
+        title="Hirdetés szerkesztése"
         message="Javítsd a címet, a leírást vagy az ajánlott árat. A felvételi/lerakodási cím nem módosítható — arra tették az ajánlatokat; ha az változik, adj fel új fuvart."
         confirmLabel="Mentés"
         fields={[
@@ -1177,7 +1177,7 @@ export default function FuvarReszletek() {
       {/* Vita-nyitó dialógus */}
       <ConfirmDialog
         open={showDisputeDialog}
-        title="⚖️ Vitás eset megnyitása"
+        title="Vitás eset megnyitása"
         message="Írd le röviden, mi a probléma a fuvarral. Az ügyfélszolgálat a leírásod, a felvételi és lerakodási fotók és az üzenetek alapján vizsgálja ki az esetet, és legkésőbb 14 munkanapon belül írásban jelentkezik."
         confirmLabel="Vita megnyitása"
         fields={[{ key: 'desc', label: 'A probléma leírása', type: 'textarea', required: true, placeholder: 'pl. A csomag sérülten érkezett meg' }]}

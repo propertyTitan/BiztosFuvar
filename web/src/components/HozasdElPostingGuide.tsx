@@ -2,6 +2,7 @@
 
 import type { HozasdElKind } from '@/lib/hozasdEl';
 import styles from './HozasdElPostingGuide.module.css';
+import { Check } from 'lucide-react';
 
 export default function HozasdElPostingGuide({ title, image, source, kind, isInstant, addressesReady, parcelReady, priceReady }: {
   title: string; image: string | null; source: string | null; kind: HozasdElKind;
@@ -28,7 +29,7 @@ export default function HozasdElPostingGuide({ title, image, source, kind, isIns
     <nav aria-label="A fuvarfeladás kitöltendő részei">
       <ol className={styles.steps}>{steps.map((step, index) => <li key={step.href}>
         <a href={step.href} aria-current={index === firstMissing ? 'step' : undefined}>
-          <span aria-hidden="true">{step.ready ? '✓' : index + 1}</span>
+          <span aria-hidden="true">{step.ready ? <Check size={14} /> : index + 1}</span>
           {step.label}<small>{step.ready ? 'Megadva' : 'Kitöltendő'}</small>
         </a>
       </li>)}</ol>

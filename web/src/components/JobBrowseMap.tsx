@@ -15,6 +15,7 @@ import { GoogleMap, InfoWindow, Marker, Polyline, useJsApiLoader } from '@react-
 import Link from 'next/link';
 import { Job } from '@/api';
 import { illesztesPontokra } from '@/lib/terkepIllesztes';
+import { TriangleAlert, MapPin, Flag } from 'lucide-react';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 const containerStyle = { width: '100%', height: '560px', borderRadius: '12px' };
@@ -57,7 +58,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
   if (!apiKey) {
     return (
       <div className="card" style={{ background: 'var(--warning-light)' }}>
-        <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
+        <strong><TriangleAlert size={16} aria-hidden style={{ verticalAlign: -3 }} /> Google Maps API kulcs hiányzik.</strong>
         <p className="muted" style={{ margin: '8px 0 0' }}>
           Állítsd be a <code>NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> env-et a térképes nézethez.
         </p>
@@ -165,10 +166,10 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
               )}
             </div>
             <div style={{ fontSize: 12, color: '#475569' /* InfoWindow háttere MINDIG fehér — fix sötét szín kell */, margin: '2px 0' }}>
-              📍 {activeJob.pickup_address}
+              <MapPin size={12} aria-hidden style={{ verticalAlign: -2 }} /> {activeJob.pickup_address}
             </div>
             <div style={{ fontSize: 12, color: '#475569' /* InfoWindow háttere MINDIG fehér — fix sötét szín kell */, margin: '2px 0' }}>
-              🏁 {activeJob.dropoff_address}
+              <Flag size={12} aria-hidden style={{ verticalAlign: -2 }} /> {activeJob.dropoff_address}
             </div>
             <div
               style={{

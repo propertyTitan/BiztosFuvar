@@ -281,7 +281,7 @@ const USECASES: LandingConfig[] = [
     metaDescription: 'Megvett vagy nem üzemképes autó elvitele tréleren. FONTOS: autót kizárólag engedéllyel rendelkező szállítóval vitess — a GoFuvar közvetítő, az engedélyt neked kell ellenőrizned.',
     eyebrow: 'Autószállítás trélerrel',
     headline: 'Autót vinnél tréleren?',
-    subhead: 'Megvett autó, nem üzemképes jármű vagy projekt-autó — egy tréleres szállító elviheti A-ból B-be. ⚠️ Fontos: autót kizárólag ENGEDÉLLYEL RENDELKEZŐ szállítóval vitess — ezt neked kell ellenőrizned.',
+    subhead: 'Megvett autó, nem üzemképes jármű vagy projekt-autó — egy tréleres szállító elviheti A-ból B-be. Fontos: autót kizárólag ENGEDÉLLYEL RENDELKEZŐ szállítóval vitess — ezt neked kell ellenőrizned.',
     primaryCta: { label: 'Add fel az autószállítást', href: FELADO_REGISZTRACIO_HREF },
     bullets: [
       { icon: Truck, title: 'Tréleres szállító', desc: 'Olyan szállítót válassz, akinek van trélere és jogosultsága jármű szállítására — a feladásnál ezt egyeztesd.' },

@@ -8,6 +8,7 @@ import { Loading } from '@/components/StateView';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useOldalCim } from '@/lib/oldalCim';
+import { Star, CircleCheck, Truck } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -75,11 +76,11 @@ export default function PublikusProfil() {
           <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
             {profile.rating_count > 0 && (
               <span style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 999, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
-                ⭐ {Number(profile.rating_avg).toFixed(1)} ({profile.rating_count} értékelés)
+                <Star size={13} aria-hidden style={{ verticalAlign: -2 }} /> {Number(profile.rating_avg).toFixed(1)} ({profile.rating_count} értékelés)
               </span>
             )}
             <span style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 999, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
-              ✅ {totalDeliveries} teljesített fuvar
+              <CircleCheck size={13} aria-hidden style={{ verticalAlign: -2 }} /> {totalDeliveries} teljesített fuvar
             </span>
           </div>
         </div>
@@ -96,7 +97,7 @@ export default function PublikusProfil() {
       {/* Jármű */}
       {(profile.vehicle_type || profile.vehicle_plate) && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0 }}>🚛 Jármű</h2>
+          <h2 style={{ marginTop: 0 }}><Truck size={18} aria-hidden style={{ verticalAlign: -3 }} /> Jármű</h2>
           <div className="row" style={{ gap: 24 }}>
             {profile.vehicle_type && (
               <div>
@@ -116,15 +117,21 @@ export default function PublikusProfil() {
 
       {/* Értékelések */}
       <div className="card" style={{ marginTop: 16 }}>
-        <h2 style={{ marginTop: 0 }}>⭐ Értékelések ({profile.rating_count || 0})</h2>
+        <h2 style={{ marginTop: 0 }}><Star size={18} aria-hidden style={{ verticalAlign: -3 }} /> Értékelések ({profile.rating_count || 0})</h2>
         {(!profile.recent_reviews || profile.recent_reviews.length === 0) ? (
           <p className="muted">Még nincs értékelés.</p>
         ) : (
           profile.recent_reviews.map((r: any, i: number) => (
             <div key={i} style={{ borderBottom: '1px solid var(--border)', padding: '10px 0' }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ color: 'var(--warning-text)', fontSize: 14 }}>
-                  {'★'.repeat(r.stars || 0)}{'☆'.repeat(5 - (r.stars || 0))}
+                <span
+                  role="img"
+                  aria-label={`${r.stars || 0} / 5 csillag`}
+                  style={{ color: 'var(--warning-text)', display: 'inline-flex', gap: 1 }}
+                >
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <Star key={n} size={14} aria-hidden fill={n <= (r.stars || 0) ? 'currentColor' : 'none'} />
+                  ))}
                 </span>
                 <strong style={{ fontSize: 13 }}>{r.reviewer_name}</strong>
                 <span className="muted" style={{ fontSize: 11 }}>

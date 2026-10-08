@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { Job } from '@/api';
 import { subscribeJob } from '@/lib/socket';
 import { illesztesPontokra } from '@/lib/terkepIllesztes';
+import { TriangleAlert, Radio } from 'lucide-react';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 const containerStyle = { width: '100%', height: '380px', borderRadius: '12px' };
@@ -56,7 +57,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
   if (!apiKey) {
     return (
       <div className="card" style={{ background: 'var(--warning-light)' }}>
-        <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
+        <strong><TriangleAlert size={16} aria-hidden style={{ verticalAlign: -3 }} /> Google Maps API kulcs hiányzik.</strong>
         <p className="muted" style={{ margin: '8px 0 0' }}>
           Állítsd be a <code>NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> env-et a térképhez.
         </p>
@@ -85,7 +86,7 @@ export default function DashboardOverviewMap({ jobs }: { jobs: Job[] }) {
             boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
           }}
         >
-          🔴 {liveCount} szállító élőben követve
+          <Radio size={14} aria-hidden style={{ verticalAlign: -2 }} /> {liveCount} szállító helyzete élőben
         </div>
       )}
       <GoogleMap
