@@ -12,7 +12,7 @@ import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 //   AI segéd, Admin (ha admin), Kijelentkezés.
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, Target, Route, User, Truck, Shield,
   Bell, BellRing, Bot, LogOut, ChevronDown, Package, Plus, Mail,
@@ -28,6 +28,10 @@ import { useTranslation } from '@/lib/i18n';
 export default function SiteHeader() {
   const user = useCurrentUser();
   const router = useRouter();
+  const pathname = usePathname();
+  // UX-kör A10: a belépési oldalon a fejléc „Belépés" gombja ugyanoda vinne,
+  // ahol már vagyunk — csak zavar (két „Belépés" egymás alatt).
+  const belepesOldalon = pathname === '/bejelentkezes';
 
   // ── RÉGI SESSION-ÖK AVATAR-VISSZATÖLTÉSE (2026-08-16) ────────────────
   // A PR #182 előtt bejelentkezett felhasználók tárolt user-objektumában
@@ -192,7 +196,16 @@ export default function SiteHeader() {
             világos → sötét → rendszer. Ikon-only, hogy mobilon is elférjen. */}
         <ThemeToggle compact />
 
+        {/* Korai szállítói bejárat a látogatónak (UX-kör Q10): szöveges link,
+            a Belépés marad az elsődleges gomb. Keskeny mobilon rejtve (ott a
+            hero alatti „Szállító vagy?" link viszi), hogy a fejléc ne lógjon ki. */}
         {!user && (
+          <Link href="/soforoknek" className="fejlec-szallitoknak">
+            Szállítóknak
+          </Link>
+        )}
+
+        {!user && !belepesOldalon && (
           <Link
             href="/bejelentkezes"
             className="btn"

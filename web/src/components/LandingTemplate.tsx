@@ -1,11 +1,12 @@
 // Egy landing-oldal megjelenítése EGY LandingConfig-ból (lib/landings.ts).
 // Statikus tartalom → server component, SEO-barát, nem kell hozzá JS.
 import Link from 'next/link';
-import type { LandingConfig } from '@/lib/landings';
+import { ertekPontElrendezes, type LandingConfig } from '@/lib/landings';
 import { greenStats } from '@/lib/green';
 
 export default function LandingTemplate({ config }: { config: LandingConfig }) {
   const green = config.route ? greenStats(config.route.distanceKm) : null;
+  const elrendezes = ertekPontElrendezes(config.bullets.length);
 
   // FAQ rich-result JSON-LD (Google kiemelt találat a kérdésekre).
   const faqJsonLd = config.faq && config.faq.length > 0 ? {
@@ -47,7 +48,8 @@ export default function LandingTemplate({ config }: { config: LandingConfig }) {
           <Link href={config.primaryCta.href} className="btn" style={{ textDecoration: 'none', fontSize: 16, padding: '12px 24px' }}>
             {config.primaryCta.label}
           </Link>
-          <Link href="/" className="btn btn-ghost" style={{ textDecoration: 'none', fontSize: 16, padding: '12px 24px' }}>
+          {/* UX-kör A23: eddig a „/" tetejére vitt, nem a magyarázathoz. */}
+          <Link href="/#hogyan-mukodik" className="btn btn-ghost" style={{ textDecoration: 'none', fontSize: 16, padding: '12px 24px' }}>
             Hogyan működik?
           </Link>
         </div>
@@ -82,7 +84,15 @@ export default function LandingTemplate({ config }: { config: LandingConfig }) {
 
       {/* ── Érték-pontok ── */}
       <section style={{ padding: '8px 0 40px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+        <div
+          className={elrendezes.mod === 'kozepre' ? 'ertekpont-kozepre' : undefined}
+          style={elrendezes.mod === 'racs'
+            ? {
+              display: 'grid', gap: 16,
+              gridTemplateColumns: `repeat(auto-fit, minmax(min(100%, ${elrendezes.oszlopMinPx}px), 1fr))`,
+            }
+            : { display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 16 }}
+        >
           {config.bullets.map((b) => {
             const Icon = b.icon;
             return (

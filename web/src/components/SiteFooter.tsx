@@ -5,8 +5,10 @@ import { Truck } from 'lucide-react';
 import { landingLinks } from '@/lib/landings';
 import { KERESKEDO } from '@/lib/kereskedo';
 import { CibSzolgaltato, ElfogadottKartyak } from '@/components/CibLogok';
+import { useCurrentUser } from '@/lib/auth';
 
 export default function SiteFooter() {
+  const user = useCurrentUser();
   const links = landingLinks();
   const groups: { title: string; kind: 'route' | 'persona' | 'usecase' }[] = [
     { title: 'Útvonalak', kind: 'route' },
@@ -61,7 +63,14 @@ export default function SiteFooter() {
       <div style={{ marginTop: 10, fontSize: 13, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
         <a href="mailto:info@gofuvar.hu" style={{ color: 'inherit', textDecoration: 'underline' }}>Segítség: info@gofuvar.hu</a>
         <a href="mailto:panasz@gofuvar.hu" style={{ color: 'inherit', textDecoration: 'underline' }}>Panasz: panasz@gofuvar.hu</a>
-        <Link href="/ai-chat" style={{ color: 'inherit', textDecoration: 'underline' }}>AI-asszisztens</Link>
+        {/* UX-kör A9: az AI-asszisztens belépéshez kötött (e-mail-kapu) — a
+            látogatónak eddig egy olyan link volt itt, ami szó nélkül a
+            belépésre dobta. Most kimondjuk, és a belépés után oda visz. */}
+        {user ? (
+          <Link href="/ai-chat" style={{ color: 'inherit', textDecoration: 'underline' }}>AI-asszisztens</Link>
+        ) : (
+          <Link href="/bejelentkezes?next=%2Fai-chat" style={{ color: 'inherit', textDecoration: 'underline' }}>AI-asszisztens (belépés után)</Link>
+        )}
       </div>
       {/* A kereskedő elérhetősége (banki teszt: adószám, székhely, telefon,
           e-mail kötelező; az ÁSZF-link fent). */}
