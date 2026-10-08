@@ -1,5 +1,28 @@
 # CLAUDE.md — GoFuvar projekt context
 
+> **2026-10-08 — teljes oldal-UX átvizsgálás + az azonnali és gyors javítások.**
+> 297 képernyőkép (minden oldal desktop/mobil, világos/sötét, 12 folyamat
+> lépésenként), 6 független szempont: **összpontszám 6,2/10** („a kirakat
+> európai szintű, a bolt belseje nem”). A user jóváhagyásával a 31 azonnali
+> tétel és a 19 gyors nyereség javítva (46 kész, 4 részben — a maradék a
+> nagyobb csomagokba került): igaz állapot-jelzések (hamis vészkód-sáv,
+> „SMS-ben megkapta” felvétel előtt, „INDÍTÁS” fizetetlen fuvaron), igaz jogi
+> szöveg (Trust Score, rangsor-bekezdés az ÁSZF 2. pontban, „vitás esetben
+> irányadó” ki), regisztráció mezőszintű hibákkal (hibás űrlap nem megy a
+> szerverre, nem fogyasztja az 5/óra limitet), iPhone-ránagyítás ellen 16 px
+> mezők mobilon, mezőkontraszt + egységes hibaállapot, közös StatusPill,
+> ~150 emoji → lucide (emoji-őr), keresztnéves megszólítás, toastok, a díj
+> után egy koppintásos hívás/üzenet/navigáció, főoldali ár és szándék-
+> megőrző CTA-k. Szövegőr mostantól a belépett oldalakon is. **Nyitott
+> nagyobb csomagok** (egyenként egyeztetendők): (1) a fuvaroldal mindig a
+> következő lépést mutassa; (2) szállítói munkafolyamat; (3) konverzió a
+> landingtől az első feladásig; (4) egységes design-rendszer a belső
+> felületen (+ közös format.ts: kg/km/m³/telefon); (5) vita, lemondás,
+> fizetési hibák utóélete. Képek és jelentés: a session scratchpadjában
+> (`ux-review/`). **CIB átvételi teszt: kérés elküldve 2026-10-08** —
+> teszt-fiók `cib-teszt@gofuvar.hu` (az engedélylistán, 3 fiók), 3 előkészített,
+> fizetésre váró „CIB-TESZT” fuvar (a launch előtti takarításnál törlendők).
+
 > **2026-10-04 — CIB PR-5: a kártyás díjfizetés „10/10" köre.** A user kérésére
 > (hibátlan fizetés) teljes átvizsgálás: 6 független szempont, minden találatot
 > egy reprodukáló és egy cáfoló ügynök ellenőrzött, plusz forgatókönyv-mátrix a
