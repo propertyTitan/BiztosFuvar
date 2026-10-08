@@ -401,7 +401,11 @@ export default function SoforFuvarReszletek() {
             id="elerhetoseg"
             cimke="A feladó elérhetősége"
             bevezeto={navCel === 'felvetel'
-              ? 'Díj rendezve. Hívd fel a feladót, és egyeztessétek a felvétel idejét.'
+              // A feladónak a telefonszám nem kötelező — szám nélkül nincs
+              // hívógomb, ezért a szöveg sem utasíthat hívásra (fix1-review).
+              ? (job.contact.phone
+                ? 'Díj rendezve. Hívd fel a feladót, és egyeztessétek a felvétel idejét.'
+                : 'Díj rendezve. Írj a feladónak az Üzenetek blokkban, és egyeztessétek a felvétel idejét.')
               : navCel === 'lerakodas'
                 ? 'Úton vagy — a lerakodási címhez innen navigálhatsz.'
                 : 'Ha kérdésed van a fuvarról, itt éred el a feladót.'}
@@ -652,7 +656,7 @@ export default function SoforFuvarReszletek() {
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
-                    detail: { code: 'IDENTITY_KYC_REQUIRED' },
+                    detail: { code: 'IDENTITY_KYC_REQUIRED', forras: 'ajanlat' },
                   }))}
                 >
                   Azonosítás most

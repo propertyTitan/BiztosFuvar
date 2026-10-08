@@ -242,7 +242,9 @@ export default function KycModal() {
             <div>Elfogadva! Most már tehetsz ajánlatot.</div>
           </div>
           <button type="button" className="btn" onClick={handleClose} style={{ width: '100%', justifyContent: 'center', marginTop: 16, minHeight: 44 }}>
-            {forras === 'fooldal' ? 'Rendben' : 'Vissza az ajánlathoz'}
+            {/* Csak ajánlattételből nyitva van félbehagyott ajánlat, amihez
+                vissza lehet térni — a profilról vagy a főoldalról „Rendben”. */}
+            {forras === 'ajanlat' ? 'Vissza az ajánlathoz' : 'Rendben'}
           </button>
         </div>
       ) : uploadResult === 'rejected' ? (

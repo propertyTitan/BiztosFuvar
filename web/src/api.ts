@@ -502,7 +502,10 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
       if (errorData.code === 'OUTSIDE_COVERAGE') {
         window.dispatchEvent(new CustomEvent('gofuvar:outside-coverage', { detail: { error: errorData.error } }));
       } else if (errorData.code && kycCodes.includes(errorData.code)) {
-        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code } }));
+        // A KYC-ablak sikergombja csak ajánlattételből nyitva mondja, hogy
+        // „Vissza az ajánlathoz” — máshonnan (profil, főoldal) „Rendben”.
+        const forras = /\/bids\b|\/instant-accept\b/.test(path) ? 'ajanlat' : undefined;
+        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code, forras } }));
       }
     }
     // A hibakód a hívóhoz is eljut (2026-09-11, B1): kód-alapú kezelés

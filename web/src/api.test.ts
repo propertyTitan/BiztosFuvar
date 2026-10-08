@@ -175,6 +175,21 @@ describe('api.request wrapper', () => {
       .find((e) => e.type === 'gofuvar:kyc-required');
     expect(evt).toBeTruthy();
     expect(evt!.detail.code).toBe('IDENTITY_KYC_REQUIRED');
+    // Nem ajánlattételből jött: a KYC-ablak nem ígér visszatérést egy ajánlathoz.
+    expect(evt!.detail.forras).toBeUndefined();
+  });
+
+  it('ajánlattételkor (POST /jobs/:id/bids) a KYC-esemény jelzi a forrást (forras: ajanlat)', async () => {
+    global.fetch = vi
+      .fn()
+      .mockResolvedValue(mockResponse(403, { error: 'kyc kell', code: 'IDENTITY_KYC_REQUIRED' }));
+
+    await expect(api.placeBid('j1', { amount_huf: 20000, return_policy: 'included' })).rejects.toThrow('kyc kell');
+
+    const evt = dispatchSpy.mock.calls
+      .map(([e]) => e as CustomEvent)
+      .find((e) => e.type === 'gofuvar:kyc-required');
+    expect(evt!.detail).toEqual({ code: 'IDENTITY_KYC_REQUIRED', forras: 'ajanlat' });
   });
 
   it('403 + OUTSIDE_COVERAGE → gofuvar:outside-coverage eseményt dob', async () => {

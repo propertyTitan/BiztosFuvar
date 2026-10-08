@@ -77,7 +77,7 @@ describe('szállítói fuvaroldal — díj előtt', () => {
       await act(async () => { render(<CarrierPage />); });
       expect(await screen.findByText(/Az ajánlathoz egyszeri azonosítás kell – kb\. 2 perc/)).toBeInTheDocument();
       fireEvent.click(screen.getByRole('button', { name: 'Azonosítás most' }));
-      expect(esemenyek).toEqual([{ code: 'IDENTITY_KYC_REQUIRED' }]);
+      expect(esemenyek).toEqual([{ code: 'IDENTITY_KYC_REQUIRED', forras: 'ajanlat' }]);
     } finally {
       window.removeEventListener('gofuvar:kyc-required', figyel);
     }
@@ -121,6 +121,27 @@ describe('szállítói fuvaroldal — úton', () => {
     });
     expect(document.getElementById('problema-bejelentese')).not.toBeNull();
     expect(screen.queryByText(/házszám a kapcsolatfelvételi díj után/)).toBeNull();
+  });
+});
+
+describe('szállítói fuvaroldal — a feladó elérhetősége a díj után', () => {
+  it('telefonszámmal: hívásra kér', async () => {
+    vi.mocked(api.getJob).mockResolvedValue({
+      ...alap, carrier_id: 'carrier', status: 'accepted', paid_at: '2026-10-01T10:00:00Z',
+      contact: { role: 'shipper', name: 'Feladó', phone: '+36301234567', email: null },
+    } as any);
+    await act(async () => { render(<CarrierPage />); });
+    expect(await screen.findByText(/Díj rendezve\. Hívd fel a feladót/)).toBeInTheDocument();
+  });
+
+  it('telefonszám nélkül (a feladónak nem kötelező) nem utasít hívásra — az Üzenetek blokkhoz irányít', async () => {
+    vi.mocked(api.getJob).mockResolvedValue({
+      ...alap, carrier_id: 'carrier', status: 'accepted', paid_at: '2026-10-01T10:00:00Z',
+      contact: { role: 'shipper', name: 'Feladó', phone: null, email: 'felado@example.com' },
+    } as any);
+    await act(async () => { render(<CarrierPage />); });
+    expect(await screen.findByText(/Díj rendezve\. Írj a feladónak az Üzenetek blokkban/)).toBeInTheDocument();
+    expect(screen.queryByText(/Hívd fel a feladót/)).toBeNull();
   });
 });
 

@@ -408,7 +408,10 @@ export default function CarrierTripPanel({
           <FieldError>{kodHiba}</FieldError>
         </div>
         <p className="muted" style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>
-          Nincs kódja az átvevőnek? A feladónak is van érvényes átvételi kódja — hívd fel, és kérd el tőle.
+          Nincs kódja az átvevőnek? A feladónak is van érvényes átvételi kódja —{' '}
+          {feladoTelefon
+            ? 'hívd fel, és kérd el tőle.'
+            : 'írj neki az Üzenetek blokkban, és kérd el tőle.'}
         </p>
         {feladoTelefon && (
           <a

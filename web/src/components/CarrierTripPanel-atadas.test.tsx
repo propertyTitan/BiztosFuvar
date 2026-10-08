@@ -78,6 +78,14 @@ describe('CarrierTripPanel — kézbesítés', () => {
     render(<CarrierTripPanel jobId="j1" status="in_progress" paid onDone={vi.fn()} feladoTelefon="+36301234567" />);
     expect(screen.getByText(/Nincs kódja az átvevőnek\?/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Feladó hívása/ })).toHaveAttribute('href', 'tel:+36301234567');
+    expect(screen.getByText(/hívd fel, és kérd el tőle/)).toBeInTheDocument();
+  });
+
+  it('a feladó telefonszáma nélkül nem utasít hívásra — az Üzenetek blokkhoz irányít', () => {
+    render(<CarrierTripPanel jobId="j1" status="in_progress" paid onDone={vi.fn()} />);
+    expect(screen.getByText(/írj neki az Üzenetek blokkban, és kérd el tőle/)).toBeInTheDocument();
+    expect(screen.queryByText(/hívd fel, és kérd el/)).toBeNull();
+    expect(screen.queryByRole('link', { name: /Feladó hívása/ })).toBeNull();
   });
 
   it('„Nem sikerül átadni?” — hívások, a vállalás és a probléma bejelentése', () => {

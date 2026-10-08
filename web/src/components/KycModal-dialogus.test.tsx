@@ -46,7 +46,7 @@ describe('KycModal — dialógus', () => {
 
 describe('KycModal — sikerképernyő', () => {
   it('az ajánlattételről szól, nem a feladásról, és visszavisz az ajánlathoz', async () => {
-    nyit();
+    nyit({ code: 'DRIVER_KYC_REQUIRED', forras: 'ajanlat' });
     await sikeresFeltoltes();
     expect(screen.getByText('Elfogadva! Most már tehetsz ajánlatot.')).toBeInTheDocument();
     expect(screen.queryByText(/feladhatsz fuvart/)).toBeNull();
@@ -61,6 +61,13 @@ describe('KycModal — sikerképernyő', () => {
     nyit({ code: 'IDENTITY_KYC_REQUIRED', forras: 'fooldal' });
     await sikeresFeltoltes();
     expect(screen.getByRole('button', { name: 'Rendben' })).toBeInTheDocument();
+  });
+
+  it('forrás nélkül (pl. a profil „Feltöltöm most” gombja) sem ígér visszatérést egy ajánlathoz', async () => {
+    nyit({ code: 'IDENTITY_KYC_REQUIRED' });
+    await sikeresFeltoltes();
+    expect(screen.getByRole('button', { name: 'Rendben' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Vissza az ajánlathoz' })).toBeNull();
   });
 });
 
