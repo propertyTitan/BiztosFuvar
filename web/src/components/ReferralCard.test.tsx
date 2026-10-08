@@ -16,10 +16,16 @@ const alap = {
 beforeEach(() => vi.resetAllMocks());
 
 describe('ReferralCard', () => {
-  it('kimondja, hogy a jutalom 60 napon belüli feladásra szól', async () => {
+  it('kimondja, hogy a kupon 60 napig érvényes, és a díjfizetésnél váltódik be — nem a feladáskor', async () => {
     vi.mocked(api.getReferralInfo).mockResolvedValue(alap as any);
     render(<ReferralCard />);
-    expect(await screen.findByText(/60 napon\s+belül adsz fel fuvart/)).toBeInTheDocument();
+    const p = await screen.findByText(/60\s+napig\s+érvényes/);
+    expect(p.textContent).toMatch(/szállítót\s+választasz/);
+    expect(p.textContent).toMatch(/díjfizetés lépésénél/);
+    // A kupon a /pay-en (díjfizetéskor) váltódik be, a lejáratot is ott nézzük:
+    // a „ha 60 napon belül adsz fel fuvart” ígéret az 58. napon feladott, de
+    // a 61. napon elfogadott fuvarnál hamis volt (fix1-review).
+    expect(p.textContent).not.toMatch(/adsz fel fuvart/);
   });
 
   it('a backend által küldött lejárati napot „Érvényes: …-ig” formában mutatja', async () => {

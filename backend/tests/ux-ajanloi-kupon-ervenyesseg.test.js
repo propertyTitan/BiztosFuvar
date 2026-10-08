@@ -3,7 +3,7 @@
 //  a felület is kimondja.
 //
 //  (1) SZINKRON-ŐR: a web ReferralCard a kupon érvényességét saját
-//      konstansból írja ki („ha 60 napon belül adsz fel fuvart”); ha a
+//      konstansból írja ki („A kupon 60 napig érvényes…”); ha a
 //      backend REFERRAL_VOUCHER_VALID_DAYS-e megváltozik, a felület némán
 //      hazudna. Ez a teszt a két számot egymáshoz méri.
 //  (2) legkozelebbiKuponLejarat: a „Érvényes: <dátum>-ig” sor forrása —
@@ -30,9 +30,13 @@ describe('ajánlói kupon — web ↔ backend szinkron', () => {
     expect(Number(m[1])).toBe(referral.REFERRAL_VOUCHER_VALID_DAYS);
   });
 
-  it('a jutalom-értesítés is kimondja az érvényességet', () => {
+  it('a jutalom-értesítés is kimondja az érvényességet — és hogy a díjfizetésnél váltódik be', () => {
     const forras = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'referral.js'), 'utf8');
-    expect(forras).toMatch(/ha \$\{REFERRAL_VOUCHER_VALID_DAYS\} napon belül adsz fel fuvart/);
+    expect(forras).toMatch(/A kupon \$\{REFERRAL_VOUCHER_VALID_DAYS\} napig érvényes: ha ezalatt szállítót választasz, a díjfizetés lépésénél/);
+    // A kupon a /pay-en váltódik be (useVoucherIfAvailable: valid_until >=
+    // CURRENT_DATE a BEVÁLTÁS napján) — a feladás napja nem számít, ezért a
+    // „ha N napon belül adsz fel fuvart” ígéret hamis volt (fix1-review).
+    expect(forras).not.toMatch(/napon belül adsz fel fuvart/);
   });
 });
 
