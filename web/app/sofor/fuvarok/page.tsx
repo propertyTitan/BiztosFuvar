@@ -5,6 +5,15 @@
 // - Új fuvar érkezéskor (Socket.IO `jobs:new`) automatikusan frissül a lista.
 // - Minden kártya → a fuvar részletes oldalára visz, ahol licitálni lehet.
 // - Lista / térkép toggle: a user eldöntheti melyik nézetben böngészik.
+//
+// UX-review Q14 (2026-10-08): mobilon az első fuvar ~620 px-nél kezdődött,
+// előtte hat vezérlősor állt (Értesíts, Új hirdetés — feladói művelet!,
+// Lista/Térkép, Frissítés, GPS-sáv, Szűrők). Most EGY eszközsor: [Szűrők (n)]
+// [Lista|Térkép] [Helyem]. A lista socketen magától frissül, de új fuvarnál
+// nem ugrik el a szállító ujja alól: „N új fuvar – mutasd” pirula jelenik
+// meg. Az „Értesíts” a lista végére és az üres állapotba került; a szűrt
+// keresés üres állapota a szűrőkről szól. A halott „Típus/Azonnali” szűrő
+// rejtve (az azonnali fuvar ki van kapcsolva).
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -13,23 +22,31 @@ import { useCurrentUser } from '@/lib/auth';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 import { mentPiszkozat, olvasPiszkozat } from '@/lib/urlapPiszkozat';
-import { PackageSearch } from 'lucide-react';
+import {
+  PackageSearch, SlidersHorizontal, List as ListIcon, Map as MapIcon, LocateFixed, MapPin, Flag, Lock, Bell, ArrowUp,
+} from 'lucide-react';
 import { subscribeFeed } from '@/lib/socket';
 import JobBrowseMap from '@/components/JobBrowseMap';
 import GreenBadge from '@/components/GreenBadge';
 import { useTranslation, formatPrice } from '@/lib/i18n';
+import {
+  type Filters, EMPTY_FILTERS, AZONNALI_ELERHETO, aktivSzurokSzama, figyeloLink,
+} from './fuvarSzurok';
 
 type ListedJob = Job & { distance_to_pickup_km?: number };
 type ViewMode = 'list' | 'map';
-type Filters = { min: string; max: string; weight: string; from: string; to: string; type: '' | 'true' | 'false' };
 type Search = { lat?: number; lng?: number; filters: Filters };
-const EMPTY_FILTERS: Filters = { min: '', max: '', weight: '', from: '', to: '', type: '' };
 
 export default function SoforFuvarokLista() {
   const me = useCurrentUser();
   const router = useRouter();
   const { t } = useTranslation();
   const [jobs, setJobs] = useState<ListedJob[]>([]);
+  const jobsRef = useRef<ListedJob[]>([]);
+  jobsRef.current = jobs;
+  // Háttérben (socketen) érkezett frissebb lista — csak a pirulára kattintva
+  // cseréljük, hogy a lista ne ugorjon el a szállító ujja alól.
+  const [fuggoLista, setFuggoLista] = useState<{ jobs: ListedJob[]; ujDb: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const appliedSearch = useRef<Search>({ filters: EMPTY_FILTERS });
@@ -91,10 +108,17 @@ export default function SoforFuvarokLista() {
         max_weight_kg: weight ? Number(weight) : undefined,
         pickup_city: from || undefined,
         dropoff_city: to || undefined,
-        instant: type || undefined,
+        instant: (AZONNALI_ELERHETO && type) || undefined,
       });
       if (currentRequest !== requestNumber.current) return;
-      setJobs(data);
+      const ismert = new Set(jobsRef.current.map((j) => j.id));
+      const ujDb = data.filter((j) => !ismert.has(j.id)).length;
+      if (background && ujDb > 0 && jobsRef.current.length > 0) {
+        setFuggoLista({ jobs: data, ujDb });
+      } else {
+        setJobs(data);
+        if (!background) setFuggoLista(null);
+      }
       setError(null);
     } catch (err: any) {
       if (currentRequest === requestNumber.current) setError(err.message);
@@ -169,6 +193,7 @@ export default function SoforFuvarokLista() {
         // Egy korábban elindult lista-válasz se hozhassa vissza az elvállalt fuvart.
         requestNumber.current++;
         setJobs((prev) => prev.filter((j) => j.id !== payload.job_id));
+        setFuggoLista((f) => (f ? { ...f, jobs: f.jobs.filter((j) => j.id !== payload.job_id) } : f));
         scheduleRefresh();
       },
     });
@@ -179,118 +204,100 @@ export default function SoforFuvarokLista() {
     };
   }, [refresh]);
 
+  const jelenlegiSzurok: Filters = {
+    min: filterMinPrice, max: filterMaxPrice, weight: filterMaxWeight,
+    from: filterFromCity, to: filterToCity, type: filterType,
+  };
+  const szuroDb = aktivSzurokSzama(appliedSearch.current.filters);
+  function szurokTorlese() {
+    setFilterMinPrice('');
+    setFilterMaxPrice('');
+    setFilterMaxWeight('');
+    setFilterFromCity('');
+    setFilterToCity('');
+    setFilterType('');
+    load(here?.lat, here?.lng, { ...EMPTY_FILTERS });
+  }
+  const valtoGomb = (aktiv: boolean): React.CSSProperties => ({
+    display: 'inline-flex', alignItems: 'center', gap: 6,
+    padding: '8px 12px', minHeight: 40, borderRadius: 999, border: 'none',
+    background: aktiv ? 'var(--surface)' : 'transparent',
+    fontWeight: aktiv ? 700 : 500, cursor: 'pointer', fontSize: 13, color: 'var(--text)',
+    boxShadow: aktiv ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+  });
+
   return (
     <div>
-      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ marginBottom: 4 }}>{t('jobs.title')}</h1>
-          <p className="muted" style={{ margin: 0 }}>
-            {here
-              ? 'Közelség szerint rendezve a jelenlegi pozíciódhoz'
-              : 'A helymeghatározás nem érhető el – a teljes nyitott lista látható'}
-          </p>
-        </div>
-        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
-          <Link
-            href="/sofor/ertesitok"
-            className="btn btn-ghost"
-            style={{ fontSize: 13, padding: '8px 16px', textDecoration: 'none' }}
-            title="Értesítést kérek az ilyen fuvarokról"
-          >
-            🔔 Értesíts, ha van ilyen fuvar
-          </Link>
-          <Link
-            href="/dashboard/uj-fuvar"
-            className="btn"
-            style={{
-              background: 'var(--success-strong)',
-              fontSize: 13,
-              padding: '8px 16px',
-              textDecoration: 'none',
-            }}
-          >
-            Új hirdetés feladása
-          </Link>
-          {/* Nézet váltó: lista ↔ térkép */}
-          <div
-            style={{
-              display: 'inline-flex',
-              background: 'var(--bg)',
-              borderRadius: 999,
-              padding: 3,
-              border: '1px solid var(--border)',
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setView('list')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 999,
-                border: 'none',
-                background: view === 'list' ? 'var(--surface)' : 'transparent',
-                fontWeight: view === 'list' ? 700 : 500,
-                cursor: 'pointer',
-                fontSize: 13,
-                color: 'var(--text)',
-                boxShadow: view === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              }}
-            >
-              📋 Lista
-            </button>
-            <button
-              type="button"
-              onClick={() => setView('map')}
-              style={{
-                padding: '6px 14px',
-                borderRadius: 999,
-                border: 'none',
-                background: view === 'map' ? 'var(--surface)' : 'transparent',
-                fontWeight: view === 'map' ? 700 : 500,
-                cursor: 'pointer',
-                fontSize: 13,
-                color: 'var(--text)',
-                boxShadow: view === 'map' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              }}
-            >
-              🗺️ Térkép
-            </button>
-          </div>
-          <button className="btn btn-secondary" type="button" onClick={() => load(here?.lat, here?.lng)}>
-            Frissítés
-          </button>
-        </div>
+      <div>
+        <h1 style={{ marginBottom: 4 }}>{t('jobs.title')}</h1>
+        <p className="muted" style={{ margin: 0 }}>
+          {here
+            ? 'Közelség szerint rendezve a jelenlegi pozíciódhoz.'
+            : helyAllapot === 'nincs'
+              ? 'Az összes nyitott fuvar, a legfrissebb elöl. (A helymeghatározás nincs engedélyezve.)'
+              : 'Az összes nyitott fuvar, a legfrissebb elöl. A „Helyem” gombbal a közeliek kerülnek előre — a helyzetedet csak a távolsághoz használjuk, nem tároljuk.'}
+        </p>
       </div>
 
-      {/* Hely-sáv (C2): magyarázat + gomb — nem kéretlen böngésző-prompt */}
-      {helyAllapot !== 'megvan' && (
-        <div className="card" style={{ marginTop: 12, padding: '10px 14px', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 13 }}>
-            📍 <strong>Közeli fuvarok elöl?</strong> A helyzetedet csak a távolság kiszámításához használjuk, nem tároljuk.
-          </span>
-          <button type="button" className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => helyetKer(false)} disabled={helyAllapot === 'keres'}>
-            {helyAllapot === 'keres' ? 'Helymeghatározás…' : helyAllapot === 'nincs' ? 'Újra próbálom' : 'Helyzetem használata'}
+      {/* EGY eszközsor: szűrők · nézet · hely */}
+      <div className="row" style={{ marginTop: 12, gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          aria-expanded={showFilters}
+          aria-controls="fuvar-szurok"
+          onClick={() => setShowFilters((v) => !v)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px', minHeight: 40 }}
+        >
+          <SlidersHorizontal size={16} aria-hidden /> {szuroDb > 0 ? `Szűrők (${szuroDb})` : 'Szűrők'}
+        </button>
+        <div
+          role="group"
+          aria-label="Nézet"
+          style={{
+            display: 'inline-flex', background: 'var(--bg)', borderRadius: 999, padding: 3,
+            border: '1px solid var(--border)',
+          }}
+        >
+          <button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')} style={valtoGomb(view === 'list')}>
+            <ListIcon size={15} aria-hidden /> Lista
+          </button>
+          <button type="button" aria-pressed={view === 'map'} onClick={() => setView('map')} style={valtoGomb(view === 'map')}>
+            <MapIcon size={15} aria-hidden /> Térkép
+          </button>
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={() => helyetKer(false)}
+          disabled={helyAllapot === 'keres'}
+          aria-pressed={helyAllapot === 'megvan'}
+          title="Közeli fuvarok elöl — a helyzetedet csak a távolság kiszámításához használjuk, nem tároljuk."
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, padding: '8px 14px', minHeight: 40 }}
+        >
+          <LocateFixed size={16} aria-hidden /> {helyAllapot === 'keres' ? 'Keresés…' : 'Helyem'}
+        </button>
+      </div>
+
+      {fuggoLista && fuggoLista.ujDb > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => {
+              setJobs(fuggoLista.jobs);
+              setFuggoLista(null);
+              if (typeof window !== 'undefined') window.scrollTo?.({ top: 0, behavior: 'smooth' });
+            }}
+            style={{ borderRadius: 999, fontSize: 13, padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <ArrowUp size={15} aria-hidden /> {fuggoLista.ujDb} új fuvar – mutasd
           </button>
         </div>
       )}
 
-      {/* Szűrő sáv */}
-      <div style={{ marginTop: 12 }}>
-        <button
-          type="button"
-          onClick={() => setShowFilters((s) => !s)}
-          style={{
-            background: 'none',
-            border: 'none',
-            color: 'var(--primary-text)',
-            cursor: 'pointer',
-            fontSize: 13,
-            fontWeight: 600,
-            padding: 0,
-          }}
-        >
-          🔍 {showFilters ? 'Szűrők elrejtése' : 'Szűrők mutatása'}
-        </button>
+      {/* Szűrő-panel */}
+      <div id="fuvar-szurok">
         {showFilters && (
           <div className="card" style={{ marginTop: 8, padding: 16 }}>
             <div className="row" style={{ gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>
@@ -318,6 +325,7 @@ export default function SoforFuvarokLista() {
                   style={{ width: 140 }}
                 />
               </div>
+              {AZONNALI_ELERHETO && (
               <div>
                 <label htmlFor="szuro-tipus" style={{ fontSize: 12 }}>Típus</label>
                 <select
@@ -332,6 +340,7 @@ export default function SoforFuvarokLista() {
                   <option value="true">⚡ Azonnali</option>
                 </select>
               </div>
+              )}
               <div>
                 <label htmlFor="szuro-min-ar" style={{ fontSize: 12 }}>Min ár (Ft)</label>
                 <input
@@ -376,19 +385,11 @@ export default function SoforFuvarokLista() {
               >
                 Szűrés
               </button>
-              {(filterMinPrice || filterMaxPrice || filterMaxWeight || filterFromCity || filterToCity || filterType) && (
+              {aktivSzurokSzama(jelenlegiSzurok) > 0 && (
                 <button
                   className="btn btn-secondary"
                   type="button"
-                  onClick={() => {
-                    setFilterMinPrice('');
-                    setFilterMaxPrice('');
-                    setFilterMaxWeight('');
-                    setFilterFromCity('');
-                    setFilterToCity('');
-                    setFilterType('');
-                    load(here?.lat, here?.lng, { min: '', max: '', weight: '', from: '', to: '', type: '' });
-                  }}
+                  onClick={szurokTorlese}
                   style={{ fontSize: 12, padding: '6px 12px' }}
                 >
                   Szűrők törlése
@@ -405,10 +406,23 @@ export default function SoforFuvarokLista() {
         <div className="card" style={{ borderColor: 'var(--danger)', marginTop: 16 }}>
           <strong>Hiba:</strong> {error}
           <p className="muted">Be vagy jelentkezve? <a href="/bejelentkezes">Belépés</a>.</p>
+          <button type="button" className="btn btn-secondary" onClick={() => load(here?.lat, here?.lng)}>
+            Újrapróbálom
+          </button>
         </div>
       )}
 
-      {!loading && !error && jobs.length === 0 && (
+      {!loading && !error && jobs.length === 0 && szuroDb > 0 && (
+        <EmptyState
+          icon={<PackageSearch size={28} aria-hidden />}
+          title="A szűrőidnek most egy fuvar sem felel meg"
+          description="Próbáld tágabb feltételekkel — vagy kérj értesítést, és e-mailben szólunk, ha ilyen fuvar érkezik."
+          cta={<button type="button" className="btn" onClick={szurokTorlese}>Szűrők törlése</button>}
+          secondaryCta={<Link className="btn btn-ghost" href={figyeloLink(appliedSearch.current.filters)}>Értesíts, ha jön ilyen</Link>}
+        />
+      )}
+
+      {!loading && !error && jobs.length === 0 && szuroDb === 0 && (
         <EmptyState
           icon={<PackageSearch size={28} aria-hidden />}
           title="Most épp nincs elérhető fuvar"
@@ -540,12 +554,18 @@ export default function SoforFuvarokLista() {
                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                   />
                 )}
-                <p className="muted" style={{ margin: '2px 0' }}>📍 {j.pickup_address}</p>
-                <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>
+                <p className="muted" style={{ margin: '2px 0', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                  <MapPin size={13} aria-hidden style={{ flexShrink: 0 }} /> {j.pickup_address}
+                  {!isMine && <HazszamLakat />}
+                </p>
+                <p className="muted" style={{ margin: '2px 0', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                  <Flag size={13} aria-hidden style={{ flexShrink: 0 }} /> {j.dropoff_address}
+                  {!isMine && <HazszamLakat />}
+                </p>
                 <div className="row" style={{ marginTop: 6, gap: 16, fontSize: 13 }}>
                   {j.distance_km != null && <span className="muted">{j.distance_km} km össztáv</span>}
                   {j.distance_to_pickup_km != null && (
-                    <span className="muted">📍 {j.distance_to_pickup_km} km tőled</span>
+                    <span className="muted">{j.distance_to_pickup_km} km tőled</span>
                   )}
                   {j.weight_kg != null && <span className="muted">{j.weight_kg} kg</span>}
                   {j.length_cm && j.width_cm && j.height_cm && (
@@ -616,6 +636,31 @@ export default function SoforFuvarokLista() {
           </Link>
         );
       })}
+
+      {!loading && !error && jobs.length > 0 && (
+        <div className="card" style={{ marginTop: 24, display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 14, display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Bell size={18} aria-hidden style={{ flexShrink: 0 }} /> Nem találod, amit keresel? Szólunk, ha a te útvonaladra jön fuvar.
+          </span>
+          <Link className="btn btn-secondary" href={figyeloLink(appliedSearch.current.filters)} style={{ textDecoration: 'none' }}>
+            Értesíts, ha van ilyen fuvar
+          </Link>
+        </div>
+      )}
     </div>
+  );
+}
+
+/** A díj előtti cím utca-szintű: a házszám a kapcsolatfelvételi díj után jelenik meg. */
+function HazszamLakat() {
+  return (
+    <span title="Házszám a díj után" style={{ display: 'inline-flex', alignItems: 'center' }}>
+      <Lock size={12} aria-hidden />
+      <span style={{
+        position: 'absolute', width: 1, height: 1, overflow: 'hidden', clipPath: 'inset(50%)', whiteSpace: 'nowrap',
+      }}>
+        (házszám a díj után)
+      </span>
+    </span>
   );
 }

@@ -12,8 +12,39 @@
 const express = require('express');
 const db = require('../db');
 const { authRequired } = require('../middleware/auth');
+const { telepulesNev } = require('../utils/address');
 
 const router = express.Router();
+
+// ⚠️ TOP ÚTVONALAK TELEPÜLÉS-SZINTEN (UX-review A28, 2026-10-08). A korábbi
+// SQL `SPLIT_PART(cím, ',', -1)`-gyel az UTOLSÓ vesszős szakaszt vette
+// „városnak" — magyar címnél ez az irányítószám, más formátumnál az utca és
+// a HÁZSZÁM lett („Margit körút 50. → Király utca 15."): a blokk értelmetlen
+// volt, és egy statisztikai felületen feleslegesen kiírta a feladó házszámát.
+// Most a közös, tartalom-alapú telepulesNev() csoportosít („Budapest → Pécs").
+const ISMERETLEN_TELEPULES = 'Ismeretlen település';
+
+function topUtvonalak(rows, limit = 5) {
+  const parok = new Map();
+  for (const r of rows) {
+    const honnan = telepulesNev(r.pickup_address) || ISMERETLEN_TELEPULES;
+    const hova = telepulesNev(r.dropoff_address) || ISMERETLEN_TELEPULES;
+    const kulcs = `${honnan.toLowerCase()}\u0000${hova.toLowerCase()}`;
+    const e = parok.get(kulcs) || {
+      pickup_city: honnan, dropoff_city: hova, count: 0, arOsszeg: 0, arDb: 0,
+    };
+    e.count += 1;
+    if (r.accepted_price_huf != null) {
+      e.arOsszeg += Number(r.accepted_price_huf) || 0;
+      e.arDb += 1;
+    }
+    parok.set(kulcs, e);
+  }
+  return [...parok.values()]
+    .sort((a, b) => b.count - a.count || a.pickup_city.localeCompare(b.pickup_city, 'hu'))
+    .slice(0, limit)
+    .map(({ arOsszeg, arDb, ...e }) => ({ ...e, avg_price: arDb ? Math.round(arOsszeg / arDb) : 0 }));
+}
 
 router.get('/driver-stats', authRequired, async (req, res) => {
   const carrierId = req.user.sub;
@@ -57,18 +88,14 @@ router.get('/driver-stats', authRequired, async (req, res) => {
       [carrierId],
     ),
 
-    // Top útvonalak (leggyakoribb város-párok)
+    // Top útvonalak (leggyakoribb TELEPÜLÉS-párok) — a csoportosítás JS-ben,
+    // lásd topUtvonalak(). Csak a címek és az ár kell hozzá.
     db.query(
-      `SELECT
-         SPLIT_PART(pickup_address, ',', -1) AS pickup_city,
-         SPLIT_PART(dropoff_address, ',', -1) AS dropoff_city,
-         COUNT(*)::int AS count,
-         COALESCE(AVG(accepted_price_huf), 0)::int AS avg_price
+      `SELECT pickup_address, dropoff_address, accepted_price_huf
        FROM jobs
        WHERE carrier_id = $1 AND status IN ('delivered', 'completed')
-       GROUP BY pickup_city, dropoff_city
-       ORDER BY count DESC
-       LIMIT 5`,
+       ORDER BY delivered_at DESC NULLS LAST
+       LIMIT 2000`,
       [carrierId],
     ),
 
@@ -94,7 +121,7 @@ router.get('/driver-stats', authRequired, async (req, res) => {
   res.json({
     totals: totals.rows[0],
     monthly: monthly.rows,
-    top_routes: topRoutes.rows,
+    top_routes: topUtvonalak(topRoutes.rows),
     recent_jobs: recentJobs.rows,
     profile: {
       rating_avg: profile.rating_avg,
@@ -107,3 +134,4 @@ router.get('/driver-stats', authRequired, async (req, res) => {
 });
 
 module.exports = router;
+module.exports.topUtvonalak = topUtvonalak;

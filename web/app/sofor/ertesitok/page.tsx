@@ -67,6 +67,21 @@ export default function ErtesitokOldal() {
 
   useEffect(() => { if (me) load(); }, [me?.id]);
 
+  // Előtöltés a fuvarlistáról (UX-review Q14, 2026-10-08): a szűrt, üres
+  // találat „Értesíts, ha jön ilyen” gombja a szűrt városokkal nyitja az
+  // űrlapot (?honnan=…&hova=…). A begépelt szöveget a mentéskor ugyanúgy
+  // feloldjuk (feloldTerulet), mint a kézzel írtat — nem létező hely nem megy át.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    const honnan = (q.get('honnan') || '').trim().slice(0, 120);
+    const hova = (q.get('hova') || '').trim().slice(0, 120);
+    if (!honnan && !hova) return;
+    if (honnan) setFromText(honnan);
+    if (hova) setToText(hova);
+    setShowForm(true);
+  }, []);
+
   function resetForm() {
     setFrom(null); setTo(null); setFromText(''); setToText('');
     setRadius(25); setMinPrice(''); setMaxWeight('');
