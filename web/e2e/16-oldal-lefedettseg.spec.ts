@@ -136,7 +136,11 @@ async function ellenorizOldalt(page: Page, oldal: Oldal) {
   //    mobilapp érkezésével”), az élő követés és a „jogosítvány nem
   //    szükséges” a fuvaroldalon és a KYC-ablakban átcsúszott. Itt a
   //    „mindenhol” részhalmaz fut — a jogi és az admin-oldalak kivételével.
-  if (!szovegorKivetel(oldal.minta)) {
+  //    ⚠️ A kivételt a VÉGSŐ URL-re is nézzük: a `/a` rövid link a jogi
+  //    oldalra (/adatkezeles#cimzett) irányít, és ott a jogi szöveg
+  //    tagadó/leíró szerkezete („GPS koordináták (élő követés)”) legitim.
+  const vegsoUtvonal = new URL(page.url()).pathname;
+  if (!szovegorKivetel(oldal.minta) && !szovegorKivetel(vegsoUtvonal)) {
     const talalatok = szovegorTalalatok(torzs, MINDENHOL_TILTOTT);
     expect(talalatok, `${cel} — TILTOTT SZÖVEG:\n${talalatok.join('\n')}`).toEqual([]);
   }
