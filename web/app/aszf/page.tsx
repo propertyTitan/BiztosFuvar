@@ -51,10 +51,12 @@ export default function AszfPage() {
         <ul style={{ margin: 0, paddingLeft: 20 }}>
           <li>
             <strong>2026. október 8.:</strong> a 2. pont kiegészült a rangsorolás leírásával (milyen
-            sorrendben jelennek meg az ajánlatok és a fuvarok); az 5.1., a 7. és a 11.4. pontból
-            kikerült a „Trust Score” csökkentésére és következményeire vonatkozó szöveg — ismételt,
-            indokolatlan visszalépés esetén a fiók felfüggeszthető; a 4.1. pontban a díjak
-            ezres tagolása egységes lett.
+            sorrendben jelennek meg az ajánlatok és a fuvarok); az 5.1., a 7., a 10. és a 11.4.
+            pontból kikerült a „Trust Score” — az 5.1. pontban ismételt, indokolatlan visszalépés
+            esetén a fiók felfüggeszthető, a 10. pontban az értékelési rendszer manipulálása tilos,
+            a 11.4. pontban a felfüggesztési okok között a „tartósan alacsony Trust Score” helyett
+            „tartósan rossz értékelések” áll; a 7. pontban a fotók magyar megnevezést kaptak
+            (felvételi és lerakodási fotó); a 4.1. pontban a díjak ezres tagolása egységes lett.
           </li>
           <li>
             <strong>2026. szeptember 10.:</strong> 4.2. pont — pontosítás: a fuvardíj a Felek
@@ -108,11 +110,14 @@ export default function AszfPage() {
       </p>
       <p>
         <strong>Rangsorolás (az (EU) 2019/1150 rendelet 5. cikke szerint):</strong> a Feladó a
-        fuvarjára érkezett ajánlatokat a fuvardíj szerint növekvő sorrendben látja. A Sofőrök
-        számára elérhető fuvarok listája alapesetben a feladás ideje szerint rendez (a legfrissebb
-        elöl; az esetleges azonnali fuvarok előrébb kerülnek); ha a Sofőr megosztja a helyzetét, a
-        körzetébe eső fuvarokat a felvételi ponttól mért távolság szerint. Fizetett kiemelés nincs; a
-        sorrendet sem ellenérték, sem értékelés vagy belső pontszám nem befolyásolja.
+        fuvarjára érkezett ajánlatokat a fuvardíj szerint növekvő sorrendben látja (a Sofőr eredeti
+        ajánlata számít; egy ellenajánlat a sorrendet nem módosítja). A Sofőrök számára elérhető
+        fuvarok listája alapesetben a feladás ideje szerint rendezett (a legfrissebb elöl; az
+        esetleges azonnali fuvarok előrébb kerülnek); ha a Sofőr megosztja a helyzetét, a körzetébe
+        eső fuvarok a felvételi ponttól mért távolság szerint követik egymást. A visszafuvar-ajánlások
+        a földrajzi illeszkedés (az eredeti fuvar végpontjaitól mért eltérés), a járathoz útba eső
+        fuvarok a szükséges kitérő hossza szerint rendezettek. Fizetett kiemelés nincs; a sorrendet
+        sem ellenérték, sem értékelés, sem a Felhasználóról vezetett belső pontszám nem befolyásolja.
       </p>
 
       <h2 id="pont-3" style={H2}>3. Regisztráció és Progresszív KYC</h2>

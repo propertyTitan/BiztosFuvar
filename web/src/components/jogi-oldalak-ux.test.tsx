@@ -41,6 +41,11 @@ describe('ÁSZF — a Trust Score és a rangsor a kód szerint (A4)', () => {
     expect(ketto).toContain('a feladás ideje szerint');
     expect(ketto).toContain('a felvételi ponttól mért távolság szerint');
     expect(ketto).toContain('Fizetett kiemelés nincs');
+    // A backend az eredeti amount_huf szerint rendez (bids.js), és a
+    // visszafuvar/útba eső listát illeszkedés szerint (fix1-review).
+    expect(ketto).toContain('egy ellenajánlat a sorrendet nem módosítja');
+    expect(ketto).toContain('földrajzi illeszkedés');
+    expect(ketto).not.toMatch(/szerint rendez \(/);
   });
 
   it('a Trust Score csak a változásnaplóban szerepel — a szabályokban nem', () => {
@@ -56,6 +61,9 @@ describe('ÁSZF — a Trust Score és a rangsor a kód szerint (A4)', () => {
     const t = normal(container.textContent);
     expect(t).toContain('Hatályos: 2026. október 8-tól');
     expect(t).toMatch(/Változások\s*2026\. október 8\.:/);
+    // A változásnapló minden érintett pontot megnevez (fix1-review).
+    expect(t).toContain('az 5.1., a 7., a 10. és a 11.4. pontból kikerült a „Trust Score”');
+    expect(t).toContain('„tartósan rossz értékelések”');
   });
 
   it('a díjsávok egységes ezres tagolással (nem „1.000 Ft")', () => {
@@ -72,6 +80,9 @@ describe('Adatkezelési tájékoztató — a Trust Score a kód szerint (A4)', (
     const hat = fejezet(container, 'automatizalt-dontes');
     expect(hat).toContain('Jelenleg nem jelenik meg a felületen');
     expect(hat).toContain('nem befolyásolja az ajánlatok és a fuvarok sorrendjét');
+    // A képlet minden összetevője (services/trustScore.js) — a „Verified EU
+    // Carrier” 20 pontja is (fix1-review).
+    expect(hat).toContain('„ellenőrzött szállító” jelzőből');
     expect(hat, 'a kód vitát és lemondást NEM számol be').not.toMatch(/viták és lemondások/);
     expect(hat).not.toMatch(/a profilodon és az ajánlataid mellett/);
   });

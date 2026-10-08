@@ -473,8 +473,9 @@ export default function AdatkezelesPage() {
         </li>
         <li>
           <strong>Belső megbízhatósági pontszám („Trust Score”):</strong> a Sofőr teljesített
-          fuvarjaiból, értékeléseiből és a profilja kitöltöttségéből egy algoritmus belső,
-          tájékoztató pontszámot számol. <strong>Jelenleg nem jelenik meg a felületen</strong> (csak az
+          fuvarjaiból, értékeléseiből, a profilja kitöltöttségéből és egy „ellenőrzött szállító”
+          jelzőből (ezt jelenleg egyetlen fiók sem kapja meg) egy algoritmus belső, tájékoztató
+          pontszámot számol. <strong>Jelenleg nem jelenik meg a felületen</strong> (csak az
           adminisztrátori felületen), <strong>nem befolyásolja az ajánlatok és a fuvarok sorrendjét,
           és önmagában nem eredményez fiók-felfüggesztést</strong> — ilyen döntést csak emberi
           adminisztrátor hozhat, konkrét szabályszegés miatt.
