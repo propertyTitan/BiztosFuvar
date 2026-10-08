@@ -742,7 +742,7 @@ export default function UjFuvar() {
               type="checkbox"
               checked={form.pickup_needs_carrying}
               onChange={(e) => set('pickup_needs_carrying', e.target.checked)}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 20, height: 20, flexShrink: 0 }}
             />
             <span style={{ fontSize: 14 }}>
               Emeletről kell lehozni, vagy kézzel cipelni a felvételnél?
@@ -780,7 +780,7 @@ export default function UjFuvar() {
                       type="checkbox"
                       checked={form.pickup_has_elevator}
                       onChange={(e) => set('pickup_has_elevator', e.target.checked)}
-                      style={{ width: 18, height: 18 }}
+                      style={{ width: 20, height: 20, flexShrink: 0 }}
                     />
                     Van lift?
                   </label>
@@ -847,7 +847,7 @@ export default function UjFuvar() {
               type="checkbox"
               checked={form.dropoff_needs_carrying}
               onChange={(e) => set('dropoff_needs_carrying', e.target.checked)}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 20, height: 20, flexShrink: 0 }}
             />
             <span style={{ fontSize: 14 }}>
               Emeletre kell felvinni, vagy kézzel cipelni a lerakodásnál?
@@ -885,7 +885,7 @@ export default function UjFuvar() {
                       type="checkbox"
                       checked={form.dropoff_has_elevator}
                       onChange={(e) => set('dropoff_has_elevator', e.target.checked)}
-                      style={{ width: 18, height: 18 }}
+                      style={{ width: 20, height: 20, flexShrink: 0 }}
                     />
                     Van lift?
                   </label>
@@ -1195,7 +1195,7 @@ export default function UjFuvar() {
           <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
             <input type="checkbox" checked={form.invoice_requested}
               onChange={(e) => set('invoice_requested', e.target.checked)}
-              style={{ width: 18, height: 18 }} />
+              style={{ width: 20, height: 20, flexShrink: 0 }} />
             <span style={{ fontSize: 14 }}>Számlát kérek erről a fuvarról</span>
           </label>
           <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
@@ -1218,7 +1218,7 @@ export default function UjFuvar() {
                 ...(on ? {} : { recipient_name: '', recipient_phone: '', recipient_email: '' }),
               }));
             }}
-            style={{ width: 18, height: 18 }}
+            style={{ width: 20, height: 20, flexShrink: 0 }}
           />
           <span style={{ fontSize: 14 }}>
             <strong>Nem én veszem át a csomagot</strong> — más címzett veszi át
