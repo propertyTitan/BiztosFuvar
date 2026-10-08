@@ -18,7 +18,7 @@ import { useCurrentUser } from '@/lib/auth';
 import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
 import { optionalPhoneError } from '@/lib/formValidation';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
-import MapCollapse from '@/components/MapCollapse';
+import MapCollapse, { utvonalGombFelirat } from '@/components/MapCollapse';
 import { idoablakSzoveg } from '@/lib/idoablak';
 import FieldError, { redBorder } from '@/components/FieldError';
 import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
@@ -404,7 +404,7 @@ export default function SoforFuvarReszletek() {
       )}
 
       {/* Térkép — mobilon összecsukva (B2, GF-020) */}
-      <MapCollapse>
+      <MapCollapse gombFelirat={utvonalGombFelirat(job.distance_km)}>
         <LiveTrackingMap job={job} />
       </MapCollapse>
 

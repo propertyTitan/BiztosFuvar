@@ -69,7 +69,9 @@ describe('a bizalmi blokk és a szerepkörök', () => {
     expect(ujravalasztas).toBeGreaterThan(szemelyazonositott);
     expect(gps, 'a még nem élő GPS a ma is igaz elemek UTÁN jöjjön').toBeGreaterThan(ujravalasztas);
     // Szövegőr (13-as spec): az élő GPS után 40 karakteren belül „érkez"/„hamarosan".
-    expect(t).toMatch(/Élő GPS követés.{0,40}érkez/);
+    expect(t).toMatch(/Élő GPS követés.{0,40}hamarosan/);
+    // UX A05: app-ígéret nincs — a funkciót ígérjük, nem egy mobilalkalmazást.
+    expect(t).not.toMatch(/mobilalkalmaz|mobilapp|alkalmazással/i);
   });
 
   it('a szerepkör-kártyák nem zsákutcák: gomb a szándékkal (Q10)', () => {

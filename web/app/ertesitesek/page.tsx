@@ -18,7 +18,7 @@ import { getSocket, joinUserRoom } from '@/lib/socket';
 import { readStoredMode, useCurrentUser } from '@/lib/auth';
 import {ListSkeleton, EmptyState, Loading } from '@/components/StateView';
 import {
-  BellOff, Bell, CreditCard, Gavel, Handshake, MessageCircle, PackageCheck,
+  BellOff, Bell, CreditCard, Scale, Handshake, MessageCircle, PackageCheck,
   ShieldAlert, Star, Tag, Truck, XCircle, Megaphone,
 } from 'lucide-react';
 import { relativIdo, teljesDatumIdo } from '@/lib/idopont';
@@ -32,7 +32,7 @@ const IKONOK: Record<ErtesitesIkon, ReactNode> = {
   kezbesitve: <PackageCheck size={18} aria-hidden />,
   uzenet: <MessageCircle size={18} aria-hidden />,
   ertekeles: <Star size={18} aria-hidden />,
-  vita: <Gavel size={18} aria-hidden />,
+  vita: <Scale size={18} aria-hidden />,
   lemondas: <XCircle size={18} aria-hidden />,
   figyelmeztetes: <ShieldAlert size={18} aria-hidden />,
   admin: <Megaphone size={18} aria-hidden />,

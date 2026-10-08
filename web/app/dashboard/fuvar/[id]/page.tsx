@@ -31,7 +31,7 @@ import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import ChatBox from '@/components/ChatBox';
 import JobQuestions from '@/components/JobQuestions';
-import MapCollapse from '@/components/MapCollapse';
+import MapCollapse, { utvonalGombFelirat } from '@/components/MapCollapse';
 import DeliveryPin from '@/components/DeliveryPin';
 import Confetti from '@/components/Confetti';
 import ConfirmDialog from '@/components/ConfirmDialog';
@@ -286,9 +286,10 @@ export default function FuvarReszletek() {
         <StatusPill job={job} />
       </div>
 
-      {/* Élő követés — mobilon összecsukva (B2, GF-020). A feladói nézetben
-          alacsonyabb térkép (A17): a lap legnagyobb eleme ne a térkép legyen. */}
-      <MapCollapse title="Térkép és élő követés">
+      {/* Útvonal-térkép — mobilon összecsukva (B2, GF-020). A feladói nézetben
+          alacsonyabb térkép (A17): a lap legnagyobb eleme ne a térkép legyen.
+          A gomb nem ígér élő követést (UX A05: az a mobil-fázisban jön). */}
+      <MapCollapse gombFelirat={utvonalGombFelirat(job.distance_km)}>
         <LiveTrackingMap job={job} magassag="280px" />
       </MapCollapse>
 

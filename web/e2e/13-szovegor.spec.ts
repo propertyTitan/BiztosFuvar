@@ -10,12 +10,19 @@
 //  Ez a spec a MEGJELENÍTETT szöveget nézi (nem a forrást), tehát az
 //  i18n-ből, az API-ból vagy egy komponensből érkező szöveget is elkapja.
 //
-//  ⚠️ Csak a MARKETING/publikus oldalakra fut. A jogi oldalak (ÁSZF,
-//  adatkezelési) szándékosan használnak olyan szavakat tagadó szerkezetben,
-//  amik itt tiltottak (pl. „a fuvardíjat nem tartja letétben") — azok
-//  szövegét ügyvédi review nézi át, nem ez a teszt.
+//  ⚠️ Csak a MARKETING/publikus oldalakra fut a TELJES lista. A jogi oldalak
+//  (ÁSZF, adatkezelési) szándékosan használnak olyan szavakat tagadó
+//  szerkezetben, amik itt tiltottak (pl. „a fuvardíjat nem tartja
+//  letétben") — azok szövegét ügyvédi review nézi át, nem ez a teszt.
+//
+//  UX A05 (2026-10-08): a szabályok közös modulba kerültek
+//  (szovegor-szabalyok.ts). A „mindenhol” jelölt részhalmaz a belépett
+//  felületeken is fut (16-os spec, az oldal-leltár minden állapotán) és a
+//  forrás-őrben (src/lib/szovegor-forras.test.ts) — az app-ígéret és a
+//  „jogosítvány nem szükséges” ugyanis a belépett oldalakon csúszott át.
 // =====================================================================
 import { test, expect } from '@playwright/test';
+import { TILTOTT, szovegorTalalatok } from './szovegor-szabalyok';
 
 /** Publikus marketing-oldalak — ezeket látja a leendő felhasználó. */
 const MARKETING_PAGES = [
@@ -37,103 +44,14 @@ const MARKETING_PAGES = [
   '/bankkartyas-fizetes',
 ];
 
-type Rule = { pattern: RegExp; miert: string };
-
-const TILTOTT: Rule[] = [
-  {
-    pattern: /GoFuvar\s+Kft/i,
-    miert: 'Nincs ilyen cég — az üzemeltető a Tiszta Hód Kft. (CLAUDE.md 4.)',
-  },
-  {
-    pattern: /letét/i,
-    miert: 'Escrow-kori szöveg. 2026-07-03 óta a fuvardíj közvetlenül a felek közt megy.',
-  },
-  {
-    pattern: /\blicit(?!jeim)/i,
-    miert: 'PR #71: user felé „ajánlat/ajánlattétel", a „licit" árverést sugall.',
-  },
-  {
-    pattern: /jogosítvány/i,
-    miert: 'A „jogosítvány nem kell" marketingben TILOS — ne hívjuk fel rá a figyelmet.',
-  },
-  {
-    pattern: /olcsóbb,?\s+mint\s+egy\s+(dedikált|hagyományos)/i,
-    miert: 'PR #64: tiltott összehasonlítás — helyette verseny-alapú megfogalmazás.',
-  },
-  {
-    pattern: /te\s+szabod\s+az\s+árat/i,
-    miert: 'PR #63: a szállító ad ajánlatot, a feladó dönt — nem a feladó szabja az árat.',
-  },
-  {
-    pattern: /\bQR\b/i,
-    miert: 'A QR kód 2026-08-06-án kikerült (user-döntés) — csak a 6 jegyű PIN van.',
-  },
-  {
-    pattern: /(app\s*store|google\s*play)/i,
-    miert: 'NINCS mobilapp — app-ígéret tilos (CLAUDE.md, PR #62).',
-  },
-  {
-    pattern: /(töltsd le|letöltheted).{0,25}(appot|alkalmazást)/i,
-    miert: 'NINCS mobilapp — letöltésre buzdítás tilos.',
-  },
-  {
-    pattern: /barion/i,
-    miert: 'A Barion 2026-08-09-én VÉGLEG törölve a kódból (a launch fizetése CIB '
-      + 'bankkártyás vPOS). Egy nem létező szolgáltató megnevezése a felhasználó felé '
-      + 'félrevezető — a 2. audit-kör a fizetőoldalon, a PWA-manifesztben és a '
-      + 'foglalás-státuszban is megtalálta. A jogi oldalak (ÁSZF, adatkezelési) külön '
-      + 'körben, ügyvédi átvezetéssel javulnak — azok nincsenek ebben a listában.',
-  },
-  {
-    pattern: /(élő\s+GPS|GPS[- ]követés)(?!.{0,40}(hamarosan|érkez))/i,
-    miert: 'Az élő GPS csak a mobil-fázisban lesz — mindenhol „Hamarosan"-ként '
-      + 'kommunikáljuk (PR #48). A PWA-manifeszt ezt 2026-08-09-ig meglévő '
-      + 'funkcióként hirdette.',
-  },
-  {
-    pattern: /biztonságos\s+fizetés/i,
-    miert: 'GF-024 (2026-08-30): escrow-kori maradvány — a kápé-modellben a '
-      + 'platform a fuvardíjhoz nem nyúl, a „biztonságos fizetés" ígéret '
-      + 'félrevezető. A bizalmi üzenet: fotó bizonyíték + 6 jegyű átvételi kód. '
-      + '(A fizetőoldal a kapcsolatfelvételi díjról legitim módon beszélhet — '
-      + 'az nem marketing-oldal, nincs ebben a listában.)',
-  },
-  {
-    // 2026-09-10 (user-döntés): a fuvardíj fizetési módját a felek döntik el —
-    // készpénz VAGY átutalás. A „készpénzes fizetés/fuvardíj" cím, a „kápé"
-    // szleng, és a „készpénzben adod/kapod/jár" a közeli „átutalás" említése
-    // nélkül mind kizárólagosságot sugall. A helyes minta: „közvetlenül a
-    // szállítónak — készpénzben vagy átutalással, ahogy megegyeztek".
-    pattern: /kápé|készpénzes\s+(fizetés|fuvardíj|fuvar|modell)|(kizárólag|csak)\s+készpénz|készpénzben\s+(adod|adsz|fizeted|fizetsz|kapod|kapsz|rendezed|jár|megy|a\s+tiéd|a\s+szállítóé)(?![^.]{0,80}átutalás)/i,
-    miert: '2026-09-10 user-döntés: a fuvardíjat a felek úgy rendezik, ahogy '
-      + 'megegyeznek (készpénz VAGY átutalás) — a felület sehol nem szűkítheti '
-      + 'készpénzre. Minta: „közvetlenül a szállítónak — készpénzben vagy '
-      + 'átutalással, ahogy megegyeztek".',
-  },
-  {
-    pattern: /sikeres\s+fuvar\s+után\s+fizet/i,
-    miert: 'GF-024 (2026-08-30): HAMIS ígéret volt — a kapcsolatfelvételi díj az '
-      + 'ajánlat ELFOGADÁSAKOR esedékes és nem visszatérítendő (ÁSZF 4.), nem a '
-      + 'fuvar sikere után. Helyette: „Csak akkor fizetsz, ha szállítót választasz".',
-  },
-];
-
 test.describe('szövegőr: tiltott kifejezések a marketing-oldalakon', () => {
   for (const oldal of MARKETING_PAGES) {
     test(`tiszta szöveg: ${oldal}`, async ({ page }) => {
       await page.goto(oldal, { waitUntil: 'domcontentloaded' });
       // A süti-banner és a teszt-banner is szöveg — azok is beleszámítanak,
       // szándékosan: a user azokat is olvassa.
-      const szoveg = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
-
-      const talalatok = TILTOTT
-        .filter((r) => r.pattern.test(szoveg))
-        .map((r) => {
-          const m = szoveg.match(r.pattern);
-          const idx = m?.index ?? 0;
-          const kornyezet = szoveg.slice(Math.max(0, idx - 60), idx + 80);
-          return `  ✗ "${m?.[0]}" — ${r.miert}\n     Környezet: …${kornyezet}…`;
-        });
+      const szoveg = await page.locator('body').innerText();
+      const talalatok = szovegorTalalatok(szoveg, TILTOTT);
 
       expect(
         talalatok,

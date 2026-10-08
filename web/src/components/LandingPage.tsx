@@ -56,9 +56,10 @@ const HAMAROSAN: { icon: LucideIcon; title: string; desc: string }[] = [
     desc: 'a szállítók fix áron hirdetik majd az induló járatukat, te helyet foglalhatsz rajta',
   }]),
   // ⚠️ Szövegőr (13-as spec): az „élő GPS" után 40 karakteren belül ott kell
-  // lennie, hogy hamarosan/érkezik — ezért áll elöl az „érkezik".
+  // lennie, hogy hamarosan/érkezik — ezért áll elöl a „hamarosan". App-ígéret
+  // nincs (UX A05): a funkciót ígérjük, nem azt, hogy min keresztül jön.
   { icon: MapPin, title: 'Élő GPS követés',
-    desc: 'érkezik a GoFuvar mobilalkalmazással: a térképen követheted majd a szállítót' },
+    desc: 'hamarosan: valós időben követheted majd a szállítód útját a térképen' },
 ];
 const JARAT_FEATURE: Feature = {
   icon: Route, tint: '#7c3aed', title: 'Induló járatok',

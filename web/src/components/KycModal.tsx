@@ -51,7 +51,9 @@ const TYPE_DESCRIPTIONS: Record<string, string> = {
   // Egy nem kért okmányt kérő felület a felhasználót fölösleges adatközlésre
   // biztatja — ez adat-minimalizálási hiba, akkor is, ha a flow nem éri el.
   driver:
-    'Szállítóként a személyi igazolványod elegendő — jogosítvány nem szükséges. Ez biztosítja, hogy minden szállító valós személy legyen.',
+    // UX A05: a jogosítványt nem említjük (marketing-szabály: ne hívjuk fel
+    // rá a figyelmet) — csak azt mondjuk, ami kell.
+    'Szállítóként elég a személyi igazolványod. Ez biztosítja, hogy minden szállító valós személy legyen.',
   company:
     'Céges fióknál az adószámot a NAV nyilvántartásából ellenőrizzük — dokumentumot nem kell feltöltened.',
 };

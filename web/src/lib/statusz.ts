@@ -89,3 +89,22 @@ export function lezarasInfo(job: {
   if (tipus === 'recipient') return { tipus: 'rendben', kodja: 'cimzett' };
   return { tipus: 'rendben', kodja: null };
 }
+
+/**
+ * Látszik-e a fuvaroldalon az élő követés sávja (UX A05)?
+ *
+ * Az élő követés a mobil-fázisban jön; addig a sáv egy „hamarosan" jelvény.
+ * Eddig MINDEN fuvaron megjelent — ajánlatokra várón, lezárton, lemondotton
+ * is —, és app-ígéretet hordozott. Most CSAK a feleknek (feladó, kijelölt
+ * szállító) és CSAK elfogadott vagy úton lévő fuvaron (vita alatt a vita
+ * előtti fizikai állapot számít).
+ */
+export function kovetesSavLathato(
+  job: { status: string; status_before_dispute?: string | null; shipper_id: string; carrier_id?: string | null },
+  nezoId: string | null | undefined,
+): boolean {
+  if (!nezoId) return false;
+  const fel = nezoId === job.shipper_id || (!!job.carrier_id && nezoId === job.carrier_id);
+  const fizikai = job.status === 'disputed' ? job.status_before_dispute : job.status;
+  return fel && (fizikai === 'accepted' || fizikai === 'in_progress');
+}

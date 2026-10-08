@@ -18,7 +18,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useCurrentUser } from '@/lib/auth';
 import { illesztesPontokra } from '@/lib/terkepIllesztes';
+import { kovetesSavLathato } from '@/lib/statusz';
 import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { AlertTriangle, Radio } from 'lucide-react';
 import { subscribeJob } from '@/lib/socket';
 import { api, Job } from '@/api';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
@@ -37,6 +39,10 @@ export default function LiveTrackingMap({ job, magassag = 'min(480px, 45vh)' }: 
   const fizikai = job.status === 'disputed' ? job.status_before_dispute : job.status;
   const fel = !!me && (me.id === job.shipper_id || (!!job.carrier_id && me.id === job.carrier_id));
   const poziciotKer = fel && fizikai === 'in_progress';
+  // UX A05: a „hamarosan" jelvény CSAK a feleknek és CSAK elfogadott vagy
+  // úton lévő fuvaron — ajánlatokra váró, lezárt vagy lemondott fuvaron nincs
+  // mit követni, ott a jelvény üres ígéret volt.
+  const kovetesJelveny = kovetesSavLathato(job, me?.id);
   const apiKey = getGoogleMapsApiKey();
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
@@ -110,7 +116,9 @@ export default function LiveTrackingMap({ job, magassag = 'min(480px, 45vh)' }: 
   if (!apiKey) {
     return (
       <div className="card" style={{ background: 'var(--warning-light)' }}>
-        <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
+        <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <AlertTriangle size={16} aria-hidden /> Google Maps API kulcs hiányzik.
+        </strong>
         <p className="muted" style={{ margin: '8px 0 0' }}>
           Állítsd be a <code>NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> környezeti változót,
           hogy lásd a térképet.
@@ -200,8 +208,9 @@ export default function LiveTrackingMap({ job, magassag = 'min(480px, 45vh)' }: 
         )}
       </GoogleMap>
 
-      {/* ETA + status bar */}
-      <div
+      {/* ETA + status bar — csak ha van élő pozíció, vagy a feleknek egy
+          követhető (elfogadott / úton lévő) fuvaron (UX A05). */}
+      {(driver || kovetesJelveny) && <div
         style={{
           marginTop: 12,
           padding: '12px 16px',
@@ -216,8 +225,9 @@ export default function LiveTrackingMap({ job, magassag = 'min(480px, 45vh)' }: 
         }}
       >
         <div>
-          <span className="pill pill-progress" style={{ marginRight: 8 }}>
-            {driver ? '🔴 Élő követés aktív' : 'Élő GPS-követés hamarosan — a GoFuvar mobilapp érkezésével'}
+          <span className="pill pill-progress" style={{ marginRight: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Radio size={14} aria-hidden />
+            {driver ? 'A szállító helyzete élőben' : 'Élő követés: hamarosan'}
           </span>
           {updatedAt && (
             <span className="muted" style={{ fontSize: 12 }}>
@@ -243,7 +253,7 @@ export default function LiveTrackingMap({ job, magassag = 'min(480px, 45vh)' }: 
             </div>
           );
         })()}
-      </div>
+      </div>}
     </div>
   );
 }
