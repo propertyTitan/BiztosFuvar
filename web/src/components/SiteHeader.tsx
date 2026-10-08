@@ -24,6 +24,7 @@ import { getSocket, joinUserRoom } from '@/lib/socket';
 import { useToast } from '@/components/ToastProvider';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTranslation } from '@/lib/i18n';
+import { megszolitasNev } from '@/lib/nev';
 
 export default function SiteHeader() {
   const user = useCurrentUser();
@@ -322,7 +323,7 @@ export default function SiteHeader() {
                   </div>
                 )}
                 <span style={{ fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+                  {megszolitasNev(user.full_name) || user.email?.split('@')[0]}
                 </span>
                 <ChevronDown size={14} style={{ opacity: 0.8, transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition)' }} />
               </button>

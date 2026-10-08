@@ -11,6 +11,7 @@
 // =====================================================================
 const db = require('../db');
 const { createNotification } = require('./notifications');
+const { szia } = require('../utils/nev');
 const { jelezSorHibak } = require('./utemezo');
 
 const NUDGE_AFTER_HOURS = Number(process.env.NO_OFFER_NUDGE_AFTER_HOURS) || 24;
@@ -60,7 +61,7 @@ async function runNoOfferNudges() {
           subject: '💡 Még nincs ajánlat a fuvarodra — így jön gyorsabban',
           html: wrapHtml({
             heading: 'Még nincs ajánlat — 3 tipp',
-            bodyHtml: `<p>Szia${j.shipper_name ? ` ${escapeHtml(j.shipper_name)}` : ''}!</p>`
+            bodyHtml: `<p>${escapeHtml(szia(j.shipper_name))}</p>`
               + `<p>A(z) <strong>${escapeHtml(j.title || 'fuvar')}</strong> fuvarodra ${NUDGE_AFTER_HOURS} óra alatt nem érkezett ajánlat. A szállítók a listában az ár, az időablak és a leírás alapján döntenek — ezen a hármon múlik a legtöbb:</p>`
               + '<ol>'
               + `<li><strong>Ár:</strong> ${j.suggested_price_huf ? `a jelenlegi ${Number(j.suggested_price_huf).toLocaleString('hu-HU')} Ft-ot emeld 10–20%-kal` : 'adj meg ajánlott árat'} — a szállító üzemanyagot és időt számol.</li>`

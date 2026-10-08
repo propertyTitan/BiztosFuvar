@@ -12,6 +12,7 @@ const { authRequired } = require('../middleware/auth');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { createNotification } = require('../services/notifications');
 const { detectContactLeak } = require('../utils/contactGuard');
+const { megszolitasNev } = require('../utils/nev');
 const realtime = require('../realtime');
 
 const router = express.Router();
@@ -155,7 +156,8 @@ router.post('/sos', authRequired, writeRateLimit, async (req, res) => {
     // minden admin értesítés-listájában. A jogosult admin ezeket az
     // admin-felületen látja; az értesítés csak a TÉNYT viszi.
     // (Ugyanez a minta, amit a KYC-értesítéseknél már alkalmaztunk.)
-    const keresztnev = String(userInfo[0]?.full_name || '').trim().split(/\s+/)[0] || 'Egy felhasználó';
+    // UX A13: a keresztnév (magyar névsorrendben NEM az első szó).
+    const keresztnev = megszolitasNev(userInfo[0]?.full_name) || 'Egy felhasználó';
 
     for (const admin of admins) {
       await createNotification({

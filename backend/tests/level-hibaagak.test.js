@@ -407,10 +407,28 @@ describe('Névtelen felhasználó megszólítása', () => {
         `${nev}: hiányzó névnél „undefined"/„null" került a megszólításba`,
       ).not.toMatch(/Szia (undefined|null)/);
       expect(l.html, `${nev}: üres megszólítás („Szia !")`).not.toMatch(/Szia !/);
+      // UX A13 (2026-10-08): név nélkül egyszerűen „Szia!" (a korábbi
+      // „Szia GoFuvar felhasználó!" gépies volt).
       expect(
         l.html,
-        `${nev}: hiányzó névnél nem lépett be az általános megszólítás`,
-      ).toMatch(/Szia GoFuvar (felhasználó|szállító)!/);
+        `${nev}: hiányzó névnél nem a semleges „Szia!" megszólítás jött`,
+      ).toMatch(/Szia!/);
+      expect(l.html, `${nev}: maradt a gépies általános megszólítás`).not.toMatch(/Szia,? GoFuvar/);
+    }
+  });
+
+  it('névvel a keresztnevén szólít, vesszővel (UX A13)', async () => {
+    for (const [nev, mezo] of [
+      ['sendBidReceivedEmail', 'shipperName'],
+      ['sendBidAcceptedEmail', 'carrierName'],
+      ['sendPasswordResetEmail', 'fullName'],
+      ['sendTaxDataRequestEmail', 'name'],
+    ]) {
+      // eslint-disable-next-line no-await-in-loop
+      const l = await level(nev, { [mezo]: 'Kovács Anna', jobTitle: 'Fuvar', bodyText: 'x' });
+      expect(l.html, `${nev}: nem a keresztnév jött`).toMatch(/Szia, Anna!/);
+      expect(l.html, `${nev}: a vezetéknév vagy a teljes név maradt a megszólításban`)
+        .not.toMatch(/Szia,? Kovács/);
     }
   });
 

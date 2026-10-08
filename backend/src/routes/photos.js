@@ -11,6 +11,7 @@ const express = require('express');
 // escape-elése (név, cím, fuvarcím). Enélkül egy szállító a saját nevébe
 // tett linkkel GoFuvar-arculatú levelet küldethetne a másik félnek.
 const { escapeHtml: esc, wrapHtml, cimzettiTajekoztatoBlokk } = require('../services/email');
+const { szia } = require('../utils/nev');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
@@ -303,7 +304,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
               to: info.recipient_email,
               subject: `✅ Csomag átvéve: ${info.title}`,
               html: wrapHtml({ bodyHtml: `
-                <p>Szia${info.recipient_name ? ` ${esc(info.recipient_name)}` : ''}!</p>
+                <p>${esc(szia(info.recipient_name))}</p>
                 <p>A(z) <strong>"${esc(info.title)}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
                 <p>Köszönjük, hogy a GoFuvart használtátok!</p>
               ${cimzettiTajekoztatoBlokk()}` }),
@@ -316,7 +317,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
             const { sendEmail: _send, isStub: _isStub } = require('../services/email');
             // Egyszerű inline email — a sendEmail wrapper-t használjuk
             const emailHtml = `
-              <p>Szia ${esc(info.shipper_name) || 'GoFuvar felhasználó'}!</p>
+              <p>${esc(szia(info.shipper_name))}</p>
               <p>Nagyszerű hír — <strong>${esc(info.carrier_name) || 'a szállító'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${esc(info.title)}"</strong> fuvarban!</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
               <p>A 6 jegyű átvételi kód ellenőrizve. A fuvardíj közvetlenül a szállítónak jár — készpénzben vagy átutalással, ahogy megegyeztetek; ha még nem rendezted, kérjük, tedd meg vele közvetlenül.</p>
@@ -537,7 +538,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
             to: booking.recipient_email,
             subject: `✅ Csomag átvéve: ${booking.route_title || 'GoFuvar foglalás'}`,
             html: wrapHtml({ bodyHtml: `
-              <p>Szia${booking.recipient_name ? ` ${esc(booking.recipient_name)}` : ''}!</p>
+              <p>${esc(szia(booking.recipient_name))}</p>
               <p>A(z) <strong>"${esc(booking.route_title) || 'foglalt fuvar'}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
               <p>Köszönjük, hogy a GoFuvart használtátok!</p>
             ${cimzettiTajekoztatoBlokk()}` }),
@@ -548,7 +549,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
             to: shipper.email,
             subject: `✅ Kézbesítve: ${booking.route_title || 'foglalásod'}`,
             html: wrapHtml({ bodyHtml: `
-              <p>Szia ${esc(shipper.full_name) || 'GoFuvar felhasználó'}!</p>
+              <p>${esc(szia(shipper.full_name))}</p>
               <p>A foglalásod csomagja sikeresen kézbesítve — a 6 jegyű átvételi kód ellenőrizve.</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
               <p>A fuvardíj közvetlenül a szállítónak jár — készpénzben vagy átutalással, ahogy megegyeztetek; ha még nem rendezted, kérjük, tedd meg vele közvetlenül.</p>

@@ -16,6 +16,7 @@ const realtime = require('../realtime');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendEmail, wrapHtml, formatHuf } = require('../services/email');
 const { idezet, rovidit } = require('../utils/ertesitesSzoveg');
+const { szia } = require('../utils/nev');
 
 const router = express.Router();
 
@@ -294,7 +295,7 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
             subject: '⚖️ Vitás esetet nyitottak az egyik ügyleteden',
             html: emailSvc.wrapHtml({
               heading: '⚖️ Vitás eset nyílt',
-              bodyHtml: `<p>Szia${masikFel[0].full_name ? ` ${emailSvc.escapeHtml(masikFel[0].full_name)}` : ''}!</p>`
+              bodyHtml: `<p>${emailSvc.escapeHtml(szia(masikFel[0].full_name))}</p>`
                 + '<p>A másik fél vitás esetet nyitott az egyik ügyleteden. Amíg a vita nyitva van, az ügylet nem mondható le, '
                 + 'a fotók és az üzenetek bizonyítékként megőrződnek. Az admin mindkét felet meghallgatja, és döntést hoz.</p>'
                 + `<p><a href="${baseUrl}/ertesitesek">A részletek és a válaszlehetőség itt</a></p>`

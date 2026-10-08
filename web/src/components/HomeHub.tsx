@@ -17,6 +17,7 @@ import {
   BadgeCheck, Star, Ticket, MapPin, Flag, Camera, Receipt, Hourglass,
 } from 'lucide-react';
 import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
+import { szia } from '@/lib/nev';
 
 type Mode = 'driver' | 'shipper';
 
@@ -133,7 +134,7 @@ export default function HomeHub() {
             marginBottom: 20, flexWrap: 'wrap', gap: 12,
           }}>
             <div>
-              <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Szállító'}! 👋</h1>
+              <h1 style={{ margin: 0 }}>{szia(user.full_name, 'Szállító')}</h1>
               <p className="muted" style={{ margin: '4px 0 0' }}>
                 {d ? `${d.level}. szint — ${d.levelName}` : ''}
                 {d?.isVerified ? (
@@ -424,7 +425,7 @@ export default function HomeHub() {
       {mode === 'shipper' && (
         <>
           <div style={{ marginBottom: 20 }}>
-            <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Feladó'}! 👋</h1>
+            <h1 style={{ margin: 0 }}>{szia(user.full_name, 'Feladó')}</h1>
             <p className="muted" style={{ margin: '4px 0 0' }}>
               Mit szeretnél szállíttatni ma?
             </p>

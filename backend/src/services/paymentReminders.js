@@ -15,6 +15,7 @@
 
 const db = require('../db');
 const { createNotification } = require('./notifications');
+const { szia } = require('../utils/nev');
 const { sendPaymentDueEmail } = require('./email');
 const { calculateConnectionFee } = require('./connectionFee');
 const { jelezSorHibak } = require('./utemezo');
@@ -247,7 +248,7 @@ async function runPaymentExpiry() {
           subject: '⌛ A megállapodás lejárt — a fuvart lezártuk',
           html: wrapHtml({
             heading: '⌛ Lejárt a fizetési határidő',
-            bodyHtml: `<p>Szia${j.shipper_name ? ` ${escapeHtml(j.shipper_name)}` : ''}!</p>`
+            bodyHtml: `<p>${escapeHtml(szia(j.shipper_name))}</p>`
               + `<p>A(z) <strong>${escapeHtml(j.title || 'fuvar')}</strong> fuvaron megvolt a megállapodás a szállítóval, de a kapcsolatfelvételi díjat két emlékeztető után sem fizetted ki. `
               + 'A fuvart ezért lezártuk, és a szállítót felszabadítottuk — nem kell tovább várnia.</p>'
               + '<p>Ha a szállítás még aktuális, add fel újra a fuvart: a szállítók percek alatt tesznek rá ajánlatot.</p>',
@@ -270,7 +271,7 @@ async function runPaymentExpiry() {
             subject: 'A fuvar lezárult — a feladó nem fizette ki a díjat',
             html: wrapHtml({
               heading: 'Nem kell tovább várnod',
-              bodyHtml: `<p>Szia${j.carrier_name ? ` ${escapeHtml(j.carrier_name)}` : ''}!</p>`
+              bodyHtml: `<p>${escapeHtml(szia(j.carrier_name))}</p>`
                 + `<p>A(z) <strong>${escapeHtml(j.title || 'fuvar')}</strong> fuvar feladója a megállapodás után sem fizette ki a kapcsolatfelvételi díjat, ezért a fuvart lezártuk. `
                 + 'Az elérhető fuvarok között bármikor találsz újat.</p>',
               ctaText: 'Elérhető fuvarok',

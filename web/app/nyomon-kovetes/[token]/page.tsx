@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import DeliveryPin from '@/components/DeliveryPin';
+import { szia } from '@/lib/nev';
 import { Loading, EmptyState, ErrorState } from '@/components/StateView';
 import { HALOZATI_HIBA_UZENET, IDOTULLEPES_UZENET } from '@/api';
 import { KeyRound, SearchX } from 'lucide-react';
@@ -136,7 +137,7 @@ function TrackingDetails({ token }: { token: string }) {
         </div>
         {data.recipient_name && (
           <p className="muted" style={{ margin: 0 }}>
-            Szia {data.recipient_name}! A csomagod állapota:
+            {szia(data.recipient_name)} A csomagod állapota:
           </p>
         )}
       </div>
