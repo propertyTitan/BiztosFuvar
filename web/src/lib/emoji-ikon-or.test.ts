@@ -22,8 +22,13 @@ import ts from 'typescript';
 
 const WEB = path.resolve(__dirname, '..', '..');
 
-/** Emoji / piktogram — a jogi jelek és a nyíl-blokk kivételével, plusz a karakter-ikonok (✓ ✗ ✕ ★ ☆). */
-const EMOJI = /(?![©®™←-⇿])[\p{Extended_Pictographic}✓✗✕★☆]/u;
+/**
+ * Emoji / piktogram — a jogi jelek és a nyíl-blokk kivételével, plusz a
+ * karakter-ikonok (✓ ✗ ✕ ★ ☆). A kivétel CSAK a szöveges alakra szól: a
+ * VS16-tal (U+FE0F) emoji-megjelenítésű nyíl („↩️”) már ikon, az is piros
+ * (fix1-review: a „↩️ Visszaszállítás” így átcsúszott volna).
+ */
+const EMOJI = /(?![©®™←-⇿](?!\uFE0F))[\p{Extended_Pictographic}✓✗✕★☆]/u;
 
 /** Fájl → indok. A próza (jogi dokumentum) emojija nem UI-ikon. */
 const KIVETELEK: Record<string, string> = {
@@ -68,9 +73,10 @@ describe('emoji-őr (UX A10)', () => {
       const d = \`\${x} ✓ Kimásolva\`;
       const e = <span>Feladói nézet →</span>;
       const f = <p>© 2026 Tiszta Hód Kft.</p>;
+      const g = <span>↩️ Visszaszállítás</span>;
     `;
     const talalt = szovegek(regi).filter((t) => EMOJI.test(t.szoveg)).map((t) => t.szoveg.trim());
-    expect(talalt).toEqual(['🚚 Fuvarjaim', '📍', '✏️ Szerkesztés', ' ✓ Kimásolva'.trim()]);
+    expect(talalt).toEqual(['🚚 Fuvarjaim', '📍', '✏️ Szerkesztés', ' ✓ Kimásolva'.trim(), '↩️ Visszaszállítás']);
   });
 
   it('a web forrásában nincs emoji UI-szövegben (a kivételek indokkal)', () => {

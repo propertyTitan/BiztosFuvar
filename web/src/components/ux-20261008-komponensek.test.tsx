@@ -62,6 +62,10 @@ describe('A13 — DisputeButton', () => {
     render(<DisputeButton jobId="j" status="disputed" paid />);
     expect(screen.getByText('Vita folyamatban')).toBeInTheDocument();
     expect(screen.getByRole('status').textContent).toMatch(/legkésőbb 14 munkanapon belül írásban jelentkezik/);
+    // A zárolás a vita lezárása után is marad (photo_retention_hold, 5 év) —
+    // a „vita idejére” alábecsülte a megőrzést (fix1-review).
+    expect(screen.getByRole('status').textContent).not.toMatch(/vita idejére/);
+    expect(screen.getByRole('status').textContent).toMatch(/lezárása után is legfeljebb\s+5 évig/);
   });
   it('fizetetlen fuvaron (a vita úgyis 409) nincs semmi', () => {
     const { container } = render(<DisputeButton jobId="j" status="disputed" paid={false} />);

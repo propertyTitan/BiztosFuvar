@@ -841,9 +841,9 @@ export default function FuvarReszletek() {
               kártya nem mondta meg, meddig kell várni. */}
           <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
             A vitát megkaptuk. Az ügyfélszolgálat átnézi a fotókat és az üzeneteket, és
-            legkésőbb 14 munkanapon belül írásban jelentkezik. A fuvar fotói a vita
-            idejére bizonyítékként zárolva vannak. A vita lezárásáig a fuvar nem
-            mondható le.
+            legkésőbb 14 munkanapon belül írásban jelentkezik. A fuvar fotói
+            bizonyítékként zárolva vannak, és a vita lezárása után is legfeljebb
+            5 évig megőrizzük őket. A vita lezárásáig a fuvar nem mondható le.
           </p>
         </div>
       )}
@@ -861,8 +861,9 @@ export default function FuvarReszletek() {
             időpont-csúszás) a beszélgetésben megoldódik. Ha a csomag sérült,
             elveszett, vagy nem tudtok megegyezni, nyiss vitás esetet: ilyenkor
             az ügyfélszolgálat átnézi a fotókat és az előzményeket, és
-            közvetít a megoldásban. A fuvar fotói a vita idejére zárolásra
-            kerülnek, bizonyítékként.
+            közvetít a megoldásban. A vita megnyitásakor a fuvar fotói
+            bizonyítékként zárolódnak, és a lezárás után is legfeljebb 5 évig
+            megőrizzük őket.
           </p>
           <button
             type="button"

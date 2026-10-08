@@ -46,8 +46,9 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen, p
           <Scale size={18} aria-hidden /> Vita folyamatban
         </h2>
         <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
-          A fuvarra vitát nyitottak. {VITA_MENET_SZOVEG} A fuvar fotói a vita idejére
-          bizonyítékként zárolva vannak. Ha a csomag még nálad van, az átadás a
+          A fuvarra vitát nyitottak. {VITA_MENET_SZOVEG} A fuvar fotói bizonyítékként
+          zárolva vannak, és a vita lezárása után is legfeljebb 5 évig megőrizzük
+          őket. Ha a csomag még nálad van, az átadás a
           szokásos módon, az átvételi kóddal történik.
         </p>
       </div>
