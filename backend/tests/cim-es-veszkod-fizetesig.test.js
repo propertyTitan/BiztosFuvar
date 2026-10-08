@@ -170,9 +170,11 @@ describe('GF-008: fizetésig utca-szintű cím + kerekített koordináta', () =>
 });
 
 describe('utcaSzint — tartalom-alapú házszám-eltávolítás', () => {
-  it('magyar formátum: a házszám lekerül, az utca + irányítószám marad', () => {
-    expect(utcaSzint('Budapest, Váci út 12, 1132')).toBe('Budapest, Váci út, 1132');
-    expect(utcaSzint('Szeged, Kárász utca 9., 6720')).toBe('Szeged, Kárász utca, 6720');
+  // UX-review A27 (2026-10-08): magyar címnél az irányítószám ELÖL áll —
+  // a végére került irányítószámot az olvasó házszámnak értette.
+  it('magyar formátum: a házszám lekerül, magyar sorrend (irányítószám elöl)', () => {
+    expect(utcaSzint('Budapest, Váci út 12, 1132')).toBe('1132 Budapest, Váci út');
+    expect(utcaSzint('Szeged, Kárász utca 9., 6720')).toBe('6720 Szeged, Kárász utca');
   });
 
   it('német/román formátum (utca elöl): a házszám lekerül, a város marad', () => {
@@ -181,8 +183,8 @@ describe('utcaSzint — tartalom-alapú házszám-eltávolítás', () => {
   });
 
   it('tartományos és betűs házszámok is lekerülnek (60-62, 12/B)', () => {
-    expect(utcaSzint('Budapest, Andrássy út 60-62, 1062')).toBe('Budapest, Andrássy út, 1062');
-    expect(utcaSzint('Budapest, Váci út 12/B, 1132')).toBe('Budapest, Váci út, 1132');
+    expect(utcaSzint('Budapest, Andrássy út 60-62, 1062')).toBe('1062 Budapest, Andrássy út');
+    expect(utcaSzint('Budapest, Váci út 12/B, 1132')).toBe('1132 Budapest, Váci út');
   });
 
   it('házszám nélküli címet nem bánt', () => {
