@@ -60,7 +60,13 @@ async function commitPhoto({ jobId, bookingId, uploaderId, kind, url, gps, deliv
       if (!entity.delivery_code || (!recipient && !sender)) {
         throw reject(403, 'Az átvételi kód időközben megváltozott. Kérd el az aktuális kódot.');
       }
-      closedByCodeType = sender ? 'sender_emergency' : 'recipient';
+      // A feladói kód csak akkor VÉSZHELYZETI, ha volt külön címzett
+      // (2026-10-08, UX-átvizsgálás A1). Címzett nélkül — ez az alapeset — a
+      // feladó maga veszi át, és a saját kódja AZ átvételi kód: 'sender'.
+      // Eddig minden ilyen sikeres fuvar „vészhelyzeti kóddal zárult"-ként
+      // naplózódott, a feladói oldal és egy későbbi vita is hamis jelet látott.
+      const vanCimzett = Boolean(entity.recipient_name || entity.recipient_phone);
+      closedByCodeType = sender ? (vanCimzett ? 'sender_emergency' : 'sender') : 'recipient';
     }
     const count = await client.query(`SELECT count(*)::int AS n FROM photos WHERE ${foreignKey} = $1 AND kind = $2`, [id, kind]);
     if (count.rows[0].n >= maxPhotos) {

@@ -14,6 +14,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { GoogleMap, InfoWindow, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
 import Link from 'next/link';
 import { Job } from '@/api';
+import { illesztesPontokra } from '@/lib/terkepIllesztes';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
 const containerStyle = { width: '100%', height: '560px', borderRadius: '12px' };
@@ -42,16 +43,16 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
     [jobs, activeJobId],
   );
 
-  // Auto-fit: minden felvétel/lerakodás pontra ráközelít
+  // Auto-fit: minden felvétel/lerakodás pontra ráközelít (2026-10-08, A17:
+  // az onLoad is illeszt — az effect első futásakor a térkép még nem létezett).
+  const pontok = useMemo(() => jobs.flatMap((j) => [
+    { lat: j.pickup_lat, lng: j.pickup_lng },
+    { lat: j.dropoff_lat, lng: j.dropoff_lng },
+  ]), [jobs]);
   useEffect(() => {
-    if (!mapRef.current || !isLoaded || jobs.length === 0) return;
-    const bounds = new google.maps.LatLngBounds();
-    jobs.forEach((j) => {
-      bounds.extend({ lat: j.pickup_lat, lng: j.pickup_lng });
-      bounds.extend({ lat: j.dropoff_lat, lng: j.dropoff_lng });
-    });
-    mapRef.current.fitBounds(bounds, 80);
-  }, [isLoaded, jobs]);
+    if (!isLoaded) return;
+    illesztesPontokra(mapRef.current, pontok, { margo: 80 });
+  }, [isLoaded, pontok]);
 
   if (!apiKey) {
     return (
@@ -74,6 +75,7 @@ export default function JobBrowseMap({ jobs, currentUserId }: Props) {
       zoom={7}
       onLoad={(m) => {
         mapRef.current = m;
+        illesztesPontokra(m, pontok, { margo: 80 });
       }}
       options={{
         streetViewControl: false,

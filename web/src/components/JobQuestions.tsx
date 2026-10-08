@@ -33,17 +33,18 @@ type Props = {
 
 // Frontend-szintű telefonszám / email-előszűrés. A backend
 // (utils/contactGuard.js) ugyanezt validálja végül — ez csak UX.
+// 2026-10-08 (UX-átvizsgálás A20): a régi szöveg („a fuvar elfogadása után
+// a platform belüli chat-funkciót…", „platform-on belüli") torz volt, és a
+// szabályt is rosszul írta le: a kontakt a DÍJ megfizetése után jár.
+// A kérdés-válasz PUBLIKUS: a kontakt nem minden kérdezőnek jár, csak a
+// kiválasztott szállítónak és a feladónak, a díj után.
+const KONTAKT_SZABALY = 'Telefonszám, e-mail-cím és link nem írható ide — a feladó és a kiválasztott szállító a kapcsolatfelvételi díj megfizetése után automatikusan megkapja egymás elérhetőségét.';
+
 function detectContactLeak(text: string): string | null {
   const stripped = text.replace(/[\s\-./()_]/g, '');
-  if (/\d{9,}/.test(stripped)) {
-    return 'Telefonszám nem írható le. A fuvar elfogadása után a platform belüli chat-funkciót használhatjátok.';
-  }
-  if (/(\+36|0036|06)\d{6,}/i.test(stripped)) {
-    return 'Telefonszám nem írható le. A fuvar elfogadása után a platform belüli chat-funkciót használhatjátok.';
-  }
-  if (/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/.test(text)) {
-    return 'E-mail cím nem írható le. A platform-on belüli chat-funkciót használd.';
-  }
+  if (/\d{9,}/.test(stripped)) return KONTAKT_SZABALY;
+  if (/(\+36|0036|06)\d{6,}/i.test(stripped)) return KONTAKT_SZABALY;
+  if (/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/.test(text)) return KONTAKT_SZABALY;
   return null;
 }
 
@@ -143,7 +144,7 @@ export default function JobQuestions({ jobId, jobStatus, shipperId, currentUserI
       <p className="muted" style={{ marginTop: 0, fontSize: 13 }}>
         A feltett kérdésekre adott válaszok publikusak — mindenki látja, így nem kell
         ugyanazt 15-ször kérdezni.
-        {canAsk && ' A fuvar elfogadása előtt nem írható telefonszám vagy e-mail cím — az ott-on belüli kommunikáció a fuvar megkezdése után indul.'}
+        {canAsk && ` ${KONTAKT_SZABALY}`}
       </p>
 
       {/* Kérdés-feltevő űrlap (nem a shipper, nyitott fuvar) */}

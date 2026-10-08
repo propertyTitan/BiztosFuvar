@@ -13,7 +13,7 @@ import { useParams } from 'next/navigation';
 import DeliveryPin from '@/components/DeliveryPin';
 import { Loading, EmptyState, ErrorState } from '@/components/StateView';
 import { HALOZATI_HIBA_UZENET, IDOTULLEPES_UZENET } from '@/api';
-import { SearchX } from 'lucide-react';
+import { KeyRound, SearchX } from 'lucide-react';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -202,7 +202,11 @@ function TrackingDetails({ token }: { token: string }) {
         </div>
       )}
 
-      {/* Átvételi PIN (QR kikerült — user-döntés, 2026-08-06) */}
+      {/* Átvételi kód (QR kikerült — user-döntés, 2026-08-06).
+          2026-10-08 (UX-átvizsgálás A2): a felirat eddig „diktáld be a
+          szállítónak" volt — a címzett nem tudta, hogy a kódot CSAK az
+          átadáskor szabad megadni (felvételkor kiadva a szállító kézbesítés
+          nélkül lezárhatná a fuvart). A felületen mindenhol „átvételi kód". */}
       {data.delivery_code && !['cancelled', 'completed'].includes(data.status) && (
         <div
           style={{
@@ -214,12 +218,17 @@ function TrackingDetails({ token }: { token: string }) {
             marginBottom: 16,
           }}
         >
-          <div style={{ fontSize: 12, opacity: 0.85, textTransform: 'uppercase', marginBottom: 12 }}>
-            🔐 Átvételi PIN — diktáld be a szállítónak
+          <div
+            style={{
+              fontSize: 12, opacity: 0.9, textTransform: 'uppercase', marginBottom: 12,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}
+          >
+            <KeyRound size={14} aria-hidden /> Átvételi kód — csak akkor add meg, amikor a csomagot átvetted
           </div>
           <DeliveryPin
             code={data.delivery_code}
-            hint="Diktáld be ezt a 6 jegyű PIN-t a szállítónak az átvételkor."
+            hint="A szállító az átadáskor kéri ezt a 6 jegyű kódot — csak akkor mondd meg neki, amikor a csomag már nálad van."
           />
         </div>
       )}

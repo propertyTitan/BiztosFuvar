@@ -23,6 +23,7 @@ const { authRequired, requireRole } = require('../middleware/auth');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { requireText } = require('../utils/text');
 const { createNotification } = require('../services/notifications');
+const { rovidit } = require('../utils/ertesitesSzoveg');
 const { sendAdminMessageEmail } = require('../services/email');
 const { maskEmail } = require('../utils/mask');
 
@@ -169,7 +170,7 @@ router.post('/admin/dm/with/:userId', ...adminOnly, writeRateLimit, async (req, 
     user_id: target.id,
     type: 'admin_message',
     title: '📩 Üzenet a GoFuvar csapatától',
-    body: bodyCheck.value.slice(0, 100),
+    body: rovidit(bodyCheck.value, 100),
     link: '/uzenetek',
   });
   if (req.body?.send_email === true) {
@@ -223,7 +224,7 @@ router.post('/admin/dm/broadcast', ...adminOnly, writeRateLimit, async (req, res
       user_id: row.user_id,
       type: 'admin_broadcast',
       title: '📢 Közlemény a GoFuvartól',
-      body: bodyCheck.value.slice(0, 100),
+      body: rovidit(bodyCheck.value, 100),
       link: '/uzenetek',
     });
   }
@@ -358,7 +359,7 @@ router.post('/me/admin-messages', authRequired, writeRateLimit, async (req, res)
       user_id: a.id,
       type: 'admin_dm_reply',
       title: `💬 Válasz érkezett – ${senderName}`,
-      body: bodyCheck.value.slice(0, 100),
+      body: rovidit(bodyCheck.value, 100),
       link: '/admin#uzenetek',
     });
   }

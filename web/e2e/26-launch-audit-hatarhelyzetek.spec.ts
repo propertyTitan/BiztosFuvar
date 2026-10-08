@@ -60,7 +60,7 @@ test('mobilon vita közben is kézbesíthető a csomag a feladó képernyőjén 
     await senderPage.getByRole('button', { name: /Vitás esetet nyitok/ }).click();
     await senderPage.locator('textarea').last().fill('Az átadás részleteit egyeztetni kell, a csomag közben kézbesíthető.');
     await senderPage.getByRole('button', { name: /^Vita megnyitása$/ }).click();
-    await expect(senderPage.getByText('Vitatott', { exact: true }).first()).toBeVisible();
+    await expect(senderPage.getByText('Vita folyamatban', { exact: true }).first()).toBeVisible();
     // Friss belépéskor is működik, nem csak a vita előtti képernyőn maradt kóddal.
     await senderPage.reload(); await carrierPage.reload();
     await expect(senderPage.getByText(/Átvételi kódod/)).toBeVisible();
@@ -73,7 +73,7 @@ test('mobilon vita közben is kézbesíthető a csomag a feladó képernyőjén 
     const final = await getJobRow(job.id);
     expect(final.status).toBe('disputed'); expect(final.status_before_dispute).toBe('delivered');
     await senderPage.reload();
-    await expect(senderPage.getByText('Vitatott', { exact: true }).first()).toBeVisible();
+    await expect(senderPage.getByText('Vita folyamatban', { exact: true }).first()).toBeVisible();
     await expect(senderPage.getByText(/Átvételi kódod/)).toHaveCount(0);
   } finally { await senderContext.close(); await carrierContext.close(); }
 });

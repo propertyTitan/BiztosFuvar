@@ -8,7 +8,7 @@
 //  választott) — a felhasználónak ez ugyanúgy „az Enter rossz".
 //
 //  Ez a spec a TELJES elvárást méri, ismételve (a flakiness ellen):
-//   · ArrowDown+Enter után a cím MEGERŐSÍTÖTT („✓ Koordináta" látszik);
+//   · ArrowDown+Enter után a cím MEGERŐSÍTÖTT („✓ Cím megerősítve" látszik);
 //   · NINCS korai submit (se hiba-toast, se kötelező-mező hibák).
 // =====================================================================
 import { test, expect } from '@playwright/test';
@@ -30,7 +30,7 @@ for (const kor of [1, 2, 3]) {
 
     // A kiválasztásnak DETERMINISZTIKUSAN meg kell történnie:
     await expect(
-      page.getByText(/✓ Koordináta:/).first(),
+      page.getByText(/✓ Cím megerősítve/).first(),
       'Az Enter nem választotta ki a javaslatot — a cím megerősítetlen maradt, '
       + 'a felhasználó a beküldésnél kap hibaesőt („az Enter rossz").',
     ).toBeVisible({ timeout: 10_000 });

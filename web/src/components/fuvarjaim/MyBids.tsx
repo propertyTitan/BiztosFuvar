@@ -11,7 +11,7 @@ import { useCurrentUser } from '@/lib/auth';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ToastProvider';
-import { Tag, MapPin, Flag, BadgeCheck, Hourglass, Undo2 } from 'lucide-react';
+import { Tag, MapPin, Flag, BadgeCheck, Hourglass, Undo2, Clock } from 'lucide-react';
 
 type Row = Awaited<ReturnType<typeof api.myBids>>[number];
 
@@ -121,13 +121,23 @@ export default function SoforLicitjeim() {
             </div>
             {r.eta_minutes && (
               <div className="muted" style={{ fontSize: 12 }}>
-                érkezés ~{r.eta_minutes} perc
+                érkezés a felvételre: ~{r.eta_minutes} perc
               </div>
             )}
-            {iAmCarrier && (
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--success-text)', fontWeight: 700 }}>
-                🎉 Tiéd a fuvar
-              </div>
+            {/* 2026-10-08 (UX-átvizsgálás A12): a fizetetlen fuvaron eddig is
+                „Tiéd a fuvar" állt — pedig a szállító ilyenkor még nem indulhat,
+                a feladó díjfizetésére vár. A backend a kijelölt szállítónak
+                megmondja, fizetve van-e a díj (job_fee_paid). */}
+            {iAmCarrier && !['cancelled', 'expired'].includes((r as any).job_status) && (
+              r.job_fee_paid === false ? (
+                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-secondary)', fontWeight: 700, display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                  <Clock size={12} aria-hidden /> Elfogadva — a feladó díjfizetésére vár
+                </div>
+              ) : (
+                <div style={{ marginTop: 6, fontSize: 12, color: 'var(--success-text)', fontWeight: 700, display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+                  <BadgeCheck size={12} aria-hidden /> Indulhat a fuvar
+                </div>
+              )
             )}
             {r.bid_status === 'pending' && !jobLezart(r) && (
               <button
