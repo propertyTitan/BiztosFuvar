@@ -143,7 +143,7 @@ export default function HomeHub() {
                   <>{' · '}<Star size={13} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {Number(d.ratingAvg).toFixed(1)}</>
                 ) : null}
                 {d?.availableVouchers > 0 ? (
-                  <>{' · '}<Ticket size={13} style={{ verticalAlign: -2 }} /> {d.availableVouchers} jutalékmentes kupon</>
+                  <>{' · '}<Ticket size={13} style={{ verticalAlign: -2 }} /> {d.availableVouchers} ingyenes kapcsolatfelvétel</>
                 ) : null}
               </p>
             </div>

@@ -51,7 +51,7 @@ export default function VisszafuvarPage() {
       <p className="muted">
         A rendszer az aktív fuvaraid útvonalához keres olyan feladott fuvarokat,
         amelyek a visszaúton passzolnak — így nem üresen jössz haza. Minél
-        magasabb a <strong>match pontszám</strong> (0–100), annál pontosabb az
+        magasabb az <strong>egyezési pontszám</strong> (0–100), annál pontosabb az
         egyezés.
       </p>
 

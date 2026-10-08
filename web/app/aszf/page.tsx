@@ -303,7 +303,7 @@ export default function AszfPage() {
         </li>
         <li>
           <strong>Bizonyítékok:</strong> a Feladó köteles fotódokumentációval alátámasztani a kárt
-          (a sérült csomag és tartalom képei), a Platformon meglévő pickup és dropoff fotókat a
+          (a sérült csomag és tartalom képei), a Platformon meglévő felvételi és lerakodási fotókat a
           Szolgáltató automatikusan társítja. A vásárlási értéket lehetőség szerint számlával
           (vagy egyéb hitelt érdemlő dokumentummal) kell igazolni.
         </li>

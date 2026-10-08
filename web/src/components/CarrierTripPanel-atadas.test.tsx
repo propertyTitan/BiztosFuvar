@@ -100,3 +100,10 @@ describe('CarrierTripPanel — díjfizetésre vár', () => {
     expect(screen.queryByText(/kétszer emlékeztetjük/)).toBeNull();
   });
 });
+
+describe('CarrierTripPanel — felvétel (A01)', () => {
+  it('a felvételkor a kódot nem kéri: azt az átadáskor kapja meg', () => {
+    render(<CarrierTripPanel jobId="j1" status="accepted" paid onDone={vi.fn()} />);
+    expect(screen.getByText('Az átvételi kódot most ne kérd: azt az átadáskor kapod meg.')).toBeInTheDocument();
+  });
+});

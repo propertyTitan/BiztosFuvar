@@ -253,6 +253,12 @@ export default function CarrierTripPanel({
           Amikor átvetted a csomagot a feladótól, készíts róla egy fotót —
           ezzel indul el a fuvar. A fotó bizonyíték a csomag állapotáról.
         </p>
+        {/* UX A01 (2026-10-08): a feladó a kódkártyán azt olvassa, hogy a
+            kódot csak a csomag átadásakor mondja meg — a szállító ne kérje
+            a felvételkor. */}
+        <p className="muted" style={{ marginTop: 0, fontSize: 14, lineHeight: 1.5 }}>
+          Az átvételi kódot most ne kérd: azt az átadáskor kapod meg.
+        </p>
 
         {!pickupFile && (
           <label
