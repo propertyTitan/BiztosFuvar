@@ -141,6 +141,19 @@ describe('A22 — értesítés-szövegek', () => {
     expect(nevelo('Kanapé')).toBe('a');
     expect(nevelo('5 doboz')).toBe('az');
     expect(nevelo('2 doboz')).toBe('a');
+    // A számot kiolvasva döntünk (fix1-review): egy, ezer, egymillió → „az”;
+    // tíz, tizenöt, száz, tízezer → „a”; öt… mindig „az”.
+    expect(nevelo('1 db szék')).toBe('az');
+    expect(nevelo('10 doboz')).toBe('a');
+    expect(nevelo('15 db szék')).toBe('a');
+    expect(nevelo('100 kg tégla')).toBe('a');
+    expect(nevelo('1000 tégla')).toBe('az');
+    expect(nevelo('1 000 tégla')).toBe('az');
+    expect(nevelo('12000 tégla')).toBe('a');
+    expect(nevelo('1500 kg')).toBe('az');
+    expect(nevelo('50 szék')).toBe('az');
+    expect(nevelo('500 tégla')).toBe('az');
+    expect(nevelo('„10 doboz”')).toBe('a');
     expect(idezet('Kanapé')).toBe('„Kanapé”');
     expect(fuvarRef('Íróasztal')).toBe('az „Íróasztal”');
     expect(fuvarRef('')).toBe('a');
