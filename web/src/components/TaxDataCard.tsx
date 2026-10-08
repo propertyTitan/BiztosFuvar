@@ -52,8 +52,10 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
   const maxBirthDate = new Date(
     Date.UTC(new Date().getUTCFullYear() - 18, new Date().getUTCMonth(), new Date().getUTCDate()),
   ).toISOString().slice(0, 10);
+  // „2026. december 7." — a hu-HU rövid alak („2026. 12. 07.") után a mondatzáró
+  // pont dupla pontot adott (UX-kör A18). A dátum maga zárja a mondatot.
   const deadline = state.deadline
-    ? new Date(state.deadline).toLocaleDateString('hu-HU')
+    ? new Date(state.deadline).toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' })
     : null;
 
   const submit = async (e: React.FormEvent) => {
@@ -98,7 +100,8 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
         ) : (
           <>Teljesítetted az első fuvarod — innentől jogszabályi kötelezettségünk
           (DAC7) a szállítók adóügyi adatainak rögzítése.
-          {deadline && <> Határidő: <strong>{deadline}</strong>.</>}</>
+          {deadline && <> Határidő: <strong>{deadline}</strong> Ha addig nem adod meg,
+          utána új ajánlatot nem tehetsz, amíg meg nem adod.</>}</>
         )}
       </p>
       <p className="muted" style={{ fontSize: 13, margin: '0 0 14px' }}>
@@ -118,9 +121,11 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
             value={taxId}
             onChange={(e) => setTaxId(e.target.value)}
             required
+            aria-invalid={mutat(taxIdHiba) ? true : undefined}
+            aria-describedby={mutat(taxIdHiba) ? 'dac7-adoazonosito-hiba' : undefined}
             style={{ marginTop: 4, ...(mutat(taxIdHiba) ? redBorder : {}) }}
           />
-          <FieldError>{mutat(taxIdHiba)}</FieldError>
+          <FieldError id="dac7-adoazonosito-hiba">{mutat(taxIdHiba)}</FieldError>
         </label>
         <label style={{ fontSize: 13, fontWeight: 600 }}>
           Születési dátum
@@ -133,9 +138,11 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
             title="Jövőbeli dátum nem adható meg. Szállítóként 18 éves kortól használható a platform."
             onChange={(e) => setBirthDate(e.target.value)}
             required
+            aria-invalid={mutat(szuletesHiba) ? true : undefined}
+            aria-describedby={mutat(szuletesHiba) ? 'dac7-szuletes-hiba' : undefined}
             style={{ marginTop: 4, ...(mutat(szuletesHiba) ? redBorder : {}) }}
           />
-          <FieldError>{mutat(szuletesHiba)}</FieldError>
+          <FieldError id="dac7-szuletes-hiba">{mutat(szuletesHiba)}</FieldError>
         </label>
         <label style={{ fontSize: 13, fontWeight: 600 }}>
           Lakcím
@@ -147,9 +154,11 @@ export default function TaxDataCard({ profile, onSaved }: { profile: any; onSave
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             required
+            aria-invalid={mutat(cimHiba) ? true : undefined}
+            aria-describedby={mutat(cimHiba) ? 'dac7-lakcim-hiba' : undefined}
             style={{ marginTop: 4, ...(mutat(cimHiba) ? redBorder : {}) }}
           />
-          <FieldError>{mutat(cimHiba)}</FieldError>
+          <FieldError id="dac7-lakcim-hiba">{mutat(cimHiba)}</FieldError>
         </label>
         <button className="btn" type="submit" disabled={saving} style={{ alignSelf: 'flex-start' }}>
           {saving ? 'Mentés…' : 'Adatok mentése'}
