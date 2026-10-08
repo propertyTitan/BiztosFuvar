@@ -6,8 +6,8 @@ import type { ReactNode } from 'react';
 export const metadata: Metadata = {
   // Privát/hitelesített felület (2026-09-11, C2): a robots.txt Allow-ra váltása után se indexelődjön.
   robots: { index: false, follow: false },
-  title: 'Szállító statisztikák',
-  description: 'Heti kereseted, teljesített fuvarjaid és értékeléseid egy helyen.',
+  title: 'Statisztikám',
+  description: 'Teljesített fuvarjaid, a megállapodott fuvardíjak és az értékeléseid egy helyen.',
 };
 
 export default function SegmentLayout({ children }: { children: ReactNode }) {

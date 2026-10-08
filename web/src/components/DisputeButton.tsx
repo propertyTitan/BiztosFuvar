@@ -5,8 +5,16 @@
 // in_progress / delivered / completed allapotban.
 
 import React, { useState } from 'react';
+import { Scale } from 'lucide-react';
 import { api } from '@/api';
 import { useToast } from './ToastProvider';
+
+/**
+ * A vita menete — ÁSZF 7. pont (2026-10-08, UX-átvizsgálás A13). Eddig a
+ * modal „24 órán belül"-t ígért, a vitatott fuvar szállítója pedig csak egy
+ * „Vitatott" jelvényt látott, se határidőt, se teendőt.
+ */
+export const VITA_MENET_SZOVEG = 'Az ügyfélszolgálat átnézi a fotókat és az üzeneteket, és legkésőbb 14 munkanapon belül írásban jelentkezik.';
 
 type Props = {
   jobId?: string;
@@ -25,6 +33,28 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen, p
   const [description, setDescription] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Nyitott vita: a gomb helyén tartós tájékoztatás (a szállítói oldalon ez
+  // az egyetlen vita-felület — a feladói oldal saját kártyát mutat).
+  if (status === 'disputed' && paid !== false) {
+    return (
+      <div
+        className="card"
+        role="status"
+        style={{ marginTop: 16, borderColor: 'rgba(220,38,38,0.4)', background: 'rgba(220,38,38,0.06)' }}
+      >
+        <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8, fontSize: 18 }}>
+          <Scale size={18} aria-hidden /> Vita folyamatban
+        </h2>
+        <p className="muted" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
+          A fuvarra vitát nyitottak. {VITA_MENET_SZOVEG} A fuvar fotói bizonyítékként
+          zárolva vannak, és a vita lezárása után is legfeljebb 5 évig megőrizzük
+          őket. Ha a csomag még nálad van, az átadás a
+          szokásos módon, az átvételi kóddal történik.
+        </p>
+      </div>
+    );
+  }
+
   const eligible = ELIGIBLE_STATUSES.includes(status) && !alreadyOpen && paid !== false;
   if (!eligible) return null;
 
@@ -40,7 +70,7 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen, p
         booking_id: bookingId,
         description: description.trim(),
       });
-      toast.success('Vita megnyitva', 'Az ügyfélszolgálat átnézi és e-mailben jelentkezik.');
+      toast.success('Vita megnyitva', VITA_MENET_SZOVEG);
       setOpen(false);
       setDescription('');
     } catch (e: any) {
@@ -97,15 +127,14 @@ export default function DisputeButton({ jobId, bookingId, status, alreadyOpen, p
           >
             <h2 style={{ marginTop: 0, fontSize: 18 }}>Vita megnyitása</h2>
             <p className="muted" style={{ fontSize: 14, marginTop: 0 }}>
-              Írd le pontosan, hogy mi a probléma a fuvarral. Egy adminisztrátor 24 órán
-              belül megvizsgálja és felveszi veled a kapcsolatot. A vitához a
-              fotó-bizonyítékok és a fuvar adatai rendelkezésre állnak.
+              Írd le pontosan, hogy mi a probléma a fuvarral. {VITA_MENET_SZOVEG} A
+              vitához a felvételi és lerakodási fotók és a fuvar adatai rendelkezésre állnak.
             </p>
             <textarea
               aria-label="A vita leírása"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Pl. A csomag sérülten érkezett, képet csatolok. (min. 20 karakter)"
+              placeholder="Pl. A csomag sérülten érkezett, a doboz sarka behorpadt. (min. 20 karakter)"
               maxLength={2000}
               rows={6}
               autoFocus

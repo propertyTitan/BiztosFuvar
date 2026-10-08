@@ -111,8 +111,8 @@ export const OLDALAK: Oldal[] = [
     url: () => '/bejelentkezes',
     szereplo: 'anon',
     allapot: async (page) => {
-      await page.getByRole('button', { name: /^Regisztráció$/ }).first().click();
-      const ceg = page.getByRole('button', { name: /Cégként/ });
+      await page.getByRole('tab', { name: /^Regisztráció$/ }).click();
+      const ceg = page.getByRole('radio', { name: /Cégként/ });
       await ceg.waitFor({ state: 'visible', timeout: 15_000 });
       await ceg.click();
       await page.getByLabel(/Cégnév/).waitFor({ timeout: 10_000 });
@@ -232,7 +232,7 @@ export const OLDALAK: Oldal[] = [
     url: () => '/dashboard/uj-fuvar',
     szereplo: 'felado',
     allapot: async (page) => {
-      const pipa = page.getByLabel(/be kell pakolnia a csomagot a felvételi helyen/i);
+      const pipa = page.getByLabel(/kézzel cipelni a felvételnél/i);
       await pipa.waitFor({ state: 'visible', timeout: 15_000 });
       await pipa.check();
       await page.getByLabel(/Hányadik emelet/i).first().waitFor({ timeout: 10_000 });
@@ -251,7 +251,8 @@ export const OLDALAK: Oldal[] = [
     url: () => '/sofor/fuvarok',
     szereplo: 'szallito',
     allapot: async (page) => {
-      const gomb = page.getByRole('button', { name: /Szűrők mutatása/ });
+      // UX-review Q14 (2026-10-08): a kapcsoló felirata „Szűrők” / „Szűrők (n)”.
+      const gomb = page.getByRole('button', { name: /^Szűrők( \(\d+\))?$/ });
       await gomb.waitFor({ state: 'visible', timeout: 15_000 });
       await gomb.click();
       await page.getByLabel(/Honnan \(város\)/).waitFor({ timeout: 10_000 });

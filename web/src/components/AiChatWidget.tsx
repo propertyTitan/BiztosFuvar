@@ -1,15 +1,24 @@
 'use client';
 
 // Lebegő AI segéd widget – jobb alsó sarok.
-// - Zárt: kék kör "🤖" ikonnal
-// - Nyitott: egy kis chatablak, üzenetlistával és bemeneti mezővel
+// - Zárt: 48 px-es kék kör (lucide Sparkles)
+// - Nyitott: asztalon kis chatablak, mobilon alsó lap (bottom sheet)
 // - Az üzeneteket a /ai/chat végpontra küldi (Gemini)
 // - A history fiókonként localStorage-ben marad meg (lib/aiHistory.ts),
 //   amíg a user nem törli vagy ki nem jelentkezik
+//
+// UX-kör A9 (2026-10-08): mobilon a 60 px-es gomb pont a döntéshez szükséges
+// adatokat és a beküldő gombokat takarta (a saját /ai-chat oldalán a Küldés
+// gombot is). Most: kisebb, a biztonságos sávot figyeli, mobilon csak a hubon
+// és a listaoldalakon látszik, és nyitott billentyűzetnél eltűnik. A
+// pozícionálás CSS-osztályokban él (globals.css .ai-fab / .ai-panel), mert
+// inline stílust a mobil média-lekérdezés nem tudna felülírni.
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { Lightbulb, Sparkles, X } from 'lucide-react';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { useSutiDontesMegvan } from '@/lib/sutiDontes';
 import { AI_MESSAGE_MAX_LENGTH, aiErrorText, useAiHistory, type AiMessage } from '@/lib/aiHistory';
 import AiMessageContent from './AiMessageContent';
 
@@ -23,9 +32,28 @@ const SUGGESTIONS = [
 /**
  * Ahol a lebegő gomb nem jelenik meg. 2026-10-03 (CIB PR-5): mobilon (390 px)
  * a kártyás fizetés eredményoldalán eltakarta a kártya utolsó bekezdését (a
- * banki adatsor és a „Vissza a fuvarhoz" környékét).
+ * banki adatsor és a „Vissza a fuvarhoz" környékét). 2026-10-08 (UX-kör A9):
+ * a teljes oldalas AI-segéden a saját Küldés gombját takarta — ott a lebegő
+ * gombnak amúgy sincs értelme.
  */
-const REJTETT_UTAK = ['/fizetes/eredmeny'];
+const REJTETT_UTAK = ['/fizetes/eredmeny', '/ai-chat'];
+
+/**
+ * Mobilon (≤768 px) CSAK ezeken látszik: a hub és a listaoldalak. Űrlapokon,
+ * fuvar-részletoldalakon, a profilon és a belépésnél takarna — ott a fiókmenü
+ * „AI segéd" pontja viszi a teljes oldalas változatra.
+ */
+export const AI_GOMB_MOBILON_UTAK = [
+  '/', '/fuvarjaim', '/sofor/fuvarok', '/ertesitesek', '/hirdeteseim',
+  '/sofor/utvonalaim', '/dashboard/utvonalak',
+];
+
+export function aiGombMobilonLathato(ut: string | null | undefined): boolean {
+  return Boolean(ut) && AI_GOMB_MOBILON_UTAK.includes(ut as string);
+}
+
+/** Szövegbeviteli mező (a billentyűzetet nyitja) — a jelölőnégyzet nem az. */
+const GEPELO_MEZO = 'input:not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="file"]), textarea, select, [contenteditable="true"]';
 
 export default function AiChatWidget() {
   const user = useCurrentUser();
@@ -42,23 +70,26 @@ export default function AiChatWidget() {
   // ELTAKARJA a lebegő chat-gombot (z-index 1000) — a kattintás a bannerre
   // megy, ezért tűnt úgy, hogy "a gomb nem reagál". Amíg nincs süti-döntés,
   // a chatet elrejtjük; a döntés után (event vagy localStorage) megjelenik.
-  const [consentPending, setConsentPending] = useState(true);
+  const sutiDontes = useSutiDontesMegvan();
+  // Nyitott billentyűzet (mobil): egy szövegmező kapott fókuszt a widgeten
+  // KÍVÜL — ilyenkor a gomb a beküldő gombokat takarná.
+  const [gepeles, setGepeles] = useState(false);
 
   // Fiókváltáskor a be nem küldött szöveg és a hibajelzés sem marad a mezőben.
   useEffect(() => { setInput(''); setHiba(null); }, [user?.id]);
 
-  // Süti-döntés állapota — ha már döntött a user, a chat azonnal látszhat.
   useEffect(() => {
-    try {
-      if (localStorage.getItem('gofuvar_cookie_consent')) setConsentPending(false);
-    } catch {
-      setConsentPending(false);
-    }
-    function onConsent() {
-      setConsentPending(false);
-    }
-    window.addEventListener('gofuvar:cookie-consent', onConsent);
-    return () => window.removeEventListener('gofuvar:cookie-consent', onConsent);
+    const be = (e: FocusEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el?.matches?.(GEPELO_MEZO) && !el.closest('.ai-panel')) setGepeles(true);
+    };
+    const ki = () => setGepeles(false);
+    document.addEventListener('focusin', be);
+    document.addEventListener('focusout', ki);
+    return () => {
+      document.removeEventListener('focusin', be);
+      document.removeEventListener('focusout', ki);
+    };
   }, []);
 
   // Scroll aljára
@@ -108,7 +139,11 @@ export default function AiChatWidget() {
   if (ut && REJTETT_UTAK.some((r) => ut === r || ut.startsWith(`${r}/`))) return null;
   // Amíg a süti-banner takarja az alsó sávot, ne mutassunk lebegő gombot —
   // különben a banner alatt egy nem-kattintható "szellem" gomb látszana.
-  if (consentPending) return null;
+  if (!sutiDontes) return null;
+
+  // Mobilon rejtett: nem hub/lista oldal, nyitott billentyűzet, vagy nyitott
+  // alsó lap (annak saját bezáró gombja van). Asztalon mindig látszik.
+  const mobilonRejtett = open || gepeles || !aiGombMobilonLathato(ut);
 
   return (
     <>
@@ -117,49 +152,16 @@ export default function AiChatWidget() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={open ? 'Bezár' : 'AI segéd megnyitása'}
-        style={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          width: 60,
-          height: 60,
-          borderRadius: '50%',
-          background: 'linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%)',
-          color: '#fff',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: 24,
-          boxShadow: '0 6px 20px rgba(30,64,175,0.4)',
-          zIndex: 1000,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+        aria-expanded={open}
+        aria-controls={open ? 'ai-seged-panel' : undefined}
+        className={`ai-fab${mobilonRejtett ? ' ai-fab--mobil-rejtett' : ''}`}
       >
-        {open ? '×' : '🤖'}
+        {open ? <X size={22} aria-hidden /> : <Sparkles size={22} aria-hidden />}
       </button>
 
-      {/* Chat ablak */}
+      {/* Chat ablak — asztalon kis ablak, mobilon alsó lap (globals.css) */}
       {open && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 100,
-            right: 24,
-            width: 360,
-            maxWidth: 'calc(100vw - 48px)',
-            height: 500,
-            maxHeight: 'calc(100vh - 140px)',
-            background: 'var(--surface)',
-            borderRadius: 16,
-            boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
-            zIndex: 1000,
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-            border: '1px solid var(--border)',
-          }}
-        >
+        <div id="ai-seged-panel" className="ai-panel" role="dialog" aria-label="GoFuvar Segéd">
           <div
             style={{
               padding: 16,
@@ -171,7 +173,9 @@ export default function AiChatWidget() {
             }}
           >
             <div>
-              <div style={{ fontWeight: 700 }}>GoFuvar Segéd 🤖</div>
+              <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={16} aria-hidden /> GoFuvar Segéd
+              </div>
               <div style={{ fontSize: 12, opacity: 0.85 }}>Kérdezz bármit!</div>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -201,9 +205,8 @@ export default function AiChatWidget() {
                   color: '#fff',
                   border: '1px solid rgba(255,255,255,0.3)',
                   borderRadius: 6,
-                  width: 28,
-                  height: 28,
-                  fontSize: 18,
+                  width: 32,
+                  height: 32,
                   lineHeight: 1,
                   cursor: 'pointer',
                   display: 'flex',
@@ -212,7 +215,7 @@ export default function AiChatWidget() {
                   padding: 0,
                 }}
               >
-                ×
+                <X size={18} aria-hidden />
               </button>
             </div>
           </div>
@@ -247,9 +250,12 @@ export default function AiChatWidget() {
                       border: '1px solid var(--border)',
                       cursor: 'pointer',
                       fontSize: 13,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
                     }}
                   >
-                    💡 {s}
+                    <Lightbulb size={16} color="var(--warning)" aria-hidden style={{ flexShrink: 0 }} /> {s}
                   </button>
                 ))}
               </>
@@ -299,7 +305,7 @@ export default function AiChatWidget() {
             <div
               id="ai-widget-hiba"
               role="alert"
-              style={{ padding: '8px 12px', fontSize: 12, color: 'var(--danger)', borderTop: '1px solid var(--border)' }}
+              style={{ padding: '8px 12px', fontSize: 12, color: 'var(--danger-text)', borderTop: '1px solid var(--border)' }}
             >
               {hiba}
             </div>
@@ -324,13 +330,12 @@ export default function AiChatWidget() {
               aria-invalid={hiba ? true : undefined}
               aria-describedby={hiba ? 'ai-widget-hiba' : undefined}
               placeholder="Kérdezz…"
+              aria-label="Kérdés az AI-segédnek"
               style={{
                 flex: 1,
                 padding: '10px 12px',
                 borderRadius: 8,
-                border: '1px solid var(--border)',
-                fontSize: 14,
-                outline: 'none',
+                marginTop: 0,
               }}
               disabled={loading}
             />

@@ -24,6 +24,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
+import { redBorder } from '@/components/FieldError';
 
 type Props = {
   label: string;
@@ -42,6 +43,17 @@ type Props = {
   requireArea?: boolean;
   /** requirePrecise mellett: a kiválasztott találat túl pontatlan volt. */
   onImprecise?: (message: string) => void;
+  /**
+   * A mező hibás (pl. hiányzó/megerősítetlen cím). UX A07 (2026-10-08): az
+   * egységes hibaállapot az `aria-invalid` — a globals.css abból rajzol
+   * keretet és hátteret, sötét témában is, és a felolvasó is hallja.
+   */
+  invalid?: boolean;
+  /**
+   * A mező alatti hibaüzenet (FieldError) id-je — hibás állapotban az input
+   * `aria-describedby`-ja erre mutat, a felolvasó a mezőhöz kötve mondja el.
+   */
+  hibaId?: string;
 };
 
 /** Egy address_component típusának megléte. */
@@ -129,7 +141,15 @@ function AddressField({
   requirePrecise,
   requireArea,
   onImprecise,
+  invalid,
+  hibaId,
 }: Props) {
+  // Ugyanaz a hibaállapot, mint az űrlap többi mezőjén (FieldError.redBorder:
+  // 2 px-es piros keret + halvány gyűrű) — eddig a címmező csak az
+  // aria-invalid vékony keretét kapta, halványabb volt a többinél (fix2-review).
+  const hibaProps = invalid
+    ? { 'aria-invalid': true as const, 'aria-describedby': hibaId, style: redBorder }
+    : {};
   const apiKey = getGoogleMapsApiKey();
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
@@ -331,6 +351,7 @@ function AddressField({
           onChange={(e) => onTextChange?.(e.target.value)}
           placeholder="Google Maps kulcs hiányzik – kézi beírás"
           required={required}
+          {...hibaProps}
         />
       </div>
     );
@@ -395,6 +416,7 @@ function AddressField({
           }}
           placeholder={placeholder || 'Kezdd el beírni a címet…'}
           required={required}
+          {...hibaProps}
           autoComplete="off"
         />
       </Autocomplete>

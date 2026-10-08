@@ -14,8 +14,13 @@ import { useTranslation, formatPrice } from '@/lib/i18n';
 import {
   FileText, Route as RouteIcon, ShoppingBag, Target, BarChart3, Tag,
   Truck, RefreshCw, Plus, ClipboardList, Package, Bell, User as UserIcon,
-  BadgeCheck, Star, Ticket, MapPin, Flag, Camera, Receipt,
+  BadgeCheck, Star, Ticket, MapPin, Flag, Camera, Receipt, Hourglass, ShieldCheck,
 } from 'lucide-react';
+import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
+import { szia } from '@/lib/nev';
+import SegmentedControl from '@/components/SegmentedControl';
+import StatusPill from '@/components/StatusPill';
+import { ertekeles, mertek } from '@/lib/mertek';
 
 type Mode = 'driver' | 'shipper';
 
@@ -89,39 +94,17 @@ export default function HomeHub() {
 
   return (
     <div>
-      {/* ===== Mód-váltó ===== */}
-      <div style={{
-        display: 'flex', justifyContent: 'center', marginBottom: 24, gap: 4,
-        background: 'var(--surface)', borderRadius: 12, padding: 4,
-        border: '1px solid var(--border)', maxWidth: 320, margin: '0 auto 24px',
-      }}>
-        <button
-          type="button"
-          onClick={() => switchMode('driver')}
-          style={{
-            flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-            fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
-            background: mode === 'driver' ? 'var(--primary)' : 'transparent',
-            color: mode === 'driver' ? '#fff' : 'var(--muted)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          <Truck size={15} /> Szállító
-        </button>
-        <button
-          type="button"
-          onClick={() => switchMode('shipper')}
-          style={{
-            flex: 1, padding: '10px 0', borderRadius: 10, border: 'none',
-            fontWeight: 700, fontSize: 14, cursor: 'pointer', transition: 'all 0.15s',
-            background: mode === 'shipper' ? 'var(--primary)' : 'transparent',
-            color: mode === 'shipper' ? '#fff' : 'var(--muted)',
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-          }}
-        >
-          <Package size={15} /> Feladó
-        </button>
-      </div>
+      {/* ===== Mód-váltó ===== (UX A29: rádiócsoport, a kiválasztott mód hallható) */}
+      <SegmentedControl
+        ariaLabel="Mód"
+        ertek={mode}
+        onValtozas={switchMode}
+        opciok={[
+          { ertek: 'driver', felirat: 'Szállító', ikon: <Truck size={15} aria-hidden /> },
+          { ertek: 'shipper', felirat: 'Feladó', ikon: <Package size={15} aria-hidden /> },
+        ]}
+        style={{ maxWidth: 320, margin: '0 auto 24px' }}
+      />
 
       {/* ===== SZÁLLÍTÓ MÓD ===== */}
       {mode === 'driver' && (
@@ -132,17 +115,17 @@ export default function HomeHub() {
             marginBottom: 20, flexWrap: 'wrap', gap: 12,
           }}>
             <div>
-              <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Szállító'}! 👋</h1>
+              <h1 style={{ margin: 0 }}>{szia(user.full_name, 'Szállító')}</h1>
               <p className="muted" style={{ margin: '4px 0 0' }}>
                 {d ? `${d.level}. szint — ${d.levelName}` : ''}
                 {d?.isVerified ? (
                   <>{' · '}<BadgeCheck size={13} color="var(--success)" style={{ verticalAlign: -2 }} /> Ellenőrzött</>
                 ) : null}
                 {d?.ratingCount > 0 ? (
-                  <>{' · '}<Star size={13} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {Number(d.ratingAvg).toFixed(1)}</>
+                  <>{' · '}<Star size={13} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {ertekeles(d.ratingAvg)}</>
                 ) : null}
                 {d?.availableVouchers > 0 ? (
-                  <>{' · '}<Ticket size={13} style={{ verticalAlign: -2 }} /> {d.availableVouchers} jutalékmentes kupon</>
+                  <>{' · '}<Ticket size={13} style={{ verticalAlign: -2 }} /> {d.availableVouchers} ingyenes kapcsolatfelvétel</>
                 ) : null}
               </p>
             </div>
@@ -183,7 +166,9 @@ export default function HomeHub() {
                 <div className="muted" style={{ fontSize: 13 }}>
                   Jogszabályi kötelezettség (DAC7)
                   {taxData.deadline && !taxData.blocked
-                    ? ` — határidő: ${new Date(taxData.deadline).toLocaleDateString('hu-HU')}`
+                    // Hosszú alak, mint a profil adókártyáján (UX A18): a
+                    // „2026. 12. 07.” rövid alak két helyen kétféle volt.
+                    ? ` — határidő: ${new Date(taxData.deadline).toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' })}`
                     : ''} · Kattints a megadáshoz
                 </div>
               </div>
@@ -202,7 +187,7 @@ export default function HomeHub() {
               }}
             >
               <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: 36, flexShrink: 0 }}>🛡️</span>
+                <ShieldCheck size={32} aria-hidden style={{ flexShrink: 0, color: 'var(--primary-text)' }} />
                 <div>
                   <strong style={{ fontSize: 16 }}>A fuvarvállaláshoz azonosítás szükséges</strong>
                   <p style={{ fontSize: 14, margin: '8px 0 0', lineHeight: 1.6 }}>
@@ -218,8 +203,10 @@ export default function HomeHub() {
                       onClick={() => {
                         localStorage.setItem(`gofuvar_kyc_welcome_${user.id}`, '1');
                         setShowKycWelcome(false);
+                        // forras: a KYC-ablak sikerképernyője ebből tudja, hogy
+                        // nincs félbehagyott ajánlat, amihez vissza kellene vinni.
                         window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
-                          detail: { code: 'IDENTITY_KYC_REQUIRED' },
+                          detail: { code: 'IDENTITY_KYC_REQUIRED', forras: 'fooldal' },
                         }));
                       }}
                       style={{
@@ -261,61 +248,74 @@ export default function HomeHub() {
                 }} />
                 Aktív fuvarjaid
               </h2>
-              {d.activeJobs.map((j: any) => (
+              {d.activeJobs.map((j: any) => {
+                // KÖZÖS „következő lépés” logika a Vállalt fuvarok füllel
+                // (UX-review A5, 2026-10-08): a díj előtt NINCS cselekvésre
+                // hívó gomb — eddig minden elfogadott fuvaron „INDÍTÁS →” állt,
+                // a fizetetlenen is, ahol a csomag még nem vehető át.
+                const lepes = kovetkezoLepes(j);
+                const telepules = (cim?: string) => (cim || '').split(',')[0].replace(/^\d{4,6}\s+/, '');
+                return (
                 <Link
                   key={j.id}
                   href={`/sofor/fuvar/${j.id}`}
                   className="card"
                   style={{
                     display: 'block', textDecoration: 'none', color: 'inherit',
-                    borderLeft: `4px solid ${j.status === 'in_progress' ? 'var(--success)' : 'var(--warning)'}`,
+                    borderLeft: `4px solid ${j.status === 'in_progress' ? 'var(--success)' : lepes.kod === 'dijfizetes' ? 'var(--warning)' : 'var(--primary)'}`,
                     marginBottom: 12,
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 16 }}>{j.title}</div>
                       <div className="muted" style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                         <MapPin size={13} style={{ flexShrink: 0 }} />
-                        {j.pickup_address?.split(',')[0]}
+                        {telepules(j.pickup_address)}
                         <span aria-hidden>→</span>
                         <Flag size={13} style={{ flexShrink: 0 }} />
-                        {j.dropoff_address?.split(',')[0]}
+                        {telepules(j.dropoff_address)}
                       </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                        Feladó: {j.shipper_name} · {j.distance_km} km
+                        Feladó: {j.shipper_name} · {mertek(j.distance_km, 'km')}
                       </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span className={`pill ${j.status === 'in_progress' ? 'pill-progress' : 'pill-accepted'}`}
-                        style={{ fontSize: 13, padding: '6px 14px' }}>
-                        {j.status === 'in_progress' ? 'Úton' : 'Elfogadva'}
-                      </span>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      {/* UX A11/A10: a közös állapot-jelvény (lib/statusz) — a
+                          fuvaroldallal és a Vállalt fuvarokkal azonos felirat.
+                          Fizetetlen fuvaron a lenti „Díjfizetésre vár” jelvény
+                          mondja (ne kétszer). */}
+                      {!lepes.jelveny && <StatusPill job={j} nezet="szallito" />}
                       <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
                         {formatPrice(j.accepted_price_huf)}
                       </div>
-                      {j.status === 'accepted' && (
+                      {lepes.gomb && (
                         <div style={{
-                          marginTop: 8, background: 'var(--success-strong)', color: '#fff',
+                          marginTop: 8, background: 'var(--primary)', color: '#fff',
                           padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
                           display: 'inline-flex', alignItems: 'center', gap: 6,
                         }}>
-                          <Camera size={14} /> INDÍTÁS →
+                          <Camera size={14} aria-hidden /> {lepes.gomb}
                         </div>
                       )}
-                      {j.status === 'in_progress' && (
-                        <div style={{
-                          marginTop: 8, background: 'var(--danger-strong)', color: '#fff',
-                          padding: '6px 14px', borderRadius: 8, fontWeight: 700, fontSize: 13,
-                          display: 'inline-flex', alignItems: 'center', gap: 6,
-                        }}>
-                          <Camera size={14} /> LEZÁRÁS →
+                      {lepes.jelveny && (
+                        <div
+                          title={lepes.szoveg}
+                          style={{
+                            marginTop: 8, background: 'rgba(245,158,11,0.16)', color: 'var(--text)',
+                            border: '1px solid var(--warning)',
+                            padding: '4px 12px', borderRadius: 999, fontWeight: 700, fontSize: 12,
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                          }}
+                        >
+                          <Hourglass size={13} aria-hidden /> {lepes.jelveny}
                         </div>
                       )}
                     </div>
                   </div>
                 </Link>
-              ))}
+                );
+              })}
             </div>
           ) : (
             // Nincs aktív fuvar → közeli munkák CTA
@@ -324,7 +324,7 @@ export default function HomeHub() {
               border: '2px dashed var(--border)',
               background: 'var(--bg)',
             }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>🎯</div>
+              <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center', color: 'var(--primary-text)' }}><Target size={40} aria-hidden /></div>
               <h2 style={{ margin: '0 0 8px' }}>
                 {(d?.nearbyJobsCount || 0) > 0
                   ? `${d.nearbyJobsCount} fuvar vár a közeledben!`
@@ -375,7 +375,7 @@ export default function HomeHub() {
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
             {[
               { href: '/sofor/fuvarok', icon: <Target size={18} />, label: 'Fuvarok' },
-              { href: '/sofor/dashboard', icon: <BarChart3 size={18} />, label: 'Dashboard' },
+              { href: '/sofor/dashboard', icon: <BarChart3 size={18} />, label: 'Statisztikám' },
               { href: '/fuvarjaim?tab=licitjeim', icon: <Tag size={18} />, label: 'Ajánlataim' },
               { href: '/fuvarjaim?tab=vallalt', icon: <Truck size={18} />, label: t('nav.myJobs') },
               { href: '/sofor/visszafuvar', icon: <RefreshCw size={18} />, label: 'Visszafuvar' },
@@ -409,7 +409,7 @@ export default function HomeHub() {
       {mode === 'shipper' && (
         <>
           <div style={{ marginBottom: 20 }}>
-            <h1 style={{ margin: 0 }}>Szia, {user.full_name?.split(' ')[0] || 'Feladó'}! 👋</h1>
+            <h1 style={{ margin: 0 }}>{szia(user.full_name, 'Feladó')}</h1>
             <p className="muted" style={{ margin: '4px 0 0' }}>
               Mit szeretnél szállíttatni ma?
             </p>

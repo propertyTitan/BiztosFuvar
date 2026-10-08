@@ -134,6 +134,12 @@ export type Job = {
     | 'cancelled';
   /** Vita alatt külön követett fizikai szállítási állapot. */
   status_before_dispute?: string | null;
+  /** A kézbesítés (lerakodás) időpontja. */
+  delivered_at?: string | null;
+  /** A lemondás időpontja (a feleknek). */
+  cancelled_at?: string | null;
+  /** Melyik kóddal zárult: 'recipient' | 'sender' (címzett nélkül) | 'sender_emergency'. */
+  closed_by_code_type?: string | null;
   /** 6 számjegyű átvételi kód — a backend csak a feladónak adja vissza. */
   delivery_code?: string | null;
   /** A kapcsolatfelvételi díj sikeres fizetésének időbélyegzője (`accepted` után). */
@@ -255,8 +261,12 @@ export type Bid = {
   // Sikertelen kézbesítés esetén történő visszaszállítás nyilatkozata
   return_policy?: 'included' | 'extra_fee' | 'no' | null;
   return_fee_huf?: number | null;
+  /** Az ajánlattétel ideje — az érkezési idő (eta_minutes) ehhez viszonyít. */
+  created_at?: string;
   // A backend a licit mellé adja a szállító adatait is (bids.js JOIN)
   carrier_name?: string | null;
+  /** A szállító járműve (szabad szöveg a profilból). */
+  carrier_vehicle?: string | null;
   rating_avg?: number | null;
   rating_count?: number | null;
   // Céges szállító adatai
@@ -492,7 +502,10 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
       if (errorData.code === 'OUTSIDE_COVERAGE') {
         window.dispatchEvent(new CustomEvent('gofuvar:outside-coverage', { detail: { error: errorData.error } }));
       } else if (errorData.code && kycCodes.includes(errorData.code)) {
-        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code } }));
+        // A KYC-ablak sikergombja csak ajánlattételből nyitva mondja, hogy
+        // „Vissza az ajánlathoz” — máshonnan (profil, főoldal) „Rendben”.
+        const forras = /\/bids\b|\/instant-accept\b/.test(path) ? 'ajanlat' : undefined;
+        window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', { detail: { code: errorData.code, forras } }));
       }
     }
     // A hibakód a hívóhoz is eljut (2026-09-11, B1): kód-alapú kezelés
@@ -505,6 +518,23 @@ async function request<T>(path: string, init: ApiInit = {}): Promise<T> {
   const data = await res.json();
   checkSession();
   return data;
+}
+
+/**
+ * A fotó-feltöltés (felvétel/kézbesítés) hibája. UX Q14 (2026-10-08): a
+ * szöveg mellett a backend gépi mezőit is továbbadja (`code`,
+ * `remainingAttempts`), hogy a kézbesítési hibaüzenet ne a magyar szövegből
+ * olvassa ki, hány próbálkozás maradt.
+ */
+export async function fotoFeltoltesHiba(res: Response): Promise<Error & { code?: string; status?: number; remainingAttempts?: number }> {
+  const err = await res.json().catch(() => ({} as Record<string, unknown>));
+  const hiba = new Error(
+    (typeof err.error === 'string' && err.error) || 'Fotó feltöltés sikertelen',
+  ) as Error & { code?: string; status?: number; remainingAttempts?: number };
+  if (typeof err.code === 'string') hiba.code = err.code;
+  hiba.status = res.status;
+  if (Number.isInteger(err.remaining_attempts)) hiba.remainingAttempts = err.remaining_attempts as number;
+  return hiba;
 }
 
 export const api = {
@@ -626,6 +656,8 @@ export const api = {
       suggested_price_huf: number | null;
       accepted_price_huf: number | null;
       job_carrier_id: string | null;
+      /** Csak a KIJELÖLT szállítónak: ki van-e fizetve a díj (2026-10-08, A12). */
+      job_fee_paid?: boolean;
     }>>('/bids/mine'),
 
   listBids: (jobId: string) => request<Bid[]>(`/jobs/${jobId}/bids`),
@@ -695,10 +727,7 @@ export const api = {
       body: form,
       timeoutMs: 60_000,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: undefined }));
-      throw new Error(err.error || 'Fotó feltöltés sikertelen');
-    }
+    if (!res.ok) throw await fotoFeltoltesHiba(res);
     return res.json();
   },
 
@@ -721,10 +750,7 @@ export const api = {
       body: form,
       timeoutMs: 60_000,
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: undefined }));
-      throw new Error(err.error || 'Fotó feltöltés sikertelen');
-    }
+    if (!res.ok) throw await fotoFeltoltesHiba(res);
     return res.json();
   },
 
@@ -971,6 +997,8 @@ export const api = {
     request<{
       code: string | null; link: string | null;
       totalReferred: number; completedReferred: number; availableVouchers: number;
+      /** A legkorábban lejáró kupon napja ('YYYY-MM-DD'), kupon nélkül null. */
+      voucherValidUntil?: string | null;
     }>('/auth/referral'),
 
   /** Licites fuvar díj-fizetés nyugtázása — csak STUB módban él. */

@@ -12,6 +12,7 @@ import { ListSkeleton, EmptyState } from '@/components/StateView';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useToast } from '@/components/ToastProvider';
 import { Tag, MapPin, Flag, BadgeCheck, Hourglass, Undo2 } from 'lucide-react';
+import StatusPill from '@/components/StatusPill';
 
 type Row = Awaited<ReturnType<typeof api.myBids>>[number];
 
@@ -28,6 +29,89 @@ const BID_STATUS_PILL: Record<string, string> = {
   rejected: 'pill-cancelled',
   withdrawn: 'pill-cancelled',
 };
+
+const jobLezart = (r: Row) => ['cancelled', 'expired'].includes(r.job_status);
+
+// ⚠️ MODUL-SZINTEN (nem a lista-komponensen belül): a belül definiált
+// komponens minden szülő-renderkor ÚJ típus, így minden kártya újramountolt,
+// és a fade-in animáció újra lefutott (látható villanás a Fuvarjaim fülsorának
+// görgetésekor).
+function AjanlatSor({ r, meId, onVisszavon }: {
+  r: Row;
+  meId: string | undefined;
+  onVisszavon: (r: Row) => void;
+}) {
+  // A kijelölt szállító (az enyém a fuvar) — nem lemondott fuvaron.
+  const enyem = r.job_carrier_id === meId && !jobLezart(r);
+  return (
+    <Link
+      href={`/sofor/fuvar/${r.job_id}`}
+      className="card"
+      style={{ display: 'block', textDecoration: 'none', color: 'inherit', marginTop: 12 }}
+    >
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
+        {/* ⚠️ A bal oszlop ALAPSZÉLESSÉGE 220 px (nem flex:1 = 0-s alap):
+            mobilon a hosszú állapot-felirat mellett a cím eddig ~60 px-re
+            szűkült és betűnként tört; így a .row flex-wrap-je a jobb oszlopot
+            keskeny kijelzőn a cím alá teszi. */}
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <h3 style={{ marginTop: 0, marginBottom: 4 }}>{r.job_title}</h3>
+          <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
+            <MapPin size={13} style={{ verticalAlign: -2 }} /> {r.pickup_address}
+          </p>
+          <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
+            <Flag size={13} style={{ verticalAlign: -2 }} /> {r.dropoff_address}
+          </p>
+          {r.needs_reconfirmation && r.bid_status === 'pending' && (
+            <p style={{ margin: '8px 0', fontSize: 13 }}>Nézd át a fuvar jelenlegi adatait, és erősítsd meg az ajánlatodat.</p>
+          )}
+          {r.message && (
+            <p className="muted" style={{ margin: '6px 0 0', fontSize: 13, fontStyle: 'italic' }}>
+              „{r.message}”
+            </p>
+          )}
+        </div>
+        <div style={{ textAlign: 'right', marginLeft: 'auto', maxWidth: '100%' }}>
+          {/* 2026-10-08 (UX A12): a kijelölt szállító a FUVAR állapotát látja
+              a közös jelvénnyel (lib/statusz, szállítói nézet) — fizetetlen:
+              „…a feladó díjfizetésére vár”, fizetett: „Indulhat a fuvar”,
+              úton: „Úton”, vita: „Vita folyamatban”. Eddig egy saját felirat
+              MINDEN fizetett állapotra „Indulhat a fuvar”-t mondott (úton
+              lévőre és vitásra is), az ajánlat „Elfogadva” jelvénye mellett. */}
+          {enyem ? (
+            <StatusPill
+              job={{ status: r.job_status, paid_at: r.job_fee_paid ? 'fizetve' : null }}
+              nezet="szallito"
+            />
+          ) : (
+            <span className={`pill ${BID_STATUS_PILL[r.bid_status]}`}>
+              {r.needs_reconfirmation && r.bid_status === 'pending' ? 'Megerősítésedre vár' : BID_STATUS_LABEL[r.bid_status]}
+            </span>
+          )}
+          <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
+            {r.amount_huf.toLocaleString('hu-HU')} Ft
+          </div>
+          {r.eta_minutes && (
+            <div className="muted" style={{ fontSize: 12 }}>
+              érkezés a felvételre: ~{r.eta_minutes} perc
+            </div>
+          )}
+          {r.bid_status === 'pending' && !jobLezart(r) && (
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ marginTop: 8, fontSize: 12, padding: '4px 10px' }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onVisszavon(r); }}
+              aria-label="Ajánlat visszavonása"
+            >
+              <Undo2 size={13} /> Visszavonom
+            </button>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
 
 export default function SoforLicitjeim() {
   const me = useCurrentUser();
@@ -70,7 +154,6 @@ export default function SoforLicitjeim() {
   // Eddig CSAK a bid_status számított: egy 'pending' ajánlat, aminek a
   // FUVARJÁT időközben lemondták, örökre az „Elfogadásra várakozik" alatt
   // ült — a szállító hiába várt egy hirdetésre, ami már nem létezik.
-  const jobLezart = (r: Row) => ['cancelled', 'expired'].includes((r as any).job_status);
   const cancelled = rows.filter((r) => r.bid_status !== 'accepted' && jobLezart(r));
   // ⚠️ A LEZÁRT fuvar nem marad itt (2026-08-20, tesztelői észrevétel): az
   // elfogadott ajánlat fuvarja a kézbesítés után a „Vállalt fuvarok →
@@ -84,67 +167,6 @@ export default function SoforLicitjeim() {
   const lost = rows.filter(
     (r) => (r.bid_status === 'rejected' || r.bid_status === 'withdrawn') && !jobLezart(r),
   );
-
-  function Row({ r }: { r: Row }) {
-    // Nyertes-e: ha ez a licit elfogadott, vagy ha a fuvar carrier_id-ja én vagyok
-    const iAmCarrier = r.job_carrier_id === me?.id;
-    return (
-      <Link
-        href={`/sofor/fuvar/${r.job_id}`}
-        className="card"
-        style={{ display: 'block', textDecoration: 'none', color: 'inherit', marginTop: 12 }}
-      >
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ marginTop: 0, marginBottom: 4 }}>{r.job_title}</h3>
-            <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
-              <MapPin size={13} style={{ verticalAlign: -2 }} /> {r.pickup_address}
-            </p>
-            <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
-              <Flag size={13} style={{ verticalAlign: -2 }} /> {r.dropoff_address}
-            </p>
-            {r.needs_reconfirmation && r.bid_status === 'pending' && (
-              <p style={{ margin: '8px 0', fontSize: 13 }}>Nézd át a fuvar jelenlegi adatait, és erősítsd meg az ajánlatodat.</p>
-            )}
-            {r.message && (
-              <p className="muted" style={{ margin: '6px 0 0', fontSize: 13, fontStyle: 'italic' }}>
-                „{r.message}”
-              </p>
-            )}
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            <span className={`pill ${BID_STATUS_PILL[r.bid_status]}`}>
-              {r.needs_reconfirmation && r.bid_status === 'pending' ? 'Megerősítésedre vár' : BID_STATUS_LABEL[r.bid_status]}
-            </span>
-            <div className="price" style={{ marginTop: 8, fontSize: 18 }}>
-              {r.amount_huf.toLocaleString('hu-HU')} Ft
-            </div>
-            {r.eta_minutes && (
-              <div className="muted" style={{ fontSize: 12 }}>
-                érkezés ~{r.eta_minutes} perc
-              </div>
-            )}
-            {iAmCarrier && (
-              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--success-text)', fontWeight: 700 }}>
-                🎉 Tiéd a fuvar
-              </div>
-            )}
-            {r.bid_status === 'pending' && !jobLezart(r) && (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                style={{ marginTop: 8, fontSize: 12, padding: '4px 10px' }}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setVisszavonando(r); }}
-                aria-label="Ajánlat visszavonása"
-              >
-                <Undo2 size={13} /> Visszavonom
-              </button>
-            )}
-          </div>
-        </div>
-      </Link>
-    );
-  }
 
   return (
     <div>
@@ -186,7 +208,7 @@ export default function SoforLicitjeim() {
             <BadgeCheck size={20} /> Elfogadva ({accepted.length})
           </h2>
           {accepted.map((r) => (
-            <Row key={r.bid_id} r={r} />
+            <AjanlatSor key={r.bid_id} r={r} meId={me?.id} onVisszavon={setVisszavonando} />
           ))}
         </>
       )}
@@ -197,7 +219,7 @@ export default function SoforLicitjeim() {
             <Hourglass size={20} /> Várakozik ({pending.length})
           </h2>
           {pending.map((r) => (
-            <Row key={r.bid_id} r={r} />
+            <AjanlatSor key={r.bid_id} r={r} meId={me?.id} onVisszavon={setVisszavonando} />
           ))}
         </>
       )}
@@ -214,7 +236,7 @@ export default function SoforLicitjeim() {
             a sajátodat. Ha a hirdetés újra nyitott, tehetsz új ajánlatot.
           </p>
           {lost.map((r) => (
-            <Row key={r.bid_id} r={r} />
+            <AjanlatSor key={r.bid_id} r={r} meId={me?.id} onVisszavon={setVisszavonando} />
           ))}
         </>
       )}
@@ -227,7 +249,7 @@ export default function SoforLicitjeim() {
             lezárult, teendőd nincs.
           </p>
           {cancelled.map((r) => (
-            <Row key={r.bid_id} r={r} />
+            <AjanlatSor key={r.bid_id} r={r} meId={me?.id} onVisszavon={setVisszavonando} />
           ))}
         </>
       )}

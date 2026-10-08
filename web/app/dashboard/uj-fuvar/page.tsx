@@ -1,6 +1,6 @@
 'use client';
 
-import { kapcsolatfelvetelDijHuf, DIJ_SZABALY_SZOVEG, ft } from '@/lib/connectionFee';
+import { kapcsolatfelvetelDijHuf, DIJ_SAVOK, DIJ_SZABALY_SZOVEG, ft } from '@/lib/connectionFee';
 
 // =====================================================================
 //  Új fuvar feladása – feladói űrlap.
@@ -24,7 +24,10 @@ import { mentPiszkozat, olvasPiszkozat, torolPiszkozat, piszkozatKulcs, UJ_FUVAR
 import { clearHozasdEl, HOZASD_EL_PREFILL, postingHozasdElKind, readHozasdEl, safeProductImage, saveHozasdEl, type HozasdElDraft, type HozasdElKind } from '@/lib/hozasdEl';
 import HozasdElPostingGuide from '@/components/HozasdElPostingGuide';
 import { idoablakHiba } from '@/lib/idoablak';
+import { CIM_HIBA, elsoHibasMezoId, hibaOsszegzes } from '@/lib/urlapHibak';
 import ListingPhotoUpload from '@/components/ListingPhotoUpload';
+import { jelolElsoSiker } from '@/components/InstallPromptBanner';
+import { Check, TriangleAlert, Zap, Lightbulb } from 'lucide-react';
 import {
   MAX_DIM_CM, MAX_WEIGHT_KG,
   intFieldError, moneyFieldError, weightFieldError,
@@ -135,6 +138,8 @@ type SavedDraft = {
   form: Partial<FormState>; raw?: Partial<Record<NumKey, string>>;
   sourceStore?: string | null; sourceImage?: string | null;
   hozasdElKind?: HozasdElKind | null;
+  /** „Újra feladom” (lib/ujrafeladas): egy lemondott fuvar másolata. */
+  ujrafeladas?: boolean;
 };
 function productForm(draft: HozasdElDraft): FormState {
   return { ...initialForm, title: draft.title,
@@ -251,6 +256,8 @@ export default function UjFuvar() {
       saveHozasdEl(HOZASD_EL_PREFILL, incoming, me.id);
       if (hasSavedDraft) setIncomingProduct(incoming);
       else importProduct(incoming, PISZKOZAT_KULCS);
+    } else if (hasSavedDraft && d?.ujrafeladas) {
+      toast.info('A lemondott fuvar adatait betöltöttük', 'Nézd át, és módosítsd, amit kell (például az árat vagy az időpontot), majd add fel újra.');
     } else if (hasSavedDraft) {
       toast.info('Piszkozat visszaállítva', 'A félbehagyott feladásod adatait betöltöttük — ha nem kell, írd felül a mezőket.');
     }
@@ -387,36 +394,16 @@ export default function UjFuvar() {
     if (submitLock.current || createdJob) return;
     setTried(true);
     if (!canSubmit) {
-      // A konkrét okot mondjuk meg, ne csak azt, hogy „valami hiányzik".
-      const firstProblem =
-        Object.values(errors).find((e) => e !== null) ||
-        (!form.pickup_confirmed
-          ? 'A felvétel helyét válaszd ki a legördülő listából, házszámmal együtt.'
-          : null) ||
-        (!form.dropoff_confirmed
-          ? 'A lerakodás helyét válaszd ki a legördülő listából, házszámmal együtt.'
-          : null);
-      toast.error('Hiányzó vagy hibás mező', firstProblem || 'Nézd át a pirossal jelölt mezőket.');
       // GF-013 (Manus, 2026-08-30): az ELSŐ hibás mező fókuszt kap és a
-      // képernyőre görgetjük — hosszú mobil-űrlapon a toast önmagában nem
-      // mondja meg, HOL a hiba.
-      const mezoId: Record<string, string> = {
-        title: 'uj-cim',
-        length: 'uj-hossz',
-        width: 'uj-szelesseg',
-        height: 'uj-magassag',
-        weight: 'uj-suly',
-        price: 'uj-ar',
-        recipientName: 'uj-cimzett-nev',
-        recipientPhone: 'uj-cimzett-tel',
-        recipientEmail: 'uj-cimzett-email',
-      };
-      const elsoHibasKulcs = (Object.keys(errors) as Array<keyof typeof errors>)
-        .find((k) => errors[k] !== null);
-      const cel = elsoHibasKulcs ? document.getElementById(mezoId[elsoHibasKulcs] || '') : null;
-      if (cel) {
-        cel.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        (cel as HTMLElement).focus({ preventScroll: true });
+      // képernyőre görgetjük. UX A14 (2026-10-08): toast NINCS — a fókusz,
+      // a mező alatti üzenet és a gomb fölötti összegzés (hibaOsszegzes)
+      // elég; a toast pont a hibás mezőt takarta. A sorrend az űrlap sorrendje
+      // (a címek is: azoknak nincs `errors` kulcsa, eddig kimaradtak).
+      const cel = elsoHibasMezoId(errors, form.pickup_confirmed, form.dropoff_confirmed);
+      const elem = cel ? document.getElementById(cel) : null;
+      if (elem) {
+        elem.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        elem.focus({ preventScroll: true });
       }
       return;
     }
@@ -426,8 +413,9 @@ export default function UjFuvar() {
     try {
       const ablakHiba = idoablakHiba(form.pickup_window_start, form.pickup_window_end);
       if (ablakHiba) {
+        // UX A14: a hiba a mező alatt és a gomb fölött látszik — toast nélkül.
         setError(ablakHiba);
-        toast.error('Felvételi időablak', ablakHiba);
+        document.getElementById('pickup-window-start')?.focus();
         return;
       }
       // 1) Létrehozzuk a fuvart – ekkor kapunk jobId-t
@@ -475,6 +463,8 @@ export default function UjFuvar() {
 
       setCreatedJob({ id: job.id, photos: [...photos] });
       if (PISZKOZAT_KULCS) torolPiszkozat(PISZKOZAT_KULCS);
+      // UX A23: az első érdemi siker — a telepítő sáv ettől kezdve jöhet.
+      jelolElsoSiker();
     } catch (err: any) {
       setError(err.message);
       toast.error('Hiba a fuvar feladáskor', err.message);
@@ -648,8 +638,10 @@ export default function UjFuvar() {
 
         {/* --- Felvétel --- */}
         <h2 id="fuvar-felvetel" tabIndex={-1} style={{ marginTop: 24, scrollMarginTop: 90 }}>Felvétel helye <span style={REQ}>*</span></h2>
-        <div style={missing(form.pickup_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
+        <div>
         <AddressAutocomplete
+          invalid={missing(form.pickup_confirmed ? 'ok' : '')}
+          hibaId="hiba-pickup"
           label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
           placeholder="pl. Budapest, Váci út 1."
           value={form.pickup_address}
@@ -677,17 +669,24 @@ export default function UjFuvar() {
         />
         {form.pickup_confirmed && form.pickup_lat != null && (
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            ✓ Koordináta: {form.pickup_lat.toFixed(5)}, {form.pickup_lng!.toFixed(5)}
+            <Check size={13} aria-hidden style={{ verticalAlign: -2 }} /> Cím megerősítve
           </p>
         )}
+        {/* A három üzenet egymást kizárja, ezért ugyanaz az id: a mező
+            aria-describedby-ja mindig a látható magyarázatra mutat. */}
         {pickupImprecise && (
-          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
+          <p id="hiba-pickup" role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
             {pickupImprecise}
           </p>
         )}
+        {/* Üres cím a feladás-próba után (fix2-review): eddig csak a gomb
+            fölötti összegzés mondta meg, mi a baj — a mező alatt semmi. */}
+        {tried && !form.pickup_confirmed && !form.pickup_address.trim() && !pickupImprecise && (
+          <FieldError id="hiba-pickup">{CIM_HIBA.pickup}</FieldError>
+        )}
         {!form.pickup_confirmed && form.pickup_address && !pickupImprecise && (
-          <p style={{ color: 'var(--warning)', fontSize: 12, marginTop: 6 }}>
-            ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
+          <p id="hiba-pickup" style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
+            <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
           </p>
         )}
         </div>
@@ -696,30 +695,35 @@ export default function UjFuvar() {
         <div style={{ marginTop: 12 }}>
           {/* Felvételi időablak (2026-09-11, B3): a backend eddig is fogadta,
               az űrlapon nem volt — a szállító nem tudta, mikor mehet. */}
-          <div style={{ marginBottom: 12 }}>
-            <label htmlFor="pickup-window-start" style={{ fontSize: 13, fontWeight: 600 }}>
+          {/* UX A30 + A29: két címkézett mező („Legkorábban" / „Legkésőbb")
+              egy fieldsetben — mobilon egymás alatt, árva „–" nélkül. */}
+          <fieldset className="mezo-csoport" style={{ marginBottom: 12 }}>
+            <legend style={{ fontSize: 13, fontWeight: 600 }}>
               Felvételi időablak <span className="muted" style={{ fontWeight: 400 }}>(opcionális — mikor lehet jönni a csomagért)</span>
-            </label>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 4 }}>
-              <input
-                id="pickup-window-start"
-                type="datetime-local"
-                className="input"
-                value={form.pickup_window_start}
-                onChange={(e) => set('pickup_window_start', e.target.value)}
-                style={{ flex: '1 1 200px' }}
-                aria-label="Felvételi időablak kezdete"
-              />
-              <span className="muted">–</span>
-              <input
-                id="pickup-window-end"
-                type="datetime-local"
-                className="input"
-                value={form.pickup_window_end}
-                onChange={(e) => set('pickup_window_end', e.target.value)}
-                style={{ flex: '1 1 200px' }}
-                aria-label="Felvételi időablak vége"
-              />
+            </legend>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8, marginTop: 4 }}>
+              <div>
+                <label htmlFor="pickup-window-start" style={{ fontSize: 12 }}>Legkorábban</label>
+                <input
+                  id="pickup-window-start"
+                  type="datetime-local"
+                  className="input"
+                  value={form.pickup_window_start}
+                  onChange={(e) => set('pickup_window_start', e.target.value)}
+                  aria-label="Felvételi időablak kezdete — legkorábban"
+                />
+              </div>
+              <div>
+                <label htmlFor="pickup-window-end" style={{ fontSize: 12 }}>Legkésőbb</label>
+                <input
+                  id="pickup-window-end"
+                  type="datetime-local"
+                  className="input"
+                  value={form.pickup_window_end}
+                  onChange={(e) => set('pickup_window_end', e.target.value)}
+                  aria-label="Felvételi időablak vége — legkésőbb"
+                />
+              </div>
             </div>
             {idoablakHiba(form.pickup_window_start, form.pickup_window_end) && (
               <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 13, margin: '4px 0 0' }}>
@@ -727,16 +731,16 @@ export default function UjFuvar() {
               </p>
             )}
             <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>Tágabb időablakra több szállítónak esik útba a fuvar.</p>
-          </div>
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+          </fieldset>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={form.pickup_needs_carrying}
               onChange={(e) => set('pickup_needs_carrying', e.target.checked)}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 20, height: 20, flexShrink: 0 }}
             />
             <span style={{ fontSize: 14 }}>
-              A szállítónak be kell pakolnia a csomagot a felvételi helyen?
+              Emeletről kell lehozni, vagy kézzel cipelni a felvételnél?
             </span>
           </label>
           {form.pickup_needs_carrying && (
@@ -766,20 +770,20 @@ export default function UjFuvar() {
                   </select>
                 </div>
                 {form.pickup_floor !== '0' && (
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', fontSize: 14 }}>
                     <input
                       type="checkbox"
                       checked={form.pickup_has_elevator}
                       onChange={(e) => set('pickup_has_elevator', e.target.checked)}
-                      style={{ width: 18, height: 18 }}
+                      style={{ width: 20, height: 20, flexShrink: 0 }}
                     />
                     Van lift?
                   </label>
                 )}
               </div>
               {form.pickup_floor !== '0' && !form.pickup_has_elevator && (
-                <p style={{ fontSize: 12, color: '#FB8C00', marginTop: 8, marginBottom: 0 }}>
-                  ⚠ Lépcsőn kell cipelni — a szállítónak lényeges információ!
+                <p style={{ fontSize: 12, color: 'var(--warning-text)', marginTop: 8, marginBottom: 0 }}>
+                  <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Lépcsőn kell cipelni — a szállítónak lényeges információ!
                 </p>
               )}
             </div>
@@ -787,9 +791,11 @@ export default function UjFuvar() {
         </div>
 
         {/* --- Lerakodás --- */}
-        <h2 style={{ marginTop: 24 }}>Lerakodás helye <span style={REQ}>*</span></h2>
-        <div style={missing(form.dropoff_confirmed ? 'ok' : '') ? { ...redBorder, borderRadius: 8, padding: 2 } : undefined}>
+        <h2 id="fuvar-lerakodas" tabIndex={-1} style={{ marginTop: 24, scrollMarginTop: 90 }}>Lerakodás helye <span style={REQ}>*</span></h2>
+        <div>
         <AddressAutocomplete
+          invalid={missing(form.dropoff_confirmed ? 'ok' : '')}
+          hibaId="hiba-dropoff"
           label="Pontos cím utcával és házszámmal (válassz a legördülő listából)"
           placeholder="pl. Szeged, Kossuth Lajos sugárút 1."
           value={form.dropoff_address}
@@ -816,32 +822,39 @@ export default function UjFuvar() {
         />
         {form.dropoff_confirmed && form.dropoff_lat != null && (
           <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-            ✓ Koordináta: {form.dropoff_lat.toFixed(5)}, {form.dropoff_lng!.toFixed(5)}
+            <Check size={13} aria-hidden style={{ verticalAlign: -2 }} /> Cím megerősítve
           </p>
         )}
+        {/* A három üzenet egymást kizárja, ezért ugyanaz az id: a mező
+            aria-describedby-ja mindig a látható magyarázatra mutat. */}
         {dropoffImprecise && (
-          <p role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
+          <p id="hiba-dropoff" role="alert" style={{ color: 'var(--danger-text)', fontSize: 12, marginTop: 6 }}>
             {dropoffImprecise}
           </p>
         )}
+        {/* Üres cím a feladás-próba után (fix2-review): eddig csak a gomb
+            fölötti összegzés mondta meg, mi a baj — a mező alatt semmi. */}
+        {tried && !form.dropoff_confirmed && !form.dropoff_address.trim() && !dropoffImprecise && (
+          <FieldError id="hiba-dropoff">{CIM_HIBA.dropoff}</FieldError>
+        )}
         {!form.dropoff_confirmed && form.dropoff_address && !dropoffImprecise && (
-          <p style={{ color: 'var(--warning)', fontSize: 12, marginTop: 6 }}>
-            ⚠ Válassz egy címet a legördülő listából a pontos koordinátához.
+          <p id="hiba-dropoff" style={{ color: 'var(--warning-text)', fontSize: 12, marginTop: 6 }}>
+            <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Válassz egy címet a legördülő listából — így tudjuk megerősíteni.
           </p>
         )}
         </div>
 
         {/* Lerakodási bepakolás */}
         <div style={{ marginTop: 12 }}>
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={form.dropoff_needs_carrying}
               onChange={(e) => set('dropoff_needs_carrying', e.target.checked)}
-              style={{ width: 18, height: 18 }}
+              style={{ width: 20, height: 20, flexShrink: 0 }}
             />
             <span style={{ fontSize: 14 }}>
-              A szállítónak fel kell vinnie a csomagot a lerakodási helyen?
+              Emeletre kell felvinni, vagy kézzel cipelni a lerakodásnál?
             </span>
           </label>
           {form.dropoff_needs_carrying && (
@@ -871,20 +884,20 @@ export default function UjFuvar() {
                   </select>
                 </div>
                 {form.dropoff_floor !== '0' && (
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'center', cursor: 'pointer', fontSize: 14 }}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', cursor: 'pointer', fontSize: 14 }}>
                     <input
                       type="checkbox"
                       checked={form.dropoff_has_elevator}
                       onChange={(e) => set('dropoff_has_elevator', e.target.checked)}
-                      style={{ width: 18, height: 18 }}
+                      style={{ width: 20, height: 20, flexShrink: 0 }}
                     />
                     Van lift?
                   </label>
                 )}
               </div>
               {form.dropoff_floor !== '0' && !form.dropoff_has_elevator && (
-                <p style={{ fontSize: 12, color: '#FB8C00', marginTop: 8, marginBottom: 0 }}>
-                  ⚠ Lépcsőn kell cipelni — a szállítónak lényeges információ!
+                <p style={{ fontSize: 12, color: 'var(--warning-text)', marginTop: 8, marginBottom: 0 }}>
+                  <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} /> Lépcsőn kell cipelni — a szállítónak lényeges információ!
                 </p>
               )}
             </div>
@@ -904,7 +917,9 @@ export default function UjFuvar() {
           Ha bizonytalan vagy, kérd el ezeket az eladótól.
           Több darabnál a darabszámot és az egyes méreteket a részletes leírásba is írd be.
         </p>}
-        <div className="grid-2">
+        {/* 2026-10-08 (Q13): a .grid-2 640 px alatt egy oszlopra vált — a négy
+            rövid szám-mező mobilon is elfér két oszlopban. */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
           <div>
             <label htmlFor="uj-hossz">Hosszúság (cm) <span style={REQ}>*</span></label>
             <input
@@ -989,7 +1004,7 @@ export default function UjFuvar() {
         </div>
         {volumeM3 != null && (
           <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            Számolt térfogat: <strong>{volumeM3} m³</strong>
+            Számolt térfogat: <strong>{volumeM3.toLocaleString('hu-HU', { maximumFractionDigits: 2 })} m³</strong>
           </p>
         )}
 
@@ -1021,7 +1036,7 @@ export default function UjFuvar() {
               onChange={(e) => set('is_instant', e.target.checked)}
               style={{ width: 20, height: 20, flexShrink: 0 }}
             />
-            <strong style={{ fontSize: 16 }}>⚡ Azonnali fuvar (nincs ajánlattétel)</strong>
+            <strong style={{ fontSize: 16 }}><Zap size={16} aria-hidden style={{ verticalAlign: -2 }} /> Azonnali fuvar (nincs ajánlattétel)</strong>
           </div>
           <p className="muted" style={{ fontSize: 13, marginTop: 8, marginBottom: 0 }}>
             Fix áron adod fel, és az első szállító, aki elvállalja, elviszi.
@@ -1100,7 +1115,7 @@ export default function UjFuvar() {
         {estimate && (
           <div className="callout callout-info" style={{ marginTop: 10, padding: 14 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 18 }}>💡</span>
+              <Lightbulb size={18} aria-hidden style={{ flexShrink: 0 }} />
               <span style={{ fontSize: 14 }}>
                 Ajánlott ársáv: <strong>{estimate.low.toLocaleString('hu-HU')} – {estimate.high.toLocaleString('hu-HU')} Ft</strong>
               </span>
@@ -1125,7 +1140,7 @@ export default function UjFuvar() {
         {underpriced && (
           <div className="callout callout-warning" style={{ marginTop: 8, padding: '10px 14px' }}>
             <span style={{ fontSize: 14 }}>
-              ⚠️ Ez alacsonynak tűnik a javasolt sávhoz képest — könnyen lehet, hogy kevés vagy egy ajánlat sem érkezik rá.
+              <TriangleAlert size={14} aria-hidden style={{ verticalAlign: -2 }} /> Ez alacsonynak tűnik a javasolt sávhoz képest — könnyen lehet, hogy kevés vagy egy ajánlat sem érkezik rá.
             </span>
           </div>
         )}
@@ -1169,18 +1184,22 @@ export default function UjFuvar() {
           style={show('declared') ? redBorder : undefined}
         />
         <FieldError id="hiba-declared">{show('declared') || (negativJelzes.declared_value_huf ? NEGATIV_UZENET : null)}</FieldError>
+        {/* 2026-10-08 (UX-átvizsgálás A3): a régi „Vitás esetben ez az összeg
+            az irányadó" burkolt kártérítési szabályt ígért — az ÁSZF 5.2 szerint
+            a platform nem szab kárplafont, a felek a Ptk. szerint rendezik. */}
         <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-          Opcionális, de ajánlott. A szállító ez alapján méri fel a felelősségét:
-          egy 500.000 Ft-os tárgy szállítása más hozzáállást igényel, mint egy
-          5.000 Ft-osé. Vitás esetben ez az összeg az irányadó.
+          Opcionális, tájékoztató adat a szállítónak: segít felmérni, mekkora
+          óvatosságot igényel a fuvar — egy 500 000 Ft-os tárgy szállítása más
+          hozzáállást kíván, mint egy 5 000 Ft-osé. Kár esetén a felek a Ptk. szerint
+          rendezik egymás közt (ÁSZF 5.2).
         </p>
 
         {/* --- Számlakérés --- */}
         <div style={{ marginTop: 16 }}>
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
             <input type="checkbox" checked={form.invoice_requested}
               onChange={(e) => set('invoice_requested', e.target.checked)}
-              style={{ width: 18, height: 18 }} />
+              style={{ width: 20, height: 20, flexShrink: 0 }} />
             <span style={{ fontSize: 14 }}>Számlát kérek erről a fuvarról</span>
           </label>
           <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
@@ -1190,7 +1209,7 @@ export default function UjFuvar() {
 
         {/* --- Címzett adatai --- */}
         <h2 style={{ marginTop: 24 }}>Átvétel</h2>
-        <label style={{ display: 'flex', gap: 10, alignItems: 'center', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={form.other_recipient}
@@ -1203,7 +1222,7 @@ export default function UjFuvar() {
                 ...(on ? {} : { recipient_name: '', recipient_phone: '', recipient_email: '' }),
               }));
             }}
-            style={{ width: 18, height: 18 }}
+            style={{ width: 20, height: 20, flexShrink: 0 }}
           />
           <span style={{ fontSize: 14 }}>
             <strong>Nem én veszem át a csomagot</strong> — más címzett veszi át
@@ -1286,11 +1305,22 @@ export default function UjFuvar() {
 
         {error && <p style={{ color: 'var(--danger-text)', marginTop: 16 }}>{error}</p>}
 
+        {/* UX A14: a gomb fölötti összegzés (toast helyett) — élőben frissül,
+            és eltűnik, amint minden mező rendben. */}
+        {tried && !canSubmit && (
+          <p role="alert" className="field-error" style={{ marginTop: 16 }}>
+            {hibaOsszegzes(errors, form.pickup_confirmed, form.dropoff_confirmed)}
+          </p>
+        )}
+
+        <p className="muted" style={{ fontSize: 12, margin: '24px 0 8px', textAlign: 'center' }}>
+          A feladás ingyenes · díj csak elfogadáskor: {ft(DIJ_SAVOK[0].dijHuf)} / {ft(DIJ_SAVOK[1].dijHuf)} Ft
+        </p>
         <button
           className="btn"
           type="submit"
           disabled={submitting}
-          style={{ marginTop: 24 }}
+          style={{ width: '100%', minHeight: 48, fontSize: 16 }}
         >
           {submitting
             ? 'Feladás...'

@@ -15,7 +15,7 @@ async function realLogin(page: Page, user: E2EUser) {
   await page.goto('/bejelentkezes');
   const consent = page.getByRole('button', { name: 'Rendben, értem' });
   if (await consent.isVisible()) await consent.click();
-  await page.getByLabel('Email').fill(user.email);
+  await page.getByLabel('E-mail-cím', { exact: true }).fill(user.email);
   await page.getByLabel('Jelszó', { exact: true }).fill('Jelszo123!');
   await page.getByRole('button', { name: 'Belépés →', exact: true }).click();
   await expect(page).toHaveURL(/localhost:3100\/$/);
@@ -24,8 +24,9 @@ async function realLogin(page: Page, user: E2EUser) {
 
 test('A07: másik tab logout/login után A privát eseménye nem jut át, B saját eseménye megérkezik', async ({ page, context }, testInfo) => {
   test.setTimeout(60_000);
-  const a = await createUser('shipper', 'Anna Tabteszt');
-  const b = await createUser('shipper', 'Bea Tabteszt');
+  // Magyar névsorrend: a fejléc fiókchipje a keresztnevet mutatja (UX A13).
+  const a = await createUser('shipper', 'Tabteszt Anna');
+  const b = await createUser('shipper', 'Tabteszt Bea');
   const admin = await createUser('admin', 'Admin Tabteszt');
   const frames: string[] = [];
   const lifecycle: Array<{ kind: string; at: number }> = [];

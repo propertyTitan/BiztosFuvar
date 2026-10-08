@@ -9,7 +9,7 @@ const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
 const { loginRateLimit, registerRateLimit, writeRateLimit, createRateLimit } = require('../middleware/rateLimit');
 const navTaxpayer = require('../services/navTaxpayer');
 const { getDriverGameStats, grantMonthlyVouchers } = require('../services/gamification');
-const { getOrCreateReferralCode, resolveReferrerId } = require('../services/referral');
+const { getOrCreateReferralCode, resolveReferrerId, legkozelebbiKuponLejarat } = require('../services/referral');
 const { savePrivateFile, getSignedPrivateUrl } = require('../services/storage');
 const {
   sendEmailVerificationEmail,
@@ -208,8 +208,20 @@ router.post('/register', registerRateLimit, async (req, res) => {
   // Email kanonikus formában (kisbetű + trim), hogy a login kis/nagybetűtől
   // függetlenül megtalálja — a telefon-billentyűzet gyakran nagybetűsít.
   const normEmail = typeof email === 'string' ? email.trim().toLowerCase() : email;
-  if (!email || !password || !full_name) {
-    return res.status(400).json({ error: 'Hiányzó mezők' });
+  // UX-kör A10 (2026-10-08): a válasz MEGNEVEZI a hiányzó mezőket (eddig csak
+  // „Hiányzó mezők" jött, a felhasználó találgathatott). A `fields` a kliens
+  // mezőszintű jelzéséhez kell.
+  const hianyzo = [
+    ['email', 'e-mail-cím', email],
+    ['password', 'jelszó', password],
+    ['full_name', 'teljes név', full_name],
+  ].filter(([, , v]) => !v);
+  if (hianyzo.length) {
+    return res.status(400).json({
+      error: `Hiányzó mezők: ${hianyzo.map(([, nev]) => nev).join(', ')}.`,
+      code: 'MISSING_FIELDS',
+      fields: hianyzo.map(([kulcs]) => kulcs),
+    });
   }
 
   // Mező-validációk (BUG-011): csupa-szóköz név/jelszó, formátumtalan
@@ -330,7 +342,13 @@ router.post('/register', registerRateLimit, async (req, res) => {
 
     res.status(201).json({ user, token: signToken(user) });
   } catch (err) {
-    if (err.code === '23505') return res.status(409).json({ error: 'Foglalt email' });
+    if (err.code === '23505') {
+      // A korábbi „Foglalt email" nem mondta meg, mit tegyen a felhasználó.
+      return res.status(409).json({
+        error: 'Ez az e-mail-cím már foglalt — ha a tiéd, lépj be, vagy kérj új jelszót.',
+        code: 'EMAIL_TAKEN',
+      });
+    }
     console.error(err);
     res.status(500).json({ error: 'Szerverhiba' });
   }
@@ -877,8 +895,10 @@ router.get('/users/:id/profile', authRequired, requireVerifiedEmail, async (req,
       // személyes adat, és a publikus profilt bárki lekérheti kontaktus/
       // ügylet nélkül (adat-minimalizálás, 2026-08-09 audit). A jármű TÍPUSA
       // (vehicle_type) marad — az a döntéshez hasznos, nem azonosít.
+      // A trust_score is kimarad (UX A03, 2026-10-08): belső pontszám, a
+      // tájékoztató szerint csak az admin látja.
       `SELECT id, full_name, avatar_url, bio, vehicle_type,
-              rating_avg, rating_count, trust_score, is_verified_carrier, created_at,
+              rating_avg, rating_count, is_verified_carrier, created_at,
               account_type, company_name, company_verification_status
          FROM users WHERE id = $1`,
       [uid],
@@ -1055,7 +1075,7 @@ router.get('/referral-check', loginRateLimit, async (req, res) => {
 router.get('/referral', authRequired, async (req, res) => {
   const uid = req.user.sub;
   const code = await getOrCreateReferralCode(uid);
-  const [{ rows: referredRows }, { rows: voucherRows }] = await Promise.all([
+  const [{ rows: referredRows }, { rows: voucherRows }, voucherValidUntil] = await Promise.all([
     // Sikeres ajánlások: akiket behoztam ÉS már teljesítettek (jutalmaztak).
     db.query(
       `SELECT
@@ -1071,6 +1091,9 @@ router.get('/referral', authRequired, async (req, res) => {
           AND valid_from <= CURRENT_DATE AND valid_until >= CURRENT_DATE`,
       [uid],
     ),
+    // A legkorábban lejáró kupon napja — a ReferralCard „Érvényes: …-ig”
+    // sorához (UX Q18): ugyanazok a feltételek, mint a számlálónál.
+    legkozelebbiKuponLejarat(uid),
   ]);
   const base = process.env.WEB_BASE_URL || 'https://gofuvar.hu';
   res.json({
@@ -1079,6 +1102,7 @@ router.get('/referral', authRequired, async (req, res) => {
     totalReferred: referredRows[0]?.total_referred || 0,
     completedReferred: referredRows[0]?.completed_referred || 0,
     availableVouchers: voucherRows[0]?.c || 0,
+    voucherValidUntil,
   });
 });
 

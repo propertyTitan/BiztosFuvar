@@ -171,6 +171,71 @@ export function bioError(raw: string): string | null {
   return null;
 }
 
+// ── Regisztráció / belépés (UX-kör A10, 2026-10-08) ─────────────────────
+// A POST /auth/register szabályainak KLIENS-tükrei (backend/src/routes/auth.js:
+// cleanFullName, NEV_SZAMJEGY_HIBA, validPassword, cleanPhone, adószám-minta).
+// Eddig a hibás űrlap minden próbája elment a szerverig — és beleszámított az
+// óránként 5 regisztráció/IP limitbe —, a válasz pedig egyetlen üzenet volt,
+// sokszor rossz mező alatt. Most a hiba a saját mezője alatt jelenik meg, és
+// hibás űrlapnál kérés sem indul.
+
+const EMAIL_MINTA = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** Kötelező e-mail-cím (regisztráció és belépés). */
+export function requiredEmailError(raw: string): string | null {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return 'Kérjük, add meg az e-mail-címed.';
+  if (trimmed.length > 254 || !EMAIL_MINTA.test(trimmed)) {
+    return 'Érvénytelen e-mail-cím — pl. nev@email.hu.';
+  }
+  return null;
+}
+
+/** Új jelszó (regisztráció): legalább 8 érdemi karakter, legfeljebb 128. */
+export function newPasswordError(raw: string): string | null {
+  const v = raw || '';
+  if (!v) return 'Kérjük, adj meg egy jelszót.';
+  if (v.trim().length < 8) return 'A jelszó legalább 8 karakter legyen (nem állhat csak szóközből).';
+  if (v.length > 128) return 'A jelszó legfeljebb 128 karakter lehet.';
+  return null;
+}
+
+/** Belépési jelszó: csak a kitöltöttséget nézzük (a helyességét a szerver). */
+export function loginPasswordError(raw: string): string | null {
+  return raw ? null : 'Kérjük, add meg a jelszavad.';
+}
+
+/** Személynév a regisztráción: 2–100 karakter, számjegy nélkül (REG-P1-NEW-01). */
+export function registrationNameError(raw: string): string | null {
+  if (!(raw || '').trim()) return 'Kérjük, add meg a teljes neved.';
+  const base = nameError(raw);
+  if (base) return base;
+  if (/\d/.test(raw)) return 'A név nem tartalmazhat számokat.';
+  return null;
+}
+
+/** Kötelező telefonszám (szállítói regisztráció): 6–15 számjegy. */
+export function requiredPhoneError(raw: string): string | null {
+  if (!(raw || '').trim()) return 'Szállítóként kötelező a telefonszám — a díj után ezen ér el a feladó.';
+  return optionalPhoneError(raw);
+}
+
+/** Céges regisztráció: kötelező cégnév (legfeljebb 200 karakter). */
+export function companyNameError(raw: string): string | null {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return 'Céges regisztrációnál a cégnév kötelező.';
+  if (trimmed.length > 200) return 'A cégnév legfeljebb 200 karakter lehet.';
+  return null;
+}
+
+/** Céges regisztráció: kötelező adószám 12345678-1-42 formában. */
+export function taxIdError(raw: string): string | null {
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return 'Céges regisztrációnál az adószám kötelező.';
+  if (!/^\d{8}-\d{1,2}-\d{2}$/.test(trimmed)) return 'Érvénytelen adószám — pl. 12345678-1-42.';
+  return null;
+}
+
 export function phoneError(raw: string): string | null {
   const trimmed = (raw || '').trim();
   if (!trimmed) return 'Kérjük, töltsd ki: Címzett telefonszáma.';

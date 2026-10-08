@@ -4,7 +4,7 @@
 // A szállító beállít egy felvételi környéket (+ opcionális célt) sugárral, és
 // új illeszkedő fuvarnál email + in-app értesítést kap (SMS nincs).
 import { useEffect, useState } from 'react';
-import { Bell, Plus, Trash2, MapPin, Flag } from 'lucide-react';
+import { Bell, Plus, Trash2, MapPin, Flag, Lightbulb } from 'lucide-react';
 import { api, CarrierAlert } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { useToast } from '@/components/ToastProvider';
@@ -66,6 +66,21 @@ export default function ErtesitokOldal() {
   }
 
   useEffect(() => { if (me) load(); }, [me?.id]);
+
+  // Előtöltés a fuvarlistáról (UX-review Q14, 2026-10-08): a szűrt, üres
+  // találat „Értesíts, ha jön ilyen” gombja a szűrt városokkal nyitja az
+  // űrlapot (?honnan=…&hova=…). A begépelt szöveget a mentéskor ugyanúgy
+  // feloldjuk (feloldTerulet), mint a kézzel írtat — nem létező hely nem megy át.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    const honnan = (q.get('honnan') || '').trim().slice(0, 120);
+    const hova = (q.get('hova') || '').trim().slice(0, 120);
+    if (!honnan && !hova) return;
+    if (honnan) setFromText(honnan);
+    if (hova) setToText(hova);
+    setShowForm(true);
+  }, []);
 
   function resetForm() {
     setFrom(null); setTo(null); setFromText(''); setToText('');
@@ -245,7 +260,7 @@ export default function ErtesitokOldal() {
           <FieldError>{mutat(toHiba)}</FieldError>
 
           <p className="muted" style={{ fontSize: 12, margin: '6px 0 0' }}>
-            💡 Elég a település neve (pl. <strong>Eger</strong>) — házszám nem kell.
+            <Lightbulb size={13} aria-hidden style={{ verticalAlign: -2 }} /> Elég a település neve (pl. <strong>Eger</strong>) — házszám nem kell.
             Egy egész ország vagy megye viszont túl tág: minden fuvarra riasztást kapnál.
           </p>
 

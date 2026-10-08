@@ -11,6 +11,7 @@ const express = require('express');
 // escape-elése (név, cím, fuvarcím). Enélkül egy szállító a saját nevébe
 // tett linkkel GoFuvar-arculatú levelet küldethetne a másik félnek.
 const { escapeHtml: esc, wrapHtml, cimzettiTajekoztatoBlokk } = require('../services/email');
+const { szia } = require('../utils/nev');
 const multer = require('multer');
 const db = require('../db');
 const { authRequired, requireVerifiedEmail } = require('../middleware/auth');
@@ -22,6 +23,7 @@ const { maybeGrantReferralReward } = require('../services/referral');
 const { markTaxDataRequestedIfNeeded } = require('../services/dac7');
 const { commitPhoto, codesMatch } = require('../services/photoEvidence');
 const { jaratIrasKapu } = require('../utils/jaratKapcsolo');
+const { fuvarRef, nagyKezdo } = require('../utils/ertesitesSzoveg');
 
 const router = express.Router();
 // Járat-kapcsoló (2026-09-28, audit P1): a foglalás-fotó (`POST
@@ -154,6 +156,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
     if (job.delivery_code_locked_until && new Date(job.delivery_code_locked_until) > new Date()) {
       return res.status(429).json({
         error: 'Túl sok hibás kódpróbálkozás — a kód-ellenőrzés átmenetileg zárolva. Próbáld újra később, vagy hívd az ügyfélszolgálatot.',
+        code: 'CODE_LOCKED',
       });
     }
     const codeInput = String(delivery_code).trim();
@@ -183,10 +186,14 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       }
       const attempts = attemptRows[0]?.delivery_code_attempts || 0;
       const remaining = Math.max(0, MAX_CODE_ATTEMPTS - attempts);
+      // UX Q14 (2026-10-08): gépi mezők is — a web ne a magyar szövegből
+      // olvassa ki, hány próbálkozás maradt.
       return res.status(403).json({
         error: remaining > 0
           ? `Érvénytelen átvételi kód (még ${remaining} próbálkozás)`
           : 'Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.',
+        code: remaining > 0 ? 'INVALID_DELIVERY_CODE' : 'CODE_LOCKED',
+        remaining_attempts: remaining,
       });
     }
   }
@@ -219,7 +226,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       user_id: job.shipper_id,
       type: 'job_picked_up',
       title: '📦 A szállító felvette a csomagod',
-      body: `A(z) "${job.title || 'fuvar'}" csomagját a szállító átvette és fotóval igazolta — a fuvar úton van. A kézbesítésről is értesítünk.`,
+      body: `${nagyKezdo(fuvarRef(job.title))} fuvar csomagját a szállító átvette és fotóval igazolta — a fuvar úton van. A kézbesítésről is értesítünk.`,
       link: `/dashboard/fuvar/${jobId}`,
     }).catch((e) => console.warn('[notifications] job_picked_up hiba:', e.message));
 
@@ -251,7 +258,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
       user_id: job.shipper_id,
       type: 'job_delivered',
       title: '📦 A csomagot kézbesítették — a vita nyitva marad',
-      body: `A(z) "${job.title || 'fuvar'}" csomagját a szállító a kóddal átadta. A vita ettől nem zárul le: az ügyfélszolgálat a fotók és az előzmények alapján dönt, és értesítést kapsz.`,
+      body: `${nagyKezdo(fuvarRef(job.title))} fuvar csomagját a szállító a kóddal átadta. A vita ettől nem zárul le: az ügyfélszolgálat a fotók és az előzmények alapján dönt, és értesítést kapsz.`,
       link: `/dashboard/fuvar/${jobId}`,
     }).catch(() => {});
     realtime.emitToJob(jobId, 'job:delivered', { job_id: jobId, disputed: true });
@@ -284,7 +291,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
           user_id: info.shipper_id,
           type: 'job_delivered',
           title: '📦 A csomagod megérkezett!',
-          body: `${info.carrier_name || 'A szállító'} lerakta a csomagodat a(z) "${info.title}" fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
+          body: `${info.carrier_name || 'A szállító'} lerakta a csomagodat ${fuvarRef(info.title)} fuvarban. Az átvételi kód ellenőrizve — ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
           link: `/dashboard/fuvar/${jobId}`,
         });
 
@@ -297,7 +304,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
               to: info.recipient_email,
               subject: `✅ Csomag átvéve: ${info.title}`,
               html: wrapHtml({ bodyHtml: `
-                <p>Szia${info.recipient_name ? ` ${esc(info.recipient_name)}` : ''}!</p>
+                <p>${esc(szia(info.recipient_name))}</p>
                 <p>A(z) <strong>"${esc(info.title)}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
                 <p>Köszönjük, hogy a GoFuvart használtátok!</p>
               ${cimzettiTajekoztatoBlokk()}` }),
@@ -310,7 +317,7 @@ router.post('/jobs/:jobId/photos', authRequired, upload.single('file'), async (r
             const { sendEmail: _send, isStub: _isStub } = require('../services/email');
             // Egyszerű inline email — a sendEmail wrapper-t használjuk
             const emailHtml = `
-              <p>Szia ${esc(info.shipper_name) || 'GoFuvar felhasználó'}!</p>
+              <p>${esc(szia(info.shipper_name))}</p>
               <p>Nagyszerű hír — <strong>${esc(info.carrier_name) || 'a szállító'}</strong> sikeresen lerakta a csomagodat a(z) <strong>"${esc(info.title)}"</strong> fuvarban!</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
               <p>A 6 jegyű átvételi kód ellenőrizve. A fuvardíj közvetlenül a szállítónak jár — készpénzben vagy átutalással, ahogy megegyeztetek; ha még nem rendezted, kérjük, tedd meg vele közvetlenül.</p>
@@ -439,6 +446,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
     if (booking.delivery_code_locked_until && new Date(booking.delivery_code_locked_until) > new Date()) {
       return res.status(429).json({
         error: 'Túl sok hibás kódpróbálkozás — a kód-ellenőrzés átmenetileg zárolva. Próbáld újra később, vagy hívd az ügyfélszolgálatot.',
+        code: 'CODE_LOCKED',
       });
     }
     if (!codesMatch(String(delivery_code).trim(), booking.delivery_code)) {
@@ -454,10 +462,14 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
       );
       const attempts = attemptRows[0]?.delivery_code_attempts || 0;
       const remaining = Math.max(0, MAX_CODE_ATTEMPTS - attempts);
+      // UX Q14 (2026-10-08): gépi mezők is — a web ne a magyar szövegből
+      // olvassa ki, hány próbálkozás maradt.
       return res.status(403).json({
         error: remaining > 0
           ? `Érvénytelen átvételi kód (még ${remaining} próbálkozás)`
           : 'Érvénytelen átvételi kód — túl sok hibás próbálkozás, a kód-ellenőrzés 1 órára zárolva.',
+        code: remaining > 0 ? 'INVALID_DELIVERY_CODE' : 'CODE_LOCKED',
+        remaining_attempts: remaining,
       });
     }
   }
@@ -509,7 +521,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
       user_id: booking.shipper_id,
       type: 'booking_delivered',
       title: '📦 A csomagod megérkezett!',
-      body: `A(z) "${booking.route_title || 'foglalás'}" csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
+      body: `${booking.route_title ? `${nagyKezdo(fuvarRef(booking.route_title))} járatra foglalt` : 'A foglalt'} csomagod kézbesítve — az átvételi kód ellenőrizve. Ne feledd, a fuvardíj közvetlenül a szállítónak jár (készpénz vagy átutalás, ahogy megegyeztetek).`,
       link: '/dashboard/foglalasaim',
     }).catch(() => {});
     setImmediate(async () => {
@@ -526,7 +538,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
             to: booking.recipient_email,
             subject: `✅ Csomag átvéve: ${booking.route_title || 'GoFuvar foglalás'}`,
             html: wrapHtml({ bodyHtml: `
-              <p>Szia${booking.recipient_name ? ` ${esc(booking.recipient_name)}` : ''}!</p>
+              <p>${esc(szia(booking.recipient_name))}</p>
               <p>A(z) <strong>"${esc(booking.route_title) || 'foglalt fuvar'}"</strong> csomag kézbesítése megtörtént — az átvételi kód ellenőrizve.</p>
               <p>Köszönjük, hogy a GoFuvart használtátok!</p>
             ${cimzettiTajekoztatoBlokk()}` }),
@@ -537,7 +549,7 @@ router.post('/route-bookings/:bookingId/photos', authRequired, upload.single('fi
             to: shipper.email,
             subject: `✅ Kézbesítve: ${booking.route_title || 'foglalásod'}`,
             html: wrapHtml({ bodyHtml: `
-              <p>Szia ${esc(shipper.full_name) || 'GoFuvar felhasználó'}!</p>
+              <p>${esc(szia(shipper.full_name))}</p>
               <p>A foglalásod csomagja sikeresen kézbesítve — a 6 jegyű átvételi kód ellenőrizve.</p>
               <p style="font-size:20px;font-weight:800;color:#16a34a;margin:16px 0">✅ Kézbesítve</p>
               <p>A fuvardíj közvetlenül a szállítónak jár — készpénzben vagy átutalással, ahogy megegyeztetek; ha még nem rendezted, kérjük, tedd meg vele közvetlenül.</p>

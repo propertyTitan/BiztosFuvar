@@ -24,7 +24,7 @@ for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 
       await expect(sp.getByRole('button', { name: /^Elfogadom/ })).toHaveCount(0);
       await expect(cp.getByRole('heading', { name: 'Erősítsd meg az ajánlatodat' })).toBeVisible();
       await cp.getByRole('button', { name: 'Korábbi ajánlat betöltése' }).click();
-      await cp.getByPlaceholder('pl. 58000').fill('30000');
+      await cp.getByLabel('Az ajánlatod (Ft)').fill('30000');
       const submit = cp.getByRole('button', { name: 'Ajánlat megerősítése a jelenlegi feltételekre' });
       await expect(submit).toBeDisabled();
       await cp.getByRole('button', { name: 'Átnéztem a frissített fuvaradatokat' }).click();

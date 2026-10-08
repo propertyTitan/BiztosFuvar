@@ -104,7 +104,7 @@
   },
   "delivery": {
     "code": "Átvételi kód",
-    "codeHint": "Add át ezt a 6 jegyű kódot a szállítónak az átvételkor. A szállító ezzel zárja le a fuvart — nélküle nem kap fizetést.",
+    "codeHint": "Ezt a 6 jegyű kódot csak akkor add meg a szállítónak, amikor a csomag már nálad van — a felvételkor ne. A szállító ezzel zárja le a fuvart.",
     "startJob": "FUVAR INDÍTÁSA",
     "startJobSub": "Felvételi fotó készítése",
     "closeJob": "FUVAR LEZÁRÁSA",
@@ -113,9 +113,9 @@
     "jobStarted": "Fuvar elindítva!"
   },
   "chat": {
-    "title": "Chat a fuvarpartnerrel",
+    "title": "Üzenetek a fuvarpartnerrel",
     "placeholder": "Írj üzenetet…",
-    "noMessages": "Még nincs üzenet. Írj először!",
+    "noMessages": "Még nincs üzenet — kezdd te a beszélgetést.",
     "newMessage": "Új üzenet"
   },
   "review": {
@@ -180,13 +180,13 @@
     "step1Title": "Hirdesd meg a fuvart",
     "step2Title": "Válassz szállítót",
     "step3Title": "Kövesd és vedd át",
-    "features": "Minden, ami a biztonságos fuvarhoz kell",
+    "features": "Minden, ami a nyugodt fuvarhoz kell",
     "twoRoles": "Két szerepkör — egy platform",
     "startToday": "Kezdj el szállítani ma!"
   },
   "sos": {
     "button": "Autómentés kérek!",
-    "alertTitle": "🚨 Autómentés",
+    "alertTitle": "Autómentés",
     "alertNearby": "{{distance}} km-re tőled!",
     "urgent": "Sürgős"
   },

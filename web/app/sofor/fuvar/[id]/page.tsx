@@ -13,12 +13,17 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api, Job, Bid, photoUrl } from '@/api';
-import { MapPin, Flag, Star, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone } from 'lucide-react';
+import {
+  MapPin, Flag, RefreshCw, Hourglass, BadgeCheck, Banknote, Package, Phone, Lock, ShieldCheck, Undo2,
+  Clock, ShoppingBag, Check, TriangleAlert, Megaphone,
+} from 'lucide-react';
 import { useCurrentUser } from '@/lib/auth';
 import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
 import { optionalPhoneError } from '@/lib/formValidation';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
-import MapCollapse from '@/components/MapCollapse';
+import { mertek } from '@/lib/mertek';
+import { ft } from '@/lib/connectionFee';
+import MapCollapse, { utvonalGombFelirat } from '@/components/MapCollapse';
 import { idoablakSzoveg } from '@/lib/idoablak';
 import FieldError, { redBorder } from '@/components/FieldError';
 import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
@@ -30,28 +35,18 @@ import { useToast } from '@/components/ToastProvider';
 import ReviewBox from '@/components/ReviewBox';
 import GreenBadge from '@/components/GreenBadge';
 import ChatBox from '@/components/ChatBox';
+import KapcsolatKartya from '@/components/KapcsolatKartya';
+import { telefonFormaz, telefonHref } from '@/lib/telefon';
+import SzallitoiNavigacio from '@/components/SzallitoiNavigacio';
+import { jelolElsoSiker } from '@/components/InstallPromptBanner';
 import JobQuestions from '@/components/JobQuestions';
 import DisputeButton from '@/components/DisputeButton';
 import CarrierTripPanel from '@/components/CarrierTripPanel';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { Loading, ErrorState } from '@/components/StateView';
+import StatusPill from '@/components/StatusPill';
+import { useOldalCim } from '@/lib/oldalCim';
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: 'Várakozik',
-  bidding: 'Elérhető',
-  accepted: 'Elfogadva',
-  in_progress: 'Folyamatban',
-  delivered: 'Lerakva',
-  completed: 'Lezárva',
-  disputed: 'Vitatott',
-  cancelled: 'Lemondva',
-};
-
-const STATUS_PILL: Record<string, string> = {
-  pending: 'pill-bidding', bidding: 'pill-bidding', accepted: 'pill-accepted',
-  in_progress: 'pill-progress', delivered: 'pill-delivered', completed: 'pill-delivered',
-  disputed: 'pill-accepted', cancelled: 'pill-cancelled',
-};
 
 export default function SoforFuvarReszletek() {
   const { id } = useParams<{ id: string }>();
@@ -60,6 +55,8 @@ export default function SoforFuvarReszletek() {
   const toast = useToast();
 
   const [job, setJob] = useState<Job | null>(null);
+  // UX A24: a fül címe a betöltött fuvar neve.
+  useOldalCim(job?.title);
   const [bids, setBids] = useState<Bid[]>([]);
   const [photos, setPhotos] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +75,10 @@ export default function SoforFuvarReszletek() {
   const [submitting, setSubmitting] = useState(false);
   const [acceptingCounter, setAcceptingCounter] = useState(false);
   const [counterOpen, setCounterOpen] = useState(false);
+  // Azonosítási állapot (UX-review A29, 2026-10-08): a szállító eddig csak az
+  // ajánlat ELKÜLDÉSEKOR (403) tudta meg, hogy személyazonosítás kell — a
+  // kitöltött űrlap után. Most az űrlap tetején előre szólunk.
+  const [kycAllapot, setKycAllapot] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -100,6 +101,23 @@ export default function SoforFuvarReszletek() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    if (!me) return;
+    let el = false;
+    // A sáv csak segítség: bármilyen hiba esetén (a hívás maga is a láncon
+    // belül van) egyszerűen nem jelenik meg, az oldal működése nem függ tőle.
+    const olvas = (fresh = false) => {
+      Promise.resolve()
+        .then(() => api.getMyProfile(fresh ? { fresh: true } : undefined))
+        .then((p: any) => { if (!el) setKycAllapot(p?.identity_kyc_status || 'none'); })
+        .catch(() => {});
+    };
+    olvas();
+    const frissit = () => olvas(true);
+    window.addEventListener('gofuvar:kyc-updated', frissit);
+    return () => { el = true; window.removeEventListener('gofuvar:kyc-updated', frissit); };
+  }, [me?.id]);
 
   // `job:paid` realtime event — ha a feladó kifizette a fuvart, a szállító
   // azonnal lássa a FIZETVE címkét, ne kelljen manuálisan refreshelni.
@@ -136,7 +154,7 @@ export default function SoforFuvarReszletek() {
   // kérés, 2026-08-15): piros keret + a mező alatt konkrét magyarázat.
   // Eddig csak egy eltűnő toast volt, ami nem mondta meg, MELYIK mező rossz.
   const [probaltMenteni, setProbaltMenteni] = useState(false);
-  const dijHiba = moneyFieldError(parseNumericInput(bidAmount), { label: 'Ajánlott fuvardíj' });
+  const dijHiba = moneyFieldError(parseNumericInput(bidAmount), { label: 'Az ajánlatod összege' });
   const etaHiba = bidEta.trim() === ''
     ? null
     : intFieldError(parseNumericInput(bidEta), { label: 'Érkezés a felvételre', min: 1, max: 10080 });
@@ -147,6 +165,14 @@ export default function SoforFuvarReszletek() {
   // a profil-kitérő az űrlap tartalmát (üzenet, nyilatkozat) elvitte volna.
   const [telefonHiany, setTelefonHiany] = useState(false);
   const [telefon, setTelefon] = useState('');
+  // UX A14: a kliensoldali hibák a MEZŐ ALATT szólnak (és az első hibás mező
+  // fókuszt kap) — a toast eddig pont a hibás mezőt takarta, kétszer.
+  const visszaHiba = !returnPolicy ? 'Válaszd ki, vállalod-e a visszaszállítást, ha a címzett nem veszi át.' : null;
+  const visszaDijHiba = returnPolicy === 'extra_fee' && !(parseInt(returnFee, 10) > 0)
+    ? 'Add meg a visszaszállítás külön díját (Ft).' : null;
+  const telefonHiba = telefonHiany
+    ? (telefon.trim() ? optionalPhoneError(telefon) : 'Add meg a telefonszámod — szállítóként kötelező.')
+    : null;
 
   async function submitBid(e: React.FormEvent) {
     e.preventDefault();
@@ -156,26 +182,20 @@ export default function SoforFuvarReszletek() {
     }
     setProbaltMenteni(true);
     const amount = parseInt(bidAmount, 10);
-    if (dijHiba || etaHiba) {
-      toast.error('Nézd át az űrlapot', 'A hibás mezők pirosan keretezve, alattuk a magyarázat.');
+    const elsoHibas = [
+      dijHiba && 'ajanlat-dij',
+      etaHiba && 'ajanlat-eta',
+      visszaHiba && 'visszaszallitas-included',
+      visszaDijHiba && 'visszaszallitasi-dij',
+      telefonHiba && 'ajanlat-telefon',
+    ].find(Boolean);
+    if (elsoHibas || !returnPolicy) {
+      const cel = elsoHibas ? document.getElementById(elsoHibas) : null;
+      cel?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      cel?.focus({ preventScroll: true });
       return;
     }
-    if (!returnPolicy) {
-      toast.error('Hiányzó nyilatkozat', 'Nyilatkozz a sikertelen kézbesítés esetén történő visszaszállításról.');
-      return;
-    }
-    let returnFeeNum: number | undefined;
-    if (returnPolicy === 'extra_fee') {
-      returnFeeNum = parseInt(returnFee, 10);
-      if (!returnFeeNum || returnFeeNum <= 0) {
-        toast.error('Hiányzó visszaszállítási díj', 'Add meg a visszaszállítás külön díját (Ft).');
-        return;
-      }
-    }
-    if (telefonHiany) {
-      const hiba = telefon.trim() ? optionalPhoneError(telefon) : 'Add meg a telefonszámod — szállítóként kötelező.';
-      if (hiba) { toast.error('Telefonszám szükséges', hiba); return; }
-    }
+    const returnFeeNum = returnPolicy === 'extra_fee' ? parseInt(returnFee, 10) : undefined;
     setSubmitting(true);
     // GF-003 UX (Manus 3. futás): lassú szervernél (cold start, 15+ mp) a
     // generikus „Küldés…" azt sugallta, elakadt — 8 mp után jelezzük, hogy
@@ -195,6 +215,9 @@ export default function SoforFuvarReszletek() {
         return_fee_huf: returnFeeNum,
       });
       toast.success('Ajánlat elküldve', `${amount.toLocaleString('hu-HU')} Ft`);
+      // UX A23: az első érdemi siker — a telepítő sáv ettől kezdve jöhet.
+      jelolElsoSiker();
+      setProbaltMenteni(false);
       setBidAmount('');
       setBidEta('');
       setBidMessage('');
@@ -216,6 +239,7 @@ export default function SoforFuvarReszletek() {
           );
           if (enyem) {
             toast.success('Az ajánlatod beérkezett', 'A szerver lassan válaszolt, de az ajánlat rögzült — nem kell újraküldeni.');
+            setProbaltMenteni(false);
             setBidAmount(''); setBidEta(''); setBidMessage(''); setReturnPolicy(''); setReturnFee('');
             await load();
             return;
@@ -296,24 +320,41 @@ export default function SoforFuvarReszletek() {
             {' → '}
             <Flag size={13} style={{ verticalAlign: -2 }} /> {job.dropoff_address}
           </p>
+          {/* UX-review A27 (2026-10-08): a díj előtt utca-szintű a cím — ezt
+              meg is mondjuk, különben az irányítószámot házszámnak nézték.
+              Csak annak, aki a díj után tényleg látni fogja: nyitott fuvaron
+              (bárki lehet a kiválasztott) vagy a kijelölt szállítónak. A már
+              elkelt fuvar vesztes ajánlattevője a házszámot soha nem kapja meg. */}
+          {!job.paid_at && !iAmTheShipper
+            && (iAmTheCarrier || ['bidding', 'pending'].includes(job.status)) && (
+            <p className="muted" style={{ margin: '2px 0 0', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Lock size={12} aria-hidden /> A házszám a kapcsolatfelvételi díj után jelenik meg.
+            </p>
+          )}
           {idoablakSzoveg(job.pickup_window_start, job.pickup_window_end) && (
             <p className="muted" style={{ margin: '2px 0', fontSize: 13 }}>
-              🕒 Felvételi időablak: <strong>{idoablakSzoveg(job.pickup_window_start, job.pickup_window_end)}</strong>
+              <Clock size={13} aria-hidden style={{ verticalAlign: -2 }} /> Felvételi időablak: <strong>{idoablakSzoveg(job.pickup_window_start, job.pickup_window_end)}</strong>
             </p>
           )}
           {(job as any).recipient_name && (
             <div style={{ marginTop: 6, fontSize: 13 }}>
               <strong>Címzett:</strong> {(job as any).recipient_name}
               {(job as any).recipient_phone && (
-                <> · <a href={`tel:${(job as any).recipient_phone}`} style={{ fontWeight: 700 }}>
-                  <Phone size={12} style={{ verticalAlign: -1 }} /> {(job as any).recipient_phone}
+                <> · <a href={telefonHref((job as any).recipient_phone)} style={{ fontWeight: 700 }}>
+                  <Phone size={12} aria-hidden style={{ verticalAlign: -1 }} /> {telefonFormaz((job as any).recipient_phone)}
                 </a></>
               )}
             </div>
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-          <span className={`pill ${STATUS_PILL[job.status] || 'pill-progress'}`}>{STATUS_LABEL[job.status] || job.status}</span>
+          {/* UX A11 (2026-10-08): a közös állapot-jelvény (lib/statusz) — a
+              feladói oldallal és a Fuvarjaimmal azonos feliratok és színek.
+              A kijelölt szállító fizetetlen fuvarán a fő jelvényt a lenti
+              „Fizetésre vár” jelvény helyettesíti (ne mondja kétszer). */}
+          {!(iAmTheCarrier && job.status === 'accepted' && !job.paid_at) && (
+            <StatusPill job={job} nezet={iAmTheCarrier ? 'szallito' : 'felado'} />
+          )}
           {/* Fizetés állapot — csak accepted+ státuszoknál érdekes.
               A szállító ebből látja, hogy a feladó már kifizette-e vagy sem. */}
           {iAmTheCarrier && ['accepted', 'in_progress', 'delivered'].includes(job.status) && (
@@ -347,39 +388,53 @@ export default function SoforFuvarReszletek() {
         </div>
       </div>
 
-      {/* A FELADÓ ELÉRHETŐSÉGE — a kapcsolatfelvételi díj megfizetése után */}
-      {job.paid_at && job.contact && (
-        <div
-          className="card"
-          style={{
-            marginTop: 16,
-            background: 'var(--success-light)',
-            border: '1px solid #86efac',
-          }}
-        >
-          <div style={{ fontSize: 12, color: '#166534', fontWeight: 700, marginBottom: 6 }}>
-            📞 A FELADÓ ELÉRHETŐSÉGE
-          </div>
-          <div style={{ fontWeight: 700 }}>{job.contact.name || 'Feladó'}</div>
-          {job.contact.phone && (
-            <div style={{ marginTop: 4 }}>
-              <a href={`tel:${job.contact.phone}`} style={{ fontWeight: 700, fontSize: 18 }}>
-                {job.contact.phone}
-              </a>
-            </div>
-          )}
-          {job.contact.email && (
-            <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{job.contact.email}</div>
-          )}
-          <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
-            A fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
-            <strong> közvetlenül a feladótól</strong> kapod — készpénzben vagy átutalással, ahogy megegyeztek; a GoFuvar nem von le belőle semmit.
-          </div>
-        </div>
-      )}
+      {/* A FELADÓ ELÉRHETŐSÉGE — a kapcsolatfelvételi díj megfizetése után.
+          UX Q06: egy koppintással hívható, és a szállító innen navigál a
+          felvételhez (úton: a lerakodáshoz) — a díj előtt ez nem jelenik meg. */}
+      {job.paid_at && job.contact && (() => {
+        const fizikai = job.status === 'disputed' ? job.status_before_dispute : job.status;
+        const navCel = !iAmTheCarrier ? null
+          : fizikai === 'accepted' ? 'felvetel' as const
+          : fizikai === 'in_progress' ? 'lerakodas' as const
+          : null;
+        return (
+          <KapcsolatKartya
+            id="elerhetoseg"
+            cimke="A feladó elérhetősége"
+            bevezeto={navCel === 'felvetel'
+              // A feladónak a telefonszám nem kötelező — szám nélkül nincs
+              // hívógomb, ezért a szöveg sem utasíthat hívásra (fix1-review).
+              ? (job.contact.phone
+                ? 'Díj rendezve. Hívd fel a feladót, és egyeztessétek a felvétel idejét.'
+                : 'Díj rendezve. Írj a feladónak az Üzenetek blokkban, és egyeztessétek a felvétel idejét.')
+              : navCel === 'lerakodas'
+                ? 'Úton vagy — a lerakodási címhez innen navigálhatsz.'
+                : 'Ha kérdésed van a fuvarról, itt éred el a feladót.'}
+            nev={job.contact.name || 'Feladó'}
+            telefon={job.contact.phone}
+            email={job.contact.email}
+            hivasFelirat="Feladó hívása"
+            uzenetCel={job.carrier_id ? 'uzenetek' : undefined}
+          >
+            {navCel && (
+              <SzallitoiNavigacio
+                cel={navCel}
+                cim={navCel === 'felvetel' ? job.pickup_address : job.dropoff_address}
+                lat={navCel === 'felvetel' ? job.pickup_lat : job.dropoff_lat}
+                lng={navCel === 'felvetel' ? job.pickup_lng : job.dropoff_lng}
+                cimzettTelefon={(job as any).recipient_phone}
+              />
+            )}
+            <p className="muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
+              A fuvardíjat ({(job.accepted_price_huf ?? 0).toLocaleString('hu-HU')} Ft)
+              <strong> közvetlenül a feladótól</strong> kapod — készpénzben vagy átutalással, ahogy megegyeztek; a GoFuvar nem von le belőle semmit.
+            </p>
+          </KapcsolatKartya>
+        );
+      })()}
 
       {/* Térkép — mobilon összecsukva (B2, GF-020) */}
-      <MapCollapse>
+      <MapCollapse gombFelirat={utvonalGombFelirat(job.distance_km)}>
         <LiveTrackingMap job={job} />
       </MapCollapse>
 
@@ -425,7 +480,7 @@ export default function SoforFuvarReszletek() {
       {job.source_image_url && (
         <div className="card" style={{ marginTop: 16 }}>
           <h2 style={{ marginTop: 0 }}>
-            🛍️ A termék{job.source_store ? ` (${job.source_store})` : ''}
+            <ShoppingBag size={18} aria-hidden style={{ verticalAlign: -3 }} /> A termék{job.source_store ? ` (${job.source_store})` : ''}
           </h2>
           <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>
             A feladó hirdetés-linkjének előnézeti képe — tájékoztató jellegű.
@@ -465,19 +520,19 @@ export default function SoforFuvarReszletek() {
           {job.volume_m3 != null && (
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Térfogat</div>
-              <strong>{job.volume_m3} m³</strong>
+              <strong>{mertek(job.volume_m3, 'm³', 2)}</strong>
             </div>
           )}
           {job.weight_kg != null && (
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Súly</div>
-              <strong>{job.weight_kg} kg</strong>
+              <strong>{mertek(job.weight_kg, 'kg')}</strong>
             </div>
           )}
           {job.distance_km != null && (
             <div>
               <div className="muted" style={{ fontSize: 12 }}>Távolság</div>
-              <strong>{job.distance_km} km</strong>
+              <strong>{mertek(job.distance_km, 'km')}</strong>
             </div>
           )}
         </div>
@@ -520,8 +575,8 @@ export default function SoforFuvarReszletek() {
               {(job as any).pickup_floor == null ? 'emelet nincs megadva' : (job as any).pickup_floor === 0 ? 'Földszint' : `${(job as any).pickup_floor}. emelet`}
               {(job as any).pickup_floor > 0 && (
                 (job as any).pickup_has_elevator
-                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van ✓)</span>
-                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van <Check size={13} aria-hidden style={{ verticalAlign: -2 }} />)</span>
+                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} />)</span>
               )}
             </div>
           )}
@@ -532,8 +587,8 @@ export default function SoforFuvarReszletek() {
               {(job as any).dropoff_floor == null ? 'emelet nincs megadva' : (job as any).dropoff_floor === 0 ? 'Földszint' : `${(job as any).dropoff_floor}. emelet`}
               {(job as any).dropoff_floor > 0 && (
                 (job as any).dropoff_has_elevator
-                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van ✓)</span>
-                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! ⚠️)</span>
+                  ? <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> (lift van <Check size={13} aria-hidden style={{ verticalAlign: -2 }} />)</span>
+                  : <span style={{ color: 'var(--danger-text)', fontWeight: 700 }}> (NINCS lift! <TriangleAlert size={13} aria-hidden style={{ verticalAlign: -2 }} />)</span>
               )}
             </div>
           )}
@@ -543,7 +598,7 @@ export default function SoforFuvarReszletek() {
       {/* Csomag deklarált értéke — ha megadta a feladó */}
       {(job as any).declared_value_huf && (
         <div className="card" style={{ marginTop: 12, fontSize: 14 }}>
-          💰 <strong>Csomag deklarált értéke:</strong> {(job as any).declared_value_huf.toLocaleString('hu-HU')} Ft
+          <Banknote size={14} aria-hidden style={{ verticalAlign: -2 }} /> <strong>Csomag deklarált értéke:</strong> {(job as any).declared_value_huf.toLocaleString('hu-HU')} Ft
         </div>
       )}
 
@@ -559,7 +614,7 @@ export default function SoforFuvarReszletek() {
             borderColor: '#facc15',
           }}
         >
-          <h2 style={{ marginTop: 0 }}>📣 Ez a te saját hirdetésed</h2>
+          <h2 style={{ marginTop: 0 }}><Megaphone size={18} aria-hidden style={{ verticalAlign: -3 }} /> Ez a te saját hirdetésed</h2>
           <p style={{ marginBottom: 8 }}>
             A saját fuvaradra nem tehetsz ajánlatot. Az ajánlatok kezeléséhez nyisd meg a feladói nézetet.
           </p>
@@ -583,6 +638,31 @@ export default function SoforFuvarReszletek() {
                 setReturnPolicy(myBid.return_policy || '');
                 setReturnFee(myBid.return_fee_huf ? String(myBid.return_fee_huf) : '');
               }}>Korábbi ajánlat betöltése</button>
+            </div>
+          )}
+          {kycAllapot && kycAllapot !== 'verified' && (
+            <div
+              className="callout callout-info"
+              role="status"
+              style={{ marginBottom: 16, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}
+            >
+              <span style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14 }}>
+                <ShieldCheck size={18} aria-hidden style={{ flexShrink: 0, marginTop: 1 }} />
+                {kycAllapot === 'pending'
+                  ? 'Az azonosításod ellenőrzés alatt van — amint elfogadjuk, tehetsz ajánlatot.'
+                  : 'Az ajánlathoz egyszeri azonosítás kell – kb. 2 perc.'}
+              </span>
+              {kycAllapot !== 'pending' && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => window.dispatchEvent(new CustomEvent('gofuvar:kyc-required', {
+                    detail: { code: 'IDENTITY_KYC_REQUIRED', forras: 'ajanlat' },
+                  }))}
+                >
+                  Azonosítás most
+                </button>
+              )}
             </div>
           )}
           {lezarultAjanlat && (
@@ -612,7 +692,7 @@ export default function SoforFuvarReszletek() {
                 border: '1px solid rgba(251,191,36,0.5)',
               }}
             >
-              <strong style={{ fontSize: 14 }}>💰 Fontos az ajánlattétel előtt!</strong>
+              <strong style={{ fontSize: 14 }}><Banknote size={14} aria-hidden style={{ verticalAlign: -2 }} /> Fontos az ajánlattétel előtt!</strong>
               <p style={{ fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>
                 Az általad megadott összeg <strong>100%-ban a tiéd</strong>, és{' '}
                 <strong>közvetlenül a feladótól</strong> kapod (készpénzben vagy átutalással, ahogy megegyeztek) — a GoFuvar semmit
@@ -620,7 +700,7 @@ export default function SoforFuvarReszletek() {
                 fizeti.)
               </p>
               <p style={{ fontSize: 13, margin: '6px 0 0', lineHeight: 1.5 }}>
-                Példa: ha 10.000 Ft-ot adsz meg → te <strong>10.000 Ft</strong>-ot kapsz, levonás nélkül.
+                Példa: ha 10&nbsp;000 Ft-ot adsz meg → te <strong>10&nbsp;000 Ft</strong>-ot kapsz, levonás nélkül.
               </p>
               <label
                 style={{
@@ -650,7 +730,7 @@ export default function SoforFuvarReszletek() {
           <form noValidate onSubmit={submitBid}>
             <div className="grid-2">
               <div>
-                <label htmlFor="ajanlat-dij">Ajánlott fuvardíj (Ft)</label>
+                <label htmlFor="ajanlat-dij">Az ajánlatod (Ft)</label>
                 {/* `sanitizeNumericInput`: a mínuszjel BE SEM ÍRHATÓ. */}
                 <input
                   id="ajanlat-dij"
@@ -659,12 +739,18 @@ export default function SoforFuvarReszletek() {
                   min={1}
                   value={bidAmount}
                   onChange={(e) => setBidAmount(sanitizeNumericInput(e.target.value))}
-                  placeholder="pl. 58000"
+                  // Q05: a helyőrző a fuvar javasolt ára (ha van) — egy fix
+                  // „58000” a pianínónál és a dobozoknál is ugyanazt sugallta.
+                  placeholder={job.suggested_price_huf
+                    ? `pl. ${job.suggested_price_huf.toLocaleString('hu-HU')}`
+                    : 'Összeg forintban'}
                   title="Ennyiért vállalod a fuvart. Az összeget közvetlenül a feladótól kapod, levonás nélkül."
                   required
+                  aria-invalid={Boolean(mutat(dijHiba))}
+                  aria-describedby={mutat(dijHiba) ? 'ajanlat-dij-hiba' : undefined}
                   style={mutat(dijHiba) ? redBorder : undefined}
                 />
-                <FieldError>{mutat(dijHiba)}</FieldError>
+                <FieldError id="ajanlat-dij-hiba">{mutat(dijHiba)}</FieldError>
               </div>
               <div>
                 <label htmlFor="ajanlat-eta">Érkezés a felvételre (perc)</label>
@@ -677,9 +763,11 @@ export default function SoforFuvarReszletek() {
                   onChange={(e) => setBidEta(sanitizeNumericInput(e.target.value))}
                   placeholder="opcionális"
                   title="Hány perc múlva tudsz a felvételi címen lenni? Üresen hagyható."
+                  aria-invalid={Boolean(mutat(etaHiba))}
+                  aria-describedby={mutat(etaHiba) ? 'ajanlat-eta-hiba' : undefined}
                   style={mutat(etaHiba) ? redBorder : undefined}
                 />
-                <FieldError>{mutat(etaHiba)}</FieldError>
+                <FieldError id="ajanlat-eta-hiba">{mutat(etaHiba)}</FieldError>
               </div>
             </div>
             {/* Élő kifizetés-előnézet — kápé, levonás nélkül */}
@@ -712,7 +800,9 @@ export default function SoforFuvarReszletek() {
               placeholder="pl. Van rakodómunkás is"
             />
 
-            {/* Sikertelen kézbesítés — visszaszállítási nyilatkozat (kötelező) */}
+            {/* Sikertelen kézbesítés — visszaszállítási nyilatkozat (kötelező).
+                UX A29: fieldset/legend — a rádiók kérdése (jogi-üzleti
+                vállalás!) felolvasáskor is elhangzik. */}
             <div
               style={{
                 marginTop: 16,
@@ -722,11 +812,16 @@ export default function SoforFuvarReszletek() {
                 border: '1px solid rgba(59,130,246,0.35)',
               }}
             >
-              <strong style={{ fontSize: 14 }}>↩️ Sikertelen kézbesítés esetén</strong>
-              <p style={{ fontSize: 13, margin: '6px 0 12px', lineHeight: 1.5, color: 'var(--muted)' }}>
-                Ha a címzett <strong>nem veszi át</strong> a csomagot, vállalod-e, hogy
-                <strong> 5 munkanapon belül visszajuttatod a feladóhoz?</strong>
-              </p>
+              <fieldset className="mezo-csoport">
+              <legend style={{ width: '100%', fontSize: 14 }}>
+                <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Undo2 size={16} aria-hidden /> Sikertelen kézbesítés esetén
+                </strong>
+                <span style={{ display: 'block', fontSize: 13, margin: '6px 0 12px', lineHeight: 1.5, color: 'var(--muted)', fontWeight: 400 }}>
+                  Ha a címzett <strong>nem veszi át</strong> a csomagot, vállalod-e, hogy
+                  <strong> 5 munkanapon belül visszajuttatod a feladóhoz?</strong>
+                </span>
+              </legend>
               {([
                 { v: 'included', label: 'Igen, benne van az ajánlatomban' },
                 { v: 'extra_fee', label: 'Igen, külön díj ellenében' },
@@ -742,19 +837,24 @@ export default function SoforFuvarReszletek() {
                   }}
                 >
                   <input
+                    id={`visszaszallitas-${opt.v}`}
                     type="radio"
                     name="return_policy"
                     checked={returnPolicy === opt.v}
                     onChange={() => setReturnPolicy(opt.v)}
+                    aria-describedby={mutat(visszaHiba) ? 'visszaszallitas-hiba' : undefined}
                     style={{ width: 16, height: 16, flexShrink: 0 }}
                   />
                   {opt.label}
                 </label>
               ))}
+              <FieldError id="visszaszallitas-hiba">{mutat(visszaHiba)}</FieldError>
+              </fieldset>
               {returnPolicy === 'extra_fee' && (
                 <div style={{ marginTop: 8 }}>
-                  <label>Visszaszállítás külön díja (Ft)</label>
+                  <label htmlFor="visszaszallitasi-dij">Visszaszállítás külön díja (Ft)</label>
                   <input
+                    id="visszaszallitasi-dij"
                     className="input"
                     type="number"
                     min={1}
@@ -762,7 +862,10 @@ export default function SoforFuvarReszletek() {
                     onChange={(e) => setReturnFee(sanitizeNumericInput(e.target.value))}
                     placeholder="pl. 3000"
                     title="Ennyiért viszed vissza a csomagot, ha a címzett nem veszi át."
+                    aria-invalid={Boolean(mutat(visszaDijHiba))}
+                    aria-describedby={mutat(visszaDijHiba) ? 'visszaszallitasi-dij-hiba' : undefined}
                   />
+                  <FieldError id="visszaszallitasi-dij-hiba">{mutat(visszaDijHiba)}</FieldError>
                 </div>
               )}
             </div>
@@ -780,8 +883,10 @@ export default function SoforFuvarReszletek() {
                   placeholder="+36 30 123 4567"
                   value={telefon}
                   onChange={(e) => setTelefon(e.target.value)}
-                  aria-invalid={!!(telefon.trim() && optionalPhoneError(telefon))}
+                  aria-invalid={Boolean(mutat(telefonHiba)) || !!(telefon.trim() && optionalPhoneError(telefon))}
+                  aria-describedby={mutat(telefonHiba) ? 'ajanlat-telefon-hiba' : undefined}
                 />
+                <FieldError id="ajanlat-telefon-hiba">{mutat(telefonHiba)}</FieldError>
                 <p className="muted" style={{ fontSize: 12, margin: '4px 0 0' }}>
                   A feladó a kapcsolatfelvételi díj után ezen ér el. Mentjük a profilodba, és az ajánlat ezzel együtt megy el.
                 </p>
@@ -822,7 +927,7 @@ export default function SoforFuvarReszletek() {
           })()}
           <span className={`pill pill-${kartyaAjanlat.status === 'accepted' ? 'delivered' : 'bidding'}`}>
             {kartyaAjanlat.status === 'pending' && (kartyaAjanlat.needs_reconfirmation ? 'Megerősítésedre vár' : 'Várakozik elfogadásra')}
-            {kartyaAjanlat.status === 'accepted' && 'Elfogadva 🎉'}
+            {kartyaAjanlat.status === 'accepted' && 'Elfogadva'}
             {kartyaAjanlat.status === 'rejected' && 'Elutasítva'}
             {kartyaAjanlat.status === 'withdrawn' && 'Visszavonva'}
           </span>
@@ -833,10 +938,10 @@ export default function SoforFuvarReszletek() {
           )}
           {kartyaAjanlat.return_policy && (
             <p style={{ marginTop: 8, fontSize: 13 }}>
-              ↩️ Sikertelen kézbesítés esetén:{' '}
+              <Undo2 size={13} aria-hidden style={{ verticalAlign: -2 }} /> Sikertelen kézbesítés esetén:{' '}
               <strong>
                 {kartyaAjanlat.return_policy === 'included' && 'visszaszállítás benne van az ajánlatban'}
-                {kartyaAjanlat.return_policy === 'extra_fee' && `visszaszállítás külön díjért (${(kartyaAjanlat.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}
+                {kartyaAjanlat.return_policy === 'extra_fee' && `visszaszállítás külön díjért (${ft(kartyaAjanlat.return_fee_huf ?? 0)} Ft)`}
                 {kartyaAjanlat.return_policy === 'no' && 'nem vállaltad a visszaszállítást'}
               </strong>
             </p>
@@ -892,13 +997,19 @@ export default function SoforFuvarReszletek() {
           kézbesítés-fotó + 6 jegyű kód → delivered. */}
       {iAmTheCarrier && (['accepted', 'in_progress'].includes(job.status)
         || (job.status === 'disputed' && ['accepted', 'in_progress'].includes(job.status_before_dispute || ''))) && (
-        <CarrierTripPanel jobId={id} status={job.status} statusBeforeDispute={job.status_before_dispute} paid={!!job.paid_at} onDone={load} />
+        <CarrierTripPanel
+          jobId={id} status={job.status} statusBeforeDispute={job.status_before_dispute} paid={!!job.paid_at} onDone={load}
+          feladoTelefon={job.paid_at ? job.contact?.phone : null}
+          cimzettTelefon={job.paid_at ? (job as any).recipient_phone : null}
+          vallalas={kartyaAjanlat?.status === 'accepted' ? kartyaAjanlat : null}
+          problemaHref="#problema-bejelentese"
+        />
       )}
 
       {/* Chat */}
       {['accepted', 'in_progress', 'delivered', 'completed', 'disputed'].includes(job.status) && job.carrier_id && (
-        <div style={{ marginTop: 16 }}>
-          <ChatBox entityKey="job_id" entityId={id} />
+        <div id="uzenetek" style={{ marginTop: 16, scrollMarginTop: 80 }}>
+          <ChatBox entityKey="job_id" entityId={id} partner="felado" dijFizetve={Boolean(job.paid_at)} />
         </div>
       )}
 
@@ -907,18 +1018,21 @@ export default function SoforFuvarReszletek() {
       {(['delivered', 'completed'].includes(job.status)
         || (job.status === 'disputed' && (job as any).delivered_at)) && (
         <div className="card" style={{ marginTop: 16 }}>
-          <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Star size={20} color="var(--warning)" fill="var(--warning)" /> Értékeld a feladót
-          </h2>
-          <p className="muted" style={{ marginBottom: 12 }}>
-            Hogyan ment a kommunikáció? Megvolt a csomag? Kattints a csillagokra.
-          </p>
-          <ReviewBox entityKey="job_id" entityId={id} onDone={() => load()} />
+          <ReviewBox
+            entityKey="job_id"
+            entityId={id}
+            onDone={() => load()}
+            cim="Értékeld a feladót"
+            kerdes="Hogy ment az egyeztetés és az átadás? Pontos volt a csomagleírás?"
+            vitaNyitott={job.status === 'disputed'}
+          />
         </div>
       )}
 
       {/* Vita-nyitás gomb — csak in_progress/delivered/completed státuszban */}
-      <DisputeButton jobId={id} status={job.status} paid={!!job.paid_at} />
+      <div id="problema-bejelentese" style={{ scrollMarginTop: 80 }}>
+        <DisputeButton jobId={id} status={job.status} paid={!!job.paid_at} />
+      </div>
 
       {/* Publikus Q&A — szállítóként itt kérdezhetek a feladótól */}
       <JobQuestions

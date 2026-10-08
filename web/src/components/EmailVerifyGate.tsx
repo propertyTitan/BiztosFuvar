@@ -10,6 +10,7 @@
 
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { Check, MailCheck } from 'lucide-react';
 import { api } from '@/api';
 import { useCurrentUser, clearCurrentUser } from '@/lib/auth';
 
@@ -73,15 +74,17 @@ export default function EmailVerifyGate() {
       aria-modal="true"
     >
       <div className="card" style={{ maxWidth: 480, marginBottom: 0, textAlign: 'center' }}>
-        <div style={{ fontSize: 44, marginBottom: 8 }}>📧</div>
-        <h2 style={{ marginTop: 0 }}>Erősítsd meg az email címed</h2>
+        <div aria-hidden style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, color: 'var(--primary-text)' }}>
+          <MailCheck size={44} />
+        </div>
+        <h2 style={{ marginTop: 0 }}>Erősítsd meg az e-mail-címed</h2>
         <p style={{ color: 'var(--text)', lineHeight: 1.6 }}>
           Küldtünk egy megerősítő linket ide: <strong>{email}</strong>. Kattints rá,
-          mielőtt tovább mennél az oldalon. (Nézd meg a spam mappát is.)
+          mielőtt továbbmennél az oldalon. (Nézd meg a spam mappát is.)
         </p>
         {sent && (
           <p style={{ color: 'var(--success-text)', fontSize: 14, margin: '4px 0 0' }}>
-            Új linket küldtünk. ✓
+            <Check size={14} aria-hidden style={{ verticalAlign: -2 }} /> Új linket küldtünk.
           </p>
         )}
         {error && (

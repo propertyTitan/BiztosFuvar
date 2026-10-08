@@ -7,6 +7,7 @@ import { Loading } from '@/components/StateView';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '@/api';
+import { CircleCheck, TriangleAlert } from 'lucide-react';
 
 function JelszoResetInner() {
   const router = useRouter();
@@ -55,7 +56,7 @@ function JelszoResetInner() {
             padding: 24, background: 'var(--success-light)', border: '1px solid var(--success)', color: '#14532d',
           }}
         >
-          <h2 style={{ margin: 0 }}>✅ Új jelszó beállítva</h2>
+          <h2 style={{ margin: 0 }}><CircleCheck size={20} aria-hidden style={{ verticalAlign: -3 }} /> Új jelszó beállítva</h2>
           <p style={{ marginTop: 8, marginBottom: 0 }}>
             Sikeres jelszó-csere. Átirányítunk a bejelentkezéshez…
           </p>
@@ -108,7 +109,7 @@ function JelszoResetInner() {
         />
 
         {error && (
-          <p style={{ color: 'var(--danger-text)', marginTop: 12, fontSize: 14 }}>⚠️ {error}</p>
+          <p style={{ color: 'var(--danger-text)', marginTop: 12, fontSize: 14 }}><TriangleAlert size={14} aria-hidden style={{ verticalAlign: -2 }} /> {error}</p>
         )}
 
         <button

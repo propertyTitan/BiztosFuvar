@@ -12,7 +12,7 @@ import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 //   AI segéd, Admin (ha admin), Kijelentkezés.
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Home, Target, Route, User, Truck, Shield,
   Bell, BellRing, Bot, LogOut, ChevronDown, Package, Plus, Mail,
@@ -21,13 +21,19 @@ import { useCurrentUser, clearCurrentUser, frissitCurrentUser, readStoredMode } 
 import { photoUrl } from '@/api';
 import { api } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
+import { cimEmojiNelkul, ertesitesErreAzOldalraSzol } from '@/lib/ertesitesek';
 import { useToast } from '@/components/ToastProvider';
 import ThemeToggle from '@/components/ThemeToggle';
 import { useTranslation } from '@/lib/i18n';
+import { megszolitasNev } from '@/lib/nev';
 
 export default function SiteHeader() {
   const user = useCurrentUser();
   const router = useRouter();
+  const pathname = usePathname();
+  // UX-kör A10: a belépési oldalon a fejléc „Belépés" gombja ugyanoda vinne,
+  // ahol már vagyunk — csak zavar (két „Belépés" egymás alatt).
+  const belepesOldalon = pathname === '/bejelentkezes';
 
   // ── RÉGI SESSION-ÖK AVATAR-VISSZATÖLTÉSE (2026-08-16) ────────────────
   // A PR #182 előtt bejelentkezett felhasználók tárolt user-objektumában
@@ -60,10 +66,15 @@ export default function SiteHeader() {
     const socket = getSocket();
     const onNew = (n: any) => {
       setUnread((c) => c + 1);
+      // UX A14: a NYITOTT oldalra szóló értesítés (pl. a saját elfogadásod
+      // utáni „Megegyeztetek" a fuvaroldalon) nem ugrik fel toastként — az
+      // oldal maga frissül és jelez; a harmadik egymásra rakott toast
+      // kiszorította a díjkártyát. A csengő számlálója ettől még nő.
+      if (ertesitesErreAzOldalraSzol(n?.link, window.location.pathname)) return;
       const kind: 'success' | 'error' | 'info' =
         n?.type === 'booking_paid' || n?.type === 'booking_confirmed' ? 'success'
         : n?.type === 'booking_rejected' ? 'error' : 'info';
-      toast[kind](n?.title || 'Új értesítés', n?.body || undefined);
+      toast[kind](cimEmojiNelkul(n?.title) || 'Új értesítés', n?.body || undefined);
     };
     socket.on('notification:new', onNew);
     // Az értesítések oldal olvasottra állításakor a badge azonnal frissül
@@ -192,7 +203,16 @@ export default function SiteHeader() {
             világos → sötét → rendszer. Ikon-only, hogy mobilon is elférjen. */}
         <ThemeToggle compact />
 
+        {/* Korai szállítói bejárat a látogatónak (UX-kör Q10): szöveges link,
+            a Belépés marad az elsődleges gomb. Keskeny mobilon rejtve (ott a
+            hero alatti „Szállító vagy?" link viszi), hogy a fejléc ne lógjon ki. */}
         {!user && (
+          <Link href="/soforoknek" className="fejlec-szallitoknak">
+            Szállítóknak
+          </Link>
+        )}
+
+        {!user && !belepesOldalon && (
           <Link
             href="/bejelentkezes"
             className="btn"
@@ -215,12 +235,16 @@ export default function SiteHeader() {
                 textDecoration: 'none',
               }}
               title={t('nav.notifications')}
+              // UX A29: a felolvasó eddig „4, hivatkozás"-t mondott — most a
+              // név a teljes jelentés, a szám-jelvény pedig aria-hidden.
+              aria-label={unread > 0 ? `Értesítések, ${unread} olvasatlan` : 'Értesítések'}
             >
               {/* currentColor: light módban a --text-secondary-t, darkban a
                   .site-header * fehérjét örökli */}
-              <Bell size={20} style={{ display: 'block', color: 'var(--text-secondary)' }} />
+              <Bell size={20} aria-hidden style={{ display: 'block', color: 'var(--text-secondary)' }} />
               {unread > 0 && (
                 <span
+                  aria-hidden
                   style={{
                     position: 'absolute',
                     top: 2,
@@ -309,7 +333,7 @@ export default function SiteHeader() {
                   </div>
                 )}
                 <span style={{ fontSize: 13, fontWeight: 600, maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {user.full_name?.split(' ')[0] || user.email?.split('@')[0]}
+                  {megszolitasNev(user.full_name) || user.email?.split('@')[0]}
                 </span>
                 <ChevronDown size={14} style={{ opacity: 0.8, transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform var(--transition)' }} />
               </button>

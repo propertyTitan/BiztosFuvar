@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Gift, Check } from 'lucide-react';
 import { api } from '@/api';
+
+// Az ajánlói kupon érvényessége napokban — a backend
+// REFERRAL_VOUCHER_VALID_DAYS (services/referral.js) tükre; a két szám
+// elcsúszását a backend tests/ux-ajanloi-kupon-ervenyesseg.test.js fogja.
+// UX-review Q19 (2026-10-08): a kupon 60 nap után NÉMÁN lejárt, a szöveg
+// erről semmit nem mondott — megszegett ígéretnek tűnt, épp annak, aki
+// a platformot ajánlotta.
+export const AJANLOI_KUPON_ERVENYES_NAP = 60;
 
 type ReferralInfo = {
   code: string | null;
@@ -9,7 +18,18 @@ type ReferralInfo = {
   totalReferred: number;
   completedReferred: number;
   availableVouchers: number;
+  /** A legkorábban lejáró felhasználható kupon napja (YYYY-MM-DD), ha a backend küldi. */
+  voucherValidUntil?: string | null;
 };
+
+/** 'YYYY-MM-DD' → „2026. december 7” — a „-ig” rag elé, záró pont nélkül (érvénytelenre null). */
+export function lejaratSzoveg(nap: string | null | undefined): string | null {
+  if (!nap || !/^\d{4}-\d{2}-\d{2}$/.test(nap)) return null;
+  const [e, h, n] = nap.split('-').map(Number);
+  const d = new Date(Date.UTC(e, h - 1, n));
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' }).replace(/\.$/, '');
+}
 
 export default function ReferralCard() {
   const [info, setInfo] = useState<ReferralInfo | null>(null);
@@ -33,13 +53,16 @@ export default function ReferralCard() {
 
   return (
     <div className="card" style={{ marginTop: 16 }}>
-      <h2 style={{ marginTop: 0 }}>🎁 Hívd meg ismerőseidet</h2>
+      <h2 style={{ marginTop: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <Gift size={20} aria-hidden /> Hívd meg ismerőseidet
+      </h2>
       <p className="muted" style={{ marginTop: 0 }}>
         Oszd meg a kódodat vagy a linkedet. Ha valaki vele regisztrál és
         teljesíti az első fuvarját (feladóként vagy szállítóként), kapsz egy{' '}
-        <strong>ingyenes kapcsolatfelvételt</strong>: a következő feladásodnál
-        elmarad a díj — akármekkora a fuvar. Egy feladásra érvényes, a fizetési
-        lépésnél magától beváltjuk.
+        <strong>ingyenes kapcsolatfelvételt</strong>. A kupon {AJANLOI_KUPON_ERVENYES_NAP} napig
+        érvényes, és a díjfizetés lépésénél váltódik be: ha ezen belül fizetnéd egy
+        fuvar kapcsolatfelvételi díját, magától beváltjuk, és a díj elmarad —
+        akármekkora a fuvar. Egy fuvarra érvényes.
       </p>
 
       {/* Ajánlói kód — verbális/üzenetben megosztható, kézzel is beírható a
@@ -55,7 +78,7 @@ export default function ReferralCard() {
           style={{ flex: '0 0 auto', width: 140, fontSize: 20, fontWeight: 800, letterSpacing: 2, textAlign: 'center' }}
         />
         <button type="button" className="btn" onClick={() => copy('code', info.code!)} style={{ whiteSpace: 'nowrap' }}>
-          {copied === 'code' ? '✓ Kimásolva' : 'Kód másolása'}
+          {copied === 'code' ? <><Check size={14} aria-hidden style={{ verticalAlign: -2 }} /> Kimásolva</> : 'Kód másolása'}
         </button>
       </div>
 
@@ -70,14 +93,19 @@ export default function ReferralCard() {
           style={{ flex: 1, minWidth: 220, fontSize: 13 }}
         />
         <button type="button" className="btn" onClick={() => copy('link', info.link!)} style={{ whiteSpace: 'nowrap' }}>
-          {copied === 'link' ? '✓ Kimásolva' : 'Link másolása'}
+          {copied === 'link' ? <><Check size={14} aria-hidden style={{ verticalAlign: -2 }} /> Kimásolva</> : 'Link másolása'}
         </button>
       </div>
 
       <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 14 }}>
         <span>Meghívottak: <strong>{info.totalReferred}</strong></span>
         <span>Teljesített: <strong>{info.completedReferred}</strong></span>
-        <span>Ingyenes kapcsolatfelvétel: <strong>{info.availableVouchers}</strong></span>
+        <span>
+          Ingyenes kapcsolatfelvétel: <strong>{info.availableVouchers}</strong>
+          {info.availableVouchers > 0 && lejaratSzoveg(info.voucherValidUntil) && (
+            <span className="muted"> · Érvényes: {lejaratSzoveg(info.voucherValidUntil)}-ig</span>
+          )}
+        </span>
       </div>
     </div>
   );

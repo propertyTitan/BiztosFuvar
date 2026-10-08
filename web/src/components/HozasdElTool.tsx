@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Check, Link2, ShoppingBag, Sofa } from 'lucide-react';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
-import { DIJ_SAVOK, DIJ_SAVHATAR_HUF, ft } from '@/lib/connectionFee';
+import { DIJ_SAV_MONDAT } from '@/lib/connectionFee';
 import { clearHozasdEl, emptyHozasdElDraft, HOZASD_EL_DRAFT, HOZASD_EL_PREFILL,
   readHozasdEl, safeProductImage, saveHozasdEl, type HozasdElAddress } from '@/lib/hozasdEl';
 import AddressAutocomplete from './AddressAutocomplete';
@@ -186,7 +186,7 @@ export default function HozasdElTool({ furniture = false }: { furniture?: boolea
       <section className={styles.explanation} aria-labelledby="hozasd-how-heading">
         <h2 id="hozasd-how-heading" className={styles.heading}>Mi történik a feladás után?</h2>
         <p>A szállítók ajánlatot tehetnek a fuvarodra. Összehasonlítod az árakat és az értékeléseket, majd kiválasztod a neked megfelelő ajánlatot.</p>
-        <p>Elfogadáskor a GoFuvar kapcsolatfelvételi díja bruttó <strong>{ft(DIJ_SAVOK[0].dijHuf)} Ft {ft(DIJ_SAVHATAR_HUF)} Ft fuvardíjig, felette {ft(DIJ_SAVOK[1].dijHuf)} Ft</strong> (bevezető ár). A fuvardíjat ezen felül, közvetlenül a szállítónak fizeted. <Link href="/aszf">Díjfizetési feltételek</Link></p>
+        <p>Elfogadáskor a GoFuvar kapcsolatfelvételi díja bruttó <strong>{DIJ_SAV_MONDAT}</strong> (bevezető ár). A fuvardíjat ezen felül, közvetlenül a szállítónak fizeted. <Link href="/aszf">Díjfizetési feltételek</Link></p>
         <p>Az áru megvásárlását és az átvételi időpontot te egyezteted az eladóval. {furniture && 'Kérdezz rá a bútor méretére, szétszerelhetőségére, az emeletre és a liftre is. '}A fuvarfeladásnál jelezheted, ha pakolási segítségre van szükség.</p>
         {!furniture && <Link href="/hozasd-el/butor">Bútort vásárolsz? Kezdd itt a szállítást →</Link>}
         {furniture && <Link href="/hozasd-el">Más tárgyat hozatnál el? →</Link>}

@@ -16,6 +16,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { Zap, MapPin, Flag, Package } from 'lucide-react';
+import { mertek } from '@/lib/mertek';
 
 type AlongJob = Job & {
   along_pickup_wp_name: string;
@@ -48,7 +50,7 @@ function UtbaEsoPage() {
 
   return (
     <div>
-      <h1>🚗 Útba eső fuvarok</h1>
+      <h1>Útba eső fuvarok</h1>
       <p className="muted">
         Az útvonalad mentén feladott fuvarok — minimális kitérővel felveheted
         őket. Minél kisebb a kitérő, annál jobban megéri.
@@ -56,7 +58,7 @@ function UtbaEsoPage() {
 
       <Link
         href={`/sofor/utvonal/${routeId}`}
-        className="btn ghost"
+        className="btn btn-ghost"
         style={{ textDecoration: 'none', marginBottom: 16, display: 'inline-block' }}
       >
         ← Vissza az útvonalhoz
@@ -96,12 +98,12 @@ function UtbaEsoPage() {
                     background: '#FB8C00', color: '#fff', padding: '2px 8px',
                     borderRadius: 12, fontSize: 11, fontWeight: 700,
                   }}>
-                    ⚡ AZONNALI
+                    <Zap size={12} aria-hidden style={{ verticalAlign: -2 }} /> AZONNALI
                   </span>
                 )}
               </div>
-              <p className="muted" style={{ margin: '4px 0 2px' }}>📍 {j.pickup_address}</p>
-              <p className="muted" style={{ margin: '2px 0' }}>🏁 {j.dropoff_address}</p>
+              <p className="muted" style={{ margin: '4px 0 2px' }}><MapPin size={13} aria-hidden style={{ verticalAlign: -2 }} /> {j.pickup_address}</p>
+              <p className="muted" style={{ margin: '2px 0' }}><Flag size={13} aria-hidden style={{ verticalAlign: -2 }} /> {j.dropoff_address}</p>
 
               <div style={{
                 marginTop: 8, padding: '6px 10px', borderRadius: 6,
@@ -120,12 +122,12 @@ function UtbaEsoPage() {
 
               <div style={{ marginTop: 6, fontSize: 13 }}>
                 {j.weight_kg != null && <span className="muted">{j.weight_kg} kg</span>}
-                {j.distance_km != null && <span className="muted" style={{ marginLeft: 12 }}>{j.distance_km} km össztáv</span>}
+                {j.distance_km != null && <span className="muted" style={{ marginLeft: 12 }}>{mertek(j.distance_km, 'km')} össztáv</span>}
               </div>
 
               {j.pickup_needs_carrying && (
                 <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                  📦 Bepakolás szükséges ({j.pickup_floor == null ? 'emelet nincs megadva' : j.pickup_floor === 0 ? 'földszint' : `${j.pickup_floor}. emelet`}
+                  <Package size={12} aria-hidden style={{ verticalAlign: -2 }} /> Bepakolás szükséges ({j.pickup_floor == null ? 'emelet nincs megadva' : j.pickup_floor === 0 ? 'földszint' : `${j.pickup_floor}. emelet`}
                   {j.pickup_floor != null && j.pickup_floor > 0 && (j.pickup_has_elevator ? ', lift van' : ', NINCS lift')})
                 </p>
               )}

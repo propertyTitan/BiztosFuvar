@@ -16,6 +16,9 @@ import { useCurrentUser } from '@/lib/auth';
 import { getSocket, joinUserRoom } from '@/lib/socket';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import CarrierTripPanel from '@/components/CarrierTripPanel';
+import {
+  MapPin, Flag, BadgeCheck, Hourglass, XCircle, CircleCheck, CalendarDays, Pencil, Rocket, Route, Truck,
+} from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Várakozik',
@@ -147,8 +150,8 @@ function UtvonalReszletek() {
             <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
               {b.package_size} méret · {b.length_cm}×{b.width_cm}×{b.height_cm} cm · {b.weight_kg} kg
             </div>
-            <p style={{ margin: '6px 0' }}>📍 {b.pickup_address}</p>
-            <p style={{ margin: '6px 0' }}>🏁 {b.dropoff_address}</p>
+            <p style={{ margin: '6px 0' }}><MapPin size={13} aria-hidden style={{ verticalAlign: -2 }} /> {b.pickup_address}</p>
+            <p style={{ margin: '6px 0' }}><Flag size={13} aria-hidden style={{ verticalAlign: -2 }} /> {b.dropoff_address}</p>
             {b.notes && (
               <p className="muted" style={{ fontStyle: 'italic', marginTop: 6 }}>„{b.notes}”</p>
             )}
@@ -174,7 +177,7 @@ function UtvonalReszletek() {
                     }}
                     title={`Fizetve: ${new Date(b.paid_at).toLocaleString('hu-HU')}`}
                   >
-                    ✅ FIZETVE
+                    <BadgeCheck size={13} aria-hidden style={{ verticalAlign: -2 }} /> FIZETVE
                   </span>
                 ) : (
                   <span
@@ -185,7 +188,7 @@ function UtvonalReszletek() {
                       border: '1px solid #fde68a',
                     }}
                   >
-                    ⏳ Fizetésre vár
+                    <Hourglass size={13} aria-hidden style={{ verticalAlign: -2 }} /> Fizetésre vár
                   </span>
                 )}
               </div>
@@ -221,7 +224,7 @@ function UtvonalReszletek() {
                     fontWeight: 600,
                   }}
                 >
-                  ❌ Lemondás
+                  <XCircle size={12} aria-hidden style={{ verticalAlign: -2 }} /> Lemondás
                 </button>
               </div>
             )}
@@ -258,7 +261,7 @@ function UtvonalReszletek() {
               color: '#166534',
             }}
           >
-            ✅ <strong>Kézbesítve</strong>
+            <CircleCheck size={14} aria-hidden style={{ verticalAlign: -2 }} /> <strong>Kézbesítve</strong>
             {b.delivered_at && ` — ${new Date(b.delivered_at).toLocaleString('hu-HU')}`}.
             A fuvardíj ({b.price_huf.toLocaleString('hu-HU')} Ft) közvetlenül neked jár — készpénzben vagy átutalással, ahogy megegyeztetek.
           </div>
@@ -282,7 +285,7 @@ function UtvonalReszletek() {
         <div>
           <h1 style={{ marginBottom: 4 }}>{route.title}</h1>
           <p className="muted" style={{ margin: 0 }}>
-            🗓 {new Date(route.departure_at).toLocaleString('hu-HU')}
+            <CalendarDays size={14} aria-hidden style={{ verticalAlign: -2 }} /> {new Date(route.departure_at).toLocaleString('hu-HU')}
           </p>
           <span
             className={`pill ${route.status === 'open' ? 'pill-delivered' : route.status === 'draft' ? 'pill-bidding' : 'pill-accepted'}`}
@@ -307,7 +310,7 @@ function UtvonalReszletek() {
               className="btn btn-secondary"
               style={{ textDecoration: 'none', textAlign: 'center' }}
             >
-              ✏️ Szerkesztés
+              <Pencil size={14} aria-hidden style={{ verticalAlign: -2 }} /> Szerkesztés
             </Link>
             {route.status === 'draft' && (
               <button
@@ -316,7 +319,7 @@ function UtvonalReszletek() {
                 onClick={publishRoute}
                 style={{ background: 'var(--success-strong)' }}
               >
-                🚀 Publikálás most
+                <Rocket size={14} aria-hidden style={{ verticalAlign: -2 }} /> Publikálás most
               </button>
             )}
             {route.status === 'open' && (
@@ -337,7 +340,7 @@ function UtvonalReszletek() {
                 background: 'var(--success-strong)',
               }}
             >
-              🚗 Útba eső fuvarok
+              <Route size={14} aria-hidden style={{ verticalAlign: -2 }} /> Útba eső fuvarok
             </Link>
           </div>
         )}
@@ -368,7 +371,7 @@ function UtvonalReszletek() {
         </div>
         {route.vehicle_description && (
           <p className="muted" style={{ marginTop: 12 }}>
-            🚛 {route.vehicle_description}
+            <Truck size={14} aria-hidden style={{ verticalAlign: -2 }} /> {route.vehicle_description}
           </p>
         )}
         {route.description && (
@@ -398,21 +401,21 @@ function UtvonalReszletek() {
 
       {pending.length > 0 && (
         <>
-          <h3 style={{ color: 'var(--primary-text)' }}>⏳ Válaszra vár ({pending.length})</h3>
+          <h3 style={{ color: 'var(--primary-text)' }}><Hourglass size={16} aria-hidden style={{ verticalAlign: -2 }} /> Válaszra vár ({pending.length})</h3>
           {pending.map((b) => <BookingCard key={b.id} b={b} />)}
         </>
       )}
 
       {confirmed.length > 0 && (
         <>
-          <h3 style={{ marginTop: 24 }}>✅ Elfogadva / folyamatban ({confirmed.length})</h3>
+          <h3 style={{ marginTop: 24 }}><CircleCheck size={16} aria-hidden style={{ verticalAlign: -2 }} /> Elfogadva / folyamatban ({confirmed.length})</h3>
           {confirmed.map((b) => <BookingCard key={b.id} b={b} />)}
         </>
       )}
 
       {rejected.length > 0 && (
         <>
-          <h3 style={{ marginTop: 24 }}>✗ Elutasítva ({rejected.length})</h3>
+          <h3 style={{ marginTop: 24 }}><XCircle size={16} aria-hidden style={{ verticalAlign: -2 }} /> Elutasítva ({rejected.length})</h3>
           {rejected.map((b) => <BookingCard key={b.id} b={b} />)}
         </>
       )}

@@ -3,13 +3,41 @@
 // Értesítések oldal – a user minden értesítése időrendben.
 // Új értesítés real-time érkezik a Socket.IO `notification:new` eventen
 // keresztül, és rögtön a lista tetejére kerül.
-import { useEffect, useState } from 'react';
+//
+// 2026-10-08 (UX-átvizsgálás A22): mobilon a másodpercre pontos, nem
+// tördelődő dátum a hely ~40%-át vitte el, a szöveg ~150 px-es oszlopba
+// szorult (a lap 12–22 ezer px hosszú lett). Most: a relatív idő a cím
+// ALATT áll (a teljes időpont a <time title>-ben), a törzs legfeljebb 3
+// sor, az olvasatlant egy 8 px-es pont + félkövér cím jelzi (nem
+// keretgyűrű), az ikon a típusból jön (lucide), és szállító módban az üres
+// állapot az elérhető fuvarokra visz.
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { api } from '@/api';
 import { getSocket, joinUserRoom } from '@/lib/socket';
-import { useCurrentUser } from '@/lib/auth';
+import { readStoredMode, useCurrentUser } from '@/lib/auth';
 import {ListSkeleton, EmptyState, Loading } from '@/components/StateView';
-import { BellOff } from 'lucide-react';
+import {
+  BellOff, Bell, CreditCard, Scale, Handshake, MessageCircle, PackageCheck,
+  ShieldAlert, Star, Tag, Truck, XCircle, Megaphone,
+} from 'lucide-react';
+import { relativIdo, teljesDatumIdo } from '@/lib/idopont';
+import { cimEmojiNelkul, ertesitesIkon, type ErtesitesIkon } from '@/lib/ertesitesek';
+
+const IKONOK: Record<ErtesitesIkon, ReactNode> = {
+  ajanlat: <Tag size={18} aria-hidden />,
+  megallapodas: <Handshake size={18} aria-hidden />,
+  fizetes: <CreditCard size={18} aria-hidden />,
+  uton: <Truck size={18} aria-hidden />,
+  kezbesitve: <PackageCheck size={18} aria-hidden />,
+  uzenet: <MessageCircle size={18} aria-hidden />,
+  ertekeles: <Star size={18} aria-hidden />,
+  vita: <Scale size={18} aria-hidden />,
+  lemondas: <XCircle size={18} aria-hidden />,
+  figyelmeztetes: <ShieldAlert size={18} aria-hidden />,
+  admin: <Megaphone size={18} aria-hidden />,
+  altalanos: <Bell size={18} aria-hidden />,
+};
 
 type Notification = {
   id: string;
@@ -29,7 +57,11 @@ export default function ErtesitesekOldal() {
   // Első rendernél a user még null (localStorage-ből töltődik) — várjuk meg,
   // különben bejelentkezett usernek is felvillan a "Lépj be" üzenet.
   const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
+  const [szallitoMod, setSzallitoMod] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    try { setSzallitoMod(readStoredMode() === 'driver'); } catch { /* nincs tárolt mód */ }
+  }, []);
 
   const [tobbVan, setTobbVan] = useState(false);
   const [regebbiTolt, setRegebbiTolt] = useState(false);
@@ -123,33 +155,70 @@ export default function ErtesitesekOldal() {
           icon={<BellOff size={28} aria-hidden />}
           title="Még nincs értesítésed"
           description="Itt jelennek meg az ajánlataid, fuvarjaid és üzeneteid eseményei — élőben, frissítés nélkül."
-          cta={<Link className="btn" href="/dashboard/uj-fuvar">Adj fel egy fuvart</Link>}
+          cta={szallitoMod
+            ? <Link className="btn" href="/sofor/fuvarok">Elérhető fuvarok</Link>
+            : <Link className="btn" href="/dashboard/uj-fuvar">Adj fel egy fuvart</Link>}
         />
       )}
 
       {items.map((n) => {
+        const olvasatlan = !n.read_at;
         const content = (
           <div
-            className="card"
+            className="card card-interactive"
+            data-olvasatlan={olvasatlan ? 'igen' : undefined}
             onClick={() => markRead(n)}
             style={{
               cursor: 'pointer',
               marginTop: 12,
-              background: n.read_at ? 'var(--surface)' : 'var(--surface)',
-              borderLeft: n.read_at ? '4px solid transparent' : '4px solid var(--primary)',
-              boxShadow: n.read_at ? 'none' : '0 0 0 1px var(--primary)',
+              padding: '14px 16px',
+              display: 'flex',
+              gap: 12,
+              alignItems: 'flex-start',
             }}
           >
-            <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{n.title}</div>
-                {n.body && (
-                  <div className="muted" style={{ marginTop: 4, color: 'var(--text)' }}>{n.body}</div>
+            <span
+              aria-hidden
+              style={{
+                flexShrink: 0, width: 36, height: 36, borderRadius: '50%',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: 'rgba(37,99,235,0.10)', color: 'var(--primary)',
+              }}
+            >
+              {IKONOK[ertesitesIkon(n.type)]}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                {olvasatlan && (
+                  <span
+                    aria-label="Olvasatlan"
+                    role="img"
+                    style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0, alignSelf: 'center' }}
+                  />
                 )}
+                <div style={{ fontWeight: olvasatlan ? 700 : 600, fontSize: 16, overflowWrap: 'anywhere' }}>
+                  {cimEmojiNelkul(n.title)}
+                </div>
               </div>
-              <div className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap', marginLeft: 12 }}>
-                {new Date(n.created_at).toLocaleString('hu-HU')}
-              </div>
+              <time
+                dateTime={n.created_at}
+                title={teljesDatumIdo(n.created_at)}
+                className="muted"
+                style={{ display: 'block', fontSize: 12, marginTop: 2 }}
+              >
+                {relativIdo(n.created_at)}
+              </time>
+              {n.body && (
+                <div
+                  style={{
+                    marginTop: 6, color: 'var(--text)', fontSize: 14, lineHeight: 1.5,
+                    display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden', overflowWrap: 'anywhere',
+                  }}
+                >
+                  {n.body}
+                </div>
+              )}
             </div>
           </div>
         );

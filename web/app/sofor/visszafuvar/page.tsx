@@ -18,6 +18,8 @@ import { ListSkeleton } from '@/components/StateView';
 import Link from 'next/link';
 import { api, BackhaulGroup } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
+import { Banknote, Zap } from 'lucide-react';
+import { TERKEP_SZINEK } from '@/components/TerkepJelmagyarazat';
 
 export default function VisszafuvarPage() {
   const me = useCurrentUser();
@@ -47,11 +49,11 @@ export default function VisszafuvarPage() {
 
   return (
     <div>
-      <h1>🔄 Visszafuvar ajánlások</h1>
+      <h1>Visszafuvar ajánlások</h1>
       <p className="muted">
         A rendszer az aktív fuvaraid útvonalához keres olyan feladott fuvarokat,
         amelyek a visszaúton passzolnak — így nem üresen jössz haza. Minél
-        magasabb a <strong>match pontszám</strong> (0–100), annál pontosabb az
+        magasabb az <strong>egyezési pontszám</strong> (0–100), annál pontosabb az
         egyezés.
       </p>
 
@@ -70,7 +72,7 @@ export default function VisszafuvarPage() {
               ami a visszaútadhoz illeszkedik (±30 km). Nézd meg pár óra múlva.
             </li>
           </ul>
-          <Link className="btn ghost" href="/sofor/sajat-fuvarok">
+          <Link className="btn btn-ghost" href="/sofor/sajat-fuvarok">
             Aktív fuvaraim megtekintése
           </Link>
         </div>
@@ -128,21 +130,21 @@ export default function VisszafuvarPage() {
                   </span>
                 </div>
                 <div className="muted" style={{ fontSize: 12, lineHeight: 1.4 }}>
-                  <div>🟢 {c.pickup_address}</div>
-                  <div>🔴 {c.dropoff_address}</div>
+                  <div><span aria-label="Felvétel:" role="img" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: TERKEP_SZINEK.indulas, marginRight: 6 }} />{c.pickup_address}</div>
+                  <div><span aria-label="Lerakodás:" role="img" style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: TERKEP_SZINEK.cel, marginRight: 6 }} />{c.dropoff_address}</div>
                   <div style={{ marginTop: 6 }}>
                     Eltérés: <strong>{c.backhaul_pickup_from_dest_km} km</strong> pickup
                     , <strong>{c.backhaul_drop_from_origin_km} km</strong> dropoff
                   </div>
                   {c.suggested_price_huf && (
                     <div style={{ marginTop: 6, color: 'var(--text)' }}>
-                      💰 javasolt ár:{' '}
+                      <Banknote size={13} aria-hidden style={{ verticalAlign: -2 }} /> javasolt ár:{' '}
                       <strong>{c.suggested_price_huf.toLocaleString('hu-HU')} Ft</strong>
                     </div>
                   )}
                   {c.is_instant && (
-                    <div style={{ marginTop: 4, color: '#E65100', fontWeight: 600 }}>
-                      ⚡ Azonnali fuvar — első elfogadó nyer!
+                    <div style={{ marginTop: 4, color: 'var(--warning-text)', fontWeight: 600 }}>
+                      <Zap size={13} aria-hidden style={{ verticalAlign: -2 }} /> Azonnali fuvar — első elfogadó nyer!
                     </div>
                   )}
                 </div>

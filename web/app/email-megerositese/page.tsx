@@ -6,6 +6,7 @@
 import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { Hourglass, CircleCheck, XCircle } from 'lucide-react';
 import { api } from '@/api';
 import { HozasdElVerifiedContinue } from '@/components/HozasdElContinuation';
 
@@ -46,7 +47,7 @@ function EmailMegerositeseInner() {
       >
         {state === 'pending' && (
           <>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}><Hourglass size={40} aria-hidden /></div>
             <h1 style={{ margin: 0 }}>E-mail-cím megerősítése…</h1>
             <p className="muted" style={{ marginTop: 8, marginBottom: 0 }}>
               Pár másodperc, és kész vagyunk.
@@ -56,7 +57,7 @@ function EmailMegerositeseInner() {
 
         {state === 'ok' && (
           <>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center', color: '#14532d' }}><CircleCheck size={40} aria-hidden /></div>
             <h1 style={{ margin: 0, color: '#14532d' }}>E-mail-cím megerősítve!</h1>
             <p style={{ marginTop: 8, color: '#14532d' }}>
               Átirányítunk a bejelentkezéshez.
@@ -67,7 +68,7 @@ function EmailMegerositeseInner() {
 
         {state === 'error' && (
           <>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>❌</div>
+            <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center', color: '#7f1d1d' }}><XCircle size={40} aria-hidden /></div>
             <h1 style={{ margin: 0, color: '#7f1d1d' }}>A megerősítés nem sikerült</h1>
             <p style={{ marginTop: 8, color: '#7f1d1d', fontSize: 14 }}>
               {error || 'Érvénytelen vagy lejárt link.'}

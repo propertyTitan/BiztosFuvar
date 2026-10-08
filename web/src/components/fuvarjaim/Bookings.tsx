@@ -15,7 +15,7 @@ import FeeConsentLabel from '@/components/FeeConsentLabel';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import ReviewBox from '@/components/ReviewBox';
 import { ListSkeleton, EmptyState, ErrorState } from '@/components/StateView';
-import { CalendarCheck, Calendar, MapPin, Flag, Truck, BadgeCheck, CheckCircle2, Hourglass, KeyRound } from 'lucide-react';
+import { CalendarCheck, Calendar, MapPin, Flag, Truck, BadgeCheck, CheckCircle2, Hourglass, KeyRound, XCircle } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Szállítói megerősítésre vár',
@@ -257,7 +257,7 @@ export default function FoglalasaimOldal() {
                     fontWeight: 600,
                   }}
                 >
-                  ❌ Lemondás
+                  <XCircle size={12} aria-hidden style={{ verticalAlign: -2 }} /> Lemondás
                 </button>
               </div>
             )}
@@ -337,7 +337,7 @@ export default function FoglalasaimOldal() {
 
       {rejected.length > 0 && (
         <>
-          <h2 style={{ marginTop: 24 }}>✗ Elutasítva / törölt ({rejected.length})</h2>
+          <h2 style={{ marginTop: 24 }}><XCircle size={18} aria-hidden style={{ verticalAlign: -3 }} /> Elutasítva / törölt ({rejected.length})</h2>
           {rejected.map((b) => <BookingCard key={b.id} b={b} />)}
         </>
       )}

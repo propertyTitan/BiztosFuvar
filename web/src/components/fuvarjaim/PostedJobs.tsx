@@ -9,18 +9,13 @@ import Link from 'next/link';
 import { api, Job, CarrierRoute } from '@/api';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { JARAT_ENGEDELYEZVE } from '@/lib/features';
-import { FileText, Hourglass, Route as RouteIcon, MapPin, Flag, Calendar } from 'lucide-react';
+import { FileText, Hourglass, Route as RouteIcon, MapPin, Flag, Calendar, CircleCheck } from 'lucide-react';
+import StatusPill from '@/components/StatusPill';
+import { mertek } from '@/lib/mertek';
 
-const JOB_STATUS_LABEL: Record<string, string> = {
-  pending: 'Várakozik',
-  bidding: 'Ajánlatokat vár',
-  accepted: 'Elfogadva',
-  in_progress: 'Folyamatban',
-  delivered: 'Lerakva',
-  completed: 'Lezárva',
-  disputed: 'Vitatott',
-  cancelled: 'Lemondva',
-};
+// A fuvar-állapot felirata és színe a közös lib/statusz.ts-ből jön
+// (2026-10-08, UX-átvizsgálás A12): eddig itt minden aktív fuvar kék
+// „pill-bidding" volt — a vitatott és a díjfizetésre váró is.
 
 const ROUTE_STATUS_LABEL: Record<string, string> = {
   draft: 'Piszkozat',
@@ -185,11 +180,11 @@ export default function SajatHirdeteseim() {
               <p className="muted" style={{ margin: '2px 0' }}><MapPin size={13} style={{ verticalAlign: -2 }} /> {j.pickup_address}</p>
               <p className="muted" style={{ margin: '2px 0' }}><Flag size={13} style={{ verticalAlign: -2 }} /> {j.dropoff_address}</p>
               <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                {j.distance_km != null && `${j.distance_km} km`}
+                {j.distance_km != null && mertek(j.distance_km, 'km')}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <span className="pill pill-bidding">{JOB_STATUS_LABEL[j.status] || j.status}</span>
+              <StatusPill job={j} />
               <div className="price" style={{ marginTop: 6 }}>
                 {(j.accepted_price_huf || j.suggested_price_huf || 0).toLocaleString('hu-HU')} Ft
               </div>
@@ -207,7 +202,7 @@ export default function SajatHirdeteseim() {
       )}
       {teljesitett.length > 0 && (
         <>
-          <h3 style={{ marginTop: 16, fontSize: 16 }}>✓ Teljesített ({teljesitett.length})</h3>
+          <h3 style={{ marginTop: 16, fontSize: 16 }}><CircleCheck size={16} aria-hidden style={{ verticalAlign: -3 }} /> Teljesített ({teljesitett.length})</h3>
           {teljesitett.map((j) => (
             <Link
               key={j.id}
@@ -222,9 +217,7 @@ export default function SajatHirdeteseim() {
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {j.title}
               </span>
-              <span className="pill pill-delivered" style={{ flexShrink: 0 }}>
-                {JOB_STATUS_LABEL[j.status] || j.status}
-              </span>
+              <StatusPill job={j} style={{ flexShrink: 0 }} />
             </Link>
           ))}
         </>
@@ -248,9 +241,7 @@ export default function SajatHirdeteseim() {
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {j.title}
               </span>
-              <span className="pill pill-cancelled" style={{ flexShrink: 0 }}>
-                {JOB_STATUS_LABEL[j.status] || j.status}
-              </span>
+              <StatusPill job={j} style={{ flexShrink: 0 }} />
             </Link>
           ))}
         </>

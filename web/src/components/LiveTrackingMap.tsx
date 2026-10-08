@@ -2,22 +2,47 @@
 
 // =====================================================================
 //  LiveTrackingMap – Google Maps + Socket.IO élő követés
-//  - Zöld marker: felvételi pont
-//  - Piros marker: lerakodási pont
+//  - Kék „A" jelölő: felvételi pont
+//  - Zöld „B" jelölő: lerakodási pont
 //  - PIROS PÖTTY: a szállító aktuális helyzete (real-time mozog)
 //  - Útvonal: pickup → driver → dropoff polyline
+//
+//  2026-10-08 (UX-átvizsgálás A17):
+//   - a ráközelítés az onLoad-ban is fut (eddig a térkép-példány még nem
+//     létezett, amikor az effect lefutott → 7-es nagyítás maradt);
+//   - az utolsó pozíciót CSAK úton lévő fuvarnál és CSAK a felek kérik
+//     (a nem érintett szállítónál 403 + konzolhiba volt);
+//   - a magasság a képernyőhöz igazodik: min(480px, 45vh), a feladói
+//     nézet alacsonyabbat kér (`magassag` prop).
 // =====================================================================
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCurrentUser } from '@/lib/auth';
+import { illesztesPontokra } from '@/lib/terkepIllesztes';
+import { kovetesSavLathato } from '@/lib/statusz';
 import { GoogleMap, Marker, Polyline, useJsApiLoader } from '@react-google-maps/api';
+import { AlertTriangle, Radio } from 'lucide-react';
 import { subscribeJob } from '@/lib/socket';
 import { api, Job } from '@/api';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 
-type Props = { job: Job };
+type Props = {
+  job: Job;
+  /** A térkép magassága (CSS). Alap: a képernyő 45%-a, legfeljebb 480 px. */
+  magassag?: string;
+};
 
-const containerStyle = { width: '100%', height: '480px', borderRadius: '12px' };
-
-export default function LiveTrackingMap({ job }: Props) {
+export default function LiveTrackingMap({ job, magassag = 'min(480px, 45vh)' }: Props) {
+  const me = useCurrentUser();
+  const containerStyle = useMemo(() => ({ width: '100%', height: magassag, borderRadius: '12px' }), [magassag]);
+  // Élő pozíció csak úton (a vita alatt a fizikai állapot számít), és csak
+  // a feleknek jár — más nézőnél a kérés 403 lenne.
+  const fizikai = job.status === 'disputed' ? job.status_before_dispute : job.status;
+  const fel = !!me && (me.id === job.shipper_id || (!!job.carrier_id && me.id === job.carrier_id));
+  const poziciotKer = fel && fizikai === 'in_progress';
+  // UX A05: a „hamarosan" jelvény CSAK a feleknek és CSAK elfogadott vagy
+  // úton lévő fuvaron — ajánlatokra váró, lezárt vagy lemondott fuvaron nincs
+  // mit követni, ott a jelvény üres ígéret volt.
+  const kovetesJelveny = kovetesSavLathato(job, me?.id);
   const apiKey = getGoogleMapsApiKey();
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
@@ -37,6 +62,7 @@ export default function LiveTrackingMap({ job }: Props) {
 
   // 1) Kezdeti pozíció lekérése REST-en, aztán Socket.IO real-time
   useEffect(() => {
+    if (!poziciotKer) return;
     let active = true;
     api.lastLocation(job.id)
       .then((loc) => {
@@ -49,7 +75,7 @@ export default function LiveTrackingMap({ job }: Props) {
       })
       .catch(() => {});
     return () => { active = false; };
-  }, [job.id]);
+  }, [job.id, poziciotKer]);
 
   useEffect(() => {
     const unsub = subscribeJob(job.id, {
@@ -80,18 +106,19 @@ export default function LiveTrackingMap({ job }: Props) {
     return points;
   }, [job, driver]);
 
-  // Térkép automatikus zoomolása az összes pontra
+  // Térkép automatikus zoomolása az összes pontra — a pontok változásakor
+  // (a térkép első betöltésekor az onLoad illeszt, lásd lent).
   useEffect(() => {
-    if (!mapRef.current || !isLoaded) return;
-    const bounds = new google.maps.LatLngBounds();
-    path.forEach((p) => bounds.extend(p));
-    mapRef.current.fitBounds(bounds, 64);
+    if (!isLoaded) return;
+    illesztesPontokra(mapRef.current, path);
   }, [isLoaded, path]);
 
   if (!apiKey) {
     return (
       <div className="card" style={{ background: 'var(--warning-light)' }}>
-        <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
+        <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <AlertTriangle size={16} aria-hidden /> Google Maps API kulcs hiányzik.
+        </strong>
         <p className="muted" style={{ margin: '8px 0 0' }}>
           Állítsd be a <code>NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> környezeti változót,
           hogy lásd a térképet.
@@ -108,35 +135,35 @@ export default function LiveTrackingMap({ job }: Props) {
         mapContainerStyle={containerStyle}
         center={center}
         zoom={7}
-        onLoad={(m) => { mapRef.current = m; }}
+        onLoad={(m) => { mapRef.current = m; illesztesPontokra(m, path); }}
         options={{
           streetViewControl: false,
           mapTypeControl: false,
           fullscreenControl: false,
         }}
       >
-        {/* Felvételi pont – zöld */}
+        {/* Felvételi pont – kék „A" */}
         <Marker
           position={{ lat: job.pickup_lat, lng: job.pickup_lng }}
-          label={{ text: 'F', color: '#fff', fontWeight: '700' }}
+          label={{ text: 'A', color: '#fff', fontWeight: '700' }}
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
             scale: 14,
-            fillColor: '#16a34a' /* Google Maps API: CSS-var NEM megy, csak literál hex! */,
+            fillColor: '#2563eb' /* Google Maps API: CSS-var NEM megy, csak literál hex! */,
             fillOpacity: 1,
             strokeColor: '#fff',
             strokeWeight: 2,
           }}
           title={`Felvétel: ${job.pickup_address}`}
         />
-        {/* Lerakodási pont – piros marker */}
+        {/* Lerakodási pont – zöld „B" (a piros a szállító élő pöttyéé) */}
         <Marker
           position={{ lat: job.dropoff_lat, lng: job.dropoff_lng }}
-          label={{ text: 'L', color: '#fff', fontWeight: '700' }}
+          label={{ text: 'B', color: '#fff', fontWeight: '700' }}
           icon={{
             path: google.maps.SymbolPath.CIRCLE,
             scale: 14,
-            fillColor: '#dc2626',
+            fillColor: '#16a34a',
             fillOpacity: 1,
             strokeColor: '#fff',
             strokeWeight: 2,
@@ -181,8 +208,9 @@ export default function LiveTrackingMap({ job }: Props) {
         )}
       </GoogleMap>
 
-      {/* ETA + status bar */}
-      <div
+      {/* ETA + status bar — csak ha van élő pozíció, vagy a feleknek egy
+          követhető (elfogadott / úton lévő) fuvaron (UX A05). */}
+      {(driver || kovetesJelveny) && <div
         style={{
           marginTop: 12,
           padding: '12px 16px',
@@ -197,8 +225,9 @@ export default function LiveTrackingMap({ job }: Props) {
         }}
       >
         <div>
-          <span className="pill pill-progress" style={{ marginRight: 8 }}>
-            {driver ? '🔴 Élő követés aktív' : 'Élő GPS-követés hamarosan — a GoFuvar mobilapp érkezésével'}
+          <span className="pill pill-progress" style={{ marginRight: 8, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Radio size={14} aria-hidden />
+            {driver ? 'A szállító helyzete élőben' : 'Élő követés: hamarosan'}
           </span>
           {updatedAt && (
             <span className="muted" style={{ fontSize: 12 }}>
@@ -224,7 +253,7 @@ export default function LiveTrackingMap({ job }: Props) {
             </div>
           );
         })()}
-      </div>
+      </div>}
     </div>
   );
 }

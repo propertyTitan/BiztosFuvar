@@ -56,3 +56,30 @@ test('nincs vízszintes túlcsordulás mobilon: /fizetes/eredmeny (sikeres, bank
   await expect(page.getByRole('heading', { name: /Sikeres fizetés/ })).toBeVisible();
   await merjTulcsordulast(page, '/fizetes/eredmeny (sikeres)');
 });
+
+// UX A25 (2026-10-08): a jogi oldalak táblázatai. A globális `overflow-x:
+// clip` miatt a dokumentum-szintű mérés NEM látja, ha egy cella a viewporton
+// túlra lóg — egyszerűen levágódik (a sütik táblázatában pont az „Élettartam"
+// oszlop, a megőrzési idő tűnt el). Ezért cellánként mérünk: ami a viewporton
+// túlér, annak egy vízszintesen görgethető tárolóban kell ülnie.
+for (const path of ['/adatkezeles', '/aszf']) {
+  test(`a táblázatcellák mobilon olvashatók (görgethető tárolóban): ${path}`, async ({ page }) => {
+    await page.goto(path);
+    await page.waitForLoadState('networkidle');
+    const levagott = await page.evaluate(() => {
+      const szel = document.documentElement.clientWidth;
+      const gorgetheto = (el: Element | null): boolean => {
+        for (let p = el?.parentElement ?? null; p; p = p.parentElement) {
+          const ox = getComputedStyle(p).overflowX;
+          if (ox === 'auto' || ox === 'scroll') return true;
+          if (p === document.body) break;
+        }
+        return false;
+      };
+      return Array.from(document.querySelectorAll('td, th'))
+        .filter((c) => c.getBoundingClientRect().right > szel + 1 && !gorgetheto(c))
+        .map((c) => (c.textContent || '').trim().slice(0, 40));
+    });
+    expect(levagott, `${path}: levágott táblázatcella (nem görgethető tárolóban): ${levagott.join(' | ')}`).toEqual([]);
+  });
+}

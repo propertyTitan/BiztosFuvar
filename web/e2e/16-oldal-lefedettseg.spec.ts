@@ -26,6 +26,7 @@ import { loginAs } from './helpers';
 import {
   OLDALAK, KIVETELEK, keszitsFixtures, Oldal, Fixtures, allapotCimke,
 } from './oldal-leltar';
+import { MINDENHOL_TILTOTT, szovegorKivetel, szovegorTalalatok } from './szovegor-szabalyok';
 
 // ── Ami zajnak számít, nem hibának ────────────────────────────────────
 const ELNEZETT_KONZOL = [
@@ -128,6 +129,20 @@ async function ellenorizOldalt(page: Page, oldal: Oldal) {
   if (!oldal.varhatoAtiranyitas) {
     const negyszaznegyes = /Az oldal nem található|Másik mód szükséges/.test(torzs);
     expect(negyszaznegyes, `${cel} — a 404-oldalra futott`).toBe(false);
+  }
+
+  // 6. Szövegőr a BELÉPETT állapotokon is (UX A05, 2026-10-08): a 13-as spec
+  //    csak a marketing-oldalakat nézte, így az app-ígéret („a GoFuvar
+  //    mobilapp érkezésével”), az élő követés és a „jogosítvány nem
+  //    szükséges” a fuvaroldalon és a KYC-ablakban átcsúszott. Itt a
+  //    „mindenhol” részhalmaz fut — a jogi és az admin-oldalak kivételével.
+  //    ⚠️ A kivételt a VÉGSŐ URL-re is nézzük: a `/a` rövid link a jogi
+  //    oldalra (/adatkezeles#cimzett) irányít, és ott a jogi szöveg
+  //    tagadó/leíró szerkezete („GPS koordináták (élő követés)”) legitim.
+  const vegsoUtvonal = new URL(page.url()).pathname;
+  if (!szovegorKivetel(oldal.minta) && !szovegorKivetel(vegsoUtvonal)) {
+    const talalatok = szovegorTalalatok(torzs, MINDENHOL_TILTOTT);
+    expect(talalatok, `${cel} — TILTOTT SZÖVEG:\n${talalatok.join('\n')}`).toEqual([]);
   }
 }
 

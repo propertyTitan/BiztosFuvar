@@ -9,6 +9,7 @@ import { useId, useRef, useState } from 'react';
 import { Autocomplete, useJsApiLoader } from '@react-google-maps/api';
 import { GOOGLE_MAPS_ID, GOOGLE_MAPS_LIBRARIES, getGoogleMapsApiKey, GOOGLE_MAPS_LANGUAGE, GOOGLE_MAPS_REGION } from '@/lib/maps';
 import type { Waypoint } from '@/api';
+import { TriangleAlert } from 'lucide-react';
 
 type Props = {
   value: Waypoint[];
@@ -125,7 +126,7 @@ export default function CityTagsInput({ value, onChange, label, placeholder }: P
   if (!apiKey) {
     return (
       <div className="card on-light" style={{ background: 'var(--warning-light)', color: 'var(--text)' }}>
-        <strong>⚠️ Google Maps API kulcs hiányzik.</strong>
+        <strong><TriangleAlert size={16} aria-hidden style={{ verticalAlign: -3 }} /> Google Maps API kulcs hiányzik.</strong>
       </div>
     );
   }

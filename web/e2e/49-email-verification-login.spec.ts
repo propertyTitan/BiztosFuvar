@@ -16,17 +16,17 @@ test('email linkje belépés nélküli böngészőben is a belépési űrlapra v
     await page.goto(`/email-megerositese?token=${token}`);
     await page.waitForURL(/\/bejelentkezes\?mode=login&email_verified=1$/);
     await expect(page.getByRole('status').filter({ hasText: confirmation })).toBeVisible();
-    await expect(page.getByLabel('Email', { exact: true })).toBeVisible();
+    await expect(page.getByLabel('E-mail-cím', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Jelszó', { exact: true })).toBeVisible();
     await expect(page.getByLabel('Teljes név', { exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
   expect((await dbQuery('SELECT email_verified FROM users WHERE id = $1', [user.id])).rows[0].email_verified).toBe(true);
-  await page.getByLabel('Email', { exact: true }).fill(user.email);
+  await page.getByLabel('E-mail-cím', { exact: true }).fill(user.email);
   await page.getByLabel('Jelszó', { exact: true }).fill('Jelszo123!');
   await page.locator('form button[type="submit"]').click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'Erősítsd meg az email címed' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Erősítsd meg az e-mail-címed' })).toHaveCount(0);
 });
 
 for (const suffix of ['', '?token=ervenytelen-link']) {

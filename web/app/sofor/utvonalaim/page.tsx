@@ -12,7 +12,7 @@ import { api, CarrierRoute } from '@/api';
 import { useToast } from '@/components/ToastProvider';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { ListSkeleton, EmptyState } from '@/components/StateView';
-import { Route as RouteIcon, MapPin, Calendar, FileText, Truck } from 'lucide-react';
+import { Route as RouteIcon, MapPin, Calendar, FileText, Truck, Pencil } from 'lucide-react';
 
 const STATUS_LABEL: Record<CarrierRoute['status'], string> = {
   draft: 'Piszkozat',
@@ -115,7 +115,7 @@ function UtvonalaimOldal() {
                   className="btn btn-secondary"
                   style={{ fontSize: 12, padding: '4px 10px', textDecoration: 'none' }}
                 >
-                  ✏️ Szerkesztés
+                  <Pencil size={12} aria-hidden style={{ verticalAlign: -2 }} /> Szerkesztés
                 </Link>
               )}
               {r.status === 'draft' && (

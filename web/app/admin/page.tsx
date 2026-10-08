@@ -32,6 +32,7 @@ import {
   ShieldCheck, CircleDot, RefreshCw, Mail, Megaphone, Info, Send,
   Landmark, ChevronRight, Ban, CircleCheck,
 } from 'lucide-react';
+import { ertekeles, mertek } from '@/lib/mertek';
 
 type TabId = 'attekintes' | 'kyc' | 'felhasznalok' | 'uzenetek' | 'fuvarok' | 'jaratok' | 'vitak';
 
@@ -616,7 +617,7 @@ export default function AdminPanel() {
                       </span>
                     </div>
                     {doc.rejection_reason && (
-                      <div style={{ fontSize: 12, marginTop: 6, color: 'var(--warning)' }}>
+                      <div style={{ fontSize: 12, marginTop: 6, color: 'var(--warning-text)' }}>
                         AI/korábbi megjegyzés: {doc.rejection_reason}
                       </div>
                     )}
@@ -897,7 +898,7 @@ export default function AdminPanel() {
                   <div style={{ fontWeight: 700 }}>{j.title}</div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
                     {j.pickup_address?.split(',')[0]} → {j.dropoff_address?.split(',')[0]}
-                    {j.distance_km != null ? ` · ${j.distance_km} km` : ''}
+                    {j.distance_km != null ? ` · ${mertek(j.distance_km, 'km')}` : ''}
                   </div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
                     Feladó: <strong>{j.shipper_name}</strong> ({j.shipper_email}) ·
@@ -906,7 +907,7 @@ export default function AdminPanel() {
                   <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>
                     {new Date(j.created_at).toLocaleString('hu-HU')} · {j.id}
                     {j.paid_at && <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> · DÍJ FIZETVE</span>}
-                    {j.photo_retention_hold && <span style={{ color: 'var(--warning)', fontWeight: 700 }}> · ZÁROLT (5 év)</span>}
+                    {j.photo_retention_hold && <span style={{ color: 'var(--warning-text)', fontWeight: 700 }}> · ZÁROLT (5 év)</span>}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
@@ -994,7 +995,7 @@ export default function AdminPanel() {
                   <div className="muted" style={{ fontSize: 12 }}>
                     Feladó: {b.shipper_name || b.shipper_id} · {b.status}
                     {b.paid_at && <span style={{ color: 'var(--success-text)', fontWeight: 700 }}> · FIZETVE</span>}
-                    {b.photo_retention_hold && <span style={{ color: 'var(--warning)', fontWeight: 700 }}> · ZÁROLT</span>}
+                    {b.photo_retention_hold && <span style={{ color: 'var(--warning-text)', fontWeight: 700 }}> · ZÁROLT</span>}
                   </div>
                 </div>
                 <div className="row" style={{ gap: 6 }}>
@@ -1151,7 +1152,7 @@ export default function AdminPanel() {
             <div className="muted" style={{ fontSize: 12 }}>
               {dmThread.user.email}
               {dmThread.user.admin_channel_closed_at && (
-                <span style={{ color: 'var(--warning)', fontWeight: 700, marginLeft: 8 }}>· Csatorna lezárva</span>
+                <span style={{ color: 'var(--warning-text)', fontWeight: 700, marginLeft: 8 }}>· Csatorna lezárva</span>
               )}
             </div>
 
@@ -1251,7 +1252,7 @@ export default function AdminPanel() {
                     ['Jármű', userDetail.vehicle_type],
                     ['Rendszám', userDetail.vehicle_plate],
                     ['Szint', userDetail.level_name || userDetail.level],
-                    ['Értékelés', userDetail.rating_count ? `${Number(userDetail.rating_avg).toFixed(1)} (${userDetail.rating_count} db)` : null],
+                    ['Értékelés', userDetail.rating_count ? `${ertekeles(userDetail.rating_avg)} (${userDetail.rating_count} db)` : null],
                     ['Trust score', userDetail.trust_score],
                     ['DAC7 adóadat', userDetail.has_tax_data ? 'megadva' : (userDetail.tax_data_requested_at ? 'BEKÉRVE, hiányzik' : 'nem kellett még')],
                   ]],

@@ -11,13 +11,29 @@
 //
 // A tartalom illusztráció (fiktív nevek/árak), ezért role="img" + felirat,
 // a belseje pedig aria-hidden — a felolvasó egy mondatot kap, nem 30 morzsát.
+//
+// UX-kör A19 + Q12 (2026-10-08): (1) a makett alatt látható „Illusztráció"
+// felirat, és nincs kitalált fuvarszám („132 fuvar") — egy még el sem indult
+// platformon a kitalált forgalom félrevezető; (2) az árak a saját árazónk
+// sávjában vannak (171 km, 45 kg → ~18 000 Ft): a korábbi 8 900–10 200 Ft
+// horgonyként hatott, és a feladási űrlap ennek a dupláját mutatta;
+// (3) a díj is látszik — a hero ígérete így a valódi folyamatot mutatja.
 import { Bell, Star, KeyRound } from 'lucide-react';
+import { ftFt, kapcsolatfelvetelDijHuf } from '@/lib/connectionFee';
+
+// A makett ajánlatai — a díj a valódi díjképletből jön (a sáv ne csússzon el).
+const AJANLATOK = [
+  { monogram: 'KP', name: 'Kovács P.', rating: '4,9', priceHuf: 18000 },
+  { monogram: 'SA', name: 'Szabó A.', rating: '5,0', priceHuf: 19500 },
+  { monogram: 'TG', name: 'Tóth G.', rating: '4,8', priceHuf: 16500, arriving: true },
+];
+const MAKETT_DIJ = kapcsolatfelvetelDijHuf(Math.max(...AJANLATOK.map((a) => a.priceHuf)));
 
 // Mini ajánlat-sor a mock-képernyőn
 function Offer({
-  monogram, name, rating, trips, price, arriving,
+  monogram, name, rating, price, arriving,
 }: {
-  monogram: string; name: string; rating: string; trips: number;
+  monogram: string; name: string; rating: string;
   price: string; arriving?: boolean;
 }) {
   return (
@@ -46,7 +62,7 @@ function Offer({
           display: 'flex', alignItems: 'center', gap: 3, lineHeight: 1.3,
         }}>
           <Star size={9} color="var(--warning)" fill="var(--warning)" style={{ flexShrink: 0 }} />
-          {rating} · {trips} fuvar
+          {rating}
         </div>
       </div>
       <div style={{ fontSize: 12, fontWeight: 800, color: 'var(--primary-text)', whiteSpace: 'nowrap' }}>
@@ -66,9 +82,10 @@ function Offer({
 
 export default function ProductPreview() {
   return (
+    <>
     <div
       role="img"
-      aria-label="A GoFuvar alkalmazás képernyője: egy feladott Budapest–Szeged fuvarra három szállító tett ajánlatot."
+      aria-label={`Illusztráció: egy feladott Budapest–Szeged fuvarra három szállító tett ajánlatot (${ftFt(16500)}–${ftFt(19500)}); a kapcsolatfelvételi díj ${ftFt(MAKETT_DIJ)}, csak elfogadáskor.`}
       style={{ position: 'relative', display: 'flex', justifyContent: 'center', marginTop: 48 }}
     >
       <div aria-hidden style={{ position: 'relative' }}>
@@ -161,9 +178,13 @@ export default function ProductPreview() {
               }}>
                 Ajánlatok · 3
               </div>
-              <Offer monogram="KP" name="Kovács P." rating="4,9" trips={132} price="9 500 Ft" />
-              <Offer monogram="SA" name="Szabó A." rating="5,0" trips={78} price="10 200 Ft" />
-              <Offer monogram="TG" name="Tóth G." rating="4,8" trips={214} price="8 900 Ft" arriving />
+              {AJANLATOK.map((a) => (
+                <Offer key={a.monogram} monogram={a.monogram} name={a.name} rating={a.rating}
+                  price={ftFt(a.priceHuf)} arriving={a.arriving} />
+              ))}
+              <div style={{ fontSize: 9.5, color: 'var(--muted)', margin: '0 2px', lineHeight: 1.4 }}>
+                Kapcsolatfelvételi díj: <strong style={{ color: 'var(--text)' }}>{ftFt(MAKETT_DIJ)}</strong> — csak elfogadáskor
+              </div>
             </div>
 
             {/* iOS home indicator — modern telefon-jelzés az alsó kávánál */}
@@ -203,5 +224,9 @@ export default function ProductPreview() {
         </div>
       </div>
     </div>
+    <p className="muted" style={{ fontSize: 12, textAlign: 'center', margin: '12px 0 0' }}>
+      Illusztráció — fiktív szállítók és árak
+    </p>
+    </>
   );
 }

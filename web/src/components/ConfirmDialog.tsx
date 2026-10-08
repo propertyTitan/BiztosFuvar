@@ -5,8 +5,9 @@
 //  window.prompt() márkázott kiváltása.
 //
 //  - Dizájn-tokenekkel (var(--surface)/--text/--border) → dark mode OK
-//  - Fókusz-csapda: Tab a dialóguson belül marad, ESC zár, nyitáskor
-//    a dialógus kapja a fókuszt, záráskor visszaadjuk a hívó gombnak
+//  - A dialógus-héj (role=dialog, ESC, fókusz-csapda, fókusz-visszaadás,
+//    háttér-kattintás) 2026-10-08 óta a közös <Modal>-ban él — a KYC- és a
+//    lefedettségi ablak is azt használja
 //  - Enter a confirm gombot nyomja (textarea-ban újsor marad)
 //
 //  Használat:
@@ -21,8 +22,9 @@
 //    />
 // =====================================================================
 
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import FieldError from '@/components/FieldError';
+import Modal from '@/components/Modal';
 import { sanitizeNumericInput } from '@/lib/formValidation';
 
 export type DialogField = {
@@ -54,52 +56,13 @@ export default function ConfirmDialog({
   danger = false, fields = [], initialValues, onConfirm, onClose,
 }: Props) {
   const [values, setValues] = useState<Record<string, string>>({});
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const openerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (open) setValues(initialValues ? { ...initialValues } : {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  // Fókusz-kezelés: megjegyezzük a hívó elemet, a dialógusra fókuszálunk,
-  // záráskor visszaadjuk a fókuszt.
-  useEffect(() => {
-    if (!open) return;
-    openerRef.current = document.activeElement as HTMLElement | null;
-    const first = dialogRef.current?.querySelector<HTMLElement>(
-      'input, textarea, button',
-    );
-    (first || dialogRef.current)?.focus();
-    return () => { openerRef.current?.focus?.(); };
-  }, [open]);
-
-  // ESC zár + Tab fókusz-csapda a dialóguson belül
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { onClose(); return; }
-      if (e.key !== 'Tab') return;
-      const focusables = dialogRef.current?.querySelectorAll<HTMLElement>(
-        'input, textarea, button, [href], [tabindex]:not([tabindex="-1"])',
-      );
-      if (!focusables || focusables.length === 0) return;
-      const list = Array.from(focusables).filter((el) => !el.hasAttribute('disabled'));
-      const firstEl = list[0];
-      const lastEl = list[list.length - 1];
-      if (e.shiftKey && document.activeElement === firstEl) {
-        e.preventDefault(); lastEl.focus();
-      } else if (!e.shiftKey && document.activeElement === lastEl) {
-        e.preventDefault(); firstEl.focus();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
   const [probaltKuldeni, setProbaltKuldeni] = useState(false);
-  // Hol kezdődött az utolsó egérgomb-lenyomás? (lásd a backdrop kommentjét)
-  const hatterenNyomtak = useRef(false);
   if (!open) return null;
 
   const missingRequired = fields.some((f) => f.required && !(values[f.key] || '').trim());
@@ -119,54 +82,7 @@ export default function ConfirmDialog({
   }
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        background: 'rgba(2, 6, 23, 0.6)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
-        animation: 'gofuvar-fade-in 0.2s ease-out',
-      }}
-      // ⚠️ NEM elég a puszta onClick (2026-08-20, tesztelői észrevétel): a
-      // `click` esemény ott sül el, ahol az egérgombot FELENGEDIK. Aki a
-      // dialóguson BELÜL kezd szöveget kijelölni (pl. az ellenajánlat
-      // összegét), és a húzást a háttér fölött engedi el, annak a kattintás
-      // a háttéren csattan — és a dialógus a beírt adatával együtt eltűnt.
-      // Ezért csak akkor zárunk, ha a lenyomás ÉS a felengedés is a
-      // háttéren történt.
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      onMouseDown={(e) => { hatterenNyomtak.current = e.target === e.currentTarget; }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget && hatterenNyomtak.current) onClose();
-        hatterenNyomtak.current = false;
-      }}
-    >
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        tabIndex={-1}
-        style={{
-          background: 'var(--surface)',
-          color: 'var(--text)',
-          borderRadius: 'var(--radius-lg)',
-          border: '1px solid var(--border)',
-          padding: 28,
-          maxWidth: 440,
-          width: '100%',
-          boxShadow: 'var(--shadow-lg)',
-          outline: 'none',
-        }}
-      >
+    <Modal open onClose={onClose} ariaLabel={title} zIndex={100000} maxWidth={440}>
         <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 20, fontWeight: 700 }}>
           {title}
         </h2>
@@ -246,7 +162,6 @@ export default function ConfirmDialog({
             {confirmLabel}
           </button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

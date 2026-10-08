@@ -11,7 +11,24 @@ import { Map as MapIcon, ChevronDown, ChevronUp } from 'lucide-react';
  * A tartalom csak nyitva mountolódik (a Google Maps rejtett konténerben
  * rosszul inicializál).
  */
-export default function MapCollapse({ children, title = 'Térkép' }: { children: ReactNode; title?: string }) {
+/** A fuvaroldalak térkép-gombja: „Útvonal a térképen · 164 km” (UX A05). */
+export function utvonalGombFelirat(tavolsagKm: number | string | null | undefined): string {
+  const km = Number(tavolsagKm);
+  return Number.isFinite(km) && km > 0
+    ? `Útvonal a térképen · ${Math.round(km).toLocaleString('hu-HU')} km`
+    : 'Útvonal a térképen';
+}
+
+export default function MapCollapse({ children, title = 'Térkép', gombFelirat }: {
+  children: ReactNode;
+  title?: string;
+  /**
+   * Az összecsukott gomb felirata (UX A05). Alap: „<title> megjelenítése”.
+   * A fuvaroldal az útvonal hosszát mutatja („Útvonal a térképen · 164 km”),
+   * és nem ígér élő követést, amíg nincs mit követni.
+   */
+  gombFelirat?: string;
+}) {
   // (D3, 2026-09-13) HÁROM állapot: amíg az effekt nem döntött (SSR + első
   // kliens-render), a gyerek NEM mountolódik. Eddig az első render nyitva
   // volt: mobilon a 480 px-es térkép, a Google Maps script, a lastLocation
@@ -41,7 +58,7 @@ export default function MapCollapse({ children, title = 'Térkép' }: { children
           style={{ width: '100%', justifyContent: 'space-between', borderRadius: 0, padding: '12px 16px' }}
         >
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <MapIcon size={16} /> {nyitva ? `${title} elrejtése` : `${title} megjelenítése`}
+            <MapIcon size={16} /> {nyitva ? `${title} elrejtése` : (gombFelirat ?? `${title} megjelenítése`)}
           </span>
           {nyitva ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </button>

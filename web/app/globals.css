@@ -44,6 +44,18 @@
      Ezért külön token, ami MINDKÉT témában elbírja a fehéret. */
   --danger-solid: #dc2626;
   --success-solid: #15803d;
+  /* ŰRLAP-TOKENEK (2026-10-08, UX-kör A8 — WCAG 1.4.11 nem-szöveges kontraszt).
+     A mezőkeret eddig a kártyakeret volt (--border, fehéren 1,23:1) — a mező
+     szinte láthatatlan volt; a WCAG 3:1-et kér a vezérlők határára. Külön
+     token, hogy a kártyák finom kerete maradhasson. Mérve: #7b8494 fehéren
+     3,77, a --bg-n 3,60, a --surface-hover-en 3,44.
+     - --focus-ring: a fókuszgyűrű (eddig ~2,1:1 áttetsző kék) — 8,7:1
+     - --warning-text: borostyán SZÖVEG (a --warning fehéren 2,15:1) — 5,0:1
+     - --danger-input-bg: hibás mező halvány háttere (a piros keret 4,4:1-en) */
+  --border-input: #7b8494;
+  --focus-ring: #1e40af;
+  --warning-text: #b45309;
+  --danger-input-bg: #fef2f2;
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
@@ -108,6 +120,12 @@
   --success-solid: #15803d;
   --warning: #fbbf24;
   --warning-light: #451a03;
+  /* Űrlap-tokenek sötétben (mérve: #5b7394 a --surface-en 3,36, a
+     --surface-hover-en 3,01, a --bg-n 3,84; a gyűrű 6,4:1) */
+  --border-input: #5b7394;
+  --focus-ring: #60a5fa;
+  --warning-text: #fbbf24;
+  --danger-input-bg: #2a1215;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
   --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
   --shadow-lg: 0 8px 30px rgba(0,0,0,0.5);
@@ -142,7 +160,17 @@
 [data-theme='dark'] .input {
   background: var(--surface) !important;
   color: var(--text) !important;
-  border-color: var(--border) !important;
+  border-color: var(--border-input) !important;
+}
+/* A fenti !important a hibás mező piros keretét is elnyelte volna (a közös
+   FieldError.redBorder inline stílusát is) — sötétben eddig a hiba nem
+   látszott. Magasabb specificitással visszaadjuk. */
+[data-theme='dark'] :is(input, select, textarea, .input)[aria-invalid='true'],
+[data-theme='dark'] :is(input, select, textarea, .input)[style*='--danger'] {
+  border-color: var(--danger) !important;
+}
+[data-theme='dark'] :is(input, select, textarea, .input)[aria-invalid='true'] {
+  background: var(--danger-input-bg) !important;
 }
 [data-theme='dark'] input::placeholder,
 [data-theme='dark'] textarea::placeholder { color: var(--muted) !important; }
@@ -170,7 +198,8 @@
 /* Billentyűzetes fókusz-gyűrű (WCAG 2.4.7): csak :focus-visible-re —
    egérkattintás nem villantja fel, TAB-navigáció mindig látja. */
 :where(a, button, input, select, textarea, [role='button'], [tabindex]):focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary-light) 60%, transparent);
+  /* UX-kör A8: tömör szín (eddig 60%-os áttetsző kék, ~2,1:1 — nem látszott) */
+  outline: 3px solid var(--focus-ring);
   outline-offset: 2px;
 }
 html {
@@ -222,6 +251,28 @@ h1 { font-size: 32px; font-weight: 800; margin: 0 0 8px; letter-spacing: -0.5px;
 h2 { font-size: 24px; font-weight: 700; margin: 24px 0 8px; letter-spacing: -0.3px; }
 h3 { font-size: 18px; font-weight: 700; margin: 16px 0 4px; }
 p { margin: 0 0 8px; }
+/* UX A30: kiegyensúlyozott címsor-tördelés (nincs árva „Hozasd / el.") és
+   árva szó nélküli bekezdés. A régebbi böngésző egyszerűen figyelmen kívül
+   hagyja — progresszív javítás. */
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+/* UX A29/A30: a mezőcsoportok (rádió-kérdés, időablak) fieldset/legend
+   keretet kapnak — a felolvasó így a kérdést is felolvassa. Vizuálisan
+   keret és behúzás nélkül, ahogy eddig. */
+fieldset.mezo-csoport { border: 0; margin: 0; padding: 0; min-inline-size: 0; }
+fieldset.mezo-csoport > legend { padding: 0; margin-bottom: 4px; }
+
+/* UX A29: „Ugrás a tartalomra" — csak billentyűzet-fókuszra látszik. */
+.ugro-link {
+  position: absolute; left: 8px; top: -48px; z-index: 10001;
+  background: var(--surface); color: var(--primary-text);
+  border: 2px solid var(--primary); border-radius: var(--radius-sm);
+  padding: 8px 14px; font-weight: 700; text-decoration: none;
+}
+.ugro-link:focus, .ugro-link:focus-visible { top: 8px; }
+/* A céltároló programozott fókuszt kap (tabIndex=-1) — keret nélkül. */
+main#tartalom:focus, main#tartalom:focus-visible { outline: none; }
 a { color: var(--primary-text); }
 
 /* ── Utility: force dark text on pastel/light backgrounds ── */
@@ -480,7 +531,12 @@ a { color: var(--primary-text); }
      rublikából. Öröklődő property → a kártya teljes szövegére hat. */
   overflow-wrap: anywhere;
 }
-.card:hover {
+/* UX A30: a kártya első címsora nem kap felső margót — eddig ahol a kártya
+   h2-vel kezdődött, 44 px üres tér volt felül, a szomszéd kártyán 20. */
+.card > :is(h2, h3):first-child { margin-top: 0; }
+/* UX A30: a hover-visszajelzés CSAK a kattintható kártyáké — a statikus
+   kártya árnyéka „kattints rám”-ot ígért. */
+a.card:hover, button.card:hover, .card-interactive:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--border-hover);
 }
@@ -578,7 +634,8 @@ a.card:hover, .home-hub-card:hover {
 .input, input:not([type='checkbox']):not([type='radio']), select, textarea {
   width: 100%;
   padding: 10px 14px;
-  border: 1.5px solid var(--border);
+  /* --border-input: a mező határa 3:1 felett (UX-kör A8, WCAG 1.4.11) */
+  border: 1.5px solid var(--border-input);
   border-radius: var(--radius-sm);
   font-size: 14px;
   font-family: inherit;
@@ -586,13 +643,64 @@ a.card:hover, .home-hub-card:hover {
   color: var(--text);
   margin-top: 4px;
   transition: all var(--transition);
-  outline: none;
 }
+/* Fókusz: tömör, 3 px-es gyűrű (eddig `outline: none` + 15%-os árnyék — a
+   fókuszált mező nem volt megkülönböztethető, ~2,1:1). Egérkattintásra is
+   kell: a gépelő tudja, melyik mezőbe ír. */
 .input:focus, input:focus, select:focus, textarea:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.15);
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 1px;
 }
-label {
+/* EGYSÉGES HIBAÁLLAPOT (UX-kör A8): az `aria-invalid="true"` mező piros
+   keretet és halvány piros hátteret kap — a jelzés így a képernyőolvasónak
+   és a látónak ugyanaz az egy attribútum. (A specificitás szándékosan nagyobb
+   az alap mezőszabálynál.) */
+input:not([type='checkbox']):not([type='radio'])[aria-invalid='true'],
+.input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: var(--danger);
+  background: var(--danger-input-bg);
+}
+/* A mező alatti hibaüzenet (FieldError) */
+.field-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  color: var(--danger-text);
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 4px 0 0;
+}
+.field-error svg { flex-shrink: 0; margin-top: 1px; }
+/* Sötétben a `[data-theme='dark'] body *` (0,1,1) szabály fehérre írná a
+   hibaüzenetet és az ikonját — eddig az inline szín védte, most osztály. */
+[data-theme='dark'] .field-error,
+[data-theme='dark'] .field-error * { color: var(--danger-text); }
+/* iOS ZOOM (UX-kör A7, 2026-10-08): az iOS Safari minden 16 px-nél kisebb
+   betűs mezőre fókuszáláskor ránagyít, és a felhasználónak vissza kell
+   kicsinyítenie — a fuvarfeladás ~20 mezőjén, a regisztráción, a chaten.
+   Mobilon ezért a mezők 16 px-esek. A második szabály az inline (11–15 px-es)
+   fontSize-ot is felülírja — a React szerveren „font-size:14px", a böngészőben
+   „font-size: 14px" alakban írja a style attribútumot, ezért mindkét alak
+   szerepel. A nagyobb inline méret (18, 20 px — kódmező) érintetlen.
+   A maximumScale-t NEM állítjuk vissza: a nagyítás tiltása a11y-hiba. */
+@media (max-width: 768px) {
+  .input, input:not([type='checkbox']):not([type='radio']), select, textarea {
+    font-size: 16px;
+  }
+  :is(input, select, textarea):is(
+    [style*='font-size:11px'], [style*='font-size: 11px'],
+    [style*='font-size:12px'], [style*='font-size: 12px'],
+    [style*='font-size:13px'], [style*='font-size: 13px'],
+    [style*='font-size:14px'], [style*='font-size: 14px'],
+    [style*='font-size:15px'], [style*='font-size: 15px']
+  ) {
+    font-size: 16px !important;
+  }
+}
+label, .mezo-cimke {
   display: block;
   margin-top: 14px;
   font-size: 13px;
@@ -704,6 +812,169 @@ label {
 /* Egy oszlopba törve (mobil) a vízszintes fonál értelmét veszti */
 @media (max-width: 859px) {
   .steps-thread { display: none; }
+}
+
+/* ── Lebegő AI-segéd (AiChatWidget) — UX-kör A9, 2026-10-08 ──
+   A pozíció CSS-ben él (nem inline), hogy a mobil média-lekérdezés
+   felülírhassa. 48 px (a régi 60 px pont a beküldő gombokat takarta), a
+   biztonságos sávot (iPhone home indicator) figyelembe veszi. */
+.ai-fab {
+  position: fixed;
+  right: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(30, 64, 175, 0.4);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ai-panel {
+  position: fixed;
+  right: 24px;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  width: 360px;
+  max-width: calc(100vw - 48px);
+  height: 500px;
+  max-height: calc(100vh - 140px);
+  background: var(--surface);
+  border-radius: 16px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+@media (max-width: 768px) {
+  .ai-fab {
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  /* Mobilon csak a hubon és a listaoldalakon (lásd AI_GOMB_MOBILON_UTAK),
+     és nyitott billentyűzetnél sem */
+  .ai-fab--mobil-rejtett { display: none; }
+  /* Nyitva alsó lap: teljes szélesség, legfeljebb a képernyő 85%-a */
+  .ai-panel {
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    height: min(500px, 85dvh);
+    max-height: none;
+    border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* Ahol a gomb látszik, a tartalom alja ne csússzon alá */
+  body:has(.ai-fab:not(.ai-fab--mobil-rejtett)) .site-main { padding-bottom: 80px; }
+}
+
+/* ── Főoldal: ragadós mobil CTA (LandingPage) — UX-kör Q11 ── */
+.landing-sticky-cta { display: none; }
+@media (max-width: 768px) {
+  .landing-sticky-cta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 900;
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.12);
+  }
+  .landing-sticky-cta .btn { flex-shrink: 0; }
+  .landing-sticky-cta-dij {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--muted);
+  }
+  /* A sáv alatt is olvasható maradjon a lábléc alja */
+  body:has(.landing-sticky-cta) .site-footer { padding-bottom: 96px; }
+}
+
+/* ── Landing-sablon: 5, 7, 8 érték-pont középre igazítva (UX-kör A23) ── */
+.ertekpont-kozepre > * {
+  flex: 0 1 calc((100% - 32px) / 3);
+  min-width: min(100%, 260px);
+}
+@media (max-width: 640px) {
+  .ertekpont-kozepre > * { flex-basis: 100%; }
+}
+
+/* ── Fejléc: „Szállítóknak" link a látogatónak (UX-kör Q10) ── */
+.fejlec-szallitoknak {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.fejlec-szallitoknak:hover { background: var(--surface-hover); color: var(--text); }
+@media (max-width: 480px) {
+  .fejlec-szallitoknak { display: none; }
+}
+
+/* ── Jogi oldalak (UX-kör A26) ── */
+/* A sütik táblázata mobilon 504 px széles volt, és az overflow-x: clip miatt
+   az „Élettartam" oszlop egyszerűen eltűnt. Most görgethető régió. */
+.jogi-tablazat {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 16px;
+}
+.jogi-tablazat td:first-child { word-break: break-all; min-width: 120px; }
+.jogi-tartalom summary { cursor: pointer; font-weight: 700; }
+.jogi-tartalom ol { margin: 8px 0 0; padding-left: 20px; }
+.jogi-tartalom li { margin: 2px 0; }
+
+/* ── PWA-telepítő panel (InstallPromptBanner) — UX-kör A24 ──
+   Fix alsó panel: NEM tolja le a tartalmat (eddig 3 mp után a fejléc alá
+   ugrott be, olvasás közben). */
+.telepito-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+  color: #fff;
+  font-size: 14px;
+  box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.18);
+}
+
+/* Eszközsor-felirat (fix2-review, Q13): keskeny képernyőn a gomb csak az
+   ikonját mutatja, a felirat vizuálisan rejtett, de a képernyőolvasónak és a
+   gomb hozzáférhető nevének megmarad (nem display:none). */
+@media (max-width: 420px) {
+  .eszkozsor-felirat {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+  }
 }
 
 /* ── NYOMTATÁS ────────────────────────────────────────────────────────

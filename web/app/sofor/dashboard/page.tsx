@@ -8,7 +8,12 @@
 import { useEffect, useState } from 'react';
 import { api } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
-import { Loading, ErrorState } from '@/components/StateView';
+import { Loading, ErrorState, EmptyState } from '@/components/StateView';
+import type { ReactNode } from 'react';
+import {
+  BarChart3, Truck, Banknote, Calculator, Route as RouteIcon, Star, Award, ArrowRight, Rocket,
+} from 'lucide-react';
+import { ertekeles, mertek } from '@/lib/mertek';
 
 type Stats = {
   totals: {
@@ -55,30 +60,37 @@ export default function SoforDashboard() {
 
   return (
     <div>
-      <h1>📊 Szállító Dashboard</h1>
-      <p className="muted">A te teljesítményed számokban.</p>
+      <h1 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <BarChart3 size={26} color="var(--primary)" aria-hidden /> Statisztikám
+      </h1>
+      <p className="muted">A teljesített fuvarjaid számokban.</p>
 
       {/* Fő statisztikák */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
         gap: 12, marginTop: 16,
       }}>
-        <StatCard icon="🚛" value={totals.total_deliveries} label="Befejezett fuvar" />
-        {/* A „nettó" szó a megszűnt escrow-modellből maradt itt: akkor a
-            platform 10% + 400 Ft-ot vont le, tehát volt bruttó és nettó.
-            A kápés modellben a fuvardíj 100%-a a szállítóé, levonás nincs —
-            a „nettó" azt sugallná, hogy valamit mégis levontunk tőle. */}
-        <StatCard icon="💰" value={`${fmt(totals.total_net_earnings)} Ft`} label="Összes bevétel" />
-        <StatCard icon="📊" value={`${fmt(totals.avg_price)} Ft`} label="Átlag fuvardíj" />
-        <StatCard icon="🛣️" value={`${Number(totals.total_km).toFixed(0)} km`} label="Össztávolság" />
-        <StatCard icon="⭐" value={profile.rating_avg || '—'} label={`Értékelés (${profile.rating_count})`} />
-        <StatCard icon={levelIcon(profile.level)} value={profile.level_name || `Szint ${profile.level || 1}`} label="Jelenlegi szint" />
+        <StatCard icon={<Truck size={22} aria-hidden />} value={totals.total_deliveries} label="Befejezett fuvar" />
+        {/* UX-review A28 (2026-10-08): nem „Összes bevétel" — a fuvardíjat a
+            felek egymás közt rendezik, a kifizetést a platform nem látja; ez a
+            feladókkal MEGÁLLAPODOTT díjak összege. „Nettó" sincs: a fuvardíj
+            100%-a a szállítóé, a platform semmit nem von le belőle. */}
+        <StatCard
+          icon={<Banknote size={22} aria-hidden />}
+          value={`${fmt(totals.total_net_earnings)} Ft`}
+          label="Megállapodott fuvardíjak"
+          sub="a feladókkal megállapodott díjak összege"
+        />
+        <StatCard icon={<Calculator size={22} aria-hidden />} value={`${fmt(totals.avg_price)} Ft`} label="Átlag fuvardíj" />
+        <StatCard icon={<RouteIcon size={22} aria-hidden />} value={mertek(totals.total_km, 'km', 0) || '0 km'} label="Össztávolság" />
+        <StatCard icon={<Star size={22} aria-hidden />} value={Number(profile.rating_count) > 0 ? ertekeles(profile.rating_avg) : '—'} label={`Értékelés (${profile.rating_count})`} />
+        <StatCard icon={<Award size={22} aria-hidden />} value={profile.level_name || `Szint ${profile.level || 1}`} label="Jelenlegi szint" />
       </div>
 
       {/* Havi trend grafikon */}
       {monthly.length > 0 && (
         <div className="card" style={{ marginTop: 24 }}>
-          <h2 style={{ marginTop: 0, marginBottom: 16 }}>Havi bevétel trend</h2>
+          <h2 style={{ marginTop: 0, marginBottom: 16 }}>Megállapodott fuvardíjak havonta</h2>
           {/* BUG-036: kevés adatnál az oszlop ne nyúljon teljes szélességre
               (egy hónapnyi adattal töröttnek nézett ki) — max 96px/oszlop */}
           <div style={{ display: 'flex', alignItems: 'end', gap: 4, height: 160, justifyContent: monthly.length < 4 ? 'flex-start' : 'stretch' }}>
@@ -96,7 +108,7 @@ export default function SoforDashboard() {
                       borderRadius: '4px 4px 0 0',
                       transition: 'height 0.5s ease',
                     }}
-                    title={`${m.month}: ${m.deliveries} fuvar, ${fmt(m.net)} Ft nettó`}
+                    title={`${m.month}: ${m.deliveries} fuvar, ${fmt(m.net)} Ft megállapodott fuvardíj`}
                   />
                   <div className="muted" style={{ fontSize: 11, marginTop: 4 }}>
                     {m.month.slice(5)}
@@ -120,8 +132,10 @@ export default function SoforDashboard() {
                 padding: '8px 0', borderBottom: i < top_routes.length - 1 ? '1px solid var(--border)' : 'none',
               }}
             >
-              <span>
-                <strong>{r.pickup_city?.trim()}</strong> → <strong>{r.dropoff_city?.trim()}</strong>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <strong>{r.pickup_city?.trim()}</strong>
+                <ArrowRight size={14} aria-label="→" />
+                <strong>{r.dropoff_city?.trim()}</strong>
               </span>
               <span className="muted" style={{ fontSize: 13 }}>
                 {r.count}× · átl. {fmt(r.avg_price)} Ft
@@ -146,7 +160,7 @@ export default function SoforDashboard() {
               <div>
                 <strong>{j.title}</strong>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  {j.distance_km} km · {new Date(j.delivered_at).toLocaleDateString('hu-HU')}
+                  {mertek(j.distance_km, 'km')} · {new Date(j.delivered_at).toLocaleDateString('hu-HU')}
                 </div>
               </div>
               <strong style={{ color: 'var(--success-text)' }}>{fmt(j.accepted_price_huf)} Ft</strong>
@@ -156,29 +170,25 @@ export default function SoforDashboard() {
       )}
 
       {totals.total_deliveries === 0 && (
-        <div className="card" style={{ marginTop: 24, textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>🚀</div>
-          <h2>Még nincs befejezett fuvarod</h2>
-          <p className="muted">
-            Vállalj el egy fuvart, és itt fogod látni a statisztikáidat!
-          </p>
+        <div style={{ marginTop: 24 }}>
+          <EmptyState
+            icon={<Rocket size={28} aria-hidden />}
+            title="Még nincs befejezett fuvarod"
+            description="Vállalj el egy fuvart, és itt fogod látni a statisztikáidat."
+          />
         </div>
       )}
     </div>
   );
 }
 
-function StatCard({ icon, value, label }: { icon: string; value: string | number; label: string }) {
+function StatCard({ icon, value, label, sub }: { icon: ReactNode; value: string | number; label: string; sub?: string }) {
   return (
     <div className="card" style={{ textAlign: 'center', padding: 16 }}>
-      <div style={{ fontSize: 24, marginBottom: 4 }}>{icon}</div>
+      <div style={{ marginBottom: 4, color: 'var(--primary)', display: 'flex', justifyContent: 'center' }}>{icon}</div>
       <div style={{ fontSize: 20, fontWeight: 800 }}>{value}</div>
       <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{label}</div>
+      {sub && <div className="muted" style={{ fontSize: 11, marginTop: 2 }}>{sub}</div>}
     </div>
   );
-}
-
-function levelIcon(level: number): string {
-  const icons = ['🌱', '🚗', '🚛', '⭐', '💎', '🏆', '👑', '🌟', '🔥', '🚀'];
-  return icons[Math.min((level || 1) - 1, icons.length - 1)];
 }

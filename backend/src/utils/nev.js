@@ -18,4 +18,49 @@ function nevbenSzamjegy(nev) {
   return /\d/.test(nev);
 }
 
-module.exports = { NEV_SZAMJEGY_HIBA, nevbenSzamjegy };
+// =====================================================================
+//  Megszólítás a teljes névből (UX A13, 2026-10-08)
+//
+//  A regisztráció magyar névsorrendet kér („Pl. Kovács Péter”), a felület és
+//  a levelek viszont a név ELSŐ szavát vették — így lett a köszöntés
+//  „Szia, Fehér!”, a levelekben pedig „Szia Kovács Anna!” (vessző nélkül, a
+//  teljes névvel). Most a KERESZTNÉV jön:
+//    „Kovács Anna”         → Anna
+//    „Dr. Kovács Anna”     → Anna   (a titulus nem név)
+//    „Nagy Anna Mária”     → Anna   (az első utónév)
+//    „Kovácsné Nagy Anna”  → Anna   (a házassági névrész után a születési)
+//    „Kovács-Nagy Péter”   → Péter
+//    „Anna”                → Anna
+//    „Kovács Jánosné”      → Kovács Jánosné (nincs külön utónév — a teljes név)
+//  A web párja: web/src/lib/nev.ts — a backend
+//  tests/ux-a13-megszolitas.test.js a kettőt egymáshoz méri.
+// =====================================================================
+
+const TITULUS = /^(dr|ifj|id|özv|prof|ing)\.?$/i;
+// A „-né" házassági névrész — de vannak „né"-re végződő UTÓNEVEK is
+// (René): azok nem házassági nevek (fix2-review: „Kovács René" eddig a
+// teljes nevet adta „René" helyett).
+const NE_VEGU_UTONEVEK = new Set(['rené']);
+const hazassagi = (tag) => /né$/i.test(tag) && !NE_VEGU_UTONEVEK.has(tag.toLowerCase());
+
+/** A megszólításhoz használt név (üres, ha nincs név). */
+function megszolitasNev(teljesNev) {
+  const tagok = String(teljesNev ?? '').trim().split(/\s+/).filter((t) => t && !TITULUS.test(t));
+  if (tagok.length === 0) return '';
+  if (tagok.length === 1) return tagok[0];
+  let i = 0;
+  // „Kovácsné Nagy Anna": a házassági névrész(ek) után jön a születési név.
+  while (i < tagok.length - 2 && hazassagi(tagok[i])) i += 1;
+  const utonev = tagok[i + 1];
+  // „Kovács Jánosné": nincs külön utónév — a teljes nevet használjuk.
+  if (!utonev || hazassagi(utonev)) return tagok.join(' ');
+  return utonev;
+}
+
+/** „Szia, Anna!" — név nélkül „Szia!". Nyers szöveg: a hívó escape-eli. */
+function szia(teljesNev) {
+  const nev = megszolitasNev(teljesNev);
+  return nev ? `Szia, ${nev}!` : 'Szia!';
+}
+
+module.exports = { NEV_SZAMJEGY_HIBA, nevbenSzamjegy, megszolitasNev, szia };

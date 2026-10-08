@@ -62,7 +62,7 @@ describe('eredményoldal állapotai', () => {
     // linkje a belépésen át, `next`-tel visz — különben a fuvaroldal 401-e
     // cél nélkül dobna a belépésre.
     const beleptetve = `/bejelentkezes?next=${encodeURIComponent('/dashboard/fuvar/job-1')}`;
-    expect(screen.getByRole('link', { name: /Szállító elérhetőségének megnyitása/ })).toHaveAttribute('href', beleptetve);
+    expect(screen.getByRole('link', { name: /Szállító elérhetőségének megnyitása/ })).toHaveAttribute('href', `/bejelentkezes?next=${encodeURIComponent('/dashboard/fuvar/job-1#elerhetoseg')}`);
     expect(screen.getByRole('link', { name: /Vissza a fuvarhoz/ })).toHaveAttribute('href', beleptetve);
     await atfolyat(30_000);
     expect(api.getCibEredmeny).toHaveBeenCalledTimes(1);
@@ -74,7 +74,7 @@ describe('eredményoldal állapotai', () => {
     vi.mocked(api.getCibEredmeny).mockResolvedValue({ ...ALAP, allapot: 'sikeres' } as any);
     render(<EredmenyOldal />);
     await atfolyat();
-    expect(screen.getByRole('link', { name: /Szállító elérhetőségének megnyitása/ })).toHaveAttribute('href', '/dashboard/fuvar/job-1');
+    expect(screen.getByRole('link', { name: /Szállító elérhetőségének megnyitása/ })).toHaveAttribute('href', '/dashboard/fuvar/job-1#elerhetoseg');
     expect(screen.getByRole('link', { name: /Vissza a fuvarhoz/ })).toHaveAttribute('href', '/dashboard/fuvar/job-1');
   });
 

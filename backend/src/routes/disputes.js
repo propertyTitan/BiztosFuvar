@@ -15,6 +15,8 @@ const { createNotification } = require('../services/notifications');
 const realtime = require('../realtime');
 const { writeRateLimit } = require('../middleware/rateLimit');
 const { sendEmail, wrapHtml, formatHuf } = require('../services/email');
+const { idezet, rovidit } = require('../utils/ertesitesSzoveg');
+const { szia } = require('../utils/nev');
 
 const router = express.Router();
 
@@ -184,9 +186,14 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
         [ertek, job_id || null, booking_id || null],
       );
       if (ertek.length > 500 || sajatFoto.length === 0) {
+        // 2026-10-08 (UX-átvizsgálás A13): az üzenet eddig arra utasított,
+        // hogy „tölts fel fotót a fuvar oldalán" — a FELADÓ viszont nem tölthet
+        // fel bizonyíték-fotót (photos.js: csak a kijelölt szállító), így ez
+        // zsákutca volt. Lehetetlen lépésre nem utasítunk.
         return res.status(400).json({
-          error: 'A csatolt bizonyítéknak ehhez a fuvarhoz feltöltött fotónak kell lennie. '
-            + 'Tölts fel fotót a fuvar oldalán, és azt csatold.',
+          error: 'Csatolni csak ehhez a fuvarhoz már feltöltött fotót lehet. '
+            + 'Ha nincs ilyen, írd le a problémát a vitában: az ügyfélszolgálat a felvételi '
+            + 'és a lerakodási fotókat is átnézi, és szükség esetén e-mailben kér további bizonyítékot.',
           code: 'INVALID_EVIDENCE_URL',
         });
       }
@@ -259,7 +266,7 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
         user_id: againstUser,
         type: 'dispute_opened',
         title: '⚖️ Vitás eset megnyitva',
-        body: `${opener[0]?.full_name || 'Egy felhasználó'} vitát indított: "${description.slice(0, 80)}${description.length > 80 ? '…' : ''}"`,
+        body: `${opener[0]?.full_name || 'Egy felhasználó'} vitát indított: ${idezet(rovidit(description, 80))}`,
         link: `/ertesitesek`,
       });
     } catch (e) {
@@ -288,7 +295,7 @@ router.post('/disputes', authRequired, writeRateLimit, async (req, res) => {
             subject: '⚖️ Vitás esetet nyitottak az egyik ügyleteden',
             html: emailSvc.wrapHtml({
               heading: '⚖️ Vitás eset nyílt',
-              bodyHtml: `<p>Szia${masikFel[0].full_name ? ` ${emailSvc.escapeHtml(masikFel[0].full_name)}` : ''}!</p>`
+              bodyHtml: `<p>${emailSvc.escapeHtml(szia(masikFel[0].full_name))}</p>`
                 + '<p>A másik fél vitás esetet nyitott az egyik ügyleteden. Amíg a vita nyitva van, az ügylet nem mondható le, '
                 + 'a fotók és az üzenetek bizonyítékként megőrződnek. Az admin mindkét felet meghallgatja, és döntést hoz.</p>'
                 + `<p><a href="${baseUrl}/ertesitesek">A részletek és a válaszlehetőség itt</a></p>`
@@ -520,7 +527,7 @@ router.patch('/disputes/:id', authRequired, writeRateLimit, async (req, res) => 
         type: isResolved ? 'dispute_resolved' : 'dispute_updated',
         title: isResolved ? '⚖️ Vitás eset lezárva' : '⚖️ Vitás eset frissítve',
         body: jegyzet
-          ? `Admin döntés: ${jegyzet.slice(0, 120)}`
+          ? `Admin döntés: ${rovidit(jegyzet, 120)}`
           : `A vita státusza: ${status}`,
         link: `/ertesitesek`,
       });

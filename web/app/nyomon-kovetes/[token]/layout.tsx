@@ -9,6 +9,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
+  // UX-kör A25 (2026-10-08): eddig a főoldal címét örökölte.
+  title: 'Csomagkövetés',
   robots: { index: false, follow: false, nocache: true },
 };
 

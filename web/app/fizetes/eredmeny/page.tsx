@@ -73,11 +73,12 @@ const KARTYA = { marginTop: 16 } as const;
 
 /**
  * A fuvar oldala. Kijelentkezve a belépésen át (`?next=`) visz oda: a
- * fuvaroldal 401-e különben cél nélkül dobná a belépésre.
+ * fuvaroldal 401-e különben cél nélkül dobná a belépésre. A `horgony` a
+ * lapon belüli cél (UX Q06: `elerhetoseg` — a szállító elérhetősége).
  */
-function fuvarUt(jobId: string | null | undefined, bejelentkezve: boolean): string {
+function fuvarUt(jobId: string | null | undefined, bejelentkezve: boolean, horgony?: string): string {
   if (!jobId) return '/fuvarjaim';
-  const ut = `/dashboard/fuvar/${jobId}`;
+  const ut = `/dashboard/fuvar/${jobId}${horgony ? `#${horgony}` : ''}`;
   return bejelentkezve ? ut : `/bejelentkezes?next=${encodeURIComponent(ut)}`;
 }
 
@@ -359,7 +360,7 @@ function EredmenyTartalom() {
         <BankiTranzakcioAdatok adatok={e} mentesTipp kimenet="sikeres" />
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 12 }}>
           {jobId && (
-            <Link href={fuvarUt(jobId, !!user)} className="btn">Szállító elérhetőségének megnyitása</Link>
+            <Link href={fuvarUt(jobId, !!user, 'elerhetoseg')} className="btn">Szállító elérhetőségének megnyitása</Link>
           )}
         </div>
         <VisszaGomb jobId={jobId} bejelentkezve={!!user} />
