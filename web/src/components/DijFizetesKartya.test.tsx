@@ -47,6 +47,14 @@ beforeEach(() => {
 });
 afterEach(() => { vi.useRealTimers(); });
 
+describe('a díj ezres tagolással (UX A17)', () => {
+  it('a 1 000 Ft-os díj gombja „1 000 Ft”, nem „1000 Ft” — mint a kártya fejléce', async () => {
+    vi.mocked(api.getFeePayment).mockResolvedValue(STUB as any);
+    kartya({ feeHuf: 1000 });
+    expect(await screen.findByRole('button', { name: /Díj fizetése \(1 000 Ft\)/ })).toBeInTheDocument();
+  });
+});
+
 describe('útválasztás: CIB átirányítás vs stub', () => {
   it('stub-mód: a mai felület és a /fizetes-stub', async () => {
     vi.mocked(api.getFeePayment).mockResolvedValue(STUB as any);

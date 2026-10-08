@@ -190,7 +190,7 @@ describe('Q6 — az ajánlat-lista', () => {
       { id: 'b2', job_id: 'job', carrier_id: 'c2', carrier_name: 'B', status: 'pending', revision: 1, amount_huf: 55000 },
     ] as any);
     render(<ShipperPage />);
-    // (a hu-HU a négyjegyű számot nem tagolja: „1000 Ft")
+    // (az ft() a négyjegyű számot is tagolja: „1 000 Ft")
     expect(await screen.findByText(/Ennél az ajánlatnál a kapcsolatfelvételi díj/)).toHaveTextContent(/1\s?000 Ft/);
     expect(screen.getAllByText(/Ennél az ajánlatnál/)).toHaveLength(1);
   });

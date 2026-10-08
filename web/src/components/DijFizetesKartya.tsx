@@ -79,6 +79,7 @@ import CibFizetesInfo from '@/components/CibFizetesInfo';
 import BankiTranzakcioAdatok from '@/components/BankiTranzakcioAdatok';
 import { useToast } from '@/components/ToastProvider';
 import { getSocket } from '@/lib/socket';
+import { ft } from '@/lib/connectionFee';
 import { kulsoOldalraLep } from '@/lib/navigacio';
 import { CIB_FELIRATOK, CIB_IDO_TIPP } from '@/lib/cibFeliratok';
 import { BANKI_TOVABBI_INFO, ugyfelUzenet } from '@/lib/cibRcCsoport';
@@ -382,7 +383,8 @@ export default function DijFizetesKartya({
     }
   }
 
-  const fee = (feeHuf ?? 0).toLocaleString('hu-HU');
+  // Egységes ezres tagolás (UX A17): „1 000 Ft”, ahogy a díjkártya fejléce is.
+  const fee = ft(feeHuf ?? 0);
   // can_pay=false mellett nincs gomb (lelet 25): a kattintás úgyis 409/503
   // lenne, és a hibaüzenet csak utólag mondaná el, amit előre tudunk.
   const gombLathato = !allapotMagyaraz && !tiltas;
