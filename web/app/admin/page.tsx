@@ -32,6 +32,7 @@ import {
   ShieldCheck, CircleDot, RefreshCw, Mail, Megaphone, Info, Send,
   Landmark, ChevronRight, Ban, CircleCheck,
 } from 'lucide-react';
+import { ertekeles, mertek } from '@/lib/mertek';
 
 type TabId = 'attekintes' | 'kyc' | 'felhasznalok' | 'uzenetek' | 'fuvarok' | 'jaratok' | 'vitak';
 
@@ -897,7 +898,7 @@ export default function AdminPanel() {
                   <div style={{ fontWeight: 700 }}>{j.title}</div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
                     {j.pickup_address?.split(',')[0]} → {j.dropoff_address?.split(',')[0]}
-                    {j.distance_km != null ? ` · ${j.distance_km} km` : ''}
+                    {j.distance_km != null ? ` · ${mertek(j.distance_km, 'km')}` : ''}
                   </div>
                   <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
                     Feladó: <strong>{j.shipper_name}</strong> ({j.shipper_email}) ·
@@ -1251,7 +1252,7 @@ export default function AdminPanel() {
                     ['Jármű', userDetail.vehicle_type],
                     ['Rendszám', userDetail.vehicle_plate],
                     ['Szint', userDetail.level_name || userDetail.level],
-                    ['Értékelés', userDetail.rating_count ? `${Number(userDetail.rating_avg).toFixed(1)} (${userDetail.rating_count} db)` : null],
+                    ['Értékelés', userDetail.rating_count ? `${ertekeles(userDetail.rating_avg)} (${userDetail.rating_count} db)` : null],
                     ['Trust score', userDetail.trust_score],
                     ['DAC7 adóadat', userDetail.has_tax_data ? 'megadva' : (userDetail.tax_data_requested_at ? 'BEKÉRVE, hiányzik' : 'nem kellett még')],
                   ]],

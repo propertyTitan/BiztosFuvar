@@ -9,6 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/api';
 import { useOldalCim } from '@/lib/oldalCim';
 import { Star, CircleCheck, Truck } from 'lucide-react';
+import { ertekeles } from '@/lib/mertek';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -76,7 +77,7 @@ export default function PublikusProfil() {
           <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
             {profile.rating_count > 0 && (
               <span style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 999, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
-                <Star size={13} aria-hidden style={{ verticalAlign: -2 }} /> {Number(profile.rating_avg).toFixed(1)} ({profile.rating_count} értékelés)
+                <Star size={13} aria-hidden style={{ verticalAlign: -2 }} /> {ertekeles(profile.rating_avg)} ({profile.rating_count} értékelés)
               </span>
             )}
             <span style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '4px 12px', borderRadius: 999, fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
@@ -156,7 +157,7 @@ export default function PublikusProfil() {
         </div>
         <div className="card" style={{ textAlign: 'center', padding: 16 }}>
           <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--warning-text)' }}>
-            {profile.rating_count > 0 ? Number(profile.rating_avg).toFixed(1) : '—'}
+            {profile.rating_count > 0 ? ertekeles(profile.rating_avg) : '—'}
           </div>
           <div className="muted" style={{ fontSize: 12 }}>Átlag értékelés</div>
         </div>

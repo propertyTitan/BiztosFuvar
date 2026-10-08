@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { telefonFormaz, telefonHref } from '@/lib/telefon';
+import { ertekeles } from '@/lib/mertek';
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -199,7 +200,7 @@ function TrackingDetails({ token }: { token: string }) {
           )}
           {data.carrier.rating > 0 && (
             <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-              <Star size={12} aria-hidden style={{ verticalAlign: -2 }} /> {Number(data.carrier.rating).toFixed(1)} értékelés
+              <Star size={12} aria-hidden style={{ verticalAlign: -2 }} /> {ertekeles(data.carrier.rating)} értékelés
             </div>
           )}
         </div>

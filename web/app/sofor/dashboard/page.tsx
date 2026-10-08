@@ -13,6 +13,7 @@ import type { ReactNode } from 'react';
 import {
   BarChart3, Truck, Banknote, Calculator, Route as RouteIcon, Star, Award, ArrowRight, Rocket,
 } from 'lucide-react';
+import { ertekeles, mertek } from '@/lib/mertek';
 
 type Stats = {
   totals: {
@@ -81,8 +82,8 @@ export default function SoforDashboard() {
           sub="a feladókkal megállapodott díjak összege"
         />
         <StatCard icon={<Calculator size={22} aria-hidden />} value={`${fmt(totals.avg_price)} Ft`} label="Átlag fuvardíj" />
-        <StatCard icon={<RouteIcon size={22} aria-hidden />} value={`${Number(totals.total_km).toFixed(0)} km`} label="Össztávolság" />
-        <StatCard icon={<Star size={22} aria-hidden />} value={profile.rating_avg || '—'} label={`Értékelés (${profile.rating_count})`} />
+        <StatCard icon={<RouteIcon size={22} aria-hidden />} value={mertek(totals.total_km, 'km', 0) || '0 km'} label="Össztávolság" />
+        <StatCard icon={<Star size={22} aria-hidden />} value={Number(profile.rating_count) > 0 ? ertekeles(profile.rating_avg) : '—'} label={`Értékelés (${profile.rating_count})`} />
         <StatCard icon={<Award size={22} aria-hidden />} value={profile.level_name || `Szint ${profile.level || 1}`} label="Jelenlegi szint" />
       </div>
 
@@ -159,7 +160,7 @@ export default function SoforDashboard() {
               <div>
                 <strong>{j.title}</strong>
                 <div className="muted" style={{ fontSize: 12 }}>
-                  {j.distance_km} km · {new Date(j.delivered_at).toLocaleDateString('hu-HU')}
+                  {mertek(j.distance_km, 'km')} · {new Date(j.delivered_at).toLocaleDateString('hu-HU')}
                 </div>
               </div>
               <strong style={{ color: 'var(--success-text)' }}>{fmt(j.accepted_price_huf)} Ft</strong>

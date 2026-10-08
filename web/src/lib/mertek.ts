@@ -17,5 +17,19 @@ export function mertek(
   if (ertek == null || ertek === '') return '';
   const n = Number(ertek);
   if (!Number.isFinite(n)) return '';
-  return `${n.toLocaleString('hu-HU', { maximumFractionDigits: tizedes })} ${egyseg}`;
+  // `useGrouping: 'always'`: a hu-HU a 4 jegyű számot alapból nem tagolja
+  // („1250 km"), a díjak viszont tagoltak (connectionFee.ft) — egy alak.
+  return `${n.toLocaleString('hu-HU', { maximumFractionDigits: tizedes, useGrouping: 'always' })} ${egyseg}`;
+}
+
+/**
+ * Értékelés-átlag egy tizedessel, magyar tizedesvesszővel: „4,7" (a pg
+ * NUMERIC „4.70" stringként jön, a felület eddig „4.7"-et és „4.70"-et is
+ * írt — fix2-review, A17 maradéka). Érvénytelen/hiányzó értékre üres szöveg.
+ */
+export function ertekeles(atlag: number | string | null | undefined): string {
+  if (atlag == null || atlag === '') return '';
+  const n = Number(atlag);
+  if (!Number.isFinite(n)) return '';
+  return n.toLocaleString('hu-HU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 }

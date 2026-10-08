@@ -19,6 +19,7 @@ import { nameError, optionalPhoneError, plateError, bioError } from '@/lib/formV
 import {
   Camera, Star, Truck, ShieldCheck, Trash2, Download, Save, CircleCheck, Hourglass, XCircle, FileUp,
 } from 'lucide-react';
+import { ertekeles } from '@/lib/mertek';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 function avatarSrc(url?: string) {
@@ -283,7 +284,7 @@ export default function ProfilOldal() {
                   fontWeight: 700,
                 }}
               >
-                <Star size={13} aria-hidden style={{ verticalAlign: -2 }} /> {Number(profile.rating_avg).toFixed(1)} ({profile.rating_count} értékelés)
+                <Star size={13} aria-hidden style={{ verticalAlign: -2 }} /> {ertekeles(profile.rating_avg)} ({profile.rating_count} értékelés)
               </span>
             ) : (
               <span className="muted" style={{ fontSize: 13 }}>Még nincs értékelés</span>

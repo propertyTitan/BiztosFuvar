@@ -22,6 +22,7 @@ import { aktivSajatAjanlat, lezarultSajatAjanlat } from '@/lib/ajanlat';
 import { optionalPhoneError } from '@/lib/formValidation';
 import LiveTrackingMap from '@/components/LiveTrackingMap';
 import { mertek } from '@/lib/mertek';
+import { ft } from '@/lib/connectionFee';
 import MapCollapse, { utvonalGombFelirat } from '@/components/MapCollapse';
 import { idoablakSzoveg } from '@/lib/idoablak';
 import FieldError, { redBorder } from '@/components/FieldError';
@@ -699,7 +700,7 @@ export default function SoforFuvarReszletek() {
                 fizeti.)
               </p>
               <p style={{ fontSize: 13, margin: '6px 0 0', lineHeight: 1.5 }}>
-                Példa: ha 10.000 Ft-ot adsz meg → te <strong>10.000 Ft</strong>-ot kapsz, levonás nélkül.
+                Példa: ha 10&nbsp;000 Ft-ot adsz meg → te <strong>10&nbsp;000 Ft</strong>-ot kapsz, levonás nélkül.
               </p>
               <label
                 style={{
@@ -940,7 +941,7 @@ export default function SoforFuvarReszletek() {
               <Undo2 size={13} aria-hidden style={{ verticalAlign: -2 }} /> Sikertelen kézbesítés esetén:{' '}
               <strong>
                 {kartyaAjanlat.return_policy === 'included' && 'visszaszállítás benne van az ajánlatban'}
-                {kartyaAjanlat.return_policy === 'extra_fee' && `visszaszállítás külön díjért (${(kartyaAjanlat.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft)`}
+                {kartyaAjanlat.return_policy === 'extra_fee' && `visszaszállítás külön díjért (${ft(kartyaAjanlat.return_fee_huf ?? 0)} Ft)`}
                 {kartyaAjanlat.return_policy === 'no' && 'nem vállaltad a visszaszállítást'}
               </strong>
             </p>

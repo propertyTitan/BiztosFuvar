@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import { api } from '@/api';
 import AddressAutocomplete from './AddressAutocomplete';
+import { mertek } from '@/lib/mertek';
 
 type Result = {
   distance_km: number;
@@ -146,7 +147,7 @@ export default function PriceCalculator() {
             }}
           >
             <div style={{ fontSize: 14, marginBottom: 8 }}>
-              Becsült távolság: <strong>{result.distance_km} km</strong>
+              Becsült távolság: <strong>{mertek(result.distance_km, 'km')}</strong>
             </div>
             <div style={{ fontSize: 32, fontWeight: 800 }}>
               {fmt(result.range_low_huf)} – {fmt(result.range_high_huf)} Ft

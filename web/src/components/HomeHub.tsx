@@ -20,6 +20,7 @@ import { kovetkezoLepes } from '@/lib/kovetkezoLepes';
 import { szia } from '@/lib/nev';
 import SegmentedControl from '@/components/SegmentedControl';
 import StatusPill from '@/components/StatusPill';
+import { ertekeles, mertek } from '@/lib/mertek';
 
 type Mode = 'driver' | 'shipper';
 
@@ -121,7 +122,7 @@ export default function HomeHub() {
                   <>{' · '}<BadgeCheck size={13} color="var(--success)" style={{ verticalAlign: -2 }} /> Ellenőrzött</>
                 ) : null}
                 {d?.ratingCount > 0 ? (
-                  <>{' · '}<Star size={13} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {Number(d.ratingAvg).toFixed(1)}</>
+                  <>{' · '}<Star size={13} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {ertekeles(d.ratingAvg)}</>
                 ) : null}
                 {d?.availableVouchers > 0 ? (
                   <>{' · '}<Ticket size={13} style={{ verticalAlign: -2 }} /> {d.availableVouchers} ingyenes kapcsolatfelvétel</>
@@ -276,7 +277,7 @@ export default function HomeHub() {
                         {telepules(j.dropoff_address)}
                       </div>
                       <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-                        Feladó: {j.shipper_name} · {j.distance_km} km
+                        Feladó: {j.shipper_name} · {mertek(j.distance_km, 'km')}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>

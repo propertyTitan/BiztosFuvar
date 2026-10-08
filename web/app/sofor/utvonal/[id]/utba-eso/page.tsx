@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { api, Job } from '@/api';
 import { useCurrentUser } from '@/lib/auth';
 import { Zap, MapPin, Flag, Package } from 'lucide-react';
+import { mertek } from '@/lib/mertek';
 
 type AlongJob = Job & {
   along_pickup_wp_name: string;
@@ -121,7 +122,7 @@ function UtbaEsoPage() {
 
               <div style={{ marginTop: 6, fontSize: 13 }}>
                 {j.weight_kg != null && <span className="muted">{j.weight_kg} kg</span>}
-                {j.distance_km != null && <span className="muted" style={{ marginLeft: 12 }}>{j.distance_km} km össztáv</span>}
+                {j.distance_km != null && <span className="muted" style={{ marginLeft: 12 }}>{mertek(j.distance_km, 'km')} össztáv</span>}
               </div>
 
               {j.pickup_needs_carrying && (

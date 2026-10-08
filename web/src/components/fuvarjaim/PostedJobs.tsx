@@ -11,6 +11,7 @@ import { ListSkeleton, EmptyState } from '@/components/StateView';
 import { JARAT_ENGEDELYEZVE } from '@/lib/features';
 import { FileText, Hourglass, Route as RouteIcon, MapPin, Flag, Calendar, CircleCheck } from 'lucide-react';
 import StatusPill from '@/components/StatusPill';
+import { mertek } from '@/lib/mertek';
 
 // A fuvar-állapot felirata és színe a közös lib/statusz.ts-ből jön
 // (2026-10-08, UX-átvizsgálás A12): eddig itt minden aktív fuvar kék
@@ -179,7 +180,7 @@ export default function SajatHirdeteseim() {
               <p className="muted" style={{ margin: '2px 0' }}><MapPin size={13} style={{ verticalAlign: -2 }} /> {j.pickup_address}</p>
               <p className="muted" style={{ margin: '2px 0' }}><Flag size={13} style={{ verticalAlign: -2 }} /> {j.dropoff_address}</p>
               <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
-                {j.distance_km != null && `${j.distance_km} km`}
+                {j.distance_km != null && mertek(j.distance_km, 'km')}
               </div>
             </div>
             <div style={{ textAlign: 'right' }}>

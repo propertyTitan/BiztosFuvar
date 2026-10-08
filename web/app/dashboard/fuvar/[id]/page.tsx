@@ -23,7 +23,7 @@ import { felvetelIdopont, rovidDatumIdo } from '@/lib/idopont';
 import { ujrafeladasPiszkozat } from '@/lib/ujrafeladas';
 import { mentPiszkozat, olvasPiszkozat, piszkozatKulcs, UJ_FUVAR_PISZKOZAT_ELOTAG } from '@/lib/urlapPiszkozat';
 import TesztFizetesSav from '@/components/TesztFizetesSav';
-import { mertek } from '@/lib/mertek';
+import { ertekeles, mertek } from '@/lib/mertek';
 import SzamlaIgenyJelzes from '@/components/SzamlaIgenyJelzes';
 import DijFizetesKartya from '@/components/DijFizetesKartya';
 import { getSocket, joinUserRoom, subscribeJob } from '@/lib/socket';
@@ -54,7 +54,7 @@ function ReturnPolicyBadge({ bid }: { bid: Bid }) {
       magyarazat: 'Ha a kézbesítés meghiúsul, 5 munkanapon belül külön díj nélkül visszaviszi hozzád.',
     },
     extra_fee: {
-      text: `Visszaszállítás: +${(bid.return_fee_huf ?? 0).toLocaleString('hu-HU')} Ft`,
+      text: `Visszaszállítás: +${ft(bid.return_fee_huf ?? 0)} Ft`,
       tint: 'rgba(217,119,6,0.14)', ikon: <Undo2 size={12} aria-hidden />,
       magyarazat: 'Ha a kézbesítés meghiúsul, ennyiért 5 munkanapon belül visszaviszi hozzád.',
     },
@@ -667,7 +667,7 @@ export default function FuvarReszletek() {
                         {(valasztott.rating_count ?? 0) > 0 ? (
                           <span style={{ color: 'var(--warning-text)', fontWeight: 600 }}>
                             <Star size={12} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} />{' '}
-                            {Number(valasztott.rating_avg).toFixed(1)} <span className="muted">({valasztott.rating_count})</span>
+                            {ertekeles(valasztott.rating_avg)} <span className="muted">({valasztott.rating_count})</span>
                           </span>
                         ) : (
                           <span className="muted">Még nincs értékelése</span>
@@ -1019,7 +1019,7 @@ export default function FuvarReszletek() {
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       {(b.rating_count ?? 0) > 0 && (b.rating_avg ?? 0) > 0 ? (
                         <span style={{ fontSize: 12, color: 'var(--warning-text)', fontWeight: 600 }}>
-                          <Star size={12} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {Number(b.rating_avg).toFixed(1)}
+                          <Star size={12} color="var(--warning)" fill="var(--warning)" style={{ verticalAlign: -2 }} /> {ertekeles(b.rating_avg)}
                           <span className="muted"> ({b.rating_count})</span>
                         </span>
                       ) : (
