@@ -77,6 +77,9 @@ function ReturnPolicyBadge({ bid }: { bid: Bid }) {
   );
 }
 
+/** A kapcsolatfelvételi díj kártyájának horgonya (elfogadás utáni görgetés). */
+const DIJ_KARTYA_ID = 'kapcsolatfelveteli-dij';
+
 /** A fotó-típusok magyar neve (A20: eddig a „damage"/„document" nyersen látszott). */
 const FOTO_TIPUS: Record<string, string> = {
   pickup: 'Felvétel', dropoff: 'Lerakodás', damage: 'Kár', document: 'Dokumentum', listing: 'Hirdetés',
@@ -251,9 +254,12 @@ export default function FuvarReszletek() {
       toast.success('Ajánlat elfogadva', 'Következő lépés: a kapcsolatfelvételi díj a díjkártyán.');
       await loadAll();
       // A díjkártya a lap tetején jelenik meg, az elfogadás gombja lent van —
-      // odagörgetünk, hogy a következő lépés ne maradjon a nézeten kívül.
+      // odagörgetünk, hogy a következő lépés ne maradjon a nézeten kívül. A
+      // kártya TETEJÉRE (a díj összege + a kiválasztott szállító), nem a
+      // benne lévő fizetési blokkra: az a nyilatkozattal kezdődik, és a
+      // díj a nézet fölé csúszott (fix2-review).
       setTimeout(() => {
-        document.getElementById('dij-fizetes')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+        document.getElementById(DIJ_KARTYA_ID)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
       }, 50);
     } catch (err: any) {
       toast.error('Hiba az ajánlat elfogadásakor', err.message);
@@ -565,7 +571,7 @@ export default function FuvarReszletek() {
           legyen a fő gomb, a másodlagos műveletek (szállító-csere, lemondás) pedig
           egy elválasztó alatt, szövegként. A díj előtti „Fizetés" kártya és a
           mellette álló üres bizonyíték-kártya eddig egyforma súllyal állt. */}
-      <div className="card" style={{ marginTop: 16 }} data-testid="kapcsolatfelveteli-dij-kartya">
+      <div id={DIJ_KARTYA_ID} className="card" style={{ marginTop: 16, scrollMarginTop: 80 }} data-testid="kapcsolatfelveteli-dij-kartya">
         <h2
           style={{
             margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: 0.6,
@@ -586,7 +592,7 @@ export default function FuvarReszletek() {
                 <p className="muted" style={{ margin: '4px 0 0', fontSize: 14, lineHeight: 1.5 }}>
                   {!job.paid_at
                     ? 'Díjat nem fizettél, pénzmozgás nem történt.'
-                    : (job.connection_fee_huf ?? 0) === 0
+                    : job.connection_fee_huf != null && Number(job.connection_fee_huf) === 0
                       ? 'A kapcsolatfelvételt az ajánlói jutalmad fedezte — másik fuvarra nem vihető át.'
                       : 'A befizetett kapcsolatfelvételi díj nem jár vissza, és másik fuvarra nem vihető át (ÁSZF 4.1).'}
                 </p>
@@ -621,10 +627,12 @@ export default function FuvarReszletek() {
             >
               {ft(job.connection_fee_huf ?? 0)} Ft
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
-              Fuvardíj: <strong>{ft(job.accepted_price_huf ?? 0)} Ft</strong> — közvetlenül a szállítónak,
-              készpénzben vagy átutalással, ahogy megegyeztek.
-            </p>
+            {Number(job.accepted_price_huf) > 0 && (
+              <p style={{ margin: '4px 0 0', fontSize: 13, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+                Fuvardíj: <strong>{ft(job.accepted_price_huf ?? 0)} Ft</strong> — közvetlenül a szállítónak,
+                készpénzben vagy átutalással, ahogy megegyeztek.
+              </p>
+            )}
 
             {/* A kiválasztott szállító (Q8): a kártya megmondja, kinek a
                 kapcsolatát nyitja meg a díj. */}
@@ -662,7 +670,7 @@ export default function FuvarReszletek() {
                             {Number(valasztott.rating_avg).toFixed(1)} <span className="muted">({valasztott.rating_count})</span>
                           </span>
                         ) : (
-                          <span className="muted">Új szállító — még nincs értékelése</span>
+                          <span className="muted">Még nincs értékelése</span>
                         )}
                       </div>
                     </div>
@@ -799,11 +807,15 @@ export default function FuvarReszletek() {
       {bizonyitekFotok.length > 0 ? (
         <div className="card" style={{ marginTop: 16 }}>
           <h2>Bizonyíték-fotók (szállító)</h2>
+          <div
+            data-testid="bizonyitek-foto-racs"
+            style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: 12 }}
+          >
           {bizonyitekFotok.map((p) => (
-            <div key={p.id} style={{ marginBottom: 12 }}>
+            <div key={p.id}>
               <strong>{FOTO_TIPUS[p.kind] || 'Fotó'}</strong>
               <div className="muted" style={{ fontSize: 12 }}>
-                {new Date(p.taken_at).toLocaleString('hu-HU')}
+                {rovidDatumIdo(p.taken_at)}
                 {p.gps_lat && ` · ${p.gps_lat.toFixed(5)}, ${p.gps_lng?.toFixed(5)}`}
               </div>
               {p.url && (
@@ -814,13 +826,14 @@ export default function FuvarReszletek() {
                     width: '100%',
                     borderRadius: 8,
                     marginTop: 8,
-                    maxHeight: 240,
+                    aspectRatio: '4 / 3',
                     objectFit: 'cover',
                   }}
                 />
               )}
             </div>
           ))}
+          </div>
         </div>
       ) : !['pending', 'bidding', 'cancelled'].includes(job.status) ? (
         <p className="muted" style={{ marginTop: 12, marginBottom: 0, fontSize: 13, display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -1014,7 +1027,7 @@ export default function FuvarReszletek() {
                           className="pill"
                           style={{ fontSize: 11, padding: '2px 8px', background: 'rgba(37,99,235,0.10)', color: 'var(--text)' }}
                         >
-                          Új szállító
+                          Még nincs értékelése
                         </span>
                       )}
                       {b.carrier_account_type === 'company' && b.carrier_company_name && (
@@ -1031,7 +1044,9 @@ export default function FuvarReszletek() {
                       if (!f) return null;
                       return (
                         <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
-                          Várható felvétel: {f.abszolut}{f.relativ ? ` (${f.relativ})` : ''}
+                          {f.elmult
+                            ? `A vállalt felvételi időpont (${f.abszolut}) elmúlt — elfogadás előtt kérdezd meg a szállítót.`
+                            : `Várható felvétel: ${f.abszolut}${f.relativ ? ` (${f.relativ})` : ''}`}
                         </div>
                       );
                     })()}

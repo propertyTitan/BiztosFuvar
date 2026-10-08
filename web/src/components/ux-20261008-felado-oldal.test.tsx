@@ -10,7 +10,7 @@
 //  Q18 a chat a díj előtt előre jelzi a kontakt-szabályt
 // =====================================================================
 import { render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ShipperPage from '../../app/dashboard/fuvar/[id]/page';
 import { api } from '@/api';
 
@@ -118,7 +118,9 @@ describe('A12 + Q8 — jelvény és díjkártya', () => {
     expect(within(kartya).getByText('500 Ft')).toBeInTheDocument();
     expect(within(kartya).getByText('Kiválasztott szállító')).toBeInTheDocument();
     expect(within(kartya).getByText('Szabó Péter')).toBeInTheDocument();
-    expect(within(kartya).getByText(/Új szállító/)).toBeInTheDocument();
+    // fix2-review: a jelvény az értékelések számát mondja, nem a fuvar-előzményt.
+    expect(within(kartya).getByText('Még nincs értékelése')).toBeInTheDocument();
+    expect(kartya.textContent).not.toMatch(/Új szállító/);
     // Üres bizonyíték-fotó: egysoros helykitöltő, nincs „pickup/dropoff" szakszó.
     expect(document.body.textContent).toMatch(/Még nincs felvételi vagy lerakodási fotó/);
     expect(document.body.textContent).not.toMatch(/pickup|dropoff/);
@@ -162,7 +164,13 @@ describe('A21 — lemondott fuvar', () => {
 });
 
 describe('Q6 — az ajánlat-lista', () => {
+  // A felvételi időpont „most"-hoz mért: rögzített óra, különben a teszt a nap
+  // második felében (az időpont elmúltával) másik ágat látna (fix2-review).
+  afterEach(() => { vi.useRealTimers(); });
+
   it('bizalmi sor, a díj egyszer, olvasható felvételi időpont, érthető visszaszállítás', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-08T08:45:00Z'));
     vi.mocked(api.getJob).mockResolvedValue({ ...ALAP, status: 'bidding', carrier_id: null, paid_at: null } as any);
     vi.mocked(api.listBids).mockResolvedValue([
       { id: 'b1', job_id: 'job', carrier_id: 'c1', carrier_name: 'Szabó Péter', status: 'pending', revision: 1,
@@ -179,7 +187,8 @@ describe('Q6 — az ajánlat-lista', () => {
     expect(screen.getByText(/Várható felvétel: kb\. okt\. 8\., 15:40/)).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/~300 perc/);
     expect(screen.getByText(/5 munkanapon belül külön díj nélkül visszaviszi hozzád/)).toBeInTheDocument();
-    expect(screen.getByText('Új szállító')).toBeInTheDocument();
+    expect(screen.getByText('Még nincs értékelése')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Új szállító/);
     expect(screen.getByText(/Ford Transit/)).toBeInTheDocument();
   });
 

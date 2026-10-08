@@ -99,6 +99,9 @@ describe('A22 / Q6 — időpontok', () => {
     expect(felvetelIdopont(undefined, 120, most)).toBeNull();
     // Múltbeli időpontnál csak az abszolút alak marad (relatívat nem állítunk).
     expect(felvetelIdopont('2026-10-06T08:40:00Z', 60, most)?.relativ).toBeNull();
+    // fix2-review: a hívó tudja, hogy az időpont elmúlt (nem „Várható").
+    expect(f?.elmult).toBe(false);
+    expect(felvetelIdopont('2026-10-06T08:40:00Z', 60, most)?.elmult).toBe(true);
   });
 });
 

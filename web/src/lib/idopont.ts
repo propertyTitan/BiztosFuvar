@@ -90,7 +90,7 @@ export function felvetelIdopont(
   ajanlatIdeje: string | null | undefined,
   etaPerc: number | null | undefined,
   most: Date = new Date(),
-): { abszolut: string; relativ: string | null } | null {
+): { abszolut: string; relativ: string | null; elmult: boolean } | null {
   const kezdet = ervenyes(ajanlatIdeje);
   const perc = Number(etaPerc);
   if (!kezdet || !Number.isFinite(perc) || perc <= 0) return null;
@@ -101,5 +101,7 @@ export function felvetelIdopont(
     relativ = hatra < 60 ? `kb. ${hatra} perc múlva` : `kb. ${Math.round(hatra / 60)} óra múlva`;
   }
   // Rag nélkül: a „-tól/-től" a kiejtett számtól függ (15:30-tól, 15:40-től).
-  return { abszolut: `kb. ${rovidDatumIdo(cel)}`, relativ };
+  // `elmult`: egy napokkal korábbi ajánlatnál a „Várható felvétel" félrevezető
+  // lenne — a hívó ilyenkor másként fogalmaz (fix2-review).
+  return { abszolut: `kb. ${rovidDatumIdo(cel)}`, relativ, elmult: hatra <= 0 };
 }
