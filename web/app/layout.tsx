@@ -171,7 +171,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CoverageModal />
           <SiteHeader />
           <EmailVerifyGate />
-          <InstallPromptBanner />
           <main className="site-main">
             {/* Teszt-mód jelzés egy helyen, az egész appra — korábban a
                 LandingPage és a bejelentkezés is külön renderelte (duplikáció).
@@ -182,6 +181,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <SiteFooter />
           <AiChatWidget />
+          {/* Fix alsó panel, a süti-döntés UTÁN (UX-kör A24) — eddig a fejléc
+              alá, a dokumentumfolyamba ugrott be, és letolta a tartalmat. */}
+          <InstallPromptBanner />
           <CookieConsentBanner />
         </ToastProvider>
         </I18nProvider>
