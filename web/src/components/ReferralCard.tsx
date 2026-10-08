@@ -60,9 +60,9 @@ export default function ReferralCard() {
         Oszd meg a kódodat vagy a linkedet. Ha valaki vele regisztrál és
         teljesíti az első fuvarját (feladóként vagy szállítóként), kapsz egy{' '}
         <strong>ingyenes kapcsolatfelvételt</strong>. A kupon {AJANLOI_KUPON_ERVENYES_NAP} napig
-        érvényes: ha ezalatt szállítót választasz, a díjfizetés lépésénél magától
-        beváltjuk, és a kapcsolatfelvételi díj elmarad — akármekkora a fuvar. Egy
-        fuvarra érvényes.
+        érvényes, és a díjfizetés lépésénél váltódik be: ha ezen belül fizetnéd egy
+        fuvar kapcsolatfelvételi díját, magától beváltjuk, és a díj elmarad —
+        akármekkora a fuvar. Egy fuvarra érvényes.
       </p>
 
       {/* Ajánlói kód — verbális/üzenetben megosztható, kézzel is beírható a

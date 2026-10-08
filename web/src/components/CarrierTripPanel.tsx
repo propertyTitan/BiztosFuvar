@@ -18,6 +18,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Hourglass, Truck, Package, Phone, CircleHelp } from 'lucide-react';
+import { telefonFormaz, telefonHref } from '@/lib/telefon';
 import FieldError, { redBorder } from '@/components/FieldError';
 import { api } from '@/api';
 import { useToast } from './ToastProvider';
@@ -415,7 +416,7 @@ export default function CarrierTripPanel({
         </p>
         {feladoTelefon && (
           <a
-            href={`tel:${feladoTelefon}`}
+            href={telefonHref(feladoTelefon)}
             className="btn btn-secondary"
             style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}
           >
@@ -454,8 +455,10 @@ export default function CarrierTripPanel({
           <ul style={{ margin: '10px 0 0', paddingLeft: 18, fontSize: 14, lineHeight: 1.6 }}>
             <li>
               Hívd fel az átvevőt
-              {cimzettTelefon && <> (<a href={`tel:${cimzettTelefon}`}>{cimzettTelefon}</a>)</>}
-              {' '}vagy a feladót{feladoTelefon && <> (<a href={`tel:${feladoTelefon}`}>{feladoTelefon}</a>)</>}.
+              {/* A közös formázó (lib/telefon) — a KapcsolatKártyával azonos
+                  alak és szóközmentes tel:-link (fix2-review). */}
+              {cimzettTelefon && <> (<a href={telefonHref(cimzettTelefon)}>{telefonFormaz(cimzettTelefon)}</a>)</>}
+              {' '}vagy a feladót{feladoTelefon && <> (<a href={telefonHref(feladoTelefon)}>{telefonFormaz(feladoTelefon)}</a>)</>}.
             </li>
             {vallalasSzoveg(vallalas) && (
               <li>A vállalásod: {vallalasSzoveg(vallalas)}</li>

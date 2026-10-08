@@ -75,7 +75,8 @@ describe('CarrierTripPanel — kézbesítés', () => {
   });
 
   it('a kódmező alatt útmutató + a feladó hívása, ha a díj után ismert a száma', () => {
-    render(<CarrierTripPanel jobId="j1" status="in_progress" paid onDone={vi.fn()} feladoTelefon="+36301234567" />);
+    // Szóközös / „06”-os bevitel is szóközmentes, nemzetközi tel:-linket ad.
+    render(<CarrierTripPanel jobId="j1" status="in_progress" paid onDone={vi.fn()} feladoTelefon="06 30 123 4567" />);
     expect(screen.getByText(/Nincs kódja az átvevőnek\?/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Feladó hívása/ })).toHaveAttribute('href', 'tel:+36301234567');
     expect(screen.getByText(/hívd fel, és kérd el tőle/)).toBeInTheDocument();
@@ -98,7 +99,9 @@ describe('CarrierTripPanel — kézbesítés', () => {
       />,
     );
     expect(screen.getByText('Nem sikerül átadni?')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '+36307654321', hidden: true })).toHaveAttribute('href', 'tel:+36307654321');
+    // A közös formázóval: olvasható alak, szóközmentes tel:-link (fix2-review).
+    expect(screen.getByRole('link', { name: '+36 30 765 4321', hidden: true })).toHaveAttribute('href', 'tel:+36307654321');
+    expect(screen.getByRole('link', { name: '+36 30 123 4567', hidden: true })).toHaveAttribute('href', 'tel:+36301234567');
     expect(screen.getByText(/A vállalásod:.*külön díjért \(3\s?000 Ft\)/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Probléma bejelentése', hidden: true })).toHaveAttribute('href', '#problema-bejelentese');
   });

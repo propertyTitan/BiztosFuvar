@@ -32,7 +32,10 @@ describe('ajánlói kupon — web ↔ backend szinkron', () => {
 
   it('a jutalom-értesítés is kimondja az érvényességet — és hogy a díjfizetésnél váltódik be', () => {
     const forras = fs.readFileSync(path.join(__dirname, '..', 'src', 'services', 'referral.js'), 'utf8');
-    expect(forras).toMatch(/A kupon \$\{REFERRAL_VOUCHER_VALID_DAYS\} napig érvényes: ha ezalatt szállítót választasz, a díjfizetés lépésénél/);
+    expect(forras).toMatch(/A kupon \$\{REFERRAL_VOUCHER_VALID_DAYS\} napig érvényes, és a díjfizetés lépésénél váltódik be: ha ezen belül fizetnéd egy fuvar kapcsolatfelvételi díját/);
+    // A beváltás napja számít, nem a szállító-választásé (fix2-review): a
+    // 60. nap körül elfogadott, de később fizetett fuvarnál a kupon már lejárt.
+    expect(forras).not.toMatch(/ha ezalatt szállítót választasz/);
     // A kupon a /pay-en váltódik be (useVoucherIfAvailable: valid_until >=
     // CURRENT_DATE a BEVÁLTÁS napján) — a feladás napja nem számít, ezért a
     // „ha N napon belül adsz fel fuvart” ígéret hamis volt (fix1-review).

@@ -28,6 +28,25 @@ describe('kovetkezoLepes', () => {
 
   it('vitás fuvar: nincs gomb', () => {
     expect(kovetkezoLepes({ status: 'disputed', paid_at: 'x' }).gomb).toBeNull();
+    expect(kovetkezoLepes({ status: 'disputed', paid_at: 'x', status_before_dispute: 'delivered' }).szoveg)
+      .toMatch(/addig várj/);
+  });
+
+  // fix2-review: a vitakártya szerint „ha a csomag még nálad van, az átadás a
+  // szokásos módon” megy (a backend engedi: disputed + in_progress előtte) —
+  // a munkalista nem mondhat ellentmondó „addig várj”-t.
+  it('vita úton lévő csomaggal: a kézbesítés mehet, nem „addig várj”', () => {
+    const l = kovetkezoLepes({ status: 'disputed', paid_at: 'x', status_before_dispute: 'in_progress' });
+    expect(l.kod).toBe('vita');
+    expect(l.gomb).toBe('Kézbesítés →');
+    expect(l.szoveg).toMatch(/^Vita folyamatban — a csomag nálad van/);
+    expect(l.szoveg).toMatch(/átvételi kódja/);
+    expect(l.szoveg).not.toMatch(/várj/);
+    expect(l.sulyos).toBe(true);
+  });
+
+  it('a vita jelvénye a fuvar-állapotjelvénnyel azonos szó: „Vita folyamatban”', () => {
+    expect(kovetkezoLepes({ status: 'disputed', paid_at: 'x' }).jelveny).toBe('Vita folyamatban');
   });
 
   it('a gombfeliratok mondatkezdő betűsek, nem csupa nagybetűsek', () => {

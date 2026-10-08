@@ -16,6 +16,8 @@
 export type KovetkezoLepesFuvar = {
   status: string;
   paid_at?: string | null;
+  /** Vitás fuvarnál: hol tartott a fuvar a vita megnyitásakor. */
+  status_before_dispute?: string | null;
 };
 
 export type LepesKod = 'kezbesites' | 'vita' | 'felvetel' | 'dijfizetes' | 'nincs';
@@ -46,11 +48,26 @@ export function kovetkezoLepes(j: KovetkezoLepesFuvar): KovetkezoLepes {
     };
   }
   if (j.status === 'disputed') {
+    // Ha a vita megnyitásakor a csomag már úton volt, a kézbesítés a vita
+    // alatt is mehet (backend: photos.js — disputed + status_before_dispute
+    // = in_progress). A vitakártya ezt mondja („Ha a csomag még nálad van,
+    // az átadás a szokásos módon…”); a munkalista eddig „addig várj”-t
+    // írt — két felület, két ellentétes utasítás (fix2-review).
+    if (j.status_before_dispute === 'in_progress') {
+      return {
+        kod: 'vita',
+        szoveg: 'Vita folyamatban — a csomag nálad van, a kézbesítés a szokásos: fotó + a címzett 6 jegyű átvételi kódja',
+        gomb: 'Kézbesítés →',
+        jelveny: null,
+        sulyos: true,
+        sorrend: 1,
+      };
+    }
     return {
       kod: 'vita',
-      szoveg: 'Vita alatt — az ügyfélszolgálat dönt, addig várj',
+      szoveg: 'Vita folyamatban — az ügyfélszolgálat dönt, addig várj',
       gomb: null,
-      jelveny: 'Vita alatt',
+      jelveny: 'Vita folyamatban',
       sulyos: false,
       sorrend: 1,
     };

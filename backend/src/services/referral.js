@@ -193,7 +193,7 @@ async function maybeGrantReferralReward(userId, ctx = {}) {
       user_id: referrerId,
       type: 'referral_reward',
       title: '🎉 Ingyenes kapcsolatfelvételt kaptál!',
-      body: `Akit meghívtál, teljesítette az első fuvarját. A kupon ${REFERRAL_VOUCHER_VALID_DAYS} napig érvényes: ha ezalatt szállítót választasz, a díjfizetés lépésénél automatikusan beváltjuk, és a kapcsolatfelvételi díj elmarad, akármekkora is a fuvar. Egy fuvarra érvényes.`,
+      body: `Akit meghívtál, teljesítette az első fuvarját. A kupon ${REFERRAL_VOUCHER_VALID_DAYS} napig érvényes, és a díjfizetés lépésénél váltódik be: ha ezen belül fizetnéd egy fuvar kapcsolatfelvételi díját, automatikusan beváltjuk, és a díj elmarad, akármekkora is a fuvar. Egy fuvarra érvényes.`,
       link: '/dashboard',
     }).catch(() => {});
   } catch (err) {
