@@ -17,6 +17,48 @@ import StatusPill from '@/components/StatusPill';
 // szerint alakul (úton lévő elöl, fizetésre váró hátul). A logika 2026-10-08
 // óta KÖZÖS a főoldallal (lib/kovetkezoLepes) — a kettő nem csúszhat szét.
 
+// ⚠️ MODUL-SZINTEN (nem a lista-komponensen belül): a belül definiált
+// komponens minden szülő-renderkor ÚJ típus, így az összes kártya
+// újramountolt, és a fade-in animáció újra lefutott (pl. a Fuvarjaim
+// fülsorának görgetésekor — látható villanás).
+function JobCard({ j }: { j: Job }) {
+  return (
+    <Link
+      href={`/sofor/fuvar/${j.id}`}
+      className="card"
+      style={{ display: 'block', textDecoration: 'none', color: 'inherit', marginTop: 12 }}
+    >
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
+        {/* ⚠️ A bal oszlop ALAPSZÉLESSÉGE 220 px (nem flex:1 = 0-s alap): a
+            hosszú szállítói állapot-felirat („Elfogadva — a feladó
+            díjfizetésére vár”) mellett mobilon a cím eddig ~45 px-re szűkült,
+            és a .card overflow-wrap:anywhere szabálya BETŰNKÉNT törte. Így a
+            .row flex-wrap-je keskeny kijelzőn a jelvényt a cím alá teszi. */}
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <h3 style={{ marginTop: 0 }}>{j.title}</h3>
+          <p className="muted" style={{ margin: '2px 0' }}><MapPin size={13} style={{ verticalAlign: -2 }} /> {j.pickup_address}</p>
+          <p className="muted" style={{ margin: '2px 0' }}><Flag size={13} style={{ verticalAlign: -2 }} /> {j.dropoff_address}</p>
+          {kovetkezoLepes(j).szoveg && (
+            <p style={{
+              margin: '8px 0 0', fontSize: 13, display: 'flex', gap: 6, alignItems: 'flex-start',
+              color: kovetkezoLepes(j).sulyos ? 'var(--primary-text)' : 'var(--muted)', fontWeight: kovetkezoLepes(j).sulyos ? 700 : 400,
+            }}>
+              <ArrowRight size={14} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden /> <span>Következő: {kovetkezoLepes(j).szoveg}</span>
+            </p>
+          )}
+        </div>
+        <div style={{ textAlign: 'right', marginLeft: 'auto', maxWidth: '100%' }}>
+          {/* UX A11: közös állapot-jelvény, szállítói nézet (lib/statusz). */}
+          <StatusPill job={j} nezet="szallito" />
+          <div className="price" style={{ marginTop: 6 }}>
+            {(j.accepted_price_huf || j.suggested_price_huf || 0).toLocaleString('hu-HU')} Ft
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function SoforSajatFuvarok() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,39 +78,6 @@ export default function SoforSajatFuvarok() {
     .sort((a, b) => kovetkezoLepes(a).sorrend - kovetkezoLepes(b).sorrend);
   const done = jobs.filter((j) => ['delivered', 'completed'].includes(j.status));
   const other = jobs.filter((j) => !['accepted', 'in_progress', 'disputed', 'delivered', 'completed'].includes(j.status));
-
-  function JobCard({ j }: { j: Job }) {
-    return (
-      <Link
-        href={`/sofor/fuvar/${j.id}`}
-        className="card"
-        style={{ display: 'block', textDecoration: 'none', color: 'inherit', marginTop: 12 }}
-      >
-        <div className="row" style={{ justifyContent: 'space-between', alignItems: 'start' }}>
-          <div style={{ flex: 1 }}>
-            <h3 style={{ marginTop: 0 }}>{j.title}</h3>
-            <p className="muted" style={{ margin: '2px 0' }}><MapPin size={13} style={{ verticalAlign: -2 }} /> {j.pickup_address}</p>
-            <p className="muted" style={{ margin: '2px 0' }}><Flag size={13} style={{ verticalAlign: -2 }} /> {j.dropoff_address}</p>
-            {kovetkezoLepes(j).szoveg && (
-              <p style={{
-                margin: '8px 0 0', fontSize: 13, display: 'flex', gap: 6, alignItems: 'flex-start',
-                color: kovetkezoLepes(j).sulyos ? 'var(--primary-text)' : 'var(--muted)', fontWeight: kovetkezoLepes(j).sulyos ? 700 : 400,
-              }}>
-                <ArrowRight size={14} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden /> <span>Következő: {kovetkezoLepes(j).szoveg}</span>
-              </p>
-            )}
-          </div>
-          <div style={{ textAlign: 'right' }}>
-            {/* UX A11: közös állapot-jelvény, szállítói nézet (lib/statusz). */}
-            <StatusPill job={j} nezet="szallito" />
-            <div className="price" style={{ marginTop: 6 }}>
-              {(j.accepted_price_huf || j.suggested_price_huf || 0).toLocaleString('hu-HU')} Ft
-            </div>
-          </div>
-        </div>
-      </Link>
-    );
-  }
 
   return (
     <div>

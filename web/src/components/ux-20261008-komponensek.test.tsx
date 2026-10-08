@@ -144,6 +144,38 @@ describe('A12 — MyBids', () => {
     render(<MyBids />);
     expect(await screen.findByText(/Indulhat a fuvar/)).toBeInTheDocument();
   });
+
+  it('úton lévő és vitás fuvaron NEM „Indulhat a fuvar” — a közös jelvény a valós állapotot mondja', async () => {
+    mocks.user = { id: 'u-szallito', role: 'carrier' };
+    vi.mocked(api.myBids).mockResolvedValue([
+      { ...sor, bid_id: 'b1', job_id: 'j1', job_title: 'Mosógép', job_status: 'in_progress', job_fee_paid: true },
+      { ...sor, bid_id: 'b2', job_id: 'j2', job_title: 'Szekrény', job_status: 'disputed', job_fee_paid: true },
+    ] as any);
+    render(<MyBids />);
+    expect(await screen.findByText('Úton')).toBeInTheDocument();
+    expect(screen.getByText('Vita folyamatban')).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/Indulhat a fuvar/);
+  });
+
+  it('a kijelölt szállító sorában egy jelvény van (a fuvar állapota), nem kettő', async () => {
+    mocks.user = { id: 'u-szallito', role: 'carrier' };
+    vi.mocked(api.myBids).mockResolvedValue([{ ...sor, job_fee_paid: false }] as any);
+    const { container } = render(<MyBids />);
+    await screen.findByText(/Elfogadva — a feladó díjfizetésére vár/);
+    expect(container.querySelectorAll('[data-statusz]')).toHaveLength(1);
+    // Az ajánlat saját „Elfogadva” jelvénye nem ismétli meg ugyanezt.
+    expect(container.querySelector('.pill')).toBeNull();
+  });
+
+  it('mobil-elrendezés: a címoszlop alapszélessége 220 px — a hosszú felirat nem nyomja betűnyire', async () => {
+    mocks.user = { id: 'u-szallito', role: 'carrier' };
+    vi.mocked(api.myBids).mockResolvedValue([{ ...sor, job_fee_paid: false }] as any);
+    render(<MyBids />);
+    const cim = await screen.findByRole('heading', { name: 'Íróasztal' });
+    const oszlop = cim.parentElement as HTMLElement;
+    expect(oszlop.style.flex).toMatch(/220px/);
+    expect(oszlop.style.minWidth).toMatch(/^0(px)?$/);
+  });
 });
 
 describe('A22 — értesítések', () => {
