@@ -40,7 +40,7 @@ import type { ReactNode } from 'react';
 import CibKartyaLogok from '@/components/CibKartyaLogok';
 import { elfogadottKartyakSzoveg, kartyaElfogadva } from '@/lib/kartyaLogok';
 import { KERESKEDO_ORSZAG_SOR } from '@/lib/cibFeliratok';
-import { CIB_RESZLETES_TAJEKOZTATO as BANK, GOFUVAR_KIEGESZITES } from '@/lib/cibTajekoztato';
+import { CIB_RESZLETES_TAJEKOZTATO as BANK, CIB_ROVID_TAJEKOZTATO as ROVID, GOFUVAR_KIEGESZITES } from '@/lib/cibTajekoztato';
 import { RC_CSOPORT_NEV } from '@/lib/cibRcCsoport';
 import { DIJ_SZABALY_SZOVEG } from '@/lib/connectionFee';
 import { KERESKEDO } from '@/lib/kereskedo';
@@ -72,8 +72,21 @@ export default function BankkartyasFizetesOldal() {
       <h1 style={{ marginBottom: 12 }}>Bankkártyás fizetés</h1>
       <CibKartyaLogok cel="cib" azonnal nagy />
 
+      {/* 2026-10-10: a bank dokumentumának (eCom_CIB.fiz.taj_HU.docx) TELJES
+          tartalma a nyilvános oldalon is, a docx sorrendjében: előbb a
+          szaggatott vonal feletti rövid tájékoztató (eddig csak a fizetési
+          kártyán állt), majd a részletes — a „részletes tájékoztatónkat"
+          ide, a részletes részre mutat. */}
+      <div data-testid="cib-rovid-tajekoztato" style={{ marginTop: 20 }}>
+        <p>{ROVID.bekezdesek[0]}</p>
+        <p>
+          {ROVID.bekezdesek[1]} <a href="#reszletes">{ROVID.reszletesLink}</a>
+        </p>
+      </div>
+      <hr style={{ border: 0, borderTop: '1px dashed var(--border)', margin: '20px 0' }} />
+
       {/* A CIB Bank részletes tájékoztatója — SZÓ SZERINT (lib/cibTajekoztato.ts). */}
-      <div data-testid="cib-reszletes-tajekoztato" style={{ marginTop: 20 }}>
+      <div id="reszletes" data-testid="cib-reszletes-tajekoztato" style={{ marginTop: 20, scrollMarginTop: 80 }}>
         {BANK.bevezeto.map((b) => <p key={b}>{b}</p>)}
 
         <h2 style={{ marginTop: 32 }}>{BANK.mireFigyeljen.cim}</h2>

@@ -144,6 +144,25 @@ describe('(2) a fizetési kártya: a bank rövid tájékoztatója szó szerint',
 });
 
 describe('(2) /bankkartyas-fizetes: a bank részletes tájékoztatója szó szerint, utána a kiegészítés', () => {
+  it('a docx TELJES tartalma a nyilvános oldalon: előbb a rövid tájékoztató (a részletesre mutató linkkel), utána a részletes', () => {
+    // 2026-10-10: a rövid rész eddig csak a (bejelentkezett) fizetési kártyán állt.
+    const { container } = render(<BankkartyasFizetesOldal />);
+    const rovid = screen.getByTestId('cib-rovid-tajekoztato');
+    expect(rovid.textContent).toContain(
+      'A GoFuvar a CIB Bank által biztosított biztonságos bankkártyás fizetési megoldást nyújtja vásárlóinak.',
+    );
+    expect(rovid.textContent).toContain(
+      'A kapcsolatfelvételi szolgáltatás ellenértéke, a kifizetett összeg azonnal zárolásra kerül kártyaszámláján.',
+    );
+    expect(within(rovid).getByRole('link', { name: 'Kérjük, olvassa el részletes tájékoztatónkat!' }))
+      .toHaveAttribute('href', '#reszletes');
+    const reszletes = screen.getByTestId('cib-reszletes-tajekoztato');
+    expect(reszletes.id).toBe('reszletes');
+    // Sorrend: logó → rövid → részletes.
+    const html = container.innerHTML;
+    expect(html.indexOf('cib-rovid-tajekoztato')).toBeLessThan(html.indexOf('cib-reszletes-tajekoztato'));
+  });
+
   it('a bank kulcsmondatai betűre, a cserélt szavakkal; „Webáruház" nincs', () => {
     render(<BankkartyasFizetesOldal />);
     const bank = screen.getByTestId('cib-reszletes-tajekoztato').textContent || '';
