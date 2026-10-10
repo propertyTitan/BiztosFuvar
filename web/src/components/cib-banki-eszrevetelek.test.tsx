@@ -99,9 +99,11 @@ describe('(1) a banki logókép — a bank által megnevezett fájlok', () => {
     expect(css).toMatch(/max-width:\s*100%/);
   });
 
-  it('a lábléc a banki képet mutatja (a tájékoztatóra linkelve)', () => {
+  it('a lábléc a banki képet mutatja (a tájékoztatóra linkelve), lusta betöltéssel', () => {
     render(<SiteFooter />);
     bankiKepetMutat(screen.getByRole('contentinfo'), '/bankkartyas-fizetes');
+    // A lábléc minden oldalon ott van — a kép csak a közelébe görgetve töltődjön.
+    expect(screen.getByAltText(KEP.alt)).toHaveAttribute('loading', 'lazy');
   });
 
   it('a fizetési kártya banki blokkja a banki képet mutatja (a tájékoztatóra linkelve)', () => {
@@ -112,6 +114,8 @@ describe('(1) a banki logókép — a bank által megnevezett fájlok', () => {
   it('a /bankkartyas-fizetes oldal a banki képet mutatja (a bank honlapjára linkelve), a 3DS-logók külön nincsenek', () => {
     render(<BankkartyasFizetesOldal />);
     bankiKepetMutat(document.body, 'https://www.cib.hu/');
+    // Az oldal tetején áll — azonnal töltődik.
+    expect(screen.getByAltText(KEP.alt)).toHaveAttribute('loading', 'eager');
     expect(screen.queryByAltText('Visa Secure')).toBeNull();
     expect(screen.queryByAltText('Mastercard Identity Check')).toBeNull();
   });

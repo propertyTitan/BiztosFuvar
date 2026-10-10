@@ -28,9 +28,12 @@ type Props = {
   /** Hova visz a kép: a vásárlói tájékoztatóra (alap) vagy a bank honlapjára. */
   cel?: 'tajekoztato' | 'cib';
   igazitas?: 'bal' | 'kozep';
+  /** Az oldal tetején álló kép azonnal töltődjön; egyébként (lábléc, fizetési
+   *  kártya) lusta betöltés — a lábléc minden oldalon ott van. */
+  azonnal?: boolean;
 };
 
-export default function CibKartyaLogok({ cel = 'tajekoztato', igazitas = 'bal' }: Props) {
+export default function CibKartyaLogok({ cel = 'tajekoztato', igazitas = 'bal', azonnal = false }: Props) {
   const kep = (
     <picture>
       <source
@@ -46,6 +49,7 @@ export default function CibKartyaLogok({ cel = 'tajekoztato', igazitas = 'bal' }
         alt={KEP.alt}
         width={KEP.vizszintes.szel}
         height={KEP.vizszintes.mag}
+        loading={azonnal ? 'eager' : 'lazy'}
         decoding="async"
       />
     </picture>

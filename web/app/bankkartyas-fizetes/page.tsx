@@ -70,7 +70,7 @@ export default function BankkartyasFizetesOldal() {
   return (
     <article style={{ maxWidth: 820, margin: '0 auto', padding: '32px 20px', lineHeight: 1.65, fontSize: 16 }}>
       <h1 style={{ marginBottom: 12 }}>Bankkártyás fizetés</h1>
-      <CibKartyaLogok cel="cib" />
+      <CibKartyaLogok cel="cib" azonnal />
 
       {/* A CIB Bank részletes tájékoztatója — SZÓ SZERINT (lib/cibTajekoztato.ts). */}
       <div data-testid="cib-reszletes-tajekoztato" style={{ marginTop: 20 }}>
