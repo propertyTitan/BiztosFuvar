@@ -1,0 +1,57 @@
+/* A CIB és a kártyatársaságok egyben szerkesztett banki logóképe
+   (CibKartyaLogok.tsx). A töréspont a lib/kartyaLogok.ts
+   CIB_KARTYALOGOK_KEP.keskenyMedia értékével AZONOS (max-width: 560px). */
+
+.doboz {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  max-width: 100%;
+}
+.kozep { align-items: center; text-align: center; }
+
+.felirat {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+/* A két banki kísérőszöveg ne törjön szét szavanként (390 px). */
+.felirat span { white-space: nowrap; }
+
+/* Fehér „chip": a bank és a kártyatársaságok logói fehér háttérre
+   készültek, sötét témában is így olvashatók. */
+.chip {
+  display: inline-block;
+  max-width: 100%;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  padding: 6px 10px;
+  line-height: 0;
+}
+.chip picture { display: block; }
+
+/* A 85 px-es banki forrás 44 px magasan jelenik meg (kicsinyítve, nincs
+   felnagyítás). Az aspect-ratio a betöltés előtt is lefoglalja a helyet
+   (nincs elcsúszás), a max-width a keskeny tárolóban arányosan kicsinyít. */
+.kep {
+  display: block;
+  width: 503px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 971 / 85;
+}
+
+/* A tájékoztató oldalon nagyobb: 820 px széles (kb. 72 px magas, a 85 px-es
+   forrásnál kisebb — nincs felnagyítás). */
+.nagy .kep { width: 820px; }
+
+@media (max-width: 560px) {
+  .kep {
+    width: 340px;
+    aspect-ratio: 623 / 170;
+  }
+  .nagy .kep { width: 340px; }
+}

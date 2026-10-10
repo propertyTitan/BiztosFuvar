@@ -7,15 +7,25 @@
 //  a kereskedő székhelyének országát („a fizetési folyamat legalább egyik
 //  oldalán, a vásárló számára jól láthatóan"). Csak CIB-módban jelenik meg —
 //  stub-üzemben a mai felület marad.
+//
+//  2026-10-10 (a bank írásos kérése a honlap-teszt után):
+//   - a logók helyén a bank EGYBEN szerkesztett logóképe (CibKartyaLogok);
+//   - a bank „eCom_CIB.fiz.taj_HU" dokumentumának RÖVID tájékoztatója,
+//     SZÓ SZERINT (lib/cibTajekoztato.ts), a záró „Kérjük, olvassa el
+//     részletes tájékoztatónkat!" mondat linkként a /bankkartyas-fizetes
+//     oldalra. A korábbi saját mondatunk („A kártyaadataidat kizárólag a CIB
+//     Bank oldalán adod meg…") kikerült: ugyanezt a banki szöveg mondja el,
+//     és nem banki előírás volt.
 // =====================================================================
 import Link from 'next/link';
-import { Lock } from 'lucide-react';
-import { CibSzolgaltato, ElfogadottKartyak } from './CibLogok';
+import CibKartyaLogok from './CibKartyaLogok';
+import { CIB_ROVID_TAJEKOZTATO } from '@/lib/cibTajekoztato';
 import {
-  ADATKEZELESI_LINK, BANKKARTYAS_FIZETES_LINK, CIB_ADATKEZELESI_LINK, KARTYAADAT_SOR, KERESKEDO_ORSZAG_SOR,
+  ADATKEZELESI_LINK, BANKKARTYAS_FIZETES_LINK, CIB_ADATKEZELESI_LINK, KERESKEDO_ORSZAG_SOR,
 } from '@/lib/cibFeliratok';
 
 export default function CibFizetesInfo() {
+  const [elso, masodik] = CIB_ROVID_TAJEKOZTATO.bekezdesek;
   return (
     <div
       data-testid="cib-fizetes-info"
@@ -30,12 +40,14 @@ export default function CibFizetesInfo() {
         fontSize: 13,
       }}
     >
-      <CibSzolgaltato />
-      <ElfogadottKartyak />
-      <p style={{ margin: 0, display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-        <Lock size={14} style={{ flexShrink: 0, marginTop: 2 }} aria-hidden />
-        <span>{KARTYAADAT_SOR}</span>
-      </p>
+      <CibKartyaLogok />
+      <div data-testid="cib-rovid-tajekoztato" style={{ display: 'flex', flexDirection: 'column', gap: 6, lineHeight: 1.55 }}>
+        <p style={{ margin: 0 }}>{elso}</p>
+        <p style={{ margin: 0 }}>
+          {masodik}{' '}
+          <Link href="/bankkartyas-fizetes">{CIB_ROVID_TAJEKOZTATO.reszletesLink}</Link>
+        </p>
+      </div>
       <p className="muted" style={{ margin: 0, fontSize: 12 }}>{KERESKEDO_ORSZAG_SOR}</p>
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12 }}>
         <Link href="/bankkartyas-fizetes">{BANKKARTYAS_FIZETES_LINK}</Link>

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Truck } from 'lucide-react';
 import { landingLinks } from '@/lib/landings';
 import { KERESKEDO } from '@/lib/kereskedo';
-import { CibSzolgaltato, ElfogadottKartyak } from '@/components/CibLogok';
+import CibKartyaLogok from '@/components/CibKartyaLogok';
 
 export default function SiteFooter() {
   const links = landingLinks();
@@ -51,11 +51,12 @@ export default function SiteFooter() {
         <a href="#kapcsolat" style={{ color: 'inherit', textDecoration: 'underline' }}>Kapcsolat</a>
       </div>
       {/* CIB PR-3 — a banki átvételi teszt kötelező elemei a főoldalon is:
-          CIB-logó a „Kártyás fizetés szolgáltatója:" felirattal (a
-          tájékoztatóra linkelve) és az „Elfogadott kártyák" logósor. */}
-      <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center' }}>
-        <CibSzolgaltato igazitas="kozep" />
-        <ElfogadottKartyak igazitas="kozep" />
+          a CIB- és a kártyalogók a „Kártyás fizetés szolgáltatója:" és az
+          „Elfogadott kártyák" felirattal, a tájékoztatóra linkelve.
+          2026-10-10 (a bank kérése): a bank EGYBEN szerkesztett logóképe
+          (CibKartyaLogok), nem a márkánként külön kirakott logók. */}
+      <div style={{ marginTop: 14, display: 'flex', justifyContent: 'center' }}>
+        <CibKartyaLogok igazitas="kozep" />
       </div>
       {/* Support-csatorna (2026-09-11, C2): eddig SEHOL nem volt látható elérhetőség a felületen */}
       <div style={{ marginTop: 10, fontSize: 13, display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>

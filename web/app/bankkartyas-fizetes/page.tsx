@@ -1,30 +1,47 @@
 // =====================================================================
-//  /bankkartyas-fizetes — a CIB vásárlói tájékoztatója, GoFuvarra kitöltve
+//  /bankkartyas-fizetes — a CIB vásárlói tájékoztatója
 //
 //  Forrás: a CIB SAKI 1.50 csomag „Vásárlói tájékoztatás" anyaga
 //  (eCom_CIB.fiz.taj_HU + a kérdések-válaszok, eCom_CIB-fiz taj_GYFK_HU).
 //  A banki teszt kötelezően nézi, hogy ez a tájékoztató a vásárló számára
 //  elérhető helyen legyen, „Bankkártyás fizetés" kísérőszövegű linkkel.
 //
-//  A kitöltés elvei:
-//   - a sablon sárga helyőrzői („Webáruház", „áru/szolgáltatás") helyén a
-//     GoFuvar és a kapcsolatfelvételi díj áll; a bank belső kitöltési
-//     megjegyzése kimaradt;
-//   - a VeriSign-/Norton-hivatkozás és a „90%" állítás KIMARADT: saját
-//     tanúsítványunk nincs, és olyat nem állítunk, amit nem tudunk igazolni
-//     (a bank szerint a VeriSign-logó is csak saját tanúsítvánnyal tehető ki);
-//   - a „ha nem tér vissza, sikertelen" mondat a MI folyamatunkra igazítva:
-//     a GoFuvar a bezárt ablak után is lekérdezi a banktól az eredményt;
-//   - a GoFuvar tegező hangnemében, a tartalom a bankéval azonos;
-//   - a „biztonságos fizetés" kifejezés szándékosan nincs benne (szövegőr).
-//  Az elfogadott kártyák EGY konstansból jönnek (lib/kartyaLogok.ts).
+//  2026-10-10 — A BANK ÍRÁSOS KÉRÉSE (a honlap-teszt után): „A banki
+//  fizetési tájékoztató nem megfelelő. Kérjük, hogy […] az
+//  „eCom_CIB.fiz.taj_HU.docx" dokumentum tartalmát használja. A fizetési
+//  tájékoztató GYFK megfelelő." — a logók helyett pedig a bank egyben
+//  szerkesztett logóképét kérte.
+//  A fő tájékoztató ezért NEM a mi átírásunk többé. A korábbi változat (CIB
+//  PR-3) a bank szövegét tegezve, a VeriSign- és a „90%"-os mondat nélkül,
+//  a lépéseket a mi folyamatunkra igazítva mondta el — a bank ezt nem
+//  fogadta el. Mostantól:
+//   - a logó a bank egyben szerkesztett képe (CibKartyaLogok), a bank
+//     honlapjára linkelve;
+//   - a részletes tájékoztató a bank szövege SZÓ SZERINT
+//     (lib/cibTajekoztato.ts — csak a sárgával kiemelt „Webáruház" és
+//     „áru/szolgáltatás" helyén áll a GoFuvar és a kapcsolatfelvételi
+//     szolgáltatás/díj), a bank címsoraival és magázó hangnemében;
+//   - a GoFuvar saját mondatai KÜLÖN, „A GoFuvar kiegészítése" keretben, a
+//     banki szöveg után — köztük nyíltan az ismert eltérés: a banki szöveg
+//     szerint a vissza nem irányított tranzakció sikertelen, nálunk viszont
+//     a lekérdező kör ilyenkor is lezárhatja a jóváhagyott fizetést (a bank
+//     ezt a folyamatot elfogadta);
+//   - a „Kérdések és válaszok" (GYFK) VÁLTOZATLAN — a bank megfelelőnek
+//     találta; csak a 3D Secure külön logói kerültek ki belőle (a banki
+//     logókép tartalmazza őket);
+//   - a kereskedő adatai (országsor, elérhetőségek, ÁSZF- és adatkezelési
+//     linkek) változatlanok.
+//  A banki szöveg „biztonságos fizetést garantáló" mondata miatt a szövegőr
+//  (e2e/13-szovegor.spec.ts) ezen az oldalon PONTOSAN ezt az egy banki
+//  mondatot engedi (e2e/szovegor-banki-kivetel.ts); máshol a tiltás marad.
 // =====================================================================
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { CibSzolgaltato, ElfogadottKartyak } from '@/components/CibLogok';
-import { HAROMDS_LOGOK, elfogadottKartyakSzoveg, kartyaElfogadva } from '@/lib/kartyaLogok';
-import { KARTYAADAT_SOR, KERESKEDO_ORSZAG_SOR } from '@/lib/cibFeliratok';
-import { BANKI_TOVABBI_INFO, RC_CSOPORT_NEV } from '@/lib/cibRcCsoport';
+import CibKartyaLogok from '@/components/CibKartyaLogok';
+import { elfogadottKartyakSzoveg, kartyaElfogadva } from '@/lib/kartyaLogok';
+import { KERESKEDO_ORSZAG_SOR } from '@/lib/cibFeliratok';
+import { CIB_RESZLETES_TAJEKOZTATO as BANK, CIB_ROVID_TAJEKOZTATO as ROVID, GOFUVAR_KIEGESZITES } from '@/lib/cibTajekoztato';
+import { RC_CSOPORT_NEV } from '@/lib/cibRcCsoport';
 import { DIJ_SZABALY_SZOVEG } from '@/lib/connectionFee';
 import { KERESKEDO } from '@/lib/kereskedo';
 
@@ -39,126 +56,81 @@ function Kerdes({ kerdes, children }: { kerdes: string; children: ReactNode }) {
   );
 }
 
-const LOGO_CHIP = {
-  display: 'inline-flex', background: '#ffffff', border: '1px solid rgba(15,23,42,0.12)',
-  borderRadius: 6, padding: '3px 6px', lineHeight: 0, verticalAlign: 'middle', marginRight: 8,
-} as const;
-
 export default function BankkartyasFizetesOldal() {
   const kartyak = elfogadottKartyakSzoveg();
-  // A márka-specifikus mondatok az ELFOGADOTT_KARTYAK listát követik: ha a
-  // szerződés szerint egy márka kiesik, a rá vonatkozó állítás is eltűnik.
+  // A GYFK márka-specifikus mondatai az ELFOGADOTT_KARTYAK listát követik:
+  // ha a szerződés szerint egy márka kiesik, a rá vonatkozó állítás is
+  // eltűnik. (A bank részletes tájékoztatója rögzített banki szöveg — az
+  // nem követi a listát, lásd lib/kartyaLogok.ts.)
   const visa = kartyaElfogadva('visa');
   const visaCsalad = visa || kartyaElfogadva('vpay');
   const mastercardCsalad = kartyaElfogadva('mastercard') || kartyaElfogadva('maestro');
   const cobrandedAlap = [kartyaElfogadva('mastercard') && 'Mastercard', visa && 'Visa']
     .filter(Boolean).join(' vagy ');
-  const visaElectron = visa ? ' A Visa Electron kártyák internetes használata a kibocsátó banktól függ.' : '';
   return (
     <article style={{ maxWidth: 820, margin: '0 auto', padding: '32px 20px', lineHeight: 1.65, fontSize: 16 }}>
-      <h1 style={{ marginBottom: 8 }}>Bankkártyás fizetés</h1>
-      <p style={{ marginTop: 0 }}>
-        A GoFuvaron a kapcsolatfelvételi díjat bankkártyával fizetheted ki. A kártyás fizetést a
-        CIB Bank Zrt. biztosítja: a kártyaadataidat a CIB Bank fizetőoldalán adod meg.
-      </p>
-      <div
-        style={{
-          display: 'flex', flexDirection: 'column', gap: 10, padding: 14, borderRadius: 8,
-          border: '1px solid var(--border)', fontSize: 14,
-        }}
-      >
-        <CibSzolgaltato kulso />
-        <ElfogadottKartyak />
-        <p style={{ margin: 0 }}>{KARTYAADAT_SOR}</p>
+      <h1 style={{ marginBottom: 12 }}>Bankkártyás fizetés</h1>
+      <CibKartyaLogok cel="cib" azonnal nagy />
+
+      {/* 2026-10-10: a bank dokumentumának (eCom_CIB.fiz.taj_HU.docx) TELJES
+          tartalma a nyilvános oldalon is, a docx sorrendjében: előbb a
+          szaggatott vonal feletti rövid tájékoztató (eddig csak a fizetési
+          kártyán állt), majd a részletes — a „részletes tájékoztatónkat"
+          ide, a részletes részre mutat. */}
+      <div data-testid="cib-rovid-tajekoztato" style={{ marginTop: 20 }}>
+        <p>{ROVID.bekezdesek[0]}</p>
+        <p>
+          {ROVID.bekezdesek[1]} <a href="#reszletes">{ROVID.reszletesLink}</a>
+        </p>
+      </div>
+      <hr style={{ border: 0, borderTop: '1px dashed var(--border)', margin: '20px 0' }} />
+
+      {/* A CIB Bank részletes tájékoztatója — SZÓ SZERINT (lib/cibTajekoztato.ts). */}
+      <div id="reszletes" data-testid="cib-reszletes-tajekoztato" style={{ marginTop: 20, scrollMarginTop: 80 }}>
+        {BANK.bevezeto.map((b) => <p key={b}>{b}</p>)}
+
+        <h2 style={{ marginTop: 32 }}>{BANK.mireFigyeljen.cim}</h2>
+        <ul>
+          {BANK.mireFigyeljen.pontok.map((p) => <li key={p}>{p}</li>)}
+        </ul>
+
+        <h2 style={{ marginTop: 32 }}>{BANK.biztonsag.cim}</h2>
+        {BANK.biztonsag.bekezdesek.map((b) => <p key={b}>{b}</p>)}
+
+        <h2 style={{ marginTop: 32 }}>{BANK.kartyak.cim}</h2>
+        {BANK.kartyak.bekezdesek.map((b) => <p key={b}>{b}</p>)}
+
+        <h2 style={{ marginTop: 32 }}>{BANK.lepesek.cim}</h2>
+        <ul>
+          {BANK.lepesek.pontok.map((p) => <li key={p}>{p}</li>)}
+        </ul>
+        {BANK.lepesek.utana.map((b) => <p key={b}>{b}</p>)}
       </div>
 
-      <h2 style={{ marginTop: 32 }}>Mit fizetsz bankkártyával?</h2>
-      <p>
-        Bankkártyával kizárólag a GoFuvar kapcsolatfelvételi díját fizeted ({DIJ_SZABALY_SZOVEG}), az
-        ajánlat elfogadása után, a fuvar oldalán. A díj ellenében megkapod a szállító elérhetőségét. A
-        fuvardíjat közvetlenül a szállítónak fizeted — készpénzben vagy átutalással, ahogy megegyeztek; az
-        nem a GoFuvaron keresztül fizetendő.
-      </p>
-
-      <h2 style={{ marginTop: 32 }}>Hogyan működik a kártyás fizetés?</h2>
-      <p>
-        A GoFuvar a CIB Bank által biztosított bankkártyás fizetési megoldást nyújtja a feladóknak. A
-        biztonságot az adatok szétválasztása alapozza meg: a GoFuvar a fuvarral kapcsolatos információkat
-        kapja meg tőled, a CIB Bank pedig kizárólag a fizetési tranzakcióhoz szükséges kártyaadatokat, a 256
-        bites TLS titkosítással ellátott fizetőoldalán. A fizetőoldal adattartalmáról a GoFuvar nem értesül,
-        azokat csak a CIB Bank érheti el. A tranzakció eredményéről a fizetést követően a GoFuvar oldala
-        tájékoztat. A kártyás fizetéshez a böngésződnek támogatnia kell a TLS titkosítást.
-      </p>
-      <p>
-        A kapcsolatfelvételi díj összege a fizetéskor azonnal zárolásra kerül a kártyaszámládon.
-      </p>
-
-      <h2 style={{ marginTop: 32 }}>Mire figyelj a fizetéskor?</h2>
-      <ul>
-        <li>
-          Olvasd el az <Link href="/aszf">Általános Szerződési Feltételeket (ÁSZF)</Link>: a
-          kapcsolatfelvételi díj és a fizetés feltételeit a 4. pont, az elállást és a panaszkezelést a
-          6. pont tartalmazza.
-        </li>
-        <li>
-          Tanulmányozd az <Link href="/adatkezeles">Adatkezelési tájékoztatót</Link>: ebből megtudod, hogyan
-          kezeljük az adataidat.
-        </li>
-        <li>Tartsd nyilván a fuvarral kapcsolatos adataidat!</li>
-        <li>Tartsd nyilván a fizetéssel kapcsolatos tranzakciós adataidat (tranzakcióazonosító, engedélyszám)!</li>
-        <li>Biztosítsd, hogy titkos kártyaadataidhoz illetéktelen személy soha ne férhessen hozzá!</li>
-        <li>Használj olyan böngészőt, amely támogatja a TLS titkosításhoz szükséges opciót!</li>
-      </ul>
-
-      <h2 style={{ marginTop: 32 }}>A titkosításról</h2>
-      <p>
-        A TLS (Transport Layer Security) elfogadott titkosítási eljárás. A CIB Bank egy 256 bites titkosító
-        kulccsal védi a kommunikációs csatornát. A böngésződ a TLS segítségével a kártyaadataidat az
-        elküldés előtt titkosítja, így azok kódolt formában jutnak el a CIB Bankhoz, és illetéktelen
-        személyek számára nem értelmezhetők.
-      </p>
-
-      <h2 style={{ marginTop: 32 }}>Elfogadott kártyák</h2>
-      <p>
-        A CIB Bank internetes fizetési rendszerén keresztül {kartyak} kártyával fizethetsz, ha a kártyád
-        kibocsátó bankja engedélyezte az internetes fizetést, valamint internetes használatra alkalmas
-        webkártyával.{visaElectron}
-      </p>
-      <ElfogadottKartyak />
-
-      <h2 style={{ marginTop: 32 }}>A fizetés lépései</h2>
-      <ol>
-        <li>
-          A fuvarod oldalán, az ajánlat elfogadása után mindkét nyilatkozatot kipipálod: a díjfizetési
-          nyilatkozatot (kéred az azonnali teljesítést) és a CIB Bank felé történő adattovábbításról szóló
-          nyilatkozatot (lásd az <Link href="/adatkezeles#cib-kartyas-fizetes">Adatkezelési tájékoztató</Link>{' '}
-          bankkártyás fizetésről szóló részét), majd a „Fizetés bankkártyával” gombra kattintasz.
-        </li>
-        <li>Ezután átkerülsz a CIB Bank fizetőoldalára, ahol a fizetés megkezdéséhez meg kell adnod a kártyaadataidat.</li>
-        <li>A kártyaadatok megadása után a Fizetés gombra kattintva indíthatod el a tranzakciót.</li>
-        <li>
-          A sikeres hitelesítést (például a bankodtól kapott kód vagy a bankod alkalmazásában adott
-          jóváhagyás) követően folytatódik a fizetési folyamat.
-        </li>
-        <li>
-          A fizetést követően visszatérsz a GoFuvar oldalára, ahol a tranzakció eredményéről visszaigazolást
-          kapsz: a tranzakció azonosítóját (TrID), az eredmény kódját (RC) és szöveges ismertetését (RT), a
-          fizetett összeget (AMO), sikeres fizetésnél pedig a kibocsátó bank által adott engedélyszámot (ANUM).
-        </li>
-      </ol>
-      <p>
-        Bankkártyás fizetés esetén a sikeres tranzakciót követően – ez a bankkártya érvényességének és a
-        fedezetnek az ellenőrzése utáni elfogadást jelenti – a CIB Bank elindítja a kártyabirtokos számlájának
-        megterhelését a kapcsolatfelvételi díj összegével.
-      </p>
-      <p>
-        Ha a banki fizetőoldalon a böngésző „Vissza” vagy „Frissítés” gombjára kattintasz, a rendszer a
-        tranzakciót biztonsági okokból automatikusan visszautasítja, és a fizetés sikertelennek minősül.
-        Ha a jóváhagyás után bezárod a böngészőablakot, mielőtt visszakerülnél a GoFuvar oldalára, a fizetés
-        eredményét a banktól lekérdezzük, és e-mailben, valamint a fuvar oldalán tájékoztatunk róla.
-        Sikertelen fizetés után a fuvar oldaláról bármikor új fizetést indíthatsz.
-      </p>
-      <p>{BANKI_TOVABBI_INFO}</p>
+      {/* A GoFuvar saját mondatai — a banki szövegtől elválasztva. */}
+      <section
+        data-testid="gofuvar-kiegeszites"
+        aria-labelledby="gofuvar-kiegeszites-cim"
+        style={{
+          marginTop: 32, padding: '4px 18px', borderRadius: 8,
+          border: '1px solid var(--border)', borderLeft: '4px solid var(--primary)',
+        }}
+      >
+        <h2 id="gofuvar-kiegeszites-cim" style={{ marginTop: 16 }}>{GOFUVAR_KIEGESZITES.cim}</h2>
+        <p>{GOFUVAR_KIEGESZITES.visszateres}</p>
+        <p>
+          Bankkártyával kizárólag a GoFuvar kapcsolatfelvételi díját fizeti meg ({DIJ_SZABALY_SZOVEG}), az
+          ajánlat elfogadása után, a fuvar oldalán; a díj ellenében megkapja a szállító elérhetőségét. A
+          fuvardíjat közvetlenül a szállítónak fizeti — készpénzben vagy átutalással, ahogy a szállítóval
+          megegyeztek; az nem a GoFuvaron keresztül fizetendő.
+        </p>
+        <p>
+          A fizetés indítása előtt a fuvar oldalán két nyilatkozatot kell elfogadnia: a díjfizetési
+          nyilatkozatot (kéri az azonnali teljesítést) és a CIB Bank felé történő adattovábbításról szóló
+          nyilatkozatot (lásd az{' '}
+          <Link href="/adatkezeles#cib-kartyas-fizetes">Adatkezelési tájékoztató bankkártyás fizetésről szóló részét</Link>).
+        </p>
+      </section>
 
       <h2 style={{ marginTop: 32 }}>Kérdések és válaszok</h2>
 
@@ -300,10 +272,6 @@ export default function BankkartyasFizetesOldal() {
       {visaCsalad && (
         <Kerdes kerdes="Mit jelent a Visa Secure?">
           <p style={{ margin: 0 }}>
-            <span style={LOGO_CHIP}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={HAROMDS_LOGOK[0].src} alt={HAROMDS_LOGOK[0].nev} width={HAROMDS_LOGOK[0].szel} height={HAROMDS_LOGOK[0].mag} />
-            </span>
             A Visa Secure a Visa-kártyabirtokosok számára a kártyát kibocsátó banknál beállított, egyszeri
             kódon vagy biometrikus azonosításon (például arcfelismerésen vagy ujjlenyomaton) alapuló ellenőrzés,
             amellyel internetes fizetésnél azonosíthatod magad, és amely véd a Visa-kártyák jogosulatlan
@@ -314,10 +282,6 @@ export default function BankkartyasFizetesOldal() {
       {mastercardCsalad && (
         <Kerdes kerdes="Mit jelent a Mastercard Identity Check (ID Check)?">
           <p style={{ margin: 0 }}>
-            <span style={LOGO_CHIP}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={HAROMDS_LOGOK[1].src} alt={HAROMDS_LOGOK[1].nev} width={HAROMDS_LOGOK[1].szel} height={HAROMDS_LOGOK[1].mag} />
-            </span>
             A Mastercard Identity Check a Mastercard- és Maestro-kártyabirtokosok számára a kártyát kibocsátó
             banknál beállított, egyszeri kódon vagy biometrikus azonosításon alapuló ellenőrzés, amellyel
             internetes fizetésnél azonosíthatod magad, és amely véd a kártyák jogosulatlan használata ellen. A CIB

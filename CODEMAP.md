@@ -224,7 +224,9 @@ AiChatWidget, CookieConsentBanner, header/footer).
 `uzenetek` (a GoFuvar csapatának üzenetei; válasz csak megnyitott csatornánál),
 `nyomon-kovetes/[token]` (nyilvános követés), `fizetes-stub`, `ai-chat`,
 `fizetes/eredmeny` (CIB-visszatérés eredménye, aláírt `?e=` tokennel, belépés
-nélkül is; noindex), `bankkartyas-fizetes` (a CIB vásárlói tájékoztatója, publikus)
+nélkül is; noindex), `bankkartyas-fizetes` (a CIB vásárlói tájékoztatója, publikus —
+2026-10-10 óta a bank szövege SZÓ SZERINT, `lib/cibTajekoztato.ts`; utána „A GoFuvar
+kiegészítése", majd a GYFK)
 
 ### 2.3 Komponensek — `web/src/components/` (kiemeltek)
 
@@ -243,7 +245,7 @@ nélkül is; noindex), `bankkartyas-fizetes` (a CIB vásárlói tájékoztatója
 | `ThemeToggle` | világos/sötét/rendszer téma-kapcsoló a fejlécben (logika: `lib/theme.ts`) |
 | `CarrierTripPanel` | sofőri aktív-fuvar panel (felvétel/lezárás) |
 | `DijFizetesKartya` | a kapcsolatfelvételi díj fizetése (fuvaroldal + eredményoldal): consent, kupon, stub → `/fizetes-stub`, CIB → egyszer használatos hop-link; állapotok a `GET /jobs/:id/fee-payment`-ből; FIX hibaszövegek (`lib/cibFizetes.ts`) |
-| `CibFizetesInfo`, `CibLogok`, `BankiTranzakcioAdatok` | a CIB banki teszt kötelező elemei: logók + „Kártyás fizetés szolgáltatója:", „Elfogadott kártyák" (`lib/kartyaLogok.ts` — EGY konstans), a TrID/RC/RT/AMO/ANUM adatsor szó szerinti feliratokkal (`lib/cibFeliratok.ts`) |
+| `CibFizetesInfo`, `CibKartyaLogok`, `BankiTranzakcioAdatok` | a CIB banki teszt kötelező elemei: a bank EGYBEN szerkesztett logóképe (`public/cib/CIB_es_kartyalogok_85px_{hrz,vrt}_HU.png`, 560 px alatt a függőleges) + „Kártyás fizetés szolgáltatója:", „Elfogadott kártyák" (`lib/kartyaLogok.ts`); a bank rövid tájékoztatója szó szerint (`lib/cibTajekoztato.ts`); a TrID/RC/RT/AMO/ANUM adatsor szó szerinti feliratokkal (`lib/cibFeliratok.ts`) |
 | `TesztFizetesSav` | teszt-fizetési sáv: `payment_test_kind` 'stub' → sárga, 'cib_teszt' → kék |
 | `admin/CibFizetesekAdmin` | admin Áttekintés: CIB-kísérletek keresése, banki üzenetnapló, újraellenőrzés, kétes lezárás rendezése |
 
