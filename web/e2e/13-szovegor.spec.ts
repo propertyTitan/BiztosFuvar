@@ -16,6 +16,7 @@
 //  szövegét ügyvédi review nézi át, nem ez a teszt.
 // =====================================================================
 import { test, expect } from '@playwright/test';
+import { bankiMondatokNelkul } from './szovegor-banki-kivetel';
 
 /** Publikus marketing-oldalak — ezeket látja a leendő felhasználó. */
 const MARKETING_PAGES = [
@@ -32,8 +33,10 @@ const MARKETING_PAGES = [
   '/hozasd-el',
   '/fuvar/budapest-szeged',
   // A CIB vásárlói tájékoztatója (CIB PR-3) — publikus, a leendő feladó
-  // olvassa; a banki sablon „biztonságos fizetés"-szerű fordulatai itt sem
-  // csúszhatnak vissza.
+  // olvassa. 2026-10-10: a bank kérésére a szövege SZÓ SZERINT a banki
+  // dokumentumé; a benne lévő „biztonságos fizetést garantáló" banki mondat
+  // PONTOSAN kivételezett (szovegor-banki-kivetel.ts), minden más szabály és
+  // minden más előfordulás itt is bukik.
   '/bankkartyas-fizetes',
 ];
 
@@ -124,7 +127,9 @@ test.describe('szövegőr: tiltott kifejezések a marketing-oldalakon', () => {
       await page.goto(oldal, { waitUntil: 'domcontentloaded' });
       // A süti-banner és a teszt-banner is szöveg — azok is beleszámítanak,
       // szándékosan: a user azokat is olvassa.
-      const szoveg = (await page.locator('body').innerText()).replace(/\s+/g, ' ');
+      // 2026-10-10: a bank által szó szerint előírt mondatokat (és csak
+      // azokat) kivesszük — lásd szovegor-banki-kivetel.ts.
+      const szoveg = bankiMondatokNelkul(oldal, (await page.locator('body').innerText()).replace(/\s+/g, ' '));
 
       const talalatok = TILTOTT
         .filter((r) => r.pattern.test(szoveg))

@@ -4,6 +4,8 @@ import DijFizetesKartya from './DijFizetesKartya';
 import { api } from '@/api';
 import { kulsoOldalraLep } from '@/lib/navigacio';
 import { CIB_ADATKEZELESI_LINK, CIB_ADATKEZELESI_NYILATKOZAT } from '@/lib/cibFeliratok';
+import { CIB_KARTYALOGOK_KEP } from '@/lib/kartyaLogok';
+import { CIB_ROVID_TAJEKOZTATO } from '@/lib/cibTajekoztato';
 
 // A díjfizetési kártya (CIB PR-3): a CIB-út átirányít a banki hop-linkre, a
 // stub-út VÁLTOZATLANUL a /fizetes-stub-ra visz, a kupon és a régi
@@ -70,7 +72,10 @@ describe('útválasztás: CIB átirányítás vs stub', () => {
     expect(await screen.findByText('Kártyás fizetés szolgáltatója:')).toBeInTheDocument();
     expect(screen.getByText('Elfogadott kártyák')).toBeInTheDocument();
     expect(screen.getByText('A Kereskedő/Tiszta Hód Kft. székhelyének országa és országkódja: Magyarország (HU)')).toBeInTheDocument();
-    expect(screen.getByText('A kártyaadataidat kizárólag a CIB Bank oldalán adod meg, a GoFuvar nem látja őket.')).toBeInTheDocument();
+    // 2026-10-10 (a bank kérése): a bank rövid tájékoztatója szó szerint, a
+    // részletes tájékoztatóra mutató linkkel.
+    expect(screen.getByText(CIB_ROVID_TAJEKOZTATO.bekezdesek[0])).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: CIB_ROVID_TAJEKOZTATO.reszletesLink })).toHaveAttribute('href', '/bankkartyas-fizetes');
     // 2026-10-01 (a PR-4 1. javítóköre): a helyi lezárási ablak a MSGT10-től
     // 9 perc 30 mp, és a zárás is ebbe esik — „kb. 10 perc", majd „kb. 9
     // perc" is túlígéret volt (2026-10-03, CIB PR-5).
@@ -85,7 +90,11 @@ describe('útválasztás: CIB átirányítás vs stub', () => {
     const celok = new Set(screen.getAllByRole('link', { name: 'Adatkezelési tájékoztató' }).map((a) => a.getAttribute('href')));
     expect([...celok], 'azonos nevű linkek eltérő célra mutatnak').toEqual(['/adatkezeles#cib-kartyas-fizetes']);
     expect(screen.getByRole('link', { name: /CIB Bank/ })).toHaveAttribute('href', '/bankkartyas-fizetes');
-    for (const alt of ['Visa', 'V Pay', 'Mastercard', 'Maestro']) expect(screen.getByAltText(alt)).toBeInTheDocument();
+    // 2026-10-10 (a bank kérése): a CIB- és kártyalogók a bank EGYBEN
+    // szerkesztett logóképén — márkánként külön logó nincs.
+    const logo = screen.getByAltText(CIB_KARTYALOGOK_KEP.alt);
+    expect(logo).toHaveAttribute('src', '/cib/CIB_es_kartyalogok_85px_hrz_HU.png');
+    for (const alt of ['Visa', 'V Pay', 'Mastercard', 'Maestro']) expect(screen.queryByAltText(alt)).toBeNull();
 
     await pipalEsFizet(/Fizetés bankkártyával \(500 Ft\)/);
     await waitFor(() => expect(kulsoOldalraLep).toHaveBeenCalledWith('https://api.gofuvar.hu/payments/cib/tovabb/tok'));

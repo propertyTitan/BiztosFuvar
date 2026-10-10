@@ -67,13 +67,15 @@ export const CIB_URES_ERTEK = '–';
 export const KERESKEDO_ORSZAG_SOR =
   'A Kereskedő/Tiszta Hód Kft. székhelyének országa és országkódja: Magyarország (HU)';
 
-export const KARTYAADAT_SOR =
-  'A kártyaadataidat kizárólag a CIB Bank oldalán adod meg, a GoFuvar nem látja őket.';
+// 2026-10-10: a korábbi KARTYAADAT_SOR („A kártyaadataidat kizárólag a CIB
+// Bank oldalán adod meg…") kikerült — saját mondat volt, nem banki előírás,
+// és a bank által kért, szó szerinti tájékoztató (lib/cibTajekoztato.ts)
+// ugyanezt mondja el a fizetési kártyán és a /bankkartyas-fizetes oldalon.
 
-/** A CIB-logó kötelező kísérőszövege. */
+/** A CIB-logó kötelező kísérőszövege (a banki logókép felett, CibKartyaLogok). */
 export const CIB_SZOLGALTATO_FELIRAT = 'Kártyás fizetés szolgáltatója:';
 
-/** A kártyalogók kötelező kísérőszövege. */
+/** A kártyalogók kötelező kísérőszövege (a banki logókép felett, CibKartyaLogok). */
 export const ELFOGADOTT_KARTYAK_FELIRAT = 'Elfogadott kártyák';
 
 /** A banki tájékoztató linkjének szövege (a bank által felsorolt egyik változat). */

@@ -1,51 +1,75 @@
 // =====================================================================
-//  ELFOGADOTT KÁRTYÁK — EGYETLEN KONSTANS
+//  ELFOGADOTT KÁRTYÁK ÉS A BANKI LOGÓKÉP — EGY HELYEN
 //
-//  A bank csak a SZERZŐDÉS szerint elfogadott kártyamárkák logóit engedi
-//  kitenni („Elfogadott kártyák"). A lábléc, a fizetési kártya és a
-//  /bankkartyas-fizetes oldal MIND ebből a listából rajzol — egy márka
-//  hozzáadása/elvétele EGY sor módosítása.
+//  2026-10-10 — A CIB BANK ÍRÁSOS KÉRÉSE (a honlap-teszt után): „A banki és
+//  kártyatársasági logók nem megfelelően szerepelnek az oldalon. Kérjük a
+//  Technikai dokumentáció „Logó" mappájában szereplő
+//  „CIB_es_kartyalogok_85px_hrz_HU.png" vagy a
+//  „CIB_es_kartyalogok_85px_vrt_HU.png" logók használatát."
+//  Ezért a korábbi, márkánként külön kirakott SVG-logók (CIB, Visa, V Pay,
+//  Mastercard, Maestro, Visa Secure, ID Check) KIKERÜLTEK: a lábléc, a
+//  fizetési kártya és a /bankkartyas-fizetes oldal a bank EGYBEN
+//  szerkesztett képét mutatja (CibKartyaLogok.tsx) — széles képernyőn a
+//  vízszintes, keskenyen a függőleges változatot. A fájlok a bank nyilvános
+//  marketinganyagai, a banki fájlnévvel, változatlanul, a web/public/cib/
+//  alatt. (A csomag 50 px-es vízszintes változata is ott van, de a bank a
+//  két 85 px-est nevezte meg, ezért a felület azokat használja.)
 //
-//  ⚠️ TULAJDONOSI MEGERŐSÍTÉSRE VÁR (2026-09-29): az alapérték a CIB
-//  logócsomagjának négy márkája. Ha a szerződés mást mond (pl. nincs V Pay
-//  vagy Maestro), csak az ELFOGADOTT_KARTYAK sorát kell átírni — a
-//  tájékoztató márka-specifikus mondatai (Visa Electron, co-branded, Visa
-//  Secure, Mastercard Identity Check) a `kartyaElfogadva`-n át követik.
-//  ⚠️ A lábléc GLOBÁLIS: a merge után minden oldalon ez a lista látszik.
-//
-//  A logók a bank nyilvános marketinganyagai (SAKI 1.50 „Logó/SVG"), a
-//  web/public/cib/ alatt. Banki dokumentáció vagy kulcs SOHA nem kerül a
-//  repóba.
+//  ELFOGADOTT KÁRTYÁK: a lista EGY konstans. A kérdések-válaszok (GYFK)
+//  márka-specifikus mondatai (Visa Electron, co-branded, Visa Secure,
+//  Mastercard Identity Check) a `kartyaElfogadva`-n át követik.
+//  ⚠️ A banki logókép és a banki tájékoztató szövege (lib/cibTajekoztato.ts)
+//  RÖGZÍTETT banki anyag: ha a szerződés szerinti lista megváltozik, a
+//  banktól új képet és szöveget kell kérni — azok nem követik a listát.
+//  A bank oldala és a teszt-bank mérése (2026-10-01) szerint a lista:
+//  Visa, V Pay, Mastercard, Maestro — ugyanez van a képen is.
+//  Banki dokumentáció vagy kulcs SOHA nem kerül a repóba.
 // =====================================================================
 
 export type KartyaId = 'visa' | 'vpay' | 'mastercard' | 'maestro';
 
-export type LogoAdat = { nev: string; src: string; szel: number; mag: number };
-
-/** A logók megjelenítési méretei 26 px magasságra, az SVG viewBox arányával. */
-export const KARTYA_LOGOK: Record<KartyaId, LogoAdat> = {
-  visa: { nev: 'Visa', src: '/cib/visa.svg', szel: 61, mag: 26 },
-  vpay: { nev: 'V Pay', src: '/cib/vpay.svg', szel: 24, mag: 26 },
-  mastercard: { nev: 'Mastercard', src: '/cib/mastercard.svg', szel: 37, mag: 26 },
-  maestro: { nev: 'Maestro', src: '/cib/maestro.svg', szel: 33, mag: 26 },
+/** A márkák megjelenített nevei (a GYFK felsorolásaihoz). */
+export const KARTYA_NEVEK: Record<KartyaId, string> = {
+  visa: 'Visa',
+  vpay: 'V Pay',
+  mastercard: 'Mastercard',
+  maestro: 'Maestro',
 };
 
-/** ⚠️ A szerződés szerinti lista — lásd a fájl fejlécét (tulajdonosi megerősítés). */
+/** A szerződés szerinti lista — lásd a fájl fejlécét. */
 export const ELFOGADOTT_KARTYAK: readonly KartyaId[] = ['visa', 'vpay', 'mastercard', 'maestro'];
 
-/** A CIB Bank logója (viewBox 972.28 × 353.89). */
-export const CIB_LOGO: LogoAdat = { nev: 'CIB Bank', src: '/cib/cib-bank.svg', szel: 77, mag: 28 };
-
-/** A kártyatársaságok 3D Secure programjainak logói (csak a tájékoztató oldalon). */
-export const HAROMDS_LOGOK: LogoAdat[] = [
-  { nev: 'Visa Secure', src: '/cib/visa-secure.svg', szel: 26, mag: 26 },
-  { nev: 'Mastercard Identity Check', src: '/cib/mc-idcheck.svg', szel: 38, mag: 26 },
-];
+/** Egy banki képváltozat: a forrásfájl és a megjelenítési méret (CSS px). */
+export type KepValtozat = {
+  src: string;
+  /** A banki PNG valódi mérete. */
+  forrasSzel: number;
+  forrasMag: number;
+  /** A megjelenítés (a forrásnál soha nem nagyobb — nincs felnagyítás). */
+  szel: number;
+  mag: number;
+};
 
 /**
- * Elfogadjuk-e a márkát? A tájékoztató márka-specifikus mondatai (Visa
- * Electron, co-branded, Visa Secure, Mastercard Identity Check) ezen múlnak,
- * hogy a lista módosításakor ne maradjon bent olyan állítás, ami már nem igaz.
+ * A CIB Bank és a kártyatársaságok egyben szerkesztett logóképe (a bank
+ * kérése, 2026-10-10). A `keskenyMedia` alatt a függőleges változat jön; a
+ * CibKartyaLogok.module.css ugyanezt a töréspontot használja.
+ */
+export const CIB_KARTYALOGOK_KEP = {
+  alt: 'CIB Bank — elfogadott kártyák: Mastercard, Maestro, Visa, V Pay; Mastercard ID Check, Visa Secure',
+  vizszintes: {
+    src: '/cib/CIB_es_kartyalogok_85px_hrz_HU.png', forrasSzel: 971, forrasMag: 85, szel: 503, mag: 44,
+  } as KepValtozat,
+  fuggoleges: {
+    src: '/cib/CIB_es_kartyalogok_85px_vrt_HU.png', forrasSzel: 623, forrasMag: 170, szel: 340, mag: 93,
+  } as KepValtozat,
+  keskenyMedia: '(max-width: 560px)',
+} as const;
+
+/**
+ * Elfogadjuk-e a márkát? A GYFK márka-specifikus mondatai (Visa Electron,
+ * co-branded, Visa Secure, Mastercard Identity Check) ezen múlnak, hogy a
+ * lista módosításakor ne maradjon bent olyan állítás, ami már nem igaz.
  */
 export function kartyaElfogadva(id: KartyaId): boolean {
   return ELFOGADOTT_KARTYAK.includes(id);
@@ -53,7 +77,7 @@ export function kartyaElfogadva(id: KartyaId): boolean {
 
 /** Az elfogadott márkák nevei felsorolásként („Visa, V Pay, Mastercard és Maestro"). */
 export function elfogadottKartyakSzoveg(): string {
-  const nevek = ELFOGADOTT_KARTYAK.map((k) => KARTYA_LOGOK[k].nev);
+  const nevek = ELFOGADOTT_KARTYAK.map((k) => KARTYA_NEVEK[k]);
   if (nevek.length <= 1) return nevek.join('');
   return `${nevek.slice(0, -1).join(', ')} és ${nevek[nevek.length - 1]}`;
 }
