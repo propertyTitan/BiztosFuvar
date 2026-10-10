@@ -11,7 +11,7 @@
 //  A kivétel SZŰK: oldalanként PONTOSAN a felsorolt banki mondatokat vesszük
 //  ki a vizsgált szövegből, minden más szabály és minden más előfordulás
 //  ugyanúgy bukik. Egy új oldal vagy egy átírt mondat nem élvez kivételt.
-//  Az egyezést a cib-szovegor-kivetel.test.ts méri: a mondat betűre a banki
+//  Az egyezést a web/src/components/cib-banki-eszrevetelek.test.tsx utolsó describe-blokkja méri: a mondat betűre a banki
 //  szövegben van, és nélküle a tiltás valóban jelezne az oldalon.
 //
 //  ⚠️ Tiszta adatfájl (Playwright-import nélkül): a vitest-őr is betölti.

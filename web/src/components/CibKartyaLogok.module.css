@@ -16,6 +16,8 @@
   font-size: 12px;
   line-height: 1.5;
 }
+/* A két banki kísérőszöveg ne törjön szét szavanként (390 px). */
+.felirat span { white-space: nowrap; }
 
 /* Fehér „chip": a bank és a kártyatársaságok logói fehér háttérre
    készültek, sötét témában is így olvashatók. */
@@ -42,9 +44,14 @@
   aspect-ratio: 971 / 85;
 }
 
+/* A tájékoztató oldalon nagyobb: 820 px széles (kb. 72 px magas, a 85 px-es
+   forrásnál kisebb — nincs felnagyítás). */
+.nagy .kep { width: 820px; }
+
 @media (max-width: 560px) {
   .kep {
     width: 340px;
     aspect-ratio: 623 / 170;
   }
+  .nagy .kep { width: 340px; }
 }

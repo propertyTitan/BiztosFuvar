@@ -31,9 +31,13 @@ type Props = {
   /** Az oldal tetején álló kép azonnal töltődjön; egyébként (lábléc, fizetési
    *  kártya) lusta betöltés — a lábléc minden oldalon ott van. */
   azonnal?: boolean;
+  /** A tájékoztató oldalon nagyobb (2026-10-10, review): a 85 px-es forrás
+   *  kb. 72 px magasan — a kis feliratok („maestro", „ID Check") is olvashatók,
+   *  felnagyítás továbbra sincs. */
+  nagy?: boolean;
 };
 
-export default function CibKartyaLogok({ cel = 'tajekoztato', igazitas = 'bal', azonnal = false }: Props) {
+export default function CibKartyaLogok({ cel = 'tajekoztato', igazitas = 'bal', azonnal = false, nagy = false }: Props) {
   const kep = (
     <picture>
       <source
@@ -57,7 +61,7 @@ export default function CibKartyaLogok({ cel = 'tajekoztato', igazitas = 'bal', 
   return (
     <div
       data-testid="cib-kartyalogok"
-      className={igazitas === 'kozep' ? `${styles.doboz} ${styles.kozep}` : styles.doboz}
+      className={[styles.doboz, igazitas === 'kozep' && styles.kozep, nagy && styles.nagy].filter(Boolean).join(' ')}
     >
       <p className={styles.felirat}>
         <span>{CIB_SZOLGALTATO_FELIRAT}</span> CIB Bank Zrt. <span aria-hidden="true">·</span>{' '}
